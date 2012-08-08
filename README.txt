@@ -1,0 +1,1 @@
+Skeleton server with no resources.
