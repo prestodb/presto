@@ -70,7 +70,13 @@ public class UncompressedValueBlock
     @Override
     public ValueBlock filter(PositionBlock positions)
     {
-        return new UncompressedValueBlock(ImmutableList.copyOf(Iterables.filter(pairs, Predicates.compose(positions, positionGetter()))));
+        ImmutableList<Pair> pairs = ImmutableList.copyOf(Iterables.filter(this.pairs, Predicates.compose(positions, positionGetter())));
+
+        if (pairs.isEmpty()) {
+            return new EmptyValueBlock();
+        }
+
+        return new UncompressedValueBlock(pairs);
     }
 
     @Override
