@@ -6,7 +6,7 @@ import java.util.Iterator;
 
 import static java.util.Arrays.asList;
 
-public class Test
+public class TestExample
 {
     public static void main(String[] args)
     {
