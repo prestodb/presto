@@ -4,7 +4,9 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
+import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.Range;
 import com.google.common.collect.Ranges;
 
@@ -77,6 +79,12 @@ public class UncompressedValueBlock
         }
 
         return new UncompressedValueBlock(pairs);
+    }
+
+    @Override
+    public PeekingIterator<Pair> pairIterator()
+    {
+        return Iterators.peekingIterator(pairs.iterator());
     }
 
     @Override
