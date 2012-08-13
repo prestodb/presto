@@ -42,32 +42,36 @@ public class PipelinedAggregation
         long startPosition = entry.getPosition();
 
         while (true) {
-            // skip ahead until the current key changes or we've consumed this block
+            // skip entries until the current key changes or we've consumed this block
             while (currentGroupByBlock.hasNext() && currentGroupByBlock.peek().getValue().equals(groupByKey)) {
                 entry = currentGroupByBlock.next();
             }
 
-            // if we've consumed this block, continue on the next one if any
-            if (!currentGroupByBlock.hasNext()) {
-                if (!groupBySource.hasNext()) {
-                    break;
-                }
-
-                currentGroupByBlock = groupBySource.next().pairIterator();
-            }
-            else {
+            // stop if there is more data in the current block since the next entry will be for a new group
+            if (currentGroupByBlock.hasNext()) {
                 break;
             }
+
+            // stop if we are at the end of the stream
+            if (!groupBySource.hasNext()) {
+                break;
+            }
+
+            // process the next block
+            currentGroupByBlock = groupBySource.next().pairIterator();
         }
 
         long endPosition = entry.getPosition();
 
+        // process the group
         return processGroup(Ranges.closed(startPosition, endPosition));
     }
 
     private ValueBlock processGroup(Range<Long> positions)
     {
+        // create a new aggregate for this group
         AggregationFunction aggregationFunction = functionProvider.get();
+
         RangePositionBlock positionBlock = new RangePositionBlock(positions);
 
         // goto start of range
