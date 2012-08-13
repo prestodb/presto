@@ -2,8 +2,6 @@ package com.facebook.presto;
 
 import com.google.common.base.Function;
 
-import javax.annotation.Nullable;
-
 public class Pair
 {
     private final long position;

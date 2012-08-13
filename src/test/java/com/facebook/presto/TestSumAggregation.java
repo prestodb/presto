@@ -12,7 +12,7 @@ public class TestSumAggregation
     @Test
     public void test()
     {
-        PipelinedAggregation aggregation = new PipelinedAggregation(newGroupColumn(), new ForwardingSeekableIterator<ValueBlock>(newAggregateColumn()), new Provider<AggregationFunction>()
+        PipelinedAggregation aggregation = new PipelinedAggregation(newGroupColumn(), new ForwardingSeekableIterator<>(newAggregateColumn()), new Provider<AggregationFunction>()
         {
             @Override
             public AggregationFunction get()
