@@ -9,6 +9,10 @@ public class Tuple
 {
     private final List<Object> values;
 
+    public Tuple(Object... values) {
+        this(ImmutableList.copyOf(values));
+    }
+
     public Tuple(List<Object> values)
     {
         Preconditions.checkNotNull(values, "values is null");
@@ -18,6 +22,31 @@ public class Tuple
     public List<Object> getValues()
     {
         return values;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Tuple tuple = (Tuple) o;
+
+        if (!values.equals(tuple.values)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return values.hashCode();
     }
 
     @Override
