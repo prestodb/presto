@@ -2,17 +2,21 @@ package com.facebook.presto;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.PeekingIterator;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import javax.inject.Provider;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 public class TestSumAggregation
 {
     @Test
-    public void test()
+    public void testPipelinedAggregation()
     {
-        PipelinedAggregation aggregation = new PipelinedAggregation(newGroupColumn(), new ForwardingSeekableIterator<>(newAggregateColumn()), new Provider<AggregationFunction>()
+        GroupBy groupBy = new GroupBy(newGroupColumn());
+        PipelinedAggregation aggregation = new PipelinedAggregation(groupBy, new ForwardingSeekableIterator<>(newAggregateColumn()), new Provider<AggregationFunction>()
         {
             @Override
             public AggregationFunction get()
@@ -21,15 +25,24 @@ public class TestSumAggregation
             }
         });
 
-//        DataScan3 materialize = new DataScan3(newGroupColumn(), )
+        List<Pair> expected = ImmutableList.of(
+                new Pair(0, new Tuple("a", 10L)),
+                new Pair(4, new Tuple("b", 17L)),
+                new Pair(23, new Tuple("c", 15L)),
+                new Pair(30, new Tuple("d", 6L))
+        );
+
+        List<Pair> actual = new ArrayList<>();
         while (aggregation.hasNext()) {
             ValueBlock block = aggregation.next();
             PeekingIterator<Pair> pairs = block.pairIterator();
             while (pairs.hasNext()) {
-                System.out.println(pairs.next());
+                Pair pair = pairs.next();
+                actual.add(pair);
             }
-            System.out.println();
         }
+
+        Assert.assertEquals(actual, expected);
     }
 
     public Iterator<ValueBlock> newGroupColumn()
@@ -59,5 +72,4 @@ public class TestSumAggregation
 
         return values;
     }
-
 }
