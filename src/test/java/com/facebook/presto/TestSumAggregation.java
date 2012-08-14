@@ -1,14 +1,17 @@
 package com.facebook.presto;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.PeekingIterator;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import javax.inject.Provider;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 public class TestSumAggregation
 {
@@ -39,6 +42,40 @@ public class TestSumAggregation
             while (pairs.hasNext()) {
                 Pair pair = pairs.next();
                 actual.add(pair);
+            }
+        }
+
+        Assert.assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testHashAggregation()
+    {
+        GroupBy groupBy = new GroupBy(newGroupColumn());
+        HashAggregation aggregation = new HashAggregation(groupBy, new ForwardingSeekableIterator<>(newAggregateColumn()), new Provider<AggregationFunction>()
+        {
+            @Override
+            public AggregationFunction get()
+            {
+                return new SumAggregation();
+            }
+        });
+
+        Map<Object, Object> expected = ImmutableMap.<Object, Object>of(
+                "a", new Tuple("a", 10L),
+                "b", new Tuple("b", 17L),
+                "c", new Tuple("c", 15L),
+                "d", new Tuple("d", 6L)
+        );
+
+        Map<Object, Object> actual = new HashMap<>();
+        while (aggregation.hasNext()) {
+            ValueBlock block = aggregation.next();
+            PeekingIterator<Pair> pairs = block.pairIterator();
+            while (pairs.hasNext()) {
+                Pair pair = pairs.next();
+                Tuple tuple = (Tuple) pair.getValue();
+                actual.put(tuple.getValues().get(0), tuple);
             }
         }
 
