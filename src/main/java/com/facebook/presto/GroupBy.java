@@ -33,7 +33,7 @@ public class GroupBy
 
         // form a group from the current position, until the value changes
         Pair entry = currentGroupByBlock.next();
-        Object groupByKey = entry.getValue();
+        Tuple groupByKey = entry.getValue();
         long startPosition = entry.getPosition();
 
         while (true) {

@@ -8,10 +8,10 @@ import java.util.Iterator;
 public class PairsIterator
         extends AbstractIterator<Pair>
 {
-    private final Iterator<ValueBlock> blockIterator;
+    private final Iterator<? extends ValueBlock> blockIterator;
     private PeekingIterator<Pair> currentBlock;
 
-    public PairsIterator(Iterator<ValueBlock> blockIterator)
+    public PairsIterator(Iterator<? extends ValueBlock> blockIterator)
     {
         this.blockIterator = blockIterator;
     }
@@ -42,5 +42,4 @@ public class PairsIterator
         currentBlock = blockIterator.next().pairIterator();
         return true;
     }
-
 }

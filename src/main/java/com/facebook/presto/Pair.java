@@ -5,9 +5,9 @@ import com.google.common.base.Function;
 public class Pair
 {
     private final long position;
-    private final Object value;
+    private final Tuple value;
 
-    public Pair(long position, Object value)
+    public Pair(long position, Tuple value)
     {
         this.position = position;
         this.value = value;
@@ -18,7 +18,7 @@ public class Pair
         return position;
     }
 
-    public Object getValue()
+    public Tuple getValue()
     {
         return value;
     }
@@ -35,12 +35,12 @@ public class Pair
         };
     }
 
-    public static Function<Pair, Object> valueGetter()
+    public static Function<Pair, Tuple> valueGetter()
     {
-        return new Function<Pair, Object>()
+        return new Function<Pair, Tuple>()
         {
             @Override
-            public Object apply(Pair input)
+            public Tuple apply(Pair input)
             {
                 return input.getValue();
             }

@@ -13,7 +13,7 @@ public class TestExample
         DataScan3 scan = newScan();
         DataScan3 scan2 = newScan();
 
-        Merge merge = new Merge(ImmutableList.of(scan, scan2));
+        Merge merge = new Merge(ImmutableList.of(scan, scan2), new TupleInfo(1, 1));
 
         while (merge.hasNext()) {
             ValueBlock block = merge.next();
@@ -27,9 +27,9 @@ public class TestExample
     private static DataScan3 newScan()
     {
         Iterator<ValueBlock> values = ImmutableList.<ValueBlock>builder()
-                .add(new UncompressedValueBlock(0, "a", "b", "c", "d", "e", "f"))
-                .add(new UncompressedValueBlock(20, "h", "i", "j", "k", "l", "m"))
-                .add(new UncompressedValueBlock(30, "n", "o", "p", "q", "r", "s"))
+                .add(new UncompressedValueBlock(0, new TupleInfo(1), Slices.wrappedBuffer(new byte[]{'a', 'b', 'c', 'd', 'e', 'f'})))
+                .add(new UncompressedValueBlock(20, new TupleInfo(1), Slices.wrappedBuffer(new byte[]{'h', 'i', 'j', 'k', 'l', 'm'})))
+                .add(new UncompressedValueBlock(30, new TupleInfo(1), Slices.wrappedBuffer(new byte[]{'n', 'o', 'p', 'q', 'r', 's'})))
                 .build()
                 .iterator();
 
