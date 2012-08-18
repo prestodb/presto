@@ -7,22 +7,22 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Predicates.not;
 
 public class Merge
-    extends AbstractIterator<ValueBlock>
+        extends AbstractIterator<ValueBlock>
 {
-    private final static int TUPLES_PER_BLOCK = 1000;
+    private final List<Iterator<Tuple>> sources;
+    private final TupleInfo tupleInfo;
+    private long position;
 
-    private final List<Iterator<Object>> sources;
-
-    public Merge(List<? extends Iterator<ValueBlock>> sources)
+    public Merge(List<? extends Iterator<ValueBlock>> sources, TupleInfo tupleInfo)
     {
-        ImmutableList.Builder<Iterator<Object>> builder = ImmutableList.builder();
+        ImmutableList.Builder<Iterator<Tuple>> builder = ImmutableList.builder();
+        this.tupleInfo = tupleInfo;
 
         for (Iterator<ValueBlock> source : sources) {
             builder.add(Iterators.concat(Iterators.transform(source, toIterator())));
@@ -31,12 +31,12 @@ public class Merge
         this.sources = builder.build();
     }
 
-    private static Function<ValueBlock, Iterator<Object>> toIterator()
+    private static Function<ValueBlock, Iterator<Tuple>> toIterator()
     {
-        return new Function<ValueBlock, Iterator<Object>>()
+        return new Function<ValueBlock, Iterator<Tuple>>()
         {
             @Override
-            public Iterator<Object> apply(ValueBlock input)
+            public Iterator<Tuple> apply(ValueBlock input)
             {
                 return input.iterator();
             }
@@ -51,26 +51,29 @@ public class Merge
             return null;
         }
 
-        List<Tuple> tuples = new ArrayList<>(TUPLES_PER_BLOCK);
+        BlockBuilder blockBuilder = new BlockBuilder(position, tupleInfo);
 
-        while (tuples.size() < TUPLES_PER_BLOCK && Iterables.all(sources, hasNextPredicate())) {
-            ImmutableList.Builder<Object> builder = ImmutableList.builder();
-            for (Iterator<Object> source : sources) {
-                builder.add(source.next());
+        do {
+            for (Iterator<Tuple> source : sources) {
+                blockBuilder.append(source.next());
             }
 
-            tuples.add(new Tuple(builder.build()));
-        }
+            if (blockBuilder.isFull()) {
+                break;
+            }
+        } while (Iterables.all(sources, hasNextPredicate()));
 
-        return new UncompressedValueBlock(0, (List<?>) tuples);
+        UncompressedValueBlock block = blockBuilder.build();
+        position += block.getCount();
+        return block;
     }
 
-    private Predicate<? super Iterator<Object>> hasNextPredicate()
+    private Predicate<? super Iterator<Tuple>> hasNextPredicate()
     {
-        return new Predicate<Iterator<Object>>()
+        return new Predicate<Iterator<Tuple>>()
         {
             @Override
-            public boolean apply(Iterator<Object> input)
+            public boolean apply(Iterator<Tuple> input)
             {
                 return input.hasNext();
             }

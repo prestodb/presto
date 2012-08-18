@@ -12,9 +12,15 @@ public class PipelinedAggregation
     private final SeekableIterator<ValueBlock> aggregationSource;
 
     private final Provider<AggregationFunction> functionProvider;
+    private final TupleInfo tupleInfo;
+    private long position;
 
-    public PipelinedAggregation(Iterator<RunLengthEncodedBlock> keySource, SeekableIterator<ValueBlock> valueSource, Provider<AggregationFunction> functionProvider)
+    public PipelinedAggregation(TupleInfo tupleInfo,
+            Iterator<RunLengthEncodedBlock> keySource,
+            SeekableIterator<ValueBlock> valueSource,
+            Provider<AggregationFunction> functionProvider)
     {
+        this.tupleInfo = tupleInfo;
         this.groupBySource = keySource;
         this.aggregationSource = valueSource;
 
@@ -30,18 +36,28 @@ public class PipelinedAggregation
             return null;
         }
 
-        // get next group
-        RunLengthEncodedBlock group = groupBySource.next();
+        BlockBuilder builder = new BlockBuilder(position, tupleInfo);
 
-        // create a new aggregate for this group
-        AggregationFunction aggregationFunction = functionProvider.get();
+        do {
+            // get next group
+            RunLengthEncodedBlock group = groupBySource.next();
 
-        AggregationUtil.processGroup(aggregationSource, aggregationFunction, group.getRange());
+            // create a new aggregate for this group
+            AggregationFunction aggregationFunction = functionProvider.get();
 
-        // calculate final value for this group
-        Object value = aggregationFunction.evaluate();
+            AggregationUtil.processGroup(aggregationSource, aggregationFunction, group.getRange());
+
+            // calculate final value for this group
+            Tuple value = aggregationFunction.evaluate();
+
+            builder.append(group.getValue());
+            builder.append(value);
+        }
+        while (!builder.isFull() && groupBySource.hasNext());
 
         // build an output block
-        return new UncompressedValueBlock(group.getRange().lowerEndpoint(), new Tuple(group.getValue(), value));
+        UncompressedValueBlock block = builder.build();
+        position += block.getCount();
+        return block;
     }
 }

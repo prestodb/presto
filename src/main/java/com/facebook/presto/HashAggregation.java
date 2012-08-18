@@ -18,16 +18,20 @@ public class HashAggregation
 
     private final Provider<AggregationFunction> functionProvider;
 
-    private Iterator<Entry<Object, AggregationFunction>> aggregations;
+    private Iterator<Entry<Tuple, AggregationFunction>> aggregations;
 
     private long position;
+    private final TupleInfo tupleInfo;
 
-    public HashAggregation(Iterator<RunLengthEncodedBlock> keySource, SeekableIterator<ValueBlock> valueSource, Provider<AggregationFunction> functionProvider)
+    public HashAggregation(TupleInfo tupleInfo, Iterator<RunLengthEncodedBlock> keySource,
+            SeekableIterator<ValueBlock> valueSource,
+            Provider<AggregationFunction> functionProvider)
     {
         this.groupBySource = keySource;
         this.aggregationSource = valueSource;
 
         this.functionProvider = functionProvider;
+        this.tupleInfo = tupleInfo;
     }
 
     @Override
@@ -35,7 +39,7 @@ public class HashAggregation
     {
         // process all data ahead of time
         if (aggregations == null) {
-            Map<Object, AggregationFunction> aggregationMap = new HashMap<>();
+            Map<Tuple, AggregationFunction> aggregationMap = new HashMap<>();
             while (groupBySource.hasNext()) {
                 RunLengthEncodedBlock group = groupBySource.next();
 
@@ -56,13 +60,24 @@ public class HashAggregation
             return null;
         }
 
-        // get next aggregation
-        Entry<Object, AggregationFunction> aggregation = aggregations.next();
+        BlockBuilder blockBuilder = new BlockBuilder(position, tupleInfo);
+        while (!blockBuilder.isFull() && aggregations.hasNext()) {
+            // get next aggregation
+            Entry<Tuple, AggregationFunction> aggregation = aggregations.next();
 
-        // calculate final value for this group
-        Object value = aggregation.getValue().evaluate();
+            // calculate final value for this group
+            Tuple key = aggregation.getKey();
+            Tuple value = aggregation.getValue().evaluate();
+            blockBuilder.append(key);
+            blockBuilder.append(value);
+        }
 
-        // build an output block
-        return new UncompressedValueBlock(position++, new Tuple(aggregation.getKey(), value));
+        // build output block
+        ValueBlock block = blockBuilder.build();
+
+        // update position
+        position += block.getCount();
+
+        return block;
     }
 }

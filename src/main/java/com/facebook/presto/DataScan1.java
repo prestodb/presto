@@ -9,9 +9,9 @@ public class DataScan1
         extends AbstractIterator<PositionBlock>
 {
     private final Iterator<ValueBlock> source;
-    private final Predicate<Object> predicate;
+    private final Predicate<Tuple> predicate;
 
-    public DataScan1(Iterator<ValueBlock> source, Predicate<Object> predicate)
+    public DataScan1(Iterator<ValueBlock> source, Predicate<Tuple> predicate)
     {
         this.predicate = predicate;
         this.source = source;
