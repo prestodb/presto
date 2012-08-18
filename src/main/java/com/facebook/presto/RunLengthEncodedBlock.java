@@ -3,7 +3,6 @@ package com.facebook.presto;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.DiscreteDomains;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.Range;
@@ -12,30 +11,30 @@ import java.util.Collections;
 import java.util.Iterator;
 
 public class RunLengthEncodedBlock
-    implements ValueBlock
+        implements ValueBlock
 {
-    private final Object value;
+    private final Tuple value;
     private final Range<Long> range;
 
-    public RunLengthEncodedBlock(Object value, Range<Long> range)
+    public RunLengthEncodedBlock(Tuple value, Range<Long> range)
     {
         this.value = value;
         this.range = range;
     }
 
-    public Object getValue()
+    public Tuple getValue()
     {
         return value;
     }
 
     @Override
-    public PositionBlock selectPositions(Predicate<Object> predicate)
+    public PositionBlock selectPositions(Predicate<Tuple> predicate)
     {
         return null;
     }
 
     @Override
-    public ValueBlock selectPairs(Predicate<Object> predicate)
+    public ValueBlock selectPairs(Predicate<Tuple> predicate)
     {
         return null;
     }
@@ -43,31 +42,44 @@ public class RunLengthEncodedBlock
     @Override
     public ValueBlock filter(PositionBlock positions)
     {
-        ImmutableList.Builder<Pair> builder = ImmutableList.builder();
-        for (Long position : positions.getPositions()) {
+        // todo this is wrong, it should produce either another RLE block or a BitVectorBlock
+        int matches = 0;
+        for (long position : positions.getPositions()) {
             if (range.contains(position)) {
-                builder.add(new Pair(position, value));
+                matches++;
             }
         }
-
-        ImmutableList<Pair> pairs = builder.build();
-        if (pairs.isEmpty()) {
+        if (matches == 0) {
             return new EmptyValueBlock();
         }
 
-        return new UncompressedValueBlock(pairs);
+        Slice newSlice = Slices.allocate(matches * value.getTupleInfo().size());
+        SliceOutput sliceOutput = newSlice.output();
+        for (int i = 0; i < matches; i++) {
+            value.writeTo(sliceOutput);
+        }
+
+        // todo what is the start position
+        return new UncompressedValueBlock(0, value.getTupleInfo(), newSlice);
     }
 
     @Override
     public PeekingIterator<Pair> pairIterator()
     {
-        return Iterators.peekingIterator(Iterators.transform(getPositions().iterator(), new Function<Long, Pair>() {
+        return Iterators.peekingIterator(Iterators.transform(getPositions().iterator(), new Function<Long, Pair>()
+        {
             @Override
             public Pair apply(Long position)
             {
                 return new Pair(position, value);
             }
         }));
+    }
+
+    @Override
+    public Iterator<Tuple> iterator()
+    {
+        return Iterators.peekingIterator(Collections.nCopies(getCount(), value).iterator());
     }
 
     @Override
@@ -115,11 +127,5 @@ public class RunLengthEncodedBlock
     public String toString()
     {
         return Iterators.toString(pairIterator());
-    }
-
-    @Override
-    public Iterator<Object> iterator()
-    {
-        return Iterators.peekingIterator(Collections.nCopies(getCount(), value).iterator());
     }
 }

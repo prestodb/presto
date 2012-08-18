@@ -1,90 +1,119 @@
 package com.facebook.presto;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.DiscreteDomains;
 import com.google.common.collect.Iterators;
-import com.google.common.collect.Lists;
 import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.Range;
 import com.google.common.collect.Ranges;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.Pair.positionGetter;
-import static com.facebook.presto.Pair.valueGetter;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static java.util.Arrays.asList;
-
 public class UncompressedValueBlock
-    implements ValueBlock
+        implements ValueBlock
 {
     private final Range<Long> range;
-    private final List<Pair> pairs;
+    private final TupleInfo tupleInfo;
+    private final Slice slice;
 
-    public UncompressedValueBlock(long startPosition, List<?> values)
+    public UncompressedValueBlock(long startPosition, TupleInfo tupleInfo, Slice slice)
     {
-        ImmutableList.Builder<Pair> builder = ImmutableList.builder();
+        Preconditions.checkArgument(startPosition >= 0, "startPosition is negative");
+        Preconditions.checkNotNull(tupleInfo, "tupleInfo is null");
+        Preconditions.checkNotNull(slice, "data is null");
 
-        long index = startPosition;
-        for (Object value : values) {
-            if (value != null) {
-                builder.add(new Pair(index, value));
-            }
+        this.tupleInfo = tupleInfo;
+        this.slice = slice;
 
-            ++index;
-        }
+        Preconditions.checkArgument(slice.length() % tupleInfo.size() == 0, "data must be a multiple of tuple length");
 
-        pairs = builder.build();
-        range = Ranges.closed(pairs.get(0).getPosition(), pairs.get(pairs.size() - 1).getPosition());
-    }
-
-    public UncompressedValueBlock(long startPosition, Object... values)
-    {
-        this(startPosition, asList(values));
-    }
-
-    public UncompressedValueBlock(List<Pair> pairs)
-    {
-        checkNotNull(pairs, "pairs is null");
-        checkArgument(!pairs.isEmpty(), "pairs is empty");
-
-        this.pairs = pairs;
-
-        range = Ranges.closed(pairs.get(0).getPosition(), pairs.get(pairs.size() - 1).getPosition());
+        int rows = slice.length() / tupleInfo.size();
+        range = Ranges.closed(startPosition, startPosition + rows - 1);
     }
 
     @Override
-    public PositionBlock selectPositions(Predicate<Object> predicate)
+    public PositionBlock selectPositions(Predicate<Tuple> predicate)
     {
         return null;
     }
 
     @Override
-    public ValueBlock selectPairs(Predicate<Object> predicate)
+    public ValueBlock selectPairs(Predicate<Tuple> predicate)
     {
         return null;
     }
 
+    /**
+     * Build a new block with only the selected value positions
+     */
     @Override
     public ValueBlock filter(PositionBlock positions)
     {
-        ImmutableList<Pair> pairs = ImmutableList.copyOf(Iterables.filter(this.pairs, Predicates.compose(positions, positionGetter())));
-
-        if (pairs.isEmpty()) {
+        List<Long> indexes = new ArrayList<>();
+        for (long position : positions.getPositions()) {
+            if (range.contains(position)) {
+                indexes.add(position - range.lowerEndpoint());
+            }
+        }
+        if (indexes.isEmpty()) {
             return new EmptyValueBlock();
         }
 
-        return new UncompressedValueBlock(pairs);
+        Slice newSlice = Slices.allocate(indexes.size() * tupleInfo.size());
+        SliceOutput sliceOutput = newSlice.output();
+        for (long index : indexes) {
+            sliceOutput.writeBytes(slice, (int) (index * tupleInfo.size()), tupleInfo.size());
+        }
+
+        // todo what is the start position
+        return new UncompressedValueBlock(0, tupleInfo, newSlice);
+    }
+
+    @Override
+    public Iterator<Tuple> iterator()
+    {
+        return new AbstractIterator<Tuple>()
+        {
+            private long index = 0;
+
+            @Override
+            protected Tuple computeNext()
+            {
+                if (index >= getCount()) {
+                    endOfData();
+                    return null;
+                }
+                Slice row = slice.slice((int) (index * tupleInfo.size()), tupleInfo.size());
+                index++;
+                return new Tuple(row, tupleInfo);
+            }
+        };
     }
 
     @Override
     public PeekingIterator<Pair> pairIterator()
     {
-        return Iterators.peekingIterator(pairs.iterator());
+        return Iterators.peekingIterator(new AbstractIterator<Pair>()
+        {
+            private long index = 0;
+
+            @Override
+            protected Pair computeNext()
+            {
+                if (index >= getCount()) {
+                    endOfData();
+                    return null;
+                }
+                Slice row = slice.slice((int) (index * tupleInfo.size()), tupleInfo.size());
+                long position = index + range.lowerEndpoint();
+                index++;
+                return new Pair(position, new Tuple(row, tupleInfo));
+            }
+        });
     }
 
     @Override
@@ -96,7 +125,7 @@ public class UncompressedValueBlock
     @Override
     public int getCount()
     {
-        return pairs.size();
+        return (int) (range.upperEndpoint() - range.lowerEndpoint() + 1);
     }
 
     @Override
@@ -108,7 +137,7 @@ public class UncompressedValueBlock
     @Override
     public boolean isSingleValue()
     {
-        return pairs.size() == 1;
+        return getCount() == 1;
     }
 
     @Override
@@ -120,7 +149,7 @@ public class UncompressedValueBlock
     @Override
     public Iterable<Long> getPositions()
     {
-        return Lists.transform(pairs, positionGetter());
+        return range.asSet(DiscreteDomains.longs());
     }
 
     @Override
@@ -129,14 +158,15 @@ public class UncompressedValueBlock
         return range;
     }
 
+    @Override
     public String toString()
     {
-        return pairs.toString();
-    }
-
-    @Override
-    public Iterator<Object> iterator()
-    {
-        return Lists.transform(pairs, valueGetter()).iterator();
+        final StringBuilder sb = new StringBuilder();
+        sb.append("FixedWidthValueBlock");
+        sb.append("{range=").append(range);
+        sb.append(", tupleInfo=").append(tupleInfo);
+        sb.append(", slice=").append(slice);
+        sb.append('}');
+        return sb.toString();
     }
 }

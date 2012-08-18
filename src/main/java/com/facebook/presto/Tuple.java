@@ -1,27 +1,57 @@
 package com.facebook.presto;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-
-import java.util.List;
 
 public class Tuple
 {
-    private final List<Object> values;
+    private final Slice slice;
+    private final TupleInfo tupleInfo;
 
-    public Tuple(Object... values) {
-        this(ImmutableList.copyOf(values));
+    public Tuple(Slice slice, TupleInfo tupleInfo)
+    {
+        this.slice = slice;
+        this.tupleInfo = tupleInfo;
     }
 
-    public Tuple(List<Object> values)
+    public TupleInfo getTupleInfo()
     {
-        Preconditions.checkNotNull(values, "values is null");
-        this.values = ImmutableList.copyOf(values);
+        return tupleInfo;
     }
 
-    public List<Object> getValues()
+    public byte getByteValue(int index)
     {
-        return values;
+        checkIndexSize(index, SizeOf.SIZE_OF_BYTE);
+        return slice.getByte(tupleInfo.getOffset(index));
+    }
+
+    public int getInt(int index)
+    {
+        checkIndexSize(index, SizeOf.SIZE_OF_BYTE);
+
+        return slice.getInt(tupleInfo.getOffset(index));
+    }
+
+    public long getLong(int index)
+    {
+        checkIndexSize(index, SizeOf.SIZE_OF_LONG);
+        return slice.getLong(tupleInfo.getOffset(index));
+    }
+
+    public Slice getSlice(int index)
+    {
+        Preconditions.checkArgument(index < tupleInfo.size());
+        return slice.slice(tupleInfo.getOffset(index), tupleInfo.getLength(index));
+    }
+
+    public void writeTo(SliceOutput out)
+    {
+        out.writeBytes(slice);
+    }
+
+    private void checkIndexSize(int index, int size)
+    {
+        Preconditions.checkArgument(index < tupleInfo.size());
+        Preconditions.checkArgument(tupleInfo.getLength(index) == size, "Value %s must be %s bytes wide, but is %s bytes", index, size, tupleInfo.getLength(index));
     }
 
     @Override
@@ -36,7 +66,10 @@ public class Tuple
 
         Tuple tuple = (Tuple) o;
 
-        if (!values.equals(tuple.values)) {
+        if (!tupleInfo.equals(tuple.tupleInfo)) {
+            return false;
+        }
+        if (!slice.equals(tuple.slice)) {
             return false;
         }
 
@@ -46,12 +79,19 @@ public class Tuple
     @Override
     public int hashCode()
     {
-        return values.hashCode();
+        int result = slice.hashCode();
+        result = 31 * result + tupleInfo.hashCode();
+        return result;
     }
 
     @Override
     public String toString()
     {
-        return values.toString();
+        final StringBuilder sb = new StringBuilder();
+        sb.append("Tuple");
+        sb.append("{tupleInfo=").append(tupleInfo);
+        sb.append(", slice=").append(slice);
+        sb.append('}');
+        return sb.toString();
     }
 }

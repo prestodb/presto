@@ -10,16 +10,16 @@ import com.google.common.collect.Ranges;
 import java.util.Iterator;
 
 public class EmptyValueBlock
-    implements ValueBlock
+        implements ValueBlock
 {
     @Override
-    public PositionBlock selectPositions(Predicate<Object> predicate)
+    public PositionBlock selectPositions(Predicate<Tuple> predicate)
     {
         return new EmptyPositionBlock();
     }
 
     @Override
-    public ValueBlock selectPairs(Predicate<Object> predicate)
+    public ValueBlock selectPairs(Predicate<Tuple> predicate)
     {
         return this;
     }
@@ -79,7 +79,7 @@ public class EmptyValueBlock
     }
 
     @Override
-    public Iterator<Object> iterator()
+    public Iterator<Tuple> iterator()
     {
         return Iterators.emptyIterator();
     }
