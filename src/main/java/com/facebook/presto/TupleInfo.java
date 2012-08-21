@@ -6,64 +6,165 @@ import com.google.common.primitives.Ints;
 
 import java.util.List;
 
+import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
+import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.Arrays.asList;
+
 public class TupleInfo
 {
+    public enum Type
+    {
+        FIXED_INT_64(8),
+        VARIABLE_BINARY(-1);
+
+        private final int size;
+
+        private Type(int size)
+        {
+            this.size = size;
+        }
+
+        int getSize()
+        {
+            Preconditions.checkState(isFixedSize(), "Can't get size of variable length field");
+            return size;
+        }
+
+        boolean isFixedSize()
+        {
+            return size != -1;
+        }
+    }
+
     private final int size;
-    private final List<Integer> lengths;
+    private final List<Type> types;
     private final List<Integer> offsets;
+    private final int firstVariableLengthField;
+    private final int secondVariableLengthField;
+    private final int fixedSizePart;
 
-    public TupleInfo(int... lengths)
+    public TupleInfo(Type... types)
     {
-        this(Ints.asList(lengths));
+        this(asList(types));
     }
 
-    public TupleInfo(List<Integer> lengths)
+    public TupleInfo(List<Type> types)
     {
-        Preconditions.checkNotNull(lengths, "lengths is null");
+        Preconditions.checkNotNull(types, "types is null");
+        Preconditions.checkArgument(!types.isEmpty(), "types is empty");
 
-        this.lengths = ImmutableList.copyOf(lengths);
-        int rowLength = 0;
-        for (int i = 0; i < lengths.size(); i++) {
-            int length = lengths.get(i);
-            Preconditions.checkArgument(length >= 1, "length %s must be at least 1", i);
-            rowLength += length;
+        this.types = ImmutableList.copyOf(types);
 
+        int[] offsets = new int[types.size() + 1];
+
+        int currentOffset = 0;
+
+        // process fixed-length fields first
+        for (int i = 0; i < types.size(); i++) {
+            Type type = types.get(i);
+
+            if (type.isFixedSize()) {
+                offsets[i] = currentOffset;
+                currentOffset += type.getSize();
+            }
         }
 
-        ImmutableList.Builder<Integer> offsets = ImmutableList.builder();
-        int current = 0;
-        for (int length : lengths) {
-            offsets.add(current);
-            current += length;
+        boolean hasVariableLengthFields = false;
+
+        int firstVariableLengthField = -1;
+        int secondVariableLengthField = -1;
+
+        // process variable length fields
+        for (int i = 0; i < types.size(); i++) {
+            Type type = types.get(i);
+
+            if (!type.isFixedSize()) {
+                offsets[i] = currentOffset;
+                if (hasVariableLengthFields) {
+                    currentOffset += SIZE_OF_SHORT; // we use a short to encode the offset of a var length field
+
+                    if (secondVariableLengthField == -1) {
+                        secondVariableLengthField = i;
+                    }
+                }
+                else {
+                    firstVariableLengthField = i;
+                }
+
+                hasVariableLengthFields = true;
+            }
         }
-        this.offsets = offsets.build();
 
-        this.size = rowLength;
+        if (secondVariableLengthField == -1) {
+            secondVariableLengthField = types.size(); // use the length field
+        }
+
+        offsets[offsets.length - 1] = currentOffset;
+
+        if (hasVariableLengthFields) {
+            size = -1;
+        }
+        else {
+            size = currentOffset;
+        }
+
+        fixedSizePart = currentOffset + SIZE_OF_SHORT; // 2 bytes for the length field
+
+        this.firstVariableLengthField = firstVariableLengthField;
+        this.secondVariableLengthField = secondVariableLengthField;
+
+        this.offsets = ImmutableList.copyOf(Ints.asList(offsets));
     }
 
-    public List<Integer> getLengths()
+    public List<Type> getTypes()
     {
-        return lengths;
+        return types;
     }
 
-    public int getLength(int index)
+    public int size(Slice slice)
     {
-        return lengths.get(index);
+        if (size != -1) {
+            return size;
+        }
+
+        // length of the tuple is located in the "last" fixed-width slot
+        // this makes variable length column size easy to calculate
+        return slice.getShort(getOffset(types.size()));
     }
 
-    public List<Integer> getOffsets()
+    public long getLong(Slice slice, int index)
     {
-        return offsets;
+        checkState(types.get(index) == FIXED_INT_64, "Expected FIXED_INT_64");
+
+        return slice.getLong(getOffset(index));
     }
 
-    public int getOffset(int index)
+    public Slice getSlice(Slice slice, int index)
     {
+        checkState(types.get(index) == VARIABLE_BINARY, "Expected VARIABLE_BINARY");
+
+        int start;
+        int end;
+        if (index == firstVariableLengthField) {
+            start = fixedSizePart;
+            end = slice.getShort(getOffset(secondVariableLengthField));
+        }
+        else {
+            start = slice.getShort(getOffset(index));
+            end = slice.getShort(getOffset(index) + SIZE_OF_SHORT);
+        }
+
+        // this works because positions of variable length fields are laid out in the same order as the actual data
+        return slice.slice(start, end - start);
+    }
+
+    private int getOffset(int index)
+    {
+        checkArgument(index != firstVariableLengthField, "Cannot get offset for first variable length field");
         return offsets.get(index);
-    }
-
-    public int size()
-    {
-        return size;
     }
 
     @Override
@@ -78,7 +179,7 @@ public class TupleInfo
 
         TupleInfo tupleInfo = (TupleInfo) o;
 
-        if (!lengths.equals(tupleInfo.lengths)) {
+        if (!types.equals(tupleInfo.types)) {
             return false;
         }
 
@@ -88,16 +189,19 @@ public class TupleInfo
     @Override
     public int hashCode()
     {
-        return lengths.hashCode();
+        return types.hashCode();
     }
 
     @Override
     public String toString()
     {
-        final StringBuilder sb = new StringBuilder();
-        sb.append("TupleInfo");
-        sb.append("{lengths=").append(lengths);
-        sb.append('}');
-        return sb.toString();
+        return "TupleInfo{" +
+                "size=" + size +
+                ", types=" + types +
+                ", offsets=" + offsets +
+                ", firstVariableLengthField=" + firstVariableLengthField +
+                ", secondVariableLengthField=" + secondVariableLengthField +
+                ", fixedSizePart=" + fixedSizePart +
+                '}';
     }
 }

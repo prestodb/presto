@@ -1,7 +1,5 @@
 package com.facebook.presto;
 
-import com.google.common.base.Preconditions;
-
 public class Tuple
 {
     private final Slice slice;
@@ -18,40 +16,24 @@ public class Tuple
         return tupleInfo;
     }
 
-    public byte getByteValue(int index)
-    {
-        checkIndexSize(index, SizeOf.SIZE_OF_BYTE);
-        return slice.getByte(tupleInfo.getOffset(index));
-    }
-
-    public int getInt(int index)
-    {
-        checkIndexSize(index, SizeOf.SIZE_OF_BYTE);
-
-        return slice.getInt(tupleInfo.getOffset(index));
-    }
-
     public long getLong(int index)
     {
-        checkIndexSize(index, SizeOf.SIZE_OF_LONG);
-        return slice.getLong(tupleInfo.getOffset(index));
+        return tupleInfo.getLong(slice, index);
     }
 
     public Slice getSlice(int index)
     {
-        Preconditions.checkArgument(index < tupleInfo.size());
-        return slice.slice(tupleInfo.getOffset(index), tupleInfo.getLength(index));
+        return tupleInfo.getSlice(slice, index);
+    }
+
+    public int size()
+    {
+        return tupleInfo.size(slice);
     }
 
     public void writeTo(SliceOutput out)
     {
         out.writeBytes(slice);
-    }
-
-    private void checkIndexSize(int index, int size)
-    {
-        Preconditions.checkArgument(index < tupleInfo.size());
-        Preconditions.checkArgument(tupleInfo.getLength(index) == size, "Value %s must be %s bytes wide, but is %s bytes", index, size, tupleInfo.getLength(index));
     }
 
     @Override

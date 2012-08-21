@@ -12,40 +12,45 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Iterator;
 
-public class CsvFileScanner implements Iterable<UncompressedValueBlock>
+import static com.google.common.base.Charsets.*;
+import static com.google.common.base.Charsets.UTF_8;
+
+public class CsvFileScanner implements Iterable<ValueBlock>
 {
     private final InputSupplier<InputStreamReader> inputSupplier;
     private final Splitter columnSplitter;
     private final int columnIndex;
-    private final TupleInfo tupleInfo;
+    private final TupleInfo.Type columnType;
 
-    public CsvFileScanner(InputSupplier<InputStreamReader> inputSupplier, int columnIndex, char columnSeparator, TupleInfo tupleInfo)
+    public CsvFileScanner(InputSupplier<InputStreamReader> inputSupplier, int columnIndex, char columnSeparator, TupleInfo.Type columnType)
     {
+        this.columnType = columnType;
         Preconditions.checkNotNull(inputSupplier, "inputSupplier is null");
 
         this.columnIndex = columnIndex;
-        this.tupleInfo = tupleInfo;
         this.inputSupplier = inputSupplier;
         columnSplitter = Splitter.on(columnSeparator);
     }
 
     @Override
-    public Iterator<UncompressedValueBlock> iterator()
+    public Iterator<ValueBlock> iterator()
     {
-        return new ColumnIterator(inputSupplier, columnIndex, columnSplitter, tupleInfo);
+        return new ColumnIterator(inputSupplier, columnIndex, columnSplitter, columnType);
     }
 
-    private static class ColumnIterator extends AbstractIterator<UncompressedValueBlock>
+    private static class ColumnIterator extends AbstractIterator<ValueBlock>
     {
         private final LineReader reader;
         private final TupleInfo tupleInfo;
         private final int columnIndex;
         private final Splitter columnSplitter;
         private long position;
+        private final TupleInfo.Type columnType;
 
-        public ColumnIterator(InputSupplier<InputStreamReader> inputSupplier, int columnIndex, Splitter columnSplitter, TupleInfo tupleInfo)
+        public ColumnIterator(InputSupplier<InputStreamReader> inputSupplier, int columnIndex, Splitter columnSplitter, TupleInfo.Type columnType)
         {
-            this.tupleInfo = tupleInfo;
+            this.columnType = columnType;
+            this.tupleInfo = new TupleInfo(columnType);
             try {
                 this.reader = new LineReader(inputSupplier.getInput());
             }
@@ -57,7 +62,7 @@ public class CsvFileScanner implements Iterable<UncompressedValueBlock>
         }
 
         @Override
-        protected UncompressedValueBlock computeNext()
+        protected ValueBlock computeNext()
         {
             String line = nextLine();
             if (line == null) {
@@ -72,7 +77,12 @@ public class CsvFileScanner implements Iterable<UncompressedValueBlock>
 
                 // calculate final value for this group
                 // todo add support for other column types
-                blockBuilder.append(Long.valueOf(value));
+                if (columnType == TupleInfo.Type.FIXED_INT_64) {
+                    blockBuilder.append(Long.valueOf(value));
+                }
+                else {
+                    blockBuilder.append(value.getBytes(UTF_8));
+                }
 
                 if (blockBuilder.isFull()) {
                     break;
@@ -80,7 +90,7 @@ public class CsvFileScanner implements Iterable<UncompressedValueBlock>
                 line = nextLine();
             } while (line != null);
 
-            UncompressedValueBlock block = blockBuilder.build();
+            ValueBlock block = blockBuilder.build();
             position += block.getCount();
             return block;
         }
