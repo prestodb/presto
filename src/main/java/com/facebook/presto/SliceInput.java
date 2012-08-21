@@ -157,7 +157,7 @@ public final class SliceInput extends InputStream implements DataInput
 
     public byte[] readByteArray(int length)
     {
-        byte[] value = slice.copyBytes(position, length);
+        byte[] value = slice.getBytes(position, length);
         position += length;
         return value;
     }
