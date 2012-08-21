@@ -55,10 +55,9 @@ public class TestCsvFileScanner
     private Tuple createTuple(String value)
     {
         byte[] bytes = value.getBytes(UTF_8);
-        Slice slice = Slices.allocate(bytes.length + SIZE_OF_SHORT + SIZE_OF_SHORT);
+        Slice slice = Slices.allocate(bytes.length + SIZE_OF_SHORT);
         slice.output()
-                .appendShort(4)
-                .appendShort(bytes.length + 4)
+                .appendShort(bytes.length + 2)
                 .appendBytes(bytes);
 
         return new Tuple(slice, new TupleInfo(VARIABLE_BINARY));

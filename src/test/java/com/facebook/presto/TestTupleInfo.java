@@ -13,17 +13,16 @@ public class TestTupleInfo
     @Test
     public void testBasic()
     {
-        Slice slice = new Slice(SIZE_OF_LONG + SIZE_OF_SHORT + SIZE_OF_LONG + SIZE_OF_SHORT + SIZE_OF_SHORT + 10 + 15);
+        Slice slice = new Slice(SIZE_OF_LONG + SIZE_OF_LONG + SIZE_OF_SHORT + SIZE_OF_SHORT + 10 + 15);
 
         Slice binary1 = Slices.wrappedBuffer(new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 });
         Slice binary2 = Slices.wrappedBuffer(new byte[] { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24 });
 
         slice.output()
-                .appendLong(42)
-                .appendLong(67)
-                .appendShort(22)
-                .appendShort(32) // 22 + 10
-                .appendShort(47) // 22 + 10 + 15
+                .appendLong(42) // value of first long field
+                .appendLong(67) // value of second long field
+                .appendShort(30) // offset of second binary field
+                .appendShort(45) // tuple size
                 .appendBytes(binary1)
                 .appendBytes(binary2);
 

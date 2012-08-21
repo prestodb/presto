@@ -46,8 +46,10 @@ public class BlockBuilder
         int variableLengthFieldCount = 0;
         for (TupleInfo.Type type : tupleInfo.getTypes()) {
             if (!type.isFixedSize()) {
+                if (variableLengthFieldCount > 0) {
+                    fixedPartSize += SizeOf.SIZE_OF_SHORT;
+                }
                 variableLengthFieldCount++;
-                fixedPartSize += SizeOf.SIZE_OF_SHORT;
             }
             else {
                 fixedPartSize += type.getSize();
@@ -122,10 +124,14 @@ public class BlockBuilder
         }
 
         // write offsets
+        boolean isFirst = true;
         int offset = fixedPartSize;
         for (Slice field : variableLengthFields) {
-            sliceOutput.writeShort(offset);
+            if (!isFirst) {
+                sliceOutput.writeShort(offset);
+            }
             offset += field.length();
+            isFirst = false;
         }
 
         if (!variableLengthFields.isEmpty()) {
