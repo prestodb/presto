@@ -14,8 +14,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.SizeOf.SIZE_OF_BYTE;
 import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
+import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
+import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
+import static com.google.common.base.Charsets.UTF_8;
 
 public class TestSumAggregation
 {
@@ -23,7 +26,7 @@ public class TestSumAggregation
     public void testPipelinedAggregation()
     {
         GroupBy groupBy = new GroupBy(newGroupColumn());
-        PipelinedAggregation aggregation = new PipelinedAggregation(new TupleInfo(SIZE_OF_BYTE, SIZE_OF_LONG),
+        PipelinedAggregation aggregation = new PipelinedAggregation(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64),
                 groupBy,
                 new ForwardingSeekableIterator<>(newAggregateColumn()),
                 new Provider<AggregationFunction>()
@@ -36,10 +39,10 @@ public class TestSumAggregation
                 });
 
         List<Pair> expected = ImmutableList.of(
-                new Pair(0, createTuple("a", 10L)),
-                new Pair(1, createTuple("b", 17L)),
-                new Pair(2, createTuple("c", 15L)),
-                new Pair(3, createTuple("d", 6L))
+                new Pair(0, createTuple("apple", 10L)),
+                new Pair(1, createTuple("banana", 17L)),
+                new Pair(2, createTuple("cherry", 15L)),
+                new Pair(3, createTuple("date", 6L))
         );
 
         List<Pair> actual = new ArrayList<>();
@@ -55,19 +58,25 @@ public class TestSumAggregation
         Assert.assertEquals(actual, expected);
     }
 
-    private Tuple createTuple(String character, long count)
+    private Tuple createTuple(String key, long count)
     {
-        Slice slice = Slices.allocate(SIZE_OF_BYTE + SIZE_OF_LONG);
-        slice.setByte(0, character.charAt(0));
-        slice.setLong(1, count);
-        return new Tuple(slice, new TupleInfo(SIZE_OF_BYTE, SIZE_OF_LONG));
+        byte[] bytes = key.getBytes(Charsets.UTF_8);
+        Slice slice = Slices.allocate(SIZE_OF_LONG + SIZE_OF_SHORT + SIZE_OF_SHORT + bytes.length);
+
+        slice.output()
+                .appendLong(count)
+                .appendShort(12)
+                .appendShort(12 + bytes.length)
+                .appendBytes(bytes);
+
+        return new Tuple(slice, new TupleInfo(VARIABLE_BINARY, FIXED_INT_64));
     }
 
     @Test
     public void testHashAggregation()
     {
         GroupBy groupBy = new GroupBy(newGroupColumn());
-        HashAggregation aggregation = new HashAggregation(new TupleInfo(SIZE_OF_BYTE, SIZE_OF_LONG),
+        HashAggregation aggregation = new HashAggregation(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64),
                 groupBy,
                 new ForwardingSeekableIterator<>(newAggregateColumn()),
                 new Provider<AggregationFunction>()
@@ -80,10 +89,10 @@ public class TestSumAggregation
                 });
 
         Map<Object, Object> expected = ImmutableMap.<Object, Object>of(
-                "a", createTuple("a", 10L),
-                "b", createTuple("b", 17L),
-                "c", createTuple("c", 15L),
-                "d", createTuple("d", 6L)
+                "apple", createTuple("apple", 10L),
+                "banana", createTuple("banana", 17L),
+                "cherry", createTuple("cherry", 15L),
+                "date", createTuple("date", 6L)
         );
 
         Map<Object, Object> actual = new HashMap<>();
@@ -93,7 +102,7 @@ public class TestSumAggregation
             while (pairs.hasNext()) {
                 Pair pair = pairs.next();
                 Tuple tuple = pair.getValue();
-                actual.put(tuple.getSlice(0).toString(Charsets.UTF_8), tuple);
+                actual.put(tuple.getSlice(0).toString(UTF_8), tuple);
             }
         }
 
@@ -103,11 +112,11 @@ public class TestSumAggregation
     public Iterator<ValueBlock> newGroupColumn()
     {
         Iterator<ValueBlock> values = ImmutableList.<ValueBlock>builder()
-                .add(new UncompressedValueBlock(0, new TupleInfo(1), Slices.wrappedBuffer(new byte[]{'a', 'a', 'a', 'a', 'b', 'b'})))
-                .add(new UncompressedValueBlock(20, new TupleInfo(1), Slices.wrappedBuffer(new byte[]{'b', 'b', 'b', 'c', 'c', 'c'})))
-                .add(new UncompressedValueBlock(30, new TupleInfo(1), Slices.wrappedBuffer(new byte[]{'d'})))
-                .add(new UncompressedValueBlock(31, new TupleInfo(1), Slices.wrappedBuffer(new byte[]{'d'})))
-                .add(new UncompressedValueBlock(32, new TupleInfo(1), Slices.wrappedBuffer(new byte[]{'d'})))
+                .add(createBlock(0, "apple", "apple", "apple", "apple", "banana", "banana"))
+                .add(createBlock(20, "banana", "banana", "banana", "cherry", "cherry", "cherry"))
+                .add(createBlock(30, "date"))
+                .add(createBlock(31, "date"))
+                .add(createBlock(32, "date"))
                 .build()
                 .iterator();
 
@@ -128,13 +137,25 @@ public class TestSumAggregation
         return values;
     }
 
-    private UncompressedValueBlock createBlock(long position, long... values)
+    private ValueBlock createBlock(int position, String... values)
     {
-        Slice slice = Slices.allocate(values.length * SIZE_OF_LONG);
-        SliceOutput output = slice.output();
-        for (long value : values) {
-            output.writeLong(value);
+        BlockBuilder builder = new BlockBuilder(position, new TupleInfo(VARIABLE_BINARY));
+
+        for (String value : values) {
+            builder.append(value.getBytes(UTF_8));
         }
-        return new UncompressedValueBlock(position, new TupleInfo(SIZE_OF_LONG), slice);
+
+        return builder.build();
+    }
+
+    private ValueBlock createBlock(long position, long... values)
+    {
+        BlockBuilder builder = new BlockBuilder(position, new TupleInfo(FIXED_INT_64));
+
+        for (long value : values) {
+            builder.append(value);
+        }
+
+        return builder.build();
     }
 }

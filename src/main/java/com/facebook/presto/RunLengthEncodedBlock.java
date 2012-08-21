@@ -6,6 +6,7 @@ import com.google.common.collect.DiscreteDomains;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.Range;
+import com.google.common.collect.Ranges;
 
 import java.util.Collections;
 import java.util.Iterator;
@@ -50,17 +51,18 @@ public class RunLengthEncodedBlock
             }
         }
         if (matches == 0) {
-            return new EmptyValueBlock();
+            return EmptyValueBlock.INSTANCE;
         }
 
-        Slice newSlice = Slices.allocate(matches * value.getTupleInfo().size());
+
+        Slice newSlice = Slices.allocate(matches * value.size());
         SliceOutput sliceOutput = newSlice.output();
         for (int i = 0; i < matches; i++) {
             value.writeTo(sliceOutput);
         }
 
         // todo what is the start position
-        return new UncompressedValueBlock(0, value.getTupleInfo(), newSlice);
+        return new UncompressedValueBlock(Ranges.closed(0L, (long) matches), value.getTupleInfo(), newSlice);
     }
 
     @Override

@@ -264,6 +264,17 @@ public abstract class SliceOutput extends OutputStream implements DataOutput
      */
     public abstract String toString(Charset charset);
 
+
+    public abstract SliceOutput appendLong(long value);
+
+    public abstract SliceOutput appendShort(int value);
+
+    public abstract SliceOutput appendBytes(byte[] source, int sourceIndex, int length);
+
+    public abstract SliceOutput appendBytes(byte[] source);
+
+    public abstract SliceOutput appendBytes(Slice slice);
+
     //
     // Unsupported operations
     //

@@ -63,7 +63,7 @@ public class Merge
             }
         } while (Iterables.all(sources, hasNextPredicate()));
 
-        UncompressedValueBlock block = blockBuilder.build();
+        ValueBlock block = blockBuilder.build();
         position += block.getCount();
         return block;
     }

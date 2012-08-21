@@ -9,9 +9,9 @@ import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.Range;
 import com.google.common.collect.Ranges;
 
-import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
+import java.util.Set;
 
 public class UncompressedValueBlock
         implements ValueBlock
@@ -20,19 +20,16 @@ public class UncompressedValueBlock
     private final TupleInfo tupleInfo;
     private final Slice slice;
 
-    public UncompressedValueBlock(long startPosition, TupleInfo tupleInfo, Slice slice)
+    public UncompressedValueBlock(Range<Long> range, TupleInfo tupleInfo, Slice slice)
     {
-        Preconditions.checkArgument(startPosition >= 0, "startPosition is negative");
+        Preconditions.checkNotNull(range, "range is null");
+        Preconditions.checkArgument(range.lowerEndpoint() >= 0, "range start position is negative");
         Preconditions.checkNotNull(tupleInfo, "tupleInfo is null");
         Preconditions.checkNotNull(slice, "data is null");
 
         this.tupleInfo = tupleInfo;
         this.slice = slice;
-
-        Preconditions.checkArgument(slice.length() % tupleInfo.size() == 0, "data must be a multiple of tuple length");
-
-        int rows = slice.length() / tupleInfo.size();
-        range = Ranges.closed(startPosition, startPosition + rows - 1);
+        this.range = range;
     }
 
     @Override
@@ -53,24 +50,38 @@ public class UncompressedValueBlock
     @Override
     public ValueBlock filter(PositionBlock positions)
     {
-        List<Long> indexes = new ArrayList<>();
+        // find selected positions
+        Set<Integer> indexes = new HashSet<>();
         for (long position : positions.getPositions()) {
             if (range.contains(position)) {
-                indexes.add(position - range.lowerEndpoint());
+                indexes.add((int) (position - range.lowerEndpoint()));
             }
         }
+
+        // if no positions are selected, we are done
         if (indexes.isEmpty()) {
-            return new EmptyValueBlock();
+            return EmptyValueBlock.INSTANCE;
         }
 
-        Slice newSlice = Slices.allocate(indexes.size() * tupleInfo.size());
-        SliceOutput sliceOutput = newSlice.output();
-        for (long index : indexes) {
-            sliceOutput.writeBytes(slice, (int) (index * tupleInfo.size()), tupleInfo.size());
+
+        // build a buffer containing only the tuples from the selected positions
+        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
+
+        int currentOffset = 0;
+        for (int index = 0; index < getCount(); ++index) {
+            Slice currentPositionToEnd = slice.slice(currentOffset, slice.length() - currentOffset);
+            int size = tupleInfo.size(currentPositionToEnd);
+
+            // only write selected tuples
+            if (indexes.contains(index)) {
+                sliceOutput.writeBytes(slice, currentOffset, size);
+            }
+
+            currentOffset += size;
         }
 
         // todo what is the start position
-        return new UncompressedValueBlock(0, tupleInfo, newSlice);
+        return new UncompressedValueBlock(Ranges.closed(0L, (long) indexes.size() - 1), tupleInfo, sliceOutput.slice());
     }
 
     @Override
@@ -78,6 +89,7 @@ public class UncompressedValueBlock
     {
         return new AbstractIterator<Tuple>()
         {
+            private int currentOffset = 0;
             private long index = 0;
 
             @Override
@@ -87,8 +99,14 @@ public class UncompressedValueBlock
                     endOfData();
                     return null;
                 }
-                Slice row = slice.slice((int) (index * tupleInfo.size()), tupleInfo.size());
+
+                Slice currentPositionToEnd = slice.slice(currentOffset, slice.length() - currentOffset);
+
+                int size = tupleInfo.size(currentPositionToEnd);
                 index++;
+                currentOffset += size;
+
+                Slice row = currentPositionToEnd.slice(0, size);
                 return new Tuple(row, tupleInfo);
             }
         };
@@ -99,6 +117,7 @@ public class UncompressedValueBlock
     {
         return Iterators.peekingIterator(new AbstractIterator<Pair>()
         {
+            private int currentOffset = 0;
             private long index = 0;
 
             @Override
@@ -108,7 +127,14 @@ public class UncompressedValueBlock
                     endOfData();
                     return null;
                 }
-                Slice row = slice.slice((int) (index * tupleInfo.size()), tupleInfo.size());
+
+                Slice currentPositionToEnd = slice.slice(currentOffset, slice.length() - currentOffset);
+
+                int size = tupleInfo.size(currentPositionToEnd);
+                currentOffset += size;
+
+                Slice row = currentPositionToEnd.slice(0, size);
+
                 long position = index + range.lowerEndpoint();
                 index++;
                 return new Pair(position, new Tuple(row, tupleInfo));

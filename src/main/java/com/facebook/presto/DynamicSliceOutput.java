@@ -202,6 +202,41 @@ public class DynamicSliceOutput extends SliceOutput
     }
 
     @Override
+    public DynamicSliceOutput appendLong(long value)
+    {
+        writeLong(value);
+        return this;
+    }
+
+    @Override
+    public DynamicSliceOutput appendShort(int value)
+    {
+        writeShort(value);
+        return this;
+    }
+
+    @Override
+    public DynamicSliceOutput appendBytes(byte[] source, int sourceIndex, int length)
+    {
+        write(source, sourceIndex, length);
+        return this;
+    }
+
+    @Override
+    public DynamicSliceOutput appendBytes(byte[] source)
+    {
+        writeBytes(source);
+        return this;
+    }
+
+    @Override
+    public DynamicSliceOutput appendBytes(Slice slice)
+    {
+        writeBytes(slice);
+        return this;
+    }
+
+    @Override
     public Slice slice()
     {
         return slice.slice(0, size);

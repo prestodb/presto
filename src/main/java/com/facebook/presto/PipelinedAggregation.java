@@ -56,7 +56,7 @@ public class PipelinedAggregation
         while (!builder.isFull() && groupBySource.hasNext());
 
         // build an output block
-        UncompressedValueBlock block = builder.build();
+        ValueBlock block = builder.build();
         position += block.getCount();
         return block;
     }

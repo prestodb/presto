@@ -191,6 +191,41 @@ public class BasicSliceOutput extends SliceOutput
     }
 
     @Override
+    public BasicSliceOutput appendLong(long value)
+    {
+        writeLong(value);
+        return this;
+    }
+
+    @Override
+    public BasicSliceOutput appendShort(int value)
+    {
+        writeShort(value);
+        return this;
+    }
+
+    @Override
+    public BasicSliceOutput appendBytes(byte[] source, int sourceIndex, int length)
+    {
+        write(source, sourceIndex, length);
+        return this;
+    }
+
+    @Override
+    public BasicSliceOutput appendBytes(byte[] source)
+    {
+        writeBytes(source);
+        return this;
+    }
+
+    @Override
+    public BasicSliceOutput appendBytes(Slice slice)
+    {
+        writeBytes(slice);
+        return this;
+    }
+
+    @Override
     public Slice slice()
     {
         return slice.slice(0, size);
