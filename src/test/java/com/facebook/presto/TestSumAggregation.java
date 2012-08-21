@@ -61,12 +61,11 @@ public class TestSumAggregation
     private Tuple createTuple(String key, long count)
     {
         byte[] bytes = key.getBytes(Charsets.UTF_8);
-        Slice slice = Slices.allocate(SIZE_OF_LONG + SIZE_OF_SHORT + SIZE_OF_SHORT + bytes.length);
+        Slice slice = Slices.allocate(SIZE_OF_LONG + SIZE_OF_SHORT + bytes.length);
 
         slice.output()
                 .appendLong(count)
-                .appendShort(12)
-                .appendShort(12 + bytes.length)
+                .appendShort(10 + bytes.length)
                 .appendBytes(bytes);
 
         return new Tuple(slice, new TupleInfo(VARIABLE_BINARY, FIXED_INT_64));
