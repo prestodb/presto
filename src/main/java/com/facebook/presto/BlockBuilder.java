@@ -5,12 +5,8 @@ import com.google.common.collect.Ranges;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
-import static com.google.common.base.Preconditions.*;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class BlockBuilder
 {
@@ -22,10 +18,7 @@ public class BlockBuilder
     private final DynamicSliceOutput sliceOutput;
     private int count;
 
-    private final int fixedPartSize;
-
-    private int currentField;
-    private final List<Slice> variableLengthFields;
+    private TupleInfo.Builder tupleBuilder;
 
     public BlockBuilder(long startPosition, TupleInfo tupleInfo)
     {
@@ -42,23 +35,7 @@ public class BlockBuilder
         maxBlockSize = (int) blockSize.toBytes();
         sliceOutput = new DynamicSliceOutput((int) blockSize.toBytes());
 
-        int fixedPartSize = 0;
-        int variableLengthFieldCount = 0;
-        for (TupleInfo.Type type : tupleInfo.getTypes()) {
-            if (!type.isFixedSize()) {
-                if (variableLengthFieldCount > 0) {
-                    fixedPartSize += SizeOf.SIZE_OF_SHORT;
-                }
-                variableLengthFieldCount++;
-            }
-            else {
-                fixedPartSize += type.getSize();
-            }
-        }
-        fixedPartSize += SizeOf.SIZE_OF_SHORT; // total tuple size
-
-        this.fixedPartSize = fixedPartSize;
-        variableLengthFields = new ArrayList<>(variableLengthFieldCount);
+        tupleBuilder = tupleInfo.builder(sliceOutput);
     }
 
     public boolean isFull()
@@ -70,89 +47,41 @@ public class BlockBuilder
     {
         flushTupleIfNecessary();
 
-        checkState(tupleInfo.getTypes().get(currentField) == FIXED_INT_64, "Expected FIXED_INT_64");
-
-        sliceOutput.writeLong(value);
-        currentField++;
+        tupleBuilder.append(value);
     }
 
     public void append(byte[] value)
     {
         flushTupleIfNecessary();
 
-        checkState(tupleInfo.getTypes().get(currentField) == VARIABLE_BINARY, "Expected VARIABLE_BINARY");
-
-        variableLengthFields.add(Slices.wrappedBuffer(value));
-        currentField++;
+        tupleBuilder.append(Slices.wrappedBuffer(value));
     }
 
     public void append(Slice value)
     {
         flushTupleIfNecessary();
 
-        checkState(tupleInfo.getTypes().get(currentField) == VARIABLE_BINARY, "Expected VARIABLE_BINARY");
-
-        variableLengthFields.add(value);
-        currentField++;
+        tupleBuilder.append(value);
     }
 
     public void append(Tuple tuple)
     {
-        // TODO: optimization - single copy of block of fixed length fields
+        flushTupleIfNecessary();
 
-        int index = 0;
-        for (TupleInfo.Type type : tuple.getTupleInfo().getTypes()) {
-            switch (type) {
-                case FIXED_INT_64:
-                    append(tuple.getLong(index));
-                    break;
-                case VARIABLE_BINARY:
-                    append(tuple.getSlice(index));
-                    break;
-                default:
-                    throw new IllegalStateException("Type not yet supported: " + type);
-            }
-
-            index++;
-        }
+        tupleBuilder.append(tuple);
     }
 
     private void flushTupleIfNecessary()
     {
-        if (currentField < tupleInfo.getTypes().size()) {
-            return;
+        if (tupleBuilder.isComplete()) {
+            tupleBuilder.finish();
+            count++;
         }
-
-        // write offsets
-        boolean isFirst = true;
-        int offset = fixedPartSize;
-        for (Slice field : variableLengthFields) {
-            if (!isFirst) {
-                sliceOutput.writeShort(offset);
-            }
-            offset += field.length();
-            isFirst = false;
-        }
-
-        if (!variableLengthFields.isEmpty()) {
-            sliceOutput.writeShort(offset); // total tuple length
-        }
-
-        // write values
-        for (Slice field : variableLengthFields) {
-            sliceOutput.writeBytes(field);
-        }
-
-        count++;
-        currentField = 0;
-        variableLengthFields.clear();
     }
 
     public ValueBlock build()
     {
         flushTupleIfNecessary();
-
-        Preconditions.checkState(currentField == 0, "Last tuple is incomplete");
 
         if (count == 0) {
             return EmptyValueBlock.INSTANCE;

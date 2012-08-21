@@ -4,6 +4,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
@@ -37,14 +38,18 @@ public class TupleInfo
         {
             return size != -1;
         }
+
     }
 
     private final int size;
+
     private final List<Type> types;
     private final List<Integer> offsets;
     private final int firstVariableLengthField;
     private final int secondVariableLengthField;
     private final int fixedSizePart;
+    private final int variableLengthFieldCount;
+    private final int variablePartOffset;
 
     public TupleInfo(Type... types)
     {
@@ -77,11 +82,13 @@ public class TupleInfo
         int firstVariableLengthField = -1;
         int secondVariableLengthField = -1;
 
+        int variableLengthFieldCount = 0;
         // process variable length fields
         for (int i = 0; i < types.size(); i++) {
             Type type = types.get(i);
 
             if (!type.isFixedSize()) {
+                ++variableLengthFieldCount;
                 offsets[i] = currentOffset;
                 if (hasVariableLengthFields) {
                     currentOffset += SIZE_OF_SHORT; // we use a short to encode the offset of a var length field
@@ -115,13 +122,39 @@ public class TupleInfo
 
         this.firstVariableLengthField = firstVariableLengthField;
         this.secondVariableLengthField = secondVariableLengthField;
+        this.variableLengthFieldCount = variableLengthFieldCount;
 
         this.offsets = ImmutableList.copyOf(Ints.asList(offsets));
+
+
+        // compute offset of variable sized part
+        int variablePartOffset = 0;
+        boolean isFirst = true;
+        for (TupleInfo.Type type : getTypes()) {
+            if (!type.isFixedSize()) {
+                if (!isFirst) { // skip offset field for first variable length field
+                    variablePartOffset += SizeOf.SIZE_OF_SHORT;
+                }
+
+                isFirst = false;
+            }
+            else {
+                variablePartOffset += type.getSize();
+            }
+        }
+        variablePartOffset += SizeOf.SIZE_OF_SHORT; // total tuple size field
+
+        this.variablePartOffset = variablePartOffset;
     }
 
     public List<Type> getTypes()
     {
         return types;
+    }
+
+    public int getFieldCount()
+    {
+        return types.size();
     }
 
     public int size(Slice slice)
@@ -167,6 +200,16 @@ public class TupleInfo
         return offsets.get(index);
     }
 
+    public Builder builder(SliceOutput sliceOutput)
+    {
+        return new Builder(sliceOutput);
+    }
+
+    public Builder builder()
+    {
+        return new Builder(new DynamicSliceOutput(0));
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -204,4 +247,100 @@ public class TupleInfo
                 ", fixedSizePart=" + fixedSizePart +
                 '}';
     }
+
+
+    public class Builder
+    {
+        private final SliceOutput sliceOutput;
+        private final List<Slice> variableLengthFields;
+
+        private int currentField;
+
+        public Builder(SliceOutput sliceOutput)
+        {
+            this.sliceOutput = sliceOutput;
+            this.variableLengthFields = new ArrayList<>(variableLengthFieldCount);
+        }
+
+        public Builder append(long value)
+        {
+            checkState(TupleInfo.this.getTypes().get(currentField) == FIXED_INT_64, "Cannot append long. Current field (%s) is of type %s", currentField, TupleInfo.this.getTypes().get(currentField));
+
+            sliceOutput.writeLong(value);
+            currentField++;
+
+            return this;
+        }
+
+        public Builder append(Slice value)
+        {
+            checkState(TupleInfo.this.getTypes().get(currentField) == VARIABLE_BINARY, "Cannot append binary. Current field (%s) is of type %s", currentField, TupleInfo.this.getTypes().get(currentField));
+
+            variableLengthFields.add(value);
+            currentField++;
+
+            return this;
+        }
+
+        public void append(Tuple tuple)
+        {
+            // TODO: optimization - single copy of block of fixed length fields
+
+            int index = 0;
+            for (TupleInfo.Type type : tuple.getTupleInfo().getTypes()) {
+                switch (type) {
+                    case FIXED_INT_64:
+                        append(tuple.getLong(index));
+                        break;
+                    case VARIABLE_BINARY:
+                        append(tuple.getSlice(index));
+                        break;
+                    default:
+                        throw new IllegalStateException("Type not yet supported: " + type);
+                }
+
+                index++;
+            }
+        }
+
+        public boolean isComplete()
+        {
+            return currentField == types.size();
+        }
+
+        public void finish()
+        {
+            Preconditions.checkState(currentField == types.size(), "Tuple is incomplete");
+
+            // write offsets
+            boolean isFirst = true;
+            int offset = variablePartOffset;
+            for (Slice field : variableLengthFields) {
+                if (!isFirst) {
+                    sliceOutput.writeShort(offset);
+                }
+                offset += field.length();
+                isFirst = false;
+            }
+
+            if (!variableLengthFields.isEmpty()) {
+                sliceOutput.writeShort(offset); // total tuple length
+            }
+
+            // write values
+            for (Slice field : variableLengthFields) {
+                sliceOutput.writeBytes(field);
+            }
+
+            currentField = 0;
+            variableLengthFields.clear();
+        }
+
+        public Tuple build()
+        {
+            finish();
+            return new Tuple(sliceOutput.slice(), TupleInfo.this);
+        }
+    }
+
 }
