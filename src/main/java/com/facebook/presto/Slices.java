@@ -48,16 +48,29 @@ public final class Slices
     /**
      * A buffer whose capacity is {@code 0}.
      */
-    public static final Slice EMPTY_SLICE = new Slice(0);
+    public static final ByteArraySlice EMPTY_SLICE = new ByteArraySlice(0);
 
     private Slices()
     {
     }
 
-    public static Slice ensureSize(Slice existingSlice, int minWritableBytes)
+    public static ByteArraySlice ensureSize(Slice existingSlice, int minWritableBytes)
     {
         if (existingSlice == null) {
-            existingSlice = EMPTY_SLICE;
+            return EMPTY_SLICE;
+        }
+
+        if (existingSlice instanceof ByteArraySlice) {
+            return ensureSize((ByteArraySlice) existingSlice, minWritableBytes);
+        }
+
+        return ensureSize(new ByteArraySlice(existingSlice.getBytes()), minWritableBytes);
+    }
+
+    public static ByteArraySlice ensureSize(ByteArraySlice existingSlice, int minWritableBytes)
+    {
+        if (existingSlice == null) {
+            return EMPTY_SLICE;
         }
 
         if (minWritableBytes <= existingSlice.length()) {
@@ -76,32 +89,36 @@ public final class Slices
             newCapacity <<= 1;
         }
 
-        Slice newSlice = Slices.allocate(newCapacity);
+        ByteArraySlice newSlice = Slices.allocate(newCapacity);
         newSlice.setBytes(0, existingSlice, 0, existingSlice.length());
         return newSlice;
     }
 
-    public static Slice allocate(int capacity)
+    public static ByteArraySlice allocate(int capacity)
     {
         if (capacity == 0) {
             return EMPTY_SLICE;
         }
-        return new Slice(capacity);
+        return new ByteArraySlice(capacity);
     }
 
-    public static Slice wrappedBuffer(byte[] array)
+    public static ByteArraySlice wrappedBuffer(byte[] array)
     {
         if (array.length == 0) {
             return EMPTY_SLICE;
         }
-        return new Slice(array);
+        return new ByteArraySlice(array);
     }
 
     public static Slice copiedBuffer(ByteBuffer source, int sourceOffset, int length)
     {
         Preconditions.checkNotNull(source, "source is null");
         int newPosition = source.position() + sourceOffset;
-        return copiedBuffer((ByteBuffer) source.duplicate().order(ByteOrder.LITTLE_ENDIAN).clear().limit(newPosition + length).position(newPosition));
+        return copiedBuffer((ByteBuffer) source.duplicate()
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .clear()
+                .limit(newPosition + length)
+                .position(newPosition));
     }
 
     public static Slice copiedBuffer(ByteBuffer source)
@@ -235,7 +252,6 @@ public final class Slices
         return e;
     }
 
-
     /**
      * Returns a cached thread-local {@link CharsetDecoder} for the specified
      * <tt>charset</tt>.
@@ -261,5 +277,4 @@ public final class Slices
         map.put(charset, d);
         return d;
     }
-
 }
