@@ -1,1 +1,1 @@
-Skeleton server with no resources.
+Presto, an interactive data warehouse query system
