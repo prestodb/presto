@@ -29,7 +29,7 @@ public class DynamicSliceOutput extends SliceOutput
 
     public DynamicSliceOutput(int estimatedSize)
     {
-        this.slice = new Slice(estimatedSize);
+        this.slice = new ByteArraySlice(estimatedSize);
     }
 
     @Override
