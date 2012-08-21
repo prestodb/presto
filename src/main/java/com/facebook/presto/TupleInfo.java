@@ -47,7 +47,6 @@ public class TupleInfo
     private final List<Integer> offsets;
     private final int firstVariableLengthField;
     private final int secondVariableLengthField;
-    private final int fixedSizePart;
     private final int variableLengthFieldCount;
     private final int variablePartOffset;
 
@@ -118,14 +117,11 @@ public class TupleInfo
             size = currentOffset;
         }
 
-        fixedSizePart = currentOffset + SIZE_OF_SHORT; // 2 bytes for the length field
-
         this.firstVariableLengthField = firstVariableLengthField;
         this.secondVariableLengthField = secondVariableLengthField;
         this.variableLengthFieldCount = variableLengthFieldCount;
 
         this.offsets = ImmutableList.copyOf(Ints.asList(offsets));
-
 
         // compute offset of variable sized part
         int variablePartOffset = 0;
@@ -182,7 +178,7 @@ public class TupleInfo
         int start;
         int end;
         if (index == firstVariableLengthField) {
-            start = fixedSizePart;
+            start = variablePartOffset;
             end = slice.getShort(getOffset(secondVariableLengthField));
         }
         else {
@@ -244,10 +240,10 @@ public class TupleInfo
                 ", offsets=" + offsets +
                 ", firstVariableLengthField=" + firstVariableLengthField +
                 ", secondVariableLengthField=" + secondVariableLengthField +
-                ", fixedSizePart=" + fixedSizePart +
+                ", variableLengthFieldCount=" + variableLengthFieldCount +
+                ", variablePartOffset=" + variablePartOffset +
                 '}';
     }
-
 
     public class Builder
     {
