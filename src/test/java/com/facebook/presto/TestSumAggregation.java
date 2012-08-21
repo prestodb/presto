@@ -58,19 +58,6 @@ public class TestSumAggregation
         Assert.assertEquals(actual, expected);
     }
 
-    private Tuple createTuple(String key, long count)
-    {
-        byte[] bytes = key.getBytes(Charsets.UTF_8);
-        Slice slice = Slices.allocate(SIZE_OF_LONG + SIZE_OF_SHORT + bytes.length);
-
-        slice.output()
-                .appendLong(count)
-                .appendShort(10 + bytes.length)
-                .appendBytes(bytes);
-
-        return new Tuple(slice, new TupleInfo(VARIABLE_BINARY, FIXED_INT_64));
-    }
-
     @Test
     public void testHashAggregation()
     {
@@ -156,5 +143,16 @@ public class TestSumAggregation
         }
 
         return builder.build();
+    }
+
+    private Tuple createTuple(String key, long count)
+    {
+        TupleInfo tupleInfo = new TupleInfo(VARIABLE_BINARY, FIXED_INT_64);
+        Tuple tuple = tupleInfo.builder()
+                .append(Slices.wrappedBuffer(key.getBytes(UTF_8)))
+                .append(count)
+                .build();
+
+        return tuple;
     }
 }
