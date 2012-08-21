@@ -12,6 +12,12 @@ import java.util.Iterator;
 public class EmptyValueBlock
         implements ValueBlock
 {
+    public final static EmptyValueBlock INSTANCE = new EmptyValueBlock();
+
+    private EmptyValueBlock()
+    {
+    }
+
     @Override
     public PositionBlock selectPositions(Predicate<Tuple> predicate)
     {

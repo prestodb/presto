@@ -10,13 +10,15 @@ public class SumAggregation
     @Override
     public TupleInfo getTupleInfo()
     {
-        return new TupleInfo(SIZE_OF_LONG);
+        return new TupleInfo(TupleInfo.Type.FIXED_INT_64);
     }
 
     @Override
     public void add(ValueBlock values, PositionBlock relevantPositions)
     {
-        for (Tuple value : values.filter(relevantPositions)) {
+        ValueBlock filtered = values.filter(relevantPositions);
+
+        for (Tuple value : filtered) {
             sum += value.getLong(0);
         }
     }
