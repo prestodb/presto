@@ -5,8 +5,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.channels.GatheringByteChannel;
-import java.nio.channels.ScatteringByteChannel;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.WritableByteChannel;
 import java.nio.charset.Charset;
 
 /**
@@ -144,7 +144,7 @@ public interface Slice
      * {@code this.length()}
      * @throws java.io.IOException if the specified channel threw an exception during I/O
      */
-    int getBytes(int index, GatheringByteChannel out, int length)
+    int getBytes(int index, WritableByteChannel out, int length)
             throws IOException;
 
     /**
@@ -247,7 +247,7 @@ public interface Slice
      * if {@code index + length} is greater than {@code this.length()}
      * @throws java.io.IOException if the specified channel threw an exception during I/O
      */
-    int setBytes(int index, ScatteringByteChannel in, int length)
+    int setBytes(int index, ReadableByteChannel in, int length)
             throws IOException;
 
     int setBytes(int index, FileChannel in, int position, int length)

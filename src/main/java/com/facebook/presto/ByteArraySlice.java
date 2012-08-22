@@ -23,8 +23,8 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
-import java.nio.channels.GatheringByteChannel;
-import java.nio.channels.ScatteringByteChannel;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.WritableByteChannel;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 
@@ -191,7 +191,7 @@ public final class ByteArraySlice
     }
 
     @Override
-    public int getBytes(int index, GatheringByteChannel out, int length)
+    public int getBytes(int index, WritableByteChannel out, int length)
             throws IOException
     {
         Preconditions.checkPositionIndexes(index, index + length, this.length);
@@ -297,7 +297,7 @@ public final class ByteArraySlice
     }
 
     @Override
-    public int setBytes(int index, ScatteringByteChannel in, int length)
+    public int setBytes(int index, ReadableByteChannel in, int length)
             throws IOException
     {
         Preconditions.checkPositionIndexes(index, index + length, this.length);
