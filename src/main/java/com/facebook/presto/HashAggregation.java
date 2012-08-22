@@ -23,7 +23,8 @@ public class HashAggregation
     private long position;
     private final TupleInfo tupleInfo;
 
-    public HashAggregation(TupleInfo tupleInfo, Iterator<RunLengthEncodedBlock> keySource,
+    public HashAggregation(TupleInfo outputTupleInfo,
+            Iterator<RunLengthEncodedBlock> keySource,
             SeekableIterator<ValueBlock> valueSource,
             Provider<AggregationFunction> functionProvider)
     {
@@ -31,7 +32,7 @@ public class HashAggregation
         this.aggregationSource = valueSource;
 
         this.functionProvider = functionProvider;
-        this.tupleInfo = tupleInfo;
+        this.tupleInfo = outputTupleInfo;
     }
 
     @Override
