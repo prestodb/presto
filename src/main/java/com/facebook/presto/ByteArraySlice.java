@@ -15,7 +15,9 @@
  */
 package com.facebook.presto;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.primitives.UnsignedBytes;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,10 +30,12 @@ import java.nio.channels.WritableByteChannel;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 
+import static com.facebook.presto.ByteBufferSlice.compareByteBuffers;
 import static com.facebook.presto.SizeOf.SIZE_OF_BYTE;
 import static com.facebook.presto.SizeOf.SIZE_OF_INT;
 import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
 import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
+import static java.lang.Math.min;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
 /**
@@ -178,7 +182,7 @@ public final class ByteArraySlice
     {
         Preconditions.checkPositionIndex(index, this.length);
         index += offset;
-        destination.put(data, index, Math.min(length, destination.remaining()));
+        destination.put(data, index, min(length, destination.remaining()));
     }
 
     @Override
@@ -438,28 +442,28 @@ public final class ByteArraySlice
     @Override
     public int compareTo(Slice that)
     {
+        if (this == that) {
+            return 0;
+        }
         if (that instanceof ByteArraySlice) {
             return compareTo((ByteArraySlice) that);
         }
-        // TODO: this is slow
-        return compareTo(new ByteArraySlice(that.getBytes()));
+        return compareByteBuffers(toByteBuffer(), that.toByteBuffer());
     }
 
     private int compareTo(ByteArraySlice that)
     {
-        if (this == that) {
-            return 0;
-        }
-        if (this.data == that.data && length == that.length && offset == that.offset) {
+        if ((this.data == that.data) && (length == that.length) && (offset == that.offset)) {
             return 0;
         }
 
-        int minLength = Math.min(this.length, that.length);
-        for (int i = 0; i < minLength; i++) {
-            int thisByte = 0xFF & this.data[this.offset + i];
-            int thatByte = 0xFF & that.data[that.offset + i];
-            if (thisByte != thatByte) {
-                return (thisByte) - (thatByte);
+        int length = min(this.length, that.length);
+        for (int i = 0; i < length; i++) {
+            byte a = this.data[this.offset + i];
+            byte b = that.data[this.offset + i];
+            int v = UnsignedBytes.compare(a, b);
+            if (v != 0) {
+                return v;
             }
         }
         return this.length - that.length;
@@ -479,10 +483,12 @@ public final class ByteArraySlice
             return equals((ByteArraySlice) o);
         }
 
-        // TODO: this is slow
         Slice slice = (Slice) o;
-        return (length == slice.length()) &&
-                Arrays.equals(getBytes(), slice.getBytes());
+        if (length == slice.length()) {
+            return true;
+        }
+
+        return toByteBuffer().equals(slice.toByteBuffer());
     }
 
     private boolean equals(ByteArraySlice slice)
@@ -527,6 +533,8 @@ public final class ByteArraySlice
     @Override
     public String toString()
     {
-        return getClass().getSimpleName() + '(' + "length=" + length() + ')';
+        return Objects.toStringHelper(this)
+                .add("length", length())
+                .toString();
     }
 }
