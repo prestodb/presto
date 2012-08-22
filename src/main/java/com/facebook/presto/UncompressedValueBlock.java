@@ -7,11 +7,8 @@ import com.google.common.collect.DiscreteDomains;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.Range;
-import com.google.common.collect.Ranges;
 
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Set;
 
 public class UncompressedValueBlock
         implements ValueBlock
@@ -44,44 +41,19 @@ public class UncompressedValueBlock
         return null;
     }
 
+    @Override
+    public PositionBlock toPositionBlock()
+    {
+        return new RangePositionBlock(range);
+    }
+
     /**
      * Build a new block with only the selected value positions
      */
     @Override
     public ValueBlock filter(PositionBlock positions)
     {
-        // find selected positions
-        Set<Integer> indexes = new HashSet<>();
-        for (long position : positions.getPositions()) {
-            if (range.contains(position)) {
-                indexes.add((int) (position - range.lowerEndpoint()));
-            }
-        }
-
-        // if no positions are selected, we are done
-        if (indexes.isEmpty()) {
-            return EmptyValueBlock.INSTANCE;
-        }
-
-
-        // build a buffer containing only the tuples from the selected positions
-        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-
-        int currentOffset = 0;
-        for (int index = 0; index < getCount(); ++index) {
-            Slice currentPositionToEnd = slice.slice(currentOffset, slice.length() - currentOffset);
-            int size = tupleInfo.size(currentPositionToEnd);
-
-            // only write selected tuples
-            if (indexes.contains(index)) {
-                sliceOutput.writeBytes(slice, currentOffset, size);
-            }
-
-            currentOffset += size;
-        }
-
-        // todo what is the start position
-        return new UncompressedValueBlock(Ranges.closed(0L, (long) indexes.size() - 1), tupleInfo, sliceOutput.slice());
+        return MaskedValueBlock.maskBlock(this, positions);
     }
 
     @Override
@@ -169,7 +141,7 @@ public class UncompressedValueBlock
     @Override
     public boolean isPositionsContiguous()
     {
-        return false;
+        return true;
     }
 
     @Override

@@ -2,6 +2,7 @@ package com.facebook.presto;
 
 import com.google.common.base.Function;
 import com.google.common.collect.DiscreteDomains;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 
 import javax.annotation.Nullable;
@@ -14,6 +15,33 @@ public class RangePositionBlock
     public RangePositionBlock(Range<Long> range)
     {
         this.range = range;
+    }
+
+    @Override
+    public PositionBlock filter(PositionBlock positionBlock) {
+        if (positionBlock.isEmpty()) {
+            return positionBlock;
+        }
+
+        if (positionBlock.isPositionsContiguous()) {
+            Range<Long> intersection = range.intersection(positionBlock.getRange());
+            if (intersection.isEmpty()) {
+                return EmptyPositionBlock.INSTANCE;
+            }
+            return new RangePositionBlock(intersection);
+        }
+
+        ImmutableList.Builder<Long> builder = ImmutableList.builder();
+        // todo optimize when bit vector position is added
+        for (Long position : positionBlock.getPositions()) {
+            if (this.apply(position)) {
+                builder.add(position);
+            }
+        }
+        if (positionBlock.isEmpty()) {
+            return EmptyPositionBlock.INSTANCE;
+        }
+        return new UncompressedPositionBlock(builder.build());
     }
 
     @Override

@@ -9,7 +9,7 @@ import com.google.common.collect.Ranges;
 
 import java.util.Iterator;
 
-public class EmptyValueBlock
+public final class EmptyValueBlock
         implements ValueBlock
 {
     public final static EmptyValueBlock INSTANCE = new EmptyValueBlock();
@@ -21,13 +21,19 @@ public class EmptyValueBlock
     @Override
     public PositionBlock selectPositions(Predicate<Tuple> predicate)
     {
-        return new EmptyPositionBlock();
+        return EmptyPositionBlock.INSTANCE;
     }
 
     @Override
     public ValueBlock selectPairs(Predicate<Tuple> predicate)
     {
         return this;
+    }
+
+    @Override
+    public PositionBlock toPositionBlock()
+    {
+        return EmptyPositionBlock.INSTANCE;
     }
 
     @Override

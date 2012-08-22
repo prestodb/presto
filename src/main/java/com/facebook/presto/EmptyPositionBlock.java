@@ -6,9 +6,19 @@ import com.google.common.collect.Ranges;
 
 import javax.annotation.Nullable;
 
-public class EmptyPositionBlock
+public final class EmptyPositionBlock
     implements PositionBlock
 {
+    public static final EmptyPositionBlock INSTANCE = new EmptyPositionBlock();
+
+    private EmptyPositionBlock()
+    {
+    }
+
+    public PositionBlock filter(PositionBlock positionBlock) {
+        return this;
+    }
+
     @Override
     public boolean isEmpty()
     {
