@@ -266,16 +266,8 @@ public interface Slice
     Slice copySlice(int index, int length);
 
     /**
-     * Returns a slice of this buffer's readable bytes. Modifying the content
-     * of the returned buffer or this buffer affects each other's content
-     * while they maintain separate indexes and marks.
-     */
-    Slice slice();
-
-    /**
      * Returns a slice of this buffer's sub-region. Modifying the content of
-     * the returned buffer or this buffer affects each other's content while
-     * they maintain separate indexes and marks.
+     * the returned buffer or this buffer affects each other's content.
      */
     Slice slice(int index, int length);
 

@@ -381,12 +381,6 @@ public final class ByteArraySlice
     }
 
     @Override
-    public Slice slice()
-    {
-        return slice(0, length);
-    }
-
-    @Override
     public ByteArraySlice slice(int index, int length)
     {
         if (index == 0 && length == this.length) {
