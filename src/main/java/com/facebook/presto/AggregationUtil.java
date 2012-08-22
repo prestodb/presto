@@ -1,5 +1,6 @@
 package com.facebook.presto;
 
+import com.facebook.presto.aggregations.AggregationFunction;
 import com.google.common.base.Preconditions;
 
 
