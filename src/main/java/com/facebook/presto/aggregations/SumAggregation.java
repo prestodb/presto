@@ -1,4 +1,9 @@
-package com.facebook.presto;
+package com.facebook.presto.aggregations;
+
+import com.facebook.presto.PositionBlock;
+import com.facebook.presto.Tuple;
+import com.facebook.presto.TupleInfo;
+import com.facebook.presto.ValueBlock;
 
 public class SumAggregation
         implements AggregationFunction
