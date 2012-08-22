@@ -1,5 +1,7 @@
 package com.facebook.presto;
 
+import com.facebook.presto.aggregations.AggregationFunction;
+import com.facebook.presto.aggregations.SumAggregation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.PeekingIterator;
