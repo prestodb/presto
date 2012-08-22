@@ -1,17 +1,12 @@
 package com.facebook.presto;
 
-import com.google.common.base.Objects;
-import com.google.common.primitives.UnsignedBytes;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
-import java.nio.charset.Charset;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_BYTE;
 import static com.facebook.presto.SizeOf.SIZE_OF_INT;
@@ -25,7 +20,7 @@ import static java.nio.ByteOrder.LITTLE_ENDIAN;
  * Little Endian slice of a {@link ByteBuffer}.
  */
 public final class ByteBufferSlice
-        implements Slice
+        extends AbstractSlice
 {
     private final ByteBuffer buffer;
 
@@ -91,12 +86,6 @@ public final class ByteBufferSlice
     }
 
     @Override
-    public byte[] getBytes()
-    {
-        return getBytes(0, length());
-    }
-
-    @Override
     public byte[] getBytes(int index, int length)
     {
         byte[] bytes = new byte[length];
@@ -120,13 +109,18 @@ public final class ByteBufferSlice
             out.write(buffer.array(), buffer.arrayOffset() + index, length);
         }
         else {
-            byte[] bytes = new byte[4096];
-            ByteBuffer src = toByteBuffer(index, length);
-            while (src.remaining() > 0) {
-                int count = min(src.remaining(), bytes.length);
-                src.get(bytes, 0, count);
-                out.write(bytes, 0, count);
-            }
+            writeBuffer(toByteBuffer(index, length), out);
+        }
+    }
+
+    private static void writeBuffer(ByteBuffer source, OutputStream out)
+            throws IOException
+    {
+        byte[] bytes = new byte[4096];
+        while (source.remaining() > 0) {
+            int count = min(source.remaining(), bytes.length);
+            source.get(bytes, 0, count);
+            out.write(bytes, 0, count);
         }
     }
 
@@ -225,17 +219,6 @@ public final class ByteBufferSlice
         return dst.position();
     }
 
-    private static int channelRead(ReadableByteChannel in, ByteBuffer dst)
-            throws IOException
-    {
-        try {
-            return in.read(dst);
-        }
-        catch (ClosedChannelException e) {
-            return -1;
-        }
-    }
-
     @Override
     public int setBytes(int index, FileChannel in, int position, int length)
             throws IOException
@@ -254,23 +237,6 @@ public final class ByteBufferSlice
             }
         }
         return dst.position();
-    }
-
-    private static int channelRead(FileChannel in, ByteBuffer dst, int position)
-            throws IOException
-    {
-        try {
-            return in.read(dst, position);
-        }
-        catch (ClosedChannelException e) {
-            return -1;
-        }
-    }
-
-    @Override
-    public Slice copySlice()
-    {
-        return copySlice(0, length());
     }
 
     @Override
@@ -304,24 +270,6 @@ public final class ByteBufferSlice
     }
 
     @Override
-    public SliceInput input()
-    {
-        return new SliceInput(this);
-    }
-
-    @Override
-    public SliceOutput output()
-    {
-        return new BasicSliceOutput(this);
-    }
-
-    @Override
-    public ByteBuffer toByteBuffer()
-    {
-        return toByteBuffer(0, length());
-    }
-
-    @Override
     public ByteBuffer toByteBuffer(int index, int length)
     {
         checkIndexLength(index, length);
@@ -332,39 +280,12 @@ public final class ByteBufferSlice
     }
 
     @Override
-    public String toString(Charset charset)
-    {
-        return toString(0, length(), charset);
-    }
-
-    @Override
-    public String toString(int index, int length, Charset charset)
-    {
-        if (length == 0) {
-            return "";
-        }
-        return Slices.decodeString(toByteBuffer(index, length), charset);
-    }
-
-    @Override
     public int compareTo(Slice that)
     {
         if (this == that) {
             return 0;
         }
         return compareByteBuffers(toByteBuffer(), that.toByteBuffer());
-    }
-
-    static int compareByteBuffers(ByteBuffer a, ByteBuffer b)
-    {
-        int length = min(a.capacity(), b.capacity());
-        for (int i = 0; i < length; i++) {
-            int v = UnsignedBytes.compare(a.get(i), b.get(i));
-            if (v != 0) {
-                return v;
-            }
-        }
-        return a.capacity() - b.capacity();
     }
 
     @Override
@@ -403,18 +324,5 @@ public final class ByteBufferSlice
 
         hash = result;
         return hash;
-    }
-
-    @Override
-    public String toString()
-    {
-        return Objects.toStringHelper(this)
-                .add("length", length())
-                .toString();
-    }
-
-    private void checkIndexLength(int index, int length)
-    {
-        checkPositionIndexes(index, index + length, length());
     }
 }
