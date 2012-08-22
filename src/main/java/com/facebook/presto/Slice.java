@@ -291,13 +291,15 @@ public interface Slice
 
     /**
      * Converts this buffer's readable bytes into a NIO buffer.  The returned
-     * buffer shares the content with this buffer.
+     * buffer shares the content with this buffer and is a slice (position
+     * is zero and limit is equal to capacity).
      */
     ByteBuffer toByteBuffer();
 
     /**
      * Converts this buffer's sub-region into a NIO buffer.  The returned
-     * buffer shares the content with this buffer.
+     * buffer shares the content with this buffer and is a slice (position
+     * is zero and limit is equal to capacity).
      */
     ByteBuffer toByteBuffer(int index, int length);
 

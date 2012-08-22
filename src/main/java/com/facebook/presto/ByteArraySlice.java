@@ -250,8 +250,9 @@ public final class ByteArraySlice
             setBytes(index, src.data, src.offset + sourceIndex, length);
         }
         else {
-            // TODO: this is slow
-            setBytes(index, source.getBytes(), sourceIndex, length);
+            ByteBuffer src = source.toByteBuffer(sourceIndex, length);
+            ByteBuffer dst = toByteBuffer(index, length);
+            dst.put(src);
         }
     }
 
@@ -422,7 +423,7 @@ public final class ByteArraySlice
     {
         Preconditions.checkPositionIndexes(index, index + length, this.length);
         index += offset;
-        return ByteBuffer.wrap(data, index, length).order(LITTLE_ENDIAN);
+        return ByteBuffer.wrap(data, index, length).slice().order(LITTLE_ENDIAN);
     }
 
     @Override
