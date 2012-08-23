@@ -28,6 +28,11 @@ public class UncompressedValueBlock
         this.range = range;
     }
 
+    public Slice getSlice()
+    {
+        return slice;
+    }
+
     @Override
     public Optional<PositionBlock> selectPositions(Predicate<Tuple> predicate)
     {
