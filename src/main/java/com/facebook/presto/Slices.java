@@ -18,7 +18,10 @@
 package com.facebook.presto;
 
 import com.google.common.base.Preconditions;
+import com.google.common.io.Files;
 
+import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.CharBuffer;
@@ -33,6 +36,12 @@ import java.util.Map;
 
 public final class Slices
 {
+    public static Slice mapFileReadOnly(File file)
+            throws IOException
+    {
+        return new ByteBufferSlice(Files.map(file));
+    }
+
     public static Slice readLengthPrefixedBytes(SliceInput sliceInput)
     {
         int length = VariableLengthQuantity.readVariableLengthInt(sliceInput);
