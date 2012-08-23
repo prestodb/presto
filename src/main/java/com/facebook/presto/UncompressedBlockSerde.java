@@ -139,4 +139,47 @@ public class UncompressedBlockSerde
             return new UncompressedValueBlock(range, tupleInfo, block);
         }
     }
+
+    public static class UncompressedColumnWriter implements ColumnProcessor
+    {
+        private final OutputSupplier<? extends OutputStream> outputSupplier;
+        private final Type type;
+        private OutputStream out;
+
+        public UncompressedColumnWriter(OutputSupplier<? extends OutputStream> outputSupplier, Type type)
+        {
+            this.outputSupplier = outputSupplier;
+            this.type = type;
+        }
+
+        @Override
+        public Type getColumnType()
+        {
+            return type;
+        }
+
+        @Override
+        public void processBlock(ValueBlock block)
+        {
+            try {
+                if (out == null) {
+                    out = outputSupplier.getOutput();
+                    writeTupleInfo(out, new TupleInfo(type));
+                }
+
+                Slice blockSlice = ((UncompressedValueBlock) block).getSlice();
+                write(out, block.getCount(), blockSlice);
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
+        }
+
+        @Override
+        public void finish()
+        {
+            Closeables.closeQuietly(out);
+            out = null;
+        }
+    }
 }
