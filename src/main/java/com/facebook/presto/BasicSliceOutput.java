@@ -198,6 +198,13 @@ public class BasicSliceOutput extends SliceOutput
     }
 
     @Override
+    public BasicSliceOutput appendInt(int value)
+    {
+        writeInt(value);
+        return this;
+    }
+
+    @Override
     public BasicSliceOutput appendShort(int value)
     {
         writeShort(value);
