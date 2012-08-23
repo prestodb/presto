@@ -267,6 +267,8 @@ public abstract class SliceOutput extends OutputStream implements DataOutput
 
     public abstract SliceOutput appendLong(long value);
 
+    public abstract SliceOutput appendInt(int value);
+
     public abstract SliceOutput appendShort(int value);
 
     public abstract SliceOutput appendBytes(byte[] source, int sourceIndex, int length);
