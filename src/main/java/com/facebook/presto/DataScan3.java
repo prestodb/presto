@@ -23,7 +23,7 @@ public class DataScan3
     protected ValueBlock computeNext()
     {
         while (advance()) {
-            if (valueBlock.getRange().isConnected(positionBlock.getRange())) {
+            if (valueBlock.getRange().overlaps(positionBlock.getRange())) {
                 ValueBlock result = valueBlock.filter(positionBlock);
                 if (!result.isEmpty()) {
                     return result;
@@ -38,7 +38,7 @@ public class DataScan3
     private boolean advance()
     {
         if (valueBlock != null && positionBlock != null) {
-            if (valueBlock.getRange().upperEndpoint() < positionBlock.getRange().upperEndpoint()) {
+            if (valueBlock.getRange().getEnd() < positionBlock.getRange().getEnd()) {
                 valueBlock = null;
             }
             else {

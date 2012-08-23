@@ -4,7 +4,6 @@
 package com.facebook.presto;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ranges;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
@@ -26,7 +25,7 @@ public class TestMaskedValueBlock
         assertFalse(tuples.isEmpty());
         assertEquals(tuples.getCount(), 4);
         assertEquals(ImmutableList.copyOf(tuples.getPositions()), ImmutableList.of(10L, 12L, 14L, 16L));
-        assertEquals(tuples.getRange(), Ranges.closed(10L, 16L));
+        assertEquals(tuples.getRange(), Range.create(10L, 16L));
 
         assertFalse(tuples.isPositionsContiguous());
         assertFalse(tuples.isSingleValue());
@@ -49,13 +48,13 @@ public class TestMaskedValueBlock
     public void testMaskRunLengthEncodedBlock()
             throws Exception
     {
-        ValueBlock valueBlock = new RunLengthEncodedBlock(createTuple("run"), Ranges.closed(10L, 19L));
-        ValueBlock tuples = MaskedValueBlock.maskBlock(valueBlock, new RangePositionBlock(Ranges.closed(12L, 15L)));
+        ValueBlock valueBlock = new RunLengthEncodedBlock(createTuple("run"), Range.create(10L, 19L));
+        ValueBlock tuples = MaskedValueBlock.maskBlock(valueBlock, new RangePositionBlock(Range.create(12L, 15L)));
 
         assertFalse(tuples.isEmpty());
         assertEquals(tuples.getCount(), 4);
         assertEquals(ImmutableList.copyOf(tuples.getPositions()), ImmutableList.of(12L, 13L, 14L, 15L));
-        assertEquals(tuples.getRange(), Ranges.closed(12L, 15L));
+        assertEquals(tuples.getRange(), Range.create(12L, 15L));
 
         assertTrue(tuples.isPositionsContiguous());
         assertTrue(tuples.isSingleValue());

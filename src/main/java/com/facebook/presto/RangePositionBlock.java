@@ -1,18 +1,14 @@
 package com.facebook.presto;
 
 import com.google.common.base.Function;
-import com.google.common.collect.DiscreteDomains;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Range;
-
-import javax.annotation.Nullable;
 
 public class RangePositionBlock
         implements PositionBlock
 {
-    private final Range<Long> range;
+    private final Range range;
 
-    public RangePositionBlock(Range<Long> range)
+    public RangePositionBlock(Range range)
     {
         this.range = range;
     }
@@ -24,11 +20,11 @@ public class RangePositionBlock
         }
 
         if (positionBlock.isPositionsContiguous()) {
-            Range<Long> intersection = range.intersection(positionBlock.getRange());
-            if (intersection.isEmpty()) {
+            if (!range.overlaps(positionBlock.getRange())) {
                 return EmptyPositionBlock.INSTANCE;
             }
-            return new RangePositionBlock(intersection);
+
+            return new RangePositionBlock(range.intersect(positionBlock.getRange()));
         }
 
         ImmutableList.Builder<Long> builder = ImmutableList.builder();
@@ -47,13 +43,13 @@ public class RangePositionBlock
     @Override
     public boolean isEmpty()
     {
-        return range.isEmpty();
+        return false;
     }
 
     @Override
     public int getCount()
     {
-        return (int) (range.upperEndpoint() - range.lowerEndpoint() + 1);
+        return (int) range.length();
     }
 
     @Override
@@ -77,33 +73,33 @@ public class RangePositionBlock
     @Override
     public Iterable<Long> getPositions()
     {
-        return range.asSet(DiscreteDomains.longs());
+        return range;
     }
 
     @Override
-    public Range<Long> getRange()
+    public Range getRange()
     {
         return range;
     }
 
     @Override
-    public boolean apply(@Nullable Long input)
+    public boolean apply(Long input)
     {
-        return range.apply(input);
+        return range.contains(input);
     }
 
     @Override
     public String toString()
     {
-        return String.format("[%s..%s]", range.lowerEndpoint(), range.upperEndpoint());
+        return String.format("[%s..%s]", range.getStart(), range.getEnd());
     }
 
-    public static Function<RangePositionBlock, Range<Long>> rangeGetter()
+    public static Function<RangePositionBlock, Range> rangeGetter()
     {
-        return new Function<RangePositionBlock, Range<Long>>()
+        return new Function<RangePositionBlock, Range>()
         {
             @Override
-            public Range<Long> apply(RangePositionBlock input)
+            public Range apply(RangePositionBlock input)
             {
                 return input.getRange();
             }

@@ -6,7 +6,6 @@ package com.facebook.presto;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
-import com.google.common.collect.Range;
 
 import java.util.Iterator;
 
@@ -21,10 +20,11 @@ public class MaskedValueBlock implements ValueBlock
             return EmptyValueBlock.INSTANCE;
         }
 
-        Range<Long> intersection = valueBlock.getRange().intersection(positions.getRange());
-        if (intersection.isEmpty()) {
+        if (!valueBlock.getRange().overlaps(positions.getRange())) {
             return EmptyValueBlock.INSTANCE;
         }
+
+        Range intersection = valueBlock.getRange().intersect(positions.getRange());
 
         if (valueBlock.isSingleValue() && positions.isPositionsContiguous()) {
             Tuple value = valueBlock.iterator().next();
@@ -133,7 +133,7 @@ public class MaskedValueBlock implements ValueBlock
     }
 
     @Override
-    public Range<Long> getRange()
+    public Range getRange()
     {
         return positionBlock.getRange();
     }

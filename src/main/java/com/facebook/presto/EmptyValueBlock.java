@@ -4,8 +4,8 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
-import com.google.common.collect.Range;
-import com.google.common.collect.Ranges;
+
+
 
 import java.util.Iterator;
 
@@ -85,9 +85,9 @@ public final class EmptyValueBlock
     }
 
     @Override
-    public Range<Long> getRange()
+    public Range getRange()
     {
-        return Ranges.open(0L, 0L);
+        throw new UnsupportedOperationException("Empty block doesn't have a range");
     }
 
     @Override
