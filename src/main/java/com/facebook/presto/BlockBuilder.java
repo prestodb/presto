@@ -42,32 +42,40 @@ public class BlockBuilder
         return sliceOutput.size() > maxBlockSize;
     }
 
-    public void append(long value)
+    public BlockBuilder append(long value)
     {
         flushTupleIfNecessary();
 
         tupleBuilder.append(value);
+
+        return this;
     }
 
-    public void append(byte[] value)
+    public BlockBuilder append(byte[] value)
     {
         flushTupleIfNecessary();
 
         tupleBuilder.append(Slices.wrappedBuffer(value));
+
+        return this;
     }
 
-    public void append(Slice value)
+    public BlockBuilder append(Slice value)
     {
         flushTupleIfNecessary();
 
         tupleBuilder.append(value);
+
+        return this;
     }
 
-    public void append(Tuple tuple)
+    public BlockBuilder append(Tuple tuple)
     {
         flushTupleIfNecessary();
 
         tupleBuilder.append(tuple);
+
+        return this;
     }
 
     private void flushTupleIfNecessary()
