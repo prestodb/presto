@@ -2,8 +2,8 @@ package com.facebook.presto;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
-import com.google.common.collect.Range;
-import com.google.common.collect.Ranges;
+
+
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -15,17 +15,17 @@ import static org.testng.Assert.assertTrue;
 
 public class TestForwardingSeekableIterator
 {
-    private final static List<Range<Long>> RANGES = ImmutableList.of(
-            Ranges.closed(0L, 9L),
-            Ranges.closed(10L, 19L),
-            Ranges.closed(20L, 29L),
-            Ranges.closed(40L, 49L),
-            Ranges.closed(50L, 59L));
+    private final static List<Range> RANGES = ImmutableList.of(
+            Range.create(0L, 9L),
+            Range.create(10L, 19L),
+            Range.create(20L, 29L),
+            Range.create(40L, 49L),
+            Range.create(50L, 59L));
 
     @Test
     public void testBasicIteration()
     {
-        ImmutableList<Range<Long>> actual = ImmutableList.copyOf(Iterators.transform(newIterator(), rangeGetter()));
+        ImmutableList<Range> actual = ImmutableList.copyOf(Iterators.transform(newIterator(), rangeGetter()));
 
         assertEquals(actual, RANGES);
     }
@@ -35,7 +35,7 @@ public class TestForwardingSeekableIterator
     {
         ForwardingSeekableIterator<RangePositionBlock> iterator = newIterator();
 
-        assertEquals(iterator.peek().getRange(), Ranges.closed(0L, 9L));
+        assertEquals(iterator.peek().getRange(), Range.create(0L, 9L));
     }
 
     @Test
@@ -45,7 +45,7 @@ public class TestForwardingSeekableIterator
 
         assertTrue(iterator.seekTo(25));
         assertTrue(iterator.hasNext());
-        assertEquals(iterator.peek().getRange(), Ranges.closed(20L, 29L));
+        assertEquals(iterator.peek().getRange(), Range.create(20L, 29L));
     }
 
     @Test
@@ -69,7 +69,7 @@ public class TestForwardingSeekableIterator
         RangePositionBlock first = iterator.next();
         iterator.next();
 
-        iterator.seekTo(first.getRange().lowerEndpoint());
+        iterator.seekTo(first.getRange().getStart());
     }
 
     @Test
@@ -79,8 +79,8 @@ public class TestForwardingSeekableIterator
 
         assertFalse(iterator.seekTo(35));
         assertTrue(iterator.hasNext());
-        assertEquals(iterator.peek().getRange(), Ranges.closed(40L, 49L));
-        assertEquals(iterator.next().getRange(), Ranges.closed(40L, 49L));
+        assertEquals(iterator.peek().getRange(), Range.create(40L, 49L));
+        assertEquals(iterator.next().getRange(), Range.create(40L, 49L));
     }
 
     @Test
@@ -96,7 +96,7 @@ public class TestForwardingSeekableIterator
     {
         ImmutableList.Builder<RangePositionBlock> builder = ImmutableList.builder();
 
-        for (Range<Long> range : RANGES) {
+        for (Range range : RANGES) {
             builder.add(new RangePositionBlock(range));
         }
 

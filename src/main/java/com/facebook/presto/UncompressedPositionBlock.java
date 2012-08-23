@@ -2,8 +2,8 @@ package com.facebook.presto;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Range;
-import com.google.common.collect.Ranges;
+
+
 
 import java.util.List;
 
@@ -16,7 +16,7 @@ public class UncompressedPositionBlock
     implements PositionBlock
 {
     private final List<Long> positions;
-    private final Range<Long> range;
+    private final Range range;
 
     public UncompressedPositionBlock(long... positions)
     {
@@ -30,7 +30,7 @@ public class UncompressedPositionBlock
 
         this.positions = ImmutableList.copyOf(positions);
 
-        this.range = Ranges.closed(positions.get(0), positions.get(positions.size() - 1));
+        this.range = Range.create(positions.get(0), positions.get(positions.size() - 1));
     }
 
     public PositionBlock filter(PositionBlock positionBlock) {
@@ -88,7 +88,7 @@ public class UncompressedPositionBlock
     }
 
     @Override
-    public Range<Long> getRange()
+    public Range getRange()
     {
         return range;
     }

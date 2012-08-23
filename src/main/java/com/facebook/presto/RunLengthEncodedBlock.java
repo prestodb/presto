@@ -2,10 +2,8 @@ package com.facebook.presto;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
-import com.google.common.collect.DiscreteDomains;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
-import com.google.common.collect.Range;
 
 import java.util.Collections;
 import java.util.Iterator;
@@ -14,9 +12,9 @@ public class RunLengthEncodedBlock
         implements ValueBlock
 {
     private final Tuple value;
-    private final Range<Long> range;
+    private final Range range;
 
-    public RunLengthEncodedBlock(Tuple value, Range<Long> range)
+    public RunLengthEncodedBlock(Tuple value, Range range)
     {
         this.value = value;
         this.range = range;
@@ -79,7 +77,7 @@ public class RunLengthEncodedBlock
     @Override
     public int getCount()
     {
-        return (int) (range.upperEndpoint() - range.lowerEndpoint() + 1);
+        return (int) (range.getEnd() - range.getStart() + 1);
     }
 
     @Override
@@ -103,11 +101,11 @@ public class RunLengthEncodedBlock
     @Override
     public Iterable<Long> getPositions()
     {
-        return range.asSet(DiscreteDomains.longs());
+        return range;
     }
 
     @Override
-    public Range<Long> getRange()
+    public Range getRange()
     {
         return range;
     }

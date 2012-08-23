@@ -2,8 +2,8 @@ package com.facebook.presto;
 
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.PeekingIterator;
-import com.google.common.collect.Range;
-import com.google.common.collect.Ranges;
+
+
 
 import java.util.Iterator;
 
@@ -57,7 +57,7 @@ public class GroupBy
         }
 
         long endPosition = entry.getPosition();
-        Range<Long> range = Ranges.closed(startPosition, endPosition);
+        Range range = Range.create(startPosition, endPosition);
 
         RunLengthEncodedBlock group = new RunLengthEncodedBlock(groupByKey, range);
         return group;
