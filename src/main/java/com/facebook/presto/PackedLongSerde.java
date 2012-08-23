@@ -2,21 +2,21 @@ package com.facebook.presto;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.Range;
-import com.google.common.collect.Ranges;
+
+
 
 import java.util.Iterator;
 
 public class PackedLongSerde
 {
     private final byte bitWidth;
-    private final Range<Long> allowedRange;
+    private final Range allowedRange;
 
     public PackedLongSerde(int bitWidth)
     {
         Preconditions.checkArgument(bitWidth > 0 && bitWidth <= Long.SIZE);
         this.bitWidth = (byte) bitWidth;
-        this.allowedRange = Ranges.closed(-1L << (bitWidth - 1), ~(-1L << (bitWidth - 1)));
+        this.allowedRange = Range.create(-1L << (bitWidth - 1), ~(-1L << (bitWidth - 1)));
     }
 
     public void serialize(Iterable<Long> items, SliceOutput sliceOutput)

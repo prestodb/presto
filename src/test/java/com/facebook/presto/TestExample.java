@@ -1,7 +1,7 @@
 package com.facebook.presto;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ranges;
+
 
 import java.util.Iterator;
 
@@ -29,9 +29,9 @@ public class TestExample
     private static DataScan3 newScan()
     {
         Iterator<ValueBlock> values = ImmutableList.<ValueBlock>builder()
-                .add(new UncompressedValueBlock(Ranges.closed(0L, 5L), new TupleInfo(FIXED_INT_64), Slices.wrappedBuffer(new byte[]{'a', 'b', 'c', 'd', 'e', 'f'})))
-                .add(new UncompressedValueBlock(Ranges.closed(20L, 25L), new TupleInfo(FIXED_INT_64), Slices.wrappedBuffer(new byte[]{'h', 'i', 'j', 'k', 'l', 'm'})))
-                .add(new UncompressedValueBlock(Ranges.closed(30L, 35L), new TupleInfo(FIXED_INT_64), Slices.wrappedBuffer(new byte[]{'n', 'o', 'p', 'q', 'r', 's'})))
+                .add(new UncompressedValueBlock(Range.create(0L, 5L), new TupleInfo(FIXED_INT_64), Slices.wrappedBuffer(new byte[]{'a', 'b', 'c', 'd', 'e', 'f'})))
+                .add(new UncompressedValueBlock(Range.create(20L, 25L), new TupleInfo(FIXED_INT_64), Slices.wrappedBuffer(new byte[]{'h', 'i', 'j', 'k', 'l', 'm'})))
+                .add(new UncompressedValueBlock(Range.create(30L, 35L), new TupleInfo(FIXED_INT_64), Slices.wrappedBuffer(new byte[]{'n', 'o', 'p', 'q', 'r', 's'})))
                 .build()
                 .iterator();
 

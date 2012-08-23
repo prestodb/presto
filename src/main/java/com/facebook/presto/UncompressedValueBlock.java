@@ -3,24 +3,22 @@ package com.facebook.presto;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.DiscreteDomains;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
-import com.google.common.collect.Range;
 
 import java.util.Iterator;
 
 public class UncompressedValueBlock
         implements ValueBlock
 {
-    private final Range<Long> range;
+    private final Range range;
     private final TupleInfo tupleInfo;
     private final Slice slice;
 
-    public UncompressedValueBlock(Range<Long> range, TupleInfo tupleInfo, Slice slice)
+    public UncompressedValueBlock(Range range, TupleInfo tupleInfo, Slice slice)
     {
         Preconditions.checkNotNull(range, "range is null");
-        Preconditions.checkArgument(range.lowerEndpoint() >= 0, "range start position is negative");
+        Preconditions.checkArgument(range.getStart() >= 0, "range start position is negative");
         Preconditions.checkNotNull(tupleInfo, "tupleInfo is null");
         Preconditions.checkNotNull(slice, "data is null");
 
@@ -107,7 +105,7 @@ public class UncompressedValueBlock
 
                 Slice row = currentPositionToEnd.slice(0, size);
 
-                long position = index + range.lowerEndpoint();
+                long position = index + range.getStart();
                 index++;
                 return new Pair(position, new Tuple(row, tupleInfo));
             }
@@ -123,7 +121,7 @@ public class UncompressedValueBlock
     @Override
     public int getCount()
     {
-        return (int) (range.upperEndpoint() - range.lowerEndpoint() + 1);
+        return (int) (range.getEnd() - range.getStart() + 1);
     }
 
     @Override
@@ -147,11 +145,11 @@ public class UncompressedValueBlock
     @Override
     public Iterable<Long> getPositions()
     {
-        return range.asSet(DiscreteDomains.longs());
+        return range;
     }
 
     @Override
-    public Range<Long> getRange()
+    public Range getRange()
     {
         return range;
     }
