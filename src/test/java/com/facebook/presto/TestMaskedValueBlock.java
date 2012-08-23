@@ -3,6 +3,7 @@
  */
 package com.facebook.presto;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -20,9 +21,11 @@ public class TestMaskedValueBlock
             throws Exception
     {
         ValueBlock valueBlock = createBlock(10, "alice", "bob", "charlie", "david", "eric", "frank", "greg", "hank", "ian", "jenny");
-        ValueBlock tuples = MaskedValueBlock.maskBlock(valueBlock, new UncompressedPositionBlock(8, 10, 12, 14, 16, 100));
+        Optional<ValueBlock> masked = MaskedValueBlock.maskBlock(valueBlock, new UncompressedPositionBlock(8, 10, 12, 14, 16, 100));
 
-        assertFalse(tuples.isEmpty());
+        assertTrue(masked.isPresent());
+        ValueBlock tuples = masked.get();
+
         assertEquals(tuples.getCount(), 4);
         assertEquals(ImmutableList.copyOf(tuples.getPositions()), ImmutableList.of(10L, 12L, 14L, 16L));
         assertEquals(tuples.getRange(), Range.create(10L, 16L));
@@ -39,7 +42,7 @@ public class TestMaskedValueBlock
                 new Pair(14, createTuple("eric")),
                 new Pair(16, createTuple("greg"))));
 
-        assertEquals(ImmutableList.copyOf(tuples.filter(new UncompressedPositionBlock(12, 16)).pairIterator()), ImmutableList.of(
+        assertEquals(ImmutableList.copyOf(tuples.filter(new UncompressedPositionBlock(12, 16)).get().pairIterator()), ImmutableList.of(
                 new Pair(12, createTuple("charlie")),
                 new Pair(16, createTuple("greg"))));
     }
@@ -49,9 +52,11 @@ public class TestMaskedValueBlock
             throws Exception
     {
         ValueBlock valueBlock = new RunLengthEncodedBlock(createTuple("run"), Range.create(10L, 19L));
-        ValueBlock tuples = MaskedValueBlock.maskBlock(valueBlock, new RangePositionBlock(Range.create(12L, 15L)));
+        Optional<ValueBlock> masked = MaskedValueBlock.maskBlock(valueBlock, new RangePositionBlock(Range.create(12L, 15L)));
 
-        assertFalse(tuples.isEmpty());
+        assertTrue(masked.isPresent());
+
+        ValueBlock tuples = masked.get();
         assertEquals(tuples.getCount(), 4);
         assertEquals(ImmutableList.copyOf(tuples.getPositions()), ImmutableList.of(12L, 13L, 14L, 15L));
         assertEquals(tuples.getRange(), Range.create(12L, 15L));
@@ -68,7 +73,7 @@ public class TestMaskedValueBlock
                 new Pair(14, createTuple("run")),
                 new Pair(15, createTuple("run"))));
 
-        ValueBlock secondFilter = tuples.filter(new UncompressedPositionBlock(13, 15));
+        ValueBlock secondFilter = tuples.filter(new UncompressedPositionBlock(13, 15)).get();
         assertFalse(secondFilter.isPositionsContiguous());
         assertTrue(secondFilter.isSingleValue());
         assertTrue(secondFilter.isSorted());

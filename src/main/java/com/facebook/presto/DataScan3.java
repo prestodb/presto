@@ -1,5 +1,6 @@
 package com.facebook.presto;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.AbstractIterator;
 
 import java.util.Iterator;
@@ -24,9 +25,9 @@ public class DataScan3
     {
         while (advance()) {
             if (valueBlock.getRange().overlaps(positionBlock.getRange())) {
-                ValueBlock result = valueBlock.filter(positionBlock);
-                if (!result.isEmpty()) {
-                    return result;
+                Optional<ValueBlock> result = valueBlock.filter(positionBlock);
+                if (result.isPresent()) {
+                    return result.get();
                 }
             }
         }
