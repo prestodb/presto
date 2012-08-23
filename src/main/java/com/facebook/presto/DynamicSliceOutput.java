@@ -209,6 +209,13 @@ public class DynamicSliceOutput extends SliceOutput
     }
 
     @Override
+    public DynamicSliceOutput appendInt(int value)
+    {
+        writeInt(value);
+        return this;
+    }
+
+    @Override
     public DynamicSliceOutput appendShort(int value)
     {
         writeShort(value);
