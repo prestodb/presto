@@ -1,6 +1,6 @@
 package com.facebook.presto;
 
-import com.google.common.collect.Range;
+
 
 public interface Block
 {
@@ -13,5 +13,5 @@ public interface Block
 
     Iterable<Long> getPositions();
 
-    Range<Long> getRange();
+    Range getRange();
 }

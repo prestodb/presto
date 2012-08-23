@@ -1,8 +1,8 @@
 package com.facebook.presto;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Range;
-import com.google.common.collect.Ranges;
+
+
 
 import javax.annotation.Nullable;
 
@@ -56,9 +56,9 @@ public final class EmptyPositionBlock
     }
 
     @Override
-    public Range<Long> getRange()
+    public Range getRange()
     {
-        return Ranges.open(0L, 0L);
+        throw new UnsupportedOperationException("Empty block doesn't have a range");
     }
 
     @Override

@@ -55,7 +55,7 @@ public class ForwardingSeekableIterator<T extends Block>
     public boolean seekTo(long position)
     {
         if (last != null) {
-            Preconditions.checkArgument(position >= last.getRange().lowerEndpoint(), "Cannot seek to position %s before current range [%s, %s]", position, last.getRange().lowerEndpoint(), last.getRange().upperEndpoint());
+            Preconditions.checkArgument(position >= last.getRange().getStart(), "Cannot seek to position %s before current range [%s, %s]", position, last.getRange().getStart(), last.getRange().getEnd());
             if (last.getRange().contains(position)) {
                 seekedTo = last;
                 return true;
@@ -69,7 +69,7 @@ public class ForwardingSeekableIterator<T extends Block>
                 seekedTo = last;
                 return true;
             }
-            else if (last.getRange().lowerEndpoint() > position) {
+            else if (last.getRange().getStart() > position) {
                 seekedTo = last;
                 return false;
             }

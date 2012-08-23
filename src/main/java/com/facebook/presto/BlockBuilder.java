@@ -1,7 +1,7 @@
 package com.facebook.presto;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Ranges;
+
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
@@ -87,6 +87,6 @@ public class BlockBuilder
             return EmptyValueBlock.INSTANCE;
         }
 
-        return new UncompressedValueBlock(Ranges.closed(startPosition, startPosition + count - 1), tupleInfo, sliceOutput.slice());
+        return new UncompressedValueBlock(Range.create(startPosition, startPosition + count - 1), tupleInfo, sliceOutput.slice());
     }
 }
