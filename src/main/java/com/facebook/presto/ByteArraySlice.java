@@ -16,29 +16,30 @@
 package com.facebook.presto;
 
 import com.google.common.base.Preconditions;
+import com.google.common.primitives.UnsignedBytes;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
-import java.nio.channels.GatheringByteChannel;
-import java.nio.channels.ScatteringByteChannel;
-import java.nio.charset.Charset;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.WritableByteChannel;
 import java.util.Arrays;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_BYTE;
 import static com.facebook.presto.SizeOf.SIZE_OF_INT;
 import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
 import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
+import static com.google.common.base.Preconditions.checkPositionIndexes;
+import static java.lang.Math.min;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
 /**
  * Little Endian slice of a byte array.
  */
 public final class ByteArraySlice
-        implements Slice
+        extends AbstractSlice
 {
     private final byte[] data;
     private final int offset;
@@ -94,7 +95,7 @@ public final class ByteArraySlice
     @Override
     public byte getByte(int index)
     {
-        Preconditions.checkPositionIndexes(index, index + SIZE_OF_BYTE, this.length);
+        checkIndexLength(index, SIZE_OF_BYTE);
         index += offset;
         return data[index];
     }
@@ -108,7 +109,7 @@ public final class ByteArraySlice
     @Override
     public short getShort(int index)
     {
-        Preconditions.checkPositionIndexes(index, index + SIZE_OF_SHORT, this.length);
+        checkIndexLength(index, SIZE_OF_SHORT);
         index += offset;
         return (short) (data[index] & 0xFF | data[index + 1] << 8);
     }
@@ -116,7 +117,7 @@ public final class ByteArraySlice
     @Override
     public int getInt(int index)
     {
-        Preconditions.checkPositionIndexes(index, index + SIZE_OF_INT, this.length);
+        checkIndexLength(index, SIZE_OF_INT);
         index += offset;
         return (data[index] & 0xff) |
                 (data[index + 1] & 0xff) << 8 |
@@ -127,7 +128,7 @@ public final class ByteArraySlice
     @Override
     public long getLong(int index)
     {
-        Preconditions.checkPositionIndexes(index, index + SIZE_OF_LONG, this.length);
+        checkIndexLength(index, SIZE_OF_LONG);
         index += offset;
         return ((long) data[index] & 0xff) |
                 ((long) data[index + 1] & 0xff) << 8 |
@@ -148,22 +149,16 @@ public final class ByteArraySlice
     @Override
     public void getBytes(int index, byte[] destination, int destinationIndex, int length)
     {
-        Preconditions.checkPositionIndexes(index, index + length, this.length);
-        Preconditions.checkPositionIndexes(destinationIndex, destinationIndex + length, destination.length);
+        checkIndexLength(index, length);
+        checkPositionIndexes(destinationIndex, destinationIndex + length, destination.length);
         index += offset;
         System.arraycopy(data, index, destination, destinationIndex, length);
     }
 
     @Override
-    public byte[] getBytes()
-    {
-        return getBytes(0, length);
-    }
-
-    @Override
     public byte[] getBytes(int index, int length)
     {
-        Preconditions.checkPositionIndexes(index, index + length, this.length);
+        checkIndexLength(index, length);
         index += offset;
         if (index == 0) {
             return Arrays.copyOf(data, length);
@@ -178,23 +173,23 @@ public final class ByteArraySlice
     {
         Preconditions.checkPositionIndex(index, this.length);
         index += offset;
-        destination.put(data, index, Math.min(length, destination.remaining()));
+        destination.put(data, index, min(length, destination.remaining()));
     }
 
     @Override
     public void getBytes(int index, OutputStream out, int length)
             throws IOException
     {
-        Preconditions.checkPositionIndexes(index, index + length, this.length);
+        checkIndexLength(index, length);
         index += offset;
         out.write(data, index, length);
     }
 
     @Override
-    public int getBytes(int index, GatheringByteChannel out, int length)
+    public int getBytes(int index, WritableByteChannel out, int length)
             throws IOException
     {
-        Preconditions.checkPositionIndexes(index, index + length, this.length);
+        checkIndexLength(index, length);
         index += offset;
         return out.write(ByteBuffer.wrap(data, index, length));
     }
@@ -202,7 +197,7 @@ public final class ByteArraySlice
     @Override
     public void setShort(int index, int value)
     {
-        Preconditions.checkPositionIndexes(index, index + SIZE_OF_SHORT, this.length);
+        checkIndexLength(index, SIZE_OF_SHORT);
         index += offset;
         data[index] = (byte) (value);
         data[index + 1] = (byte) (value >>> 8);
@@ -211,7 +206,7 @@ public final class ByteArraySlice
     @Override
     public void setInt(int index, int value)
     {
-        Preconditions.checkPositionIndexes(index, index + SIZE_OF_INT, this.length);
+        checkIndexLength(index, SIZE_OF_INT);
         index += offset;
         data[index] = (byte) (value);
         data[index + 1] = (byte) (value >>> 8);
@@ -222,7 +217,7 @@ public final class ByteArraySlice
     @Override
     public void setLong(int index, long value)
     {
-        Preconditions.checkPositionIndexes(index, index + SIZE_OF_LONG, this.length);
+        checkIndexLength(index, SIZE_OF_LONG);
         index += offset;
         data[index] = (byte) (value);
         data[index + 1] = (byte) (value >>> 8);
@@ -237,7 +232,7 @@ public final class ByteArraySlice
     @Override
     public void setByte(int index, int value)
     {
-        Preconditions.checkPositionIndexes(index, index + SIZE_OF_BYTE, this.length);
+        checkIndexLength(index, SIZE_OF_BYTE);
         index += offset;
         data[index] = (byte) value;
     }
@@ -250,16 +245,17 @@ public final class ByteArraySlice
             setBytes(index, src.data, src.offset + sourceIndex, length);
         }
         else {
-            // TODO: this is slow
-            setBytes(index, source.getBytes(), sourceIndex, length);
+            ByteBuffer src = source.toByteBuffer(sourceIndex, length);
+            ByteBuffer dst = toByteBuffer(index, length);
+            dst.put(src);
         }
     }
 
     @Override
     public void setBytes(int index, byte[] source, int sourceIndex, int length)
     {
-        Preconditions.checkPositionIndexes(index, index + length, this.length);
-        Preconditions.checkPositionIndexes(sourceIndex, sourceIndex + length, source.length);
+        checkIndexLength(index, length);
+        checkPositionIndexes(sourceIndex, sourceIndex + length, source.length);
         index += offset;
         System.arraycopy(source, sourceIndex, data, index, length);
     }
@@ -267,7 +263,7 @@ public final class ByteArraySlice
     @Override
     public void setBytes(int index, ByteBuffer source)
     {
-        Preconditions.checkPositionIndexes(index, index + source.remaining(), this.length);
+        checkIndexLength(index, source.remaining());
         index += offset;
         source.get(data, index, source.remaining());
     }
@@ -276,7 +272,7 @@ public final class ByteArraySlice
     public int setBytes(int index, InputStream in, int length)
             throws IOException
     {
-        Preconditions.checkPositionIndexes(index, index + length, this.length);
+        checkIndexLength(index, length);
         index += offset;
         int readBytes = 0;
         do {
@@ -297,22 +293,16 @@ public final class ByteArraySlice
     }
 
     @Override
-    public int setBytes(int index, ScatteringByteChannel in, int length)
+    public int setBytes(int index, ReadableByteChannel in, int length)
             throws IOException
     {
-        Preconditions.checkPositionIndexes(index, index + length, this.length);
+        checkIndexLength(index, length);
         index += offset;
         ByteBuffer buf = ByteBuffer.wrap(data, index, length);
         int readBytes = 0;
 
         do {
-            int localReadBytes;
-            try {
-                localReadBytes = in.read(buf);
-            }
-            catch (ClosedChannelException e) {
-                localReadBytes = -1;
-            }
+            int localReadBytes = channelRead(in, buf);
             if (localReadBytes < 0) {
                 if (readBytes == 0) {
                     return -1;
@@ -333,19 +323,13 @@ public final class ByteArraySlice
     public int setBytes(int index, FileChannel in, int position, int length)
             throws IOException
     {
-        Preconditions.checkPositionIndexes(index, index + length, this.length);
+        checkIndexLength(index, length);
         index += offset;
         ByteBuffer buf = ByteBuffer.wrap(data, index, length);
         int readBytes = 0;
 
         do {
-            int localReadBytes;
-            try {
-                localReadBytes = in.read(buf, position + readBytes);
-            }
-            catch (ClosedChannelException e) {
-                localReadBytes = -1;
-            }
+            int localReadBytes = channelRead(in, buf, position + readBytes);
             if (localReadBytes < 0) {
                 if (readBytes == 0) {
                     return -1;
@@ -363,26 +347,14 @@ public final class ByteArraySlice
     }
 
     @Override
-    public Slice copySlice()
-    {
-        return copySlice(0, length);
-    }
-
-    @Override
     public Slice copySlice(int index, int length)
     {
-        Preconditions.checkPositionIndexes(index, index + length, this.length);
+        checkIndexLength(index, length);
 
         index += offset;
         byte[] copiedArray = new byte[length];
         System.arraycopy(data, index, copiedArray, 0, length);
         return new ByteArraySlice(copiedArray);
-    }
-
-    @Override
-    public Slice slice()
-    {
-        return slice(0, length);
     }
 
     @Override
@@ -392,7 +364,7 @@ public final class ByteArraySlice
             return this;
         }
 
-        Preconditions.checkPositionIndexes(index, index + length, this.length);
+        checkIndexLength(index, length);
         if (index >= 0 && length == 0) {
             return Slices.EMPTY_SLICE;
         }
@@ -400,71 +372,38 @@ public final class ByteArraySlice
     }
 
     @Override
-    public SliceInput input()
-    {
-        return new SliceInput(this);
-    }
-
-    @Override
-    public SliceOutput output()
-    {
-        return new BasicSliceOutput(this);
-    }
-
-    @Override
-    public ByteBuffer toByteBuffer()
-    {
-        return toByteBuffer(0, length);
-    }
-
-    @Override
     public ByteBuffer toByteBuffer(int index, int length)
     {
-        Preconditions.checkPositionIndexes(index, index + length, this.length);
+        checkIndexLength(index, length);
         index += offset;
-        return ByteBuffer.wrap(data, index, length).order(LITTLE_ENDIAN);
-    }
-
-    @Override
-    public String toString(Charset charset)
-    {
-        return toString(0, length, charset);
-    }
-
-    @Override
-    public String toString(int index, int length, Charset charset)
-    {
-        if (length == 0) {
-            return "";
-        }
-        return Slices.decodeString(toByteBuffer(index, length), charset);
+        return ByteBuffer.wrap(data, index, length).slice().order(LITTLE_ENDIAN);
     }
 
     @Override
     public int compareTo(Slice that)
     {
+        if (this == that) {
+            return 0;
+        }
         if (that instanceof ByteArraySlice) {
             return compareTo((ByteArraySlice) that);
         }
-        // TODO: this is slow
-        return compareTo(new ByteArraySlice(that.getBytes()));
+        return compareByteBuffers(toByteBuffer(), that.toByteBuffer());
     }
 
     private int compareTo(ByteArraySlice that)
     {
-        if (this == that) {
-            return 0;
-        }
-        if (this.data == that.data && length == that.length && offset == that.offset) {
+        if ((this.data == that.data) && (length == that.length) && (offset == that.offset)) {
             return 0;
         }
 
-        int minLength = Math.min(this.length, that.length);
-        for (int i = 0; i < minLength; i++) {
-            int thisByte = 0xFF & this.data[this.offset + i];
-            int thatByte = 0xFF & that.data[that.offset + i];
-            if (thisByte != thatByte) {
-                return (thisByte) - (thatByte);
+        int length = min(this.length, that.length);
+        for (int i = 0; i < length; i++) {
+            byte a = this.data[this.offset + i];
+            byte b = that.data[this.offset + i];
+            int v = UnsignedBytes.compare(a, b);
+            if (v != 0) {
+                return v;
             }
         }
         return this.length - that.length;
@@ -484,10 +423,12 @@ public final class ByteArraySlice
             return equals((ByteArraySlice) o);
         }
 
-        // TODO: this is slow
         Slice slice = (Slice) o;
-        return (length == slice.length()) &&
-                Arrays.equals(getBytes(), slice.getBytes());
+        if (length == slice.length()) {
+            return true;
+        }
+
+        return toByteBuffer().equals(slice.toByteBuffer());
     }
 
     private boolean equals(ByteArraySlice slice)
@@ -527,11 +468,5 @@ public final class ByteArraySlice
 
         hash = result;
         return hash;
-    }
-
-    @Override
-    public String toString()
-    {
-        return getClass().getSimpleName() + '(' + "length=" + length() + ')';
     }
 }
