@@ -7,6 +7,7 @@ public interface ValueBlock
         extends Block, Iterable<Tuple>
 {
     PositionBlock selectPositions(Predicate<Tuple> predicate);
+    PositionBlock toPositionBlock();
 
     ValueBlock selectPairs(Predicate<Tuple> predicate);
 

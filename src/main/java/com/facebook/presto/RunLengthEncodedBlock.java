@@ -6,7 +6,6 @@ import com.google.common.collect.DiscreteDomains;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.Range;
-import com.google.common.collect.Ranges;
 
 import java.util.Collections;
 import java.util.Iterator;
@@ -41,28 +40,15 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public PositionBlock toPositionBlock()
+    {
+        return new RangePositionBlock(range);
+    }
+
+    @Override
     public ValueBlock filter(PositionBlock positions)
     {
-        // todo this is wrong, it should produce either another RLE block or a BitVectorBlock
-        int matches = 0;
-        for (long position : positions.getPositions()) {
-            if (range.contains(position)) {
-                matches++;
-            }
-        }
-        if (matches == 0) {
-            return EmptyValueBlock.INSTANCE;
-        }
-
-
-        Slice newSlice = Slices.allocate(matches * value.size());
-        SliceOutput sliceOutput = newSlice.output();
-        for (int i = 0; i < matches; i++) {
-            value.writeTo(sliceOutput);
-        }
-
-        // todo what is the start position
-        return new UncompressedValueBlock(Ranges.closed(0L, (long) matches), value.getTupleInfo(), newSlice);
+        return MaskedValueBlock.maskBlock(this, positions);
     }
 
     @Override
@@ -99,7 +85,7 @@ public class RunLengthEncodedBlock
     @Override
     public boolean isSorted()
     {
-        return false;
+        return true;
     }
 
     @Override
