@@ -17,9 +17,13 @@
         <main-class>com.facebook.presto.Main</main-class>
     </properties>
 
-    
-
     <dependencies>
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>airline</artifactId>
+            <version>0.4</version>
+        </dependency>
+
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>node</artifactId>
