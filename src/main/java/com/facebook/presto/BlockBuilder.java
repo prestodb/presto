@@ -1,7 +1,6 @@
 package com.facebook.presto;
 
 import com.google.common.base.Preconditions;
-
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
@@ -83,9 +82,7 @@ public class BlockBuilder
     {
         flushTupleIfNecessary();
 
-        if (count == 0) {
-            return EmptyValueBlock.INSTANCE;
-        }
+        Preconditions.checkState(count > 0, "Cannot build an empty block");
 
         return new UncompressedValueBlock(Range.create(startPosition, startPosition + count - 1), tupleInfo, sliceOutput.slice());
     }
