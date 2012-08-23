@@ -1,6 +1,7 @@
 package com.facebook.presto;
 
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
@@ -26,15 +27,15 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public PositionBlock selectPositions(Predicate<Tuple> predicate)
+    public Optional<PositionBlock> selectPositions(Predicate<Tuple> predicate)
     {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     @Override
-    public ValueBlock selectPairs(Predicate<Tuple> predicate)
+    public Optional<ValueBlock> selectPairs(Predicate<Tuple> predicate)
     {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -44,7 +45,7 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public ValueBlock filter(PositionBlock positions)
+    public Optional<ValueBlock> filter(PositionBlock positions)
     {
         return MaskedValueBlock.maskBlock(this, positions);
     }
@@ -66,12 +67,6 @@ public class RunLengthEncodedBlock
     public Iterator<Tuple> iterator()
     {
         return Iterators.peekingIterator(Collections.nCopies(getCount(), value).iterator());
-    }
-
-    @Override
-    public boolean isEmpty()
-    {
-        return false;
     }
 
     @Override

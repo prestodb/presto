@@ -3,6 +3,7 @@
  */
 package com.facebook.presto;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
@@ -14,24 +15,20 @@ import static com.google.common.collect.Iterators.transform;
 
 public class MaskedValueBlock implements ValueBlock
 {
-    public static ValueBlock maskBlock(ValueBlock valueBlock, PositionBlock positions)
+    public static Optional<ValueBlock> maskBlock(ValueBlock valueBlock, PositionBlock positions)
     {
-        if (positions.isEmpty()) {
-            return EmptyValueBlock.INSTANCE;
-        }
-
         if (!valueBlock.getRange().overlaps(positions.getRange())) {
-            return EmptyValueBlock.INSTANCE;
+            return Optional.absent();
         }
 
         Range intersection = valueBlock.getRange().intersect(positions.getRange());
 
         if (valueBlock.isSingleValue() && positions.isPositionsContiguous()) {
             Tuple value = valueBlock.iterator().next();
-            return new RunLengthEncodedBlock(value, intersection);
+            return Optional.<ValueBlock>of(new RunLengthEncodedBlock(value, intersection));
         }
 
-        PositionBlock newPositionBlock;
+        Optional<PositionBlock> newPositionBlock;
         if (valueBlock.isPositionsContiguous()) {
             newPositionBlock = positions.filter(new RangePositionBlock(valueBlock.getRange()));
         }
@@ -39,7 +36,11 @@ public class MaskedValueBlock implements ValueBlock
             newPositionBlock = positions.filter(valueBlock.toPositionBlock());
         }
 
-        return new MaskedValueBlock(valueBlock, newPositionBlock);
+        if (newPositionBlock.isPresent()) {
+            return Optional.<ValueBlock>of(new MaskedValueBlock(valueBlock, newPositionBlock.get()));
+        }
+
+        return Optional.absent();
     }
 
     private final ValueBlock valueBlock;
@@ -52,13 +53,13 @@ public class MaskedValueBlock implements ValueBlock
     }
 
     @Override
-    public PositionBlock selectPositions(Predicate<Tuple> predicate)
+    public Optional<PositionBlock> selectPositions(Predicate<Tuple> predicate)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public ValueBlock selectPairs(Predicate<Tuple> predicate)
+    public Optional<ValueBlock> selectPairs(Predicate<Tuple> predicate)
     {
         throw new UnsupportedOperationException();
     }
@@ -70,17 +71,13 @@ public class MaskedValueBlock implements ValueBlock
     }
 
     @Override
-    public ValueBlock filter(PositionBlock positions)
+    public Optional<ValueBlock> filter(PositionBlock positions)
     {
-        if (positions.isEmpty()) {
-            return EmptyValueBlock.INSTANCE;
+        Optional<PositionBlock> activePositions = positionBlock.filter(positions);
+        if (!activePositions.isPresent()) {
+            return Optional.absent();
         }
-
-        PositionBlock activePositions = positionBlock.filter(positions);
-        if (activePositions.isEmpty()) {
-            return EmptyValueBlock.INSTANCE;
-        }
-        return new MaskedValueBlock(valueBlock, activePositions);
+        return Optional.<ValueBlock>of(new MaskedValueBlock(valueBlock, activePositions.get()));
     }
 
     @Override
@@ -94,12 +91,6 @@ public class MaskedValueBlock implements ValueBlock
                 return positionBlock.apply(pair.getPosition());
             }
         }));
-    }
-
-    @Override
-    public boolean isEmpty()
-    {
-        return false;
     }
 
     @Override

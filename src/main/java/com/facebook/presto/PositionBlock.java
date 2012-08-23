@@ -1,9 +1,10 @@
 package com.facebook.presto;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 
 public interface PositionBlock
     extends Block, Predicate<Long>
 {
-    PositionBlock filter(PositionBlock positionBlock);
+    Optional<PositionBlock> filter(PositionBlock positionBlock);
 }

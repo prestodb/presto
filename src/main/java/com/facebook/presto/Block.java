@@ -4,7 +4,6 @@ package com.facebook.presto;
 
 public interface Block
 {
-    boolean isEmpty();
     int getCount();
 
     boolean isSorted();

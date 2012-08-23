@@ -1,5 +1,6 @@
 package com.facebook.presto;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.AbstractIterator;
@@ -28,15 +29,15 @@ public class UncompressedValueBlock
     }
 
     @Override
-    public PositionBlock selectPositions(Predicate<Tuple> predicate)
+    public Optional<PositionBlock> selectPositions(Predicate<Tuple> predicate)
     {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     @Override
-    public ValueBlock selectPairs(Predicate<Tuple> predicate)
+    public Optional<ValueBlock> selectPairs(Predicate<Tuple> predicate)
     {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -49,7 +50,7 @@ public class UncompressedValueBlock
      * Build a new block with only the selected value positions
      */
     @Override
-    public ValueBlock filter(PositionBlock positions)
+    public Optional<ValueBlock> filter(PositionBlock positions)
     {
         return MaskedValueBlock.maskBlock(this, positions);
     }
@@ -110,12 +111,6 @@ public class UncompressedValueBlock
                 return new Pair(position, new Tuple(row, tupleInfo));
             }
         });
-    }
-
-    @Override
-    public boolean isEmpty()
-    {
-        return false;
     }
 
     @Override

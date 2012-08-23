@@ -4,6 +4,7 @@ import com.facebook.presto.PositionBlock;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.ValueBlock;
+import com.google.common.base.Optional;
 
 public class AverageAggregation
     implements AggregationFunction
@@ -23,11 +24,13 @@ public class AverageAggregation
     {
         // TODO: deal with overflow
         // TODO: optimize RLE blocks
-        ValueBlock filtered = values.filter(relevantPositions);
+        Optional<ValueBlock> filtered = values.filter(relevantPositions);
 
-        for (Tuple value : filtered) {
-            sum += value.getLong(0);
-            ++count;
+        if (filtered.isPresent()) {
+            for (Tuple value : filtered.get()) {
+                sum += value.getLong(0);
+                ++count;
+            }
         }
     }
 

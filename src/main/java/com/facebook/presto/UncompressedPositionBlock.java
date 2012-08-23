@@ -1,5 +1,6 @@
 package com.facebook.presto;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -33,11 +34,7 @@ public class UncompressedPositionBlock
         this.range = Range.create(positions.get(0), positions.get(positions.size() - 1));
     }
 
-    public PositionBlock filter(PositionBlock positionBlock) {
-        if (positionBlock.isEmpty()) {
-            return EmptyPositionBlock.INSTANCE;
-        }
-
+    public Optional<PositionBlock> filter(PositionBlock positionBlock) {
         ImmutableList.Builder<Long> builder = ImmutableList.builder();
         for (Long position : positions) {
             if (positionBlock.apply(position)) {
@@ -45,16 +42,8 @@ public class UncompressedPositionBlock
             }
         }
         ImmutableList<Long> newPositions = builder.build();
-        if (newPositions.isEmpty()) {
-            return EmptyPositionBlock.INSTANCE;
-        }
-        return new UncompressedPositionBlock(newPositions);
-    }
 
-    @Override
-    public boolean isEmpty()
-    {
-        return false;
+        return Optional.<PositionBlock>of(new UncompressedPositionBlock(newPositions));
     }
 
     @Override

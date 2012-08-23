@@ -1,5 +1,6 @@
 package com.facebook.presto;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.AbstractIterator;
 
@@ -21,9 +22,9 @@ public class DataScan2
     protected ValueBlock computeNext()
     {
         while (source.hasNext()) {
-            ValueBlock block = source.next().selectPairs(predicate);
-            if (!block.isEmpty()) {
-                return block;
+            Optional<ValueBlock> block = source.next().selectPairs(predicate);
+            if (block.isPresent()) {
+                return block.get();
             }
         }
 

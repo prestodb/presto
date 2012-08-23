@@ -1,6 +1,7 @@
 package com.facebook.presto;
 
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 public class RangePositionBlock
@@ -14,17 +15,14 @@ public class RangePositionBlock
     }
 
     @Override
-    public PositionBlock filter(PositionBlock positionBlock) {
-        if (positionBlock.isEmpty()) {
-            return positionBlock;
-        }
-
+    public Optional<PositionBlock> filter(PositionBlock positionBlock)
+    {
         if (positionBlock.isPositionsContiguous()) {
             if (!range.overlaps(positionBlock.getRange())) {
-                return EmptyPositionBlock.INSTANCE;
+                return Optional.absent();
             }
 
-            return new RangePositionBlock(range.intersect(positionBlock.getRange()));
+            return Optional.<PositionBlock>of(new RangePositionBlock(range.intersect(positionBlock.getRange())));
         }
 
         ImmutableList.Builder<Long> builder = ImmutableList.builder();
@@ -34,16 +32,8 @@ public class RangePositionBlock
                 builder.add(position);
             }
         }
-        if (positionBlock.isEmpty()) {
-            return EmptyPositionBlock.INSTANCE;
-        }
-        return new UncompressedPositionBlock(builder.build());
-    }
 
-    @Override
-    public boolean isEmpty()
-    {
-        return false;
+        return Optional.<PositionBlock>of(new UncompressedPositionBlock(builder.build()));
     }
 
     @Override
