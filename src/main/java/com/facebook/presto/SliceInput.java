@@ -1,5 +1,7 @@
 package com.facebook.presto;
 
+import com.google.common.base.Objects;
+
 import java.io.DataInput;
 import java.io.IOException;
 import java.io.InputStream;
@@ -395,10 +397,10 @@ public final class SliceInput extends InputStream implements DataInput
     @Override
     public String toString()
     {
-        return getClass().getSimpleName() + '(' +
-                "ridx=" + position + ", " +
-                "cap=" + slice.length() +
-                ')';
+        return Objects.toStringHelper(this)
+                .add("position", position)
+                .add("capacity", slice.length())
+                .toString();
     }
 
     //
