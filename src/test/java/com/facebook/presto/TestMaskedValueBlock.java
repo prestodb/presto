@@ -7,6 +7,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.Blocks.createBlock;
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Charsets.UTF_8;
@@ -87,28 +88,4 @@ public class TestMaskedValueBlock
         TupleInfo tupleInfo = new TupleInfo(VARIABLE_BINARY);
         return tupleInfo.builder().append(Slices.copiedBuffer(value, UTF_8)).build();
     }
-
-    private ValueBlock createBlock(int position, String... values)
-    {
-        BlockBuilder builder = new BlockBuilder(position, new TupleInfo(VARIABLE_BINARY));
-
-        for (String value : values) {
-            builder.append(value.getBytes(UTF_8));
-        }
-
-        return builder.build();
-    }
-
-    private ValueBlock createBlock(long position, long... values)
-    {
-        BlockBuilder builder = new BlockBuilder(position, new TupleInfo(FIXED_INT_64));
-
-        for (long value : values) {
-            builder.append(value);
-        }
-
-        return builder.build();
-    }
-
-
 }
