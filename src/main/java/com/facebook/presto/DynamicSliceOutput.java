@@ -15,6 +15,8 @@
  */
 package com.facebook.presto;
 
+import com.google.common.base.Objects;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -258,10 +260,10 @@ public class DynamicSliceOutput extends SliceOutput
     @Override
     public String toString()
     {
-        return getClass().getSimpleName() + '(' +
-                "size=" + size + ", " +
-                "capacity=" + slice.length() +
-                ')';
+        return Objects.toStringHelper(this)
+                .add("size", size)
+                .add("capacity", slice.length())
+                .toString();
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.TupleInfo.Type;
+import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -98,11 +99,9 @@ public class Tuple
     @Override
     public String toString()
     {
-        final StringBuilder sb = new StringBuilder();
-        sb.append("Tuple");
-        sb.append("{tupleInfo=").append(tupleInfo);
-        sb.append(", slice=").append(slice);
-        sb.append('}');
-        return sb.toString();
+        return Objects.toStringHelper(this)
+                .add("slice", slice)
+                .add("tupleInfo", tupleInfo)
+                .toString();
     }
 }
