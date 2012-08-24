@@ -112,6 +112,12 @@ public class MaskedValueBlock implements ValueBlock
     }
 
     @Override
+    public Tuple getSingleValue()
+    {
+        return valueBlock.getSingleValue();
+    }
+
+    @Override
     public boolean isPositionsContiguous()
     {
         return positionBlock.isPositionsContiguous() && valueBlock.isPositionsContiguous();
