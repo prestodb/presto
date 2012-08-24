@@ -165,27 +165,6 @@ public final class SliceInput extends InputStream implements DataInput
     }
 
     /**
-     * Transfers this buffer's data to a newly created buffer starting at
-     * the current {@code position} and increases the {@code position}
-     * by the number of the transferred bytes (= {@code length}).
-     * The returned buffer's {@code position} and {@code writerIndex} are
-     * {@code 0} and {@code length} respectively.
-     *
-     * @param length the number of bytes to transfer
-     * @return the newly created buffer which contains the transferred bytes
-     * @throws IndexOutOfBoundsException if {@code length} is greater than {@code this.available()}
-     */
-    public Slice readBytes(int length)
-    {
-        if (length == 0) {
-            return Slices.EMPTY_SLICE;
-        }
-        Slice value = slice.slice(position, length);
-        position += length;
-        return value;
-    }
-
-    /**
      * Returns a new slice of this buffer's sub-region starting at the current
      * {@code position} and increases the {@code position} by the size
      * of the new slice (= {@code length}).
@@ -196,6 +175,9 @@ public final class SliceInput extends InputStream implements DataInput
      */
     public Slice readSlice(int length)
     {
+        if (length == 0) {
+            return Slices.EMPTY_SLICE;
+        }
         Slice newSlice = slice.slice(position, length);
         position += length;
         return newSlice;
