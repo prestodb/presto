@@ -21,7 +21,7 @@ public class TestMaskedValueBlock
     public void testMaskUncompressedBlock()
             throws Exception
     {
-        ValueBlock valueBlock = createBlock(10, "alice", "bob", "charlie", "david", "eric", "frank", "greg", "hank", "ian", "jenny");
+        ValueBlock valueBlock = Blocks.createBlock(10, "alice", "bob", "charlie", "david", "eric", "frank", "greg", "hank", "ian", "jenny");
         Optional<ValueBlock> masked = MaskedValueBlock.maskBlock(valueBlock, new UncompressedPositionBlock(8, 10, 12, 14, 16, 100));
 
         assertTrue(masked.isPresent());
