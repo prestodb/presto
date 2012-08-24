@@ -1,23 +1,26 @@
 package com.facebook.presto;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.AbstractIterator;
+import com.google.common.base.Function;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
-import com.google.common.collect.ImmutableBiMap;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterators;
 
 import java.util.Iterator;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class DictionarySerde
 {
-    private final long maxCardinality;
     // TODO: we may be able to determine and adjust this value dynamically with a smarter implementation
-    private final int reqBitSpace;
-    
+    private final int requiredBitSpace;
+
     public DictionarySerde(long maxCardinality) {
-        this.maxCardinality = maxCardinality;
-        reqBitSpace = Long.SIZE - Long.numberOfLeadingZeros(maxCardinality - 1);
+        checkArgument(maxCardinality >= 2, "maxCardinality should be at least 2");
+        // Faster way to compute ceil(log2(maxCardinality))
+        requiredBitSpace = Long.SIZE - Long.numberOfLeadingZeros(maxCardinality - 1);
     }
 
     public DictionarySerde() {
@@ -27,34 +30,29 @@ public class DictionarySerde
     public void serialize(final Iterable<Slice> slices, SliceOutput sliceOutput)
     {
         final BiMap<Slice, Long> idMap = HashBiMap.create();
-        
-        PackedLongSerde packedLongSerde = new PackedLongSerde(reqBitSpace);
+
+        PackedLongSerde packedLongSerde = new PackedLongSerde(requiredBitSpace);
         packedLongSerde.serialize(
                 new Iterable<Long>() {
                     @Override
                     public Iterator<Long> iterator() {
-                        return new AbstractIterator<Long>() {
-                            Iterator<Slice> sliceIterator = slices.iterator();
-                            // Start ID at the smallest possible value to fully utilize available bit space
-                            long nextId = -1L << (reqBitSpace - 1);
+                        return Iterators.transform(
+                                slices.iterator(),
+                                new Function<Slice, Long>() {
+                                    long nextId = -1L << (requiredBitSpace - 1);
 
-                            @Override
-                            protected Long computeNext() {
-                                if (!sliceIterator.hasNext()) {
-                                    return endOfData();
+                                    @Override
+                                    public Long apply(Slice input) {
+                                        Long id = idMap.get(input);
+                                        if (id == null) {
+                                            id = nextId;
+                                            nextId++;
+                                            idMap.put(input, id);
+                                        }
+                                        return id;
+                                    }
                                 }
-
-                                Slice slice = sliceIterator.next();
-
-                                Long id = idMap.get(slice);
-                                if (id == null) {
-                                    id = nextId;
-                                    nextId++;
-                                    idMap.put(slice, id);
-                                }
-                                return id;
-                            }
-                        };
+                        );
                     }
                 },
                 sliceOutput
@@ -62,7 +60,7 @@ public class DictionarySerde
 
         // Serialize Footer
         int footerBytes = new Footer(idMap.inverse()).serialize(sliceOutput);
-        
+
         // Write length of Footer
         sliceOutput.writeInt(footerBytes);
     }
@@ -72,7 +70,7 @@ public class DictionarySerde
         int totalBytes = sliceInput.available();
         sliceInput.skipBytes(totalBytes - SizeOf.SIZE_OF_INT);
         int idMapByteLength = sliceInput.readInt();
-        
+
         // Slice out Footer data and extract it
         sliceInput.setPosition(totalBytes - idMapByteLength - SizeOf.SIZE_OF_INT);
         Footer footer = Footer.deserialize(sliceInput.readSlice(idMapByteLength).input());
@@ -86,19 +84,17 @@ public class DictionarySerde
         return new Iterable<Slice>() {
             @Override
             public Iterator<Slice> iterator() {
-                return new AbstractIterator<Slice>() {
-                    Iterator<Long> iterator = PackedLongSerde.deserialize(paylodSliceInput).iterator();
-
-                    @Override
-                    protected Slice computeNext() {
-                        if (!iterator.hasNext()) {
-                            return endOfData();
+                return Iterators.transform(
+                        PackedLongSerde.deserialize(paylodSliceInput).iterator(),
+                        new Function<Long, Slice>() {
+                            @Override
+                            public Slice apply(Long input) {
+                                Slice slice = idMap.get(input);
+                                checkNotNull(slice, "Missing entry in dictionary");
+                                return slice;
+                            }
                         }
-                        Slice slice = idMap.get(iterator.next());
-                        Preconditions.checkNotNull(slice, "Missing entry in dictionary");
-                        return slice;
-                    }
-                };
+                );
             }
         };
     }
@@ -106,16 +102,19 @@ public class DictionarySerde
     // TODO: this encoding can be made more compact if we leverage sorted order of the map
     private static class Footer
     {
-        Map<Long, Slice> idMap;
+        private final Map<Long, Slice> idMap;
 
         private Footer(Map<Long, Slice> idMap)
         {
-            this.idMap = idMap;
+            this.idMap = ImmutableMap.copyOf(idMap);
+        }
+
+        public Map<Long, Slice> getIdMap()
+        {
+            return idMap;
         }
 
         /**
-         * Serialize this Footer to the specified SliceOutput
-         * 
          * @param sliceOutput
          * @return bytes written to sliceOutput
          */
@@ -125,9 +124,9 @@ public class DictionarySerde
             for (Map.Entry<Long, Slice> entry : idMap.entrySet()) {
                 // Write ID number
                 sliceOutput.writeLong(entry.getKey());
-                // Write Slice length
+                // Write length
                 sliceOutput.writeInt(entry.getValue().length());
-                // Write Slice
+                // Write value
                 sliceOutput.writeBytes(entry.getValue());
             }
             int endBytesWriteable = sliceOutput.writableBytes();
@@ -136,25 +135,20 @@ public class DictionarySerde
 
         private static Footer deserialize(SliceInput sliceInput)
         {
-            ImmutableBiMap.Builder<Long, Slice> builder = ImmutableBiMap.builder();
+            ImmutableMap.Builder<Long, Slice> builder = ImmutableMap.builder();
 
             while (sliceInput.isReadable()) {
-                // Read Slice ID number
+                // Read value ID number
                 long id = sliceInput.readLong();
-                // Read Slice Length
+                // Read value Length
                 int sliceLength = sliceInput.readInt();
-                // Read Slice
+                // Read value
                 Slice slice = sliceInput.readSlice(sliceLength);
 
                 builder.put(id, slice);
             }
 
             return new Footer(builder.build());
-        }
-
-        public Map<Long, Slice> getIdMap()
-        {
-            return idMap;
         }
     }
 }
