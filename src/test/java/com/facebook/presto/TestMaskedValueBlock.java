@@ -20,7 +20,7 @@ public class TestMaskedValueBlock
     public void testMaskUncompressedBlock()
             throws Exception
     {
-        ValueBlock valueBlock = createBlock(10, "alice", "bob", "charlie", "david", "eric", "frank", "greg", "hank", "ian", "jenny");
+        ValueBlock valueBlock = Blocks.createBlock(10, "alice", "bob", "charlie", "david", "eric", "frank", "greg", "hank", "ian", "jenny");
         Optional<ValueBlock> masked = MaskedValueBlock.maskBlock(valueBlock, new UncompressedPositionBlock(8, 10, 12, 14, 16, 100));
 
         assertTrue(masked.isPresent());
@@ -87,28 +87,4 @@ public class TestMaskedValueBlock
         TupleInfo tupleInfo = new TupleInfo(VARIABLE_BINARY);
         return tupleInfo.builder().append(Slices.copiedBuffer(value, UTF_8)).build();
     }
-
-    private ValueBlock createBlock(int position, String... values)
-    {
-        BlockBuilder builder = new BlockBuilder(position, new TupleInfo(VARIABLE_BINARY));
-
-        for (String value : values) {
-            builder.append(value.getBytes(UTF_8));
-        }
-
-        return builder.build();
-    }
-
-    private ValueBlock createBlock(long position, long... values)
-    {
-        BlockBuilder builder = new BlockBuilder(position, new TupleInfo(FIXED_INT_64));
-
-        for (long value : values) {
-            builder.append(value);
-        }
-
-        return builder.build();
-    }
-
-
 }

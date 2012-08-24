@@ -97,11 +97,11 @@ public class TestAggregations
     public Iterator<ValueBlock> newGroupColumn()
     {
         Iterator<ValueBlock> values = ImmutableList.<ValueBlock>builder()
-                .add(createBlock(0, "apple", "apple", "apple", "apple", "banana", "banana"))
-                .add(createBlock(20, "banana", "banana", "banana", "cherry", "cherry", "cherry"))
-                .add(createBlock(30, "date"))
-                .add(createBlock(31, "date"))
-                .add(createBlock(32, "date"))
+                .add(Blocks.createBlock(0, "apple", "apple", "apple", "apple", "banana", "banana"))
+                .add(Blocks.createBlock(20, "banana", "banana", "banana", "cherry", "cherry", "cherry"))
+                .add(Blocks.createBlock(30, "date"))
+                .add(Blocks.createBlock(31, "date"))
+                .add(Blocks.createBlock(32, "date"))
                 .build()
                 .iterator();
 
@@ -111,37 +111,15 @@ public class TestAggregations
     public Iterator<ValueBlock> newAggregateColumn()
     {
         Iterator<ValueBlock> values = ImmutableList.<ValueBlock>builder()
-                .add(createBlock(0, 1L, 2L, 3L, 4L, 5L, 6L))
-                .add(createBlock(20, 1L, 2L, 3L, 4L, 5L, 6L))
-                .add(createBlock(30, 1L))
-                .add(createBlock(31, 2L))
-                .add(createBlock(32, 3L))
+                .add(Blocks.createBlock(0, 1L, 2L, 3L, 4L, 5L, 6L))
+                .add(Blocks.createBlock(20, 1L, 2L, 3L, 4L, 5L, 6L))
+                .add(Blocks.createBlock(30, 1L))
+                .add(Blocks.createBlock(31, 2L))
+                .add(Blocks.createBlock(32, 3L))
                 .build()
                 .iterator();
 
         return values;
-    }
-
-    private ValueBlock createBlock(int position, String... values)
-    {
-        BlockBuilder builder = new BlockBuilder(position, new TupleInfo(VARIABLE_BINARY));
-
-        for (String value : values) {
-            builder.append(value.getBytes(UTF_8));
-        }
-
-        return builder.build();
-    }
-
-    private ValueBlock createBlock(long position, long... values)
-    {
-        BlockBuilder builder = new BlockBuilder(position, new TupleInfo(FIXED_INT_64));
-
-        for (long value : values) {
-            builder.append(value);
-        }
-
-        return builder.build();
     }
 
     private Tuple createTuple(String key, long count)
