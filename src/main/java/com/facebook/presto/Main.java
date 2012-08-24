@@ -66,8 +66,8 @@ public class Main
     @Command(name = "csv", description = "Convert CSB to columns")
     public static class ConvertCsv extends BaseCommand
     {
-        @Option(name = {"--column-separator"}, description = "Column separator")
-        public char columnSeparator = ',';
+        @Option(name = {"-d", "--column-delimiter"}, description = "Column delimiter character")
+        public String columnSeparator = ",";
 
         @Option(name = {"-o", "--output-dir"}, description = "Output dir")
         public String outputDir = "data";
@@ -115,7 +115,20 @@ public class Main
                     }
                 };
             }
-            Csv.processCsv(inputSupplier, columnSeparator, processors.build());
+            Csv.processCsv(inputSupplier, toChar(columnSeparator), processors.build());
+        }
+
+        private char toChar(String string)
+        {
+            Preconditions.checkArgument(!string.isEmpty(), "String is empty");
+            if (string.length() == 1) {
+                return string.charAt(0);
+            }
+            if (string.length() == 6 && string.startsWith("\\u")) {
+                int value = Integer.parseInt(string.substring(2), 16);
+                return (char) value;
+            }
+            throw new IllegalArgumentException(String.format("Can not convert '%s' to a char", string));
         }
 
         private OutputSupplier<FileOutputStream> newCreateDirectoryOutputStreamSupplier(final File file)
