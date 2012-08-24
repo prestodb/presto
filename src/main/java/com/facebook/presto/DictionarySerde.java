@@ -1,22 +1,24 @@
 package com.facebook.presto;
 
 import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.*;
 
 import javax.annotation.Nullable;
 import java.util.Iterator;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class DictionarySerde
 {
-    private final long maxCardinality;
     // TODO: we may be able to determine and adjust this value dynamically with a smarter implementation
-    private final int reqBitSpace;
+    private final int requiredBitSpace;
 
     public DictionarySerde(long maxCardinality) {
-        this.maxCardinality = maxCardinality;
-        reqBitSpace = Long.SIZE - Long.numberOfLeadingZeros(maxCardinality - 1);
+        checkArgument(maxCardinality > 0, "maxCardinality should be greater than zero");
+        // Faster way to compute ceil(log2(maxCardinality))
+        requiredBitSpace = Long.SIZE - Long.numberOfLeadingZeros(maxCardinality - 1);
     }
 
     public DictionarySerde() {
@@ -27,7 +29,7 @@ public class DictionarySerde
     {
         final BiMap<Slice, Long> idMap = HashBiMap.create();
 
-        PackedLongSerde packedLongSerde = new PackedLongSerde(reqBitSpace);
+        PackedLongSerde packedLongSerde = new PackedLongSerde(requiredBitSpace);
         packedLongSerde.serialize(
                 new Iterable<Long>() {
                     @Override
@@ -35,7 +37,7 @@ public class DictionarySerde
                         return Iterators.transform(
                                 slices.iterator(),
                                 new Function<Slice, Long>() {
-                                    long nextId = -1L << (reqBitSpace - 1);
+                                    long nextId = -1L << (requiredBitSpace - 1);
 
                                     @Override
                                     public Long apply(@Nullable Slice input) {
@@ -86,7 +88,7 @@ public class DictionarySerde
                             @Override
                             public Slice apply(@Nullable Long input) {
                                 Slice slice = idMap.get(input);
-                                Preconditions.checkNotNull(slice, "Missing entry in dictionary");
+                                checkNotNull(slice, "Missing entry in dictionary");
                                 return slice;
                             }
                         }
@@ -98,16 +100,19 @@ public class DictionarySerde
     // TODO: this encoding can be made more compact if we leverage sorted order of the map
     private static class Footer
     {
-        Map<Long, Slice> idMap;
+        private final Map<Long, Slice> idMap;
 
         private Footer(Map<Long, Slice> idMap)
         {
-            this.idMap = idMap;
+            this.idMap = ImmutableMap.copyOf(idMap);
+        }
+
+        public Map<Long, Slice> getIdMap()
+        {
+            return idMap;
         }
 
         /**
-         * Serialize this Footer to the specified SliceOutput
-         *
          * @param sliceOutput
          * @return bytes written to sliceOutput
          */
@@ -117,9 +122,9 @@ public class DictionarySerde
             for (Map.Entry<Long, Slice> entry : idMap.entrySet()) {
                 // Write ID number
                 sliceOutput.writeLong(entry.getKey());
-                // Write Slice length
+                // Write length
                 sliceOutput.writeInt(entry.getValue().length());
-                // Write Slice
+                // Write value
                 sliceOutput.writeBytes(entry.getValue());
             }
             int endBytesWriteable = sliceOutput.writableBytes();
@@ -128,25 +133,20 @@ public class DictionarySerde
 
         private static Footer deserialize(SliceInput sliceInput)
         {
-            ImmutableBiMap.Builder<Long, Slice> builder = ImmutableBiMap.builder();
+            ImmutableMap.Builder<Long, Slice> builder = ImmutableMap.builder();
 
             while (sliceInput.isReadable()) {
-                // Read Slice ID number
+                // Read value ID number
                 long id = sliceInput.readLong();
-                // Read Slice Length
+                // Read value Length
                 int sliceLength = sliceInput.readInt();
-                // Read Slice
+                // Read value
                 Slice slice = sliceInput.readSlice(sliceLength);
 
                 builder.put(id, slice);
             }
 
             return new Footer(builder.build());
-        }
-
-        public Map<Long, Slice> getIdMap()
-        {
-            return idMap;
         }
     }
 }

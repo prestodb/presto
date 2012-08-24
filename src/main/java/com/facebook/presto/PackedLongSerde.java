@@ -1,11 +1,10 @@
 package com.facebook.presto;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 
-
-
 import java.util.Iterator;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class PackedLongSerde
 {
@@ -14,15 +13,16 @@ public class PackedLongSerde
 
     public PackedLongSerde(int bitWidth)
     {
-        Preconditions.checkArgument(bitWidth > 0 && bitWidth <= Long.SIZE);
+        checkArgument(bitWidth > 0 && bitWidth <= Long.SIZE);
         this.bitWidth = (byte) bitWidth;
+        // Compute min/max two's complement range given bit space
         this.allowedRange = Range.create(-1L << (bitWidth - 1), ~(-1L << (bitWidth - 1)));
     }
 
     public void serialize(Iterable<Long> items, SliceOutput sliceOutput)
     {
         int packCapacity = Long.SIZE / bitWidth;
-        long mask = (~0L) >>> (Long.SIZE - bitWidth);
+        long mask = -1L >>> (Long.SIZE - bitWidth);
 
         // Write the packed longs
         int itemCount = 0;
@@ -30,20 +30,17 @@ public class PackedLongSerde
         while (iter.hasNext()) {
             long pack = 0;
             boolean packUsed = false;
-            for (int idx = 0; idx < packCapacity; idx++) {
+            for (int index = 0; index < packCapacity; index++) {
                 if (!iter.hasNext()) {
                     break;
                 }
 
                 long rawValue = iter.next();
-                Preconditions.checkArgument(
-                        allowedRange.contains(rawValue),
-                        "Provided value does not fit into bitspace"
-                );
+                checkArgument(allowedRange.contains(rawValue), "Provided value does not fit into bitspace");
                 long maskedValue = rawValue & mask;
                 itemCount++;
 
-                pack |= maskedValue << (bitWidth * idx);
+                pack |= maskedValue << (bitWidth * index);
                 packUsed = true;
             }
             if (packUsed) {
@@ -57,14 +54,8 @@ public class PackedLongSerde
 
     public static Iterable<Long> deserialize(final SliceInput sliceInput)
     {
-        Preconditions.checkArgument(
-                sliceInput.available() >= Footer.BYTE_SIZE,
-                "sliceInput not large enough to read a footer"
-        );
-        Preconditions.checkArgument(
-                (sliceInput.available() - Footer.BYTE_SIZE) % (SizeOf.SIZE_OF_LONG) == 0,
-                "sliceInput byte alignment incorrect"
-        );
+        checkArgument(sliceInput.available() >= Footer.BYTE_SIZE, "sliceInput not large enough to read a footer");
+        checkArgument((sliceInput.available() - Footer.BYTE_SIZE) % (SizeOf.SIZE_OF_LONG) == 0, "sliceInput byte alignment incorrect");
         
         // Extract Footer and then reset slice cursor
         int totalBytes = sliceInput.available();
@@ -81,24 +72,24 @@ public class PackedLongSerde
             {
                 return new AbstractIterator<Long>()
                 {
-                    int itemIdx = 0;
-                    int packInternalIdx = 0;
-                    long packValue = 0;
+                    private int itemIndex = 0;
+                    private int packInternalIndex = 0;
+                    private long packValue = 0;
 
                     @Override
                     protected Long computeNext()
                     {
-                        if (itemIdx >= footer.getItemCount()) {
+                        if (itemIndex >= footer.getItemCount()) {
                             return endOfData();
                         }
-                        if (packInternalIdx == 0) {
+                        if (packInternalIndex == 0) {
                             packValue = sliceInput.readLong();
                         }
                         // TODO: replace with something more efficient (but needs sign extend)
-                        long value = (packValue << (Long.SIZE - ((packInternalIdx + 1) * footer.getBitWidth()))) >> (Long.SIZE - footer.getBitWidth());
+                        long value = (packValue << (Long.SIZE - ((packInternalIndex + 1) * footer.getBitWidth()))) >> (Long.SIZE - footer.getBitWidth());
 
-                        itemIdx++;
-                        packInternalIdx = (packInternalIdx + 1) % packCapacity;
+                        itemIndex++;
+                        packInternalIndex = (packInternalIndex + 1) % packCapacity;
                         return value;
                     }
                 };
@@ -115,15 +106,13 @@ public class PackedLongSerde
 
         private Footer(int itemCount, byte bitWidth)
         {
-            Preconditions.checkArgument(itemCount >= 0, "itemCount must be non-negative");
-            Preconditions.checkArgument(bitWidth > 0, "bitWidth must be greater than zero");
+            checkArgument(itemCount >= 0, "itemCount must be non-negative");
+            checkArgument(bitWidth > 0, "bitWidth must be greater than zero");
             this.itemCount = itemCount;
             this.bitWidth = bitWidth;
         }
 
         /**
-         * Serialize this Header into the specified SliceOutput
-         *
          * @param sliceOutput
          * @return bytes written to sliceOutput
          */
