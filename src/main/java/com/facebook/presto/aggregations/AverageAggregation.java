@@ -18,14 +18,16 @@ public class AverageAggregation
         }
     };
 
+    // TODO: value should be float (?)
+    private static final TupleInfo TUPLE_INFO = new TupleInfo(TupleInfo.Type.FIXED_INT_64);
+
     private long sum;
     private long count;
 
     @Override
     public TupleInfo getTupleInfo()
     {
-        // TODO: value should be float (?)
-        return new TupleInfo(TupleInfo.Type.FIXED_INT_64);
+        return TUPLE_INFO;
     }
 
     @Override
