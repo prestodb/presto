@@ -30,24 +30,24 @@ public class TestCsvFileScanner
 
         Assert.assertEquals(ImmutableList.copyOf(column1.getBlocks().iterator().next().pairIterator()),
                 ImmutableList.of(
-                        new Pair(0, createTuple(0)),
-                        new Pair(1, createTuple(1)),
-                        new Pair(2, createTuple(2)),
-                        new Pair(3, createTuple(3))));
+                        new Pair(0, Tuples.createTuple(0)),
+                        new Pair(1, Tuples.createTuple(1)),
+                        new Pair(2, Tuples.createTuple(2)),
+                        new Pair(3, Tuples.createTuple(3))));
 
         Assert.assertEquals(ImmutableList.copyOf(column2.getBlocks().iterator().next().pairIterator()),
                 ImmutableList.of(
-                        new Pair(0, createTuple("apple")),
-                        new Pair(1, createTuple("banana")),
-                        new Pair(2, createTuple("cherry")),
-                        new Pair(3, createTuple("date"))));
+                        new Pair(0, Tuples.createTuple("apple")),
+                        new Pair(1, Tuples.createTuple("banana")),
+                        new Pair(2, Tuples.createTuple("cherry")),
+                        new Pair(3, Tuples.createTuple("date"))));
 
         Assert.assertEquals(ImmutableList.copyOf(column3.getBlocks().iterator().next().pairIterator()),
                 ImmutableList.of(
-                        new Pair(0, createTuple("alice")),
-                        new Pair(1, createTuple("bob")),
-                        new Pair(2, createTuple("charlie")),
-                        new Pair(3, createTuple("dave"))));
+                        new Pair(0, Tuples.createTuple("alice")),
+                        new Pair(1, Tuples.createTuple("bob")),
+                        new Pair(2, Tuples.createTuple("charlie")),
+                        new Pair(3, Tuples.createTuple("dave"))));
 
     }
     @Test
@@ -59,46 +59,26 @@ public class TestCsvFileScanner
         ImmutableList<Pair> actual = ImmutableList.copyOf(new PairsIterator(firstColumn.iterator()));
         Assert.assertEquals(actual,
                 ImmutableList.of(
-                        new Pair(0, createTuple(0)),
-                        new Pair(1, createTuple(1)),
-                        new Pair(2, createTuple(2)),
-                        new Pair(3, createTuple(3))));
+                        new Pair(0, Tuples.createTuple(0)),
+                        new Pair(1, Tuples.createTuple(1)),
+                        new Pair(2, Tuples.createTuple(2)),
+                        new Pair(3, Tuples.createTuple(3))));
 
         Iterable<ValueBlock> secondColumn = Csv.readCsvColumn(inputSupplier, 1, ',', VARIABLE_BINARY);
         Assert.assertEquals(ImmutableList.copyOf(new PairsIterator(secondColumn.iterator())),
                 ImmutableList.of(
-                        new Pair(0, createTuple("apple")),
-                        new Pair(1, createTuple("banana")),
-                        new Pair(2, createTuple("cherry")),
-                        new Pair(3, createTuple("date"))));
+                        new Pair(0, Tuples.createTuple("apple")),
+                        new Pair(1, Tuples.createTuple("banana")),
+                        new Pair(2, Tuples.createTuple("cherry")),
+                        new Pair(3, Tuples.createTuple("date"))));
 
         Iterable<ValueBlock> thirdColumn = Csv.readCsvColumn(inputSupplier, 2, ',', VARIABLE_BINARY);
         Assert.assertEquals(ImmutableList.copyOf(new PairsIterator(thirdColumn.iterator())),
                 ImmutableList.of(
-                        new Pair(0, createTuple("alice")),
-                        new Pair(1, createTuple("bob")),
-                        new Pair(2, createTuple("charlie")),
-                        new Pair(3, createTuple("dave"))));
-    }
-
-    private Tuple createTuple(String value)
-    {
-        TupleInfo tupleInfo = new TupleInfo(VARIABLE_BINARY);
-        Tuple tuple = tupleInfo.builder()
-                .append(Slices.wrappedBuffer(value.getBytes(UTF_8)))
-                .build();
-
-        return tuple;
-    }
-
-    private Tuple createTuple(long value)
-    {
-        TupleInfo tupleInfo = new TupleInfo(FIXED_INT_64);
-        Tuple tuple = tupleInfo.builder()
-                .append(value)
-                .build();
-
-        return tuple;
+                        new Pair(0, Tuples.createTuple("alice")),
+                        new Pair(1, Tuples.createTuple("bob")),
+                        new Pair(2, Tuples.createTuple("charlie")),
+                        new Pair(3, Tuples.createTuple("dave"))));
     }
 
     private static class CollectingColumnProcessor implements ColumnProcessor {
