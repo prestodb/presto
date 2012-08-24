@@ -11,6 +11,7 @@ import java.util.List;
 
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.Tuples.createTuple;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.io.Resources.getResource;
 import static com.google.common.io.Resources.newReaderSupplier;
@@ -79,26 +80,6 @@ public class TestCsvFileScanner
                         new Pair(1, createTuple("bob")),
                         new Pair(2, createTuple("charlie")),
                         new Pair(3, createTuple("dave"))));
-    }
-
-    private Tuple createTuple(String value)
-    {
-        TupleInfo tupleInfo = new TupleInfo(VARIABLE_BINARY);
-        Tuple tuple = tupleInfo.builder()
-                .append(Slices.wrappedBuffer(value.getBytes(UTF_8)))
-                .build();
-
-        return tuple;
-    }
-
-    private Tuple createTuple(long value)
-    {
-        TupleInfo tupleInfo = new TupleInfo(FIXED_INT_64);
-        Tuple tuple = tupleInfo.builder()
-                .append(value)
-                .build();
-
-        return tuple;
     }
 
     private static class CollectingColumnProcessor implements ColumnProcessor {
