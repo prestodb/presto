@@ -17,13 +17,14 @@ public class SumAggregation
             return new SumAggregation();
         }
     };
+    private static final TupleInfo TUPLE_INFO = new TupleInfo(TupleInfo.Type.FIXED_INT_64);
 
     private long sum;
 
     @Override
     public TupleInfo getTupleInfo()
     {
-        return new TupleInfo(TupleInfo.Type.FIXED_INT_64);
+        return TUPLE_INFO;
     }
 
     @Override
