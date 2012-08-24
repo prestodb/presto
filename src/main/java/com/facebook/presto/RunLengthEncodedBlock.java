@@ -88,6 +88,12 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public Tuple getSingleValue()
+    {
+        return value;
+    }
+
+    @Override
     public boolean isPositionsContiguous()
     {
         return true;

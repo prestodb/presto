@@ -137,6 +137,13 @@ public class UncompressedValueBlock
     }
 
     @Override
+    public Tuple getSingleValue()
+    {
+        Preconditions.checkState(isSingleValue(), "Block contains more than one value");
+        return iterator().next();
+    }
+
+    @Override
     public boolean isPositionsContiguous()
     {
         return true;

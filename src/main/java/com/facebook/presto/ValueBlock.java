@@ -15,4 +15,9 @@ public interface ValueBlock
     Optional<ValueBlock> filter(PositionBlock positions);
 
     PeekingIterator<Pair> pairIterator();
+
+    /**
+     * @throws IllegalStateException if this block contains more than one value
+     */
+    Tuple getSingleValue();
 }
