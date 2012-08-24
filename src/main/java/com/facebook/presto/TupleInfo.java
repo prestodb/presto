@@ -1,5 +1,6 @@
 package com.facebook.presto;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -234,15 +235,15 @@ public class TupleInfo
     @Override
     public String toString()
     {
-        return "TupleInfo{" +
-                "size=" + size +
-                ", types=" + types +
-                ", offsets=" + offsets +
-                ", firstVariableLengthField=" + firstVariableLengthField +
-                ", secondVariableLengthField=" + secondVariableLengthField +
-                ", variableLengthFieldCount=" + variableLengthFieldCount +
-                ", variablePartOffset=" + variablePartOffset +
-                '}';
+        return Objects.toStringHelper(this)
+                .add("size", size)
+                .add("types", types)
+                .add("offsets", offsets)
+                .add("firstVariableLengthField", firstVariableLengthField)
+                .add("secondVariableLengthField", secondVariableLengthField)
+                .add("variableLengthFieldCount", variableLengthFieldCount)
+                .add("variablePartOffset", variablePartOffset)
+                .toString();
     }
 
     public class Builder

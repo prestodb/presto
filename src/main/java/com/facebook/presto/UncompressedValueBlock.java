@@ -1,5 +1,6 @@
 package com.facebook.presto;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -164,12 +165,10 @@ public class UncompressedValueBlock
     @Override
     public String toString()
     {
-        final StringBuilder sb = new StringBuilder();
-        sb.append("FixedWidthValueBlock");
-        sb.append("{range=").append(range);
-        sb.append(", tupleInfo=").append(tupleInfo);
-        sb.append(", slice=").append(slice);
-        sb.append('}');
-        return sb.toString();
+        return Objects.toStringHelper(this)
+                .add("range", range)
+                .add("tupleInfo", tupleInfo)
+                .add("slice", slice)
+                .toString();
     }
 }
