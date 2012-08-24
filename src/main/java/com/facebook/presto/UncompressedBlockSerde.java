@@ -182,4 +182,14 @@ public class UncompressedBlockSerde
             out = null;
         }
     }
+
+    // TODO: fix this horrible hack
+    public static class FloatMillisUncompressedColumnWriter
+            extends UncompressedColumnWriter
+    {
+        public FloatMillisUncompressedColumnWriter(OutputSupplier<? extends OutputStream> outputSupplier, TupleInfo.Type type)
+        {
+            super(outputSupplier, type);
+        }
+    }
 }

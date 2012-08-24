@@ -17,6 +17,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.facebook.presto.TupleInfo.Type;
+import static com.facebook.presto.UncompressedBlockSerde.FloatMillisUncompressedColumnWriter;
 import static com.google.common.base.Charsets.UTF_8;
 
 public class Csv
@@ -93,7 +94,11 @@ public class Csv
                 flushBlock();
             }
 
-            if (processor.getColumnType() == Type.FIXED_INT_64) {
+            // TODO: fix this
+            if (processor instanceof FloatMillisUncompressedColumnWriter) {
+                blockBuilder.append((long) Double.parseDouble(value));
+            }
+            else if (processor.getColumnType() == Type.FIXED_INT_64) {
                 blockBuilder.append(Long.valueOf(value));
             }
             else {

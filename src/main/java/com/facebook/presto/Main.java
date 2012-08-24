@@ -26,6 +26,7 @@ import java.util.concurrent.Callable;
 
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.UncompressedBlockSerde.FloatMillisUncompressedColumnWriter;
 
 public class Main
 {
@@ -63,13 +64,13 @@ public class Main
         }
     }
 
-    @Command(name = "csv", description = "Convert CSB to columns")
+    @Command(name = "csv", description = "Convert CSV to columns")
     public static class ConvertCsv extends BaseCommand
     {
         @Option(name = {"-d", "--column-delimiter"}, description = "Column delimiter character")
         public String columnSeparator = ",";
 
-        @Option(name = {"-o", "--output-dir"}, description = "Output dir")
+        @Option(name = {"-o", "--output-dir"}, description = "Output directory")
         public String outputDir = "data";
 
         @Option(name = {"-t", "--type"}, description = "Column type")
@@ -92,10 +93,13 @@ public class Main
                 File file = new File(dir, "column" + index++ + ".data");
                 switch (type) {
                     case "long":
-                        processors.add(new UncompressedColumnWriter(newCreateDirectoryOutputStreamSupplier(file), FIXED_INT_64));
+                        processors.add(new UncompressedColumnWriter(newOutputStreamSupplier(file), FIXED_INT_64));
                         break;
                     case "string":
-                        processors.add(new UncompressedColumnWriter(newCreateDirectoryOutputStreamSupplier(file), VARIABLE_BINARY));
+                        processors.add(new UncompressedColumnWriter(newOutputStreamSupplier(file), VARIABLE_BINARY));
+                        break;
+                    case "fmillis":
+                        processors.add(new FloatMillisUncompressedColumnWriter(newOutputStreamSupplier(file), FIXED_INT_64));
                         break;
                     default:
                         throw new IllegalArgumentException("Unsupported type " + type);
@@ -131,7 +135,7 @@ public class Main
             throw new IllegalArgumentException(String.format("Can not convert '%s' to a char", string));
         }
 
-        private OutputSupplier<FileOutputStream> newCreateDirectoryOutputStreamSupplier(final File file)
+        private OutputSupplier<FileOutputStream> newOutputStreamSupplier(final File file)
         {
             return new OutputSupplier<FileOutputStream>()
             {
