@@ -1,5 +1,12 @@
 package com.facebook.presto;
 
+import com.facebook.presto.TupleInfo.Type;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+
+import static com.google.common.base.Charsets.UTF_8;
+
 public class Tuple
 {
     private final Slice slice;
@@ -34,6 +41,28 @@ public class Tuple
     public void writeTo(SliceOutput out)
     {
         out.writeBytes(slice);
+    }
+
+    /**
+     * Materializes the tuple values as Java Object.
+     * This method is mainly for diagnostics and should not be called in normal query processing.
+     */
+    public List<Object> toValues()
+    {
+        ImmutableList.Builder<Object> values = ImmutableList.builder();
+        int index = 0;
+        for (Type type : tupleInfo.getTypes()) {
+            switch (type) {
+                case FIXED_INT_64:
+                    values.add(getLong(index));
+                    break;
+                case VARIABLE_BINARY:
+                    values.add(getSlice(index).toString(UTF_8));
+                    break;
+            }
+            index++;
+        }
+        return values.build();
     }
 
     @Override
