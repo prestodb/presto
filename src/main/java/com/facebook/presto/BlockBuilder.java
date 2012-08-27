@@ -86,7 +86,7 @@ public class BlockBuilder
         }
     }
 
-    public ValueBlock build()
+    public UncompressedValueBlock build()
     {
         flushTupleIfNecessary();
 

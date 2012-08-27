@@ -156,45 +156,60 @@ public class TupleInfo
 
     public int size(Slice slice)
     {
+        return size(slice, 0);
+    }
+
+    public int size(Slice slice, int offset)
+    {
         if (size != -1) {
             return size;
         }
 
         // length of the tuple is located in the "last" fixed-width slot
         // this makes variable length column size easy to calculate
-        return slice.getShort(getOffset(types.size()));
+        return slice.getShort(offset + getOffset(types.size()));
     }
 
-    public long getLong(Slice slice, int index)
+    public long getLong(Slice slice, int field)
     {
-        checkState(types.get(index) == FIXED_INT_64, "Expected FIXED_INT_64");
-
-        return slice.getLong(getOffset(index));
+        return getLong(slice, 0, field);
     }
 
-    public Slice getSlice(Slice slice, int index)
+    public long getLong(Slice slice, int offset, int field)
     {
-        checkState(types.get(index) == VARIABLE_BINARY, "Expected VARIABLE_BINARY");
+        checkState(types.get(field) == FIXED_INT_64, "Expected FIXED_INT_64");
+
+        return slice.getLong(offset + getOffset(field));
+    }
+
+    public Slice getSlice(Slice slice, int field)
+    {
+        return getSlice(slice, 0, field);
+    }
+
+    public Slice getSlice(Slice slice, int offset, int field)
+    {
+        checkState(types.get(field) == VARIABLE_BINARY, "Expected VARIABLE_BINARY");
 
         int start;
         int end;
-        if (index == firstVariableLengthField) {
+        if (field == firstVariableLengthField) {
             start = variablePartOffset;
-            end = slice.getShort(getOffset(secondVariableLengthField));
+            end = slice.getShort(offset + getOffset(secondVariableLengthField));
         }
         else {
-            start = slice.getShort(getOffset(index));
-            end = slice.getShort(getOffset(index) + SIZE_OF_SHORT);
+            start = slice.getShort(offset + getOffset(field));
+            end = slice.getShort(offset + getOffset(field) + SIZE_OF_SHORT);
         }
 
         // this works because positions of variable length fields are laid out in the same order as the actual data
         return slice.slice(start, end - start);
     }
 
-    private int getOffset(int index)
+    private int getOffset(int field)
     {
-        checkArgument(index != firstVariableLengthField, "Cannot get offset for first variable length field");
-        return offsets.get(index);
+        checkArgument(field != firstVariableLengthField, "Cannot get offset for first variable length field");
+        return offsets.get(field);
     }
 
     public Builder builder(SliceOutput sliceOutput)
@@ -283,20 +298,20 @@ public class TupleInfo
         {
             // TODO: optimization - single copy of block of fixed length fields
 
-            int index = 0;
+            int field = 0;
             for (TupleInfo.Type type : tuple.getTupleInfo().getTypes()) {
                 switch (type) {
                     case FIXED_INT_64:
-                        append(tuple.getLong(index));
+                        append(tuple.getLong(field));
                         break;
                     case VARIABLE_BINARY:
-                        append(tuple.getSlice(index));
+                        append(tuple.getSlice(field));
                         break;
                     default:
                         throw new IllegalStateException("Type not yet supported: " + type);
                 }
 
-                index++;
+                field++;
             }
         }
 

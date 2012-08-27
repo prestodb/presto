@@ -17,7 +17,7 @@ public class Blocks
         return builder.build();
     }
 
-    public static ValueBlock createBlock(long position, long... values)
+    public static UncompressedValueBlock createBlock(long position, long... values)
     {
         BlockBuilder builder = new BlockBuilder(position, new TupleInfo(FIXED_INT_64));
 
