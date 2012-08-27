@@ -30,7 +30,7 @@ public class TestUncompressedBlockSerde
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         UncompressedBlockSerde.write(ImmutableList.of(block).iterator(), out);
 
-        ImmutableList<ValueBlock> copiedBlocks = ImmutableList.copyOf(UncompressedBlockSerde.read(Slices.wrappedBuffer(out.toByteArray())));
+        ImmutableList<UncompressedValueBlock> copiedBlocks = ImmutableList.copyOf(UncompressedBlockSerde.read(Slices.wrappedBuffer(out.toByteArray())));
 
         // this is only true because the input is small
         assertEquals(copiedBlocks.size(), 1);

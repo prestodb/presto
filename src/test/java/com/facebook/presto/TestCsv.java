@@ -125,8 +125,8 @@ public class TestCsv
             throws IOException
     {
         File file = new File(outDir, "column" + columnNumber + ".data");
-        Iterator<ValueBlock> iter = UncompressedBlockSerde.read(file);
-        ImmutableList<ValueBlock> list = ImmutableList.copyOf(iter);
+        Iterator<UncompressedValueBlock> iter = UncompressedBlockSerde.read(file);
+        ImmutableList<UncompressedValueBlock> list = ImmutableList.copyOf(iter);
         assertEquals(list.size(), 1);
         return list.get(0);
     }
