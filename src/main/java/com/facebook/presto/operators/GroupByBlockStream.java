@@ -5,7 +5,6 @@ import com.facebook.presto.Cursor;
 import com.facebook.presto.Range;
 import com.facebook.presto.RunLengthEncodedBlock;
 import com.facebook.presto.RunLengthEncodedCursor;
-import com.facebook.presto.Slice;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.ValueBlock;
@@ -55,25 +54,25 @@ public class GroupByBlockStream
                     return null;
                 }
 
-                Slice key = cursor.getSlice(0);
+                Tuple key = cursor.getTuple();
 
                 long startPosition = cursor.getPosition();
 
                 if (!cursor.hasNextValue()) {
                     Range range = Range.create(startPosition, startPosition);
-                    return new RunLengthEncodedBlock(new Tuple(key, getTupleInfo()), range);
+                    return new RunLengthEncodedBlock(key, range);
                 }
 
                 do {
                     cursor.advanceNextValue();
                 }
-                while (cursor.equals(0, key) && cursor.hasNextValue());
+                while (cursor.equals(key) && cursor.hasNextValue());
 
 
                 long endPosition = cursor.getPosition() - 1;
                 Range range = Range.create(startPosition, endPosition);
 
-                return new RunLengthEncodedBlock(new Tuple(key, getTupleInfo()), range);
+                return new RunLengthEncodedBlock(key, range);
             }
         };
     }

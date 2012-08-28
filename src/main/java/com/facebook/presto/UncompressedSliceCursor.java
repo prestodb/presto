@@ -5,22 +5,24 @@ import com.google.common.base.Preconditions;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-public class UncompressedCursor
+import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
+import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
+
+public class UncompressedSliceCursor
         implements Cursor
 {
+    private static final TupleInfo info = new TupleInfo(VARIABLE_BINARY);
+
     private final Iterator<UncompressedValueBlock> iterator;
-    private final TupleInfo info;
 
     private UncompressedValueBlock currentBlock;
     private int index;
     private int offset;
+    private int currentSize;
 
-    public UncompressedCursor(TupleInfo info, Iterator<UncompressedValueBlock> iterator)
+    public UncompressedSliceCursor(Iterator<UncompressedValueBlock> iterator)
     {
         Preconditions.checkNotNull(iterator, "iterator is null");
-        Preconditions.checkNotNull(info, "info is null");
-
-        this.info = info;
         this.iterator = iterator;
     }
 
@@ -46,11 +48,15 @@ public class UncompressedCursor
         }
         else if (index < currentBlock.getCount() - 1) {
             index++;
-            offset += info.size(currentBlock.getSlice(), offset);
+            offset += currentSize;
         }
         else {
             throw new NoSuchElementException();
         }
+
+        // read the value size
+        currentSize = currentBlock.getSlice().getShort(offset) - SIZE_OF_SHORT;
+        offset += SIZE_OF_SHORT;
     }
 
     @Override
@@ -68,20 +74,21 @@ public class UncompressedCursor
     @Override
     public Tuple getTuple()
     {
-        Slice slice = currentBlock.getSlice();
-        return new Tuple(slice.slice(offset, info.size(slice, offset)), info);
+        // full tuple slice includes the size (prior two bytes)
+        return new Tuple(currentBlock.getSlice().slice(offset - SIZE_OF_SHORT, currentSize + SIZE_OF_SHORT), info);
     }
 
     @Override
     public long getLong(int field)
     {
-        return info.getLong(currentBlock.getSlice(), offset, field);
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public Slice getSlice(int field)
     {
-        return info.getSlice(currentBlock.getSlice(), offset, field);
+        Preconditions.checkElementIndex(0, 1, "field");
+        return currentBlock.getSlice().slice(offset, currentSize);
     }
 
     @Override
@@ -99,14 +106,14 @@ public class UncompressedCursor
     @Override
     public boolean equals(Tuple value)
     {
-        Slice slice = currentBlock.getSlice();
         Slice tupleSlice = value.getTupleSlice();
-        return slice.equals(offset, info.size(slice, offset), tupleSlice, 0, tupleSlice.length());
+        return currentBlock.getSlice().equals(offset, currentSize, tupleSlice, SIZE_OF_SHORT, tupleSlice.length() - SIZE_OF_SHORT);
     }
 
     @Override
     public boolean equals(int field, Slice value)
     {
-        return info.equals(field, currentBlock.getSlice(), offset, value);
+        Preconditions.checkElementIndex(0, 1, "field");
+        return currentBlock.getSlice().equals(offset, currentSize, value, 0, value.length());
     }
 }
