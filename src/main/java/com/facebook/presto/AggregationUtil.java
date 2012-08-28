@@ -5,7 +5,7 @@ import com.google.common.base.Preconditions;
 
 
 public class AggregationUtil {
-    public static void processGroup(SeekableIterator<ValueBlock> aggregationSource, AggregationFunction aggregation, Range positions)
+    public static void processGroup(SeekableIterator<? extends ValueBlock> aggregationSource, AggregationFunction aggregation, Range positions)
     {
         RangePositionBlock positionBlock = new RangePositionBlock(positions);
 
