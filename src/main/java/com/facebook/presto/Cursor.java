@@ -24,6 +24,8 @@ public interface Cursor
     boolean hasNextPosition();
     void advanceNextPosition();
 
+    Tuple getTuple();
+
     long getLong(int field);
     Slice getSlice(int field);
 
@@ -31,5 +33,6 @@ public interface Cursor
 
     long getPosition();
 
+    boolean equals(Tuple value);
     boolean equals(int field, Slice value);
 }
