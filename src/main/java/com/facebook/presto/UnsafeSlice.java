@@ -4,12 +4,17 @@
 package com.facebook.presto;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import sun.misc.Unsafe;
 import sun.nio.ch.DirectBuffer;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -25,11 +30,8 @@ import static java.lang.Math.min;
 
 public class UnsafeSlice extends AbstractSlice
 {
-
-    public static final boolean checkBounds = true;
-    public static final Unsafe unsafe;
-
-
+    private static final Unsafe unsafe;
+    private static final MethodHandle newByteBuffer;
 
     static {
         try {
@@ -41,14 +43,17 @@ public class UnsafeSlice extends AbstractSlice
             if (byteArrayIndexScale != 1) {
                 throw new IllegalStateException("Byte array index scale must be 1, but is " + byteArrayIndexScale);
             }
+
+            Class<?> directByteBufferClass = ClassLoader.getSystemClassLoader().loadClass("java.nio.DirectByteBuffer");
+            Constructor<?> constructor = directByteBufferClass.getDeclaredConstructor(long.class, int.class, Object.class);
+            constructor.setAccessible(true);
+            newByteBuffer = MethodHandles.lookup().unreflectConstructor(constructor).asType(MethodType.methodType(ByteBuffer.class, long.class, int.class, Object.class));
         }
         catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
     private static final long BYTE_ARRAY_OFFSET = unsafe.arrayBaseOffset(byte[].class);
-
-
 
     public static UnsafeSlice toUnsafeSlice(ByteBuffer byteBuffer)
     {
@@ -59,8 +64,6 @@ public class UnsafeSlice extends AbstractSlice
         int capacity = byteBuffer.capacity();
         return new UnsafeSlice(address, capacity, byteBuffer);
     }
-
-
 
     private final long address;
     private final int size;
@@ -147,7 +150,7 @@ public class UnsafeSlice extends AbstractSlice
     public byte[] getBytes(int index, int length)
     {
         byte[] bytes = new byte[length];
-        toByteBuffer(index, length).get(bytes);
+        getBytes(index, bytes, 0, length);
         return bytes;
     }
 
@@ -314,7 +317,13 @@ public class UnsafeSlice extends AbstractSlice
     @Override
     public ByteBuffer toByteBuffer(int index, int length)
     {
-        throw new UnsupportedOperationException();
+        checkIndexLength(index, length);
+        try {
+            return (ByteBuffer) newByteBuffer.invokeExact(address + index, length, (Object) reference);
+        }
+        catch (Throwable throwable) {
+            throw Throwables.propagate(throwable);
+        }
     }
 
     @Override
@@ -342,13 +351,30 @@ public class UnsafeSlice extends AbstractSlice
         }
 
         UnsafeSlice that = (UnsafeSlice) slice;
-        for (int i = 0; i < length(); i++) {
-            byte thisByte = unsafe.getByte(this.address + i);
-            byte thatByte = unsafe.getByte(that.address + i);
+        int offset = 0;
+        int length = size;
+        while (length >= 8) {
+            long thisLong = unsafe.getLong(this.address + offset);
+            long thatLong = unsafe.getLong(that.address + offset);
+
+            if (thisLong != thatLong) {
+                return false;
+            }
+
+            offset += 8;
+            length -= 8;
+        }
+
+        while (length > 0) {
+            byte thisByte = unsafe.getByte(this.address + offset);
+            byte thatByte = unsafe.getByte(that.address + offset);
             if (thisByte != thatByte) {
                 return false;
             }
+            offset++;
+            length--;
         }
+
         return true;
     }
 
