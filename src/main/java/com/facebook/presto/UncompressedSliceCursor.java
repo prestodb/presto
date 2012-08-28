@@ -5,6 +5,7 @@ import com.google.common.base.Preconditions;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 
 public class UncompressedSliceCursor
@@ -54,8 +55,8 @@ public class UncompressedSliceCursor
         }
 
         // read the value size
-        currentSize = currentBlock.getSlice().getShort(offset) - 2;
-        offset += 2;
+        currentSize = currentBlock.getSlice().getShort(offset) - SIZE_OF_SHORT;
+        offset += SIZE_OF_SHORT;
     }
 
     @Override
@@ -68,6 +69,13 @@ public class UncompressedSliceCursor
     public void advanceNextPosition()
     {
         advanceNextValue();
+    }
+
+    @Override
+    public Tuple getTuple()
+    {
+        // full tuple slice includes the size (prior two bytes)
+        return new Tuple(currentBlock.getSlice().slice(offset - SIZE_OF_SHORT, currentSize + SIZE_OF_SHORT), info);
     }
 
     @Override
@@ -93,6 +101,13 @@ public class UncompressedSliceCursor
     public long getPosition()
     {
         return currentBlock.getRange().getStart() + index;
+    }
+
+    @Override
+    public boolean equals(Tuple value)
+    {
+        Slice tupleSlice = value.getTupleSlice();
+        return currentBlock.getSlice().equals(offset, currentSize, tupleSlice, SIZE_OF_SHORT, tupleSlice.length() - SIZE_OF_SHORT);
     }
 
     @Override

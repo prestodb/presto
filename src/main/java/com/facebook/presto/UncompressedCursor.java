@@ -66,6 +66,13 @@ public class UncompressedCursor
     }
 
     @Override
+    public Tuple getTuple()
+    {
+        Slice slice = currentBlock.getSlice();
+        return new Tuple(slice.slice(offset, info.size(slice, offset)), info);
+    }
+
+    @Override
     public long getLong(int field)
     {
         return info.getLong(currentBlock.getSlice(), offset, field);
@@ -87,6 +94,14 @@ public class UncompressedCursor
     public long getPosition()
     {
         return currentBlock.getRange().getStart() + index;
+    }
+
+    @Override
+    public boolean equals(Tuple value)
+    {
+        Slice slice = currentBlock.getSlice();
+        Slice tupleSlice = value.getTupleSlice();
+        return slice.equals(offset, info.size(slice, offset), tupleSlice, 0, tupleSlice.length());
     }
 
     @Override
