@@ -39,7 +39,7 @@ public final class Slices
     public static Slice mapFileReadOnly(File file)
             throws IOException
     {
-        return new ByteBufferSlice(Files.map(file));
+        return UnsafeSlice.toUnsafeSlice(Files.map(file));
     }
 
     public static Slice readLengthPrefixedBytes(SliceInput sliceInput)
