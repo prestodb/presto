@@ -8,9 +8,19 @@ import com.facebook.presto.TupleInfo;
 import com.facebook.presto.ValueBlock;
 import com.google.common.base.Optional;
 
+import javax.inject.Provider;
+
 public class AverageAggregation
     implements AggregationFunction
 {
+    public static Provider<AggregationFunction> PROVIDER = new Provider<AggregationFunction>() {
+        @Override
+        public AverageAggregation get()
+        {
+            return new AverageAggregation();
+        }
+    };
+
     private long sum;
     private long count;
 
@@ -47,7 +57,7 @@ public class AverageAggregation
             cursor.advanceNextPosition();
         }
 
-        if (relevantRange.contains(cursor.getPosition())) {
+        while (relevantRange.contains(cursor.getPosition())) {
             sum += cursor.getLong(0);
             ++count;
             cursor.advanceNextPosition();

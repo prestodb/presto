@@ -8,9 +8,19 @@ import com.facebook.presto.TupleInfo;
 import com.facebook.presto.ValueBlock;
 import com.google.common.base.Optional;
 
+import javax.inject.Provider;
+
 public class CountAggregation
         implements AggregationFunction
 {
+    public static Provider<AggregationFunction> PROVIDER = new Provider<AggregationFunction>() {
+        @Override
+        public CountAggregation get()
+        {
+            return new CountAggregation();
+        }
+    };
+
     private long count;
 
     @Override
@@ -40,7 +50,7 @@ public class CountAggregation
             cursor.advanceNextPosition();
         }
 
-        if (relevantRange.contains(cursor.getPosition())) {
+        while (relevantRange.contains(cursor.getPosition())) {
             count++;
             cursor.advanceNextPosition();
         }
