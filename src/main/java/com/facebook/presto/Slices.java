@@ -45,7 +45,7 @@ public final class Slices
     public static Slice readLengthPrefixedBytes(SliceInput sliceInput)
     {
         int length = VariableLengthQuantity.readVariableLengthInt(sliceInput);
-        return sliceInput.readBytes(length);
+        return sliceInput.readSlice(length);
     }
 
     public static void writeLengthPrefixedBytes(SliceOutput sliceOutput, Slice value)

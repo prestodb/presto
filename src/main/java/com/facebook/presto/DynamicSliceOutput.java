@@ -174,33 +174,8 @@ public class DynamicSliceOutput extends SliceOutput
     @Override
     public void writeZero(int length)
     {
-        if (length == 0) {
-            return;
-        }
-        if (length < 0) {
-            throw new IllegalArgumentException(
-                    "length must be 0 or greater than 0.");
-        }
         slice = Slices.ensureSize(slice, size + length);
-        int nLong = length >>> 3;
-        int nBytes = length & 7;
-        for (int i = nLong; i > 0; i--) {
-            writeLong(0);
-        }
-        if (nBytes == 4) {
-            writeInt(0);
-        }
-        else if (nBytes < 4) {
-            for (int i = nBytes; i > 0; i--) {
-                writeByte((byte) 0);
-            }
-        }
-        else {
-            writeInt(0);
-            for (int i = nBytes - 4; i > 0; i--) {
-                writeByte((byte) 0);
-            }
-        }
+        super.writeZero(length);
     }
 
     @Override
