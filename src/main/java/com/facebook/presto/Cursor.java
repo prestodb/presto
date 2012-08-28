@@ -28,4 +28,8 @@ public interface Cursor
     Slice getSlice(int field);
 
     boolean equals(Cursor other);
+
+    long getPosition();
+
+    boolean equals(int field, Slice value);
 }
