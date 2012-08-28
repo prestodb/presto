@@ -203,7 +203,7 @@ public class TupleInfo
         }
 
         // this works because positions of variable length fields are laid out in the same order as the actual data
-        return slice.slice(start, end - start);
+        return slice.slice(offset + start, end - start);
     }
 
     private int getOffset(int field)
