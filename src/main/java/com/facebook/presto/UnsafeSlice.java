@@ -373,4 +373,44 @@ public class UnsafeSlice extends AbstractSlice
         hash = result;
         return hash;
     }
+
+    @Override
+    public boolean equals(int offset, int length, Slice other, int otherOffset, int otherLength)
+    {
+        if (length != otherLength) {
+            return false;
+        }
+
+        if (!(other instanceof UnsafeSlice)) {
+            throw new UnsupportedOperationException("not yet implemented");
+        }
+
+        UnsafeSlice that = (UnsafeSlice) other;
+
+        while (length >= 8) {
+            long thisLong = unsafe.getLong(this.address + offset);
+            long thatLong = unsafe.getLong(that.address + otherOffset);
+
+            if (thisLong != thatLong) {
+                return false;
+            }
+
+            offset += 8;
+            otherOffset += 8;
+            length -= 8;
+        }
+
+        while (length > 0) {
+            byte thisByte = unsafe.getByte(this.address + offset);
+            byte thatByte = unsafe.getByte(that.address + otherOffset);
+            if (thisByte != thatByte) {
+                return false;
+            }
+            offset++;
+            otherOffset++;
+            length--;
+        }
+
+        return true;
+    }
 }

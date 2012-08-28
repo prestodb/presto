@@ -332,4 +332,7 @@ public interface Slice
      */
     @Override
     int hashCode();
+
+
+    boolean equals(int offset, int length, Slice other, int otherOffset, int otherLength);
 }

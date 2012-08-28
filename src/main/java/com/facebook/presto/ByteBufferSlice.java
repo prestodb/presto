@@ -325,4 +325,10 @@ public final class ByteBufferSlice
         hash = result;
         return hash;
     }
+
+    @Override
+    public boolean equals(int offset, int length, Slice other, int otherOffset, int otherLength)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
+    }
 }
