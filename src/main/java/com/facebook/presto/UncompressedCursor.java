@@ -82,4 +82,16 @@ public class UncompressedCursor
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
+
+    @Override
+    public long getPosition()
+    {
+        return currentBlock.getRange().getStart() + index;
+    }
+
+    @Override
+    public boolean equals(int field, Slice value)
+    {
+        return info.equals(field, currentBlock.getSlice(), offset, value);
+    }
 }

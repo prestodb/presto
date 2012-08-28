@@ -92,19 +92,33 @@ public class UncompressedBlockSerde
         slice.getBytes(0, out, slice.length());
     }
 
-    public static Iterator<ValueBlock> read(File file)
+    public static Iterator<UncompressedValueBlock> read(File file)
             throws IOException
     {
         Slice mappedSlice = Slices.mapFileReadOnly(file);
         return read(mappedSlice);
     }
 
-    public static Iterator<ValueBlock> read(Slice slice)
+    public static Iterator<UncompressedValueBlock> read(Slice slice)
     {
         return new UncompressedReader(slice);
     }
 
-    private static class UncompressedReader extends AbstractIterator<ValueBlock>
+    public static BlockStream<UncompressedValueBlock> readAsStream(final Slice slice)
+    {
+        UncompressedReader reader = new UncompressedReader(slice);
+
+        return new UncompressedBlockStream(reader.tupleInfo, new Iterable<UncompressedValueBlock>()
+        {
+            @Override
+            public Iterator<UncompressedValueBlock> iterator()
+            {
+                return new UncompressedReader(slice);
+            }
+        });
+    }
+
+    private static class UncompressedReader extends AbstractIterator<UncompressedValueBlock>
     {
         private final TupleInfo tupleInfo;
         private final SliceInput sliceInput;
@@ -122,7 +136,7 @@ public class UncompressedBlockSerde
             this.tupleInfo = new TupleInfo(builder.build());
         }
 
-        protected ValueBlock computeNext()
+        protected UncompressedValueBlock computeNext()
         {
             if (!sliceInput.isReadable()) {
                 endOfData();

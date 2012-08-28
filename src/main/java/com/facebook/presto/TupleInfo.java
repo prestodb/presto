@@ -203,7 +203,23 @@ public class TupleInfo
         }
 
         // this works because positions of variable length fields are laid out in the same order as the actual data
-        return slice.slice(start, end - start);
+        return slice.slice(offset + start, end - start);
+    }
+
+    public boolean equals(int field, Slice block, int tupleOffset, Slice value)
+    {
+        int start;
+        int end;
+        if (field == firstVariableLengthField) {
+            start = variablePartOffset;
+            end = block.getShort(tupleOffset + getOffset(secondVariableLengthField));
+        }
+        else {
+            start = block.getShort(tupleOffset + getOffset(field));
+            end = block.getShort(tupleOffset + getOffset(field) + SIZE_OF_SHORT);
+        }
+
+        return value.equals(0, value.length(), block, tupleOffset + start, end - start);
     }
 
     private int getOffset(int field)
