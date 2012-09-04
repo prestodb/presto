@@ -43,6 +43,13 @@ public interface Cursor
 
     long getPosition();
 
+    /**
+     * Returns the first position of the next value if one is available
+     *
+     * @throws java.util.NoSuchElementException if the cursor is already at the last value
+     */
+    long peekNextValuePosition();
+
     boolean equals(Tuple value);
     boolean equals(int field, Slice value);
 }

@@ -94,6 +94,20 @@ public class TestRunLengthEncodedCursor
         assertNextPosition(cursor, 5, "banana");
     }
 
+    @Test
+    public void testNextValuePosition()
+            throws Exception
+    {
+        RunLengthEncodedCursor cursor = createCursor();
+
+        assertNextValuePosition(cursor, 0);
+        assertNextValuePosition(cursor, 5);
+        assertNextValuePosition(cursor, 20);
+        assertNextValuePosition(cursor, 30);
+
+        assertFalse(cursor.hasNextValue());
+    }
+
     private RunLengthEncodedCursor createCursor()
     {
         TupleInfo info = new TupleInfo(TupleInfo.Type.VARIABLE_BINARY);
@@ -135,6 +149,13 @@ public class TestRunLengthEncodedCursor
 
         assertEquals(cursor.getTuple(), tuple);
         assertEquals(cursor.getPosition(), position);
+    }
+
+    private static void assertNextValuePosition(Cursor cursor, long position)
+    {
+        assertTrue(cursor.hasNextValue());
+        assertEquals(cursor.peekNextValuePosition(), position);
+        cursor.advanceNextValue();
     }
 
 }

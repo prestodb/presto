@@ -2,14 +2,17 @@ package com.facebook.presto;
 
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.PeekingIterator;
 
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 public class RunLengthEncodedCursor
         implements Cursor
 {
     private final TupleInfo info;
-    private final Iterator<RunLengthEncodedBlock> iterator;
+    private final PeekingIterator<RunLengthEncodedBlock> iterator;
     private RunLengthEncodedBlock current;
     private long position;
 
@@ -19,7 +22,7 @@ public class RunLengthEncodedCursor
         Preconditions.checkNotNull(iterator, "iterator is null");
 
         this.info = info;
-        this.iterator = iterator;
+        this.iterator = Iterators.peekingIterator(iterator);
     }
 
     @Override
@@ -94,6 +97,16 @@ public class RunLengthEncodedCursor
     public long getPosition()
     {
         return position;
+    }
+
+    @Override
+    public long peekNextValuePosition()
+    {
+        if (!iterator.hasNext()) {
+            throw new NoSuchElementException();
+        }
+
+        return iterator.peek().getRange().getStart();
     }
 
     @Override
