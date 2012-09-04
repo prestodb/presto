@@ -1,16 +1,15 @@
 package com.facebook.presto;
 
-import com.facebook.presto.slice.Slices;
-import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
 import static com.facebook.presto.Blocks.createBlock;
-import static org.testng.Assert.assertEquals;
+import static com.facebook.presto.CursorAssertions.assertNextPosition;
+import static com.facebook.presto.CursorAssertions.assertNextValue;
+import static com.facebook.presto.CursorAssertions.assertNextValuePosition;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestUncompressedCursor
 {
@@ -110,42 +109,4 @@ public class TestUncompressedCursor
 
         return new UncompressedCursor(info, blocks.iterator());
     }
-
-    private static void assertNextValue(Cursor cursor, long position, String value)
-    {
-        TupleInfo info = new TupleInfo(TupleInfo.Type.VARIABLE_BINARY);
-
-        Tuple tuple = info.builder()
-                .append(Slices.wrappedBuffer(value.getBytes(Charsets.UTF_8)))
-                .build();
-
-        assertTrue(cursor.hasNextValue());
-        cursor.advanceNextValue();
-
-        assertEquals(cursor.getTuple(), tuple);
-        assertEquals(cursor.getPosition(), position);
-    }
-
-    private static void assertNextPosition(Cursor cursor, long position, String value)
-    {
-        TupleInfo info = new TupleInfo(TupleInfo.Type.VARIABLE_BINARY);
-
-        Tuple tuple = info.builder()
-                .append(Slices.wrappedBuffer(value.getBytes(Charsets.UTF_8)))
-                .build();
-
-        assertTrue(cursor.hasNextPosition());
-        cursor.advanceNextPosition();
-
-        assertEquals(cursor.getTuple(), tuple);
-        assertEquals(cursor.getPosition(), position);
-    }
-
-    private static void assertNextValuePosition(Cursor cursor, long position)
-    {
-        assertTrue(cursor.hasNextValue());
-        assertEquals(cursor.peekNextValuePosition(), position);
-        cursor.advanceNextValue();
-    }
-
 }
