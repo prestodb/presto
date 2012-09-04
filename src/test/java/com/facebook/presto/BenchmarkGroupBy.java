@@ -13,11 +13,10 @@ public class BenchmarkGroupBy
     public static void main(String[] args)
             throws IOException, InterruptedException
     {
-        File file = new File("data/column5/column0.data");
-//        File file = new File("data/columns/column5.data");
+        File file = new File("data/column5/column0.data");  // sorted
+//        File file = new File("data/columns/column5.data");  // not-sorted
 
         Slice pageTypeColumnSlice = Slices.mapFileReadOnly(file);
-//        Slice pageTypeColumnSlice = Slices.mapFileReadOnly(new File("/Users/martint/fb/presto/data/column5/column0.data"));
         for (int i = 0; i < 100000; ++i) {
             BlockStream<UncompressedValueBlock> pageTypeColumn = UncompressedBlockSerde.readAsStream(pageTypeColumnSlice);
             GroupByBlockStream groupBy = new GroupByBlockStream(pageTypeColumn) ;
@@ -44,7 +43,6 @@ public class BenchmarkGroupBy
         while (cursor.hasNextValue()) {
             cursor.advanceNextValue();
             ++count;
-//            sum += cursort.getLong(0);
         }
 
         Duration duration = Duration.nanosSince(start);

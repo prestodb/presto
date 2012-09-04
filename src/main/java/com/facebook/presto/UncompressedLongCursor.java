@@ -11,7 +11,7 @@ import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 public class UncompressedLongCursor
         implements Cursor
 {
-    private static final TupleInfo info = new TupleInfo(FIXED_INT_64);
+    private static final TupleInfo INFO = new TupleInfo(FIXED_INT_64);
 
     private final Iterator<UncompressedValueBlock> iterator;
 
@@ -28,7 +28,7 @@ public class UncompressedLongCursor
     @Override
     public TupleInfo getTupleInfo()
     {
-        return info;
+        return INFO;
     }
 
     @Override
@@ -69,7 +69,7 @@ public class UncompressedLongCursor
     @Override
     public Tuple getTuple()
     {
-        return new Tuple(currentBlock.getSlice().slice(offset, SizeOf.SIZE_OF_LONG), info);
+        return new Tuple(currentBlock.getSlice().slice(offset, SizeOf.SIZE_OF_LONG), INFO);
     }
 
     @Override

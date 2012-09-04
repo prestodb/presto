@@ -13,7 +13,7 @@ import javax.inject.Provider;
 public class CountAggregation
         implements AggregationFunction
 {
-    public static Provider<AggregationFunction> PROVIDER = new Provider<AggregationFunction>() {
+    public static final Provider<AggregationFunction> PROVIDER = new Provider<AggregationFunction>() {
         @Override
         public CountAggregation get()
         {

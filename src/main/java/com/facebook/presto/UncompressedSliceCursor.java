@@ -11,7 +11,7 @@ import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 public class UncompressedSliceCursor
         implements Cursor
 {
-    private static final TupleInfo info = new TupleInfo(VARIABLE_BINARY);
+    private static final TupleInfo INFO = new TupleInfo(VARIABLE_BINARY);
 
     private final Iterator<UncompressedValueBlock> iterator;
 
@@ -29,7 +29,7 @@ public class UncompressedSliceCursor
     @Override
     public TupleInfo getTupleInfo()
     {
-        return info;
+        return INFO;
     }
 
     @Override
@@ -75,7 +75,7 @@ public class UncompressedSliceCursor
     public Tuple getTuple()
     {
         // full tuple slice includes the size (prior two bytes)
-        return new Tuple(currentBlock.getSlice().slice(offset - SIZE_OF_SHORT, currentSize + SIZE_OF_SHORT), info);
+        return new Tuple(currentBlock.getSlice().slice(offset - SIZE_OF_SHORT, currentSize + SIZE_OF_SHORT), INFO);
     }
 
     @Override

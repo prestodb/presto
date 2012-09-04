@@ -11,6 +11,7 @@ import com.facebook.presto.UncompressedCursor;
 import com.facebook.presto.UncompressedValueBlock;
 import com.facebook.presto.ValueBlock;
 import com.facebook.presto.aggregations.AggregationFunction;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
@@ -35,6 +36,10 @@ public class HashAggregationBlockStream
             BlockStream<? extends ValueBlock> aggregationSource,
             Provider<AggregationFunction> functionProvider)
     {
+        Preconditions.checkNotNull(groupBySource, "groupBySource is null");
+        Preconditions.checkNotNull(aggregationSource, "aggregationSource is null");
+        Preconditions.checkNotNull(functionProvider, "functionProvider is null");
+
         this.groupBySource = groupBySource;
         this.aggregationSource = aggregationSource;
         this.functionProvider = functionProvider;
