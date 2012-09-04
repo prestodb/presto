@@ -6,7 +6,7 @@ import static com.google.common.base.Charsets.UTF_8;
 
 public class Blocks
 {
-    public static ValueBlock createBlock(int position, String... values)
+    public static UncompressedValueBlock createBlock(int position, String... values)
     {
         BlockBuilder builder = new BlockBuilder(position, new TupleInfo(VARIABLE_BINARY));
 

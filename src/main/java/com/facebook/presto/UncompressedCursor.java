@@ -2,6 +2,8 @@ package com.facebook.presto;
 
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.PeekingIterator;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -9,7 +11,7 @@ import java.util.NoSuchElementException;
 public class UncompressedCursor
         implements Cursor
 {
-    private final Iterator<UncompressedValueBlock> iterator;
+    private final PeekingIterator<UncompressedValueBlock> iterator;
     private final TupleInfo info;
 
     private UncompressedValueBlock currentBlock;
@@ -22,7 +24,7 @@ public class UncompressedCursor
         Preconditions.checkNotNull(info, "info is null");
 
         this.info = info;
-        this.iterator = iterator;
+        this.iterator = Iterators.peekingIterator(iterator);
     }
 
     @Override
@@ -95,6 +97,19 @@ public class UncompressedCursor
     public long getPosition()
     {
         return currentBlock.getRange().getStart() + index;
+    }
+
+    @Override
+    public long peekNextValuePosition()
+    {
+        if (currentBlock == null || index >= currentBlock.getCount() - 1) {
+            if (!iterator.hasNext()) {
+                throw new NoSuchElementException();
+            }
+            return iterator.peek().getRange().getStart();
+        }
+
+        return currentBlock.getRange().getStart() + index + 1;
     }
 
     @Override

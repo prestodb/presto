@@ -21,9 +21,17 @@ public interface Cursor
     TupleInfo getTupleInfo();
 
     boolean hasNextValue();
+
+    /**
+     * Advances to the first position of the next value
+     */
     void advanceNextValue();
 
     boolean hasNextPosition();
+
+    /**
+     * Advances to the next position in this stream and possibly to the next value if the current position if the last one for the current value
+     */
     void advanceNextPosition();
 
     Tuple getTuple();
@@ -34,6 +42,13 @@ public interface Cursor
     boolean equals(Cursor other);
 
     long getPosition();
+
+    /**
+     * Returns the first position of the next value if one is available
+     *
+     * @throws java.util.NoSuchElementException if the cursor is already at the last value
+     */
+    long peekNextValuePosition();
 
     boolean equals(Tuple value);
     boolean equals(int field, Slice value);
