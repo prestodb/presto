@@ -473,6 +473,27 @@ public final class ByteArraySlice
     @Override
     public boolean equals(int offset, int length, Slice other, int otherOffset, int otherLength)
     {
-        throw new UnsupportedOperationException("not yet implemented");
+        if (length != otherLength) {
+            return false;
+        }
+
+        if (!(other instanceof ByteArraySlice)) {
+            throw new UnsupportedOperationException("not yet implemented");
+        }
+
+        ByteArraySlice that = (ByteArraySlice) other;
+
+        while (length > 0) {
+            byte thisByte = this.getByte(offset);
+            byte thatByte = that.getByte(otherOffset);
+            if (thisByte != thatByte) {
+                return false;
+            }
+            offset++;
+            otherOffset++;
+            length--;
+        }
+
+        return true;
     }
 }

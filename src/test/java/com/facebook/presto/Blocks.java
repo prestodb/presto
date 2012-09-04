@@ -6,7 +6,12 @@ import static com.google.common.base.Charsets.UTF_8;
 
 public class Blocks
 {
-    public static ValueBlock createBlock(int position, String... values)
+    public static UncompressedBlockStream createBlockStream(int position, String... values)
+    {
+        return new UncompressedBlockStream(new TupleInfo(VARIABLE_BINARY), createBlock(position, values));
+    }
+
+    public static UncompressedValueBlock createBlock(int position, String... values)
     {
         BlockBuilder builder = new BlockBuilder(position, new TupleInfo(VARIABLE_BINARY));
 
@@ -15,6 +20,11 @@ public class Blocks
         }
 
         return builder.build();
+    }
+
+    public static UncompressedBlockStream createBlockStream(int position, long... values)
+    {
+        return new UncompressedBlockStream(new TupleInfo(FIXED_INT_64), createBlock(position, values));
     }
 
     public static UncompressedValueBlock createBlock(long position, long... values)
