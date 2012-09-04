@@ -15,8 +15,8 @@ public class BenchmarkHashAggregation
     public static void main(String[] args)
             throws IOException, InterruptedException
     {
-//        File groupByFile = new File("data/column5/column0.data");
-        File groupByFile = new File("data/columns/column5.data");
+//        File groupByFile = new File("data/column5/column0.data");  // sorted
+        File groupByFile = new File("data/columns/column5.data");  // not-sorted
         File aggregateFile = new File("data/columns/column3.data");
 
         Slice groupBySlice = Slices.mapFileReadOnly(groupByFile);
@@ -52,7 +52,6 @@ public class BenchmarkHashAggregation
             cursor.advanceNextValue();
             ++count;
 //            System.out.printf("%s\t%s\n", cursor.getSlice(0).toString(Charsets.UTF_8), cursor.getLong(1));
-//            sum += cursort.getLong(0);
         }
 
         Duration duration = Duration.nanosSince(start);
