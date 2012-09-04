@@ -1,5 +1,7 @@
 package com.facebook.presto;
 
+import com.facebook.presto.slice.Slice;
+import com.facebook.presto.slice.Slices;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Longs;
 import org.testng.annotations.Test;

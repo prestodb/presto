@@ -1,6 +1,8 @@
 package com.facebook.presto;
 
 import com.facebook.presto.aggregations.SumAggregation;
+import com.facebook.presto.slice.Slice;
+import com.facebook.presto.slice.Slices;
 import com.facebook.presto.operators.GroupByBlockStream;
 import com.facebook.presto.operators.PipelinedAggregationBlockStream;
 import io.airlift.units.DataSize;

@@ -1,5 +1,7 @@
 package com.facebook.presto;
 
+import com.facebook.presto.slice.Slice;
+import com.facebook.presto.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 

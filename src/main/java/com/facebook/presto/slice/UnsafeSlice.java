@@ -1,8 +1,21 @@
-package com.facebook.presto;
+/*
+ * Copyright 2004-present Facebook. All Rights Reserved.
+ */
+package com.facebook.presto.slice;
+
+import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
+import sun.misc.Unsafe;
+import sun.nio.ch.DirectBuffer;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
@@ -14,34 +27,81 @@ import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
 import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static java.lang.Math.min;
-import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
-/**
- * Little Endian slice of a {@link ByteBuffer}.
- */
-public final class ByteBufferSlice
-        extends AbstractSlice
+public class UnsafeSlice extends AbstractSlice
 {
-    private final ByteBuffer buffer;
+    private static final Unsafe unsafe;
+    private static final MethodHandle newByteBuffer;
 
-    private int hash;
+    static {
+        try {
+            Field field = Unsafe.class.getDeclaredField("theUnsafe");
+            field.setAccessible(true);
+            unsafe = (Unsafe) field.get(null);
 
-    public ByteBufferSlice(ByteBuffer buffer)
+            int byteArrayIndexScale = unsafe.arrayIndexScale(byte[].class);
+            if (byteArrayIndexScale != 1) {
+                throw new IllegalStateException("Byte array index scale must be 1, but is " + byteArrayIndexScale);
+            }
+
+            Class<?> directByteBufferClass = ClassLoader.getSystemClassLoader().loadClass("java.nio.DirectByteBuffer");
+            Constructor<?> constructor = directByteBufferClass.getDeclaredConstructor(long.class, int.class, Object.class);
+            constructor.setAccessible(true);
+            newByteBuffer = MethodHandles.lookup().unreflectConstructor(constructor).asType(MethodType.methodType(ByteBuffer.class, long.class, int.class, Object.class));
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+    private static final long BYTE_ARRAY_OFFSET = unsafe.arrayBaseOffset(byte[].class);
+
+    public static UnsafeSlice toUnsafeSlice(ByteBuffer byteBuffer)
     {
-        this.buffer = buffer.slice().order(LITTLE_ENDIAN);
+        Preconditions.checkNotNull(byteBuffer, "byteBuffer is null");
+        Preconditions.checkArgument(byteBuffer instanceof DirectBuffer, "byteBuffer is not an instance of %s", DirectBuffer.class.getName());
+        DirectBuffer directBuffer = (DirectBuffer) byteBuffer;
+        long address = directBuffer.address();
+        int capacity = byteBuffer.capacity();
+        return new UnsafeSlice(address, capacity, byteBuffer);
+    }
+
+    private final long address;
+    private final int size;
+    private final Object reference;
+
+    static {
+        if (unsafe == null) {
+            throw new RuntimeException("Unsafe access not available");
+        }
+    }
+
+    UnsafeSlice(long address, int size, Object reference)
+    {
+        this.reference = reference;
+        if (address <= 0) {
+            throw new IllegalArgumentException("Invalid address: " + address);
+        }
+        if (size <= 0) {
+            throw new IllegalArgumentException("Invalid size: " + size);
+        }
+        if (address + size < size) {
+            throw new IllegalArgumentException("Address + size is greater than 64 bits");
+        }
+        this.address = address;
+        this.size = size;
     }
 
     @Override
     public int length()
     {
-        return buffer.capacity();
+        return size;
     }
 
     @Override
     public byte getByte(int index)
     {
         checkIndexLength(index, SIZE_OF_BYTE);
-        return buffer.get(index);
+        return unsafe.getByte(address + index);
     }
 
     @Override
@@ -54,21 +114,21 @@ public final class ByteBufferSlice
     public short getShort(int index)
     {
         checkIndexLength(index, SIZE_OF_SHORT);
-        return buffer.getShort(index);
+        return unsafe.getShort(address + index);
     }
 
     @Override
     public int getInt(int index)
     {
         checkIndexLength(index, SIZE_OF_INT);
-        return buffer.getInt(index);
+        return unsafe.getInt(address + index);
     }
 
     @Override
     public long getLong(int index)
     {
         checkIndexLength(index, SIZE_OF_LONG);
-        return buffer.getLong(index);
+        return unsafe.getLong(address + index);
     }
 
     @Override
@@ -82,14 +142,15 @@ public final class ByteBufferSlice
     {
         checkIndexLength(index, length);
         checkPositionIndexes(destinationIndex, destinationIndex + length, destination.length);
-        buffer.get(destination, destinationIndex, length);
+
+        unsafe.copyMemory(null, address + index, destination, BYTE_ARRAY_OFFSET + destinationIndex, length);
     }
 
     @Override
     public byte[] getBytes(int index, int length)
     {
         byte[] bytes = new byte[length];
-        toByteBuffer(index, length).get(bytes);
+        getBytes(index, bytes, 0, length);
         return bytes;
     }
 
@@ -104,24 +165,7 @@ public final class ByteBufferSlice
     public void getBytes(int index, OutputStream out, int length)
             throws IOException
     {
-        checkIndexLength(index, length);
-        if (buffer.hasArray()) {
-            out.write(buffer.array(), buffer.arrayOffset() + index, length);
-        }
-        else {
-            writeBuffer(toByteBuffer(index, length), out);
-        }
-    }
-
-    private static void writeBuffer(ByteBuffer source, OutputStream out)
-            throws IOException
-    {
-        byte[] bytes = new byte[4096];
-        while (source.remaining() > 0) {
-            int count = min(source.remaining(), bytes.length);
-            source.get(bytes, 0, count);
-            out.write(bytes, 0, count);
-        }
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -132,27 +176,31 @@ public final class ByteBufferSlice
     }
 
     @Override
+    public void setByte(int index, int value)
+    {
+        checkIndexLength(index, SIZE_OF_BYTE);
+        unsafe.putByte(address + index, (byte) (value & 0xFF));
+    }
+
+    @Override
     public void setShort(int index, int value)
     {
-        buffer.putShort(index, (short) (value & 0xFFFF));
+        checkIndexLength(index, SIZE_OF_SHORT);
+        unsafe.putShort(address + index, (short) (value & 0xFFFF));
     }
 
     @Override
     public void setInt(int index, int value)
     {
-        buffer.putInt(index, value);
+        checkIndexLength(index, SIZE_OF_INT);
+        unsafe.putInt(address + index, value);
     }
 
     @Override
     public void setLong(int index, long value)
     {
-        buffer.putLong(index, value);
-    }
-
-    @Override
-    public void setByte(int index, int value)
-    {
-        buffer.put(index, (byte) (value & 0xFF));
+        checkIndexLength(index, SIZE_OF_LONG);
+        unsafe.putLong(address + index, value);
     }
 
     @Override
@@ -173,10 +221,7 @@ public final class ByteBufferSlice
     @Override
     public void setBytes(int index, ByteBuffer source)
     {
-        checkIndexLength(index, source.remaining());
-        ByteBuffer dst = buffer.duplicate();
-        dst.position(index);
-        dst.put(source);
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -266,17 +311,19 @@ public final class ByteBufferSlice
         if (length == 0) {
             return Slices.EMPTY_SLICE;
         }
-        return new ByteBufferSlice(toByteBuffer(index, length));
+        return new UnsafeSlice(address + index, length, reference);
     }
 
     @Override
     public ByteBuffer toByteBuffer(int index, int length)
     {
         checkIndexLength(index, length);
-        ByteBuffer out = buffer.duplicate();
-        out.position(index);
-        out.limit(index + length);
-        return out.slice().order(LITTLE_ENDIAN);
+        try {
+            return (ByteBuffer) newByteBuffer.invokeExact(address + index, length, (Object) reference);
+        }
+        catch (Throwable throwable) {
+            throw Throwables.propagate(throwable);
+        }
     }
 
     @Override
@@ -303,8 +350,35 @@ public final class ByteBufferSlice
             return false;
         }
 
-        return buffer.equals(slice.toByteBuffer());
+        UnsafeSlice that = (UnsafeSlice) slice;
+        int offset = 0;
+        int length = size;
+        while (length >= 8) {
+            long thisLong = unsafe.getLong(this.address + offset);
+            long thatLong = unsafe.getLong(that.address + offset);
+
+            if (thisLong != thatLong) {
+                return false;
+            }
+
+            offset += 8;
+            length -= 8;
+        }
+
+        while (length > 0) {
+            byte thisByte = unsafe.getByte(this.address + offset);
+            byte thatByte = unsafe.getByte(that.address + offset);
+            if (thisByte != thatByte) {
+                return false;
+            }
+            offset++;
+            length--;
+        }
+
+        return true;
     }
+
+    private int hash;
 
     @Override
     public int hashCode()
@@ -316,7 +390,7 @@ public final class ByteBufferSlice
         // see definition in interface
         int result = 1;
         for (int i = 0; i < length(); i++) {
-            result = (31 * result) + buffer.get(i);
+            result = (31 * result) + unsafe.getByte(this.address + i);
         }
         if (result == 0) {
             result = 1;
@@ -329,6 +403,40 @@ public final class ByteBufferSlice
     @Override
     public boolean equals(int offset, int length, Slice other, int otherOffset, int otherLength)
     {
-        throw new UnsupportedOperationException("not yet implemented");
+        if (length != otherLength) {
+            return false;
+        }
+
+        if (!(other instanceof UnsafeSlice)) {
+            throw new UnsupportedOperationException("not yet implemented");
+        }
+
+        UnsafeSlice that = (UnsafeSlice) other;
+
+        while (length >= 8) {
+            long thisLong = unsafe.getLong(this.address + offset);
+            long thatLong = unsafe.getLong(that.address + otherOffset);
+
+            if (thisLong != thatLong) {
+                return false;
+            }
+
+            offset += 8;
+            otherOffset += 8;
+            length -= 8;
+        }
+
+        while (length > 0) {
+            byte thisByte = unsafe.getByte(this.address + offset);
+            byte thatByte = unsafe.getByte(that.address + otherOffset);
+            if (thisByte != thatByte) {
+                return false;
+            }
+            offset++;
+            otherOffset++;
+            length--;
+        }
+
+        return true;
     }
 }

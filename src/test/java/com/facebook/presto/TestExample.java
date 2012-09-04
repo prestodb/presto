@@ -1,5 +1,6 @@
 package com.facebook.presto;
 
+import com.facebook.presto.slice.Slices;
 import com.google.common.collect.ImmutableList;
 
 
@@ -29,7 +30,7 @@ public class TestExample
     private static DataScan3 newScan()
     {
         Iterator<ValueBlock> values = ImmutableList.<ValueBlock>builder()
-                .add(new UncompressedValueBlock(Range.create(0L, 5L), new TupleInfo(FIXED_INT_64), Slices.wrappedBuffer(new byte[]{'a', 'b', 'c', 'd', 'e', 'f'})))
+                .add(new UncompressedValueBlock(Range.create(0L, 5L), new TupleInfo(FIXED_INT_64), Slices.wrappedBuffer(new byte[] { 'a', 'b', 'c', 'd', 'e', 'f' })))
                 .add(new UncompressedValueBlock(Range.create(20L, 25L), new TupleInfo(FIXED_INT_64), Slices.wrappedBuffer(new byte[]{'h', 'i', 'j', 'k', 'l', 'm'})))
                 .add(new UncompressedValueBlock(Range.create(30L, 35L), new TupleInfo(FIXED_INT_64), Slices.wrappedBuffer(new byte[]{'n', 'o', 'p', 'q', 'r', 's'})))
                 .build()
