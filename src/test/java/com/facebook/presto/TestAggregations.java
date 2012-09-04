@@ -2,6 +2,9 @@ package com.facebook.presto;
 
 import com.facebook.presto.aggregations.AggregationFunction;
 import com.facebook.presto.aggregations.SumAggregation;
+import com.facebook.presto.operators.GroupBy;
+import com.facebook.presto.operators.HashAggregation;
+import com.facebook.presto.operators.PipelinedAggregation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.PeekingIterator;

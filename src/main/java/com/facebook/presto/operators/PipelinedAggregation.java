@@ -1,5 +1,12 @@
-package com.facebook.presto;
+package com.facebook.presto.operators;
 
+import com.facebook.presto.AggregationUtil;
+import com.facebook.presto.BlockBuilder;
+import com.facebook.presto.RunLengthEncodedBlock;
+import com.facebook.presto.SeekableIterator;
+import com.facebook.presto.Tuple;
+import com.facebook.presto.TupleInfo;
+import com.facebook.presto.ValueBlock;
 import com.facebook.presto.aggregations.AggregationFunction;
 import com.google.common.collect.AbstractIterator;
 
