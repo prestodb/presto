@@ -1,5 +1,7 @@
 package com.facebook.presto;
 
+import com.facebook.presto.slice.Slices;
+
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Charsets.UTF_8;

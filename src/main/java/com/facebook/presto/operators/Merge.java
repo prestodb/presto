@@ -1,5 +1,9 @@
-package com.facebook.presto;
+package com.facebook.presto.operators;
 
+import com.facebook.presto.BlockBuilder;
+import com.facebook.presto.Tuple;
+import com.facebook.presto.TupleInfo;
+import com.facebook.presto.ValueBlock;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.AbstractIterator;

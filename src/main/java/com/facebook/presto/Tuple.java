@@ -1,6 +1,8 @@
 package com.facebook.presto;
 
 import com.facebook.presto.TupleInfo.Type;
+import com.facebook.presto.slice.Slice;
+import com.facebook.presto.slice.SliceOutput;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 

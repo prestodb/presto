@@ -1,5 +1,8 @@
 package com.facebook.presto;
 
+import com.facebook.presto.slice.DynamicSliceOutput;
+import com.facebook.presto.slice.Slice;
+import com.facebook.presto.slice.SliceOutput;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;

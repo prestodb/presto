@@ -1,8 +1,10 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto;
+package com.facebook.presto.operators;
 
+import com.facebook.presto.Tuple;
+import com.facebook.presto.ValueBlock;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;

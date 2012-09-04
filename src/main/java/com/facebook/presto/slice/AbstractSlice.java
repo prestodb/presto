@@ -1,4 +1,4 @@
-package com.facebook.presto;
+package com.facebook.presto.slice;
 
 import com.google.common.base.Objects;
 import com.google.common.primitives.UnsignedBytes;

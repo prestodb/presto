@@ -1,5 +1,7 @@
 package com.facebook.presto;
 
+import com.facebook.presto.slice.SliceInput;
+import com.facebook.presto.slice.SliceOutput;
 import com.google.common.collect.AbstractIterator;
 
 import java.util.Iterator;

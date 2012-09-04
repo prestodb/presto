@@ -1,5 +1,7 @@
 package com.facebook.presto;
 
+import com.facebook.presto.slice.DynamicSliceOutput;
+import com.facebook.presto.slice.SliceOutput;
 import com.google.common.collect.Iterables;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;

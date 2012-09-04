@@ -1,5 +1,7 @@
 package com.facebook.presto;
 
+import com.facebook.presto.slice.Slice;
+import com.facebook.presto.slice.Slices;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;

@@ -3,12 +3,12 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.slice.Slices;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.Blocks.createBlock;
-import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Charsets.UTF_8;
 import static org.testng.Assert.assertEquals;

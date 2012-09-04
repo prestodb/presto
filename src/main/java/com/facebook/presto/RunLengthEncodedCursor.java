@@ -1,10 +1,6 @@
 package com.facebook.presto;
 
-import com.facebook.presto.Cursor;
-import com.facebook.presto.RunLengthEncodedBlock;
-import com.facebook.presto.Slice;
-import com.facebook.presto.Tuple;
-import com.facebook.presto.TupleInfo;
+import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 
 import java.util.Iterator;

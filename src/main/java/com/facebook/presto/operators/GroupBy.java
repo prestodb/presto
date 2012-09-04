@@ -1,5 +1,10 @@
-package com.facebook.presto;
+package com.facebook.presto.operators;
 
+import com.facebook.presto.Pair;
+import com.facebook.presto.Range;
+import com.facebook.presto.RunLengthEncodedBlock;
+import com.facebook.presto.Tuple;
+import com.facebook.presto.ValueBlock;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.PeekingIterator;
 
