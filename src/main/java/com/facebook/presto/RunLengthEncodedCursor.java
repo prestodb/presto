@@ -3,11 +3,11 @@ package com.facebook.presto;
 import com.facebook.presto.Cursor;
 import com.facebook.presto.RunLengthEncodedBlock;
 import com.facebook.presto.Slice;
+import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.google.common.base.Preconditions;
 
 import java.util.Iterator;
-import java.util.NoSuchElementException;
 
 public class RunLengthEncodedCursor
         implements Cursor
@@ -56,6 +56,12 @@ public class RunLengthEncodedCursor
     }
 
     @Override
+    public Tuple getTuple()
+    {
+        return current.getSingleValue();
+    }
+
+    @Override
     public long getLong(int field)
     {
         Preconditions.checkState(current != null, "Need to call advanceNext() first");
@@ -81,6 +87,12 @@ public class RunLengthEncodedCursor
     public long getPosition()
     {
         throw new UnsupportedOperationException("not yet implemented");
+    }
+
+    @Override
+    public boolean equals(Tuple value)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

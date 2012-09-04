@@ -24,6 +24,11 @@ public class Tuple
         return tupleInfo;
     }
 
+    public Slice getTupleSlice()
+    {
+        return slice;
+    }
+
     public long getLong(int index)
     {
         return tupleInfo.getLong(slice, index);

@@ -15,6 +15,24 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Arrays.asList;
 
+/**
+ * Tuple layout is:
+ * <pre>
+ *     fixed_0
+ *     fixed_1
+ *     ...
+ *     fixed_N
+ *     var_off_1
+ *     var_off_2
+ *     ...
+ *     var_off_N
+ *     size
+ *     var_0
+ *     var_1
+ *     ...
+ *     var_N
+ * </pre>
+ */
 public class TupleInfo
 {
     public enum Type
