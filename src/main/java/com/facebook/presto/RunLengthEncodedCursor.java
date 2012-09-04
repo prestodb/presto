@@ -11,6 +11,7 @@ public class RunLengthEncodedCursor
     private final TupleInfo info;
     private final Iterator<RunLengthEncodedBlock> iterator;
     private RunLengthEncodedBlock current;
+    private long position;
 
     public RunLengthEncodedCursor(TupleInfo info, Iterator<RunLengthEncodedBlock> iterator)
     {
@@ -37,18 +38,28 @@ public class RunLengthEncodedCursor
     public void advanceNextValue()
     {
         current = iterator.next();
+        position = current.getRange().getStart();
     }
 
     @Override
     public boolean hasNextPosition()
     {
-        throw new UnsupportedOperationException("not yet implemented");
+        if (current == null || position == current.getRange().getEnd()) {
+            return hasNextValue();
+        }
+
+        return true;
     }
 
     @Override
     public void advanceNextPosition()
     {
-        throw new UnsupportedOperationException("not yet implemented");
+        if (current == null || position == current.getRange().getEnd()) {
+            advanceNextValue();
+        }
+        else {
+            position++;
+        }
     }
 
     @Override
@@ -82,7 +93,7 @@ public class RunLengthEncodedCursor
     @Override
     public long getPosition()
     {
-        throw new UnsupportedOperationException("not yet implemented");
+        return position;
     }
 
     @Override
