@@ -1,5 +1,8 @@
 package com.facebook.presto;
 
+import com.facebook.presto.slice.DynamicSliceOutput;
+import com.facebook.presto.slice.Slice;
+import com.facebook.presto.slice.Slices;
 import com.google.common.base.Preconditions;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;

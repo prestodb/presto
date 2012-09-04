@@ -4,6 +4,11 @@
 package com.facebook.presto;
 
 import com.facebook.presto.TupleInfo.Type;
+import com.facebook.presto.slice.ByteArraySlice;
+import com.facebook.presto.slice.DynamicSliceOutput;
+import com.facebook.presto.slice.Slice;
+import com.facebook.presto.slice.SliceInput;
+import com.facebook.presto.slice.Slices;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;

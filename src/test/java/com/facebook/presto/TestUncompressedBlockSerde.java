@@ -4,6 +4,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.TupleInfo.Type;
+import com.facebook.presto.slice.Slices;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import org.testng.annotations.Test;

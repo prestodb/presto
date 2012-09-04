@@ -1,5 +1,9 @@
 package com.facebook.presto;
 
+import com.facebook.presto.slice.ByteArraySlice;
+import com.facebook.presto.slice.DynamicSliceOutput;
+import com.facebook.presto.slice.Slice;
+import com.facebook.presto.slice.SliceOutput;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.testng.Assert;

@@ -1,5 +1,6 @@
 package com.facebook.presto;
 
+import com.facebook.presto.slice.Slice;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;

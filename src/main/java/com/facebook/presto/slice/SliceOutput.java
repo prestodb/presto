@@ -1,4 +1,4 @@
-package com.facebook.presto;
+package com.facebook.presto.slice;
 
 import java.io.DataOutput;
 import java.io.IOException;

@@ -1,5 +1,8 @@
 package com.facebook.presto;
 
+import com.facebook.presto.slice.Slice;
+import com.facebook.presto.slice.SliceInput;
+import com.facebook.presto.slice.SliceOutput;
 import com.google.common.base.Function;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;

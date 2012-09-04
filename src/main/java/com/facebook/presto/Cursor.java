@@ -1,5 +1,7 @@
 package com.facebook.presto;
 
+import com.facebook.presto.slice.Slice;
+
 /**
  * Iterate as:
  *
