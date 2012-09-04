@@ -19,6 +19,7 @@ public class GroupByBlockStream
     implements BlockStream<RunLengthEncodedBlock>
 {
     private final BlockStream<? extends ValueBlock> source;
+    private boolean done;
 
     public GroupByBlockStream(BlockStream<? extends ValueBlock> keySource)
     {
@@ -49,7 +50,7 @@ public class GroupByBlockStream
             protected RunLengthEncodedBlock computeNext()
             {
                 // if no more data, return null
-                if (!cursor.hasNextValue()) {
+                if (done) {
                     endOfData();
                     return null;
                 }
@@ -59,20 +60,29 @@ public class GroupByBlockStream
                 long startPosition = cursor.getPosition();
 
                 if (!cursor.hasNextValue()) {
+                    done = true;
                     Range range = Range.create(startPosition, startPosition);
                     return new RunLengthEncodedBlock(key, range);
                 }
 
+                long lastPosition;
                 do {
+                    lastPosition = cursor.getPosition();
                     cursor.advanceNextValue();
                 }
                 while (cursor.equals(key) && cursor.hasNextValue());
 
-
-                long endPosition = cursor.getPosition() - 1;
-                Range range = Range.create(startPosition, endPosition);
-
-                return new RunLengthEncodedBlock(key, range);
+                if (cursor.equals(key) && !cursor.hasNextValue()) {
+                    // last element of the stream is part of the current range
+                    done = true;
+                    Range range = Range.create(startPosition, cursor.getPosition());
+                    return new RunLengthEncodedBlock(key, range);
+                }
+                else {
+                    // range does not include the current element
+                    Range range = Range.create(startPosition, lastPosition);
+                    return new RunLengthEncodedBlock(key, range);
+                }
             }
         };
     }

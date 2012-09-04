@@ -1,20 +1,16 @@
 package com.facebook.presto;
 
-import com.facebook.presto.aggregations.AggregationFunction;
 import com.facebook.presto.aggregations.SumAggregation;
-import com.facebook.presto.operators.GroupBy;
-import com.facebook.presto.operators.HashAggregation;
-import com.facebook.presto.operators.PipelinedAggregation;
+import com.facebook.presto.operators.GroupByBlockStream;
+import com.facebook.presto.operators.HashAggregationBlockStream;
+import com.facebook.presto.operators.PipelinedAggregationBlockStream;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.PeekingIterator;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import javax.inject.Provider;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -29,18 +25,10 @@ public class TestAggregations
     @Test
     public void testPipelinedAggregation()
     {
-        GroupBy groupBy = new GroupBy(newGroupColumn());
-        PipelinedAggregation aggregation = new PipelinedAggregation(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64),
-                groupBy,
-                new ForwardingSeekableIterator<>(newAggregateColumn()),
-                new Provider<AggregationFunction>()
-                {
-                    @Override
-                    public AggregationFunction get()
-                    {
-                        return new SumAggregation();
-                    }
-                });
+        GroupByBlockStream groupBy = new GroupByBlockStream(newGroupColumn());
+        PipelinedAggregationBlockStream aggregation = new PipelinedAggregationBlockStream(groupBy,
+                newAggregateColumn(),
+                SumAggregation.PROVIDER);
 
         List<Pair> expected = ImmutableList.of(
                 new Pair(0, createTuple("apple", 10L)),
@@ -50,13 +38,12 @@ public class TestAggregations
         );
 
         List<Pair> actual = new ArrayList<>();
-        while (aggregation.hasNext()) {
-            ValueBlock block = aggregation.next();
-            PeekingIterator<Pair> pairs = block.pairIterator();
-            while (pairs.hasNext()) {
-                Pair pair = pairs.next();
-                actual.add(pair);
-            }
+        Cursor cursor = aggregation.cursor();
+        while (cursor.hasNextValue()) {
+            cursor.advanceNextValue();
+            long position = cursor.getPosition();
+            Tuple tuple = cursor.getTuple();
+            actual.add(new Pair(position, tuple));
         }
 
         Assert.assertEquals(actual, expected);
@@ -65,18 +52,10 @@ public class TestAggregations
     @Test
     public void testHashAggregation()
     {
-        GroupBy groupBy = new GroupBy(newGroupColumn());
-        HashAggregation aggregation = new HashAggregation(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64),
-                groupBy,
-                new ForwardingSeekableIterator<>(newAggregateColumn()),
-                new Provider<AggregationFunction>()
-                {
-                    @Override
-                    public AggregationFunction get()
-                    {
-                        return new SumAggregation();
-                    }
-                });
+        GroupByBlockStream groupBy = new GroupByBlockStream(newGroupColumn());
+        HashAggregationBlockStream aggregation = new HashAggregationBlockStream(groupBy,
+                newAggregateColumn(),
+                SumAggregation.PROVIDER);
 
         Map<Object, Object> expected = ImmutableMap.<Object, Object>of(
                 "apple", createTuple("apple", 10L),
@@ -86,45 +65,41 @@ public class TestAggregations
         );
 
         Map<Object, Object> actual = new HashMap<>();
-        while (aggregation.hasNext()) {
-            ValueBlock block = aggregation.next();
-            PeekingIterator<Pair> pairs = block.pairIterator();
-            while (pairs.hasNext()) {
-                Pair pair = pairs.next();
-                Tuple tuple = pair.getValue();
-                actual.put(tuple.getSlice(0).toString(UTF_8), tuple);
-            }
+        Cursor cursor = aggregation.cursor();
+        while (cursor.hasNextValue()) {
+            cursor.advanceNextValue();
+            Tuple tuple = cursor.getTuple();
+            String key = tuple.getSlice(0).toString(UTF_8);
+            actual.put(key, tuple);
         }
 
         Assert.assertEquals(actual, expected);
     }
 
-    public Iterator<ValueBlock> newGroupColumn()
+    public BlockStream<UncompressedValueBlock> newGroupColumn()
     {
-        Iterator<ValueBlock> values = ImmutableList.<ValueBlock>builder()
+        List<UncompressedValueBlock> values = ImmutableList.<UncompressedValueBlock>builder()
                 .add(createBlock(0, "apple", "apple", "apple", "apple", "banana", "banana"))
                 .add(createBlock(20, "banana", "banana", "banana", "cherry", "cherry", "cherry"))
                 .add(createBlock(30, "date"))
                 .add(createBlock(31, "date"))
                 .add(createBlock(32, "date"))
-                .build()
-                .iterator();
+                .build();
 
-        return values;
+        return new UncompressedBlockStream(new TupleInfo(VARIABLE_BINARY), values);
     }
 
-    public Iterator<ValueBlock> newAggregateColumn()
+    public BlockStream<UncompressedValueBlock> newAggregateColumn()
     {
-        Iterator<ValueBlock> values = ImmutableList.<ValueBlock>builder()
+        List<UncompressedValueBlock> values = ImmutableList.<UncompressedValueBlock>builder()
                 .add(createBlock(0, 1L, 2L, 3L, 4L, 5L, 6L))
                 .add(createBlock(20, 1L, 2L, 3L, 4L, 5L, 6L))
                 .add(createBlock(30, 1L))
                 .add(createBlock(31, 2L))
                 .add(createBlock(32, 3L))
-                .build()
-                .iterator();
+                .build();
 
-        return values;
+        return new UncompressedBlockStream(new TupleInfo(FIXED_INT_64), values);
     }
 
 }

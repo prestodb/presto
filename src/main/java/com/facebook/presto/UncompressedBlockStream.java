@@ -3,6 +3,7 @@ package com.facebook.presto;
 import com.facebook.presto.TupleInfo.Type;
 import com.google.common.base.Preconditions;
 
+import java.util.Arrays;
 import java.util.Iterator;
 
 public class UncompressedBlockStream
@@ -10,6 +11,11 @@ public class UncompressedBlockStream
 {
     private final TupleInfo info;
     private final Iterable<UncompressedValueBlock> source;
+
+    public UncompressedBlockStream(TupleInfo info, UncompressedValueBlock... source)
+    {
+        this(info, Arrays.asList(source));
+    }
 
     public UncompressedBlockStream(TupleInfo info, Iterable<UncompressedValueBlock> source)
     {
