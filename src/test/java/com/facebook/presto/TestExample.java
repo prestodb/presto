@@ -1,6 +1,8 @@
 package com.facebook.presto;
 
 import com.facebook.presto.slice.Slices;
+import com.facebook.presto.operators.DataScan3;
+import com.facebook.presto.operators.Merge;
 import com.google.common.collect.ImmutableList;
 
 

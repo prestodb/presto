@@ -1,5 +1,7 @@
-package com.facebook.presto;
+package com.facebook.presto.operators;
 
+import com.facebook.presto.PositionBlock;
+import com.facebook.presto.ValueBlock;
 import com.google.common.base.Optional;
 import com.google.common.collect.AbstractIterator;
 

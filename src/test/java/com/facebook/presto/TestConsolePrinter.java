@@ -3,8 +3,9 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.ConsolePrinter.DelimitedTuplePrinter;
-import com.facebook.presto.ConsolePrinter.RecordTuplePrinter;
+import com.facebook.presto.operators.ConsolePrinter;
+import com.facebook.presto.operators.ConsolePrinter.DelimitedTuplePrinter;
+import com.facebook.presto.operators.ConsolePrinter.RecordTuplePrinter;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
