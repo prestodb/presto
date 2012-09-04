@@ -1,7 +1,5 @@
 package com.facebook.presto;
 
-import com.facebook.presto.slice.Slices;
-import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -18,7 +16,7 @@ public class TestRunLengthEncodedCursor
             throws Exception
     {
         RunLengthEncodedCursor cursor = createCursor();
-        assertNextValue(cursor, 0, "apple");
+        CursorAssertions.assertNextValue(cursor, 0, "apple");
     }
 
     @Test
@@ -26,7 +24,7 @@ public class TestRunLengthEncodedCursor
             throws Exception
     {
         RunLengthEncodedCursor cursor = createCursor();
-        assertNextPosition(cursor, 0, "apple");
+        CursorAssertions.assertNextPosition(cursor, 0, "apple");
     }
 
 
@@ -36,10 +34,10 @@ public class TestRunLengthEncodedCursor
     {
         RunLengthEncodedCursor cursor = createCursor();
 
-        assertNextValue(cursor, 0, "apple");
-        assertNextValue(cursor, 5, "banana");
-        assertNextValue(cursor, 20, "cherry");
-        assertNextValue(cursor, 30, "date");
+        CursorAssertions.assertNextValue(cursor, 0, "apple");
+        CursorAssertions.assertNextValue(cursor, 5, "banana");
+        CursorAssertions.assertNextValue(cursor, 20, "cherry");
+        CursorAssertions.assertNextValue(cursor, 30, "date");
 
         assertFalse(cursor.hasNextValue());
     }
@@ -49,17 +47,17 @@ public class TestRunLengthEncodedCursor
     {
         RunLengthEncodedCursor cursor = createCursor();
 
-        assertNextPosition(cursor, 0, "apple");
-        assertNextPosition(cursor, 1, "apple");
-        assertNextPosition(cursor, 2, "apple");
-        assertNextPosition(cursor, 3, "apple");
-        assertNextPosition(cursor, 4, "apple");
-        assertNextPosition(cursor, 5, "banana");
-        assertNextPosition(cursor, 6, "banana");
-        assertNextPosition(cursor, 7, "banana");
-        assertNextPosition(cursor, 20, "cherry");
-        assertNextPosition(cursor, 21, "cherry");
-        assertNextPosition(cursor, 30, "date");
+        CursorAssertions.assertNextPosition(cursor, 0, "apple");
+        CursorAssertions.assertNextPosition(cursor, 1, "apple");
+        CursorAssertions.assertNextPosition(cursor, 2, "apple");
+        CursorAssertions.assertNextPosition(cursor, 3, "apple");
+        CursorAssertions.assertNextPosition(cursor, 4, "apple");
+        CursorAssertions.assertNextPosition(cursor, 5, "banana");
+        CursorAssertions.assertNextPosition(cursor, 6, "banana");
+        CursorAssertions.assertNextPosition(cursor, 7, "banana");
+        CursorAssertions.assertNextPosition(cursor, 20, "cherry");
+        CursorAssertions.assertNextPosition(cursor, 21, "cherry");
+        CursorAssertions.assertNextPosition(cursor, 30, "date");
 
         assertFalse(cursor.hasNextPosition());
     }
@@ -71,11 +69,11 @@ public class TestRunLengthEncodedCursor
         RunLengthEncodedCursor cursor = createCursor();
 
         // first, skip to middle of a block
-        assertNextValue(cursor, 0, "apple");
-        assertNextPosition(cursor, 1, "apple");
+        CursorAssertions.assertNextValue(cursor, 0, "apple");
+        CursorAssertions.assertNextPosition(cursor, 1, "apple");
 
         // force jump to next block
-        assertNextValue(cursor, 5, "banana");
+        CursorAssertions.assertNextValue(cursor, 5, "banana");
     }
 
     @Test
@@ -84,14 +82,14 @@ public class TestRunLengthEncodedCursor
         RunLengthEncodedCursor cursor = createCursor();
 
         // first, advance to end of first block
-        assertNextPosition(cursor, 0, "apple");
-        assertNextPosition(cursor, 1, "apple");
-        assertNextPosition(cursor, 2, "apple");
-        assertNextPosition(cursor, 3, "apple");
-        assertNextPosition(cursor, 4, "apple");
+        CursorAssertions.assertNextPosition(cursor, 0, "apple");
+        CursorAssertions.assertNextPosition(cursor, 1, "apple");
+        CursorAssertions.assertNextPosition(cursor, 2, "apple");
+        CursorAssertions.assertNextPosition(cursor, 3, "apple");
+        CursorAssertions.assertNextPosition(cursor, 4, "apple");
 
         // force jump to next block
-        assertNextPosition(cursor, 5, "banana");
+        CursorAssertions.assertNextPosition(cursor, 5, "banana");
     }
 
     @Test
@@ -100,10 +98,10 @@ public class TestRunLengthEncodedCursor
     {
         RunLengthEncodedCursor cursor = createCursor();
 
-        assertNextValuePosition(cursor, 0);
-        assertNextValuePosition(cursor, 5);
-        assertNextValuePosition(cursor, 20);
-        assertNextValuePosition(cursor, 30);
+        CursorAssertions.assertNextValuePosition(cursor, 0);
+        CursorAssertions.assertNextValuePosition(cursor, 5);
+        CursorAssertions.assertNextValuePosition(cursor, 20);
+        CursorAssertions.assertNextValuePosition(cursor, 30);
 
         assertFalse(cursor.hasNextValue());
     }
@@ -119,43 +117,6 @@ public class TestRunLengthEncodedCursor
                 new RunLengthEncodedBlock(Tuples.createTuple("date"), Range.create(30, 30)));
 
         return new RunLengthEncodedCursor(info, blocks.iterator());
-    }
-
-    private static void assertNextValue(Cursor cursor, long position, String value)
-    {
-        TupleInfo info = new TupleInfo(TupleInfo.Type.VARIABLE_BINARY);
-
-        Tuple tuple = info.builder()
-                .append(Slices.wrappedBuffer(value.getBytes(Charsets.UTF_8)))
-                .build();
-
-        assertTrue(cursor.hasNextValue());
-        cursor.advanceNextValue();
-
-        assertEquals(cursor.getTuple(), tuple);
-        assertEquals(cursor.getPosition(), position);
-    }
-
-    private static void assertNextPosition(Cursor cursor, long position, String value)
-    {
-        TupleInfo info = new TupleInfo(TupleInfo.Type.VARIABLE_BINARY);
-
-        Tuple tuple = info.builder()
-                .append(Slices.wrappedBuffer(value.getBytes(Charsets.UTF_8)))
-                .build();
-
-        assertTrue(cursor.hasNextPosition());
-        cursor.advanceNextPosition();
-
-        assertEquals(cursor.getTuple(), tuple);
-        assertEquals(cursor.getPosition(), position);
-    }
-
-    private static void assertNextValuePosition(Cursor cursor, long position)
-    {
-        assertTrue(cursor.hasNextValue());
-        assertEquals(cursor.peekNextValuePosition(), position);
-        cursor.advanceNextValue();
     }
 
 }
