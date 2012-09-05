@@ -1,5 +1,6 @@
 package com.facebook.presto;
 
+import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Charsets;
 
@@ -17,10 +18,13 @@ public class CursorAssertions
                 .build();
 
         assertTrue(cursor.hasNextValue());
+        assertTrue(cursor.nextValueEquals(tuple));
         cursor.advanceNextValue();
 
         assertEquals(cursor.getTuple(), tuple);
         assertEquals(cursor.getPosition(), position);
+        assertTrue(cursor.currentValueEquals(tuple));
+        assertEquals(cursor.getSlice(0), tuple.getSlice(0));
     }
 
     public static void assertNextPosition(Cursor cursor, long position, String value)
@@ -36,6 +40,43 @@ public class CursorAssertions
 
         assertEquals(cursor.getTuple(), tuple);
         assertEquals(cursor.getPosition(), position);
+        assertTrue(cursor.currentValueEquals(tuple));
+        assertEquals(cursor.getSlice(0), tuple.getSlice(0));
+    }
+
+    public static void assertNextValue(Cursor cursor, long position, long value)
+    {
+        TupleInfo info = new TupleInfo(Type.FIXED_INT_64);
+
+        Tuple tuple = info.builder()
+                .append(value)
+                .build();
+
+        assertTrue(cursor.hasNextValue());
+        assertTrue(cursor.nextValueEquals(tuple));
+        cursor.advanceNextValue();
+
+        assertEquals(cursor.getTuple(), tuple);
+        assertEquals(cursor.getPosition(), position);
+        assertTrue(cursor.currentValueEquals(tuple));
+        assertEquals(cursor.getLong(0), tuple.getLong(0));
+    }
+
+    public static void assertNextPosition(Cursor cursor, long position, long value)
+    {
+        TupleInfo info = new TupleInfo(Type.FIXED_INT_64);
+
+        Tuple tuple = info.builder()
+                .append(value)
+                .build();
+
+        assertTrue(cursor.hasNextPosition());
+        cursor.advanceNextPosition();
+
+        assertEquals(cursor.getTuple(), tuple);
+        assertEquals(cursor.getPosition(), position);
+        assertTrue(cursor.currentValueEquals(tuple));
+        assertEquals(cursor.getLong(0), tuple.getLong(0));
     }
 
     public static void assertNextValuePosition(Cursor cursor, long position)
