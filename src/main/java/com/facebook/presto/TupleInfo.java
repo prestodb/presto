@@ -188,7 +188,7 @@ public class TupleInfo
 
         // length of the tuple is located in the "last" fixed-width slot
         // this makes variable length column size easy to calculate
-        return slice.getShort(offset + getOffset(types.size()));
+        return slice.getShort(offset + getTupleSizeOffset());
     }
 
     public long getLong(Slice slice, int field)
@@ -241,6 +241,11 @@ public class TupleInfo
         }
 
         return value.equals(0, value.length(), block, tupleOffset + start, end - start);
+    }
+
+    public int getTupleSizeOffset()
+    {
+        return getOffset(types.size());
     }
 
     private int getOffset(int field)

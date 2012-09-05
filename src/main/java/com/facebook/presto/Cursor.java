@@ -52,4 +52,6 @@ public interface Cursor
 
     boolean equals(Tuple value);
     boolean equals(int field, Slice value);
+
+    boolean nextValueEquals(Tuple value);
 }
