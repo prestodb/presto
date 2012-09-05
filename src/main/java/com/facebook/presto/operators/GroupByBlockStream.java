@@ -16,7 +16,7 @@ import java.util.Iterator;
  * Group input data and produce a single block for each sequence of identical values.
  */
 public class GroupByBlockStream
-    implements BlockStream<RunLengthEncodedBlock>
+        implements BlockStream<RunLengthEncodedBlock>
 {
     private final BlockStream<? extends ValueBlock> source;
     private boolean done;
@@ -42,7 +42,6 @@ public class GroupByBlockStream
     public Iterator<RunLengthEncodedBlock> iterator()
     {
         final Cursor cursor = source.cursor();
-        cursor.advanceNextValue();
 
         return new AbstractIterator<RunLengthEncodedBlock>()
         {
@@ -50,39 +49,26 @@ public class GroupByBlockStream
             protected RunLengthEncodedBlock computeNext()
             {
                 // if no more data, return null
-                if (done) {
+                if (!cursor.hasNextPosition()) {
                     endOfData();
                     return null;
                 }
 
-                Tuple key = cursor.getTuple();
+                // advance
+                cursor.advanceNextValue();
 
+                // get starting key and position
+                Tuple key = cursor.getTuple();
                 long startPosition = cursor.getPosition();
 
-                if (!cursor.hasNextValue()) {
-                    done = true;
-                    Range range = Range.create(startPosition, startPosition);
-                    return new RunLengthEncodedBlock(key, range);
+                // advance while the next value equals the current value
+                while (cursor.hasNextPosition() && cursor.nextValueEquals(key)) {
+                    cursor.advanceNextPosition();
                 }
 
-                long lastPosition;
-                do {
-                    lastPosition = cursor.getPosition();
-                    cursor.advanceNextValue();
-                }
-                while (cursor.equals(key) && cursor.hasNextValue());
-
-                if (cursor.equals(key) && !cursor.hasNextValue()) {
-                    // last element of the stream is part of the current range
-                    done = true;
-                    Range range = Range.create(startPosition, cursor.getPosition());
-                    return new RunLengthEncodedBlock(key, range);
-                }
-                else {
-                    // range does not include the current element
-                    Range range = Range.create(startPosition, lastPosition);
-                    return new RunLengthEncodedBlock(key, range);
-                }
+                // range does not include the current element
+                Range range = Range.create(startPosition, cursor.getPosition());
+                return new RunLengthEncodedBlock(key, range);
             }
         };
     }

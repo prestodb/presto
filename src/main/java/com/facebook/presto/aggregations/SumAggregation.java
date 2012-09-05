@@ -10,7 +10,8 @@ import javax.inject.Provider;
 public class SumAggregation
         implements AggregationFunction
 {
-    public static final Provider<AggregationFunction> PROVIDER = new Provider<AggregationFunction>() {
+    public static final Provider<AggregationFunction> PROVIDER = new Provider<AggregationFunction>()
+    {
         @Override
         public SumAggregation get()
         {
@@ -30,6 +31,15 @@ public class SumAggregation
     @Override
     public void add(Cursor cursor, Range relevantRange)
     {
+//        cursor.advancePositionTo(relevantRange.getStart());
+//        while (cursor.hasNextValue() && relevantRange.contains(cursor.nextValuePosition())) {
+//            long value = cursor.getLong(0);
+//            long nextPosition = cursor.peekNextValuePosition();
+//            long endPosition = Math.min(relevantRange.getEnd(), nextPosition);
+//            long size = endPosition - cursor.getPosition();
+//            sum += (value * size);
+//        }
+
         // todo if cursor is not "valid", advance to first position
 
         // advance to start of range
