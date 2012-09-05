@@ -77,6 +77,8 @@ public interface Cursor
      */
     long peekNextValuePosition();
 
+    long getCurrentValueEndPosition();
+
     /**
      * True if the next tuple equals the specified tuple.
      *

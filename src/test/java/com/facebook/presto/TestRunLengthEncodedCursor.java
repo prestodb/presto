@@ -218,6 +218,25 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         cursor.peekNextValuePosition();
     }
 
+    @Test
+    public void testCurrentValueEndPosition()
+            throws Exception
+    {
+        RunLengthEncodedCursor cursor = createCursor();
+
+        cursor.advanceNextValue();
+        assertEquals(cursor.getCurrentValueEndPosition(), 4);
+
+        cursor.advanceNextValue();
+        assertEquals(cursor.getCurrentValueEndPosition(), 7);
+
+        cursor.advanceNextValue();
+        assertEquals(cursor.getCurrentValueEndPosition(), 21);
+
+        cursor.advanceNextValue();
+        assertEquals(cursor.getCurrentValueEndPosition(), 30);
+    }
+
     protected RunLengthEncodedCursor createCursor()
     {
         TupleInfo info = new TupleInfo(TupleInfo.Type.VARIABLE_BINARY);
