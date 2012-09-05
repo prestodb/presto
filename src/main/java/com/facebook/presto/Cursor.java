@@ -35,6 +35,11 @@ public interface Cursor
     void advanceNextPosition();
 
     /**
+     * Advances to the requested position or the next immediately available if that position does not exist in this stream (e.g., there's a gap in the sequence)
+     */
+    void advanceToPosition(long position);
+
+    /**
      * Gets the current tuple.
      *
      * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
@@ -71,6 +76,8 @@ public interface Cursor
      * @throws java.util.NoSuchElementException if this cursor is already at the last value
      */
     long peekNextValuePosition();
+
+    long getCurrentValueEndPosition();
 
     /**
      * True if the next tuple equals the specified tuple.
