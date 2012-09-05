@@ -113,6 +113,14 @@ public class RunLengthEncodedCursor
     }
 
     @Override
+    public long getCurrentValueEndPosition()
+    {
+        Preconditions.checkState(current != null, "Need to call advance first");
+
+        return current.getRange().getEnd();
+    }
+
+    @Override
     public long peekNextValuePosition()
     {
         if (!iterator.hasNext()) {

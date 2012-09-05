@@ -258,6 +258,17 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
         }
     }
 
+    @Test
+    public void testGetCurrentValueEndPosition()
+            throws Exception
+    {
+        Cursor cursor = createCursor();
+        while (cursor.hasNextValue()) {
+            cursor.advanceNextValue();
+            assertEquals(cursor.getCurrentValueEndPosition(), cursor.getPosition());
+        }
+    }
+
     protected List<UncompressedValueBlock> createBlocks()
     {
         return ImmutableList.of(

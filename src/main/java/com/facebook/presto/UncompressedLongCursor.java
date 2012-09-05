@@ -182,6 +182,12 @@ public class UncompressedLongCursor
     }
 
     @Override
+    public long getCurrentValueEndPosition()
+    {
+        return getPosition();
+    }
+
+    @Override
     public long peekNextValuePosition()
     {
         if (blockForNextValue == null) {

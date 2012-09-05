@@ -244,6 +244,17 @@ public abstract class AbstractTestUncompressedSliceCursor extends AbstractTestCu
         assertFalse(cursor.hasNextValue());
     }
 
+    @Test
+    public void testGetCurrentValueEndPosition()
+            throws Exception
+    {
+        Cursor cursor = createCursor();
+        while (cursor.hasNextValue()) {
+            cursor.advanceNextValue();
+            assertEquals(cursor.getCurrentValueEndPosition(), cursor.getPosition());
+        }
+    }
+
     protected TupleInfo createTupleInfo()
     {
         return new TupleInfo(Type.VARIABLE_BINARY);
