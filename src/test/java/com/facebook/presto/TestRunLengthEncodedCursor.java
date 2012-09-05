@@ -7,6 +7,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.NoSuchElementException;
 
+import static com.facebook.presto.CursorAssertions.assertCurrentValue;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.fail;
@@ -62,6 +63,55 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         CursorAssertions.assertNextPosition(cursor, 30, "date");
 
         assertFalse(cursor.hasNextPosition());
+    }
+
+    @Test
+    public void testAdvanceToPosition()
+            throws Exception
+    {
+        Cursor cursor = createCursor();
+
+        // advance to first position
+        cursor.advanceToPosition(0);
+        assertCurrentValue(cursor, 0, "apple");
+
+        // skip to position in first block
+        cursor.advanceToPosition(2);
+        assertCurrentValue(cursor, 2, "apple");
+
+        // advance to same position
+        cursor.advanceToPosition(2);
+        assertCurrentValue(cursor, 2, "apple");
+
+        // skip to position in same block
+        cursor.advanceToPosition(4);
+        assertCurrentValue(cursor, 4, "apple");
+
+        // skip to position in middle block
+        cursor.advanceToPosition(21);
+        assertCurrentValue(cursor, 21, "cherry");
+
+        // skip to position in gap
+        cursor.advanceToPosition(25);
+        assertCurrentValue(cursor, 30, "date");
+
+        // skip backwards
+        try {
+            cursor.advanceToPosition(20);
+            fail("Expected IllegalArgumentException");
+        }
+        catch (IllegalArgumentException e) {
+            assertCurrentValue(cursor, 30, "date");
+        }
+
+        // skip past end
+        try {
+            cursor.advanceToPosition(100);
+            fail("Expected NoSuchElementException");
+        }
+        catch (NoSuchElementException e) {
+            // success
+        }
     }
 
     @Test

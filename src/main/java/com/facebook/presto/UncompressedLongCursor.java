@@ -39,7 +39,7 @@ public class UncompressedLongCursor
         Preconditions.checkNotNull(iterator, "iterator is null");
         this.iterator = iterator;
 
-        moveToNextValue();
+        moveToNextBlock();
     }
 
     @Override
@@ -72,11 +72,11 @@ public class UncompressedLongCursor
         }
         else {
             // next value is within the next block
-            moveToNextValue();
+            moveToNextBlock();
         }
     }
 
-    private void moveToNextValue()
+    private void moveToNextBlock()
     {
         if (iterator.hasNext()) {
             // advance to next block
@@ -102,6 +102,55 @@ public class UncompressedLongCursor
     public void advanceNextPosition()
     {
         advanceNextValue();
+    }
+
+    @Override
+    public void advanceToPosition(long position)
+    {
+        Preconditions.checkArgument(blockForCurrentValue == null || position >= getPosition(), "Can't advance backwards");
+
+        if (blockForCurrentValue != null && position == getPosition()) {
+            // position to current position? => no op
+            return;
+        }
+
+        if (blockForNextValue == null) {
+            throw new NoSuchElementException();
+        }
+
+        // skip to block containing requested position
+        if (position > blockForNextValue.getRange().getEnd()) {
+            do {
+                blockForNextValue = iterator.next();
+            }
+            while (position > blockForNextValue.getRange().getEnd());
+
+            // point to first entry in the block we skipped to
+            nextBlockIndex = 0;
+            nextOffset = 0;
+        }
+
+        // skip to index within block
+        while (blockForNextValue.getRange().getStart() + nextBlockIndex < position) {
+            nextBlockIndex++;
+            nextOffset += SIZE_OF_LONG;
+        }
+
+        // adjust current and next pointers
+        blockForCurrentValue = blockForNextValue;
+        currentBlockIndex = nextBlockIndex;
+        currentOffset = nextOffset;
+
+        // adjust next block
+        if (nextBlockIndex < blockForNextValue.getCount() - 1) {
+            // next value is within the current block
+            nextBlockIndex++;
+            nextOffset = currentOffset + SIZE_OF_LONG;
+        }
+        else {
+            // next value is within the next block
+            moveToNextBlock();
+        }
     }
 
     @Override
