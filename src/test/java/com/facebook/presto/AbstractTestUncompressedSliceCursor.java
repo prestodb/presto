@@ -8,8 +8,10 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import static com.facebook.presto.Blocks.createBlock;
+import static com.facebook.presto.CursorAssertions.assertCurrentValue;
 import static com.facebook.presto.CursorAssertions.assertNextPosition;
 import static com.facebook.presto.CursorAssertions.assertNextValue;
 import static com.facebook.presto.CursorAssertions.assertNextValuePosition;
@@ -169,6 +171,55 @@ public abstract class AbstractTestUncompressedSliceCursor extends AbstractTestCu
         assertNextValuePosition(cursor, 30);
 
         assertFalse(cursor.hasNextValue());
+    }
+
+    @Test
+    public void testAdvanceToPosition()
+            throws Exception
+    {
+        Cursor cursor = createCursor();
+
+        // advance to first position
+        cursor.advanceToPosition(0);
+        assertCurrentValue(cursor, 0, "apple");
+
+        // skip to position in first block
+        cursor.advanceToPosition(2);
+        assertCurrentValue(cursor, 2, "apple");
+
+        // advance to same position
+        cursor.advanceToPosition(2);
+        assertCurrentValue(cursor, 2, "apple");
+
+        // skip to position in same block
+        cursor.advanceToPosition(4);
+        assertCurrentValue(cursor, 4, "banana");
+
+        // skip to position in middle block
+        cursor.advanceToPosition(21);
+        assertCurrentValue(cursor, 21, "cherry");
+
+        // skip to position in gap
+        cursor.advanceToPosition(25);
+        assertCurrentValue(cursor, 30, "date");
+
+        // skip backwards
+        try {
+            cursor.advanceToPosition(20);
+            fail("Expected IllegalArgumentException");
+        }
+        catch (IllegalArgumentException e) {
+            assertCurrentValue(cursor, 30, "date");
+        }
+
+        // skip past end
+        try {
+            cursor.advanceToPosition(100);
+            fail("Expected NoSuchElementException");
+        }
+        catch (NoSuchElementException e) {
+            // success
+        }
     }
 
     @Test

@@ -8,8 +8,10 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import static com.facebook.presto.Blocks.createBlock;
+import static com.facebook.presto.CursorAssertions.assertCurrentValue;
 import static com.facebook.presto.CursorAssertions.assertNextPosition;
 import static com.facebook.presto.CursorAssertions.assertNextValue;
 import static com.facebook.presto.CursorAssertions.assertNextValuePosition;
@@ -95,6 +97,55 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
         assertNextPosition(cursor, 30, 4444L);
 
         assertFalse(cursor.hasNextPosition());
+    }
+
+    @Test
+    public void testAdvanceToPosition()
+            throws Exception
+    {
+        Cursor cursor = createCursor();
+
+        // advance to first position
+        cursor.advanceToPosition(0);
+        assertCurrentValue(cursor, 0, 1111L);
+
+        // skip to position in first block
+        cursor.advanceToPosition(2);
+        assertCurrentValue(cursor, 2, 1111L);
+
+        // advance to same position
+        cursor.advanceToPosition(2);
+        assertCurrentValue(cursor, 2, 1111L);
+
+        // skip to position in same block
+        cursor.advanceToPosition(4);
+        assertCurrentValue(cursor, 4, 2222L);
+
+        // skip to position in middle block
+        cursor.advanceToPosition(21);
+        assertCurrentValue(cursor, 21, 3333L);
+
+        // skip to position in gap
+        cursor.advanceToPosition(25);
+        assertCurrentValue(cursor, 30, 4444L);
+
+        // skip backwards
+        try {
+            cursor.advanceToPosition(20);
+            fail("Expected IllegalArgumentException");
+        }
+        catch (IllegalArgumentException e) {
+            assertCurrentValue(cursor, 30, 4444L);
+        }
+
+        // skip past end
+        try {
+            cursor.advanceToPosition(100);
+            fail("Expected NoSuchElementException");
+        }
+        catch (NoSuchElementException e) {
+            // success
+        }
     }
 
     @Test

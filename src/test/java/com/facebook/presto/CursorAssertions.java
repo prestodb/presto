@@ -79,6 +79,31 @@ public class CursorAssertions
         assertEquals(cursor.getLong(0), tuple.getLong(0));
     }
 
+    public static void assertCurrentValue(Cursor cursor, long position, String value)
+    {
+        TupleInfo info = new TupleInfo(TupleInfo.Type.VARIABLE_BINARY);
+
+        Tuple tuple = info.builder()
+                .append(Slices.wrappedBuffer(value.getBytes(Charsets.UTF_8)))
+                .build();
+
+        assertEquals(cursor.getTuple(), tuple);
+        assertEquals(cursor.getPosition(), position);
+    }
+
+    public static void assertCurrentValue(Cursor cursor, long position, long value)
+    {
+        TupleInfo info = new TupleInfo(Type.FIXED_INT_64);
+
+        Tuple tuple = info.builder()
+                .append(value)
+                .build();
+
+        assertEquals(cursor.getTuple(), tuple);
+        assertEquals(cursor.getPosition(), position);
+    }
+
+
     public static void assertNextValuePosition(Cursor cursor, long position)
     {
         assertTrue(cursor.hasNextValue());

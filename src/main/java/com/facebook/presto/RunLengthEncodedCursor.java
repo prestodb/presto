@@ -66,6 +66,23 @@ public class RunLengthEncodedCursor
     }
 
     @Override
+    public void advanceToPosition(long position)
+    {
+        Preconditions.checkArgument(current == null || position >= getPosition(), "Can't advance backwards");
+
+        if (current == null) {
+            advanceNextValue();
+        }
+
+        // skip to block containing requested position
+        while (position > current.getRange().getEnd()) {
+            advanceNextValue();
+        }
+
+        this.position = Math.max(position, current.getRange().getStart());
+    }
+
+    @Override
     public Tuple getTuple()
     {
         Preconditions.checkState(current != null, "Need to call advanceNext() first");
