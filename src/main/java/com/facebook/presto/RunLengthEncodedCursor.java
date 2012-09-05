@@ -68,6 +68,8 @@ public class RunLengthEncodedCursor
     @Override
     public Tuple getTuple()
     {
+        Preconditions.checkState(current != null, "Need to call advanceNext() first");
+
         return current.getSingleValue();
     }
 
@@ -88,12 +90,6 @@ public class RunLengthEncodedCursor
     }
 
     @Override
-    public boolean equals(Cursor other)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
     public long getPosition()
     {
         return position;
@@ -110,14 +106,20 @@ public class RunLengthEncodedCursor
     }
 
     @Override
-    public boolean equals(Tuple value)
+    public boolean currentValueEquals(Tuple value)
     {
-        throw new UnsupportedOperationException();
+        Preconditions.checkState(current != null, "Need to call advanceNext() first");
+
+        return current.getSingleValue().equals(value);
     }
 
     @Override
-    public boolean equals(int field, Slice value)
+    public boolean nextValueEquals(Tuple value)
     {
-        throw new UnsupportedOperationException("not yet implemented");
+        if (!iterator.hasNext()) {
+            throw new NoSuchElementException();
+        }
+
+        return iterator.peek().getSingleValue().equals(value);
     }
 }

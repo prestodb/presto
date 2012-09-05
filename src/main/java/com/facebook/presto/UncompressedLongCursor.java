@@ -2,8 +2,6 @@ package com.facebook.presto;
 
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.PeekingIterator;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -16,16 +14,32 @@ public class UncompressedLongCursor
 {
     private static final TupleInfo INFO = new TupleInfo(FIXED_INT_64);
 
-    private final PeekingIterator<UncompressedValueBlock> iterator;
+    private final Iterator<UncompressedValueBlock> iterator;
 
-    private UncompressedValueBlock currentBlock;
-    private int index;
-    private int offset;
+    //
+    // Current value and position of the cursor
+    // If cursor before the first element, these will be null and -1
+    //
+    private UncompressedValueBlock blockForCurrentValue;
+    private int currentBlockIndex = -1;
+    private int currentOffset = -1;
+
+    //
+    // Next value and position of the cursor
+    // If the cursor is within the middle of a block, the currentBlock
+    // and nextBlock will point to the same object
+    // If cursor is at the end, these will be null and -1
+    //
+    private UncompressedValueBlock blockForNextValue;
+    private int nextBlockIndex;
+    private int nextOffset;
 
     public UncompressedLongCursor(Iterator<UncompressedValueBlock> iterator)
     {
         Preconditions.checkNotNull(iterator, "iterator is null");
-        this.iterator = Iterators.peekingIterator(iterator);
+        this.iterator = iterator;
+
+        moveToNextValue();
     }
 
     @Override
@@ -37,23 +51,44 @@ public class UncompressedLongCursor
     @Override
     public boolean hasNextValue()
     {
-        return (currentBlock != null && index < currentBlock.getCount() - 1) || iterator.hasNext();
+        return blockForNextValue != null;
     }
 
     @Override
     public void advanceNextValue()
     {
-        if (currentBlock == null || index >= currentBlock.getCount() - 1) {
-            currentBlock = iterator.next();
-            index = 0;
-            offset = 0;
+        if (blockForNextValue == null) {
+            throw new NoSuchElementException();
         }
-        else if (index < currentBlock.getCount() - 1) {
-            index++;
-            offset += SIZE_OF_LONG;
+
+        blockForCurrentValue = blockForNextValue;
+        currentBlockIndex = nextBlockIndex;
+        currentOffset = nextOffset;
+
+        if (blockForNextValue != null && nextBlockIndex < blockForNextValue.getCount() - 1) {
+            // next value is within the current block
+            nextBlockIndex++;
+            nextOffset += SIZE_OF_LONG;
         }
         else {
-            throw new NoSuchElementException();
+            // next value is within the next block
+            moveToNextValue();
+        }
+    }
+
+    private void moveToNextValue()
+    {
+        if (iterator.hasNext()) {
+            // advance to next block
+            blockForNextValue = iterator.next();
+            nextBlockIndex = 0;
+            nextOffset = 0;
+        }
+        else {
+            // no more data
+            blockForNextValue = null;
+            nextBlockIndex = -1;
+            nextOffset = -1;
         }
     }
 
@@ -72,14 +107,16 @@ public class UncompressedLongCursor
     @Override
     public Tuple getTuple()
     {
-        return new Tuple(currentBlock.getSlice().slice(offset, SizeOf.SIZE_OF_LONG), INFO);
+        Preconditions.checkState(blockForCurrentValue != null, "Need to call advanceNext() first");
+        return new Tuple(blockForCurrentValue.getSlice().slice(currentOffset, SizeOf.SIZE_OF_LONG), INFO);
     }
 
     @Override
     public long getLong(int field)
     {
+        Preconditions.checkState(blockForCurrentValue != null, "Need to call advanceNext() first");
         Preconditions.checkElementIndex(0, 1, "field");
-        return currentBlock.getSlice().getLong(offset);
+        return blockForCurrentValue.getSlice().getLong(currentOffset);
     }
 
     @Override
@@ -89,41 +126,36 @@ public class UncompressedLongCursor
     }
 
     @Override
-    public boolean equals(Cursor other)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
     public long getPosition()
     {
-        return currentBlock.getRange().getStart() + index;
+        Preconditions.checkState(blockForCurrentValue != null, "Need to call advanceNext() first");
+        return blockForCurrentValue.getRange().getStart() + currentBlockIndex;
     }
 
     @Override
     public long peekNextValuePosition()
     {
-        if (currentBlock == null || index >= currentBlock.getCount() - 1) {
-            if (!iterator.hasNext()) {
-                throw new NoSuchElementException();
-            }
-            return iterator.peek().getRange().getStart();
+        if (blockForNextValue == null) {
+            throw new NoSuchElementException();
         }
-
-        return currentBlock.getRange().getStart() + index + 1;
+        return blockForNextValue.getRange().getStart() + nextBlockIndex;
     }
 
     @Override
-    public boolean equals(Tuple value)
+    public boolean currentValueEquals(Tuple value)
     {
+        Preconditions.checkState(blockForCurrentValue != null, "Need to call advanceNext() first");
         Slice tupleSlice = value.getTupleSlice();
-        return tupleSlice.length() == SIZE_OF_LONG && currentBlock.getSlice().getLong(offset) == tupleSlice.getLong(0);
+        return tupleSlice.length() == SIZE_OF_LONG && blockForCurrentValue.getSlice().getLong(currentOffset) == tupleSlice.getLong(0);
     }
 
     @Override
-    public boolean equals(int field, Slice value)
+    public boolean nextValueEquals(Tuple value)
     {
-        Preconditions.checkElementIndex(0, 1, "field");
-        return value.length() == SIZE_OF_LONG && currentBlock.getSlice().getLong(offset) == value.getLong(0);
+        if (blockForNextValue == null) {
+            throw new NoSuchElementException();
+        }
+        Slice tupleSlice = value.getTupleSlice();
+        return tupleSlice.length() == SIZE_OF_LONG && blockForNextValue.getSlice().getLong(nextOffset) == tupleSlice.getLong(0);
     }
 }

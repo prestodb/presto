@@ -5,24 +5,8 @@ import org.testng.annotations.Test;
 
 import static org.testng.Assert.fail;
 
-public class TestUncompressedCursor extends AbstractTestUncompressedSliceCursor
+public class TestUncompressedSliceCursor extends AbstractTestUncompressedSliceCursor
 {
-    @Test
-    public void testFirstValue()
-            throws Exception
-    {
-        UncompressedCursor cursor = createCursor();
-        CursorAssertions.assertNextValue(cursor, 0, "apple");
-    }
-
-    @Test
-    public void testFirstPosition()
-            throws Exception
-    {
-        UncompressedCursor cursor = createCursor();
-        CursorAssertions.assertNextPosition(cursor, 0, "apple");
-    }
-
     @Test
     public void testConstructorNulls()
     {
@@ -40,9 +24,23 @@ public class TestUncompressedCursor extends AbstractTestUncompressedSliceCursor
         }
     }
 
-    @Override
-    protected UncompressedCursor createCursor()
+    @Test
+    public void testGetLong()
+            throws Exception
     {
-        return new UncompressedCursor(createTupleInfo(), createBlocks().iterator());
+        Cursor cursor = createCursor();
+
+        try {
+            cursor.getLong(0);
+            fail("Expected UnsupportedOperationException");
+        }
+        catch (UnsupportedOperationException expected) {
+        }
+    }
+
+    @Override
+    protected Cursor createCursor()
+    {
+        return new UncompressedSliceCursor(createBlocks().iterator());
     }
 }
