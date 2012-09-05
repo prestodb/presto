@@ -68,6 +68,8 @@ public class RunLengthEncodedCursor
     @Override
     public Tuple getTuple()
     {
+        Preconditions.checkState(current != null, "Need to call advanceNext() first");
+
         return current.getSingleValue();
     }
 

@@ -1,14 +1,17 @@
 package com.facebook.presto;
 
+import com.facebook.presto.TupleInfo.Type;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.NoSuchElementException;
 
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.fail;
 
-public class TestRunLengthEncodedCursor
+public class TestRunLengthEncodedCursor extends AbstractTestCursor
 {
     @Test
     public void testFirstValue()
@@ -165,7 +168,7 @@ public class TestRunLengthEncodedCursor
         cursor.peekNextValuePosition();
     }
 
-    private RunLengthEncodedCursor createCursor()
+    protected RunLengthEncodedCursor createCursor()
     {
         TupleInfo info = new TupleInfo(TupleInfo.Type.VARIABLE_BINARY);
 
@@ -178,4 +181,25 @@ public class TestRunLengthEncodedCursor
         return new RunLengthEncodedCursor(info, blocks.iterator());
     }
 
+    @Test
+    public void testTupleInfo()
+            throws Exception
+    {
+        Cursor cursor = createCursor();
+        TupleInfo tupleInfo = new TupleInfo(Type.VARIABLE_BINARY);
+        assertEquals(cursor.getTupleInfo(), tupleInfo);
+
+        try {
+            new UncompressedCursor(tupleInfo, null);
+            fail("Expected NullPointerException");
+        }
+        catch (NullPointerException expected) {
+        }
+        try {
+            new UncompressedCursor(null, ImmutableList.<UncompressedValueBlock>of().iterator());
+            fail("Expected NullPointerException");
+        }
+        catch (NullPointerException expected) {
+        }
+    }
 }
