@@ -4,10 +4,9 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestRunLengthEncodedCursor
 {
@@ -93,6 +92,23 @@ public class TestRunLengthEncodedCursor
     }
 
     @Test
+    public void testAdvanceNextValueAtEndOfBlock()
+            throws Exception
+    {
+        RunLengthEncodedCursor cursor = createCursor();
+
+        // first, advance to end of first block
+        CursorAssertions.assertNextPosition(cursor, 0, "apple");
+        CursorAssertions.assertNextPosition(cursor, 1, "apple");
+        CursorAssertions.assertNextPosition(cursor, 2, "apple");
+        CursorAssertions.assertNextPosition(cursor, 3, "apple");
+        CursorAssertions.assertNextPosition(cursor, 4, "apple");
+
+        // force jump to next block
+        CursorAssertions.assertNextValue(cursor, 5, "banana");
+    }
+
+    @Test
     public void testNextValuePosition()
             throws Exception
     {
@@ -104,6 +120,49 @@ public class TestRunLengthEncodedCursor
         CursorAssertions.assertNextValuePosition(cursor, 30);
 
         assertFalse(cursor.hasNextValue());
+    }
+
+    @Test(expectedExceptions = NoSuchElementException.class)
+    public void testAdvanceNextPositionThrows()
+    {
+        RunLengthEncodedCursor cursor = createCursor();
+
+        // first, skip to end
+        while (cursor.hasNextPosition()) {
+            cursor.advanceNextPosition();
+        }
+
+        // advance past end
+        cursor.advanceNextPosition();
+    }
+
+    @Test(expectedExceptions = NoSuchElementException.class)
+    public void testAdvanceNextValueThrows()
+    {
+        RunLengthEncodedCursor cursor = createCursor();
+
+        // first, skip to end
+        while (cursor.hasNextValue()) {
+            cursor.advanceNextValue();
+        }
+
+        // advance past end
+        cursor.advanceNextValue();
+    }
+
+
+    @Test(expectedExceptions = NoSuchElementException.class)
+    public void testPeekNextValuePositionThrows()
+    {
+        RunLengthEncodedCursor cursor = createCursor();
+
+        // first, skip to end
+        while (cursor.hasNextValue()) {
+            cursor.advanceNextValue();
+        }
+
+        // peek past end
+        cursor.peekNextValuePosition();
     }
 
     private RunLengthEncodedCursor createCursor()
