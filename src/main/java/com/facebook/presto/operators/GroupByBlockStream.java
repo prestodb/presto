@@ -67,7 +67,7 @@ public class GroupByBlockStream
                 }
 
                 // range does not include the current element
-                Range range = Range.create(startPosition, cursor.getPosition()); // todo: martin, change me to getCurrentValueEndPosition() when you add it
+                Range range = Range.create(startPosition, cursor.getCurrentValueEndPosition());
                 return new RunLengthEncodedBlock(key, range);
             }
         };
