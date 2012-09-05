@@ -2,8 +2,6 @@ package com.facebook.presto;
 
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.PeekingIterator;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -16,7 +14,7 @@ public class UncompressedSliceCursor
 {
     private static final TupleInfo INFO = new TupleInfo(VARIABLE_BINARY);
 
-    private final PeekingIterator<UncompressedValueBlock> iterator;
+    private final Iterator<UncompressedValueBlock> iterator;
 
     //
     // Current value and position of the cursor
@@ -41,7 +39,7 @@ public class UncompressedSliceCursor
     public UncompressedSliceCursor(Iterator<UncompressedValueBlock> iterator)
     {
         Preconditions.checkNotNull(iterator, "iterator is null");
-        this.iterator = Iterators.peekingIterator(iterator);
+        this.iterator = iterator;
 
         moveToNextValue();
     }
@@ -72,17 +70,12 @@ public class UncompressedSliceCursor
 
         if (blockForNextValue != null && nextBlockIndex < blockForNextValue.getCount() - 1) {
             // next value is within the current block
-            blockForNextValue = blockForCurrentValue;
             nextBlockIndex++;
             nextOffset = currentOffset + currentSize;
             nextSize = blockForNextValue.getSlice().getShort(nextOffset);
         }
         else {
             // next value is within the next block
-
-            // consume current block
-            iterator.next();
-
             moveToNextValue();
         }
     }
@@ -91,7 +84,7 @@ public class UncompressedSliceCursor
     {
         if (iterator.hasNext()) {
             // advance to next block
-            blockForNextValue = iterator.peek();
+            blockForNextValue = iterator.next();
             nextBlockIndex = 0;
             nextOffset = 0;
             nextSize = blockForNextValue.getSlice().getShort(nextOffset);
