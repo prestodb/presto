@@ -88,12 +88,6 @@ public class RunLengthEncodedCursor
     }
 
     @Override
-    public boolean equals(Cursor other)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
     public long getPosition()
     {
         return position;
@@ -110,17 +104,11 @@ public class RunLengthEncodedCursor
     }
 
     @Override
-    public boolean equals(Tuple value)
+    public boolean currentValueEquals(Tuple value)
     {
         Preconditions.checkState(current != null, "Need to call advanceNext() first");
 
         return current.getSingleValue().equals(value);
-    }
-
-    @Override
-    public boolean equals(int field, Slice value)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
     }
 
     @Override

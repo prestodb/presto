@@ -123,12 +123,6 @@ public class UncompressedLongCursor
     }
 
     @Override
-    public boolean equals(Cursor other)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
     public long getPosition()
     {
         Preconditions.checkState(currentBlock != null, "Need to call advanceNext() first");
@@ -145,21 +139,11 @@ public class UncompressedLongCursor
     }
 
     @Override
-    public boolean equals(Tuple value)
+    public boolean currentValueEquals(Tuple value)
     {
         Preconditions.checkState(currentBlock != null, "Need to call advanceNext() first");
         Slice tupleSlice = value.getTupleSlice();
         return tupleSlice.length() == SIZE_OF_LONG && currentBlock.getSlice().getLong(currentOffset) == tupleSlice.getLong(0);
-    }
-
-    @Override
-    public boolean equals(int field, Slice value)
-    {
-        if (currentBlock == null) {
-            throw new NoSuchElementException();
-        }
-        Preconditions.checkElementIndex(0, 1, "field");
-        return value.length() == SIZE_OF_LONG && currentBlock.getSlice().getLong(currentOffset) == value.getLong(0);
     }
 
     @Override

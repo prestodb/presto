@@ -34,24 +34,55 @@ public interface Cursor
      */
     void advanceNextPosition();
 
+    /**
+     * Gets the current tuple.
+     *
+     * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
+     *
+     */
     Tuple getTuple();
 
+    /**
+     * Gets a field from the current tuple.
+     *
+     * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
+     *
+     */
     long getLong(int field);
+
+    /**
+     * Gets a field from the current tuple.
+     *
+     * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
+     *
+     */
     Slice getSlice(int field);
 
-    boolean equals(Cursor other);
-
+    /**
+     * Returns the current position of this cursor
+     *
+     * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
+     */
     long getPosition();
 
     /**
-     * Returns the first position of the next value if one is available
+     * Returns the first position of the next value if one is available.
      *
-     * @throws java.util.NoSuchElementException if the cursor is already at the last value
+     * @throws java.util.NoSuchElementException if this cursor is already at the last value
      */
     long peekNextValuePosition();
 
-    boolean equals(Tuple value);
-    boolean equals(int field, Slice value);
+    /**
+     * True if the next tuple equals the specified tuple.
+     *
+     * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
+     */
+    boolean currentValueEquals(Tuple value);
 
+    /**
+     * True if the next tuple equals the specified tuple.
+     *
+     * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
+     */
     boolean nextValueEquals(Tuple value);
 }
