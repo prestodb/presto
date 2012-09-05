@@ -67,7 +67,7 @@ public class UncompressedCursor
         currentOffset = nextOffset;
         currentSize = nextSize;
 
-        if (blockForNextValue != null && nextBlockIndex < blockForNextValue.getCount() - 1) {
+        if (nextBlockIndex < blockForNextValue.getCount() - 1) {
             // next value is within the current block
             nextBlockIndex++;
             nextOffset = currentOffset + currentSize;
