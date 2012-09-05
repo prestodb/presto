@@ -18,12 +18,22 @@ public class UncompressedSliceCursor
 
     private final PeekingIterator<UncompressedValueBlock> iterator;
 
-    private UncompressedValueBlock currentBlock;
-    private int currentBlockIndex;
-    private int currentOffset;
-    private int currentSize;
+    //
+    // Current value and position of the cursor
+    // If cursor before the first element, these will be null and -1
+    //
+    private UncompressedValueBlock blockForCurrentValue;
+    private int currentBlockIndex = -1;
+    private int currentOffset = -1;
+    private int currentSize = -1;
 
-    private UncompressedValueBlock nextBlock;
+    //
+    // Next value and position of the cursor
+    // If the cursor is within the middle of a block, the currentBlock
+    // and nextBlock will point to the same object
+    // If cursor is at the end, these will be null and -1
+    //
+    private UncompressedValueBlock blockForNextValue;
     private int nextBlockIndex;
     private int nextOffset;
     private int nextSize;
@@ -45,27 +55,27 @@ public class UncompressedSliceCursor
     @Override
     public boolean hasNextValue()
     {
-        return nextBlock != null;
+        return blockForNextValue != null;
     }
 
     @Override
     public void advanceNextValue()
     {
-        if (nextBlock == null) {
+        if (blockForNextValue == null) {
             throw new NoSuchElementException();
         }
 
-        currentBlock = nextBlock;
+        blockForCurrentValue = blockForNextValue;
         currentBlockIndex = nextBlockIndex;
         currentOffset = nextOffset;
         currentSize = nextSize;
 
-        if (nextBlock != null && nextBlockIndex < nextBlock.getCount() - 1) {
+        if (blockForNextValue != null && nextBlockIndex < blockForNextValue.getCount() - 1) {
             // next value is within the current block
-            nextBlock = currentBlock;
+            blockForNextValue = blockForCurrentValue;
             nextBlockIndex++;
             nextOffset = currentOffset + currentSize;
-            nextSize = nextBlock.getSlice().getShort(nextOffset);
+            nextSize = blockForNextValue.getSlice().getShort(nextOffset);
         }
         else {
             // next value is within the next block
@@ -81,14 +91,14 @@ public class UncompressedSliceCursor
     {
         if (iterator.hasNext()) {
             // advance to next block
-            nextBlock = iterator.peek();
+            blockForNextValue = iterator.peek();
             nextBlockIndex = 0;
             nextOffset = 0;
-            nextSize = nextBlock.getSlice().getShort(nextOffset);
+            nextSize = blockForNextValue.getSlice().getShort(nextOffset);
         }
         else {
             // no more data
-            nextBlock = null;
+            blockForNextValue = null;
             nextBlockIndex = -1;
             nextOffset = -1;
             nextSize = -1;
@@ -110,8 +120,8 @@ public class UncompressedSliceCursor
     @Override
     public Tuple getTuple()
     {
-        Preconditions.checkState(currentBlock != null, "Need to call advanceNext() first"); 
-        return new Tuple(currentBlock.getSlice().slice(currentOffset, currentSize), INFO);
+        Preconditions.checkState(blockForCurrentValue != null, "Need to call advanceNext() first");
+        return new Tuple(blockForCurrentValue.getSlice().slice(currentOffset, currentSize), INFO);
     }
 
     @Override
@@ -123,42 +133,42 @@ public class UncompressedSliceCursor
     @Override
     public Slice getSlice(int field)
     {
-        Preconditions.checkState(currentBlock != null, "Need to call advanceNext() first"); 
+        Preconditions.checkState(blockForCurrentValue != null, "Need to call advanceNext() first");
         Preconditions.checkElementIndex(0, 1, "field");
-        return currentBlock.getSlice().slice(currentOffset + SIZE_OF_SHORT, currentSize - SIZE_OF_SHORT);
+        return blockForCurrentValue.getSlice().slice(currentOffset + SIZE_OF_SHORT, currentSize - SIZE_OF_SHORT);
     }
 
     @Override
     public long getPosition()
     {
-        Preconditions.checkState(currentBlock != null, "Need to call advanceNext() first"); 
-        return currentBlock.getRange().getStart() + currentBlockIndex;
+        Preconditions.checkState(blockForCurrentValue != null, "Need to call advanceNext() first");
+        return blockForCurrentValue.getRange().getStart() + currentBlockIndex;
     }
 
     @Override
     public long peekNextValuePosition()
     {
-        if (nextBlock == null) {
+        if (blockForNextValue == null) {
             throw new NoSuchElementException();
         }
-        return nextBlock.getRange().getStart() + nextBlockIndex;
+        return blockForNextValue.getRange().getStart() + nextBlockIndex;
     }
 
     @Override
     public boolean currentValueEquals(Tuple value)
     {
-        Preconditions.checkState(currentBlock != null, "Need to call advanceNext() first"); 
+        Preconditions.checkState(blockForCurrentValue != null, "Need to call advanceNext() first");
         Slice tupleSlice = value.getTupleSlice();
-        return currentBlock.getSlice().equals(currentOffset, currentSize, tupleSlice, 0, tupleSlice.length());
+        return blockForCurrentValue.getSlice().equals(currentOffset, currentSize, tupleSlice, 0, tupleSlice.length());
     }
 
     @Override
     public boolean nextValueEquals(Tuple value)
     {
-        if (nextBlock == null) {
+        if (blockForNextValue == null) {
             throw new NoSuchElementException();
         }
         Slice tupleSlice = value.getTupleSlice();
-        return nextBlock.getSlice().equals(nextOffset, nextSize, tupleSlice, 0, tupleSlice.length());
+        return blockForNextValue.getSlice().equals(nextOffset, nextSize, tupleSlice, 0, tupleSlice.length());
     }
 }
