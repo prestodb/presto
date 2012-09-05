@@ -8,7 +8,6 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 
 import static com.facebook.presto.Blocks.createBlock;
 import static com.facebook.presto.CursorAssertions.assertNextPosition;
@@ -170,49 +169,6 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
         assertNextValuePosition(cursor, 30);
 
         assertFalse(cursor.hasNextValue());
-    }
-
-    @Test(expectedExceptions = NoSuchElementException.class)
-    public void testAdvanceNextPositionThrows()
-    {
-        Cursor cursor = createCursor();
-
-        // first, skip to end
-        while (cursor.hasNextPosition()) {
-            cursor.advanceNextPosition();
-        }
-
-        // advance past end
-        cursor.advanceNextPosition();
-    }
-
-    @Test(expectedExceptions = NoSuchElementException.class)
-    public void testAdvanceNextValueThrows()
-    {
-        Cursor cursor = createCursor();
-
-        // first, skip to end
-        while (cursor.hasNextValue()) {
-            cursor.advanceNextValue();
-        }
-
-        // advance past end
-        cursor.advanceNextValue();
-    }
-
-
-    @Test(expectedExceptions = NoSuchElementException.class)
-    public void testPeekNextValuePositionThrows()
-    {
-        Cursor cursor = createCursor();
-
-        // first, skip to end
-        while (cursor.hasNextValue()) {
-            cursor.advanceNextValue();
-        }
-
-        // peek past end
-        cursor.peekNextValuePosition();
     }
 
     @Test

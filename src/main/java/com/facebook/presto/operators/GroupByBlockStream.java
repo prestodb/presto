@@ -62,12 +62,12 @@ public class GroupByBlockStream
                 long startPosition = cursor.getPosition();
 
                 // advance while the next value equals the current value
-                while (cursor.hasNextPosition() && cursor.nextValueEquals(key)) {
-                    cursor.advanceNextPosition();
+                while (cursor.hasNextValue() && cursor.nextValueEquals(key)) {
+                    cursor.advanceNextValue();
                 }
 
                 // range does not include the current element
-                Range range = Range.create(startPosition, cursor.getPosition());
+                Range range = Range.create(startPosition, cursor.getPosition()); // todo: martin, change me to getCurrentValueEndPosition() when you add it
                 return new RunLengthEncodedBlock(key, range);
             }
         };

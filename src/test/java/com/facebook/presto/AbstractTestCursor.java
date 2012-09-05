@@ -3,8 +3,6 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.NoSuchElementException;
@@ -30,7 +28,7 @@ public abstract class AbstractTestCursor
         }
 
         try {
-            cursor.currentValueEquals(new Tuple(Slices.allocate(8), new TupleInfo(Type.FIXED_INT_64)));
+            cursor.currentValueEquals(Tuples.createTuple(0L));
             fail("Expected IllegalStateException");
         }
         catch (IllegalStateException expected) {
@@ -69,7 +67,7 @@ public abstract class AbstractTestCursor
         }
 
         try {
-            cursor.nextValueEquals(new Tuple(Slices.allocate(8), new TupleInfo(Type.FIXED_INT_64)));
+            cursor.nextValueEquals(Tuples.createTuple(0L));
             fail("Expected NoSuchElementException");
         }
         catch (NoSuchElementException expected) {
