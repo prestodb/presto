@@ -1,20 +1,19 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto;
+package com.facebook.presto.block.cursor;
 
-import com.facebook.presto.operators.BlockCursor;
+import com.facebook.presto.Tuples;
+import com.facebook.presto.block.cursor.BlockCursor;
 import org.testng.annotations.Test;
 
 import java.util.NoSuchElementException;
 
-import static com.facebook.presto.BlockCursorAssertions.assertNextValue;
-import static com.facebook.presto.Blocks.createBlock;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-public class TestUncompressedBlockCursor 
+public abstract class AbstractTestUncompressedBlockCursor
 {
     @Test
     public void testStates()
@@ -76,47 +75,6 @@ public class TestUncompressedBlockCursor
     }
 
     @Test
-    public void testGetSliceState()
-    {
-        BlockCursor cursor = createCursor();
-        try {
-            cursor.getSlice(0);
-            fail("Expected IllegalStateException");
-        }
-        catch (IllegalStateException expected) {
-        }
-    }
-
-    @Test
-    public void testFirstValue()
-            throws Exception
-    {
-        BlockCursor cursor = createCursor();
-        BlockCursorAssertions.assertNextValue(cursor, 0, "apple");
-    }
-
-    @Test
-    public void testAdvanceNextValue()
-            throws Exception
-    {
-        BlockCursor cursor = createCursor();
-
-        assertNextValue(cursor, 0, "apple");
-        assertNextValue(cursor, 1, "apple");
-        assertNextValue(cursor, 2, "apple");
-        assertNextValue(cursor, 3, "banana");
-        assertNextValue(cursor, 4, "banana");
-        assertNextValue(cursor, 5, "banana");
-        assertNextValue(cursor, 6, "banana");
-        assertNextValue(cursor, 7, "banana");
-        assertNextValue(cursor, 8, "cherry");
-        assertNextValue(cursor, 9, "cherry");
-        assertNextValue(cursor, 10, "date");
-
-        assertFalse(cursor.hasNextValue());
-    }
-
-    @Test
     public void testAdvanceNextPosition()
     {
         BlockCursor cursor = createCursor();
@@ -130,8 +88,5 @@ public class TestUncompressedBlockCursor
         assertTrue(cursor.hasNextValue());
     }
 
-    protected BlockCursor createCursor()
-    {
-        return createBlock(0, "apple", "apple", "apple", "banana", "banana", "banana", "banana", "banana", "cherry", "cherry", "date").blockCursor();
-    }
+    protected abstract BlockCursor createCursor();
 }

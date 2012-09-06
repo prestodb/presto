@@ -1,6 +1,6 @@
 package com.facebook.presto;
 
-import com.facebook.presto.operators.BlockCursor;
+import com.facebook.presto.block.cursor.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;

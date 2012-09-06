@@ -1,6 +1,10 @@
 package com.facebook.presto;
 
-import com.facebook.presto.operators.BlockCursor;
+import com.facebook.presto.TupleInfo.Type;
+import com.facebook.presto.block.cursor.UncompressedBlockCursor;
+import com.facebook.presto.block.cursor.UncompressedLongBlockCursor;
+import com.facebook.presto.block.cursor.UncompressedSliceBlockCursor;
+import com.facebook.presto.block.cursor.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
@@ -167,6 +171,15 @@ public class UncompressedValueBlock
     @Override
     public BlockCursor blockCursor()
     {
+        if (info.getFieldCount() == 1) {
+            Type type = info.getTypes().get(0);
+            if (type == Type.FIXED_INT_64) {
+                return new UncompressedLongBlockCursor(this);
+            }
+            if (type == Type.VARIABLE_BINARY) {
+                return new UncompressedSliceBlockCursor(this);
+            }
+        }
         return new UncompressedBlockCursor(info, this);
     }
 
