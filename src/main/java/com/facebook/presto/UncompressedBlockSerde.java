@@ -3,15 +3,15 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.slice.*;
+import com.facebook.presto.slice.ByteArraySlice;
+import com.facebook.presto.slice.DynamicSliceOutput;
+import com.facebook.presto.slice.OutputStreamSliceOutput;
+import com.facebook.presto.slice.Slice;
+import com.facebook.presto.slice.SliceInput;
+import com.facebook.presto.slice.SliceOutput;
+import com.facebook.presto.slice.Slices;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
-import com.google.common.io.Closeables;
-import com.google.common.io.OutputSupplier;
 import io.airlift.units.DataSize;
 
 import java.io.File;
@@ -153,59 +153,6 @@ public class UncompressedBlockSerde
 
             Slice block = sliceInput.readSlice(blockSize);
             return new UncompressedValueBlock(range, tupleInfo, block);
-        }
-    }
-
-    public static class UncompressedColumnWriter implements ColumnProcessor
-    {
-        private final OutputSupplier<? extends OutputStream> outputSupplier;
-        private final Type type;
-        private OutputStream out;
-
-        public UncompressedColumnWriter(OutputSupplier<? extends OutputStream> outputSupplier, Type type)
-        {
-            this.outputSupplier = outputSupplier;
-            this.type = type;
-        }
-
-        @Override
-        public Type getColumnType()
-        {
-            return type;
-        }
-
-        @Override
-        public void processBlock(ValueBlock block)
-        {
-            try {
-                if (out == null) {
-                    out = outputSupplier.getOutput();
-                    UncompressedTupleInfoSerde.serialize(new TupleInfo(type), new OutputStreamSliceOutput(out));
-                }
-
-                Slice blockSlice = ((UncompressedValueBlock) block).getSlice();
-                write(out, block.getCount(), blockSlice);
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
-        }
-
-        @Override
-        public void finish()
-        {
-            Closeables.closeQuietly(out);
-            out = null;
-        }
-    }
-
-    // TODO: fix this horrible hack
-    public static class FloatMillisUncompressedColumnWriter
-            extends UncompressedColumnWriter
-    {
-        public FloatMillisUncompressedColumnWriter(OutputSupplier<? extends OutputStream> outputSupplier, TupleInfo.Type type)
-        {
-            super(outputSupplier, type);
         }
     }
 }

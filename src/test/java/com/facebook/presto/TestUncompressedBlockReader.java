@@ -15,21 +15,25 @@ import static com.google.common.base.Charsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TestUncompressedBlockSerde
+public class TestUncompressedBlockReader
 {
     @Test
     public void testRoundTrip()
             throws Exception
     {
-        BlockBuilder builder = new BlockBuilder(0, new TupleInfo(Type.VARIABLE_BINARY));
-        ValueBlock block = builder.append("alice".getBytes(UTF_8))
+        TupleInfo tupleInfo = new TupleInfo(Type.VARIABLE_BINARY);
+        UncompressedValueBlock block = new BlockBuilder(0, tupleInfo)
+                .append("alice".getBytes(UTF_8))
                 .append("bob".getBytes(UTF_8))
                 .append("charlie".getBytes(UTF_8))
                 .append("dave".getBytes(UTF_8))
                 .build();
 
+        UncompressedBlockStream blockStream = new UncompressedBlockStream(tupleInfo, ImmutableList.of(block));
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        UncompressedBlockSerde.write(ImmutableList.of(block).iterator(), out);
+        ColumnProcessor processor = new UncompressedColumnWriter(Type.VARIABLE_BINARY, 0, blockStream.cursor(), out);
+        processor.processPositions(Integer.MAX_VALUE);
+        processor.finish();
 
         ImmutableList<UncompressedValueBlock> copiedBlocks = ImmutableList.copyOf(UncompressedBlockSerde.read(Slices.wrappedBuffer(out.toByteArray())));
 

@@ -3,12 +3,12 @@ package com.facebook.presto;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
-import com.google.common.base.Preconditions;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 public class BlockBuilder
 {
@@ -38,6 +38,11 @@ public class BlockBuilder
         sliceOutput = new DynamicSliceOutput((int) blockSize.toBytes());
 
         tupleBuilder = tupleInfo.builder(sliceOutput);
+    }
+
+    public boolean isEmpty()
+    {
+        return count == 0;
     }
 
     public boolean isFull()
@@ -93,7 +98,8 @@ public class BlockBuilder
     {
         flushTupleIfNecessary();
 
-        Preconditions.checkState(count > 0, "Cannot build an empty block");
+        checkState(!tupleBuilder.isPartial(), "Tuple is not complete");
+        checkState(!isEmpty(), "Cannot build an empty block");
 
         return new UncompressedValueBlock(Range.create(startPosition, startPosition + count - 1), tupleInfo, sliceOutput.slice());
     }
