@@ -35,7 +35,7 @@ public class BenchmarkHashAggregation
             long count = result.count;
             Duration duration = result.duration;
 
-            DataSize fileSize = new DataSize(groupByFile.length(), DataSize.Unit.BYTE);
+            DataSize fileSize = new DataSize(groupByFile.length() + aggregateFile.length(), DataSize.Unit.BYTE);
 
             System.out.println(String.format("%s, %s, %.2f/s, %2.2f MB/s", duration, count, count / duration.toMillis() * 1000, fileSize.getValue(DataSize.Unit.MEGABYTE) / duration.convertTo(TimeUnit.SECONDS)));
         }
@@ -44,11 +44,12 @@ public class BenchmarkHashAggregation
 
     public static Result doIt(BlockStream<? extends ValueBlock> source)
     {
+        long start = System.nanoTime();
+
         Cursor cursor = source.cursor();
 
         int count = 0;
         long sum = 0;
-        long start = System.nanoTime();
 
         while (cursor.hasNextValue()) {
             cursor.advanceNextValue();
