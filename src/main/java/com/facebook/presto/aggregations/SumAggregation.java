@@ -21,6 +21,7 @@ public class SumAggregation
     private static final TupleInfo TUPLE_INFO = new TupleInfo(TupleInfo.Type.FIXED_INT_64);
 
     private long sum;
+//    private long count;
 
     @Override
     public TupleInfo getTupleInfo()
@@ -44,12 +45,14 @@ public class SumAggregation
 
         // advance to start of range
         // todo add seek method to cursor
+//        System.out.println(relevantRange);
         while (cursor.getPosition() < relevantRange.getStart()) {
             cursor.advanceNextPosition();
         }
 
         while (relevantRange.contains(cursor.getPosition())) {
             sum += cursor.getLong(0);
+//            count++;
             if (!cursor.hasNextPosition()) {
                 break;
             }
@@ -60,6 +63,7 @@ public class SumAggregation
     @Override
     public Tuple evaluate()
     {
+//        System.out.println(count + ", " + sum);
         return getTupleInfo().builder()
                 .append(sum)
                 .build();

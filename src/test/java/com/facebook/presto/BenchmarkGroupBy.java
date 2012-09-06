@@ -20,7 +20,7 @@ public class BenchmarkGroupBy
 
         Slice pageTypeColumnSlice = Slices.mapFileReadOnly(file);
         for (int i = 0; i < 100000; ++i) {
-            BlockStream<UncompressedValueBlock> pageTypeColumn = UncompressedBlockSerde.readAsStream(pageTypeColumnSlice);
+            BlockStream<? extends ValueBlock> pageTypeColumn = UncompressedBlockSerde.readAsStream(pageTypeColumnSlice);
             GroupByBlockStream groupBy = new GroupByBlockStream(pageTypeColumn) ;
 
             Result result = doIt(groupBy);

@@ -1,5 +1,6 @@
 package com.facebook.presto;
 
+import com.facebook.presto.operators.BlockCursor;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
@@ -114,5 +115,11 @@ public class RunLengthEncodedBlock
     public String toString()
     {
         return Iterators.toString(pairIterator());
+    }
+
+    @Override
+    public BlockCursor blockCursor()
+    {
+        throw new UnsupportedOperationException();
     }
 }

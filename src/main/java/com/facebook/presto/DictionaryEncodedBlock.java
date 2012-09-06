@@ -1,5 +1,6 @@
 package com.facebook.presto;
 
+import com.facebook.presto.operators.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -127,6 +128,12 @@ public class DictionaryEncodedBlock implements ValueBlock
                     }
                 }
         );
+    }
+
+    @Override
+    public BlockCursor blockCursor()
+    {
+        throw new UnsupportedOperationException();
     }
 
     private Tuple translateValue(Tuple tupleKey) {
