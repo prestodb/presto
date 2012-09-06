@@ -364,9 +364,14 @@ public class TupleInfo
             return currentField == types.size();
         }
 
+        public boolean isPartial()
+        {
+            return (currentField > 0) && (!isComplete());
+        }
+
         public void finish()
         {
-            Preconditions.checkState(currentField == types.size(), "Tuple is incomplete");
+            checkState(isComplete(), "Tuple is incomplete");
 
             // write offsets
             boolean isFirst = true;
