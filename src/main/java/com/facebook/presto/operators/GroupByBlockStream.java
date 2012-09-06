@@ -19,7 +19,6 @@ public class GroupByBlockStream
         implements BlockStream<RunLengthEncodedBlock>
 {
     private final BlockStream<? extends ValueBlock> source;
-    private boolean done;
 
     public GroupByBlockStream(BlockStream<? extends ValueBlock> keySource)
     {
@@ -49,7 +48,7 @@ public class GroupByBlockStream
             protected RunLengthEncodedBlock computeNext()
             {
                 // if no more data, return null
-                if (!cursor.hasNextPosition()) {
+                if (!cursor.hasNextValue()) {
                     endOfData();
                     return null;
                 }

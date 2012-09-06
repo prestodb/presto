@@ -66,7 +66,7 @@ public class ValueCursor implements Cursor
             // next value is within the next block
             // advance to next block
             nextValueBlockCursor = iterator.next().blockCursor();
-            nextValueBlockCursor.advanceNextPosition();
+            nextValueBlockCursor.advanceNextValue();
         }
         else {
             // no more data
@@ -78,16 +78,16 @@ public class ValueCursor implements Cursor
     public boolean hasNextPosition()
     {
         // if current value has more positions or we have a next value
-        return nextValueBlockCursor != null || isValid && currentValueBlockCursor.hasMorePositionsForCurrentValue();
+        return nextValueBlockCursor != null || isValid && currentValueBlockCursor.hasNextValuePosition();
     }
 
     @Override
     public void advanceNextPosition()
     {
         isValid = true;
-        if (currentValueBlockCursor.hasMorePositionsForCurrentValue()) {
+        if (currentValueBlockCursor.hasNextValuePosition()) {
             // next position is in the current value
-            currentValueBlockCursor.advanceNextPosition();
+            currentValueBlockCursor.advanceNextValuePosition();
         }
         else {
             advanceNextValue();
@@ -126,7 +126,7 @@ public class ValueCursor implements Cursor
     public long getCurrentValueEndPosition()
     {
         Preconditions.checkState(isValid, "Need to call advanceNext() first");
-        return currentValueBlockCursor.getCurrentValueEndPosition();
+        return currentValueBlockCursor.getValuePositionEnd();
     }
 
     @Override
@@ -174,16 +174,12 @@ public class ValueCursor implements Cursor
                 nextValueBlockCursor = iterator.next().blockCursor();
             }
             while (position > nextValueBlockCursor.getRange().getEnd());
-
-            // point to first entry in the block we skipped to
-            nextValueBlockCursor.advanceNextPosition();
         }
 
         // skip to index within block
-        while (nextValueBlockCursor.getRange().getStart() + nextValueBlockCursor.getPosition() < position) {
-            nextValueBlockCursor.advanceNextPosition();
-        }
+        nextValueBlockCursor.advanceToPosition(position);
 
+        // advance the current position to new next position (and advance the next position)
         advanceNextPosition();
     }
 }

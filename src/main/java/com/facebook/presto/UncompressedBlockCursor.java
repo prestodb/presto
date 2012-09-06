@@ -79,38 +79,71 @@ public class UncompressedBlockCursor
     public boolean hasNextValue()
     {
         // every position is a new value
-        return hasNextPosition();
+        return position < range.getEnd();
     }
 
     @Override
     public void advanceNextValue()
     {
-        // every position is a new value
-        advanceNextPosition();
-    }
-
-    @Override
-    public boolean hasNextPosition()
-    {
-        return position < range.getEnd();
-    }
-
-    @Override
-    public void advanceNextPosition()
-    {
-        if (!hasNextPosition()) {
+        if (!hasNextValue()) {
             throw new NoSuchElementException();
         }
 
         if (position < 0) {
             position = range.getStart();
             offset = 0;
-            size = info.size(slice, 0);
         } else {
+            position++;
+            offset += size;
+        }
+        size = info.size(slice, offset);
+    }
+
+    @Override
+    public boolean hasNextValuePosition()
+    {
+        return false;
+    }
+
+    @Override
+    public void advanceNextValuePosition()
+    {
+        throw new NoSuchElementException();
+    }
+
+    @Override
+    public void advanceToPosition(long newPosition)
+    {
+        Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
+        Preconditions.checkArgument(newPosition <= this.range.getEnd(), "Can't advance off the end of the block");
+
+        // move to initial position
+        if (position < 0) {
+            position = range.getStart();
+            offset = 0;
+            size = info.size(slice, 0);
+        }
+
+        // advance to specified position
+        while (position < newPosition) {
             position++;
             offset += size;
             size = info.size(slice, offset);
         }
+    }
+
+    @Override
+    public long getPosition()
+    {
+        Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
+        return position;
+    }
+
+    @Override
+    public long getValuePositionEnd()
+    {
+        Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
+        return position;
     }
 
     @Override
@@ -132,26 +165,6 @@ public class UncompressedBlockCursor
     {
         Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
         return info.getSlice(slice, offset, field);
-    }
-
-    @Override
-    public long getPosition()
-    {
-        Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
-        return position;
-    }
-
-    @Override
-    public boolean hasMorePositionsForCurrentValue()
-    {
-        return false;
-    }
-
-    @Override
-    public long getCurrentValueEndPosition()
-    {
-        Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
-        return position;
     }
 
     @Override
