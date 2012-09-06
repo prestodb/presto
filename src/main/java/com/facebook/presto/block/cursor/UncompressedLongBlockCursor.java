@@ -1,51 +1,46 @@
-package com.facebook.presto;
+package com.facebook.presto.block.cursor;
 
-import com.facebook.presto.operators.BlockCursor;
+import com.facebook.presto.Range;
+import com.facebook.presto.Tuple;
+import com.facebook.presto.TupleInfo;
+import com.facebook.presto.UncompressedValueBlock;
+import com.facebook.presto.block.cursor.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 
 import java.util.NoSuchElementException;
 
-public class UncompressedBlockCursor
+import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
+import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+public class UncompressedLongBlockCursor
         implements BlockCursor
 {
-    private final TupleInfo info;
+    private static final TupleInfo INFO = new TupleInfo(FIXED_INT_64);
+
     private Slice slice;
     private Range range;
-
-    //
-    // Current value and position of the cursor
-    // If cursor before the first element, these will be null and -1
-    //
     private long position = -1;
     private int offset = -1;
-    private int size = -1;
 
-
-    public UncompressedBlockCursor(TupleInfo info, UncompressedValueBlock block)
+    public UncompressedLongBlockCursor(UncompressedValueBlock block)
     {
-        Preconditions.checkNotNull(info, "info is null");
-        Preconditions.checkNotNull(block, "block is null");
-        this.info = info;
-        slice = block.getSlice();
-        range = block.getRange();
+        this(checkNotNull(block, "block is null").getSlice(), block.getRange());
     }
 
-    public UncompressedBlockCursor(TupleInfo info, Slice slice, Range range)
+    public UncompressedLongBlockCursor(Slice slice, Range range)
     {
-        this.info = info;
         this.slice = slice;
         this.range = range;
     }
 
-    public UncompressedBlockCursor(TupleInfo info, Slice slice, Range range, long position, int offset, int size)
+    public UncompressedLongBlockCursor(Slice slice, Range range, long position, int offset)
     {
-        this.info = info;
         this.slice = slice;
         this.range = range;
         this.position = position;
         this.offset = offset;
-        this.size = size;
     }
 
     @Override
@@ -55,10 +50,10 @@ public class UncompressedBlockCursor
     }
 
     @Override
-    public void advanceTo(BlockCursor cursor)
+    public void moveTo(BlockCursor cursor)
     {
-        Preconditions.checkArgument(cursor instanceof UncompressedBlockCursor, "cursor is not an instance of UncompressedBlockCursor");
-        UncompressedBlockCursor other = (UncompressedBlockCursor) cursor;
+        Preconditions.checkArgument(cursor instanceof UncompressedLongBlockCursor, "cursor is not an instance of UncompressedLongBlockCursor");
+        UncompressedLongBlockCursor other = (UncompressedLongBlockCursor) cursor;
 
         // todo assure that the cursors are for the same block stream?
 
@@ -66,13 +61,12 @@ public class UncompressedBlockCursor
         this.range = other.range;
         this.position = other.position;
         this.offset = other.offset;
-        this.size = other.size;
     }
 
     @Override
     public BlockCursor duplicate()
     {
-        return new UncompressedBlockCursor(info, slice, range, position, offset, size);
+        return new UncompressedLongBlockCursor(slice, range, position, offset);
     }
 
     @Override
@@ -94,9 +88,8 @@ public class UncompressedBlockCursor
             offset = 0;
         } else {
             position++;
-            offset += size;
+            offset += SIZE_OF_LONG;
         }
-        size = info.size(slice, offset);
     }
 
     @Override
@@ -117,19 +110,9 @@ public class UncompressedBlockCursor
         Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
         Preconditions.checkArgument(newPosition <= this.range.getEnd(), "Can't advance off the end of the block");
 
-        // move to initial position
-        if (position < 0) {
-            position = range.getStart();
-            offset = 0;
-            size = info.size(slice, 0);
-        }
-
         // advance to specified position
-        while (position < newPosition) {
-            position++;
-            offset += size;
-            size = info.size(slice, offset);
-        }
+        position = newPosition;
+        offset = (int) ((position - this.range.getStart()) * 8);
     }
 
     @Override
@@ -150,21 +133,21 @@ public class UncompressedBlockCursor
     public Tuple getTuple()
     {
         Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
-        return new Tuple(slice.slice(offset, size), info);
+        return new Tuple(slice.slice(offset, SIZE_OF_LONG), INFO);
     }
 
     @Override
     public long getLong(int field)
     {
         Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
-        return info.getLong(slice, offset, field);
+        Preconditions.checkElementIndex(0, 1, "field");
+        return slice.getLong(offset);
     }
 
     @Override
     public Slice getSlice(int field)
     {
-        Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
-        return info.getSlice(slice, offset, field);
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -172,6 +155,6 @@ public class UncompressedBlockCursor
     {
         Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
         Slice tupleSlice = value.getTupleSlice();
-        return slice.equals(offset, size, tupleSlice, 0, tupleSlice.length());
+        return tupleSlice.length() == SIZE_OF_LONG && slice.getLong(offset) == tupleSlice.getLong(0);
     }
 }

@@ -41,16 +41,6 @@ public class UncompressedBlockStream
     @Override
     public Cursor cursor()
     {
-//        if (info.getFieldCount() == 1) {
-//            Type type = info.getTypes().get(0);
-//            if (type == Type.FIXED_INT_64) {
-//                return new UncompressedLongCursor(source.iterator());
-//            }
-//            if (type == Type.VARIABLE_BINARY) {
-//                return new UncompressedSliceCursor(source.iterator());
-//            }
-//        }
-//        return new UncompressedCursor(info, source.iterator());
         return new ValueCursor(info, source.iterator());
     }
 }

@@ -7,6 +7,7 @@ import com.facebook.presto.Cursor;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.ValueBlock;
+import com.facebook.presto.block.cursor.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 
@@ -57,7 +58,7 @@ public class ValueCursor implements Cursor
         }
 
         isValid = true;
-        currentValueBlockCursor.advanceTo(nextValueBlockCursor);
+        currentValueBlockCursor.moveTo(nextValueBlockCursor);
 
         if (nextValueBlockCursor.hasNextValue()) {
             nextValueBlockCursor.advanceNextValue();

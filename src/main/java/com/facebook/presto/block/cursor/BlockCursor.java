@@ -1,7 +1,7 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto.operators;
+package com.facebook.presto.block.cursor;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
@@ -12,7 +12,7 @@ public interface BlockCursor
     Range getRange();
 
     BlockCursor duplicate();
-    void advanceTo(BlockCursor blockForNextValue);
+    void moveTo(BlockCursor blockForNextValue);
 
     boolean hasNextValue();
     void advanceNextValue();

@@ -1,6 +1,6 @@
 package com.facebook.presto;
 
-import com.facebook.presto.operators.BlockCursor;
+import com.facebook.presto.block.cursor.BlockCursor;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.PeekingIterator;
