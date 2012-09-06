@@ -8,10 +8,10 @@ import org.testng.annotations.Test;
 
 import java.util.NoSuchElementException;
 
-import static com.facebook.presto.BlockCursorAssertions.assertNextPosition;
 import static com.facebook.presto.BlockCursorAssertions.assertNextValue;
 import static com.facebook.presto.Blocks.createBlock;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestUncompressedBlockCursor 
@@ -39,11 +39,21 @@ public class TestUncompressedBlockCursor
         catch (IllegalStateException expected) {
         }
 
+        try {
+            cursor.advanceNextValuePosition();
+            fail("Expected NoSuchElementException");
+        }
+        catch (NoSuchElementException expected) {
+        }
+
         //
         // advance to end
         //
-        while (cursor.hasNextPosition()) {
-            cursor.advanceNextPosition();
+        while (cursor.hasNextValue()) {
+            cursor.advanceNextValue();
+        }
+        while (cursor.hasNextValuePosition()) {
+            cursor.advanceNextValuePosition();
         }
 
         //
@@ -58,7 +68,7 @@ public class TestUncompressedBlockCursor
         }
 
         try {
-            cursor.advanceNextPosition();
+            cursor.advanceNextValuePosition();
             fail("Expected NoSuchElementException");
         }
         catch (NoSuchElementException expected) {
@@ -83,14 +93,6 @@ public class TestUncompressedBlockCursor
     {
         BlockCursor cursor = createCursor();
         BlockCursorAssertions.assertNextValue(cursor, 0, "apple");
-    }
-
-    @Test
-    public void testFirstPosition()
-            throws Exception
-    {
-        BlockCursor cursor = createCursor();
-        BlockCursorAssertions.assertNextPosition(cursor, 0, "apple");
     }
 
     @Test
@@ -119,55 +121,13 @@ public class TestUncompressedBlockCursor
     {
         BlockCursor cursor = createCursor();
 
-        assertNextPosition(cursor, 0, "apple");
-        assertNextPosition(cursor, 1, "apple");
-        assertNextPosition(cursor, 2, "apple");
-        assertNextPosition(cursor, 3, "banana");
-        assertNextPosition(cursor, 4, "banana");
-        assertNextPosition(cursor, 5, "banana");
-        assertNextPosition(cursor, 6, "banana");
-        assertNextPosition(cursor, 7, "banana");
-        assertNextPosition(cursor, 8,  "cherry");
-        assertNextPosition(cursor, 9,  "cherry");
-        assertNextPosition(cursor, 10, "date");
+        cursor.advanceNextValue();
+        assertFalse(cursor.hasNextValuePosition());
+        assertTrue(cursor.hasNextValue());
 
-        assertFalse(cursor.hasNextPosition());
-    }
-
-    @Test
-    public void testAdvanceToNextValueAdvancesPosition()
-            throws Exception
-    {
-        BlockCursor cursor = createCursor();
-
-        // first, skip to middle of a block
-        BlockCursorAssertions.assertNextValue(cursor, 0, "apple");
-        BlockCursorAssertions.assertNextPosition(cursor, 1, "apple");
-
-        // force jump to next block
-        BlockCursorAssertions.assertNextValue(cursor, 2, "apple");
-    }
-
-    @Test
-    public void testMixedValueAndPosition()
-            throws Exception
-    {
-        BlockCursor cursor = createCursor();
-
-        assertNextValue(cursor, 0, "apple");
-        assertNextPosition(cursor, 1, "apple");
-        assertNextValue(cursor, 2, "apple");
-        assertNextPosition(cursor, 3, "banana");
-        assertNextValue(cursor, 4, "banana");
-        assertNextPosition(cursor, 5, "banana");
-        assertNextValue(cursor, 6, "banana");
-        assertNextPosition(cursor, 7, "banana");
-        assertNextValue(cursor, 8, "cherry");
-        assertNextPosition(cursor, 9, "cherry");
-        assertNextValue(cursor, 10, "date");
-
-        assertFalse(cursor.hasNextPosition());
-        assertFalse(cursor.hasNextValue());
+        cursor.advanceNextValue();
+        assertFalse(cursor.hasNextValuePosition());
+        assertTrue(cursor.hasNextValue());
     }
 
     protected BlockCursor createCursor()

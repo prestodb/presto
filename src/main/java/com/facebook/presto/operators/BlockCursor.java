@@ -17,14 +17,14 @@ public interface BlockCursor
     boolean hasNextValue();
     void advanceNextValue();
 
-    boolean hasNextPosition();
-    void advanceNextPosition();
-    boolean hasMorePositionsForCurrentValue();
+    boolean hasNextValuePosition();
+    void advanceNextValuePosition();
+    void advanceToPosition(long position);
 
     Tuple getTuple();
     long getLong(int field);
     Slice getSlice(int field);
     long getPosition();
-    long getCurrentValueEndPosition();
+    long getValuePositionEnd();
     boolean tupleEquals(Tuple value);
 }
