@@ -6,115 +6,110 @@ import com.facebook.presto.slice.SliceOutput;
 import com.google.common.base.Function;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterators;
+import com.google.common.collect.Iterables;
 
-import java.util.Iterator;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class DictionarySerde
+public class DictionarySerde implements BlockStreamSerde<DictionaryEncodedBlock>
 {
-    // TODO: we may be able to determine and adjust this value dynamically with a smarter implementation
-    private final int requiredBitSpace;
+    private final BlockStreamSerde idSerde;
 
-    public DictionarySerde(long maxCardinality) {
-        checkArgument(maxCardinality >= 2, "maxCardinality should be at least 2");
-        // Faster way to compute ceil(log2(maxCardinality))
-        requiredBitSpace = Long.SIZE - Long.numberOfLeadingZeros(maxCardinality - 1);
-    }
-
-    public DictionarySerde() {
-        this(Long.MAX_VALUE);
-    }
-
-    public void serialize(final Iterable<Slice> slices, SliceOutput sliceOutput)
+    public DictionarySerde(BlockStreamSerde idSerde)
     {
-        final BiMap<Slice, Long> idMap = HashBiMap.create();
+        this.idSerde = idSerde;
+    }
 
-        PackedLongSerde packedLongSerde = new PackedLongSerde(requiredBitSpace);
-        packedLongSerde.serialize(
-                new Iterable<Long>() {
-                    @Override
-                    public Iterator<Long> iterator() {
-                        return Iterators.transform(
-                                slices.iterator(),
-                                new Function<Slice, Long>() {
-                                    long nextId = -1L << (requiredBitSpace - 1);
+    @Override
+    public void serialize(BlockStream<? extends ValueBlock> blockStream, SliceOutput sliceOutput)
+    {
+        checkNotNull(blockStream, "blockStream is null");
+        checkNotNull(sliceOutput, "sliceOutput is null");
+        checkArgument(blockStream.getTupleInfo().getFieldCount() == 1, "Can only dictionary encode single columns");
 
+        // Generate ID map and write out values
+        final BiMap<Slice, Integer> idMap = HashBiMap.create();
+
+        idSerde.serialize(
+                new UncompressedBlockStream(
+                        blockStream.getTupleInfo(),
+                        Iterables.transform(
+                                blockStream,
+                                new Function<ValueBlock, UncompressedValueBlock>() {
+                                    int nextId = 0;
                                     @Override
-                                    public Long apply(Slice input) {
-                                        Long id = idMap.get(input);
-                                        if (id == null) {
-                                            id = nextId;
-                                            nextId++;
-                                            idMap.put(input, id);
+                                    public UncompressedValueBlock apply(ValueBlock input)
+                                    {
+                                        // TODO: this is a bit of a hack, fix this later when BlockStream API stabilizes
+                                        BlockBuilder blockBuilder = new BlockBuilder(input.getRange().getStart(), TupleInfo.SINGLE_LONG_TUPLEINFO);
+                                        for (Tuple tuple : input) {
+                                            Integer id = idMap.get(tuple.getTupleSlice());
+                                            if (id == null) {
+                                                id = nextId;
+                                                nextId++;
+                                                idMap.put(tuple.getTupleSlice(), id);
+                                            }
+                                            blockBuilder.append((long) id);
                                         }
-                                        return id;
+                                        return blockBuilder.build();
                                     }
                                 }
-                        );
-                    }
-                },
+                        )
+                ),
                 sliceOutput
         );
 
+        // Convert ID map to compact dictionary array (should be contiguous)
+        Slice[] dictionary = new Slice[idMap.size()];
+        for (Map.Entry<Integer, Slice> entry : idMap.inverse().entrySet()) {
+            dictionary[entry.getKey()] = entry.getValue();
+        }
+
         // Serialize Footer
-        int footerBytes = new Footer(idMap.inverse()).serialize(sliceOutput);
+        int footerBytes = new Footer(blockStream.getTupleInfo(), dictionary).serialize(sliceOutput);
 
         // Write length of Footer
         sliceOutput.writeInt(footerBytes);
     }
 
-    public static Iterable<Slice> deserialize(final SliceInput sliceInput) {
-        // Get map serialized byte length from tail and reset to beginning
-        int totalBytes = sliceInput.available();
-        sliceInput.skipBytes(totalBytes - SizeOf.SIZE_OF_INT);
-        int idMapByteLength = sliceInput.readInt();
+    @Override
+    public BlockStream<DictionaryEncodedBlock> deserialize(Slice slice) {
+        checkNotNull(slice, "slice is null");
+
+        // Get Footer byte length from tail and reset to beginning
+        int footerLen = slice.slice(slice.length() - SizeOf.SIZE_OF_INT, SizeOf.SIZE_OF_INT).input().readInt();
 
         // Slice out Footer data and extract it
-        sliceInput.setPosition(totalBytes - idMapByteLength - SizeOf.SIZE_OF_INT);
-        Footer footer = Footer.deserialize(sliceInput.readSlice(idMapByteLength).input());
+        Slice footerSlice = slice.slice(slice.length() - footerLen - SizeOf.SIZE_OF_INT, footerLen);
+        Footer footer = Footer.deserialize(footerSlice);
 
-        final Map<Long, Slice> idMap = footer.getIdMap();
+        Slice payloadSlice = slice.slice(0, slice.length() - footerLen - SizeOf.SIZE_OF_INT);
 
-        sliceInput.setPosition(0);
-        final SliceInput paylodSliceInput =
-                sliceInput.readSlice(totalBytes - idMapByteLength - SizeOf.SIZE_OF_INT)
-                        .input();
-        return new Iterable<Slice>() {
-            @Override
-            public Iterator<Slice> iterator() {
-                return Iterators.transform(
-                        PackedLongSerde.deserialize(paylodSliceInput).iterator(),
-                        new Function<Long, Slice>() {
-                            @Override
-                            public Slice apply(Long input) {
-                                Slice slice = idMap.get(input);
-                                checkNotNull(slice, "Missing entry in dictionary");
-                                return slice;
-                            }
-                        }
-                );
-            }
-        };
+        return new DictionaryEncodedBlockStream(footer.getTupleInfo(), footer.getDictionary(), idSerde.deserialize(payloadSlice));
     }
 
     // TODO: this encoding can be made more compact if we leverage sorted order of the map
     private static class Footer
     {
-        private final Map<Long, Slice> idMap;
+        private final TupleInfo tupleInfo;
+        private final Slice[] dictionary;
 
-        private Footer(Map<Long, Slice> idMap)
+        private Footer(TupleInfo tupleInfo, Slice[] dictionary)
         {
-            this.idMap = ImmutableMap.copyOf(idMap);
+            this.tupleInfo = tupleInfo;
+            this.dictionary = dictionary;
         }
 
-        public Map<Long, Slice> getIdMap()
+        public TupleInfo getTupleInfo()
         {
-            return idMap;
+            return tupleInfo;
+        }
+
+        public Slice[] getDictionary()
+        {
+            return dictionary;
         }
 
         /**
@@ -124,34 +119,40 @@ public class DictionarySerde
         private int serialize(SliceOutput sliceOutput)
         {
             int startBytesWriteable = sliceOutput.writableBytes();
-            for (Map.Entry<Long, Slice> entry : idMap.entrySet()) {
-                // Write ID number
-                sliceOutput.writeLong(entry.getKey());
+
+            UncompressedTupleInfoSerde.serialize(tupleInfo, sliceOutput);
+
+            sliceOutput.writeInt(dictionary.length);
+            for (Slice slice : dictionary) {
                 // Write length
-                sliceOutput.writeInt(entry.getValue().length());
+                sliceOutput.writeInt(slice.length());
                 // Write value
-                sliceOutput.writeBytes(entry.getValue());
+                sliceOutput.writeBytes(slice);
             }
+
             int endBytesWriteable = sliceOutput.writableBytes();
             return startBytesWriteable - endBytesWriteable;
         }
 
-        private static Footer deserialize(SliceInput sliceInput)
+        private static Footer deserialize(Slice slice)
         {
-            ImmutableMap.Builder<Long, Slice> builder = ImmutableMap.builder();
+            SliceInput sliceInput = slice.input();
+            TupleInfo tupleInfo = UncompressedTupleInfoSerde.deserialize(sliceInput);
 
-            while (sliceInput.isReadable()) {
-                // Read value ID number
-                long id = sliceInput.readLong();
+            int dictionarySize = sliceInput.readInt();
+            checkArgument(dictionarySize >= 0);
+
+            Slice[] dictionary = new Slice[dictionarySize];
+
+            for (int i = 0; i < dictionarySize; i++) {
                 // Read value Length
                 int sliceLength = sliceInput.readInt();
-                // Read value
-                Slice slice = sliceInput.readSlice(sliceLength);
-
-                builder.put(id, slice);
+                checkArgument(sliceLength >= 0);
+                // Read and store value
+                dictionary[i] = sliceInput.readSlice(sliceLength);
             }
 
-            return new Footer(builder.build());
+            return new Footer(tupleInfo, dictionary);
         }
     }
 }
