@@ -177,6 +177,14 @@ public final class ByteArraySlice
     }
 
     @Override
+    public void getBytes(int index, SliceOutput out, int length)
+    {
+        checkIndexLength(index, length);
+        index += offset;
+        out.writeBytes(this, index, length);
+    }
+
+    @Override
     public void getBytes(int index, OutputStream out, int length)
             throws IOException
     {
