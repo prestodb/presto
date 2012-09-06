@@ -24,11 +24,24 @@ import static com.facebook.presto.SizeOf.SIZE_OF_INT;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 
 public class UncompressedBlockSerde
+        implements BlockStreamSerde<UncompressedValueBlock>
 {
     private static final int MAX_BLOCK_SIZE = (int) new DataSize(64, KILOBYTE).toBytes();
 
     private UncompressedBlockSerde()
     {
+    }
+
+    @Override
+    public void serialize(BlockStream blockStream, SliceOutput sliceOutput)
+    {
+        write(blockStream.iterator(), sliceOutput);
+    }
+
+    @Override
+    public BlockStream<UncompressedValueBlock> deserialize(Slice slice)
+    {
+        return readAsStream(slice);
     }
 
     public static void write(Iterator<ValueBlock> iterator, File file)
@@ -39,8 +52,7 @@ public class UncompressedBlockSerde
         }
     }
 
-    public static void write(Iterator<ValueBlock> iterator, OutputStream out)
-            throws IOException
+    public static void write(Iterator<ValueBlock> iterator, SliceOutput out)
     {
         DynamicSliceOutput buffer = new DynamicSliceOutput(MAX_BLOCK_SIZE);
 
@@ -72,16 +84,24 @@ public class UncompressedBlockSerde
         }
     }
 
+    public static void write(Iterator<ValueBlock> iterator, OutputStream out)
+    {
+        write(iterator, new OutputStreamSliceOutput(out));
+    }
+
     private static void write(OutputStream out, int tupleCount, Slice slice)
-            throws IOException
+    {
+        write(new OutputStreamSliceOutput(out), tupleCount, slice);
+    }
+
+    private static void write(SliceOutput destination, int tupleCount, Slice slice)
     {
         ByteArraySlice header = Slices.allocate(SIZE_OF_INT + SIZE_OF_INT);
         header.output()
                 .appendInt(slice.length())
                 .appendInt(tupleCount);
-        header.getBytes(0, out, header.length());
-
-        slice.getBytes(0, out, slice.length());
+        destination.writeBytes(header);
+        destination.writeBytes(slice);
     }
 
     public static Iterator<UncompressedValueBlock> read(File file)
