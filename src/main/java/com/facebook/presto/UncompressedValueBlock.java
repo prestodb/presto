@@ -1,5 +1,6 @@
 package com.facebook.presto;
 
+import com.facebook.presto.operators.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
@@ -15,17 +16,17 @@ public class UncompressedValueBlock
         implements ValueBlock
 {
     private final Range range;
-    private final TupleInfo tupleInfo;
+    private final TupleInfo info;
     private final Slice slice;
 
-    public UncompressedValueBlock(Range range, TupleInfo tupleInfo, Slice slice)
+    public UncompressedValueBlock(Range range, TupleInfo info, Slice slice)
     {
         Preconditions.checkNotNull(range, "range is null");
         Preconditions.checkArgument(range.getStart() >= 0, "range start position is negative");
-        Preconditions.checkNotNull(tupleInfo, "tupleInfo is null");
+        Preconditions.checkNotNull(info, "tupleInfo is null");
         Preconditions.checkNotNull(slice, "data is null");
 
-        this.tupleInfo = tupleInfo;
+        this.info = info;
         this.slice = slice;
         this.range = range;
     }
@@ -80,12 +81,12 @@ public class UncompressedValueBlock
 
                 Slice currentPositionToEnd = slice.slice(currentOffset, slice.length() - currentOffset);
 
-                int size = tupleInfo.size(currentPositionToEnd);
+                int size = info.size(currentPositionToEnd);
                 index++;
                 currentOffset += size;
 
                 Slice row = currentPositionToEnd.slice(0, size);
-                return new Tuple(row, tupleInfo);
+                return new Tuple(row, info);
             }
         };
     }
@@ -108,14 +109,14 @@ public class UncompressedValueBlock
 
                 Slice currentPositionToEnd = slice.slice(currentOffset, slice.length() - currentOffset);
 
-                int size = tupleInfo.size(currentPositionToEnd);
+                int size = info.size(currentPositionToEnd);
                 currentOffset += size;
 
                 Slice row = currentPositionToEnd.slice(0, size);
 
                 long position = index + range.getStart();
                 index++;
-                return new Pair(position, new Tuple(row, tupleInfo));
+                return new Pair(position, new Tuple(row, info));
             }
         });
     }
@@ -164,11 +165,17 @@ public class UncompressedValueBlock
     }
 
     @Override
+    public BlockCursor blockCursor()
+    {
+        return new UncompressedBlockCursor(info, this);
+    }
+
+    @Override
     public String toString()
     {
         return Objects.toStringHelper(this)
                 .add("range", range)
-                .add("tupleInfo", tupleInfo)
+                .add("tupleInfo", info)
                 .add("slice", slice)
                 .toString();
     }

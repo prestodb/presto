@@ -40,7 +40,7 @@ public class UncompressedCursor
         this.info = info;
         this.iterator = iterator;
 
-        moveToNextBlock();
+        moveToNextValue();
     }
 
     @Override
@@ -67,21 +67,19 @@ public class UncompressedCursor
         currentOffset = nextOffset;
         currentSize = nextSize;
 
-        if (nextBlockIndex < blockForNextValue.getCount() - 1) {
+        moveToNextValue();
+    }
+
+    private void moveToNextValue()
+    {
+        if (blockForNextValue != null && nextBlockIndex < blockForNextValue.getCount() - 1) {
             // next value is within the current block
             nextBlockIndex++;
             nextOffset = currentOffset + currentSize;
             nextSize = info.size(blockForNextValue.getSlice(), nextOffset);
         }
-        else {
+        else if (iterator.hasNext()) {
             // next value is within the next block
-            moveToNextBlock();
-        }
-    }
-
-    private void moveToNextBlock()
-    {
-        if (iterator.hasNext()) {
             // advance to next block
             blockForNextValue = iterator.next();
             nextBlockIndex = 0;
@@ -158,7 +156,7 @@ public class UncompressedCursor
         }
         else {
             // next value is within the next block
-            moveToNextBlock();
+            moveToNextValue();
         }
     }
 

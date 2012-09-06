@@ -3,6 +3,7 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.operators.BlockCursor;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterators;
@@ -146,5 +147,11 @@ public class MaskedValueBlock implements ValueBlock
                 return positionBlock.apply(pair.getPosition());
             }
         }), valueGetter());
+    }
+
+    @Override
+    public BlockCursor blockCursor()
+    {
+        throw new UnsupportedOperationException();
     }
 }

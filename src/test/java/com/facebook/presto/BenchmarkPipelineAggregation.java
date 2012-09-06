@@ -25,8 +25,8 @@ public class BenchmarkPipelineAggregation
         Slice aggregateSlice = Slices.mapFileReadOnly(aggregateFile);
 
         for (int i = 0; i < 100000; ++i) {
-            BlockStream<UncompressedValueBlock> groupBySource = UncompressedBlockSerde.readAsStream(groupBySlice);
-            BlockStream<UncompressedValueBlock> aggregateSource = UncompressedBlockSerde.readAsStream(aggregateSlice);
+            BlockStream<? extends ValueBlock> groupBySource = UncompressedBlockSerde.readAsStream(groupBySlice);
+            BlockStream<? extends ValueBlock> aggregateSource = UncompressedBlockSerde.readAsStream(aggregateSlice);
 
             GroupByBlockStream groupBy = new GroupByBlockStream(groupBySource);
             PipelinedAggregationBlockStream aggregation = new PipelinedAggregationBlockStream(groupBy, aggregateSource, SumAggregation.PROVIDER);

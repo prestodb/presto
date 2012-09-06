@@ -1,5 +1,6 @@
 package com.facebook.presto;
 
+import com.facebook.presto.operators.BlockCursor;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.PeekingIterator;
@@ -20,4 +21,6 @@ public interface ValueBlock
      * @throws IllegalStateException if this block contains more than one value
      */
     Tuple getSingleValue();
+
+    BlockCursor blockCursor();
 }
