@@ -36,11 +36,11 @@ public class BenchmarkGroupBy
 
     public static Result doIt(BlockStream<? extends ValueBlock> source)
     {
+        long start = System.nanoTime();
         Cursor cursor = source.cursor();
 
         int count = 0;
         long sum = 0;
-        long start = System.nanoTime();
 
         while (cursor.hasNextValue()) {
             cursor.advanceNextValue();
