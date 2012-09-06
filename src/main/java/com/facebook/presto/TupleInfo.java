@@ -38,6 +38,8 @@ import static java.util.Arrays.asList;
  */
 public class TupleInfo
 {
+    public static final TupleInfo SINGLE_LONG_TUPLEINFO = new TupleInfo(FIXED_INT_64);
+
     public enum Type
     {
         FIXED_INT_64(8),

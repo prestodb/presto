@@ -28,10 +28,6 @@ public class UncompressedBlockSerde
 {
     private static final int MAX_BLOCK_SIZE = (int) new DataSize(64, KILOBYTE).toBytes();
 
-    private UncompressedBlockSerde()
-    {
-    }
-
     @Override
     public void serialize(BlockStream blockStream, SliceOutput sliceOutput)
     {
