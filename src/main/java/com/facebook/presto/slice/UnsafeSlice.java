@@ -162,6 +162,12 @@ public class UnsafeSlice extends AbstractSlice
     }
 
     @Override
+    public void getBytes(int index, SliceOutput out, int length)
+    {
+        out.writeBytes(toByteBuffer(index, length));
+    }
+
+    @Override
     public void getBytes(int index, OutputStream out, int length)
             throws IOException
     {

@@ -121,6 +121,17 @@ public interface Slice
     void getBytes(int index, ByteBuffer destination);
 
     /**
+     * Transfers this buffer's data to the specified SliceOutput starting at the
+     * specified absolute {@code index}.
+     *
+     * @param length the number of bytes to transfer
+     * @throws IndexOutOfBoundsException if the specified {@code index} is less than {@code 0} or
+     * if {@code index + length} is greater than
+     * {@code this.length()}
+     */
+    void getBytes(int index, SliceOutput out, int length);
+
+    /**
      * Transfers this buffer's data to the specified stream starting at the
      * specified absolute {@code index}.
      *
