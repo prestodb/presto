@@ -4,11 +4,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.slice.ByteArraySlice;
-import com.facebook.presto.slice.DynamicSliceOutput;
-import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.SliceInput;
-import com.facebook.presto.slice.Slices;
+import com.facebook.presto.slice.*;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
@@ -28,11 +24,20 @@ import static com.facebook.presto.SizeOf.SIZE_OF_INT;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 
 public class UncompressedBlockSerde
+        implements BlockStreamSerde<UncompressedValueBlock>
 {
     private static final int MAX_BLOCK_SIZE = (int) new DataSize(64, KILOBYTE).toBytes();
 
-    private UncompressedBlockSerde()
+    @Override
+    public void serialize(BlockStream blockStream, SliceOutput sliceOutput)
     {
+        write(blockStream.iterator(), sliceOutput);
+    }
+
+    @Override
+    public BlockStream<UncompressedValueBlock> deserialize(Slice slice)
+    {
+        return readAsStream(slice);
     }
 
     public static void write(Iterator<ValueBlock> iterator, File file)
@@ -42,9 +47,8 @@ public class UncompressedBlockSerde
             write(iterator, out);
         }
     }
-
-    public static void write(Iterator<ValueBlock> iterator, OutputStream out)
-            throws IOException
+    
+    public static void write(Iterator<ValueBlock> iterator, SliceOutput out)
     {
         DynamicSliceOutput buffer = new DynamicSliceOutput(MAX_BLOCK_SIZE);
 
@@ -56,7 +60,7 @@ public class UncompressedBlockSerde
                 if (tupleInfo == null) {
                     // write the tuple info
                     tupleInfo = tuple.getTupleInfo();
-                    writeTupleInfo(out, tupleInfo);
+                    UncompressedTupleInfoSerde.serialize(tupleInfo, new OutputStreamSliceOutput(out));
                 }
                 else {
                     Preconditions.checkState(tupleInfo.equals(tuple.getTupleInfo()), "Expected %s, but got %s", tupleInfo, tuple.getTupleInfo());
@@ -76,25 +80,24 @@ public class UncompressedBlockSerde
         }
     }
 
-    private static void writeTupleInfo(OutputStream out, TupleInfo tupleInfo)
-            throws IOException
+    public static void write(Iterator<ValueBlock> iterator, OutputStream out)
     {
-        out.write(tupleInfo.getFieldCount());
-        for (Type type : tupleInfo.getTypes()) {
-            out.write(type.ordinal());
-        }
+        write(iterator, new OutputStreamSliceOutput(out));
     }
 
     private static void write(OutputStream out, int tupleCount, Slice slice)
-            throws IOException
+    {
+        write(new OutputStreamSliceOutput(out), tupleCount, slice);
+    }
+
+    private static void write(SliceOutput destination, int tupleCount, Slice slice)
     {
         ByteArraySlice header = Slices.allocate(SIZE_OF_INT + SIZE_OF_INT);
         header.output()
                 .appendInt(slice.length())
                 .appendInt(tupleCount);
-        header.getBytes(0, out, header.length());
-
-        slice.getBytes(0, out, slice.length());
+        destination.writeBytes(header);
+        destination.writeBytes(slice);
     }
 
     public static Iterator<UncompressedValueBlock> read(File file)
@@ -132,13 +135,7 @@ public class UncompressedBlockSerde
         private UncompressedReader(Slice slice)
         {
             sliceInput = slice.input();
-
-            int fieldCount = sliceInput.readUnsignedByte();
-            Builder<Type> builder = ImmutableList.builder();
-            for (int i = 0; i < fieldCount; i++) {
-                builder.add(Type.values()[sliceInput.readUnsignedByte()]);
-            }
-            this.tupleInfo = new TupleInfo(builder.build());
+            this.tupleInfo = UncompressedTupleInfoSerde.deserialize(sliceInput);
         }
 
         protected UncompressedValueBlock computeNext()
@@ -183,7 +180,7 @@ public class UncompressedBlockSerde
             try {
                 if (out == null) {
                     out = outputSupplier.getOutput();
-                    writeTupleInfo(out, new TupleInfo(type));
+                    UncompressedTupleInfoSerde.serialize(new TupleInfo(type), new OutputStreamSliceOutput(out));
                 }
 
                 Slice blockSlice = ((UncompressedValueBlock) block).getSlice();

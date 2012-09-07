@@ -101,6 +101,13 @@ public final class ByteBufferSlice
     }
 
     @Override
+    public void getBytes(int index, SliceOutput out, int length)
+    {
+        checkIndexLength(index, length);
+        out.writeBytes(toByteBuffer(index, length));
+    }
+
+    @Override
     public void getBytes(int index, OutputStream out, int length)
             throws IOException
     {
