@@ -31,23 +31,20 @@ public class SumAggregation
     @Override
     public void add(Cursor cursor, Range relevantRange)
     {
-//        cursor.advancePositionTo(relevantRange.getStart());
-//        while (cursor.hasNextValue() && relevantRange.contains(cursor.nextValuePosition())) {
-//            long value = cursor.getLong(0);
-//            long nextPosition = cursor.peekNextValuePosition();
-//            long endPosition = Math.min(relevantRange.getEnd(), nextPosition);
-//            long size = endPosition - cursor.getPosition();
-//            sum += (value * size);
-//        }
-
-        // todo if cursor is not "valid", advance to first position
+//  todo: rle code
+//        cursor.advanceToPosition(relevantRange.getStart());
+//        do {
+//            long endPosition = Math.min(cursor.getCurrentValueEndPosition(), relevantRange.getEnd());
+//            long size = endPosition - cursor.getPosition() + 1;
+//            sum += (cursor.getLong(0) * size);
+//            if (!cursor.hasNextPosition()) {
+//                break;
+//            }
+//            cursor.advanceNextPosition();
+//        }  while (relevantRange.contains(cursor.getPosition()));
 
         // advance to start of range
-        // todo add seek method to cursor
-        while (cursor.getPosition() < relevantRange.getStart()) {
-            cursor.advanceNextPosition();
-        }
-
+        cursor.advanceToPosition(relevantRange.getStart());
         while (relevantRange.contains(cursor.getPosition())) {
             sum += cursor.getLong(0);
             if (!cursor.hasNextPosition()) {
@@ -60,6 +57,7 @@ public class SumAggregation
     @Override
     public Tuple evaluate()
     {
+//        System.out.println(count + ", " + sum);
         return getTupleInfo().builder()
                 .append(sum)
                 .build();

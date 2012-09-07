@@ -1,37 +1,46 @@
 package com.facebook.presto.operators;
 
-import com.facebook.presto.PositionBlock;
-import com.facebook.presto.Tuple;
+import com.facebook.presto.BlockStream;
+import com.facebook.presto.Cursor;
+import com.facebook.presto.TupleInfo;
 import com.facebook.presto.ValueBlock;
-import com.google.common.base.Optional;
+import com.facebook.presto.block.cursor.BlockCursor;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.collect.AbstractIterator;
 
 import java.util.Iterator;
 
 public class DataScan1
-        extends AbstractIterator<PositionBlock>
+        implements BlockStream<ValueBlock>
 {
-    private final Iterator<ValueBlock> source;
-    private final Predicate<Tuple> predicate;
+    private final BlockStream<?> source;
+    private final Predicate<BlockCursor> predicate;
 
-    public DataScan1(Iterator<ValueBlock> source, Predicate<Tuple> predicate)
+    public DataScan1(BlockStream<?> source, Predicate<BlockCursor> predicate)
     {
-        this.predicate = predicate;
+        Preconditions.checkNotNull(source, "source is null");
+        Preconditions.checkNotNull(predicate, "predicate is null");
         this.source = source;
+        this.predicate = predicate;
     }
 
     @Override
-    protected PositionBlock computeNext()
+    public TupleInfo getTupleInfo()
     {
-        while (source.hasNext()) {
-            Optional<PositionBlock> block = source.next().selectPositions(predicate);
-            if (block.isPresent()) {
-                return block.get();
-            }
-        }
+        throw new UnsupportedOperationException();
+    }
 
-        endOfData();
-        return null;
+    @Override
+    public Iterator<ValueBlock> iterator()
+    {
+        // todo maybe have a position block
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Cursor cursor()
+    {
+        // todo this is not correct... maybe add a position cursor
+        return new FilteredValueCursor(predicate, source.getTupleInfo(), source.iterator());
     }
 }

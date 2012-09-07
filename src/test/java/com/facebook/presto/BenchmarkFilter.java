@@ -1,29 +1,35 @@
 package com.facebook.presto;
 
+import com.facebook.presto.block.cursor.BlockCursor;
+import com.facebook.presto.operators.DataScan2;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
-import com.facebook.presto.operators.GroupByBlockStream;
+import com.google.common.base.Predicate;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
+import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
-public class BenchmarkGroupBy
+public class BenchmarkFilter
 {
     public static void main(String[] args)
             throws IOException, InterruptedException
     {
-        File file = new File("data/column5/column0.data");  // sorted
-//        File file = new File("data/columns/column5.data");  // not-sorted
+        File file = new File("data/columns//column4.data");  // long
+        Predicate<BlockCursor> predicate = new LongFilter(1_343_900_000_000L);
+
+//        File file = new File("data/columns/column5.data");  // string
+//        Predicate<BlockCursor> predicate = new StringFilter(9);
 
         Slice pageTypeColumnSlice = Slices.mapFileReadOnly(file);
         for (int i = 0; i < 100000; ++i) {
             BlockStream<? extends ValueBlock> pageTypeColumn = UncompressedBlockSerde.readAsStream(pageTypeColumnSlice);
-            GroupByBlockStream groupBy = new GroupByBlockStream(pageTypeColumn) ;
+            DataScan2 filtered = new DataScan2(pageTypeColumn, predicate) ;
 
-            Result result = doIt(groupBy);
+            Result result = doIt(filtered);
             long count = result.count;
             Duration duration = result.duration;
 
@@ -66,4 +72,35 @@ public class BenchmarkGroupBy
         }
     }
 
+    public static class StringFilter implements Predicate<BlockCursor> {
+
+        private final long minLength;
+
+        public StringFilter(long minLength)
+        {
+            this.minLength = minLength;
+        }
+
+        @Override
+        public boolean apply(@Nullable BlockCursor input)
+        {
+            return input.getSlice(0).length() >= minLength;
+        }
+    }
+
+    public static class LongFilter implements Predicate<BlockCursor> {
+
+        private final long minValue;
+
+        public LongFilter(long minValue)
+        {
+            this.minValue = minValue;
+        }
+
+        @Override
+        public boolean apply(@Nullable BlockCursor input)
+        {
+            return input.getLong(0) >= minValue;
+        }
+    }
 }
