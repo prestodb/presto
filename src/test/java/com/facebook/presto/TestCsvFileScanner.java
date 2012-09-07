@@ -1,20 +1,22 @@
 package com.facebook.presto;
 
-import com.facebook.presto.TupleInfo.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.InputSupplier;
-import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.io.InputStreamReader;
 import java.util.List;
 
+import static com.facebook.presto.CsvReader.csvNumericColumn;
+import static com.facebook.presto.CsvReader.csvStringColumn;
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.Tuples.createTuple;
 import static com.google.common.base.Charsets.UTF_8;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.Resources.getResource;
 import static com.google.common.io.Resources.newReaderSupplier;
+import static org.testng.Assert.assertEquals;
 
 public class TestCsvFileScanner
 {
@@ -24,93 +26,44 @@ public class TestCsvFileScanner
     public void testProcessCsv()
             throws Exception
     {
-        CollectingColumnProcessor column1 = new CollectingColumnProcessor(FIXED_INT_64);
-        CollectingColumnProcessor column2 = new CollectingColumnProcessor(VARIABLE_BINARY);
-        CollectingColumnProcessor column3 = new CollectingColumnProcessor(VARIABLE_BINARY);
-        Csv.processCsv(inputSupplier, ',', column1, column2, column3);
+        TupleInfo tupleInfo = new TupleInfo(FIXED_INT_64, VARIABLE_BINARY, VARIABLE_BINARY);
+        CsvReader csvReader = new CsvReader(tupleInfo, inputSupplier, ',',
+                ImmutableList.of(csvNumericColumn(), csvStringColumn(), csvStringColumn()));
 
-        Assert.assertEquals(ImmutableList.copyOf(column1.getBlocks().iterator().next().pairIterator()),
-                ImmutableList.of(
-                        new Pair(0, createTuple(0)),
-                        new Pair(1, createTuple(1)),
-                        new Pair(2, createTuple(2)),
-                        new Pair(3, createTuple(3))));
+        try (RowSource rowSource0 = csvReader.getInput();
+             RowSource rowSource1 = csvReader.getInput();
+             RowSource rowSource2 = csvReader.getInput()) {
+            List<CollectingColumnProcessor> processors = ImmutableList.of(
+                    new CollectingColumnProcessor(FIXED_INT_64, 0, rowSource0.cursor()),
+                    new CollectingColumnProcessor(VARIABLE_BINARY, 1, rowSource1.cursor()),
+                    new CollectingColumnProcessor(VARIABLE_BINARY, 2, rowSource2.cursor()));
 
-        Assert.assertEquals(ImmutableList.copyOf(column2.getBlocks().iterator().next().pairIterator()),
-                ImmutableList.of(
-                        new Pair(0, createTuple("apple")),
-                        new Pair(1, createTuple("banana")),
-                        new Pair(2, createTuple("cherry")),
-                        new Pair(3, createTuple("date"))));
+            ColumnProcessors.process(processors, 2);
 
-        Assert.assertEquals(ImmutableList.copyOf(column3.getBlocks().iterator().next().pairIterator()),
-                ImmutableList.of(
-                        new Pair(0, createTuple("alice")),
-                        new Pair(1, createTuple("bob")),
-                        new Pair(2, createTuple("charlie")),
-                        new Pair(3, createTuple("dave"))));
+            for (CollectingColumnProcessor processor : processors) {
+                processor.finish();
+            }
 
-    }
-    @Test
-    public void testReadCsvColumn()
-            throws Exception
-    {
-        Iterable<ValueBlock> firstColumn = Csv.readCsvColumn(inputSupplier, 0, ',', FIXED_INT_64);
+            assertEquals(ImmutableList.copyOf(getOnlyElement(processors.get(0).getBlockStream()).pairIterator()),
+                    ImmutableList.of(
+                            new Pair(0, createTuple(0)),
+                            new Pair(1, createTuple(1)),
+                            new Pair(2, createTuple(2)),
+                            new Pair(3, createTuple(3))));
 
-        ImmutableList<Pair> actual = ImmutableList.copyOf(new PairsIterator(firstColumn.iterator()));
-        Assert.assertEquals(actual,
-                ImmutableList.of(
-                        new Pair(0, createTuple(0)),
-                        new Pair(1, createTuple(1)),
-                        new Pair(2, createTuple(2)),
-                        new Pair(3, createTuple(3))));
+            assertEquals(ImmutableList.copyOf(getOnlyElement(processors.get(1).getBlockStream()).pairIterator()),
+                    ImmutableList.of(
+                            new Pair(0, createTuple("apple")),
+                            new Pair(1, createTuple("banana")),
+                            new Pair(2, createTuple("cherry")),
+                            new Pair(3, createTuple("date"))));
 
-        Iterable<ValueBlock> secondColumn = Csv.readCsvColumn(inputSupplier, 1, ',', VARIABLE_BINARY);
-        Assert.assertEquals(ImmutableList.copyOf(new PairsIterator(secondColumn.iterator())),
-                ImmutableList.of(
-                        new Pair(0, createTuple("apple")),
-                        new Pair(1, createTuple("banana")),
-                        new Pair(2, createTuple("cherry")),
-                        new Pair(3, createTuple("date"))));
-
-        Iterable<ValueBlock> thirdColumn = Csv.readCsvColumn(inputSupplier, 2, ',', VARIABLE_BINARY);
-        Assert.assertEquals(ImmutableList.copyOf(new PairsIterator(thirdColumn.iterator())),
-                ImmutableList.of(
-                        new Pair(0, createTuple("alice")),
-                        new Pair(1, createTuple("bob")),
-                        new Pair(2, createTuple("charlie")),
-                        new Pair(3, createTuple("dave"))));
-    }
-
-    private static class CollectingColumnProcessor implements ColumnProcessor {
-        private final Type type;
-        private final ImmutableList.Builder<ValueBlock> blocks = ImmutableList.builder();
-
-        private CollectingColumnProcessor(Type type)
-        {
-            this.type = type;
-        }
-
-        public List<ValueBlock> getBlocks()
-        {
-            return blocks.build();
-        }
-
-        @Override
-        public Type getColumnType()
-        {
-            return type;
-        }
-
-        @Override
-        public void processBlock(ValueBlock block)
-        {
-            blocks.add(block);
-        }
-
-        @Override
-        public void finish()
-        {
+            assertEquals(ImmutableList.copyOf(getOnlyElement(processors.get(2).getBlockStream()).pairIterator()),
+                    ImmutableList.of(
+                            new Pair(0, createTuple("alice")),
+                            new Pair(1, createTuple("bob")),
+                            new Pair(2, createTuple("charlie")),
+                            new Pair(3, createTuple("dave"))));
         }
     }
 }

@@ -3,13 +3,13 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.TupleInfo.Type;
+import java.io.IOException;
 
 public interface ColumnProcessor
 {
-    Type getColumnType();
+    boolean processPositions(long end)
+            throws IOException;
 
-    void processBlock(ValueBlock block);
-
-    void finish();
+    void finish()
+            throws IOException;
 }
