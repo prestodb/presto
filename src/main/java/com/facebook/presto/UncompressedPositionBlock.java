@@ -71,12 +71,6 @@ public class UncompressedPositionBlock
     }
 
     @Override
-    public Iterable<Long> getPositions()
-    {
-        return positions;
-    }
-
-    @Override
     public Range getRange()
     {
         return range;

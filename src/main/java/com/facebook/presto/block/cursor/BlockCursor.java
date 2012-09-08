@@ -12,7 +12,7 @@ public interface BlockCursor
     Range getRange();
 
     BlockCursor duplicate();
-    void moveTo(BlockCursor blockForNextValue);
+    void moveTo(BlockCursor newPosition);
 
     boolean hasNextValue();
     void advanceNextValue();

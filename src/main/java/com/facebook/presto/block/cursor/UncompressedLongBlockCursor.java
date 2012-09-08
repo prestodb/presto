@@ -4,7 +4,6 @@ import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.UncompressedValueBlock;
-import com.facebook.presto.block.cursor.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 
@@ -50,10 +49,10 @@ public class UncompressedLongBlockCursor
     }
 
     @Override
-    public void moveTo(BlockCursor cursor)
+    public void moveTo(BlockCursor newPosition)
     {
-        Preconditions.checkArgument(cursor instanceof UncompressedLongBlockCursor, "cursor is not an instance of UncompressedLongBlockCursor");
-        UncompressedLongBlockCursor other = (UncompressedLongBlockCursor) cursor;
+        Preconditions.checkArgument(newPosition instanceof UncompressedLongBlockCursor, "cursor is not an instance of UncompressedLongBlockCursor");
+        UncompressedLongBlockCursor other = (UncompressedLongBlockCursor) newPosition;
 
         // todo assure that the cursors are for the same block stream?
 
