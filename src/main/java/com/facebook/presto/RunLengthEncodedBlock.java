@@ -1,9 +1,11 @@
 package com.facebook.presto;
 
 import com.facebook.presto.block.cursor.BlockCursor;
+import com.facebook.presto.slice.Slice;
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 
-import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 public class RunLengthEncodedBlock
         implements ValueBlock
@@ -69,6 +71,122 @@ public class RunLengthEncodedBlock
     @Override
     public BlockCursor blockCursor()
     {
-        throw new UnsupportedOperationException();
+        return new RunLengthEncodedBlockCursor(value, range);
+    }
+
+    public static final class RunLengthEncodedBlockCursor implements BlockCursor
+    {
+        private Tuple value;
+        private Range range;
+        private long position;
+
+        public RunLengthEncodedBlockCursor(Tuple value, Range range)
+        {
+            this.value = value;
+            this.range = range;
+            position = -1;
+        }
+
+        private RunLengthEncodedBlockCursor(Tuple value, Range range, long position)
+        {
+            this.value = value;
+            this.range = range;
+            this.position = position;
+        }
+
+        @Override
+        public Range getRange()
+        {
+            return range;
+        }
+
+        @Override
+        public BlockCursor duplicate()
+        {
+            return new RunLengthEncodedBlockCursor(value, range, position);
+        }
+
+        @Override
+        public void moveTo(BlockCursor newPosition)
+        {
+            RunLengthEncodedBlockCursor other = (RunLengthEncodedBlockCursor) newPosition;
+            value = other.value;
+            range = other.range;
+            position = other.position;
+        }
+
+        @Override
+        public boolean hasNextValue()
+        {
+            return false;
+        }
+
+        @Override
+        public void advanceNextValue()
+        {
+            throw new NoSuchElementException();
+        }
+
+        @Override
+        public boolean hasNextValuePosition()
+        {
+            return position <= range.getEnd();
+        }
+
+        @Override
+        public void advanceNextValuePosition()
+        {
+            if (!hasNextValue()) {
+                throw new NoSuchElementException();
+            }
+            if (position < 0) {
+                position = range.getStart();
+            } else {
+                position++;
+            }
+        }
+
+        @Override
+        public void advanceToPosition(long position)
+        {
+            Preconditions.checkArgument(range.contains(position), "Position %s must be within the range %s", position, range);
+            this.position = position;
+        }
+
+        @Override
+        public Tuple getTuple()
+        {
+            return value;
+        }
+
+        @Override
+        public long getLong(int field)
+        {
+            return value.getLong(field);
+        }
+
+        @Override
+        public Slice getSlice(int field)
+        {
+            return value.getSlice(field);
+        }
+
+        @Override
+        public long getPosition()
+        {
+            return position;
+        }
+
+        @Override
+        public long getValuePositionEnd()
+        {
+            return range.getEnd();
+        }
+
+        @Override
+        public boolean tupleEquals(Tuple value)
+        {
+            return this.value.equals(value);
+        }
     }
 }
