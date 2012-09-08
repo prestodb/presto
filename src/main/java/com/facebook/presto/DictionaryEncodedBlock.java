@@ -5,8 +5,6 @@ import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 import com.google.common.primitives.Ints;
 
-import java.util.Iterator;
-
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -60,13 +58,113 @@ public class DictionaryEncodedBlock implements ValueBlock
     @Override
     public BlockCursor blockCursor()
     {
-        throw new UnsupportedOperationException();
+        return new DictionaryEncodedBlockCursor(tupleInfo, sourceValueBlock, dictionary);
     }
 
-    private Tuple translateValue(Tuple tupleKey) {
-        checkArgument(tupleKey.getTupleInfo().getFieldCount() == 1, "should only have one column");
-        int dictionaryKey = Ints.checkedCast(tupleKey.getLong(0));
-        Preconditions.checkPositionIndex(dictionaryKey, dictionary.length, "dictionaryKey does not exist");
-        return new Tuple(dictionary[dictionaryKey], tupleInfo);
+    private static class DictionaryEncodedBlockCursor implements BlockCursor
+    {
+        private final TupleInfo tupleInfo;
+        private final BlockCursor delegate;
+        private final Slice[] dictionary;
+
+        private DictionaryEncodedBlockCursor(TupleInfo tupleInfo, ValueBlock sourceValueBlock, Slice... dictionary)
+        {
+            this.tupleInfo = tupleInfo;
+            this.dictionary = dictionary;
+            delegate = sourceValueBlock.blockCursor();
+        }
+
+        private DictionaryEncodedBlockCursor(TupleInfo tupleInfo, BlockCursor delegate, Slice[] dictionary)
+        {
+            this.tupleInfo = tupleInfo;
+            this.delegate = delegate;
+            this.dictionary = dictionary;
+        }
+
+        @Override
+        public Range getRange()
+        {
+            return delegate.getRange();
+        }
+
+        @Override
+        public BlockCursor duplicate()
+        {
+            return new DictionaryEncodedBlockCursor(tupleInfo, delegate.duplicate(), dictionary);
+        }
+
+        @Override
+        public void moveTo(BlockCursor newPosition)
+        {
+            delegate.moveTo(((DictionaryEncodedBlockCursor)newPosition).delegate);
+        }
+
+        @Override
+        public boolean hasNextValue()
+        {
+            return delegate.hasNextValue();
+        }
+
+        @Override
+        public void advanceNextValue()
+        {
+            delegate.advanceNextValue();
+        }
+
+        @Override
+        public boolean hasNextValuePosition()
+        {
+            return delegate.hasNextValuePosition();
+        }
+
+        @Override
+        public void advanceNextValuePosition()
+        {
+            delegate.advanceNextValuePosition();
+        }
+
+        @Override
+        public void advanceToPosition(long position)
+        {
+            delegate.advanceToPosition(position);
+        }
+
+        @Override
+        public Tuple getTuple()
+        {
+            return new Tuple(getSlice(0), tupleInfo);
+        }
+
+        @Override
+        public long getLong(int field)
+        {
+            return delegate.getLong(field);
+        }
+
+        @Override
+        public Slice getSlice(int field)
+        {
+            int dictionaryKey = Ints.checkedCast(getLong(0));
+            Preconditions.checkPositionIndex(dictionaryKey, dictionary.length, "dictionaryKey does not exist");
+            return dictionary[(int) getLong(0)];
+        }
+
+        @Override
+        public boolean tupleEquals(Tuple value)
+        {
+            return tupleInfo.equals(value.getTupleInfo()) && getSlice(0).equals(value.getTupleSlice());
+        }
+
+        @Override
+        public long getPosition()
+        {
+            return delegate.getPosition();
+        }
+
+        @Override
+        public long getValuePositionEnd()
+        {
+            return delegate.getValuePositionEnd();
+        }
     }
 }
