@@ -1,13 +1,8 @@
 package com.facebook.presto;
 
 import com.facebook.presto.block.cursor.BlockCursor;
-import com.google.common.base.Function;
-import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.PeekingIterator;
+import com.google.common.base.Objects;
 
-import java.util.Collections;
 import java.util.Iterator;
 
 public class RunLengthEncodedBlock
@@ -28,49 +23,6 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public Optional<PositionBlock> selectPositions(Predicate<Tuple> predicate)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Optional<ValueBlock> selectPairs(Predicate<Tuple> predicate)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public PositionBlock toPositionBlock()
-    {
-        return new RangePositionBlock(range);
-    }
-
-    @Override
-    public Optional<ValueBlock> filter(PositionBlock positions)
-    {
-        return MaskedValueBlock.maskBlock(this, positions);
-    }
-
-    @Override
-    public PeekingIterator<Pair> pairIterator()
-    {
-        return Iterators.peekingIterator(Iterators.transform(getPositions().iterator(), new Function<Long, Pair>()
-        {
-            @Override
-            public Pair apply(Long position)
-            {
-                return new Pair(position, value);
-            }
-        }));
-    }
-
-    @Override
-    public Iterator<Tuple> iterator()
-    {
-        return Iterators.peekingIterator(Collections.nCopies(getCount(), value).iterator());
-    }
-
-    @Override
     public int getCount()
     {
         return (int) (range.getEnd() - range.getStart() + 1);
@@ -88,7 +40,6 @@ public class RunLengthEncodedBlock
         return true;
     }
 
-    @Override
     public Tuple getSingleValue()
     {
         return value;
@@ -101,20 +52,18 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public Iterable<Long> getPositions()
-    {
-        return range;
-    }
-
-    @Override
     public Range getRange()
     {
         return range;
     }
 
+    @Override
     public String toString()
     {
-        return Iterators.toString(pairIterator());
+        return Objects.toStringHelper(this)
+                .add("value", value)
+                .add("range", range)
+                .toString();
     }
 
     @Override

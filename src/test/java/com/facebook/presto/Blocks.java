@@ -1,11 +1,20 @@
 package com.facebook.presto;
 
+import org.testng.Assert;
+
+import static com.facebook.presto.Cursors.toPairList;
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Charsets.UTF_8;
 
 public class Blocks
 {
+    public static void assertBlockStreamEquals(BlockStream<?> actual, BlockStream<?> expected)
+    {
+        Assert.assertEquals(actual.getTupleInfo(), expected.getTupleInfo());
+        Assert.assertEquals(toPairList(actual.cursor()), toPairList(expected.cursor()));
+    }
+
     public static UncompressedBlockStream createBlockStream(int position, String... values)
     {
         return new UncompressedBlockStream(new TupleInfo(VARIABLE_BINARY), createBlock(position, values));

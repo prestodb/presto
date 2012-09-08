@@ -42,7 +42,8 @@ public class Merge
             @Override
             public Iterator<Tuple> apply(ValueBlock input)
             {
-                return input.iterator();
+//                return input.iterator();
+                throw new UnsupportedOperationException();
             }
         };
     }

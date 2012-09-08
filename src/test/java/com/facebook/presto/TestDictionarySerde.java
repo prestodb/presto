@@ -2,10 +2,10 @@ package com.facebook.presto;
 
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.SliceOutput;
-import com.google.common.collect.Iterables;
-import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import static com.facebook.presto.Blocks.assertBlockStreamEquals;
 
 public class TestDictionarySerde {
     private SliceOutput sliceOutput;
@@ -19,37 +19,23 @@ public class TestDictionarySerde {
 
     @Test
     public void testSanity() throws Exception {
-        BlockStream blockStream = Blocks.createBlockStream(0, "a", "b", "cde", "fuu", "a", "fuu");
+        BlockStream<?> blockStream = Blocks.createBlockStream(0, "a", "b", "cde", "fuu", "a", "fuu");
         dictionarySerde.serialize(blockStream, sliceOutput);
-        Assert.assertTrue(
-                Iterables.elementsEqual(
-                        Iterables.concat(blockStream),
-                        Iterables.concat(dictionarySerde.deserialize(sliceOutput.slice()))
-                )
-        );
+        assertBlockStreamEquals(dictionarySerde.deserialize(sliceOutput.slice()), blockStream);
     }
 
     @Test
     public void testAllSame() throws Exception {
-        BlockStream blockStream = Blocks.createBlockStream(0, "a", "a", "a", "a", "a", "a", "a");
+        BlockStream<?> blockStream = Blocks.createBlockStream(0, "a", "a", "a", "a", "a", "a", "a");
         dictionarySerde.serialize(blockStream, sliceOutput);
-        Assert.assertTrue(
-                Iterables.elementsEqual(
-                        Iterables.concat(blockStream),
-                        Iterables.concat(dictionarySerde.deserialize(sliceOutput.slice()))
-                )
-        );
+        BlockStream<DictionaryEncodedBlock> deserialize = dictionarySerde.deserialize(sliceOutput.slice());
+        assertBlockStreamEquals(deserialize, blockStream);
     }
 
     @Test
     public void testAllUnique() throws Exception {
-        BlockStream blockStream = Blocks.createBlockStream(0, "a", "b", "c", "d", "e", "f", "g");
+        BlockStream<?> blockStream = Blocks.createBlockStream(0, "a", "b", "c", "d", "e", "f", "g");
         dictionarySerde.serialize(blockStream, sliceOutput);
-        Assert.assertTrue(
-                Iterables.elementsEqual(
-                        Iterables.concat(blockStream),
-                        Iterables.concat(dictionarySerde.deserialize(sliceOutput.slice()))
-                )
-        );
+        assertBlockStreamEquals(dictionarySerde.deserialize(sliceOutput.slice()), blockStream);
     }
 }

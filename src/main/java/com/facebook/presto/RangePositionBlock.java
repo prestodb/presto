@@ -2,7 +2,6 @@ package com.facebook.presto;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
 
 public class RangePositionBlock
         implements PositionBlock
@@ -17,23 +16,24 @@ public class RangePositionBlock
     @Override
     public Optional<PositionBlock> filter(PositionBlock positionBlock)
     {
-        if (positionBlock.isPositionsContiguous()) {
-            if (!range.overlaps(positionBlock.getRange())) {
-                return Optional.absent();
-            }
-
-            return Optional.<PositionBlock>of(new RangePositionBlock(range.intersect(positionBlock.getRange())));
-        }
-
-        ImmutableList.Builder<Long> builder = ImmutableList.builder();
-        // todo optimize when bit vector position is added
-        for (Long position : positionBlock.getPositions()) {
-            if (this.apply(position)) {
-                builder.add(position);
-            }
-        }
-
-        return Optional.<PositionBlock>of(new UncompressedPositionBlock(builder.build()));
+//        if (positionBlock.isPositionsContiguous()) {
+//            if (!range.overlaps(positionBlock.getRange())) {
+//                return Optional.absent();
+//            }
+//
+//            return Optional.<PositionBlock>of(new RangePositionBlock(range.intersect(positionBlock.getRange())));
+//        }
+//
+//        ImmutableList.Builder<Long> builder = ImmutableList.builder();
+//        // todo optimize when bit vector position is added
+//        for (Long position : positionBlock.getPositions()) {
+//            if (this.apply(position)) {
+//                builder.add(position);
+//            }
+//        }
+//
+//        return Optional.<PositionBlock>of(new UncompressedPositionBlock(builder.build()));
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -58,12 +58,6 @@ public class RangePositionBlock
     public boolean isPositionsContiguous()
     {
         return true;
-    }
-
-    @Override
-    public Iterable<Long> getPositions()
-    {
-        return range;
     }
 
     @Override

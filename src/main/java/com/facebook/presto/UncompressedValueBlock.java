@@ -1,20 +1,13 @@
 package com.facebook.presto;
 
 import com.facebook.presto.TupleInfo.Type;
+import com.facebook.presto.block.cursor.BlockCursor;
 import com.facebook.presto.block.cursor.UncompressedBlockCursor;
 import com.facebook.presto.block.cursor.UncompressedLongBlockCursor;
 import com.facebook.presto.block.cursor.UncompressedSliceBlockCursor;
-import com.facebook.presto.block.cursor.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.PeekingIterator;
-
-import java.util.Iterator;
 
 public class UncompressedValueBlock
         implements ValueBlock
@@ -41,91 +34,6 @@ public class UncompressedValueBlock
     }
 
     @Override
-    public Optional<PositionBlock> selectPositions(Predicate<Tuple> predicate)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Optional<ValueBlock> selectPairs(Predicate<Tuple> predicate)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public PositionBlock toPositionBlock()
-    {
-        return new RangePositionBlock(range);
-    }
-
-    /**
-     * Build a new block with only the selected value positions
-     */
-    @Override
-    public Optional<ValueBlock> filter(PositionBlock positions)
-    {
-        return MaskedValueBlock.maskBlock(this, positions);
-    }
-
-    @Override
-    public Iterator<Tuple> iterator()
-    {
-        return new AbstractIterator<Tuple>()
-        {
-            private int currentOffset = 0;
-            private long index = 0;
-
-            @Override
-            protected Tuple computeNext()
-            {
-                if (index >= getCount()) {
-                    endOfData();
-                    return null;
-                }
-
-                Slice currentPositionToEnd = slice.slice(currentOffset, slice.length() - currentOffset);
-
-                int size = info.size(currentPositionToEnd);
-                index++;
-                currentOffset += size;
-
-                Slice row = currentPositionToEnd.slice(0, size);
-                return new Tuple(row, info);
-            }
-        };
-    }
-
-    @Override
-    public PeekingIterator<Pair> pairIterator()
-    {
-        return Iterators.peekingIterator(new AbstractIterator<Pair>()
-        {
-            private int currentOffset = 0;
-            private long index = 0;
-
-            @Override
-            protected Pair computeNext()
-            {
-                if (index >= getCount()) {
-                    endOfData();
-                    return null;
-                }
-
-                Slice currentPositionToEnd = slice.slice(currentOffset, slice.length() - currentOffset);
-
-                int size = info.size(currentPositionToEnd);
-                currentOffset += size;
-
-                Slice row = currentPositionToEnd.slice(0, size);
-
-                long position = index + range.getStart();
-                index++;
-                return new Pair(position, new Tuple(row, info));
-            }
-        });
-    }
-
-    @Override
     public int getCount()
     {
         return (int) (range.getEnd() - range.getStart() + 1);
@@ -144,22 +52,9 @@ public class UncompressedValueBlock
     }
 
     @Override
-    public Tuple getSingleValue()
-    {
-        Preconditions.checkState(isSingleValue(), "Block contains more than one value");
-        return iterator().next();
-    }
-
-    @Override
     public boolean isPositionsContiguous()
     {
         return true;
-    }
-
-    @Override
-    public Iterable<Long> getPositions()
-    {
-        return range;
     }
 
     @Override
