@@ -33,8 +33,9 @@ public class ValueCursor implements Cursor
 
         // next value is within the next block
         // advance to next block
-        nextValueBlockCursor = iterator.next().blockCursor();
-        currentValueBlockCursor = nextValueBlockCursor.duplicate();
+        ValueBlock valueBlock = iterator.next();
+        nextValueBlockCursor = valueBlock.blockCursor();
+        currentValueBlockCursor = valueBlock.blockCursor();
         nextValueBlockCursor.advanceNextValue();
     }
 

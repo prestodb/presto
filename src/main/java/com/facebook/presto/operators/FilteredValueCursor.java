@@ -35,8 +35,9 @@ public class FilteredValueCursor implements Cursor
         this.info = info;
         this.iterator = iterator;
 
-        nextValueBlockCursor = iterator.next().blockCursor();
-        currentValueBlockCursor = nextValueBlockCursor.duplicate();
+        ValueBlock valueBlock = iterator.next();
+        nextValueBlockCursor = valueBlock.blockCursor();
+        currentValueBlockCursor = valueBlock.blockCursor();
         findNextValue();
     }
 

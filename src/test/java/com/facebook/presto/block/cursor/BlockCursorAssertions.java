@@ -2,7 +2,6 @@ package com.facebook.presto.block.cursor;
 
 import com.facebook.presto.Tuple;
 import com.facebook.presto.Tuples;
-import com.facebook.presto.block.cursor.BlockCursor;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -14,17 +13,8 @@ public class BlockCursorAssertions
     {
         assertTrue(blockCursor.hasNextValue());
 
-        BlockCursor originalPosition = blockCursor.duplicate();
-
         blockCursor.advanceNextValue();
         assertCurrentValue(blockCursor, position, value);
-        assertCurrentValue(blockCursor.duplicate(), position, value);
-
-        blockCursor.moveTo(originalPosition);
-
-        blockCursor.advanceNextValue();
-        assertCurrentValue(blockCursor, position, value);
-        assertCurrentValue(blockCursor.duplicate(), position, value);
     }
 
     public static void assertCurrentValue(BlockCursor blockCursor, long position, String value)
@@ -42,17 +32,8 @@ public class BlockCursorAssertions
     {
         assertTrue(blockCursor.hasNextValue());
 
-        BlockCursor originalPosition = blockCursor.duplicate();
-
         blockCursor.advanceNextValue();
         assertCurrentValue(blockCursor, position, value);
-        assertCurrentValue(blockCursor.duplicate(), position, value);
-
-        blockCursor.moveTo(originalPosition);
-
-        blockCursor.advanceNextValue();
-        assertCurrentValue(blockCursor, position, value);
-        assertCurrentValue(blockCursor.duplicate(), position, value);
     }
 
     public static void assertCurrentValue(BlockCursor blockCursor, long position, long value)

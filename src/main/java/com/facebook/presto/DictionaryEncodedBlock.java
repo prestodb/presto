@@ -74,23 +74,10 @@ public class DictionaryEncodedBlock implements ValueBlock
             delegate = sourceValueBlock.blockCursor();
         }
 
-        private DictionaryEncodedBlockCursor(TupleInfo tupleInfo, BlockCursor delegate, Slice[] dictionary)
-        {
-            this.tupleInfo = tupleInfo;
-            this.delegate = delegate;
-            this.dictionary = dictionary;
-        }
-
         @Override
         public Range getRange()
         {
             return delegate.getRange();
-        }
-
-        @Override
-        public BlockCursor duplicate()
-        {
-            return new DictionaryEncodedBlockCursor(tupleInfo, delegate.duplicate(), dictionary);
         }
 
         @Override

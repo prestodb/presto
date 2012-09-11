@@ -87,23 +87,10 @@ public class RunLengthEncodedBlock
             position = -1;
         }
 
-        private RunLengthEncodedBlockCursor(Tuple value, Range range, long position)
-        {
-            this.value = value;
-            this.range = range;
-            this.position = position;
-        }
-
         @Override
         public Range getRange()
         {
             return range;
-        }
-
-        @Override
-        public BlockCursor duplicate()
-        {
-            return new RunLengthEncodedBlockCursor(value, range, position);
         }
 
         @Override

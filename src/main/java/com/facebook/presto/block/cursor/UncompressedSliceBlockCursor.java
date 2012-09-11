@@ -36,15 +36,6 @@ public class UncompressedSliceBlockCursor
         this.range = range;
     }
 
-    public UncompressedSliceBlockCursor(Slice slice, Range range, long position, int offset, int size)
-    {
-        this.slice = slice;
-        this.range = range;
-        this.position = position;
-        this.offset = offset;
-        this.size = size;
-    }
-
     @Override
     public Range getRange()
     {
@@ -64,12 +55,6 @@ public class UncompressedSliceBlockCursor
         this.position = other.position;
         this.offset = other.offset;
         this.size = other.size;
-    }
-
-    @Override
-    public BlockCursor duplicate()
-    {
-        return new UncompressedSliceBlockCursor(slice, range, position, offset, size);
     }
 
     @Override
