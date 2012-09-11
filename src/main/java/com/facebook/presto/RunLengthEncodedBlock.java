@@ -74,30 +74,20 @@ public class RunLengthEncodedBlock
 
     public static final class RunLengthEncodedBlockCursor implements BlockCursor
     {
-        private Tuple value;
-        private Range range;
-        private long position;
+        private final Tuple value;
+        private final Range range;
+        private long position = -1;
 
         public RunLengthEncodedBlockCursor(Tuple value, Range range)
         {
             this.value = value;
             this.range = range;
-            position = -1;
         }
 
         @Override
         public Range getRange()
         {
             return range;
-        }
-
-        @Override
-        public void moveTo(BlockCursor newPosition)
-        {
-            RunLengthEncodedBlockCursor other = (RunLengthEncodedBlockCursor) newPosition;
-            value = other.value;
-            range = other.range;
-            position = other.position;
         }
 
         @Override

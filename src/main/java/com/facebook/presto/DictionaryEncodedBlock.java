@@ -81,12 +81,6 @@ public class DictionaryEncodedBlock implements ValueBlock
         }
 
         @Override
-        public void moveTo(BlockCursor newPosition)
-        {
-            delegate.moveTo(((DictionaryEncodedBlockCursor)newPosition).delegate);
-        }
-
-        @Override
         public boolean advanceToNextValue()
         {
             return delegate.advanceToNextValue();

@@ -71,8 +71,8 @@ public class UncompressedPositionBlock
     public static class UncompressedPositionBlockCursor
             implements BlockCursor
     {
-        private List<Long> positions;
-        private Range range;
+        private final List<Long> positions;
+        private final Range range;
         private int index = -1;
 
         public UncompressedPositionBlockCursor(List<Long> positions, Range range)
@@ -85,15 +85,6 @@ public class UncompressedPositionBlock
         public Range getRange()
         {
             return range;
-        }
-
-        @Override
-        public void moveTo(BlockCursor newPosition)
-        {
-            UncompressedPositionBlockCursor cursor = (UncompressedPositionBlockCursor) newPosition;
-            positions = cursor.positions;
-            range = cursor.range;
-            index = cursor.index;
         }
 
         @Override

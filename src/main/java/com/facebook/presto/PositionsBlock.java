@@ -80,8 +80,8 @@ public class PositionsBlock
     public static class RangePositionBlockCursor
             implements BlockCursor
     {
-        private List<Range> ranges;
-        private Range totalRange;
+        private final List<Range> ranges;
+        private final Range totalRange;
         private int index = -1;
         private long position = -1;
 
@@ -95,16 +95,6 @@ public class PositionsBlock
         public Range getRange()
         {
             return totalRange;
-        }
-
-        @Override
-        public void moveTo(BlockCursor newPosition)
-        {
-            RangePositionBlockCursor cursor = (RangePositionBlockCursor) newPosition;
-            ranges = cursor.ranges;
-            totalRange = cursor.totalRange;
-            index = cursor.index;
-            position = cursor.position;
         }
 
         @Override

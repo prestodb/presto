@@ -13,8 +13,8 @@ public class UncompressedBlockCursor
         implements BlockCursor
 {
     private final TupleInfo info;
-    private Slice slice;
-    private Range range;
+    private final Slice slice;
+    private final Range range;
     private long position = -1;
     private int offset = -1;
     private int size = -1;
@@ -35,21 +35,6 @@ public class UncompressedBlockCursor
     public Range getRange()
     {
         return range;
-    }
-
-    @Override
-    public void moveTo(BlockCursor newPosition)
-    {
-        Preconditions.checkArgument(newPosition instanceof UncompressedBlockCursor, "cursor is not an instance of UncompressedBlockCursor");
-        UncompressedBlockCursor other = (UncompressedBlockCursor) newPosition;
-
-        // todo assure that the cursors are for the same block stream?
-
-        this.slice = other.slice;
-        this.range = other.range;
-        this.position = other.position;
-        this.offset = other.offset;
-        this.size = other.size;
     }
 
     @Override
