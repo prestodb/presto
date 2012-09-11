@@ -12,7 +12,7 @@ public class RunLengthEncodedCursor
 {
     private final TupleInfo info;
     private final PeekingIterator<RunLengthEncodedBlock> iterator;
-    private RunLengthEncodedBlock current;
+    private RunLengthEncodedBlock block;
     private long position;
 
     public RunLengthEncodedCursor(TupleInfo info, Iterator<RunLengthEncodedBlock> iterator)
@@ -32,20 +32,26 @@ public class RunLengthEncodedCursor
     }
 
     @Override
+    public boolean isFinished()
+    {
+        return !iterator.hasNext() && position > block.getRange().getEnd();
+    }
+
+    @Override
     public boolean advanceNextValue()
     {
         if (!iterator.hasNext()) {
             return false;
         }
-        current = iterator.next();
-        position = current.getRange().getStart();
+        block = iterator.next();
+        position = block.getRange().getStart();
         return true;
     }
 
     @Override
     public boolean advanceNextPosition()
     {
-        if (current == null || position == current.getRange().getEnd()) {
+        if (block == null || position == block.getRange().getEnd()) {
             return advanceNextValue();
         }
         else {
@@ -57,44 +63,44 @@ public class RunLengthEncodedCursor
     @Override
     public boolean advanceToPosition(long position)
     {
-        Preconditions.checkArgument(current == null || position >= getPosition(), "Can't advance backwards");
+        Preconditions.checkArgument(block == null || position >= getPosition(), "Can't advance backwards");
 
-        if (current == null) {
+        if (block == null) {
             return advanceNextValue();
         }
 
         // skip to block containing requested position
-        while (position > current.getRange().getEnd() && advanceNextPosition());
-        if (position > current.getRange().getEnd()) {
+        while (position > block.getRange().getEnd() && advanceNextPosition());
+        if (position > block.getRange().getEnd()) {
             return false;
         }
 
-        this.position = Math.max(position, current.getRange().getStart());
+        this.position = Math.max(position, block.getRange().getStart());
         return true;
     }
 
     @Override
     public Tuple getTuple()
     {
-        Preconditions.checkState(current != null, "Need to call advanceNext() first");
+        Preconditions.checkState(block != null, "Need to call advanceNext() first");
 
-        return current.getSingleValue();
+        return block.getSingleValue();
     }
 
     @Override
     public long getLong(int field)
     {
-        Preconditions.checkState(current != null, "Need to call advanceNext() first");
+        Preconditions.checkState(block != null, "Need to call advanceNext() first");
 
-        return current.getSingleValue().getLong(field);
+        return block.getSingleValue().getLong(field);
     }
 
     @Override
     public Slice getSlice(int field)
     {
-        Preconditions.checkState(current != null, "Need to call advanceNext() first");
+        Preconditions.checkState(block != null, "Need to call advanceNext() first");
 
-        return current.getSingleValue().getSlice(field);
+        return block.getSingleValue().getSlice(field);
     }
 
     @Override
@@ -106,17 +112,17 @@ public class RunLengthEncodedCursor
     @Override
     public long getCurrentValueEndPosition()
     {
-        Preconditions.checkState(current != null, "Need to call advance first");
+        Preconditions.checkState(block != null, "Need to call advance first");
 
-        return current.getRange().getEnd();
+        return block.getRange().getEnd();
     }
 
     @Override
     public boolean currentValueEquals(Tuple value)
     {
-        Preconditions.checkState(current != null, "Need to call advanceNext() first");
+        Preconditions.checkState(block != null, "Need to call advanceNext() first");
 
-        return current.getSingleValue().equals(value);
+        return block.getSingleValue().equals(value);
     }
 
 }

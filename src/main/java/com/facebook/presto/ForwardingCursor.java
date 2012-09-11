@@ -26,6 +26,12 @@ public class ForwardingCursor implements Cursor
     }
 
     @Override
+    public boolean isFinished()
+    {
+        return cursor.isFinished();
+    }
+
+    @Override
     public boolean advanceNextValue()
     {
         return cursor.advanceNextValue();

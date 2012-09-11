@@ -53,6 +53,12 @@ public class DictionaryEncodedCursor implements Cursor
     }
 
     @Override
+    public boolean isFinished()
+    {
+        return sourceCursor.isFinished();
+    }
+
+    @Override
     public boolean advanceNextValue()
     {
         return sourceCursor.advanceNextValue();
