@@ -82,7 +82,7 @@ public class TupleInfo
     public TupleInfo(List<Type> types)
     {
         Preconditions.checkNotNull(types, "types is null");
-        Preconditions.checkArgument(!types.isEmpty(), "types is empty");
+//        Preconditions.checkArgument(!types.isEmpty(), "types is empty");
 
         this.types = ImmutableList.copyOf(types);
 

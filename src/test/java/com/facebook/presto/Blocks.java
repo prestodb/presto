@@ -20,7 +20,7 @@ public class Blocks
         return new UncompressedBlockStream(new TupleInfo(VARIABLE_BINARY), createBlock(position, values));
     }
 
-    public static UncompressedValueBlock createBlock(int position, String... values)
+    public static UncompressedValueBlock createBlock(long position, String... values)
     {
         BlockBuilder builder = new BlockBuilder(position, new TupleInfo(VARIABLE_BINARY));
 
