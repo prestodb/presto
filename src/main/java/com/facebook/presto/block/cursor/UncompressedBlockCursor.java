@@ -33,16 +33,6 @@ public class UncompressedBlockCursor
         this.range = range;
     }
 
-    public UncompressedBlockCursor(TupleInfo info, Slice slice, Range range, long position, int offset, int size)
-    {
-        this.info = info;
-        this.slice = slice;
-        this.range = range;
-        this.position = position;
-        this.offset = offset;
-        this.size = size;
-    }
-
     @Override
     public Range getRange()
     {
@@ -62,12 +52,6 @@ public class UncompressedBlockCursor
         this.position = other.position;
         this.offset = other.offset;
         this.size = other.size;
-    }
-
-    @Override
-    public BlockCursor duplicate()
-    {
-        return new UncompressedBlockCursor(info, slice, range, position, offset, size);
     }
 
     @Override

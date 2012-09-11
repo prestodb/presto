@@ -11,7 +11,6 @@ public interface BlockCursor
 {
     Range getRange();
 
-    BlockCursor duplicate();
     void moveTo(BlockCursor newPosition);
 
     boolean hasNextValue();

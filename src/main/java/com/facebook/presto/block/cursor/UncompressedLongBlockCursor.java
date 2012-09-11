@@ -34,14 +34,6 @@ public class UncompressedLongBlockCursor
         this.range = range;
     }
 
-    public UncompressedLongBlockCursor(Slice slice, Range range, long position, int offset)
-    {
-        this.slice = slice;
-        this.range = range;
-        this.position = position;
-        this.offset = offset;
-    }
-
     @Override
     public Range getRange()
     {
@@ -60,12 +52,6 @@ public class UncompressedLongBlockCursor
         this.range = other.range;
         this.position = other.position;
         this.offset = other.offset;
-    }
-
-    @Override
-    public BlockCursor duplicate()
-    {
-        return new UncompressedLongBlockCursor(slice, range, position, offset);
     }
 
     @Override
