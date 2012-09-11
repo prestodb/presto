@@ -44,29 +44,40 @@ public class GroupByBlockStream
 
         return new AbstractIterator<RunLengthEncodedBlock>()
         {
+            private boolean done;
+
+            {
+                // advance to first position
+                done = !cursor.advanceNextPosition();
+            }
+
             @Override
             protected RunLengthEncodedBlock computeNext()
             {
                 // if no more data, return null
-                if (!cursor.hasNextValue()) {
+                if (done) {
                     endOfData();
                     return null;
                 }
 
-                // advance
-                cursor.advanceNextValue();
-
                 // get starting key and position
                 Tuple key = cursor.getTuple();
                 long startPosition = cursor.getPosition();
+                long endPosition = cursor.getCurrentValueEndPosition();
 
                 // advance while the next value equals the current value
-                while (cursor.hasNextValue() && cursor.nextValueEquals(key)) {
-                    cursor.advanceNextValue();
+                while (cursor.advanceNextValue() && cursor.currentValueEquals(key)) {
+                    endPosition = cursor.getCurrentValueEndPosition();
+                }
+
+                // todo deal with end condition
+                if (cursor.currentValueEquals(key)) {
+                    // stopped because advance failed
+                    done = true;
                 }
 
                 // range does not include the current element
-                Range range = Range.create(startPosition, cursor.getCurrentValueEndPosition());
+                Range range = Range.create(startPosition, endPosition);
                 return new RunLengthEncodedBlock(key, range);
             }
         };

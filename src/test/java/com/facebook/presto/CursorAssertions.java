@@ -17,9 +17,7 @@ public class CursorAssertions
                 .append(Slices.wrappedBuffer(value.getBytes(Charsets.UTF_8)))
                 .build();
 
-        assertTrue(cursor.hasNextValue());
-        assertTrue(cursor.nextValueEquals(tuple));
-        cursor.advanceNextValue();
+        assertTrue(cursor.advanceNextValue());
 
         assertEquals(cursor.getTuple(), tuple);
         assertEquals(cursor.getPosition(), position);
@@ -35,8 +33,7 @@ public class CursorAssertions
                 .append(Slices.wrappedBuffer(value.getBytes(Charsets.UTF_8)))
                 .build();
 
-        assertTrue(cursor.hasNextPosition());
-        cursor.advanceNextPosition();
+        assertTrue(cursor.advanceNextPosition());
 
         assertEquals(cursor.getTuple(), tuple);
         assertEquals(cursor.getPosition(), position);
@@ -52,9 +49,7 @@ public class CursorAssertions
                 .append(value)
                 .build();
 
-        assertTrue(cursor.hasNextValue());
-        assertTrue(cursor.nextValueEquals(tuple));
-        cursor.advanceNextValue();
+        assertTrue(cursor.advanceNextValue());
 
         assertEquals(cursor.getTuple(), tuple);
         assertEquals(cursor.getPosition(), position);
@@ -70,8 +65,7 @@ public class CursorAssertions
                 .append(value)
                 .build();
 
-        assertTrue(cursor.hasNextPosition());
-        cursor.advanceNextPosition();
+        assertTrue(cursor.advanceNextPosition());
 
         assertEquals(cursor.getTuple(), tuple);
         assertEquals(cursor.getPosition(), position);
@@ -106,8 +100,7 @@ public class CursorAssertions
 
     public static void assertNextValuePosition(Cursor cursor, long position)
     {
-        assertTrue(cursor.hasNextValue());
-        assertEquals(cursor.peekNextValuePosition(), position);
-        cursor.advanceNextValue();
+        assertTrue(cursor.advanceNextValue());
+        assertEquals(cursor.getPosition(), position);
     }
 }

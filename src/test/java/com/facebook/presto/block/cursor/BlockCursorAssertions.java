@@ -10,16 +10,13 @@ public class BlockCursorAssertions
 {
     public static void assertNextValue(BlockCursor blockCursor, long position, String value)
     {
-        assertTrue(blockCursor.hasNextValue());
-
-        blockCursor.advanceNextValue();
+        assertTrue(blockCursor.advanceToNextValue());
         assertCurrentValue(blockCursor, position, value);
     }
 
     public static void assertNextPosition(BlockCursor blockCursor, long position, String value)
     {
-        assertTrue(blockCursor.hasNextPosition());
-        blockCursor.advanceNextPosition();
+        assertTrue(blockCursor.advanceNextPosition());
         assertCurrentValue(blockCursor, position, value);
     }
 
@@ -35,15 +32,13 @@ public class BlockCursorAssertions
 
     public static void assertNextValue(BlockCursor blockCursor, long position, long value)
     {
-        assertTrue(blockCursor.hasNextValue());
-        blockCursor.advanceNextValue();
+        assertTrue(blockCursor.advanceToNextValue());
         assertCurrentValue(blockCursor, position, value);
     }
 
     public static void assertNextPosition(BlockCursor blockCursor, long position, long value)
     {
-        assertTrue(blockCursor.hasNextPosition());
-        blockCursor.advanceNextPosition();
+        assertTrue(blockCursor.advanceNextPosition());
         assertCurrentValue(blockCursor, position, value);
     }
 

@@ -16,8 +16,7 @@ public final class Cursors
     public static List<Pair> toPairList(Cursor cursor)
     {
         ImmutableList.Builder<Pair> builder = ImmutableList.builder();
-        while (cursor.hasNextPosition()) {
-            cursor.advanceNextPosition();
+        while (cursor.advanceNextPosition()) {
             builder.add(new Pair(cursor.getPosition(), cursor.getTuple()));
         }
         return builder.build();

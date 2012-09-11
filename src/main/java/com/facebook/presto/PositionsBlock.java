@@ -6,7 +6,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -109,16 +108,10 @@ public class PositionsBlock
         }
 
         @Override
-        public boolean hasNextValue()
+        public boolean advanceToNextValue()
         {
-            return index < ranges.size() || position < ranges.get(index).getEnd();
-        }
-
-        @Override
-        public void advanceNextValue()
-        {
-            if (!hasNextValue()) {
-                throw new NoSuchElementException();
+            if (index >= ranges.size() && position >= ranges.get(index).getEnd()) {
+                return false;
             }
 
             if (index > 0 && position < ranges.get(index).getEnd()) {
@@ -128,25 +121,25 @@ public class PositionsBlock
                 index++;
                 position = ranges.get(index).getStart();
             }
+            return true;
         }
 
         @Override
-        public boolean hasNextPosition()
+        public boolean advanceNextPosition()
         {
-            return hasNextValue();
+            return advanceToNextValue();
         }
 
         @Override
-        public void advanceNextPosition()
-        {
-            advanceNextValue();
-        }
-
-        @Override
-        public void advanceToPosition(long newPosition)
+        public boolean advanceToPosition(long newPosition)
         {
             Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
-            Preconditions.checkArgument(newPosition <= totalRange.getEnd(), "Can't advance off the end of the block");
+
+            if (newPosition > totalRange.getEnd()) {
+                index = ranges.size();
+                position = newPosition;
+                return false;
+            }
 
             for (int i = index; i < ranges.size(); i++) {
                 if (newPosition <= ranges.get(i).getEnd()) {
@@ -157,10 +150,11 @@ public class PositionsBlock
                     else {
                         position = ranges.get(i).getStart();
                     }
-                    return;
+                    return true;
                 }
             }
-            Preconditions.checkArgument(ranges.get(index).contains(newPosition), "Invalid position");
+            // this should never happen
+            throw new IllegalStateException("Invalid position");
         }
 
         @Override

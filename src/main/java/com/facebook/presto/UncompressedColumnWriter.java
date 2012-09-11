@@ -56,8 +56,7 @@ public class UncompressedColumnWriter
     private boolean writeFixedInt64(long end)
             throws IOException
     {
-        while (cursor.hasNextPosition()) {
-            cursor.advanceNextPosition();
+        while (cursor.advanceNextPosition()) {
             buffer.appendLong(cursor.getLong(index));
             tupleCount++;
             flushIfNecessary();
@@ -71,8 +70,7 @@ public class UncompressedColumnWriter
     private boolean writeVariableBinary(long end)
             throws IOException
     {
-        while (cursor.hasNextPosition()) {
-            cursor.advanceNextPosition();
+        while (cursor.advanceNextPosition()) {
             Slice slice = cursor.getSlice(index);
             buffer.appendShort(slice.length() + SIZE_OF_SHORT);
             buffer.appendBytes(slice);

@@ -4,46 +4,46 @@ import com.facebook.presto.slice.Slice;
 
 /**
  * Iterate as:
- *
+ * <p/>
  * <pre>{@code
  *  Cursor cursor = ...;
- *
+ * <p/>
  *  while (cursor.hasNextValue()) {
  *     cursor.advanceNextValue();
  *     long value = cursor.getLong(...);
  *     ...
  *  }
  * }</pre>
- *
  */
 public interface Cursor
 {
     TupleInfo getTupleInfo();
 
-    boolean hasNextValue();
+    /**
+     * Attempts to advance to the first position of the next value
+     *
+     * @returns true if the stream had a next value; false if the stream contains no more data
+     */
+    boolean advanceNextValue();
 
     /**
-     * Advances to the first position of the next value
+     * Attempts to advance to the next position in this stream and possibly to the next value if the current position if the last one for the current value
+     *
+     * @returns true if the stream had a next position; false if the stream contains no more data
      */
-    void advanceNextValue();
-
-    boolean hasNextPosition();
-
-    /**
-     * Advances to the next position in this stream and possibly to the next value if the current position if the last one for the current value
-     */
-    void advanceNextPosition();
+    boolean advanceNextPosition();
 
     /**
-     * Advances to the requested position or the next immediately available if that position does not exist in this stream (e.g., there's a gap in the sequence)
+     * Attempts to advance to the requested position or the next immediately available if that position does not exist in this stream (e.g., there's a gap in the sequence)
+     *
+     * @returns true if the stream advanced to the position; false if the stream contains no more data
      */
-    void advanceToPosition(long position);
+    boolean advanceToPosition(long position);
 
     /**
      * Gets the current tuple.
      *
      * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
-     *
      */
     Tuple getTuple();
 
@@ -51,7 +51,6 @@ public interface Cursor
      * Gets a field from the current tuple.
      *
      * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
-     *
      */
     long getLong(int field);
 
@@ -59,7 +58,6 @@ public interface Cursor
      * Gets a field from the current tuple.
      *
      * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
-     *
      */
     Slice getSlice(int field);
 
@@ -71,12 +69,10 @@ public interface Cursor
     long getPosition();
 
     /**
-     * Returns the first position of the next value if one is available.
+     * Returns the last position of the current value
      *
-     * @throws java.util.NoSuchElementException if this cursor is already at the last value
+     * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
      */
-    long peekNextValuePosition();
-
     long getCurrentValueEndPosition();
 
     /**
@@ -85,11 +81,4 @@ public interface Cursor
      * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
      */
     boolean currentValueEquals(Tuple value);
-
-    /**
-     * True if the next tuple equals the specified tuple.
-     *
-     * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
-     */
-    boolean nextValueEquals(Tuple value);
 }

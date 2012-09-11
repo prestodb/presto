@@ -43,14 +43,16 @@ public class SumAggregation
 //            cursor.advanceNextPosition();
 //        }  while (relevantRange.contains(cursor.getPosition()));
 
-        // advance to start of range
-        cursor.advanceToPosition(relevantRange.getStart());
+        // try to advance to start of range
+        if (!cursor.advanceToPosition(relevantRange.getStart())) {
+            return;
+        }
+
         while (relevantRange.contains(cursor.getPosition())) {
             sum += cursor.getLong(0);
-            if (!cursor.hasNextPosition()) {
+            if (!cursor.advanceNextPosition()) {
                 break;
             }
-            cursor.advanceNextPosition();
         }
     }
 

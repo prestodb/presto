@@ -4,7 +4,6 @@ import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 
 import java.util.Iterator;
-import java.util.NoSuchElementException;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
@@ -50,16 +49,10 @@ public class UncompressedLongCursor
     }
 
     @Override
-    public boolean hasNextValue()
-    {
-        return blockForNextValue != null;
-    }
-
-    @Override
-    public void advanceNextValue()
+    public boolean advanceNextValue()
     {
         if (blockForNextValue == null) {
-            throw new NoSuchElementException();
+            return false;
         }
 
         blockForCurrentValue = blockForNextValue;
@@ -75,6 +68,7 @@ public class UncompressedLongCursor
             // next value is within the next block
             moveToNextBlock();
         }
+        return true;
     }
 
     private void moveToNextBlock()
@@ -94,29 +88,23 @@ public class UncompressedLongCursor
     }
 
     @Override
-    public boolean hasNextPosition()
+    public boolean advanceNextPosition()
     {
-        return hasNextValue();
+        return advanceNextValue();
     }
 
     @Override
-    public void advanceNextPosition()
-    {
-        advanceNextValue();
-    }
-
-    @Override
-    public void advanceToPosition(long position)
+    public boolean advanceToPosition(long position)
     {
         Preconditions.checkArgument(blockForCurrentValue == null || position >= getPosition(), "Can't advance backwards");
 
         if (blockForCurrentValue != null && position == getPosition()) {
             // position to current position? => no op
-            return;
+            return true;
         }
 
         if (blockForNextValue == null) {
-            throw new NoSuchElementException();
+            return false;
         }
 
         // skip to block containing requested position
@@ -152,6 +140,7 @@ public class UncompressedLongCursor
             // next value is within the next block
             moveToNextBlock();
         }
+        return true;
     }
 
     @Override
@@ -189,15 +178,6 @@ public class UncompressedLongCursor
     }
 
     @Override
-    public long peekNextValuePosition()
-    {
-        if (blockForNextValue == null) {
-            throw new NoSuchElementException();
-        }
-        return blockForNextValue.getRange().getStart() + nextBlockIndex;
-    }
-
-    @Override
     public boolean currentValueEquals(Tuple value)
     {
         Preconditions.checkState(blockForCurrentValue != null, "Need to call advanceNext() first");
@@ -205,13 +185,4 @@ public class UncompressedLongCursor
         return tupleSlice.length() == SIZE_OF_LONG && blockForCurrentValue.getSlice().getLong(currentOffset) == tupleSlice.getLong(0);
     }
 
-    @Override
-    public boolean nextValueEquals(Tuple value)
-    {
-        if (blockForNextValue == null) {
-            throw new NoSuchElementException();
-        }
-        Slice tupleSlice = value.getTupleSlice();
-        return tupleSlice.length() == SIZE_OF_LONG && blockForNextValue.getSlice().getLong(nextOffset) == tupleSlice.getLong(0);
-    }
 }

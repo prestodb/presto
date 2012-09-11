@@ -27,8 +27,7 @@ public class TestExample
         // 35 s
 
         Cursor cursor = scan.cursor();
-        while (cursor.hasNextPosition()) {
-            cursor.advanceNextPosition();
+        while (cursor.advanceNextPosition()) {
             System.out.printf("%d %s\n", cursor.getPosition(), cursor.getSlice(0).toString(UTF_8));
         }
     }

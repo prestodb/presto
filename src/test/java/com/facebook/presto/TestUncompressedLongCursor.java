@@ -8,7 +8,6 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 
 import static com.facebook.presto.Blocks.createBlock;
 import static com.facebook.presto.CursorAssertions.assertCurrentValue;
@@ -17,6 +16,7 @@ import static com.facebook.presto.CursorAssertions.assertNextValue;
 import static com.facebook.presto.CursorAssertions.assertNextValuePosition;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestUncompressedLongCursor extends AbstractTestCursor
@@ -76,7 +76,7 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
         assertNextValue(cursor, 21, 3333L);
         assertNextValue(cursor, 30, 4444L);
 
-        assertFalse(cursor.hasNextValue());
+        assertFalse(cursor.advanceNextValue());
     }
 
     @Test
@@ -96,7 +96,7 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
         assertNextPosition(cursor, 21, 3333L);
         assertNextPosition(cursor, 30, 4444L);
 
-        assertFalse(cursor.hasNextPosition());
+        assertFalse(cursor.advanceNextPosition());
     }
 
     @Test
@@ -106,27 +106,27 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
         Cursor cursor = createCursor();
 
         // advance to first position
-        cursor.advanceToPosition(0);
+        assertTrue(cursor.advanceToPosition(0));
         assertCurrentValue(cursor, 0, 1111L);
 
         // skip to position in first block
-        cursor.advanceToPosition(2);
+        assertTrue(cursor.advanceToPosition(2));
         assertCurrentValue(cursor, 2, 1111L);
 
         // advance to same position
-        cursor.advanceToPosition(2);
+        assertTrue(cursor.advanceToPosition(2));
         assertCurrentValue(cursor, 2, 1111L);
 
         // skip to position in same block
-        cursor.advanceToPosition(4);
+        assertTrue(cursor.advanceToPosition(4));
         assertCurrentValue(cursor, 4, 2222L);
 
         // skip to position in middle block
-        cursor.advanceToPosition(21);
+        assertTrue(cursor.advanceToPosition(21));
         assertCurrentValue(cursor, 21, 3333L);
 
         // skip to position in gap
-        cursor.advanceToPosition(25);
+        assertTrue(cursor.advanceToPosition(25));
         assertCurrentValue(cursor, 30, 4444L);
 
         // skip backwards
@@ -139,13 +139,7 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
         }
 
         // skip past end
-        try {
-            cursor.advanceToPosition(100);
-            fail("Expected NoSuchElementException");
-        }
-        catch (NoSuchElementException e) {
-            // success
-        }
+        assertFalse(cursor.advanceToPosition(100));
     }
 
     @Test
@@ -219,7 +213,7 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
         assertNextValuePosition(cursor, 21);
         assertNextValuePosition(cursor, 30);
 
-        assertFalse(cursor.hasNextValue());
+        assertFalse(cursor.advanceNextValue());
     }
 
     @Test
@@ -240,8 +234,8 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
         assertNextPosition(cursor, 21, 3333L);
         assertNextValue(cursor, 30, 4444L);
 
-        assertFalse(cursor.hasNextPosition());
-        assertFalse(cursor.hasNextValue());
+        assertFalse(cursor.advanceNextPosition());
+        assertFalse(cursor.advanceNextValue());
     }
 
     @Test
@@ -263,8 +257,7 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
             throws Exception
     {
         Cursor cursor = createCursor();
-        while (cursor.hasNextValue()) {
-            cursor.advanceNextValue();
+        while (cursor.advanceNextValue()) {
             assertEquals(cursor.getCurrentValueEndPosition(), cursor.getPosition());
         }
     }

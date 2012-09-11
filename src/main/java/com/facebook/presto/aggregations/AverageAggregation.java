@@ -33,21 +33,17 @@ public class AverageAggregation
     @Override
     public void add(Cursor cursor, Range relevantRange)
     {
-        // todo if cursor is not "valid", advance to first position
-
-        // advance to start of range
-        // todo add seek method to cursor
-        while (cursor.getPosition() < relevantRange.getStart()) {
-            cursor.advanceNextPosition();
+        // try to advance to start of range
+        if (!cursor.advanceToPosition(relevantRange.getStart())) {
+            return;
         }
 
         while (relevantRange.contains(cursor.getPosition())) {
             sum += cursor.getLong(0);
             ++count;
-            if (!cursor.hasNextPosition()) {
+            if (!cursor.advanceNextPosition()) {
                 break;
             }
-            cursor.advanceNextPosition();
         }
     }
 

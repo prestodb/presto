@@ -2,7 +2,6 @@ package com.facebook.presto;
 
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 
@@ -54,27 +53,15 @@ public class DictionaryEncodedCursor implements Cursor
     }
 
     @Override
-    public boolean hasNextValue()
+    public boolean advanceNextValue()
     {
-        return sourceCursor.hasNextValue();
+        return sourceCursor.advanceNextValue();
     }
 
     @Override
-    public void advanceNextValue()
+    public boolean advanceNextPosition()
     {
-        sourceCursor.advanceNextValue();
-    }
-
-    @Override
-    public boolean hasNextPosition()
-    {
-        return sourceCursor.hasNextPosition();
-    }
-
-    @Override
-    public void advanceNextPosition()
-    {
-        sourceCursor.advanceNextPosition();
+        return sourceCursor.advanceNextPosition();
     }
 
     @Override
@@ -112,36 +99,15 @@ public class DictionaryEncodedCursor implements Cursor
     }
 
     @Override
-    public void advanceToPosition(long position)
+    public boolean advanceToPosition(long position)
     {
-        sourceCursor.advanceToPosition(position);
-    }
-
-    @Override
-    public long peekNextValuePosition()
-    {
-        return sourceCursor.peekNextValuePosition();
+        return sourceCursor.advanceToPosition(position);
     }
 
     @Override
     public long getCurrentValueEndPosition()
     {
         return sourceCursor.getCurrentValueEndPosition();
-    }
-
-    @Override
-    public boolean nextValueEquals(Tuple value)
-    {
-        checkNotNull(value, "value is null");
-        if (value.getTupleInfo().getFieldCount() != 1) {
-            return false;
-        }
-        // This operation will be slower in this cursor as it requires a Map lookup
-        Tuple idTuple = reverseDictionary.get(value.getTupleSlice());
-        if (idTuple == null) {
-            return false;
-        }
-        return sourceCursor.nextValueEquals(idTuple);
     }
 
     private Slice decodeSliceValue(int dictionaryKey) {

@@ -42,8 +42,7 @@ public class BenchmarkGroupBy
         int count = 0;
         long sum = 0;
 
-        while (cursor.hasNextValue()) {
-            cursor.advanceNextValue();
+        while (cursor.advanceNextValue()) {
             ++count;
         }
 

@@ -3,10 +3,9 @@
  */
 package com.facebook.presto.block.cursor;
 
-import com.facebook.presto.block.cursor.UncompressedSliceBlockCursor;
-import com.facebook.presto.block.cursor.BlockCursor;
 import org.testng.annotations.Test;
 
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestUncompressedSliceBlockCursor extends AbstractTestUncompressedSliceBlockCursor
@@ -22,7 +21,7 @@ public class TestUncompressedSliceBlockCursor extends AbstractTestUncompressedSl
         catch (UnsupportedOperationException expected) {
         }
 
-        cursor.advanceNextValue();
+        assertTrue(cursor.advanceToNextValue());
 
         try {
             cursor.getLong(0);
