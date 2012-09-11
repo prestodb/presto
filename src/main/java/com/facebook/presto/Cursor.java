@@ -20,6 +20,11 @@ public interface Cursor
     TupleInfo getTupleInfo();
 
     /**
+     * Is there any more data in the cursor.  When a cursor is finished, the cursor does not have a current value.
+     */
+    boolean isFinished();
+
+    /**
      * Attempts to advance to the first position of the next value
      *
      * @returns true if the stream had a next value; false if the stream contains no more data

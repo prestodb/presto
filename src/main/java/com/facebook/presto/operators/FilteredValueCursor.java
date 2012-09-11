@@ -13,6 +13,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 public class FilteredValueCursor implements Cursor
 {
@@ -20,8 +21,7 @@ public class FilteredValueCursor implements Cursor
     private final Iterator<? extends ValueBlock> iterator;
     private final TupleInfo info;
 
-    private BlockCursor currentValueBlockCursor;
-    private BlockCursor nextValueBlockCursor;
+    private BlockCursor blockCursor;
     private boolean isValid;
 
     public FilteredValueCursor(Predicate<BlockCursor> predicate, TupleInfo info, Iterator<? extends ValueBlock> iterator)
@@ -35,10 +35,7 @@ public class FilteredValueCursor implements Cursor
         this.info = info;
         this.iterator = iterator;
 
-        ValueBlock valueBlock = iterator.next();
-        nextValueBlockCursor = valueBlock.blockCursor();
-        currentValueBlockCursor = valueBlock.blockCursor();
-        findNextValue();
+        blockCursor = iterator.next().blockCursor();
     }
 
     @Override
@@ -48,120 +45,136 @@ public class FilteredValueCursor implements Cursor
     }
 
     @Override
-    public boolean advanceNextValue()
+    public boolean isFinished()
     {
-        if (nextValueBlockCursor == null) {
-            return false;
-        }
-
-        isValid = true;
-        currentValueBlockCursor.moveTo(nextValueBlockCursor);
-        findNextValue();
-        return true;
+        return blockCursor == null;
     }
 
-    private void findNextValue()
+    @Override
+    public boolean advanceNextValue()
     {
+        isValid = true;
+
         // advance next position until predicate is satisfied
         do {
-            if (!nextValueBlockCursor.advanceToNextValue()) {
+            if (!blockCursor.advanceToNextValue()) {
                 if (iterator.hasNext()) {
-                    // next value is within the next block
-                    // advance to next block
-                    nextValueBlockCursor = iterator.next().blockCursor();
-                    nextValueBlockCursor.advanceToNextValue();
+                    blockCursor = iterator.next().blockCursor();
+                    blockCursor.advanceNextPosition();
                 }
                 else {
-                    // no more data
-                    nextValueBlockCursor = null;
-                    return;
+                    blockCursor = null;
+                    return false;
                 }
             }
-        } while (!predicate.apply(nextValueBlockCursor));
+        } while (!predicate.apply(blockCursor));
+
+        return true;
     }
 
     @Override
     public boolean advanceNextPosition()
     {
         isValid = true;
-        return currentValueBlockCursor.advanceNextPosition() || advanceNextValue();
+        return (blockCursor != null && blockCursor.advanceNextPosition()) || advanceNextValue();
     }
 
     @Override
     public Tuple getTuple()
     {
         Preconditions.checkState(isValid, "Need to call advanceNext() first");
-        return currentValueBlockCursor.getTuple();
+        if (blockCursor == null) {
+            throw new NoSuchElementException();
+        }
+        return blockCursor.getTuple();
     }
 
     @Override
     public long getLong(int field)
     {
         Preconditions.checkState(isValid, "Need to call advanceNext() first");
-        return currentValueBlockCursor.getLong(field);
+        if (blockCursor == null) {
+            throw new NoSuchElementException();
+        }
+        return blockCursor.getLong(field);
     }
 
     @Override
     public Slice getSlice(int field)
     {
         Preconditions.checkState(isValid, "Need to call advanceNext() first");
-        return currentValueBlockCursor.getSlice(field);
+        if (blockCursor == null) {
+            throw new NoSuchElementException();
+        }
+        return blockCursor.getSlice(field);
     }
 
     @Override
     public long getPosition()
     {
         Preconditions.checkState(isValid, "Need to call advanceNext() first");
-        return currentValueBlockCursor.getPosition();
+        if (blockCursor == null) {
+            throw new NoSuchElementException();
+        }
+        return blockCursor.getPosition();
     }
 
     @Override
     public long getCurrentValueEndPosition()
     {
         Preconditions.checkState(isValid, "Need to call advanceNext() first");
-        return currentValueBlockCursor.getValuePositionEnd();
+        if (blockCursor == null) {
+            throw new NoSuchElementException();
+        }
+        return blockCursor.getValuePositionEnd();
     }
 
     @Override
     public boolean currentValueEquals(Tuple value)
     {
         Preconditions.checkState(isValid, "Need to call advanceNext() first");
-        return currentValueBlockCursor.tupleEquals(value);
+        if (blockCursor == null) {
+            throw new NoSuchElementException();
+        }
+        return blockCursor.tupleEquals(value);
     }
 
     @Override
     public boolean advanceToPosition(long newPosition)
     {
-        Preconditions.checkArgument(currentValueBlockCursor == null || newPosition >= getPosition(), "Can't advance backwards");
+        Preconditions.checkArgument(blockCursor == null || newPosition >= getPosition(), "Can't advance backwards");
 
-        if (currentValueBlockCursor != null && newPosition == getPosition()) {
-            // position to current position => no op
-            return true;
-        }
-
-        // todo this is not correct... can't advance to position in current value
-        if (nextValueBlockCursor == null) {
+        if (blockCursor == null) {
             return false;
         }
 
-        // skip to block containing requested position
-        if (newPosition > nextValueBlockCursor.getRange().getEnd()) {
-            do {
-                nextValueBlockCursor = iterator.next().blockCursor();
-            }
-            while (newPosition > nextValueBlockCursor.getRange().getEnd());
+        if (newPosition == getPosition()) {
+            // position to current position? => no op
+            return true;
         }
 
-        // skip to index within block
-        nextValueBlockCursor.advanceToPosition(newPosition);
+        // skip to block containing requested position
+        while (blockCursor == null || newPosition > blockCursor.getRange().getEnd() && iterator.hasNext()) {
+            blockCursor = iterator.next().blockCursor();
+        }
 
-        if (predicate.apply(nextValueBlockCursor)) {
-            // advance the current position to new next position (and advance the next position)
+        // is the position off the end of the stream?
+        if (newPosition > blockCursor.getRange().getEnd()) {
+            blockCursor = null;
+            return false;
+        }
+
+        if (!blockCursor.advanceToPosition(newPosition)){
+            throw new IllegalStateException("Internal error: position not found");
+        }
+
+        // if predicate doesn't match at the new position, advance to the next valid position
+        if (!predicate.apply(blockCursor)) {
             return advanceNextPosition();
         }
-        else {
-            // value at the position isn't valid, so advance until we find a value that satisfies the predicate
-            return advanceNextValue();
-        }
+
+        isValid = true;
+        return true;
     }
+
 }

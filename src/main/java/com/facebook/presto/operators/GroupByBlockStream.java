@@ -70,9 +70,8 @@ public class GroupByBlockStream
                     endPosition = cursor.getCurrentValueEndPosition();
                 }
 
-                // todo deal with end condition
-                if (cursor.currentValueEquals(key)) {
-                    // stopped because advance failed
+                if (cursor.isFinished()) {
+                    // no more data
                     done = true;
                 }
 
