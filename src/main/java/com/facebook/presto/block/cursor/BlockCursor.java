@@ -16,8 +16,8 @@ public interface BlockCursor
     boolean hasNextValue();
     void advanceNextValue();
 
-    boolean hasNextValuePosition();
-    void advanceNextValuePosition();
+    boolean hasNextPosition();
+    void advanceNextPosition();
     void advanceToPosition(long position);
 
     Tuple getTuple();

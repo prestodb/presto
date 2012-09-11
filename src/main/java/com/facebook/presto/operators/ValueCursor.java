@@ -62,6 +62,42 @@ public class ValueCursor implements Cursor
         isValid = true;
         currentValueBlockCursor.moveTo(nextValueBlockCursor);
 
+        findNext();
+    }
+
+    @Override
+    public boolean hasNextPosition()
+    {
+        // if current value has more positions or we have a next value
+        return nextValueBlockCursor != null || isValid && currentValueBlockCursor.hasNextPosition();
+    }
+
+    @Override
+    public void advanceNextPosition()
+    {
+        if (!hasNextPosition()) {
+            throw new NoSuchElementException();
+        }
+
+        isValid = true;
+        if (currentValueBlockCursor.hasNextPosition()) {
+            // advance current block
+            currentValueBlockCursor.advanceNextPosition();
+
+            // if current position caught up to next value cursor, advance the next value cursor
+            if (nextValueBlockCursor.getPosition() <= currentValueBlockCursor.getPosition()) {
+                findNext();
+            }
+        } else {
+            // no more positions in the current block, move to the next block
+            currentValueBlockCursor.moveTo(nextValueBlockCursor);
+
+            findNext();
+        }
+    }
+
+    private void findNext()
+    {
         if (nextValueBlockCursor.hasNextValue()) {
             nextValueBlockCursor.advanceNextValue();
         }
@@ -74,26 +110,6 @@ public class ValueCursor implements Cursor
         else {
             // no more data
             nextValueBlockCursor = null;
-        }
-    }
-
-    @Override
-    public boolean hasNextPosition()
-    {
-        // if current value has more positions or we have a next value
-        return nextValueBlockCursor != null || isValid && currentValueBlockCursor.hasNextValuePosition();
-    }
-
-    @Override
-    public void advanceNextPosition()
-    {
-        isValid = true;
-        if (currentValueBlockCursor.hasNextValuePosition()) {
-            // next position is in the current value
-            currentValueBlockCursor.advanceNextValuePosition();
-        }
-        else {
-            advanceNextValue();
         }
     }
 

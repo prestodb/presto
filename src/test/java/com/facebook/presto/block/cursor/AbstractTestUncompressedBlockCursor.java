@@ -4,12 +4,10 @@
 package com.facebook.presto.block.cursor;
 
 import com.facebook.presto.Tuples;
-import com.facebook.presto.block.cursor.BlockCursor;
 import org.testng.annotations.Test;
 
 import java.util.NoSuchElementException;
 
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -38,21 +36,11 @@ public abstract class AbstractTestUncompressedBlockCursor
         catch (IllegalStateException expected) {
         }
 
-        try {
-            cursor.advanceNextValuePosition();
-            fail("Expected NoSuchElementException");
-        }
-        catch (NoSuchElementException expected) {
-        }
-
         //
         // advance to end
         //
-        while (cursor.hasNextValue()) {
-            cursor.advanceNextValue();
-        }
-        while (cursor.hasNextValuePosition()) {
-            cursor.advanceNextValuePosition();
+        while (cursor.hasNextPosition()) {
+            cursor.advanceNextPosition();
         }
 
         //
@@ -67,7 +55,7 @@ public abstract class AbstractTestUncompressedBlockCursor
         }
 
         try {
-            cursor.advanceNextValuePosition();
+            cursor.advanceNextPosition();
             fail("Expected NoSuchElementException");
         }
         catch (NoSuchElementException expected) {
@@ -80,11 +68,11 @@ public abstract class AbstractTestUncompressedBlockCursor
         BlockCursor cursor = createCursor();
 
         cursor.advanceNextValue();
-        assertFalse(cursor.hasNextValuePosition());
+        assertTrue(cursor.hasNextPosition());
         assertTrue(cursor.hasNextValue());
 
         cursor.advanceNextValue();
-        assertFalse(cursor.hasNextValuePosition());
+        assertTrue(cursor.hasNextPosition());
         assertTrue(cursor.hasNextValue());
     }
 

@@ -99,15 +99,15 @@ public class DictionaryEncodedBlock implements ValueBlock
         }
 
         @Override
-        public boolean hasNextValuePosition()
+        public boolean hasNextPosition()
         {
-            return delegate.hasNextValuePosition();
+            return delegate.hasNextPosition();
         }
 
         @Override
-        public void advanceNextValuePosition()
+        public void advanceNextPosition()
         {
-            delegate.advanceNextValuePosition();
+            delegate.advanceNextPosition();
         }
 
         @Override

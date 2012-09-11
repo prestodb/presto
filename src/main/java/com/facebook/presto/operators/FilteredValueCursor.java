@@ -91,16 +91,16 @@ public class FilteredValueCursor implements Cursor
     public boolean hasNextPosition()
     {
         // if current value has more positions or we have a next value
-        return nextValueBlockCursor != null || isValid && currentValueBlockCursor.hasNextValuePosition();
+        return nextValueBlockCursor != null || isValid && currentValueBlockCursor.hasNextPosition();
     }
 
     @Override
     public void advanceNextPosition()
     {
         isValid = true;
-        if (currentValueBlockCursor.hasNextValuePosition()) {
+        if (currentValueBlockCursor.hasNextPosition()) {
             // next position is in the current value
-            currentValueBlockCursor.advanceNextValuePosition();
+            currentValueBlockCursor.advanceNextPosition();
         }
         else {
             advanceNextValue();

@@ -82,15 +82,15 @@ public class UncompressedSliceBlockCursor
     }
 
     @Override
-    public boolean hasNextValuePosition()
+    public boolean hasNextPosition()
     {
-        return false;
+        return hasNextValue();
     }
 
     @Override
-    public void advanceNextValuePosition()
+    public void advanceNextPosition()
     {
-        throw new NoSuchElementException();
+        advanceNextValue();
     }
 
     @Override
