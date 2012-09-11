@@ -39,13 +39,9 @@ public class ConsolePrinter
 
         ValueBlock block = input.next();
         BlockCursor blockCursor = block.blockCursor();
-        while (blockCursor.hasNextValue()) {
-            blockCursor.advanceNextValue();
+        while (blockCursor.hasNextPosition()) {
+            blockCursor.advanceNextPosition();
             printer.print(blockCursor.getTuple());
-            while (blockCursor.hasNextValuePosition()) {
-                 blockCursor.advanceNextValuePosition();
-                printer.print(blockCursor.getTuple());
-            }
         }
         return block;
     }

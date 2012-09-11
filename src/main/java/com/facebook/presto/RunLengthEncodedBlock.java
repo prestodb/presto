@@ -115,13 +115,13 @@ public class RunLengthEncodedBlock
         }
 
         @Override
-        public boolean hasNextValuePosition()
+        public boolean hasNextPosition()
         {
             return position <= range.getEnd();
         }
 
         @Override
-        public void advanceNextValuePosition()
+        public void advanceNextPosition()
         {
             if (!hasNextValue()) {
                 throw new NoSuchElementException();
