@@ -37,6 +37,7 @@ public class UncompressedLongCursor
     public UncompressedLongCursor(Iterator<UncompressedValueBlock> iterator)
     {
         Preconditions.checkNotNull(iterator, "iterator is null");
+        Preconditions.checkArgument(iterator.hasNext(), "iterator is empty");
         this.iterator = iterator;
 
         moveToNextBlock();
