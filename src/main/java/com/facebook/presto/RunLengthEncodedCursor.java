@@ -6,7 +6,6 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 
 import java.util.Iterator;
-import java.util.NoSuchElementException;
 
 public class RunLengthEncodedCursor
         implements Cursor
@@ -33,54 +32,45 @@ public class RunLengthEncodedCursor
     }
 
     @Override
-    public boolean hasNextValue()
+    public boolean advanceNextValue()
     {
-        return iterator.hasNext();
-    }
-
-    @Override
-    public void advanceNextValue()
-    {
+        if (!iterator.hasNext()) {
+            return false;
+        }
         current = iterator.next();
         position = current.getRange().getStart();
-    }
-
-    @Override
-    public boolean hasNextPosition()
-    {
-        if (current == null || position == current.getRange().getEnd()) {
-            return hasNextValue();
-        }
-
         return true;
     }
 
     @Override
-    public void advanceNextPosition()
+    public boolean advanceNextPosition()
     {
         if (current == null || position == current.getRange().getEnd()) {
-            advanceNextValue();
+            return advanceNextValue();
         }
         else {
             position++;
+            return true;
         }
     }
 
     @Override
-    public void advanceToPosition(long position)
+    public boolean advanceToPosition(long position)
     {
         Preconditions.checkArgument(current == null || position >= getPosition(), "Can't advance backwards");
 
         if (current == null) {
-            advanceNextValue();
+            return advanceNextValue();
         }
 
         // skip to block containing requested position
-        while (position > current.getRange().getEnd()) {
-            advanceNextValue();
+        while (position > current.getRange().getEnd() && advanceNextPosition());
+        if (position > current.getRange().getEnd()) {
+            return false;
         }
 
         this.position = Math.max(position, current.getRange().getStart());
+        return true;
     }
 
     @Override
@@ -122,16 +112,6 @@ public class RunLengthEncodedCursor
     }
 
     @Override
-    public long peekNextValuePosition()
-    {
-        if (!iterator.hasNext()) {
-            throw new NoSuchElementException();
-        }
-
-        return iterator.peek().getRange().getStart();
-    }
-
-    @Override
     public boolean currentValueEquals(Tuple value)
     {
         Preconditions.checkState(current != null, "Need to call advanceNext() first");
@@ -139,13 +119,4 @@ public class RunLengthEncodedCursor
         return current.getSingleValue().equals(value);
     }
 
-    @Override
-    public boolean nextValueEquals(Tuple value)
-    {
-        if (!iterator.hasNext()) {
-            throw new NoSuchElementException();
-        }
-
-        return iterator.peek().getSingleValue().equals(value);
-    }
 }

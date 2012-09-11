@@ -26,33 +26,21 @@ public class ForwardingCursor implements Cursor
     }
 
     @Override
-    public boolean hasNextValue()
+    public boolean advanceNextValue()
     {
-        return cursor.hasNextValue();
+        return cursor.advanceNextValue();
     }
 
     @Override
-    public void advanceNextValue()
+    public boolean advanceNextPosition()
     {
-        cursor.advanceNextValue();
+        return cursor.advanceNextPosition();
     }
 
     @Override
-    public boolean hasNextPosition()
+    public boolean advanceToPosition(long position)
     {
-        return cursor.hasNextPosition();
-    }
-
-    @Override
-    public void advanceNextPosition()
-    {
-        cursor.advanceNextPosition();
-    }
-
-    @Override
-    public void advanceToPosition(long position)
-    {
-        cursor.advanceToPosition(position);
+        return cursor.advanceToPosition(position);
     }
 
     @Override
@@ -80,12 +68,6 @@ public class ForwardingCursor implements Cursor
     }
 
     @Override
-    public long peekNextValuePosition()
-    {
-        return cursor.peekNextValuePosition();
-    }
-
-    @Override
     public long getCurrentValueEndPosition()
     {
         return cursor.getCurrentValueEndPosition();
@@ -95,11 +77,5 @@ public class ForwardingCursor implements Cursor
     public boolean currentValueEquals(Tuple value)
     {
         return cursor.currentValueEquals(value);
-    }
-
-    @Override
-    public boolean nextValueEquals(Tuple value)
-    {
-        return cursor.nextValueEquals(value);
     }
 }

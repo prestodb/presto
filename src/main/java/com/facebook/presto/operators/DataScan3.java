@@ -81,12 +81,11 @@ public class DataScan3
                 ImmutableList.Builder<Long> validPositions = ImmutableList.builder();
 
                 BlockCursor valueCursor = currentValueBlock.blockCursor();
-                valueCursor.advanceNextValue();
+                valueCursor.advanceNextPosition();
 
                 for (ValueBlock positionBlock : positionsForCurrentBlock) {
                     BlockCursor positionCursor = positionBlock.blockCursor();
-                    while (positionCursor.hasNextPosition()) {
-                        positionCursor.advanceNextPosition();
+                    while (positionCursor.advanceNextPosition()) {
                         long nextPosition = positionCursor.getPosition();
                         if (nextPosition > valueCursor.getRange().getEnd()) {
                             break;

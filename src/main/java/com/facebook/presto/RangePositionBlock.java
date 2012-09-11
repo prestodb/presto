@@ -6,8 +6,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
-import java.util.NoSuchElementException;
-
 public class RangePositionBlock
         implements ValueBlock
 {
@@ -88,41 +86,36 @@ public class RangePositionBlock
         }
 
         @Override
-        public boolean hasNextValue()
+        public boolean advanceToNextValue()
         {
-            return position < range.getEnd();
-        }
-
-        @Override
-        public void advanceNextValue()
-        {
-            if (!hasNextValue()) {
-                throw new NoSuchElementException();
+            if (position >= range.getEnd()) {
+                return false;
             }
             if (position < 0) {
                 position = range.getStart();
             } else {
                 position++;
             }
+            return true;
         }
 
         @Override
-        public boolean hasNextPosition()
+        public boolean advanceNextPosition()
         {
-            return hasNextValue();
+            return advanceToNextValue();
         }
 
         @Override
-        public void advanceNextPosition()
+        public boolean advanceToPosition(long newPosition)
         {
-            advanceNextValue();
-        }
-
-        @Override
-        public void advanceToPosition(long newPosition)
-        {
-            Preconditions.checkArgument(range.contains(newPosition), "Invalid position");
-            position = newPosition;
+            Preconditions.checkArgument(newPosition >= position, "Invalid position");
+            if (newPosition > range.getEnd()) {
+                position = newPosition;
+                return false;
+            } else {
+                position = newPosition;
+                return true;
+            }
         }
 
         @Override

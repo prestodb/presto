@@ -3,12 +3,11 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.UncompressedPositionBlock.UncompressedPositionBlockCursor;
 import com.facebook.presto.block.cursor.BlockCursor;
 import com.facebook.presto.slice.Slice;
-import com.google.common.base.Preconditions;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 
 public class MaskedValueBlock implements ValueBlock
 {
@@ -60,13 +59,12 @@ public class MaskedValueBlock implements ValueBlock
     private static class MaskedBlockCursor implements BlockCursor
     {
         private BlockCursor valueCursor;
-        private List<Long> validPositions;
-        private int currentPositionIndex = -1;
-        private int nextValueIndex = 0;
+        private BlockCursor validPositions;
+        private boolean isValid;
 
         private MaskedBlockCursor(ValueBlock valueBlock, List<Long> validPositions)
         {
-            this.validPositions = validPositions;
+            this.validPositions = new UncompressedPositionBlockCursor(validPositions, valueBlock.getRange());
             this.valueCursor = valueBlock.blockCursor();
         }
 
@@ -81,85 +79,48 @@ public class MaskedValueBlock implements ValueBlock
         {
             MaskedBlockCursor other = (MaskedBlockCursor) newPosition;
             this.valueCursor.moveTo(other.valueCursor);
-            this.validPositions = other.validPositions;
-            this.currentPositionIndex = other.currentPositionIndex;
-            this.nextValueIndex = other.nextValueIndex;
+            this.validPositions.moveTo(other.validPositions);
+            this.isValid = other.isValid;
         }
 
         @Override
-        public boolean hasNextValue()
+        public boolean advanceToNextValue()
         {
-            return nextValueIndex >= 0;
-        }
-
-        @Override
-        public void advanceNextValue()
-        {
-            if (!hasNextValue()) {
-                throw new NoSuchElementException();
+            if (!isValid) {
+                // advance to first position
+                isValid = true;
+                if (!validPositions.advanceNextPosition()) {
+                    return false;
+                }
+            } else {
+                // advance until the next position is after current value end position
+                long currentValueEndPosition = valueCursor.getValuePositionEnd();
+                while (validPositions.advanceNextPosition() && currentValueEndPosition <= validPositions.getPosition());
+                if (currentValueEndPosition <= validPositions.getPosition()) {
+                    return false;
+                }
             }
 
-            // move current to next position
-            currentPositionIndex = nextValueIndex;
-            valueCursor.advanceToPosition(validPositions.get(currentPositionIndex));
-            findNextValuePosition();
+            // move value cursor to to next position
+            return valueCursor.advanceToPosition(validPositions.getPosition());
         }
 
         @Override
-        public boolean hasNextPosition()
+        public boolean advanceNextPosition()
         {
-            return currentPositionIndex < validPositions.size() - 1;
-        }
-
-        @Override
-        public void advanceNextPosition()
-        {
-            if (!hasNextPosition()) {
-                throw new NoSuchElementException();
-            }
-
             // advance current position
-            currentPositionIndex++;
-            valueCursor.advanceToPosition(validPositions.get(currentPositionIndex));
-
-            // if current position caught up to next value position, find a new next value position
-            if (currentPositionIndex >= nextValueIndex) {
-                findNextValuePosition();
-            }
-        }
-
-        private void findNextValuePosition()
-        {
-            // advance next value index until it has a position after the current value end
-            do {
-                nextValueIndex++;
-            } while (nextValueIndex < validPositions.size() && validPositions.get(nextValueIndex) < valueCursor.getValuePositionEnd());
-            if (nextValueIndex == validPositions.size()) {
-                nextValueIndex = -1;
-            }
+            isValid = true;
+            return validPositions.advanceNextPosition() &&
+                    valueCursor.advanceToPosition(validPositions.getPosition());
         }
 
         @Override
-        public void advanceToPosition(long position)
+        public boolean advanceToPosition(long newPosition)
         {
-            // todo only advance of position is possible
-            while (currentPositionIndex < validPositions.size() && validPositions.get(currentPositionIndex) < position) {
-                currentPositionIndex++;
-            }
-            if (currentPositionIndex == validPositions.size()) {
-                // no more data
-                nextValueIndex = -1;
-                throw new NoSuchElementException();
-            }
-            position = validPositions.get(currentPositionIndex);
-            valueCursor.advanceToPosition(position);
+            isValid = true;
 
-            Preconditions.checkState(valueCursor.getPosition() == position, "Advanced to unexpected position");
-
-            // if current position caught up to next value position, find a new next value position
-            if (currentPositionIndex >= nextValueIndex) {
-                findNextValuePosition();
-            }
+            return validPositions.advanceToPosition(newPosition) &&
+                    valueCursor.advanceToPosition(validPositions.getPosition());
         }
 
         @Override

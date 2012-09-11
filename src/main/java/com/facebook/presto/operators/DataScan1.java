@@ -50,8 +50,7 @@ public class DataScan1
                 ImmutableList.Builder<Range> ranges = ImmutableList.builder();
                 while (rangesCount < 100 && sourceIterator.hasNext()) {
                     BlockCursor blockCursor = sourceIterator.next().blockCursor();
-                    while (blockCursor.hasNextValue()) {
-                        blockCursor.advanceNextValue();
+                    while (blockCursor.advanceToNextValue()) {
                         if (predicate.apply(blockCursor)) {
                             ranges.add(new Range(blockCursor.getPosition(), blockCursor.getValuePositionEnd()));
                             rangesCount++;

@@ -5,11 +5,11 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 
 import static com.facebook.presto.CursorAssertions.assertCurrentValue;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestRunLengthEncodedCursor extends AbstractTestCursor
@@ -42,7 +42,7 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         CursorAssertions.assertNextValue(cursor, 20, "cherry");
         CursorAssertions.assertNextValue(cursor, 30, "date");
 
-        assertFalse(cursor.hasNextValue());
+        assertFalse(cursor.advanceNextValue());
     }
 
     @Test
@@ -62,7 +62,7 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         CursorAssertions.assertNextPosition(cursor, 21, "cherry");
         CursorAssertions.assertNextPosition(cursor, 30, "date");
 
-        assertFalse(cursor.hasNextPosition());
+        assertFalse(cursor.advanceNextPosition());
     }
 
     @Test
@@ -72,27 +72,27 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         Cursor cursor = createCursor();
 
         // advance to first position
-        cursor.advanceToPosition(0);
+        assertTrue(cursor.advanceToPosition(0));
         assertCurrentValue(cursor, 0, "apple");
 
         // skip to position in first block
-        cursor.advanceToPosition(2);
+        assertTrue(cursor.advanceToPosition(2));
         assertCurrentValue(cursor, 2, "apple");
 
         // advance to same position
-        cursor.advanceToPosition(2);
+        assertTrue(cursor.advanceToPosition(2));
         assertCurrentValue(cursor, 2, "apple");
 
         // skip to position in same block
-        cursor.advanceToPosition(4);
+        assertTrue(cursor.advanceToPosition(4));
         assertCurrentValue(cursor, 4, "apple");
 
         // skip to position in middle block
-        cursor.advanceToPosition(21);
+        assertTrue(cursor.advanceToPosition(21));
         assertCurrentValue(cursor, 21, "cherry");
 
         // skip to position in gap
-        cursor.advanceToPosition(25);
+        assertTrue(cursor.advanceToPosition(25));
         assertCurrentValue(cursor, 30, "date");
 
         // skip backwards
@@ -105,13 +105,7 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         }
 
         // skip past end
-        try {
-            cursor.advanceToPosition(100);
-            fail("Expected NoSuchElementException");
-        }
-        catch (NoSuchElementException e) {
-            // success
-        }
+        assertFalse(cursor.advanceToPosition(100));
     }
 
     @Test
@@ -172,50 +166,31 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         CursorAssertions.assertNextValuePosition(cursor, 20);
         CursorAssertions.assertNextValuePosition(cursor, 30);
 
-        assertFalse(cursor.hasNextValue());
+        assertFalse(cursor.advanceNextValue());
     }
 
-    @Test(expectedExceptions = NoSuchElementException.class)
+    @Test
     public void testAdvanceNextPositionThrows()
     {
         RunLengthEncodedCursor cursor = createCursor();
 
         // first, skip to end
-        while (cursor.hasNextPosition()) {
-            cursor.advanceNextPosition();
-        }
+        while (cursor.advanceNextPosition());
 
         // advance past end
-        cursor.advanceNextPosition();
+        assertFalse(cursor.advanceNextPosition());
     }
 
-    @Test(expectedExceptions = NoSuchElementException.class)
+    @Test
     public void testAdvanceNextValueThrows()
     {
         RunLengthEncodedCursor cursor = createCursor();
 
         // first, skip to end
-        while (cursor.hasNextValue()) {
-            cursor.advanceNextValue();
-        }
+        while (cursor.advanceNextValue());
 
         // advance past end
-        cursor.advanceNextValue();
-    }
-
-
-    @Test(expectedExceptions = NoSuchElementException.class)
-    public void testPeekNextValuePositionThrows()
-    {
-        RunLengthEncodedCursor cursor = createCursor();
-
-        // first, skip to end
-        while (cursor.hasNextValue()) {
-            cursor.advanceNextValue();
-        }
-
-        // peek past end
-        cursor.peekNextValuePosition();
+        assertFalse(cursor.advanceNextValue());
     }
 
     @Test

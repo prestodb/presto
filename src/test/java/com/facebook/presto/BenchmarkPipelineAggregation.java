@@ -51,8 +51,7 @@ public class BenchmarkPipelineAggregation
         int count = 0;
         long sum = 0;
 
-        while (cursor.hasNextValue()) {
-            cursor.advanceNextValue();
+        while (cursor.advanceNextValue()) {
             ++count;
 //            System.out.printf("%s\t%s\n", cursor.getSlice(0).toString(Charsets.UTF_8), cursor.getLong(1));
 //            sum += cursort.getLong(0);

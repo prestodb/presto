@@ -12,7 +12,6 @@ import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 
 import java.util.Iterator;
-import java.util.NoSuchElementException;
 
 public class ValueCursor implements Cursor
 {
@@ -35,9 +34,9 @@ public class ValueCursor implements Cursor
         // next value is within the next block
         // advance to next block
         ValueBlock valueBlock = iterator.next();
-        nextValueBlockCursor = valueBlock.blockCursor();
         currentValueBlockCursor = valueBlock.blockCursor();
-        nextValueBlockCursor.advanceNextValue();
+        nextValueBlockCursor = valueBlock.blockCursor();
+        nextValueBlockCursor.advanceNextPosition();
     }
 
     @Override
@@ -47,69 +46,53 @@ public class ValueCursor implements Cursor
     }
 
     @Override
-    public boolean hasNextValue()
-    {
-        return nextValueBlockCursor != null;
-    }
-
-    @Override
-    public void advanceNextValue()
+    public boolean advanceNextValue()
     {
         if (nextValueBlockCursor == null) {
-            throw new NoSuchElementException();
+            return false;
         }
 
         isValid = true;
         currentValueBlockCursor.moveTo(nextValueBlockCursor);
 
         findNext();
+        return true;
     }
 
     @Override
-    public boolean hasNextPosition()
+    public boolean advanceNextPosition()
     {
-        // if current value has more positions or we have a next value
-        return nextValueBlockCursor != null || isValid && currentValueBlockCursor.hasNextPosition();
-    }
-
-    @Override
-    public void advanceNextPosition()
-    {
-        if (!hasNextPosition()) {
-            throw new NoSuchElementException();
-        }
-
         isValid = true;
-        if (currentValueBlockCursor.hasNextPosition()) {
-            // advance current block
-            currentValueBlockCursor.advanceNextPosition();
-
+        if (currentValueBlockCursor.advanceNextPosition()) {
             // if current position caught up to next value cursor, advance the next value cursor
-            if (nextValueBlockCursor.getPosition() <= currentValueBlockCursor.getPosition()) {
+            if (nextValueBlockCursor != null && nextValueBlockCursor.getPosition() <= currentValueBlockCursor.getPosition()) {
                 findNext();
             }
-        } else {
+        } else if (nextValueBlockCursor != null) {
             // no more positions in the current block, move to the next block
             currentValueBlockCursor.moveTo(nextValueBlockCursor);
 
             findNext();
+        } else {
+            // no more data
+            return false;
         }
+        return true;
     }
 
     private void findNext()
     {
-        if (nextValueBlockCursor.hasNextValue()) {
-            nextValueBlockCursor.advanceNextValue();
-        }
-        else if (iterator.hasNext()) {
-            // next value is within the next block
-            // advance to next block
-            nextValueBlockCursor = iterator.next().blockCursor();
-            nextValueBlockCursor.advanceNextValue();
-        }
-        else {
-            // no more data
-            nextValueBlockCursor = null;
+        if (!nextValueBlockCursor.advanceToNextValue()) {
+            if (iterator.hasNext()) {
+                // next value is within the next block
+                // advance to next block
+                nextValueBlockCursor = iterator.next().blockCursor();
+                nextValueBlockCursor.advanceNextPosition();
+            }
+            else {
+                // no more data
+                nextValueBlockCursor = null;
+            }
         }
     }
 
@@ -149,15 +132,6 @@ public class ValueCursor implements Cursor
     }
 
     @Override
-    public long peekNextValuePosition()
-    {
-        if (nextValueBlockCursor == null) {
-            throw new NoSuchElementException();
-        }
-        return nextValueBlockCursor.getPosition();
-    }
-
-    @Override
     public boolean currentValueEquals(Tuple value)
     {
         Preconditions.checkState(isValid, "Need to call advanceNext() first");
@@ -165,40 +139,31 @@ public class ValueCursor implements Cursor
     }
 
     @Override
-    public boolean nextValueEquals(Tuple value)
-    {
-        if (nextValueBlockCursor == null) {
-            throw new NoSuchElementException();
-        }
-        return nextValueBlockCursor.tupleEquals(value);
-    }
-
-    @Override
-    public void advanceToPosition(long position)
+    public boolean advanceToPosition(long position)
     {
         Preconditions.checkArgument(currentValueBlockCursor == null || position >= getPosition(), "Can't advance backwards");
 
         if (currentValueBlockCursor != null && position == getPosition()) {
             // position to current position? => no op
-            return;
+            return true;
         }
 
         if (nextValueBlockCursor == null) {
-            throw new NoSuchElementException();
+            return false;
         }
 
         // skip to block containing requested position
-        if (position > nextValueBlockCursor.getRange().getEnd()) {
+        if (iterator.hasNext() && position > nextValueBlockCursor.getRange().getEnd()) {
             do {
                 nextValueBlockCursor = iterator.next().blockCursor();
             }
-            while (position > nextValueBlockCursor.getRange().getEnd());
+            while (iterator.hasNext() && position > nextValueBlockCursor.getRange().getEnd());
         }
 
         // skip to index within block
         nextValueBlockCursor.advanceToPosition(position);
 
         // advance the current position to new next position (and advance the next position)
-        advanceNextPosition();
+        return advanceNextPosition();
     }
 }

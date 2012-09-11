@@ -44,8 +44,7 @@ public class UncompressedBlockSerde
         DynamicSliceOutput buffer = new DynamicSliceOutput(MAX_BLOCK_SIZE);
 
         int tupleCount = 0;
-        while (cursor.hasNextPosition()) {
-            cursor.advanceNextPosition();
+        while (cursor.advanceNextPosition()) {
             cursor.getTuple().writeTo(buffer);
             tupleCount++;
 

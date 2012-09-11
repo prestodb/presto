@@ -13,6 +13,7 @@ import static com.facebook.presto.block.cursor.BlockCursorAssertions.assertCurre
 import static com.facebook.presto.block.cursor.BlockCursorAssertions.assertNextPosition;
 import static com.facebook.presto.block.cursor.BlockCursorAssertions.assertNextValue;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestUncompressedSliceBlockCursor extends AbstractTestUncompressedBlockCursor
@@ -63,7 +64,7 @@ public abstract class AbstractTestUncompressedSliceBlockCursor extends AbstractT
         assertNextValue(cursor, 9, "cherry");
         assertNextValue(cursor, 10, "date");
 
-        assertFalse(cursor.hasNextValue());
+        assertFalse(cursor.advanceToNextValue());
     }
 
     @Test
@@ -83,7 +84,7 @@ public abstract class AbstractTestUncompressedSliceBlockCursor extends AbstractT
         assertNextPosition(cursor, 9, "cherry");
         assertNextPosition(cursor, 10, "date");
 
-        assertFalse(cursor.hasNextPosition());
+        assertFalse(cursor.advanceNextPosition());
     }
 
    @Test
@@ -93,27 +94,27 @@ public abstract class AbstractTestUncompressedSliceBlockCursor extends AbstractT
         BlockCursor cursor = createCursor();
 
         // advance to first position
-        cursor.advanceToPosition(0);
+        assertTrue(cursor.advanceToPosition(0));
         assertCurrentValue(cursor, 0, "apple");
 
         // skip to position in first block
-        cursor.advanceToPosition(2);
+        assertTrue(cursor.advanceToPosition(2));
         assertCurrentValue(cursor, 2, "apple");
 
         // advance to same position
-        cursor.advanceToPosition(2);
+        assertTrue(cursor.advanceToPosition(2));
         assertCurrentValue(cursor, 2, "apple");
 
         // skip to position in same block
-        cursor.advanceToPosition(4);
+        assertTrue(cursor.advanceToPosition(4));
         assertCurrentValue(cursor, 4, "banana");
 
         // skip to position in middle block
-        cursor.advanceToPosition(8);
+        assertTrue(cursor.advanceToPosition(8));
         assertCurrentValue(cursor, 8, "cherry");
 
         // skip to position in gap
-        cursor.advanceToPosition(10);
+        assertTrue(cursor.advanceToPosition(10));
         assertCurrentValue(cursor, 10, "date");
 
         // skip backwards
@@ -126,13 +127,7 @@ public abstract class AbstractTestUncompressedSliceBlockCursor extends AbstractT
         }
 
         // skip past end
-        try {
-            cursor.advanceToPosition(100);
-            fail("Expected NoSuchElementException");
-        }
-        catch (IllegalArgumentException e) {
-            // success
-        }
+        assertFalse(cursor.advanceToPosition(100));
     }
 
     @Test
@@ -206,8 +201,8 @@ public abstract class AbstractTestUncompressedSliceBlockCursor extends AbstractT
         assertNextPosition(cursor, 9, "cherry");
         assertNextValue(cursor, 10, "date");
 
-        assertFalse(cursor.hasNextPosition());
-        assertFalse(cursor.hasNextValue());
+        assertFalse(cursor.advanceNextPosition());
+        assertFalse(cursor.advanceToNextValue());
     }
 
     @Test

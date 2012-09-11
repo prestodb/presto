@@ -5,8 +5,6 @@ import com.facebook.presto.slice.Slice;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
-import java.util.NoSuchElementException;
-
 public class RunLengthEncodedBlock
         implements ValueBlock
 {
@@ -103,41 +101,37 @@ public class RunLengthEncodedBlock
         }
 
         @Override
-        public boolean hasNextValue()
+        public boolean advanceToNextValue()
         {
             return false;
         }
 
         @Override
-        public void advanceNextValue()
+        public boolean advanceNextPosition()
         {
-            throw new NoSuchElementException();
-        }
-
-        @Override
-        public boolean hasNextPosition()
-        {
-            return position <= range.getEnd();
-        }
-
-        @Override
-        public void advanceNextPosition()
-        {
-            if (!hasNextValue()) {
-                throw new NoSuchElementException();
+            if (position > range.getEnd()) {
+                return false;
             }
             if (position < 0) {
                 position = range.getStart();
             } else {
                 position++;
             }
+            return true;
         }
 
         @Override
-        public void advanceToPosition(long position)
+        public boolean advanceToPosition(long newPosition)
         {
-            Preconditions.checkArgument(range.contains(position), "Position %s must be within the range %s", position, range);
-            this.position = position;
+            Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
+
+            if (newPosition > range.getEnd()) {
+                this.position = newPosition;
+                return false;
+            }
+
+            this.position = newPosition;
+            return true;
         }
 
         @Override

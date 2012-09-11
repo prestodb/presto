@@ -13,12 +13,9 @@ public interface BlockCursor
 
     void moveTo(BlockCursor newPosition);
 
-    boolean hasNextValue();
-    void advanceNextValue();
-
-    boolean hasNextPosition();
-    void advanceNextPosition();
-    void advanceToPosition(long position);
+    boolean advanceToNextValue();
+    boolean advanceNextPosition();
+    boolean advanceToPosition(long position);
 
     Tuple getTuple();
     long getLong(int field);

@@ -108,8 +108,7 @@ public class TestQueries
     {
         Cursor cursor = blockStream.cursor();
         List<Tuple> list = new ArrayList<>();
-        while (cursor.hasNextValue()) {
-            cursor.advanceNextValue();
+        while (cursor.advanceNextPosition()) {
             list.add(cursor.getTuple());
         }
         return list;

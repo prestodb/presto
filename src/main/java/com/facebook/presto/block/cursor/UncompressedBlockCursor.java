@@ -7,8 +7,6 @@ import com.facebook.presto.UncompressedValueBlock;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 
-import java.util.NoSuchElementException;
-
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class UncompressedBlockCursor
@@ -55,17 +53,11 @@ public class UncompressedBlockCursor
     }
 
     @Override
-    public boolean hasNextValue()
+    public boolean advanceToNextValue()
     {
         // every position is a new value
-        return position < range.getEnd();
-    }
-
-    @Override
-    public void advanceNextValue()
-    {
-        if (!hasNextValue()) {
-            throw new NoSuchElementException();
+        if (position >= range.getEnd()) {
+            return false;
         }
 
         if (position < 0) {
@@ -76,25 +68,24 @@ public class UncompressedBlockCursor
             offset += size;
         }
         size = info.size(slice, offset);
+        return true;
     }
 
     @Override
-    public boolean hasNextPosition()
+    public boolean advanceNextPosition()
     {
-        return hasNextValue();
+        return advanceToNextValue();
     }
 
     @Override
-    public void advanceNextPosition()
-    {
-        advanceNextValue();
-    }
-
-    @Override
-    public void advanceToPosition(long newPosition)
+    public boolean advanceToPosition(long newPosition)
     {
         Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
-        Preconditions.checkArgument(newPosition <= this.range.getEnd(), "Can't advance off the end of the block");
+
+        if (newPosition > range.getEnd()) {
+            position = newPosition;
+            return false;
+        }
 
         // move to initial position
         if (position < 0) {
@@ -109,6 +100,8 @@ public class UncompressedBlockCursor
             offset += size;
             size = info.size(slice, offset);
         }
+
+        return true;
     }
 
     @Override
