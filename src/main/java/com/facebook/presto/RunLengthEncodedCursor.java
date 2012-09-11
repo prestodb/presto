@@ -19,6 +19,7 @@ public class RunLengthEncodedCursor
     public RunLengthEncodedCursor(TupleInfo info, Iterator<RunLengthEncodedBlock> iterator)
     {
         Preconditions.checkNotNull(info, "info is null");
+        Preconditions.checkArgument(iterator.hasNext(), "iterator is empty");
         Preconditions.checkNotNull(iterator, "iterator is null");
 
         this.info = info;

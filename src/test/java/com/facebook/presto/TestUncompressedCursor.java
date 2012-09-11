@@ -33,7 +33,7 @@ public class TestUncompressedCursor extends AbstractTestUncompressedSliceCursor
         catch (NullPointerException expected) {
         }
         try {
-            new UncompressedCursor(null, ImmutableList.<UncompressedValueBlock>of().iterator());
+            new UncompressedCursor(null, ImmutableList.of(Blocks.createBlock(0, "a")).iterator());
             fail("Expected NullPointerException");
         }
         catch (NullPointerException expected) {

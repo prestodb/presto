@@ -29,6 +29,7 @@ public class FilteredValueCursor implements Cursor
     {
         Preconditions.checkNotNull(predicate, "predicate is null");
         Preconditions.checkNotNull(iterator, "iterator is null");
+        Preconditions.checkArgument(iterator.hasNext(), "iterator is empty");
         Preconditions.checkNotNull(info, "info is null");
 
         this.predicate = predicate;
