@@ -58,8 +58,8 @@ public class MaskedValueBlock implements ValueBlock
 
     private static class MaskedBlockCursor implements BlockCursor
     {
-        private BlockCursor valueCursor;
-        private BlockCursor validPositions;
+        private final BlockCursor valueCursor;
+        private final BlockCursor validPositions;
         private boolean isValid;
 
         private MaskedBlockCursor(ValueBlock valueBlock, List<Long> validPositions)
@@ -72,15 +72,6 @@ public class MaskedValueBlock implements ValueBlock
         public Range getRange()
         {
             return valueCursor.getRange();
-        }
-
-        @Override
-        public void moveTo(BlockCursor newPosition)
-        {
-            MaskedBlockCursor other = (MaskedBlockCursor) newPosition;
-            this.valueCursor.moveTo(other.valueCursor);
-            this.validPositions.moveTo(other.validPositions);
-            this.isValid = other.isValid;
         }
 
         @Override

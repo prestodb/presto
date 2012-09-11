@@ -11,8 +11,6 @@ public interface BlockCursor
 {
     Range getRange();
 
-    void moveTo(BlockCursor newPosition);
-
     boolean advanceToNextValue();
     boolean advanceNextPosition();
     boolean advanceToPosition(long position);

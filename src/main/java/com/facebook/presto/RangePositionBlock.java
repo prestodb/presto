@@ -63,7 +63,7 @@ public class RangePositionBlock
     public static class RangePositionBlockCursor
             implements BlockCursor
     {
-        private Range range;
+        private final Range range;
         private long position = -1;
 
         public RangePositionBlockCursor(Range range)
@@ -75,14 +75,6 @@ public class RangePositionBlock
         public Range getRange()
         {
             return range;
-        }
-
-        @Override
-        public void moveTo(BlockCursor newPosition)
-        {
-            RangePositionBlockCursor cursor = (RangePositionBlockCursor) newPosition;
-            range = cursor.range;
-            position = cursor.position;
         }
 
         @Override
