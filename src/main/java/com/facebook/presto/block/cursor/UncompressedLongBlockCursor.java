@@ -88,7 +88,7 @@ public class UncompressedLongBlockCursor
 
         // advance to specified position
         position = newPosition;
-        offset = (int) ((position - this.range.getStart()) * 8);
+        offset = (int) ((position - this.range.getStart()) * SIZE_OF_LONG);
         return true;
     }
 
