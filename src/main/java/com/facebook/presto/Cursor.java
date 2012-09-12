@@ -64,6 +64,14 @@ public interface Cursor
      *
      * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
      */
+    double getDouble(int field);
+
+    /**
+     * Gets a field from the current tuple.
+     *
+     * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
+     *
+     */
     Slice getSlice(int field);
 
     /**

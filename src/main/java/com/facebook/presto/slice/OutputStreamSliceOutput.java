@@ -90,6 +90,16 @@ public class OutputStreamSliceOutput extends SliceOutput
     }
 
     @Override
+    public void writeDouble(double value)
+    {
+        try {
+            dataOutputStream.writeDouble(value);
+        } catch (IOException e) {
+            throw new RuntimeIOException(e);
+        }
+    }
+
+    @Override
     public void writeBytes(Slice source)
     {
         writeBytes(source, 0, source.length());
@@ -172,6 +182,13 @@ public class OutputStreamSliceOutput extends SliceOutput
     public SliceOutput appendLong(long value)
     {
         writeLong(value);
+        return this;
+    }
+
+    @Override
+    public SliceOutput appendDouble(double value)
+    {
+        writeDouble(value);
         return this;
     }
 

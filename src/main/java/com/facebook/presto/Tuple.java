@@ -36,6 +36,11 @@ public class Tuple
         return tupleInfo.getLong(slice, index);
     }
 
+    public double getDouble(int index)
+    {
+        return tupleInfo.getDouble(slice, index);
+    }
+
     public Slice getSlice(int index)
     {
         return tupleInfo.getSlice(slice, index);
@@ -63,6 +68,9 @@ public class Tuple
             switch (type) {
                 case FIXED_INT_64:
                     values.add(getLong(index));
+                    break;
+                case DOUBLE:
+                    values.add(getDouble(index));
                     break;
                 case VARIABLE_BINARY:
                     values.add(getSlice(index).toString(UTF_8));

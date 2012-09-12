@@ -105,6 +105,14 @@ public class RunLengthEncodedCursor
     }
 
     @Override
+    public double getDouble(int field)
+    {
+        Preconditions.checkState(block != null, "Need to call advanceNext() first");
+
+        return block.getSingleValue().getLong(field);
+    }
+
+    @Override
     public Slice getSlice(int field)
     {
         Preconditions.checkState(block != null, "Need to call advanceNext() first");

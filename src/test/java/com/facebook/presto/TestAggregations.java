@@ -90,11 +90,11 @@ public class TestAggregations
     public BlockStream<UncompressedValueBlock> newAggregateColumn()
     {
         List<UncompressedValueBlock> values = ImmutableList.<UncompressedValueBlock>builder()
-                .add(createBlock(0, 1L, 2L, 3L, 4L, 5L, 6L))
-                .add(createBlock(20, 1L, 2L, 3L, 4L, 5L, 6L))
-                .add(createBlock(30, 1L))
-                .add(createBlock(31, 2L))
-                .add(createBlock(32, 3L))
+                .add(Blocks.createLongsBlock(0L, 1L, 2L, 3L, 4L, 5L, 6L))
+                .add(Blocks.createLongsBlock(20, 1L, 2L, 3L, 4L, 5L, 6L))
+                .add(Blocks.createLongsBlock(30, 1L))
+                .add(Blocks.createLongsBlock(31, 2L))
+                .add(Blocks.createLongsBlock(32, 3L))
                 .build();
 
         return new UncompressedBlockStream(new TupleInfo(FIXED_INT_64), values);

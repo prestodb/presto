@@ -44,7 +44,7 @@ public class TestCsv
         });
 
         Blocks.assertBlockStreamEquals(readColumn(0),
-                Blocks.createBlockStream(0,
+                Blocks.createLongsBlockStream(0,
                         1879196505L,
                         1879196505L,
                         1879196505L,
@@ -57,7 +57,7 @@ public class TestCsv
                         1659333773L));
 
         Blocks.assertBlockStreamEquals(readColumn(1),
-                Blocks.createBlockStream(0,
+                Blocks.createLongsBlockStream(0,
                         1343864557153L,
                         1343864681084L,
                         1343864759296L,
@@ -70,7 +70,7 @@ public class TestCsv
                         1343940261345L));
 
         Blocks.assertBlockStreamEquals(readColumn(2),
-                Blocks.createBlockStream(0,
+                Blocks.createLongsBlockStream(0,
                         1343864681084L,
                         1343864759296L,
                         1343864769178L,

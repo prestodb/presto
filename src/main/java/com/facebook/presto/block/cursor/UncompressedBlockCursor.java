@@ -118,6 +118,13 @@ public class UncompressedBlockCursor
     }
 
     @Override
+    public double getDouble(int field)
+    {
+        Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
+        return info.getDouble(slice, offset, field);
+    }
+
+    @Override
     public Slice getSlice(int field)
     {
         Preconditions.checkState(position >= 0, "Need to call advanceNext() first");

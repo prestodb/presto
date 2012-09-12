@@ -136,6 +136,12 @@ public class RangePositionBlock
         }
 
         @Override
+        public double getDouble(int field)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public Slice getSlice(int field)
         {
             throw new UnsupportedOperationException();

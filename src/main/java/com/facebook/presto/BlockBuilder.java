@@ -59,6 +59,15 @@ public class BlockBuilder
         return this;
     }
 
+    public BlockBuilder append(double value)
+    {
+        flushTupleIfNecessary();
+
+        tupleBuilder.append(value);
+
+        return this;
+    }
+
     public BlockBuilder append(byte[] value)
     {
         flushTupleIfNecessary();

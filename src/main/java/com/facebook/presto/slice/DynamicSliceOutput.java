@@ -90,6 +90,14 @@ public class DynamicSliceOutput extends SliceOutput
     }
 
     @Override
+    public void writeDouble(double value)
+    {
+        slice = Slices.ensureSize(slice, size + 8);
+        slice.setDouble(size, value);
+        size += 8;
+    }
+
+    @Override
     public void writeBytes(byte[] source)
     {
         writeBytes(source, 0, source.length);
@@ -182,6 +190,13 @@ public class DynamicSliceOutput extends SliceOutput
     public DynamicSliceOutput appendLong(long value)
     {
         writeLong(value);
+        return this;
+    }
+
+    @Override
+    public DynamicSliceOutput appendDouble(double value)
+    {
+        writeDouble(value);
         return this;
     }
 

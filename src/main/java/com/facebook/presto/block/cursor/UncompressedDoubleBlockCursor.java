@@ -7,28 +7,26 @@ import com.facebook.presto.UncompressedValueBlock;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 
-import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
-import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.SizeOf.SIZE_OF_DOUBLE;
+import static com.facebook.presto.TupleInfo.Type.DOUBLE;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class UncompressedSliceBlockCursor
+public class UncompressedDoubleBlockCursor
         implements BlockCursor
 {
-    private static final TupleInfo INFO = new TupleInfo(VARIABLE_BINARY);
+    private static final TupleInfo INFO = new TupleInfo(DOUBLE);
 
     private final Slice slice;
     private final Range range;
     private long position = -1;
     private int offset = -1;
-    private int size = -1;
 
-
-    public UncompressedSliceBlockCursor(UncompressedValueBlock block)
+    public UncompressedDoubleBlockCursor(UncompressedValueBlock block)
     {
         this(checkNotNull(block, "block is null").getSlice(), block.getRange());
     }
 
-    public UncompressedSliceBlockCursor(Slice slice, Range range)
+    public UncompressedDoubleBlockCursor(Slice slice, Range range)
     {
         this.slice = slice;
         this.range = range;
@@ -44,7 +42,7 @@ public class UncompressedSliceBlockCursor
     public boolean advanceToNextValue()
     {
         // every position is a new value
-        if (position >= range.getEnd()) {
+        if (!(range.getEnd() > position)) {
             return false;
         }
 
@@ -53,9 +51,8 @@ public class UncompressedSliceBlockCursor
             offset = 0;
         } else {
             position++;
-            offset += size;
+            offset += SIZE_OF_DOUBLE;
         }
-        size = slice.getShort(offset);
         return true;
     }
 
@@ -75,19 +72,9 @@ public class UncompressedSliceBlockCursor
             return false;
         }
 
-        // move to initial position
-        if (position < 0) {
-            position = range.getStart();
-            offset = 0;
-            size = slice.getShort(0);
-        }
-
         // advance to specified position
-        while (position < newPosition) {
-            position++;
-            offset += size;
-            size = slice.getShort(offset);
-        }
+        position = newPosition;
+        offset = (int) ((position - this.range.getStart()) * SIZE_OF_DOUBLE);
         return true;
     }
 
@@ -109,7 +96,7 @@ public class UncompressedSliceBlockCursor
     public Tuple getTuple()
     {
         Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
-        return new Tuple(slice.slice(offset, size), INFO);
+        return new Tuple(slice.slice(offset, SIZE_OF_DOUBLE), INFO);
     }
 
     @Override
@@ -121,15 +108,15 @@ public class UncompressedSliceBlockCursor
     @Override
     public double getDouble(int field)
     {
-        throw new UnsupportedOperationException();
+        Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
+        Preconditions.checkElementIndex(0, 1, "field");
+        return slice.getDouble(offset);
     }
 
     @Override
     public Slice getSlice(int field)
     {
-        Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
-        Preconditions.checkElementIndex(0, 1, "field");
-        return slice.slice(offset + SIZE_OF_SHORT, size - SIZE_OF_SHORT);
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -137,6 +124,6 @@ public class UncompressedSliceBlockCursor
     {
         Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
         Slice tupleSlice = value.getTupleSlice();
-        return slice.equals(offset, size, tupleSlice, 0, tupleSlice.length());
+        return tupleSlice.length() == SIZE_OF_DOUBLE && slice.getDouble(offset) == tupleSlice.getDouble(0);
     }
 }

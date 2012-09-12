@@ -39,6 +39,8 @@ public class UncompressedColumnWriter
         switch (type) {
             case FIXED_INT_64:
                 return writeFixedInt64(end);
+            case DOUBLE:
+                return writeDouble(end);
             case VARIABLE_BINARY:
                 return writeVariableBinary(end);
             default:
@@ -58,6 +60,20 @@ public class UncompressedColumnWriter
     {
         while (cursor.advanceNextPosition()) {
             buffer.appendLong(cursor.getLong(index));
+            tupleCount++;
+            flushIfNecessary();
+            if (cursor.getPosition() >= end) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean writeDouble(long end)
+            throws IOException
+    {
+        while (cursor.advanceNextPosition()) {
+            buffer.appendDouble(cursor.getDouble(index));
             tupleCount++;
             flushIfNecessary();
             if (cursor.getPosition() >= end) {

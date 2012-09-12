@@ -14,9 +14,9 @@ public class TestCursor
             throws Exception
     {
         List<UncompressedValueBlock> block = ImmutableList.<UncompressedValueBlock>builder()
-            .add(Blocks.createBlock(0, 0, 1, 2, 3, 4, 5, 6))
-            .add(Blocks.createBlock(10, 10, 11, 12, 13, 14, 15, 16))
-            .add(Blocks.createBlock(20, 20, 21, 22, 23, 24, 25, 26))
+            .add(Blocks.createLongsBlock(0, 0, 1, 2, 3, 4, 5, 6))
+            .add(Blocks.createLongsBlock(10, 10, 11, 12, 13, 14, 15, 16))
+            .add(Blocks.createLongsBlock(20, 20, 21, 22, 23, 24, 25, 26))
                 .build();
 
         UncompressedCursor cursor = new UncompressedCursor(new TupleInfo(TupleInfo.Type.FIXED_INT_64), block.iterator());

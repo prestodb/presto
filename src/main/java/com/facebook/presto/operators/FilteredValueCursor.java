@@ -100,6 +100,16 @@ public class FilteredValueCursor implements Cursor
     }
 
     @Override
+    public double getDouble(int field)
+    {
+        Preconditions.checkState(isValid, "Need to call advanceNext() first");
+        if (blockCursor == null) {
+            throw new NoSuchElementException();
+        }
+        return blockCursor.getDouble(field);
+    }
+
+    @Override
     public Slice getSlice(int field)
     {
         Preconditions.checkState(isValid, "Need to call advanceNext() first");

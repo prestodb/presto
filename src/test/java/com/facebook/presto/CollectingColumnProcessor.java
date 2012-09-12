@@ -33,6 +33,9 @@ class CollectingColumnProcessor
                 case FIXED_INT_64:
                     builder.append(cursor.getLong(index));
                     break;
+                case DOUBLE:
+                    builder.append(cursor.getDouble(index));
+                    break;
                 case VARIABLE_BINARY:
                     builder.append(cursor.getSlice(index));
                     break;

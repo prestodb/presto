@@ -86,6 +86,16 @@ public abstract class SliceOutput extends OutputStream implements DataOutput
     public abstract void writeLong(long value);
 
     /**
+     * Sets the specified 64-bit double at the current
+     * {@code writerIndex} and increases the {@code writerIndex} by {@code 8}
+     * in this buffer.
+     *
+     * @throws IndexOutOfBoundsException
+     *         if {@code this.writableBytes} is less than {@code 8}
+     */
+    public abstract void writeDouble(double value);
+
+    /**
      * Transfers the specified source buffer's data to this buffer starting at
      * the current {@code writerIndex} until the source buffer becomes
      * unreadable, and increases the {@code writerIndex} by the number of
@@ -294,6 +304,8 @@ public abstract class SliceOutput extends OutputStream implements DataOutput
 
     public abstract SliceOutput appendLong(long value);
 
+    public abstract SliceOutput appendDouble(double value);
+
     public abstract SliceOutput appendInt(int value);
 
     public abstract SliceOutput appendShort(int value);
@@ -326,17 +338,6 @@ public abstract class SliceOutput extends OutputStream implements DataOutput
      */
     @Override
     public void writeFloat(float v)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    /**
-     * Unsupported operation
-     *
-     * @throws UnsupportedOperationException always
-     */
-    @Override
-    public void writeDouble(double v)
     {
         throw new UnsupportedOperationException();
     }

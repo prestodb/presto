@@ -136,6 +136,12 @@ public class MaskedValueBlock implements ValueBlock
         }
 
         @Override
+        public double getDouble(int field)
+        {
+            return valueCursor.getDouble(field);
+        }
+
+        @Override
         public Slice getSlice(int field)
         {
             return valueCursor.getSlice(field);

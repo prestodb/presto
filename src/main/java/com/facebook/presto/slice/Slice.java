@@ -65,6 +65,15 @@ public interface Slice
     long getLong(int index);
 
     /**
+     * Gets a 64-bit double at the specified absolute {@code index} in
+     * this buffer.
+     *
+     * @throws IndexOutOfBoundsException if the specified {@code index} is less than {@code 0} or
+     * {@code index + 8} is greater than {@code this.length()}
+     */
+    double getDouble(int index);
+
+    /**
      * Transfers this buffer's data to the specified destination starting at
      * the specified absolute {@code index}.
      *
@@ -185,6 +194,15 @@ public interface Slice
      * {@code index + 8} is greater than {@code this.length()}
      */
     void setLong(int index, long value);
+
+    /**
+     * Sets the specified 64-bit double at the specified absolute
+     * {@code index} in this buffer.
+     *
+     * @throws IndexOutOfBoundsException if the specified {@code index} is less than {@code 0} or
+     * {@code index + 8} is greater than {@code this.length()}
+     */
+    void setDouble(int index, double value);
 
     /**
      * Sets the specified byte at the specified absolute {@code index} in this

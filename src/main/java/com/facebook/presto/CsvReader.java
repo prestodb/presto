@@ -111,6 +111,18 @@ public class CsvReader
         };
     }
 
+    public static CsvColumnProcessor csvDoubleColumn()
+    {
+        return new CsvColumnProcessor()
+        {
+            @Override
+            public void process(String value, RowBuilder rowBuilder)
+            {
+                rowBuilder.append(Double.valueOf(value));
+            }
+        };
+    }
+
     public static CsvColumnProcessor csvStringColumn()
     {
         return new CsvColumnProcessor()

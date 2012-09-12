@@ -113,6 +113,12 @@ public class DictionaryEncodedBlock implements ValueBlock
         }
 
         @Override
+        public double getDouble(int field)
+        {
+            return delegate.getDouble(field);
+        }
+
+        @Override
         public Slice getSlice(int field)
         {
             int dictionaryKey = Ints.checkedCast(getDictionaryKey());

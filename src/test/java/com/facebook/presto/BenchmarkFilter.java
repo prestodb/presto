@@ -102,4 +102,20 @@ public class BenchmarkFilter
             return input.getLong(0) >= minValue;
         }
     }
+
+    public static class DoubleFilter implements Predicate<BlockCursor> {
+
+        private final double minValue;
+
+        public DoubleFilter(double minValue)
+        {
+            this.minValue = minValue;
+        }
+
+        @Override
+        public boolean apply(@Nullable BlockCursor input)
+        {
+            return input.getDouble(0) >= minValue;
+        }
+    }
 }

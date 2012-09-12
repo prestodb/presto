@@ -17,6 +17,7 @@ public interface BlockCursor
 
     Tuple getTuple();
     long getLong(int field);
+    double getDouble(int field);
     Slice getSlice(int field);
     long getPosition();
     long getValuePositionEnd();

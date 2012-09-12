@@ -17,6 +17,8 @@ public class RowSourceBuilder
     {
         RowBuilder append(long value);
 
+        RowBuilder append(double value);
+
         RowBuilder append(byte[] value);
 
         RowBuilder append(Slice value);
@@ -110,6 +112,13 @@ public class RowSourceBuilder
 
         @Override
         public RowBuilder append(long value)
+        {
+            blockBuilder.append(value);
+            return this;
+        }
+
+        @Override
+        public RowBuilder append(double value)
         {
             blockBuilder.append(value);
             return this;

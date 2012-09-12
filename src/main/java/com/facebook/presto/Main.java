@@ -27,6 +27,7 @@ import java.util.concurrent.Callable;
 import static com.facebook.presto.CsvReader.CsvColumnProcessor;
 import static com.facebook.presto.CsvReader.csvNumericColumn;
 import static com.facebook.presto.CsvReader.csvStringColumn;
+import static com.facebook.presto.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 
@@ -111,6 +112,10 @@ public class Main
                 switch (type) {
                     case "long":
                         typeBuilder.add(FIXED_INT_64);
+                        csvColumns.add(csvNumericColumn());
+                        break;
+                    case "double":
+                        typeBuilder.add(DOUBLE);
                         csvColumns.add(csvNumericColumn());
                         break;
                     case "string":

@@ -3,6 +3,7 @@ package com.facebook.presto;
 import org.testng.Assert;
 
 import static com.facebook.presto.Cursors.toPairList;
+import static com.facebook.presto.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Charsets.UTF_8;
@@ -31,16 +32,32 @@ public class Blocks
         return builder.build();
     }
 
-    public static UncompressedBlockStream createBlockStream(int position, long... values)
+    public static UncompressedBlockStream createLongsBlockStream(long position, long... values)
     {
-        return new UncompressedBlockStream(new TupleInfo(FIXED_INT_64), createBlock(position, values));
+        return new UncompressedBlockStream(new TupleInfo(FIXED_INT_64), createLongsBlock(position, values));
     }
 
-    public static UncompressedValueBlock createBlock(long position, long... values)
+    public static UncompressedValueBlock createLongsBlock(long position, long... values)
     {
         BlockBuilder builder = new BlockBuilder(position, new TupleInfo(FIXED_INT_64));
 
         for (long value : values) {
+            builder.append(value);
+        }
+
+        return builder.build();
+    }
+
+    public static UncompressedBlockStream createDoublesBlockStream(long position, double... values)
+    {
+        return new UncompressedBlockStream(new TupleInfo(DOUBLE), createDoublesBlock(position, values));
+    }
+
+    public static UncompressedValueBlock createDoublesBlock(long position, double... values)
+    {
+        BlockBuilder builder = new BlockBuilder(position, new TupleInfo(DOUBLE));
+
+        for (double value : values) {
             builder.append(value);
         }
 
