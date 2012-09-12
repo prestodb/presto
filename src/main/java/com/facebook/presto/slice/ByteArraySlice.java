@@ -141,6 +141,12 @@ public final class ByteArraySlice
     }
 
     @Override
+    public double getDouble(int index)
+    {
+        return Double.longBitsToDouble(getLong(index));
+    }
+
+    @Override
     public void getBytes(int index, Slice destination, int destinationIndex, int length)
     {
         destination.setBytes(destinationIndex, this, index, length);
@@ -235,6 +241,12 @@ public final class ByteArraySlice
         data[index + 5] = (byte) (value >>> 40);
         data[index + 6] = (byte) (value >>> 48);
         data[index + 7] = (byte) (value >>> 56);
+    }
+
+    @Override
+    public void setDouble(int index, double value)
+    {
+        setLong(index, Double.doubleToLongBits(value));
     }
 
     @Override

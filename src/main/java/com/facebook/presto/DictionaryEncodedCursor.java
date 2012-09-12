@@ -63,6 +63,13 @@ public class DictionaryEncodedCursor implements Cursor
     }
 
     @Override
+    public double getDouble(int field)
+    {
+        checkArgument(field == 0, "should only have one field");
+        return tupleInfo.getDouble(getSlice(0), 0);
+    }
+
+    @Override
     public Slice getSlice(int field)
     {
         checkArgument(field == 0, "should only have one field");

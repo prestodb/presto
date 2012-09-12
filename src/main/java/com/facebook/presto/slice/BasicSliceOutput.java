@@ -86,6 +86,13 @@ public class BasicSliceOutput extends SliceOutput
     }
 
     @Override
+    public void writeDouble(double value)
+    {
+        slice.setDouble(size, value);
+        size += 8;
+    }
+
+    @Override
     public void writeBytes(byte[] source, int sourceIndex, int length)
     {
         slice.setBytes(size, source, sourceIndex, length);
@@ -165,6 +172,13 @@ public class BasicSliceOutput extends SliceOutput
     public BasicSliceOutput appendLong(long value)
     {
         writeLong(value);
+        return this;
+    }
+
+    @Override
+    public SliceOutput appendDouble(double value)
+    {
+        writeDouble(value);
         return this;
     }
 

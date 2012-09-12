@@ -149,6 +149,12 @@ public class UncompressedSliceCursor
     }
 
     @Override
+    public double getDouble(int field)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Slice getSlice(int field)
     {
         Preconditions.checkState(index >= 0, "Need to call advanceNext() first");

@@ -3,6 +3,7 @@ package com.facebook.presto;
 import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.block.cursor.BlockCursor;
 import com.facebook.presto.block.cursor.UncompressedBlockCursor;
+import com.facebook.presto.block.cursor.UncompressedDoubleBlockCursor;
 import com.facebook.presto.block.cursor.UncompressedLongBlockCursor;
 import com.facebook.presto.block.cursor.UncompressedSliceBlockCursor;
 import com.facebook.presto.slice.Slice;
@@ -70,6 +71,9 @@ public class UncompressedValueBlock
             Type type = info.getTypes().get(0);
             if (type == Type.FIXED_INT_64) {
                 return new UncompressedLongBlockCursor(this);
+            }
+            if (type == Type.DOUBLE) {
+                return new UncompressedDoubleBlockCursor(this);
             }
             if (type == Type.VARIABLE_BINARY) {
                 return new UncompressedSliceBlockCursor(this);

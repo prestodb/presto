@@ -140,6 +140,12 @@ public class RunLengthEncodedBlock
         }
 
         @Override
+        public double getDouble(int field)
+        {
+            return value.getDouble(field);
+        }
+
+        @Override
         public Slice getSlice(int field)
         {
             return value.getSlice(field);

@@ -22,6 +22,7 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_BYTE;
+import static com.facebook.presto.SizeOf.SIZE_OF_DOUBLE;
 import static com.facebook.presto.SizeOf.SIZE_OF_INT;
 import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
 import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
@@ -132,6 +133,13 @@ public class UnsafeSlice extends AbstractSlice
     }
 
     @Override
+    public double getDouble(int index)
+    {
+        checkIndexLength(index, SIZE_OF_DOUBLE);
+        return unsafe.getDouble(address + index);
+    }
+
+    @Override
     public void getBytes(int index, Slice destination, int destinationIndex, int length)
     {
         destination.setBytes(destinationIndex, this, index, length);
@@ -207,6 +215,13 @@ public class UnsafeSlice extends AbstractSlice
     {
         checkIndexLength(index, SIZE_OF_LONG);
         unsafe.putLong(address + index, value);
+    }
+
+    @Override
+    public void setDouble(int index, double value)
+    {
+        checkIndexLength(index, SIZE_OF_DOUBLE);
+        unsafe.putDouble(address + index, value);
     }
 
     @Override

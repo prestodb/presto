@@ -2,6 +2,7 @@ package com.facebook.presto;
 
 import com.facebook.presto.slice.Slices;
 
+import static com.facebook.presto.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Charsets.UTF_8;
@@ -22,6 +23,16 @@ public class Tuples
     public static Tuple createTuple(long value)
     {
         TupleInfo tupleInfo = new TupleInfo(FIXED_INT_64);
+        Tuple tuple = tupleInfo.builder()
+                .append(value)
+                .build();
+
+        return tuple;
+    }
+
+    public static Tuple createTuple(double value)
+    {
+        TupleInfo tupleInfo = new TupleInfo(DOUBLE);
         Tuple tuple = tupleInfo.builder()
                 .append(value)
                 .build();

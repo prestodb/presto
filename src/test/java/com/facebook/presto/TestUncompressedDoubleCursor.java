@@ -18,23 +18,23 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-public class TestUncompressedLongCursor extends AbstractTestCursor
+public class TestUncompressedDoubleCursor extends AbstractTestCursor
 {
     @Test
     public void testTupleInfo()
             throws Exception
     {
         Cursor cursor = createCursor();
-        TupleInfo tupleInfo = new TupleInfo(Type.FIXED_INT_64);
+        TupleInfo tupleInfo = new TupleInfo(Type.DOUBLE);
         assertEquals(cursor.getTupleInfo(), tupleInfo);
     }
 
     @Test
-    public void testGetLongState()
+    public void testGetDoubleState()
     {
         Cursor cursor = createCursor();
         try {
-            cursor.getLong(0);
+            cursor.getDouble(0);
             fail("Expected IllegalStateException");
         }
         catch (IllegalStateException expected) {
@@ -46,7 +46,7 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
             throws Exception
     {
         Cursor cursor = createCursor();
-        CursorAssertions.assertNextValue(cursor, 0, 1111L);
+        CursorAssertions.assertNextValue(cursor, 0, 11.11);
     }
 
     @Test
@@ -54,7 +54,7 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
             throws Exception
     {
         Cursor cursor = createCursor();
-        CursorAssertions.assertNextPosition(cursor, 0, 1111L);
+        CursorAssertions.assertNextPosition(cursor, 0, 11.11);
     }
 
     @Test
@@ -63,17 +63,17 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
     {
         Cursor cursor = createCursor();
 
-        assertNextValue(cursor, 0, 1111L);
-        assertNextValue(cursor, 1, 1111L);
-        assertNextValue(cursor, 2, 1111L);
-        assertNextValue(cursor, 3, 2222L);
-        assertNextValue(cursor, 4, 2222L);
-        assertNextValue(cursor, 5, 2222L);
-        assertNextValue(cursor, 6, 2222L);
-        assertNextValue(cursor, 7, 2222L);
-        assertNextValue(cursor, 20, 3333L);
-        assertNextValue(cursor, 21, 3333L);
-        assertNextValue(cursor, 30, 4444L);
+        assertNextValue(cursor, 0, 11.11);
+        assertNextValue(cursor, 1, 11.11);
+        assertNextValue(cursor, 2, 11.11);
+        assertNextValue(cursor, 3, 22.22);
+        assertNextValue(cursor, 4, 22.22);
+        assertNextValue(cursor, 5, 22.22);
+        assertNextValue(cursor, 6, 22.22);
+        assertNextValue(cursor, 7, 22.22);
+        assertNextValue(cursor, 20, 33.33);
+        assertNextValue(cursor, 21, 33.33);
+        assertNextValue(cursor, 30, 44.44);
 
         assertFalse(cursor.advanceNextValue());
     }
@@ -83,17 +83,17 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
     {
         Cursor cursor = createCursor();
 
-        assertNextPosition(cursor, 0, 1111L);
-        assertNextPosition(cursor, 1, 1111L);
-        assertNextPosition(cursor, 2, 1111L);
-        assertNextPosition(cursor, 3, 2222L);
-        assertNextPosition(cursor, 4, 2222L);
-        assertNextPosition(cursor, 5, 2222L);
-        assertNextPosition(cursor, 6, 2222L);
-        assertNextPosition(cursor, 7, 2222L);
-        assertNextPosition(cursor, 20, 3333L);
-        assertNextPosition(cursor, 21, 3333L);
-        assertNextPosition(cursor, 30, 4444L);
+        assertNextPosition(cursor, 0, 11.11);
+        assertNextPosition(cursor, 1, 11.11);
+        assertNextPosition(cursor, 2, 11.11);
+        assertNextPosition(cursor, 3, 22.22);
+        assertNextPosition(cursor, 4, 22.22);
+        assertNextPosition(cursor, 5, 22.22);
+        assertNextPosition(cursor, 6, 22.22);
+        assertNextPosition(cursor, 7, 22.22);
+        assertNextPosition(cursor, 20, 33.33);
+        assertNextPosition(cursor, 21, 33.33);
+        assertNextPosition(cursor, 30, 44.44);
 
         assertFalse(cursor.advanceNextPosition());
     }
@@ -106,27 +106,27 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
 
         // advance to first position
         assertTrue(cursor.advanceToPosition(0));
-        assertCurrentValue(cursor, 0, 1111L);
+        assertCurrentValue(cursor, 0, 11.11);
 
         // skip to position in first block
         assertTrue(cursor.advanceToPosition(2));
-        assertCurrentValue(cursor, 2, 1111L);
+        assertCurrentValue(cursor, 2, 11.11);
 
         // advance to same position
         assertTrue(cursor.advanceToPosition(2));
-        assertCurrentValue(cursor, 2, 1111L);
+        assertCurrentValue(cursor, 2, 11.11);
 
         // skip to position in same block
         assertTrue(cursor.advanceToPosition(4));
-        assertCurrentValue(cursor, 4, 2222L);
+        assertCurrentValue(cursor, 4, 22.22);
 
         // skip to position in middle block
         assertTrue(cursor.advanceToPosition(21));
-        assertCurrentValue(cursor, 21, 3333L);
+        assertCurrentValue(cursor, 21, 33.33);
 
         // skip to position in gap
         assertTrue(cursor.advanceToPosition(25));
-        assertCurrentValue(cursor, 30, 4444L);
+        assertCurrentValue(cursor, 30, 44.44);
 
         // skip backwards
         try {
@@ -134,7 +134,7 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
             fail("Expected IllegalArgumentException");
         }
         catch (IllegalArgumentException e) {
-            assertCurrentValue(cursor, 30, 4444L);
+            assertCurrentValue(cursor, 30, 44.44);
         }
 
         // skip past end
@@ -148,11 +148,11 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
         Cursor cursor = createCursor();
 
         // first, skip to middle of a block
-        CursorAssertions.assertNextValue(cursor, 0, 1111L);
-        CursorAssertions.assertNextPosition(cursor, 1, 1111L);
+        CursorAssertions.assertNextValue(cursor, 0, 11.11);
+        CursorAssertions.assertNextPosition(cursor, 1, 11.11);
 
         // force jump to next block
-        CursorAssertions.assertNextValue(cursor, 2, 1111L);
+        CursorAssertions.assertNextValue(cursor, 2, 11.11);
     }
 
     @Test
@@ -161,17 +161,17 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
         Cursor cursor = createCursor();
 
         // first, advance to end of a block
-        CursorAssertions.assertNextPosition(cursor, 0, 1111L);
-        CursorAssertions.assertNextPosition(cursor, 1, 1111L);
-        CursorAssertions.assertNextPosition(cursor, 2, 1111L);
-        CursorAssertions.assertNextPosition(cursor, 3, 2222L);
-        CursorAssertions.assertNextPosition(cursor, 4, 2222L);
-        CursorAssertions.assertNextPosition(cursor, 5, 2222L);
-        CursorAssertions.assertNextPosition(cursor, 6, 2222L);
-        CursorAssertions.assertNextPosition(cursor, 7, 2222L);
+        CursorAssertions.assertNextPosition(cursor, 0, 11.11);
+        CursorAssertions.assertNextPosition(cursor, 1, 11.11);
+        CursorAssertions.assertNextPosition(cursor, 2, 11.11);
+        CursorAssertions.assertNextPosition(cursor, 3, 22.22);
+        CursorAssertions.assertNextPosition(cursor, 4, 22.22);
+        CursorAssertions.assertNextPosition(cursor, 5, 22.22);
+        CursorAssertions.assertNextPosition(cursor, 6, 22.22);
+        CursorAssertions.assertNextPosition(cursor, 7, 22.22);
 
         // force jump to next block
-        CursorAssertions.assertNextPosition(cursor, 20, 3333L);
+        CursorAssertions.assertNextPosition(cursor, 20, 33.33);
     }
 
     @Test
@@ -181,17 +181,17 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
         Cursor cursor = createCursor();
 
         // first, advance to end of a block
-        CursorAssertions.assertNextPosition(cursor, 0, 1111L);
-        CursorAssertions.assertNextPosition(cursor, 1, 1111L);
-        CursorAssertions.assertNextPosition(cursor, 2, 1111L);
-        CursorAssertions.assertNextPosition(cursor, 3, 2222L);
-        CursorAssertions.assertNextPosition(cursor, 4, 2222L);
-        CursorAssertions.assertNextPosition(cursor, 5, 2222L);
-        CursorAssertions.assertNextPosition(cursor, 6, 2222L);
-        CursorAssertions.assertNextPosition(cursor, 7, 2222L);
+        CursorAssertions.assertNextPosition(cursor, 0, 11.11);
+        CursorAssertions.assertNextPosition(cursor, 1, 11.11);
+        CursorAssertions.assertNextPosition(cursor, 2, 11.11);
+        CursorAssertions.assertNextPosition(cursor, 3, 22.22);
+        CursorAssertions.assertNextPosition(cursor, 4, 22.22);
+        CursorAssertions.assertNextPosition(cursor, 5, 22.22);
+        CursorAssertions.assertNextPosition(cursor, 6, 22.22);
+        CursorAssertions.assertNextPosition(cursor, 7, 22.22);
 
         // force jump to next block
-        CursorAssertions.assertNextValue(cursor, 20, 3333L);
+        CursorAssertions.assertNextValue(cursor, 20, 33.33);
     }
 
     @Test
@@ -221,17 +221,17 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
     {
         Cursor cursor = createCursor();
 
-        assertNextValue(cursor, 0, 1111L);
-        assertNextPosition(cursor, 1, 1111L);
-        assertNextValue(cursor, 2, 1111L);
-        assertNextPosition(cursor, 3, 2222L);
-        assertNextValue(cursor, 4, 2222L);
-        assertNextPosition(cursor, 5, 2222L);
-        assertNextValue(cursor, 6, 2222L);
-        assertNextPosition(cursor, 7, 2222L);
-        assertNextValue(cursor, 20, 3333L);
-        assertNextPosition(cursor, 21, 3333L);
-        assertNextValue(cursor, 30, 4444L);
+        assertNextValue(cursor, 0, 11.11);
+        assertNextPosition(cursor, 1, 11.11);
+        assertNextValue(cursor, 2, 11.11);
+        assertNextPosition(cursor, 3, 22.22);
+        assertNextValue(cursor, 4, 22.22);
+        assertNextPosition(cursor, 5, 22.22);
+        assertNextValue(cursor, 6, 22.22);
+        assertNextPosition(cursor, 7, 22.22);
+        assertNextValue(cursor, 20, 33.33);
+        assertNextPosition(cursor, 21, 33.33);
+        assertNextValue(cursor, 30, 44.44);
 
         assertFalse(cursor.advanceNextPosition());
         assertFalse(cursor.advanceNextValue());
@@ -264,16 +264,16 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
     protected List<UncompressedValueBlock> createBlocks()
     {
         return ImmutableList.of(
-                Blocks.createLongsBlock(0, 1111L, 1111L, 1111L, 2222L, 2222L),
-                Blocks.createLongsBlock(5, 2222L, 2222L, 2222L),
-                Blocks.createLongsBlock(20, 3333L, 3333L),
-                Blocks.createLongsBlock(30, 4444L));
+                Blocks.createDoublesBlock(0, 11.11, 11.11, 11.11, 22.22, 22.22),
+                Blocks.createDoublesBlock(5, 22.22, 22.22, 22.22),
+                Blocks.createDoublesBlock(20, 33.33, 33.33),
+                Blocks.createDoublesBlock(30, 44.44));
     }
 
     @Override
     protected Cursor createCursor()
     {
-        return new UncompressedLongCursor(createBlocks().iterator());
+        return new UncompressedDoubleCursor(createBlocks().iterator());
     }
 
     @Test
@@ -281,7 +281,7 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
             throws Exception
     {
         try {
-            new UncompressedLongCursor(null);
+            new UncompressedDoubleCursor(null);
             fail("Expected NullPointerException");
         }
         catch (NullPointerException expected) {

@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
+import static com.facebook.presto.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -43,6 +44,7 @@ public class TupleInfo
     public enum Type
     {
         FIXED_INT_64(8),
+        DOUBLE(8),
         VARIABLE_BINARY(-1);
 
         private final int size;
@@ -205,6 +207,18 @@ public class TupleInfo
         return slice.getLong(offset + getOffset(field));
     }
 
+    public double getDouble(Slice slice, int field)
+    {
+        return getDouble(slice, 0, field);
+    }
+
+    public double getDouble(Slice slice, int offset, int field)
+    {
+        checkState(types.get(field) == DOUBLE, "Expected DOUBLE");
+
+        return slice.getDouble(offset + getOffset(field));
+    }
+
     public Slice getSlice(Slice slice, int field)
     {
         return getSlice(slice, 0, field);
@@ -328,6 +342,16 @@ public class TupleInfo
             return this;
         }
 
+        public Builder append(double value)
+        {
+            checkState(TupleInfo.this.getTypes().get(currentField) == DOUBLE, "Cannot append double. Current field (%s) is of type %s", currentField, TupleInfo.this.getTypes().get(currentField));
+
+            sliceOutput.writeDouble(value);
+            currentField++;
+
+            return this;
+        }
+
         public Builder append(Slice value)
         {
             checkState(TupleInfo.this.getTypes().get(currentField) == VARIABLE_BINARY, "Cannot append binary. Current field (%s) is of type %s", currentField, TupleInfo.this.getTypes().get(currentField));
@@ -347,6 +371,9 @@ public class TupleInfo
                 switch (type) {
                     case FIXED_INT_64:
                         append(tuple.getLong(field));
+                        break;
+                    case DOUBLE:
+                        append(tuple.getDouble(field));
                         break;
                     case VARIABLE_BINARY:
                         append(tuple.getSlice(field));
