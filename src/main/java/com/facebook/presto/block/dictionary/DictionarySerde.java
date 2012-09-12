@@ -171,9 +171,6 @@ public class DictionarySerde implements BlockStreamSerde<DictionaryEncodedBlock>
 
             sliceOutput.writeInt(dictionary.length);
             for (Slice slice : dictionary) {
-                // Write length
-                sliceOutput.writeInt(slice.length());
-                // Write value
                 sliceOutput.writeBytes(slice);
             }
 
@@ -192,11 +189,7 @@ public class DictionarySerde implements BlockStreamSerde<DictionaryEncodedBlock>
             Slice[] dictionary = new Slice[dictionarySize];
 
             for (int i = 0; i < dictionarySize; i++) {
-                // Read value Length
-                int sliceLength = sliceInput.readInt();
-                checkArgument(sliceLength >= 0);
-                // Read and store value
-                dictionary[i] = sliceInput.readSlice(sliceLength);
+                dictionary[i] = tupleInfo.extractTupleSlice(sliceInput);
             }
 
             return new Footer(tupleInfo, dictionary);
