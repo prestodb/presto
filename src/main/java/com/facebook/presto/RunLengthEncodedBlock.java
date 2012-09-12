@@ -93,15 +93,18 @@ public class RunLengthEncodedBlock
         @Override
         public boolean advanceToNextValue()
         {
+            position = Long.MAX_VALUE;
             return false;
         }
 
         @Override
         public boolean advanceNextPosition()
         {
-            if (position > range.getEnd()) {
+            if (position >= range.getEnd()) {
+                position = Long.MAX_VALUE;
                 return false;
             }
+
             if (position < 0) {
                 position = range.getStart();
             } else {
@@ -116,7 +119,7 @@ public class RunLengthEncodedBlock
             Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
 
             if (newPosition > range.getEnd()) {
-                this.position = newPosition;
+                position = Long.MAX_VALUE;
                 return false;
             }
 

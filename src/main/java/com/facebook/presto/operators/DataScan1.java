@@ -17,6 +17,7 @@ import java.util.Iterator;
 public class DataScan1
         implements BlockStream<ValueBlock>
 {
+    private static final int RANGES_PER_BLOCK = 100;
     private static final TupleInfo INFO = new TupleInfo();
 
     private final BlockStream<? extends ValueBlock> source;
@@ -48,7 +49,7 @@ public class DataScan1
             {
                 int rangesCount = 0;
                 ImmutableList.Builder<Range> ranges = ImmutableList.builder();
-                while (rangesCount < 100 && sourceIterator.hasNext()) {
+                while (rangesCount < RANGES_PER_BLOCK && sourceIterator.hasNext()) {
                     BlockCursor blockCursor = sourceIterator.next().blockCursor();
                     while (blockCursor.advanceToNextValue()) {
                         if (predicate.apply(blockCursor)) {

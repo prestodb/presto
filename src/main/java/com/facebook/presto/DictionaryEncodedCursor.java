@@ -1,11 +1,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.Slices;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
-
-import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -15,7 +11,6 @@ public class DictionaryEncodedCursor implements Cursor
 {
     private final TupleInfo tupleInfo;
     private final Slice[] dictionary;
-    private final Map<Slice, Tuple> reverseDictionary;
     private final Cursor sourceCursor;
 
     public DictionaryEncodedCursor(TupleInfo tupleInfo, Slice[] dictionary, Cursor sourceCursor)
@@ -28,22 +23,6 @@ public class DictionaryEncodedCursor implements Cursor
         this.tupleInfo = tupleInfo;
         this.dictionary = dictionary;
         this.sourceCursor = sourceCursor;
-
-        ImmutableMap.Builder<Slice, Tuple> builder = ImmutableMap.builder();
-        for (int i = 0; i < dictionary.length; i++) {
-            builder.put(
-                    dictionary[i],
-                    new Tuple(
-                            Slices.allocate(SizeOf.SIZE_OF_LONG)
-                                    .output()
-                                    .appendLong(i)
-                                    .slice(),
-                            TupleInfo.SINGLE_LONG_TUPLEINFO
-                    )
-
-            );
-        }
-        reverseDictionary = builder.build();
     }
 
     @Override

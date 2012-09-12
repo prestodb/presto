@@ -24,8 +24,8 @@ public class PositionsBlock
 
     public PositionsBlock(List<Range> ranges)
     {
-        checkNotNull(ranges, "positions is null");
-        checkArgument(!ranges.isEmpty(), "positions is empty");
+        checkNotNull(ranges, "ranges is null");
+        checkArgument(!ranges.isEmpty(), "ranges is empty");
 
         this.ranges = ImmutableList.copyOf(ranges);
 
@@ -33,7 +33,7 @@ public class PositionsBlock
         Range previousRange = ranges.get(0);
         for (int index = 1; index < ranges.size(); index++) {
             Range currentRange = ranges.get(index);
-            checkArgument(currentRange.overlaps(previousRange), "Ranges are overlapping");
+            checkArgument(!currentRange.overlaps(previousRange), "Ranges are overlapping");
             previousRange = currentRange;
         }
 
@@ -100,11 +100,11 @@ public class PositionsBlock
         @Override
         public boolean advanceToNextValue()
         {
-            if (index >= ranges.size() && position >= ranges.get(index).getEnd()) {
+            if (position >= totalRange.getEnd()) {
                 return false;
             }
 
-            if (index > 0 && position < ranges.get(index).getEnd()) {
+            if (index >= 0 && position < ranges.get(index).getEnd()) {
                 position++;
             }
             else {
@@ -134,12 +134,7 @@ public class PositionsBlock
             for (int i = index; i < ranges.size(); i++) {
                 if (newPosition <= ranges.get(i).getEnd()) {
                     index = i;
-                    if (newPosition >= ranges.get(i).getStart()) {
-                        position = newPosition;
-                    }
-                    else {
-                        position = ranges.get(i).getStart();
-                    }
+                    position = Math.max(newPosition, ranges.get(i).getStart());
                     return true;
                 }
             }
