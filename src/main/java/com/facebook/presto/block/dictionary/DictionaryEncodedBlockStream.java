@@ -20,7 +20,7 @@ public class DictionaryEncodedBlockStream
     private final Slice[] dictionary;
     private final BlockStream sourceBlockStream;
 
-    public DictionaryEncodedBlockStream(TupleInfo tupleInfo, Slice[] dictionary, BlockStream sourceBlockStream)
+    public DictionaryEncodedBlockStream(TupleInfo tupleInfo, Slice[] dictionary, BlockStream<? extends ValueBlock> sourceBlockStream)
     {
         checkNotNull(tupleInfo, "tupleInfo is null");
         checkNotNull(dictionary, "dictionary is null");
@@ -47,7 +47,7 @@ public class DictionaryEncodedBlockStream
     @Override
     public Iterator<DictionaryEncodedBlock> iterator()
     {
-        return Iterators.transform(
+        return Iterators.<ValueBlock, DictionaryEncodedBlock>transform(
                 sourceBlockStream.iterator(),
                 new Function<ValueBlock, DictionaryEncodedBlock>()
                 {
