@@ -119,14 +119,7 @@ public abstract class AbstractTestUncompressedSliceCursor extends AbstractTestCu
         Cursor cursor = createCursor();
 
         // first, advance to end of a block
-        CursorAssertions.assertNextPosition(cursor, 0, "apple");
-        CursorAssertions.assertNextPosition(cursor, 1, "apple");
-        CursorAssertions.assertNextPosition(cursor, 2, "apple");
-        CursorAssertions.assertNextPosition(cursor, 3, "banana");
-        CursorAssertions.assertNextPosition(cursor, 4, "banana");
-        CursorAssertions.assertNextPosition(cursor, 5, "banana");
-        CursorAssertions.assertNextPosition(cursor, 6, "banana");
-        CursorAssertions.assertNextPosition(cursor, 7, "banana");
+        assertTrue(cursor.advanceToPosition(7));
 
         // force jump to next block
         CursorAssertions.assertNextPosition(cursor, 20, "cherry");
@@ -139,14 +132,7 @@ public abstract class AbstractTestUncompressedSliceCursor extends AbstractTestCu
         Cursor cursor = createCursor();
 
         // first, advance to end of a block
-        CursorAssertions.assertNextPosition(cursor, 0, "apple");
-        CursorAssertions.assertNextPosition(cursor, 1, "apple");
-        CursorAssertions.assertNextPosition(cursor, 2, "apple");
-        CursorAssertions.assertNextPosition(cursor, 3, "banana");
-        CursorAssertions.assertNextPosition(cursor, 4, "banana");
-        CursorAssertions.assertNextPosition(cursor, 5, "banana");
-        CursorAssertions.assertNextPosition(cursor, 6, "banana");
-        CursorAssertions.assertNextPosition(cursor, 7, "banana");
+        assertTrue(cursor.advanceToPosition(7));
 
         // force jump to next block
         CursorAssertions.assertNextValue(cursor, 20, "cherry");

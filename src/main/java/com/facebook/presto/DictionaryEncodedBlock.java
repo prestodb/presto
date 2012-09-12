@@ -107,20 +107,28 @@ public class DictionaryEncodedBlock implements ValueBlock
         @Override
         public long getLong(int field)
         {
-            return delegate.getLong(field);
+            int dictionaryKey = Ints.checkedCast(getDictionaryKey());
+            Preconditions.checkPositionIndex(dictionaryKey, dictionary.length, "dictionaryKey does not exist");
+            return dictionary[dictionaryKey].getLong(0);
         }
 
         @Override
         public Slice getSlice(int field)
         {
-            int dictionaryKey = Ints.checkedCast(getLong(0));
+            int dictionaryKey = Ints.checkedCast(getDictionaryKey());
             Preconditions.checkPositionIndex(dictionaryKey, dictionary.length, "dictionaryKey does not exist");
-            return dictionary[(int) getLong(0)];
+            return dictionary[dictionaryKey];
+        }
+
+        public int getDictionaryKey()
+        {
+            return (int) delegate.getLong(0);
         }
 
         @Override
         public boolean tupleEquals(Tuple value)
         {
+            // todo We should be able to compare the dictionary keys directly if the tuple comes from a block encoded using the same dictionary
             return tupleInfo.equals(value.getTupleInfo()) && getSlice(0).equals(value.getTupleSlice());
         }
 

@@ -145,45 +145,6 @@ public abstract class AbstractTestUncompressedSliceBlockCursor extends AbstractT
     }
 
     @Test
-    public void testAdvanceToNextPositionAdvancesValue()
-    {
-        BlockCursor cursor = createCursor();
-
-        // first, advance to end of a block
-        assertNextPosition(cursor, 0, "apple");
-        assertNextPosition(cursor, 1, "apple");
-        assertNextPosition(cursor, 2, "apple");
-        assertNextPosition(cursor, 3, "banana");
-        assertNextPosition(cursor, 4, "banana");
-        assertNextPosition(cursor, 5, "banana");
-        assertNextPosition(cursor, 6, "banana");
-        assertNextPosition(cursor, 7, "banana");
-
-        // force jump to next block
-        assertNextPosition(cursor, 8, "cherry");
-    }
-
-    @Test
-    public void testAdvanceNextValueAtEndOfBlock()
-            throws Exception
-    {
-        BlockCursor cursor = createCursor();
-
-        // first, advance to end of a block
-        assertNextPosition(cursor, 0, "apple");
-        assertNextPosition(cursor, 1, "apple");
-        assertNextPosition(cursor, 2, "apple");
-        assertNextPosition(cursor, 3, "banana");
-        assertNextPosition(cursor, 4, "banana");
-        assertNextPosition(cursor, 5, "banana");
-        assertNextPosition(cursor, 6, "banana");
-        assertNextPosition(cursor, 7, "banana");
-
-        // force jump to next block
-        assertNextValue(cursor, 8, "cherry");
-    }
-
-    @Test
     public void testMixedValueAndPosition()
             throws Exception
     {

@@ -61,21 +61,30 @@ public class RunLengthEncodedCursor
     }
 
     @Override
-    public boolean advanceToPosition(long position)
+    public boolean advanceToPosition(long newPosition)
     {
-        Preconditions.checkArgument(block == null || position >= getPosition(), "Can't advance backwards");
+        Preconditions.checkArgument(block == null || newPosition >= getPosition(), "Can't advance backwards");
 
         if (block == null) {
-            return advanceNextValue();
+            if (iterator.hasNext()) {
+                block = iterator.next();
+            }
+            else {
+                return false;
+            }
         }
 
         // skip to block containing requested position
-        while (position > block.getRange().getEnd() && advanceNextPosition());
-        if (position > block.getRange().getEnd()) {
+        while (newPosition > block.getRange().getEnd() && iterator.hasNext()) {
+            block = iterator.next();
+        }
+
+        if (newPosition > block.getRange().getEnd()) {
+            block = null;
             return false;
         }
 
-        this.position = Math.max(position, block.getRange().getStart());
+        this.position = Math.max(newPosition, block.getRange().getStart());
         return true;
     }
 

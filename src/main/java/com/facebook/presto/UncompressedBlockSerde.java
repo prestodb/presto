@@ -40,6 +40,7 @@ public class UncompressedBlockSerde
 
     public static void write(Cursor cursor, SliceOutput out)
     {
+        // todo We should be able to take advantage of the fact that the cursor might already be over uncompressed blocks and just write them down as they come.
         UncompressedTupleInfoSerde.serialize(cursor.getTupleInfo(), new OutputStreamSliceOutput(out));
         DynamicSliceOutput buffer = new DynamicSliceOutput(MAX_BLOCK_SIZE);
 

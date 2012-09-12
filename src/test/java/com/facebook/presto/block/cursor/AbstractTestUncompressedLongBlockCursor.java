@@ -145,45 +145,6 @@ public abstract class AbstractTestUncompressedLongBlockCursor extends AbstractTe
     }
 
     @Test
-    public void testAdvanceToNextPositionAdvancesValue()
-    {
-        BlockCursor cursor = createCursor();
-
-        // first, advance to end of a block
-        assertNextPosition(cursor, 0, 1111L);
-        assertNextPosition(cursor, 1, 1111L);
-        assertNextPosition(cursor, 2, 1111L);
-        assertNextPosition(cursor, 3, 2222L);
-        assertNextPosition(cursor, 4, 2222L);
-        assertNextPosition(cursor, 5, 2222L);
-        assertNextPosition(cursor, 6, 2222L);
-        assertNextPosition(cursor, 7, 2222L);
-
-        // force jump to next block
-        assertNextPosition(cursor, 8, 3333L);
-    }
-
-    @Test
-    public void testAdvanceNextValueAtEndOfBlock()
-            throws Exception
-    {
-        BlockCursor cursor = createCursor();
-
-        // first, advance to end of a block
-        assertNextPosition(cursor, 0, 1111L);
-        assertNextPosition(cursor, 1, 1111L);
-        assertNextPosition(cursor, 2, 1111L);
-        assertNextPosition(cursor, 3, 2222L);
-        assertNextPosition(cursor, 4, 2222L);
-        assertNextPosition(cursor, 5, 2222L);
-        assertNextPosition(cursor, 6, 2222L);
-        assertNextPosition(cursor, 7, 2222L);
-
-        // force jump to next block
-        assertNextValue(cursor, 8, 3333L);
-    }
-
-    @Test
     public void testMixedValueAndPosition()
             throws Exception
     {

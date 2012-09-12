@@ -6,6 +6,8 @@ package com.facebook.presto;
 import com.facebook.presto.UncompressedPositionBlock.UncompressedPositionBlockCursor;
 import com.facebook.presto.block.cursor.BlockCursor;
 import com.facebook.presto.slice.Slice;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
@@ -16,8 +18,12 @@ public class MaskedValueBlock implements ValueBlock
 
     public MaskedValueBlock(ValueBlock valueBlock, List<Long> validPositions)
     {
+        Preconditions.checkNotNull(valueBlock, "valueBlock is null");
+        Preconditions.checkNotNull(validPositions, "validPositions is null");
+        Preconditions.checkArgument(!validPositions.isEmpty(), "validPositions is empty");
+
         this.valueBlock = valueBlock;
-        this.validPositions = validPositions;
+        this.validPositions = ImmutableList.copyOf(validPositions);
     }
 
     @Override
@@ -86,8 +92,11 @@ public class MaskedValueBlock implements ValueBlock
             } else {
                 // advance until the next position is after current value end position
                 long currentValueEndPosition = valueCursor.getValuePositionEnd();
-                while (validPositions.advanceNextPosition() && currentValueEndPosition <= validPositions.getPosition());
-                if (currentValueEndPosition <= validPositions.getPosition()) {
+
+                while (validPositions.advanceNextPosition() && validPositions.getPosition() <= currentValueEndPosition){
+                }
+
+                if (validPositions.getPosition() <= currentValueEndPosition) {
                     return false;
                 }
             }

@@ -60,8 +60,8 @@ public class UncompressedSliceCursor
             index++;
             offset += size;
             size = block.getSlice().getShort(offset);
-        return true;
-    }
+            return true;
+        }
         else if (iterator.hasNext()) {
             // next value is within the next block
             // advance to next block
@@ -74,7 +74,7 @@ public class UncompressedSliceCursor
         else {
             // no more data
             block = null;
-            index = -1;
+            index = Integer.MAX_VALUE;
             offset = -1;
             size = -1;
             return false;
@@ -105,12 +105,12 @@ public class UncompressedSliceCursor
         if (index < 0 || newPosition > block.getRange().getEnd()) {
             while (newPosition > block.getRange().getEnd() && iterator.hasNext()) {
                 block = iterator.next();
-        }
+            }
 
             // is the position off the end of the stream?
             if (newPosition > block.getRange().getEnd()) {
                 block = null;
-                index = -1;
+                index = Integer.MAX_VALUE;
                 offset = -1;
                 size = -1;
                 return false;
@@ -136,7 +136,7 @@ public class UncompressedSliceCursor
     public Tuple getTuple()
     {
         Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
-        if (block == null)  {
+        if (block == null) {
             throw new NoSuchElementException();
         }
         return new Tuple(block.getSlice().slice(offset, size), INFO);
@@ -152,7 +152,7 @@ public class UncompressedSliceCursor
     public Slice getSlice(int field)
     {
         Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
-        if (block == null)  {
+        if (block == null) {
             throw new NoSuchElementException();
         }
         Preconditions.checkElementIndex(0, 1, "field");
@@ -163,7 +163,7 @@ public class UncompressedSliceCursor
     public long getPosition()
     {
         Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
-        if (block == null)  {
+        if (block == null) {
             throw new NoSuchElementException();
         }
         return block.getRange().getStart() + index;
@@ -179,7 +179,7 @@ public class UncompressedSliceCursor
     public boolean currentValueEquals(Tuple value)
     {
         Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
-        if (block == null)  {
+        if (block == null) {
             throw new NoSuchElementException();
         }
         Slice tupleSlice = value.getTupleSlice();

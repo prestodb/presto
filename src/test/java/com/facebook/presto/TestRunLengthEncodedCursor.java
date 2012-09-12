@@ -128,11 +128,7 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         RunLengthEncodedCursor cursor = createCursor();
 
         // first, advance to end of first block
-        CursorAssertions.assertNextPosition(cursor, 0, "apple");
-        CursorAssertions.assertNextPosition(cursor, 1, "apple");
-        CursorAssertions.assertNextPosition(cursor, 2, "apple");
-        CursorAssertions.assertNextPosition(cursor, 3, "apple");
-        CursorAssertions.assertNextPosition(cursor, 4, "apple");
+        assertTrue(cursor.advanceToPosition(4));
 
         // force jump to next block
         CursorAssertions.assertNextPosition(cursor, 5, "banana");
@@ -145,11 +141,7 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         RunLengthEncodedCursor cursor = createCursor();
 
         // first, advance to end of first block
-        CursorAssertions.assertNextPosition(cursor, 0, "apple");
-        CursorAssertions.assertNextPosition(cursor, 1, "apple");
-        CursorAssertions.assertNextPosition(cursor, 2, "apple");
-        CursorAssertions.assertNextPosition(cursor, 3, "apple");
-        CursorAssertions.assertNextPosition(cursor, 4, "apple");
+        assertTrue(cursor.advanceToPosition(4));
 
         // force jump to next block
         CursorAssertions.assertNextValue(cursor, 5, "banana");
