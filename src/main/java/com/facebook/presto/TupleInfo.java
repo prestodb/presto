@@ -2,6 +2,7 @@ package com.facebook.presto;
 
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.Slice;
+import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -197,6 +198,25 @@ public class TupleInfo
         return slice.getShort(offset + getTupleSizeOffset());
     }
 
+    /**
+     * Extract the byte length of the Tuple Slice at the head of sliceInput
+     * (Does not have any side effects on sliceInput position)
+     */
+    public int size(SliceInput sliceInput)
+    {
+        if (size != -1) {
+            return size;
+        }
+
+        // length of the tuple is located in the "last" fixed-width slot
+        // this makes variable length column size easy to calculate
+        int originalPosition = sliceInput.position();
+        sliceInput.skipBytes(getTupleSizeOffset());
+        int tupleSize = sliceInput.readShort();
+        sliceInput.setPosition(originalPosition);
+        return tupleSize;
+    }
+
     public long getLong(Slice slice, int field)
     {
         return getLong(slice, 0, field);
@@ -243,6 +263,21 @@ public class TupleInfo
 
         // this works because positions of variable length fields are laid out in the same order as the actual data
         return slice.slice(offset + start, end - start);
+    }
+
+    /**
+     * Extracts the Slice representation of a Tuple with this TupleInfo format from the head of a larger Slice.
+     */
+    public Slice extractTupleSlice(SliceInput sliceInput) {
+        int tupleSliceSize = size(sliceInput);
+        return sliceInput.readSlice(tupleSliceSize);
+    }
+
+    /**
+     * Extracts a Tuple with this TupleInfo format from the head of a Slice.
+     */
+    public Tuple extractTuple(SliceInput sliceInput) {
+        return new Tuple(extractTupleSlice(sliceInput), this);
     }
 
     public boolean equals(int field, Slice block, int tupleOffset, Slice value)
