@@ -49,6 +49,10 @@ public class ValueCursor implements Cursor
     @Override
     public boolean advanceNextValue()
     {
+        if (blockCursor == null) {
+            return false;
+        }
+
         isValid = true;
         if (!blockCursor.advanceToNextValue()) {
             if (iterator.hasNext()) {
@@ -65,8 +69,12 @@ public class ValueCursor implements Cursor
     @Override
     public boolean advanceNextPosition()
     {
+        if (blockCursor == null) {
+            return false;
+        }
+
         isValid = true;
-        return (blockCursor != null && blockCursor.advanceNextPosition()) || advanceNextValue();
+        return blockCursor.advanceNextPosition() || advanceNextValue();
     }
 
     @Override
@@ -132,7 +140,7 @@ public class ValueCursor implements Cursor
     @Override
     public boolean advanceToPosition(long newPosition)
     {
-        Preconditions.checkArgument(blockCursor == null || newPosition >= getPosition(), "Can't advance backwards");
+        Preconditions.checkArgument(!isValid|| newPosition >= getPosition(), "Can't advance backwards");
 
         if (blockCursor == null) {
             return false;
