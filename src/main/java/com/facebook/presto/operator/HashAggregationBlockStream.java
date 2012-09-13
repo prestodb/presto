@@ -1,17 +1,16 @@
 package com.facebook.presto.operator;
 
-import com.facebook.presto.Range;
+import com.facebook.presto.Tuple;
+import com.facebook.presto.TupleInfo;
+import com.facebook.presto.TupleInfo.Type;
+import com.facebook.presto.aggregation.AggregationFunction;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
-import com.facebook.presto.Tuple;
-import com.facebook.presto.TupleInfo;
-import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.block.uncompressed.UncompressedCursor;
 import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
-import com.facebook.presto.block.Block;
-import com.facebook.presto.aggregation.AggregationFunction;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -90,7 +89,9 @@ public class HashAggregationBlockStream
                             aggregation = functionProvider.get();
                             aggregationMap.put(key, aggregation);
                         }
-                        aggregation.add(aggregationCursor, new Range(groupByCursor.getPosition(), groupByCursor.getCurrentValueEndPosition()));
+                        if (aggregationCursor.advanceToPosition(groupByCursor.getPosition())) {
+                            aggregation.add(aggregationCursor, groupByCursor.getCurrentValueEndPosition());
+                        }
                     }
 
                     this.aggregations = aggregationMap.entrySet().iterator();
