@@ -11,6 +11,8 @@ import com.google.common.primitives.Ints;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.SizeOf.SIZE_OF_DOUBLE;
+import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
 import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
 import static com.facebook.presto.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
@@ -43,8 +45,8 @@ public class TupleInfo
 
     public enum Type
     {
-        FIXED_INT_64(8),
-        DOUBLE(8),
+        FIXED_INT_64(SIZE_OF_LONG),
+        DOUBLE(SIZE_OF_DOUBLE),
         VARIABLE_BINARY(-1);
 
         private final int size;

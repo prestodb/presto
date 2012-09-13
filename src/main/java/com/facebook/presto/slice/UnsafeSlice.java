@@ -374,7 +374,7 @@ public class UnsafeSlice extends AbstractSlice
         UnsafeSlice that = (UnsafeSlice) slice;
         int offset = 0;
         int length = size;
-        while (length >= 8) {
+        while (length >= SIZE_OF_LONG) {
             long thisLong = unsafe.getLong(this.address + offset);
             long thatLong = unsafe.getLong(that.address + offset);
 
@@ -382,8 +382,8 @@ public class UnsafeSlice extends AbstractSlice
                 return false;
             }
 
-            offset += 8;
-            length -= 8;
+            offset += SIZE_OF_LONG;
+            length -= SIZE_OF_LONG;
         }
 
         while (length > 0) {
@@ -434,7 +434,7 @@ public class UnsafeSlice extends AbstractSlice
 
         UnsafeSlice that = (UnsafeSlice) other;
 
-        while (length >= 8) {
+        while (length >= SIZE_OF_LONG) {
             long thisLong = unsafe.getLong(this.address + offset);
             long thatLong = unsafe.getLong(that.address + otherOffset);
 
@@ -442,9 +442,9 @@ public class UnsafeSlice extends AbstractSlice
                 return false;
             }
 
-            offset += 8;
-            otherOffset += 8;
-            length -= 8;
+            offset += SIZE_OF_LONG;
+            otherOffset += SIZE_OF_LONG;
+            length -= SIZE_OF_LONG;
         }
 
         while (length > 0) {
