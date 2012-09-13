@@ -24,6 +24,12 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.ScatteringByteChannel;
 import java.nio.charset.Charset;
 
+import static com.facebook.presto.SizeOf.SIZE_OF_BYTE;
+import static com.facebook.presto.SizeOf.SIZE_OF_DOUBLE;
+import static com.facebook.presto.SizeOf.SIZE_OF_INT;
+import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
+import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
+
 public class DynamicSliceOutput extends SliceOutput
 {
     private Slice slice;
@@ -61,40 +67,41 @@ public class DynamicSliceOutput extends SliceOutput
     @Override
     public void writeByte(int value)
     {
-        slice = Slices.ensureSize(slice, size + 1);
-        slice.setByte(size++, value);
+        slice = Slices.ensureSize(slice, size + SIZE_OF_BYTE);
+        slice.setByte(size, value);
+        size += SIZE_OF_BYTE;
     }
 
     @Override
     public void writeShort(int value)
     {
-        slice = Slices.ensureSize(slice, size + 2);
+        slice = Slices.ensureSize(slice, size + SIZE_OF_SHORT);
         slice.setShort(size, value);
-        size += 2;
+        size += SIZE_OF_SHORT;
     }
 
     @Override
     public void writeInt(int value)
     {
-        slice = Slices.ensureSize(slice, size + 4);
+        slice = Slices.ensureSize(slice, size + SIZE_OF_INT);
         slice.setInt(size, value);
-        size += 4;
+        size += SIZE_OF_INT;
     }
 
     @Override
     public void writeLong(long value)
     {
-        slice = Slices.ensureSize(slice, size + 8);
+        slice = Slices.ensureSize(slice, size + SIZE_OF_LONG);
         slice.setLong(size, value);
-        size += 8;
+        size += SIZE_OF_LONG;
     }
 
     @Override
     public void writeDouble(double value)
     {
-        slice = Slices.ensureSize(slice, size + 8);
+        slice = Slices.ensureSize(slice, size + SIZE_OF_DOUBLE);
         slice.setDouble(size, value);
-        size += 8;
+        size += SIZE_OF_DOUBLE;
     }
 
     @Override

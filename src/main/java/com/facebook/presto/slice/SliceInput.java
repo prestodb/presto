@@ -10,6 +10,10 @@ import java.nio.ByteBuffer;
 import java.nio.channels.GatheringByteChannel;
 import java.nio.charset.Charset;
 
+import static com.facebook.presto.SizeOf.SIZE_OF_INT;
+import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
+import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
+
 public final class SliceInput extends InputStream implements DataInput
 {
     private final Slice slice;
@@ -109,7 +113,7 @@ public final class SliceInput extends InputStream implements DataInput
     public short readShort()
     {
         short v = slice.getShort(position);
-        position += 2;
+        position += SIZE_OF_SHORT;
         return v;
     }
 
@@ -129,7 +133,7 @@ public final class SliceInput extends InputStream implements DataInput
     public int readInt()
     {
         int v = slice.getInt(position);
-        position += 4;
+        position += SIZE_OF_INT;
         return v;
     }
 
@@ -153,7 +157,7 @@ public final class SliceInput extends InputStream implements DataInput
     public long readLong()
     {
         long v = slice.getLong(position);
-        position += 8;
+        position += SIZE_OF_LONG;
         return v;
     }
 
