@@ -3,6 +3,12 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.block.uncompressed.UncompressedColumnWriter;
+import com.facebook.presto.ingest.ColumnProcessor;
+import com.facebook.presto.ingest.ColumnProcessors;
+import com.facebook.presto.ingest.CsvReader;
+import com.facebook.presto.ingest.RowSource;
+import com.facebook.presto.ingest.RowSourceBuilder;
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -24,9 +30,9 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-import static com.facebook.presto.CsvReader.CsvColumnProcessor;
-import static com.facebook.presto.CsvReader.csvNumericColumn;
-import static com.facebook.presto.CsvReader.csvStringColumn;
+import static com.facebook.presto.ingest.CsvReader.CsvColumnProcessor;
+import static com.facebook.presto.ingest.CsvReader.csvNumericColumn;
+import static com.facebook.presto.ingest.CsvReader.csvStringColumn;
 import static com.facebook.presto.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;

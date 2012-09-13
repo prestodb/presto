@@ -1,5 +1,6 @@
 package com.facebook.presto;
 
+import com.facebook.presto.block.Block;
 import com.google.common.collect.PeekingIterator;
 
 public interface SeekableIterator<T extends Block>
