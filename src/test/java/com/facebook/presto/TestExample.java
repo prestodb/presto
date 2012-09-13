@@ -55,6 +55,7 @@ public class TestExample
                 .add(new UncompressedPositionBlock(40L, 41L, 42L))
                 .build();
 
-        return new DataScan3(new UncompressedBlockStream(new TupleInfo(VARIABLE_BINARY), values), new ValueBlockStream<>(new TupleInfo(), positions));
+        TupleInfo tupleInfo = new TupleInfo(VARIABLE_BINARY);
+        return new DataScan3(tupleInfo, new UncompressedBlockStream(tupleInfo, values), new ValueBlockStream<>(new TupleInfo(), positions));
     }
 }

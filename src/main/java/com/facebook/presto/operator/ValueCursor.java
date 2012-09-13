@@ -150,7 +150,7 @@ public class ValueCursor implements Cursor
     @Override
     public boolean advanceToPosition(long newPosition)
     {
-        Preconditions.checkArgument(!isValid|| newPosition >= getPosition(), "Can't advance backwards");
+        Preconditions.checkArgument(!isValid || newPosition >= getPosition(), "Can't advance backwards");
 
         if (blockCursor == null) {
             return false;

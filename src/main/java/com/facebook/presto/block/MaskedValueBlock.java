@@ -94,12 +94,11 @@ public class MaskedValueBlock implements Block
                 // advance until the next position is after current value end position
                 long currentValueEndPosition = valueCursor.getValuePositionEnd();
 
-                while (validPositions.advanceNextPosition() && validPositions.getPosition() <= currentValueEndPosition){
-                }
-
-                if (validPositions.getPosition() <= currentValueEndPosition) {
-                    return false;
-                }
+                do {
+                    if (!validPositions.advanceNextPosition()) {
+                        return false;
+                    }
+                } while (validPositions.getPosition() <= currentValueEndPosition);
             }
 
             // move value cursor to to next position

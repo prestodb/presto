@@ -1,11 +1,11 @@
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockStream;
-import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.MaskedValueBlock;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.BlockStream;
+import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.MaskedValueBlock;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
@@ -15,11 +15,13 @@ import java.util.List;
 public class DataScan3
         implements BlockStream<Block>
 {
-    private final BlockStream<? extends Block> source;
+    private final TupleInfo tupleInfo;
+    private final Iterable<? extends Block> source;
     private final BlockStream<? extends Block> positions;
 
-    public DataScan3(BlockStream<? extends Block> source, BlockStream<? extends Block> positions)
+    public DataScan3(TupleInfo tupleInfo, Iterable<? extends Block> source, BlockStream<? extends Block> positions)
     {
+        this.tupleInfo = tupleInfo;
         this.source = source;
         this.positions = positions;
     }
@@ -27,44 +29,42 @@ public class DataScan3
     @Override
     public TupleInfo getTupleInfo()
     {
-        return source.getTupleInfo();
+        return tupleInfo;
     }
 
-    @Override
     public Iterator<Block> iterator()
     {
         return new AbstractIterator<Block>()
         {
             Iterator<? extends Block> valueBlocks = source.iterator();
-            Iterator<? extends Block> positionBlocks = positions.iterator();
-            Block currentPositionBlock = positionBlocks.next();
-
+            Cursor positionsCursor = positions.cursor();
+            {
+                positionsCursor.advanceNextPosition();
+            }
             @Override
             protected Block computeNext()
             {
                 while (valueBlocks.hasNext()) {
                     Block currentValueBlock = valueBlocks.next();
 
-                    // advance current position block to value block
-                    while (currentPositionBlock.getRange().getEnd() < currentValueBlock.getRange().getStart()) {
-                        if (!positionBlocks.hasNext()) {
-                            endOfData();
-                            return null;
-                        }
-                        currentPositionBlock = positionBlocks.next();
+                    // advance current position cursor to value block
+                    if (positionsCursor.getPosition() < currentValueBlock.getRange().getStart() &&
+                            !positionsCursor.advanceToPosition(currentValueBlock.getRange().getStart())) {
+                        // no more positions
+                        endOfData();
+                        return null;
                     }
 
-                    // get all position blocks that overlap with the value block
-                    ImmutableList.Builder<Block> positionsForCurrentBlock = ImmutableList.builder();
-                    while (positionBlocks.hasNext() && currentPositionBlock.getRange().getEnd() < currentValueBlock.getRange().getEnd()) {
-                        positionsForCurrentBlock.add(currentPositionBlock);
-                        currentPositionBlock = positionBlocks.next();
+                    // if the position cursor is past the current block end, continue with the next block
+                    if (positionsCursor.getPosition() > currentValueBlock.getRange().getEnd()) {
+                        continue;
                     }
 
-                    // if current position block overlaps with value block, add it
-                    if (currentPositionBlock.getRange().overlaps(currentValueBlock.getRange()))  {
-                        positionsForCurrentBlock.add(currentPositionBlock);
-                    }
+                    // get all positions that overlap with the value block
+                    ImmutableList.Builder<Long> positionsForCurrentBlock = ImmutableList.builder();
+                    do {
+                        positionsForCurrentBlock.add(positionsCursor.getPosition());
+                    } while (positionsCursor.advanceNextPosition() && positionsCursor.getPosition() <= currentValueBlock.getRange().getEnd());
 
                     // if the value block and the position blocks have and positions in common, output a block
                     List<Long> validPositions = getValidPositions(currentValueBlock, positionsForCurrentBlock.build());
@@ -76,26 +76,22 @@ public class DataScan3
                 return null;
             }
 
-            private List<Long> getValidPositions(Block currentValueBlock, List<Block> positionsForCurrentBlock)
+            private List<Long> getValidPositions(Block currentValueBlock, List<Long> positionsForCurrentBlock)
             {
                 ImmutableList.Builder<Long> validPositions = ImmutableList.builder();
 
                 BlockCursor valueCursor = currentValueBlock.blockCursor();
                 valueCursor.advanceNextPosition();
 
-                for (Block positionBlock : positionsForCurrentBlock) {
-                    BlockCursor positionCursor = positionBlock.blockCursor();
-                    while (positionCursor.advanceNextPosition()) {
-                        long nextPosition = positionCursor.getPosition();
-                        if (nextPosition > valueCursor.getRange().getEnd()) {
-                            break;
-                        }
-                        if (nextPosition > valueCursor.getPosition()) {
-                            valueCursor.advanceToPosition(nextPosition);
-                        }
-                        if (valueCursor.getPosition() == nextPosition) {
-                            validPositions.add(nextPosition);
-                        }
+                for (Long nextPosition : positionsForCurrentBlock) {
+                    if (nextPosition > valueCursor.getRange().getEnd()) {
+                        break;
+                    }
+                    if (nextPosition > valueCursor.getPosition()) {
+                        valueCursor.advanceToPosition(nextPosition);
+                    }
+                    if (valueCursor.getPosition() == nextPosition) {
+                        validPositions.add(nextPosition);
                     }
                 }
                 return validPositions.build();
