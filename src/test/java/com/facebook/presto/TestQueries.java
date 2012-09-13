@@ -40,9 +40,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
+import static com.facebook.presto.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
-import static com.facebook.presto.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.ingest.RowSourceBuilder.RowGenerator;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
@@ -201,6 +201,9 @@ public class TestQueries
                     case FIXED_INT_64:
                         rowBuilder.append(Long.parseLong(value));
                         break;
+                    case DOUBLE:
+                        rowBuilder.append(Double.parseDouble(value));
+                        break;
                     case VARIABLE_BINARY:
                         rowBuilder.append(value.getBytes(Charsets.UTF_8));
                         break;
@@ -252,6 +255,9 @@ public class TestQueries
                     switch (type) {
                         case FIXED_INT_64:
                             builder.append(rs.getLong(i));
+                            break;
+                        case DOUBLE:
+                            builder.append(rs.getDouble(i));
                             break;
                         case VARIABLE_BINARY:
                             String value = rs.getString(i);
