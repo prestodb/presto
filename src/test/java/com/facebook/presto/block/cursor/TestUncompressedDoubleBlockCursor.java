@@ -8,7 +8,7 @@ import org.testng.annotations.Test;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-public class TestUncompressedLongBlockCursor extends AbstractTestUncompressedLongBlockCursor
+public class TestUncompressedDoubleBlockCursor extends AbstractTestUncompressedDoubleBlockCursor
 {
     @Test
     public void testGetSlice()
@@ -32,11 +32,11 @@ public class TestUncompressedLongBlockCursor extends AbstractTestUncompressedLon
     }
 
     @Test
-    public void testGetDouble()
+    public void testGetLong()
     {
         BlockCursor cursor = createCursor();
         try {
-            cursor.getDouble(0);
+            cursor.getLong(0);
             fail("Expected UnsupportedOperationException");
         }
         catch (UnsupportedOperationException expected) {
@@ -45,7 +45,7 @@ public class TestUncompressedLongBlockCursor extends AbstractTestUncompressedLon
         assertTrue(cursor.advanceToNextValue());
 
         try {
-            cursor.getDouble(0);
+            cursor.getLong(0);
             fail("Expected UnsupportedOperationException");
         }
         catch (UnsupportedOperationException expected) {
@@ -55,6 +55,6 @@ public class TestUncompressedLongBlockCursor extends AbstractTestUncompressedLon
     @Override
     protected BlockCursor createCursor()
     {
-        return new UncompressedLongBlockCursor(createTestBlock());
+        return new UncompressedDoubleBlockCursor(createTestBlock());
     }
 }

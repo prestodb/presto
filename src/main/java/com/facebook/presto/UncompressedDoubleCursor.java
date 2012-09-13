@@ -6,33 +6,32 @@ import com.google.common.base.Preconditions;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-public class UncompressedCursor
+import static com.facebook.presto.SizeOf.SIZE_OF_DOUBLE;
+import static com.facebook.presto.TupleInfo.Type.DOUBLE;
+
+public class UncompressedDoubleCursor
         implements Cursor
 {
+    private static final TupleInfo INFO = new TupleInfo(DOUBLE);
+
     private final Iterator<UncompressedValueBlock> iterator;
-    private final TupleInfo info;
 
     private UncompressedValueBlock block;
     private int index = -1;
     private int offset = -1;
-    private int size = -1;
 
-    public UncompressedCursor(TupleInfo info, Iterator<UncompressedValueBlock> iterator)
+    public UncompressedDoubleCursor(Iterator<UncompressedValueBlock> iterator)
     {
         Preconditions.checkNotNull(iterator, "iterator is null");
         Preconditions.checkArgument(iterator.hasNext(), "iterator is empty");
-        Preconditions.checkNotNull(info, "info is null");
-
-        this.info = info;
         this.iterator = iterator;
-
         block = iterator.next();
     }
 
     @Override
     public TupleInfo getTupleInfo()
     {
-        return info;
+        return INFO;
     }
 
     @Override
@@ -52,23 +51,20 @@ public class UncompressedCursor
             // next value is within the current block
             index = 0;
             offset = 0;
-            size = info.size(block.getSlice(), offset);
             return true;
         }
         else if (index < block.getCount() - 1) {
             // next value is within the current block
             index++;
-            offset += size;
-            size = info.size(block.getSlice(), offset);
-            return true;
-        }
+            offset += SIZE_OF_DOUBLE;
+        return true;
+    }
         else if (iterator.hasNext()) {
             // next value is within the next block
             // advance to next block
             block = iterator.next();
             index = 0;
             offset = 0;
-            size = info.size(block.getSlice(), offset);
             return true;
         }
         else {
@@ -76,7 +72,6 @@ public class UncompressedCursor
             block = null;
             index = -1;
             offset = -1;
-            size = -1;
             return false;
         }
     }
@@ -105,28 +100,25 @@ public class UncompressedCursor
         if (index < 0 || newPosition > block.getRange().getEnd()) {
             while (newPosition > block.getRange().getEnd() && iterator.hasNext()) {
                 block = iterator.next();
-            }
+        }
 
             // is the position off the end of the stream?
             if (newPosition > block.getRange().getEnd()) {
                 block = null;
                 index = -1;
                 offset = -1;
-                size = -1;
                 return false;
             }
 
             // point to first entry in the block we skipped to
             index = 0;
             offset = 0;
-            size = info.size(block.getSlice(), offset);
         }
 
         // skip to index within block
         while (block.getRange().getStart() + index < newPosition) {
             index++;
-            offset += size;
-            size = info.size(block.getSlice(), offset);
+            offset += SIZE_OF_DOUBLE;
         }
 
         return true;
@@ -139,18 +131,13 @@ public class UncompressedCursor
         if (block == null)  {
             throw new NoSuchElementException();
         }
-        Slice slice = block.getSlice();
-        return new Tuple(slice.slice(offset, size), info);
+        return new Tuple(block.getSlice().slice(offset, SizeOf.SIZE_OF_DOUBLE), INFO);
     }
 
     @Override
     public long getLong(int field)
     {
-        Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
-        if (block == null)  {
-            throw new NoSuchElementException();
-        }
-        return info.getLong(block.getSlice(), offset, field);
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -160,17 +147,14 @@ public class UncompressedCursor
         if (block == null)  {
             throw new NoSuchElementException();
         }
-        return info.getDouble(block.getSlice(), offset, field);
+        Preconditions.checkElementIndex(0, 1, "field");
+        return block.getSlice().getDouble(offset);
     }
 
     @Override
     public Slice getSlice(int field)
     {
-        Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
-        if (block == null)  {
-            throw new NoSuchElementException();
-        }
-        return info.getSlice(block.getSlice(), offset, field);
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -197,6 +181,8 @@ public class UncompressedCursor
             throw new NoSuchElementException();
         }
         Slice tupleSlice = value.getTupleSlice();
-        return block.getSlice().equals(offset, size, tupleSlice, 0, tupleSlice.length());
+        // compare using long which is simpler
+        return tupleSlice.length() == SIZE_OF_DOUBLE && block.getSlice().getLong(offset) == tupleSlice.getLong(0);
     }
+
 }

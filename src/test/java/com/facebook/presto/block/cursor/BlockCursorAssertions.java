@@ -52,4 +52,25 @@ public class BlockCursorAssertions
         assertEquals(blockCursor.getLong(0), tuple.getLong(0));
     }
 
+    public static void assertNextValue(BlockCursor blockCursor, long position, double value)
+    {
+        assertTrue(blockCursor.advanceToNextValue());
+        assertCurrentValue(blockCursor, position, value);
+    }
+
+    public static void assertNextPosition(BlockCursor blockCursor, long position, double value)
+    {
+        assertTrue(blockCursor.advanceNextPosition());
+        assertCurrentValue(blockCursor, position, value);
+    }
+
+    public static void assertCurrentValue(BlockCursor blockCursor, long position, double value)
+    {
+        Tuple tuple = Tuples.createTuple(value);
+        assertEquals(blockCursor.getTuple(), tuple);
+        assertEquals(blockCursor.getPosition(), position);
+        assertEquals(blockCursor.getValuePositionEnd(), position);
+        assertTrue(blockCursor.tupleEquals(tuple));
+        assertEquals(blockCursor.getDouble(0), tuple.getDouble(0));
+    }
 }

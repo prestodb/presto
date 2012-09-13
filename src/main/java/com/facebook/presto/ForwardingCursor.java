@@ -62,6 +62,12 @@ public class ForwardingCursor implements Cursor
     }
 
     @Override
+    public double getDouble(int field)
+    {
+        return cursor.getDouble(field);
+    }
+
+    @Override
     public Slice getSlice(int field)
     {
         return cursor.getSlice(field);

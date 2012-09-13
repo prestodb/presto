@@ -3,12 +3,12 @@
  */
 package com.facebook.presto.block.cursor;
 
+import com.facebook.presto.Blocks;
 import com.facebook.presto.Range;
 import com.facebook.presto.UncompressedValueBlock;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.Blocks.createBlock;
 import static com.facebook.presto.block.cursor.BlockCursorAssertions.assertCurrentValue;
 import static com.facebook.presto.block.cursor.BlockCursorAssertions.assertNextPosition;
 import static com.facebook.presto.block.cursor.BlockCursorAssertions.assertNextValue;
@@ -175,7 +175,7 @@ public abstract class AbstractTestUncompressedLongBlockCursor extends AbstractTe
 
     protected UncompressedValueBlock createTestBlock()
     {
-        return createBlock(0, 1111L, 1111L, 1111L, 2222L, 2222L, 2222L, 2222L, 2222L, 3333L, 3333L, 4444L);
+        return Blocks.createLongsBlock(0, 1111L, 1111L, 1111L, 2222L, 2222L, 2222L, 2222L, 2222L, 3333L, 3333L, 4444L);
     }
 
     protected abstract BlockCursor createCursor();

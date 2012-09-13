@@ -9,6 +9,7 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_BYTE;
+import static com.facebook.presto.SizeOf.SIZE_OF_DOUBLE;
 import static com.facebook.presto.SizeOf.SIZE_OF_INT;
 import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
 import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
@@ -69,6 +70,13 @@ public final class ByteBufferSlice
     {
         checkIndexLength(index, SIZE_OF_LONG);
         return buffer.getLong(index);
+    }
+
+    @Override
+    public double getDouble(int index)
+    {
+        checkIndexLength(index, SIZE_OF_DOUBLE);
+        return buffer.getDouble(index);
     }
 
     @Override
@@ -154,6 +162,12 @@ public final class ByteBufferSlice
     public void setLong(int index, long value)
     {
         buffer.putLong(index, value);
+    }
+
+    @Override
+    public void setDouble(int index, double value)
+    {
+        buffer.putDouble(index, value);
     }
 
     @Override

@@ -22,6 +22,7 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_BYTE;
+import static com.facebook.presto.SizeOf.SIZE_OF_DOUBLE;
 import static com.facebook.presto.SizeOf.SIZE_OF_INT;
 import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
 import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
@@ -132,6 +133,13 @@ public class UnsafeSlice extends AbstractSlice
     }
 
     @Override
+    public double getDouble(int index)
+    {
+        checkIndexLength(index, SIZE_OF_DOUBLE);
+        return unsafe.getDouble(address + index);
+    }
+
+    @Override
     public void getBytes(int index, Slice destination, int destinationIndex, int length)
     {
         destination.setBytes(destinationIndex, this, index, length);
@@ -207,6 +215,13 @@ public class UnsafeSlice extends AbstractSlice
     {
         checkIndexLength(index, SIZE_OF_LONG);
         unsafe.putLong(address + index, value);
+    }
+
+    @Override
+    public void setDouble(int index, double value)
+    {
+        checkIndexLength(index, SIZE_OF_DOUBLE);
+        unsafe.putDouble(address + index, value);
     }
 
     @Override
@@ -359,7 +374,7 @@ public class UnsafeSlice extends AbstractSlice
         UnsafeSlice that = (UnsafeSlice) slice;
         int offset = 0;
         int length = size;
-        while (length >= 8) {
+        while (length >= SIZE_OF_LONG) {
             long thisLong = unsafe.getLong(this.address + offset);
             long thatLong = unsafe.getLong(that.address + offset);
 
@@ -367,8 +382,8 @@ public class UnsafeSlice extends AbstractSlice
                 return false;
             }
 
-            offset += 8;
-            length -= 8;
+            offset += SIZE_OF_LONG;
+            length -= SIZE_OF_LONG;
         }
 
         while (length > 0) {
@@ -419,7 +434,7 @@ public class UnsafeSlice extends AbstractSlice
 
         UnsafeSlice that = (UnsafeSlice) other;
 
-        while (length >= 8) {
+        while (length >= SIZE_OF_LONG) {
             long thisLong = unsafe.getLong(this.address + offset);
             long thatLong = unsafe.getLong(that.address + otherOffset);
 
@@ -427,9 +442,9 @@ public class UnsafeSlice extends AbstractSlice
                 return false;
             }
 
-            offset += 8;
-            otherOffset += 8;
-            length -= 8;
+            offset += SIZE_OF_LONG;
+            otherOffset += SIZE_OF_LONG;
+            length -= SIZE_OF_LONG;
         }
 
         while (length > 0) {
