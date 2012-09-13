@@ -1,7 +1,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.aggregation.CountAggregation;
-import com.facebook.presto.aggregation.SumAggregation;
+import com.facebook.presto.aggregation.DoubleSumAggregation;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.ingest.RowSourceBuilder;
@@ -142,14 +142,14 @@ public class TestQueries
     public void testGroupBySum()
     {
         List<Tuple> expected = computeExpected(
-                "SELECT orderstatus, SUM(custkey) FROM orders GROUP BY orderstatus",
-                VARIABLE_BINARY, FIXED_INT_64);
+                "SELECT orderstatus, SUM(totalprice) FROM orders GROUP BY orderstatus",
+                VARIABLE_BINARY, DOUBLE);
 
         BlockStream groupBySource = createBlockStream(ordersData, Column.ORDER_ORDERSTATUS, VARIABLE_BINARY);
         BlockStream aggregateSource = createBlockStream(ordersData, Column.ORDER_TOTALPRICE, DOUBLE);
 
         GroupByBlockStream groupBy = new GroupByBlockStream(groupBySource);
-        HashAggregationBlockStream aggregation = new HashAggregationBlockStream(groupBy, aggregateSource, SumAggregation.PROVIDER);
+        HashAggregationBlockStream aggregation = new HashAggregationBlockStream(groupBy, aggregateSource, DoubleSumAggregation.PROVIDER);
 
         assertEqualsIgnoreOrder(tuples(aggregation), expected);
     }
