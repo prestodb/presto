@@ -1,14 +1,12 @@
 package com.facebook.presto.block.dictionary;
 
-import com.facebook.presto.block.Cursor;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.Cursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.primitives.Ints;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkPositionIndex;
+import static com.google.common.base.Preconditions.*;
 
 public class DictionaryEncodedCursor implements Cursor
 {
@@ -76,8 +74,9 @@ public class DictionaryEncodedCursor implements Cursor
     public Slice getSlice(int field)
     {
         checkArgument(field == 0, "should only have one field");
-        // This should be very memory efficient since the returned cursor is just the cached dictionary value
-        return decodeSliceValue(Ints.checkedCast(sourceCursor.getLong(0)));
+        int dictionaryKey = Ints.checkedCast(sourceCursor.getLong(0));
+        checkPositionIndex(dictionaryKey, dictionary.length, "dictionaryKey does not exist");
+        return dictionary[dictionaryKey];
     }
 
     @Override
@@ -90,7 +89,7 @@ public class DictionaryEncodedCursor implements Cursor
     public boolean currentValueEquals(Tuple value)
     {
         checkNotNull(value, "value is null");
-        return value.size() == 1 && getSlice(0).equals(value.getTupleSlice());
+        return tupleInfo.equals(value.getTupleInfo()) && getSlice(0).equals(value.getTupleSlice());
     }
 
     @Override
@@ -103,10 +102,5 @@ public class DictionaryEncodedCursor implements Cursor
     public long getCurrentValueEndPosition()
     {
         return sourceCursor.getCurrentValueEndPosition();
-    }
-
-    private Slice decodeSliceValue(int dictionaryKey) {
-        checkPositionIndex(dictionaryKey, dictionary.length, "Invalid dictionary key");
-        return dictionary[dictionaryKey];
     }
 }

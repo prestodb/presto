@@ -3,14 +3,12 @@ package com.facebook.presto.block.dictionary;
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.ValueBlock;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.ValueBlock;
 import com.facebook.presto.slice.Slice;
-import com.google.common.base.Preconditions;
 import com.google.common.primitives.Ints;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.*;
 
 public class DictionaryEncodedBlock implements ValueBlock
 {
@@ -111,28 +109,24 @@ public class DictionaryEncodedBlock implements ValueBlock
         @Override
         public long getLong(int field)
         {
-            int dictionaryKey = Ints.checkedCast(getDictionaryKey());
-            Preconditions.checkPositionIndex(dictionaryKey, dictionary.length, "dictionaryKey does not exist");
-            return dictionary[dictionaryKey].getLong(0);
+            checkArgument(field == 0, "should only have one field");
+            return tupleInfo.getLong(getSlice(0), 0);
         }
 
         @Override
         public double getDouble(int field)
         {
-            return delegate.getDouble(field);
+            checkArgument(field == 0, "should only have one field");
+            return tupleInfo.getDouble(getSlice(0), 0);
         }
 
         @Override
         public Slice getSlice(int field)
         {
-            int dictionaryKey = Ints.checkedCast(getDictionaryKey());
-            Preconditions.checkPositionIndex(dictionaryKey, dictionary.length, "dictionaryKey does not exist");
+            checkArgument(field == 0, "should only have one field");
+            int dictionaryKey = Ints.checkedCast(delegate.getLong(0));
+            checkPositionIndex(dictionaryKey, dictionary.length, "dictionaryKey does not exist");
             return dictionary[dictionaryKey];
-        }
-
-        public int getDictionaryKey()
-        {
-            return (int) delegate.getLong(0);
         }
 
         @Override
