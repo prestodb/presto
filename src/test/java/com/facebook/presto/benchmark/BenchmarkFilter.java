@@ -1,9 +1,8 @@
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.Block;
 import com.facebook.presto.block.uncompressed.UncompressedBlockSerde;
 import com.facebook.presto.operator.DataScan2;
 import com.facebook.presto.slice.Slice;
@@ -23,7 +22,7 @@ public class BenchmarkFilter
             throws IOException, InterruptedException
     {
         File file = new File("data/columns//column4.data");  // long
-        Predicate<BlockCursor> predicate = new LongFilter(1_343_900_000_000L);
+        Predicate<Cursor> predicate = new LongFilter(1_343_900_000_000L);
 
 //        File file = new File("data/columns/column5.data");  // string
 //        Predicate<BlockCursor> predicate = new StringFilter(9);
@@ -75,7 +74,7 @@ public class BenchmarkFilter
         }
     }
 
-    public static class StringFilter implements Predicate<BlockCursor> {
+    public static class StringFilter implements Predicate<Cursor> {
 
         private final long minLength;
 
@@ -85,13 +84,13 @@ public class BenchmarkFilter
         }
 
         @Override
-        public boolean apply(@Nullable BlockCursor input)
+        public boolean apply(@Nullable Cursor input)
         {
             return input.getSlice(0).length() >= minLength;
         }
     }
 
-    public static class LongFilter implements Predicate<BlockCursor> {
+    public static class LongFilter implements Predicate<Cursor> {
 
         private final long minValue;
 
@@ -101,13 +100,13 @@ public class BenchmarkFilter
         }
 
         @Override
-        public boolean apply(@Nullable BlockCursor input)
+        public boolean apply(@Nullable Cursor input)
         {
             return input.getLong(0) >= minValue;
         }
     }
 
-    public static class DoubleFilter implements Predicate<BlockCursor> {
+    public static class DoubleFilter implements Predicate<Cursor> {
 
         private final double minValue;
 
@@ -117,7 +116,7 @@ public class BenchmarkFilter
         }
 
         @Override
-        public boolean apply(@Nullable BlockCursor input)
+        public boolean apply(@Nullable Cursor input)
         {
             return input.getDouble(0) >= minValue;
         }
