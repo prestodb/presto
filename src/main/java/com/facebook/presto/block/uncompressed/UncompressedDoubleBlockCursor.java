@@ -21,7 +21,7 @@ public class UncompressedDoubleBlockCursor
     private long position = -1;
     private int offset = -1;
 
-    public UncompressedDoubleBlockCursor(UncompressedValueBlock block)
+    public UncompressedDoubleBlockCursor(UncompressedBlock block)
     {
         this(checkNotNull(block, "block is null").getSlice(), block.getRange());
     }

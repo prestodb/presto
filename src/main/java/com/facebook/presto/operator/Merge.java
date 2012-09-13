@@ -5,7 +5,7 @@ import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
@@ -13,7 +13,7 @@ import java.util.Iterator;
 import java.util.List;
 
 public class Merge
-        implements BlockStream, Iterable<UncompressedValueBlock>
+        implements BlockStream, Iterable<UncompressedBlock>
 {
     private final List<? extends BlockStream> sources;
     private final TupleInfo tupleInfo;
@@ -44,16 +44,16 @@ public class Merge
     @Override
     public Cursor cursor()
     {
-        return new ValueCursor(tupleInfo, iterator());
+        return new GenericCursor(tupleInfo, iterator());
     }
 
     @Override
-    public Iterator<UncompressedValueBlock> iterator()
+    public Iterator<UncompressedBlock> iterator()
     {
         return new MergeBlockIterator(this.tupleInfo, this.sources);
     }
 
-    private static class MergeBlockIterator extends AbstractIterator<UncompressedValueBlock>
+    private static class MergeBlockIterator extends AbstractIterator<UncompressedBlock>
     {
         private final TupleInfo tupleInfo;
         private final List<Cursor> cursors;
@@ -70,7 +70,7 @@ public class Merge
         }
 
         @Override
-        protected UncompressedValueBlock computeNext()
+        protected UncompressedBlock computeNext()
         {
             if (!advanceCursors()) {
                 endOfData();
@@ -86,7 +86,7 @@ public class Merge
                 }
             } while (!blockBuilder.isFull() && advanceCursors());
 
-            UncompressedValueBlock block = blockBuilder.build();
+            UncompressedBlock block = blockBuilder.build();
             position += block.getCount();
             return block;
         }

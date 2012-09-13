@@ -7,8 +7,8 @@ import com.facebook.presto.aggregation.AggregationFunction;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedCursor;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -20,7 +20,7 @@ import java.util.Iterator;
  * Group input data and produce a single block for each sequence of identical values.
  */
 public class PipelinedAggregationBlockStream
-    implements BlockStream, Iterable<UncompressedValueBlock>
+    implements BlockStream, Iterable<UncompressedBlock>
 {
     private final BlockStream groupBySource;
     private final BlockStream aggregationSource;
@@ -59,18 +59,18 @@ public class PipelinedAggregationBlockStream
     }
 
     @Override
-    public Iterator<UncompressedValueBlock> iterator()
+    public Iterator<UncompressedBlock> iterator()
     {
         final Cursor groupByCursor = groupBySource.cursor();
         final Cursor aggregationCursor = aggregationSource.cursor();
         aggregationCursor.advanceNextPosition();
 
-        return new AbstractIterator<UncompressedValueBlock>()
+        return new AbstractIterator<UncompressedBlock>()
         {
             private long position;
 
             @Override
-            protected UncompressedValueBlock computeNext()
+            protected UncompressedBlock computeNext()
             {
                 // if no more data, return null
                 if (!groupByCursor.advanceNextValue()) {
@@ -98,7 +98,7 @@ public class PipelinedAggregationBlockStream
                 while (!builder.isFull() && groupByCursor.advanceNextValue());
 
                 // build an output block
-                UncompressedValueBlock block = builder.build();
+                UncompressedBlock block = builder.build();
                 position += block.getCount();
                 return block;
             }

@@ -9,14 +9,14 @@ import com.facebook.presto.slice.Slice;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
-public class UncompressedValueBlock
+public class UncompressedBlock
         implements Block
 {
     private final Range range;
     private final TupleInfo info;
     private final Slice slice;
 
-    public UncompressedValueBlock(Range range, TupleInfo info, Slice slice)
+    public UncompressedBlock(Range range, TupleInfo info, Slice slice)
     {
         Preconditions.checkNotNull(range, "range is null");
         Preconditions.checkArgument(range.getStart() >= 0, "range start position is negative");

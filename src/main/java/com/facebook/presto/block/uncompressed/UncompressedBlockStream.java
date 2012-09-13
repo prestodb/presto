@@ -3,24 +3,24 @@ package com.facebook.presto.block.uncompressed;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.operator.ValueCursor;
+import com.facebook.presto.operator.GenericCursor;
 import com.google.common.base.Preconditions;
 
 import java.util.Arrays;
 import java.util.Iterator;
 
 public class UncompressedBlockStream
-        implements BlockStream, Iterable<UncompressedValueBlock>
+        implements BlockStream, Iterable<UncompressedBlock>
 {
     private final TupleInfo info;
-    private final Iterable<UncompressedValueBlock> source;
+    private final Iterable<UncompressedBlock> source;
 
-    public UncompressedBlockStream(TupleInfo info, UncompressedValueBlock... source)
+    public UncompressedBlockStream(TupleInfo info, UncompressedBlock... source)
     {
         this(info, Arrays.asList(source));
     }
 
-    public UncompressedBlockStream(TupleInfo info, Iterable<UncompressedValueBlock> source)
+    public UncompressedBlockStream(TupleInfo info, Iterable<UncompressedBlock> source)
     {
         Preconditions.checkNotNull(info, "info is null");
         Preconditions.checkNotNull(source, "source is null");
@@ -30,7 +30,7 @@ public class UncompressedBlockStream
     }
 
     @Override
-    public Iterator<UncompressedValueBlock> iterator()
+    public Iterator<UncompressedBlock> iterator()
     {
         return source.iterator();
     }
@@ -44,6 +44,6 @@ public class UncompressedBlockStream
     @Override
     public Cursor cursor()
     {
-        return new ValueCursor(info, source.iterator());
+        return new GenericCursor(info, source.iterator());
     }
 }

@@ -14,7 +14,7 @@ import com.google.common.base.Preconditions;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-public class ValueCursor implements Cursor
+public class GenericCursor implements Cursor
 {
     private final Iterator<? extends Block> iterator;
     private final TupleInfo info;
@@ -22,7 +22,7 @@ public class ValueCursor implements Cursor
     private BlockCursor blockCursor;
     private boolean isValid;
 
-    public ValueCursor(TupleInfo info, Iterator<? extends Block> iterator)
+    public GenericCursor(TupleInfo info, Iterator<? extends Block> iterator)
     {
         Preconditions.checkNotNull(iterator, "iterator is null");
         Preconditions.checkArgument(iterator.hasNext(), "iterator is empty");

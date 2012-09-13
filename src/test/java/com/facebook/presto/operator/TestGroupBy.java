@@ -8,8 +8,8 @@ import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.Assert;
@@ -76,7 +76,7 @@ public class TestGroupBy
 
     public BlockStream newGroupColumn()
     {
-        List<UncompressedValueBlock> values = ImmutableList.<UncompressedValueBlock>builder()
+        List<UncompressedBlock> values = ImmutableList.<UncompressedBlock>builder()
                 .add(createBlock(0, "apple", "apple", "apple", "apple", "banana", "banana"))
                 .add(createBlock(20, "banana", "banana", "banana", "cherry", "cherry", "cherry"))
                 .add(createBlock(30, "date"))

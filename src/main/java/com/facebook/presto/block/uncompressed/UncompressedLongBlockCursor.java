@@ -21,7 +21,7 @@ public class UncompressedLongBlockCursor
     private long position = -1;
     private int offset = -1;
 
-    public UncompressedLongBlockCursor(UncompressedValueBlock block)
+    public UncompressedLongBlockCursor(UncompressedBlock block)
     {
         this(checkNotNull(block, "block is null").getSlice(), block.getRange());
     }

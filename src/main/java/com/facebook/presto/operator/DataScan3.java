@@ -5,7 +5,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.MaskedValueBlock;
+import com.facebook.presto.block.MaskedBlock;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
@@ -69,7 +69,7 @@ public class DataScan3
                     // if the value block and the position blocks have and positions in common, output a block
                     List<Long> validPositions = getValidPositions(currentValueBlock, positionsForCurrentBlock.build());
                     if (!validPositions.isEmpty()) {
-                        return new MaskedValueBlock(currentValueBlock, validPositions);
+                        return new MaskedBlock(currentValueBlock, validPositions);
                     }
                 }
                 endOfData();
@@ -102,6 +102,6 @@ public class DataScan3
     @Override
     public Cursor cursor()
     {
-        return new ValueCursor(getTupleInfo(), iterator());
+        return new GenericCursor(getTupleInfo(), iterator());
     }
 }

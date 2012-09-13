@@ -10,12 +10,12 @@ import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 
-public class FilteredValueCursor implements Cursor
+public class FilteredCursor implements Cursor
 {
     private final Predicate<Cursor> predicate;
     private final Cursor delegate;
 
-    public FilteredValueCursor(Predicate<Cursor> predicate, Cursor delegate)
+    public FilteredCursor(Predicate<Cursor> predicate, Cursor delegate)
     {
         Preconditions.checkNotNull(predicate, "predicate is null");
         Preconditions.checkNotNull(delegate, "delegate is null");

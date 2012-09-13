@@ -5,7 +5,7 @@ import com.facebook.presto.aggregation.AggregationFunction;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
@@ -38,10 +38,10 @@ public class AggregationOperator
     @Override
     public Cursor cursor()
     {
-        return new ValueCursor(info, iterator());
+        return new GenericCursor(info, iterator());
     }
 
-    public Iterator<UncompressedValueBlock> iterator()
+    public Iterator<UncompressedBlock> iterator()
     {
         AggregationFunction function = functionProvider.get();
 
@@ -49,7 +49,7 @@ public class AggregationOperator
         cursor.advanceNextPosition();
         function.add(cursor, Long.MAX_VALUE);
 
-        UncompressedValueBlock block = new BlockBuilder(0, info)
+        UncompressedBlock block = new BlockBuilder(0, info)
                 .append(function.evaluate())
                 .build();
 

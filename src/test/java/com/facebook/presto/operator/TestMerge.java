@@ -5,8 +5,8 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -21,7 +21,7 @@ public class TestMerge
     @Test
     public void test()
     {
-        List<UncompressedValueBlock> values = ImmutableList.<UncompressedValueBlock>builder()
+        List<UncompressedBlock> values = ImmutableList.<UncompressedBlock>builder()
                 .add(createBlock(0, "a", "b", "c", "d", "e", "f", "g"))
                 .add(createBlock(20, "h", "i", "j", "k", "l", "m"))
                 .add(createBlock(30, "n", "o", "p", "q", "r", "s"))

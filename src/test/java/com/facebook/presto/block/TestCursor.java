@@ -1,9 +1,8 @@
 package com.facebook.presto.block;
 
-import com.facebook.presto.block.Blocks;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedCursor;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -17,7 +16,7 @@ public class TestCursor
     public void testUncompressed()
             throws Exception
     {
-        List<UncompressedValueBlock> block = ImmutableList.<UncompressedValueBlock>builder()
+        List<UncompressedBlock> block = ImmutableList.<UncompressedBlock>builder()
             .add(Blocks.createLongsBlock(0, 0, 1, 2, 3, 4, 5, 6))
             .add(Blocks.createLongsBlock(10, 10, 11, 12, 13, 14, 15, 16))
             .add(Blocks.createLongsBlock(20, 20, 21, 22, 23, 24, 25, 26))

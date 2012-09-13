@@ -5,7 +5,7 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -247,7 +247,7 @@ public abstract class AbstractTestUncompressedSliceCursor extends AbstractTestCu
         return new TupleInfo(Type.VARIABLE_BINARY);
     }
 
-    protected List<UncompressedValueBlock> createBlocks()
+    protected List<UncompressedBlock> createBlocks()
     {
         return ImmutableList.of(
                 createBlock(0, "apple", "apple", "apple", "banana", "banana"),

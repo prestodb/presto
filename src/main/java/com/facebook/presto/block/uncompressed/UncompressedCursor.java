@@ -12,15 +12,15 @@ import java.util.NoSuchElementException;
 public class UncompressedCursor
         implements Cursor
 {
-    private final Iterator<UncompressedValueBlock> iterator;
+    private final Iterator<UncompressedBlock> iterator;
     private final TupleInfo info;
 
-    private UncompressedValueBlock block;
+    private UncompressedBlock block;
     private int index = -1;
     private int offset = -1;
     private int size = -1;
 
-    public UncompressedCursor(TupleInfo info, Iterator<UncompressedValueBlock> iterator)
+    public UncompressedCursor(TupleInfo info, Iterator<UncompressedBlock> iterator)
     {
         Preconditions.checkNotNull(iterator, "iterator is null");
         Preconditions.checkArgument(iterator.hasNext(), "iterator is empty");

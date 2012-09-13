@@ -29,6 +29,6 @@ public class DataScan2
     @Override
     public Cursor cursor()
     {
-        return new FilteredValueCursor(predicate, source.cursor());
+        return new FilteredCursor(predicate, source.cursor());
     }
 }

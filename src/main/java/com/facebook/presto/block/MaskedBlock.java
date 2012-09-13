@@ -12,12 +12,12 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class MaskedValueBlock implements Block
+public class MaskedBlock implements Block
 {
     private final Block valueBlock;
     private final List<Long> validPositions;
 
-    public MaskedValueBlock(Block valueBlock, List<Long> validPositions)
+    public MaskedBlock(Block valueBlock, List<Long> validPositions)
     {
         Preconditions.checkNotNull(valueBlock, "valueBlock is null");
         Preconditions.checkNotNull(validPositions, "validPositions is null");
