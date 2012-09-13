@@ -1,31 +1,24 @@
 package com.facebook.presto.aggregation;
 
-import com.facebook.presto.Pair;
-import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Blocks;
-import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
 import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
 import com.facebook.presto.operator.GroupByBlockStream;
 import com.facebook.presto.operator.HashAggregationBlockStream;
 import com.facebook.presto.operator.PipelinedAggregationBlockStream;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-import static com.facebook.presto.block.Blocks.createBlock;
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
-import static com.facebook.presto.Tuples.createTuple;
-import static com.google.common.base.Charsets.UTF_8;
+import static com.facebook.presto.block.Blocks.assertBlockStreamEquals;
+import static com.facebook.presto.block.Blocks.assertBlockStreamEqualsIgnoreOrder;
+import static com.facebook.presto.block.Blocks.blockStreamBuilder;
+import static com.facebook.presto.block.Blocks.createBlock;
 
 public class TestAggregations
 {
@@ -37,22 +30,13 @@ public class TestAggregations
                 newAggregateColumn(),
                 SumAggregation.PROVIDER);
 
-        List<Pair> expected = ImmutableList.of(
-                new Pair(0, createTuple("apple", 10L)),
-                new Pair(1, createTuple("banana", 17L)),
-                new Pair(2, createTuple("cherry", 15L)),
-                new Pair(3, createTuple("date", 6L))
-        );
-
-        List<Pair> actual = new ArrayList<>();
-        Cursor cursor = aggregation.cursor();
-        while (cursor.advanceNextValue()) {
-            long position = cursor.getPosition();
-            Tuple tuple = cursor.getTuple();
-            actual.add(new Pair(position, tuple));
-        }
-
-        Assert.assertEquals(actual, expected);
+        assertBlockStreamEquals(aggregation,
+                blockStreamBuilder(VARIABLE_BINARY, FIXED_INT_64)
+                        .append("apple").append(10L)
+                        .append("banana").append(17L)
+                        .append("cherry").append(15L)
+                        .append("date").append(6L)
+                        .build());
     }
 
     @Test
@@ -63,22 +47,13 @@ public class TestAggregations
                 newAggregateColumn(),
                 SumAggregation.PROVIDER);
 
-        Map<Object, Object> expected = ImmutableMap.<Object, Object>of(
-                "apple", createTuple("apple", 10L),
-                "banana", createTuple("banana", 17L),
-                "cherry", createTuple("cherry", 15L),
-                "date", createTuple("date", 6L)
-        );
-
-        Map<Object, Object> actual = new HashMap<>();
-        Cursor cursor = aggregation.cursor();
-        while (cursor.advanceNextValue()) {
-            Tuple tuple = cursor.getTuple();
-            String key = tuple.getSlice(0).toString(UTF_8);
-            actual.put(key, tuple);
-        }
-
-        Assert.assertEquals(actual, expected);
+        assertBlockStreamEqualsIgnoreOrder(aggregation,
+                blockStreamBuilder(VARIABLE_BINARY, FIXED_INT_64)
+                        .append("apple").append(10L)
+                        .append("banana").append(17L)
+                        .append("cherry").append(15L)
+                        .append("date").append(6L)
+                        .build());
     }
 
     public BlockStream<UncompressedValueBlock> newGroupColumn()
