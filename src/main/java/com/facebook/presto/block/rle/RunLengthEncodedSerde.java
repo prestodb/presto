@@ -1,5 +1,13 @@
-package com.facebook.presto;
+package com.facebook.presto.block.rle;
 
+import com.facebook.presto.Range;
+import com.facebook.presto.Tuple;
+import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.BlockStream;
+import com.facebook.presto.block.BlockStreamSerde;
+import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.ValueBlock;
+import com.facebook.presto.block.uncompressed.UncompressedTupleInfoSerde;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
@@ -21,23 +29,21 @@ public class RunLengthEncodedSerde implements BlockStreamSerde<RunLengthEncodedB
 
         Cursor cursor = blockStream.cursor();
 
-        if (!cursor.hasNextValue()) {
+        if (!cursor.advanceNextValue()) {
             // Nothing more to do
             return;
         }
 
-        cursor.advanceNextValue();
         long startPosition = cursor.getPosition();
         long endPosition = cursor.getCurrentValueEndPosition();
         Tuple lastTuple = cursor.getTuple();
-        while (cursor.hasNextValue()) {
-            cursor.advanceNextValue();
+        while (cursor.advanceNextValue()) {
             if (cursor.getPosition() != endPosition + 1 || !cursor.currentValueEquals(lastTuple)) {
                 // Flush out block if next value position is not contiguous, or a different tuple
                 sliceOutput.writeLong(startPosition);
                 sliceOutput.writeLong(endPosition);
                 sliceOutput.writeBytes(lastTuple.getTupleSlice());
-                // TODO: we can further compact this if positions are contiguous
+                // TODO: we can further compact this if positions are mostly contiguous
 
                 lastTuple = cursor.getTuple();
                 startPosition = cursor.getPosition();
@@ -62,7 +68,8 @@ public class RunLengthEncodedSerde implements BlockStreamSerde<RunLengthEncodedB
 
         return new RunLengthEncodedBlockStream(
                 tupleInfo,
-                new Iterable<RunLengthEncodedBlock>() {
+                new Iterable<RunLengthEncodedBlock>()
+                {
                     @Override
                     public Iterator<RunLengthEncodedBlock> iterator()
                     {
@@ -72,7 +79,8 @@ public class RunLengthEncodedSerde implements BlockStreamSerde<RunLengthEncodedB
         );
     }
 
-    private static class RunLengthEncodedIterator extends AbstractIterator<RunLengthEncodedBlock> {
+    private static class RunLengthEncodedIterator extends AbstractIterator<RunLengthEncodedBlock>
+    {
         private final TupleInfo tupleInfo;
         private final SliceInput sliceInput;
 

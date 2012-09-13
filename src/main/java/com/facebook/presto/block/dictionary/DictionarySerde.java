@@ -43,7 +43,7 @@ public class DictionarySerde implements BlockStreamSerde<DictionaryEncodedBlock>
             @Override
             public TupleInfo getTupleInfo()
             {
-                return blockStream.getTupleInfo();
+                return TupleInfo.SINGLE_LONG_TUPLEINFO;
             }
 
             @Override

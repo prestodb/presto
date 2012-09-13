@@ -1,4 +1,8 @@
-package com.facebook.presto;
+package com.facebook.presto.block.rle;
+
+import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.BlockStream;
+import com.facebook.presto.block.Cursor;
 
 import java.util.Iterator;
 
