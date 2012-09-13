@@ -1,5 +1,6 @@
 package com.facebook.presto.operator;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
@@ -27,7 +28,7 @@ import java.util.Map.Entry;
 public class HashAggregationBlockStream
     implements BlockStream<UncompressedValueBlock>
 {
-    private final BlockStream<RunLengthEncodedBlock> groupBySource;
+    private final BlockStream<? extends Block> groupBySource;
     private final BlockStream<? extends Block> aggregationSource;
     private final Provider<AggregationFunction> functionProvider;
     private final TupleInfo info;
@@ -66,8 +67,7 @@ public class HashAggregationBlockStream
     @Override
     public Iterator<UncompressedValueBlock> iterator()
     {
-        final Iterator<RunLengthEncodedBlock> groupByIterator = groupBySource.iterator();
-//        final SeekableIterator<? extends Block> aggregationIterator = new ForwardingSeekableIterator<>(aggregationSource.iterator());
+        final Cursor groupByCursor = groupBySource.cursor();
         final Cursor aggregationCursor = aggregationSource.cursor();
         aggregationCursor.advanceNextPosition();
 
@@ -82,15 +82,15 @@ public class HashAggregationBlockStream
                 // process all data ahead of time
                 if (aggregations == null) {
                     Map<Tuple, AggregationFunction> aggregationMap = new HashMap<>();
-                    while (groupByIterator.hasNext()) {
-                        RunLengthEncodedBlock group = groupByIterator.next();
+                    while (groupByCursor.advanceNextValue()) {
 
-                        AggregationFunction aggregation = aggregationMap.get(group.getValue());
+                        Tuple key = groupByCursor.getTuple();
+                        AggregationFunction aggregation = aggregationMap.get(key);
                         if (aggregation == null) {
                             aggregation = functionProvider.get();
-                            aggregationMap.put(group.getValue(), aggregation);
+                            aggregationMap.put(key, aggregation);
                         }
-                        aggregation.add(aggregationCursor, group.getRange());
+                        aggregation.add(aggregationCursor, new Range(groupByCursor.getPosition(), groupByCursor.getCurrentValueEndPosition()));
                     }
 
                     this.aggregations = aggregationMap.entrySet().iterator();
