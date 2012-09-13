@@ -1,6 +1,8 @@
 package com.facebook.presto;
 
+import com.facebook.presto.aggregations.CountAggregation;
 import com.facebook.presto.aggregations.SumAggregation;
+import com.facebook.presto.operators.AggregationOperator;
 import com.facebook.presto.operators.GroupByBlockStream;
 import com.facebook.presto.operators.HashAggregationBlockStream;
 import com.facebook.presto.slice.Slices;
@@ -77,7 +79,11 @@ public class TestQueries
     public void testCountAll()
     {
         List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM orders", FIXED_INT_64);
-        // TODO: implement this
+
+        BlockStream<ValueBlock> orders = createBlockStream(ordersData, 1, FIXED_INT_64);
+        AggregationOperator aggregation = new AggregationOperator(orders, CountAggregation.PROVIDER);
+
+        assertEqualsIgnoreOrder(tuples(aggregation), expected);
     }
 
     @Test
