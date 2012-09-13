@@ -1,11 +1,12 @@
 package com.facebook.presto;
 
 import com.facebook.presto.operators.DataScan3;
+import com.facebook.presto.operators.Merge;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.TupleInfo.SINGLE_LONG_TUPLEINFO;
+import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Charsets.UTF_8;
 
 public class TestExample
@@ -13,9 +14,9 @@ public class TestExample
     public static void main(String[] args)
     {
         DataScan3 scan = newScan();
-//        DataScan3 scan2 = newScan();
+        DataScan3 scan2 = newScan();
 
-//        Merge merge = new Merge(ImmutableList.of(scan, scan2), new TupleInfo(FIXED_INT_64, FIXED_INT_64));
+        Merge merge = new Merge(ImmutableList.of(scan, scan2));
 
         // 2 c
         //  4 e
@@ -26,9 +27,9 @@ public class TestExample
         // 33 q
         // 35 s
 
-        Cursor cursor = scan.cursor();
+        Cursor cursor = merge.cursor();
         while (cursor.advanceNextPosition()) {
-            System.out.printf("%d %s\n", cursor.getPosition(), cursor.getSlice(0).toString(UTF_8));
+            System.out.printf("%d %s %s\n", cursor.getPosition(), cursor.getSlice(0).toString(UTF_8), cursor.getSlice(1).toString(UTF_8));
         }
     }
 
@@ -48,6 +49,6 @@ public class TestExample
                 .add(new UncompressedPositionBlock(40L, 41L, 42L))
                 .build();
 
-        return new DataScan3(new UncompressedBlockStream(SINGLE_LONG_TUPLEINFO, values), new ValueBlockStream<>(new TupleInfo(), positions));
+        return new DataScan3(new UncompressedBlockStream(new TupleInfo(VARIABLE_BINARY), values), new ValueBlockStream<>(new TupleInfo(), positions));
     }
 }
