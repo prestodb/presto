@@ -53,6 +53,7 @@ public class TestQueries
 {
     private Handle handle;
     private List<List<String>> ordersData;
+    private List<List<String>> lineitemData;
 
     @BeforeSuite
     public void setupDatabase()
@@ -71,6 +72,26 @@ public class TestQueries
                 "  shippriority BIGINT NOT NULL\n" +
                 ")");
         insertRows("orders", handle, ordersData);
+
+        lineitemData = readTestData("tpch/lineitem.dat.gz", 60175);
+        handle.execute("CREATE TABLE lineitem (\n" +
+                "  orderkey BIGINT NOT NULL,\n" +
+                "  partkey BIGINT NOT NULL,\n" +
+                "  suppkey BIGINT NOT NULL,\n" +
+                "  linenumber BIGINT NOT NULL,\n" +
+                "  quantity BIGINT NOT NULL,\n" +
+                "  extendedprice DOUBLE NOT NULL,\n" +
+                "  discount DOUBLE NOT NULL,\n" +
+                "  tax DOUBLE NOT NULL,\n" +
+                "  returnflag CHAR(1) NOT NULL,\n" +
+                "  linestatus CHAR(1) NOT NULL,\n" +
+                "  shipdate CHAR(10) NOT NULL,\n" +
+                "  commitdate CHAR(10) NOT NULL,\n" +
+                "  receiptdate CHAR(10) NOT NULL,\n" +
+                "  shipinstruct VARCHAR(25) NOT NULL,\n" +
+                "  shipmode VARCHAR(10) NOT NULL\n" +
+                ")");
+        insertRows("lineitem", handle, lineitemData);
     }
 
     @AfterSuite
