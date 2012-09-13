@@ -5,8 +5,7 @@ package com.facebook.presto;
 
 import org.testng.annotations.Test;
 
-import java.util.NoSuchElementException;
-
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestCursor
@@ -37,41 +36,14 @@ public abstract class AbstractTestCursor
         //
         // advance to end
         //
-        while(cursor.hasNextPosition()) {
-            cursor.advanceNextPosition();
-        }
+        while (cursor.advanceNextPosition());
 
         //
-        // We are at the last position, so all get next methods should throw a NoSuchElementException
+        // We are at the last position, so all get next methods should return false
         //
 
-        try {
-            cursor.advanceNextValue();
-            fail("Expected NoSuchElementException");
-        }
-        catch (NoSuchElementException expected) {
-        }
-
-        try {
-            cursor.advanceNextPosition();
-            fail("Expected NoSuchElementException");
-        }
-        catch (NoSuchElementException expected) {
-        }
-
-        try {
-            cursor.peekNextValuePosition();
-            fail("Expected NoSuchElementException");
-        }
-        catch (NoSuchElementException expected) {
-        }
-
-        try {
-            cursor.nextValueEquals(Tuples.createTuple(0L));
-            fail("Expected NoSuchElementException");
-        }
-        catch (NoSuchElementException expected) {
-        }
+        assertFalse(cursor.advanceNextValue());
+        assertFalse(cursor.advanceNextPosition());
     }
 
     protected abstract Cursor createCursor();

@@ -5,14 +5,15 @@ package com.facebook.presto.block.cursor;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.UncompressedValueBlock;
-import com.facebook.presto.block.cursor.BlockCursor;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.Blocks.createBlock;
 import static com.facebook.presto.block.cursor.BlockCursorAssertions.assertCurrentValue;
+import static com.facebook.presto.block.cursor.BlockCursorAssertions.assertNextPosition;
 import static com.facebook.presto.block.cursor.BlockCursorAssertions.assertNextValue;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestUncompressedSliceBlockCursor extends AbstractTestUncompressedBlockCursor
@@ -34,7 +35,15 @@ public abstract class AbstractTestUncompressedSliceBlockCursor extends AbstractT
             throws Exception
     {
         BlockCursor cursor = createCursor();
-        BlockCursorAssertions.assertNextValue(cursor, 0, "apple");
+        assertNextValue(cursor, 0, "apple");
+    }
+
+    @Test
+    public void testFirstPosition()
+            throws Exception
+    {
+        BlockCursor cursor = createCursor();
+        assertNextPosition(cursor, 0, "apple");
     }
 
     @Test
@@ -55,27 +64,106 @@ public abstract class AbstractTestUncompressedSliceBlockCursor extends AbstractT
         assertNextValue(cursor, 9, "cherry");
         assertNextValue(cursor, 10, "date");
 
-        assertFalse(cursor.hasNextValue());
+        assertFalse(cursor.advanceToNextValue());
     }
 
     @Test
+    public void testAdvanceNextPosition()
+    {
+        BlockCursor cursor = createCursor();
+
+        assertNextPosition(cursor, 0, "apple");
+        assertNextPosition(cursor, 1, "apple");
+        assertNextPosition(cursor, 2, "apple");
+        assertNextPosition(cursor, 3, "banana");
+        assertNextPosition(cursor, 4, "banana");
+        assertNextPosition(cursor, 5, "banana");
+        assertNextPosition(cursor, 6, "banana");
+        assertNextPosition(cursor, 7, "banana");
+        assertNextPosition(cursor, 8, "cherry");
+        assertNextPosition(cursor, 9, "cherry");
+        assertNextPosition(cursor, 10, "date");
+
+        assertFalse(cursor.advanceNextPosition());
+    }
+
+   @Test
     public void testAdvanceToPosition()
             throws Exception
     {
         BlockCursor cursor = createCursor();
 
-        cursor.advanceToPosition(2);
+        // advance to first position
+        assertTrue(cursor.advanceToPosition(0));
+        assertCurrentValue(cursor, 0, "apple");
+
+        // skip to position in first block
+        assertTrue(cursor.advanceToPosition(2));
         assertCurrentValue(cursor, 2, "apple");
-        cursor.advanceToPosition(4);
+
+        // advance to same position
+        assertTrue(cursor.advanceToPosition(2));
+        assertCurrentValue(cursor, 2, "apple");
+
+        // skip to position in same block
+        assertTrue(cursor.advanceToPosition(4));
         assertCurrentValue(cursor, 4, "banana");
-        cursor.advanceToPosition(6);
-        assertCurrentValue(cursor, 6, "banana");
-        cursor.advanceToPosition(8);
+
+        // skip to position in middle block
+        assertTrue(cursor.advanceToPosition(8));
         assertCurrentValue(cursor, 8, "cherry");
-        cursor.advanceToPosition(10);
+
+        // skip to position in gap
+        assertTrue(cursor.advanceToPosition(10));
         assertCurrentValue(cursor, 10, "date");
 
-        assertFalse(cursor.hasNextValue());
+        // skip backwards
+        try {
+            cursor.advanceToPosition(2);
+            fail("Expected IllegalArgumentException");
+        }
+        catch (IllegalArgumentException e) {
+            assertCurrentValue(cursor, 10, "date");
+        }
+
+        // skip past end
+        assertFalse(cursor.advanceToPosition(100));
+    }
+
+    @Test
+    public void testAdvanceToNextValueAdvancesPosition()
+            throws Exception
+    {
+        BlockCursor cursor = createCursor();
+
+        // first, skip to middle of a block
+        assertNextValue(cursor, 0, "apple");
+        assertNextPosition(cursor, 1, "apple");
+
+        // force jump to next block
+        assertNextValue(cursor, 2, "apple");
+    }
+
+    @Test
+    public void testMixedValueAndPosition()
+            throws Exception
+    {
+        BlockCursor cursor = createCursor();
+
+        assertNextValue(cursor, 0, "apple");
+        assertNextPosition(cursor, 1, "apple");
+        assertNextValue(cursor, 2, "apple");
+        assertNextPosition(cursor, 3, "banana");
+        assertNextValue(cursor, 4, "banana");
+        assertNextPosition(cursor, 5, "banana");
+        assertNextValue(cursor, 6, "banana");
+        assertNextPosition(cursor, 7, "banana");
+        assertNextValue(cursor, 8, "cherry");
+        assertNextPosition(cursor, 9, "cherry");
+        assertNextValue(cursor, 10, "date");
+
+        assertFalse(cursor.advanceNextPosition());
+        assertFalse(cursor.advanceToNextValue());
     }
 
     @Test

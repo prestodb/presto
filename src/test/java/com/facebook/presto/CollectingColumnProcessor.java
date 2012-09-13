@@ -28,8 +28,7 @@ class CollectingColumnProcessor
     public boolean processPositions(long end)
             throws IOException
     {
-        while (cursor.hasNextPosition()) {
-            cursor.advanceNextPosition();
+        while (cursor.advanceNextPosition()) {
             switch (type) {
                 case FIXED_INT_64:
                     builder.append(cursor.getLong(index));

@@ -1,12 +1,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.Slices;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
-
-import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -16,7 +11,6 @@ public class DictionaryEncodedCursor implements Cursor
 {
     private final TupleInfo tupleInfo;
     private final Slice[] dictionary;
-    private final Map<Slice, Tuple> reverseDictionary;
     private final Cursor sourceCursor;
 
     public DictionaryEncodedCursor(TupleInfo tupleInfo, Slice[] dictionary, Cursor sourceCursor)
@@ -29,22 +23,6 @@ public class DictionaryEncodedCursor implements Cursor
         this.tupleInfo = tupleInfo;
         this.dictionary = dictionary;
         this.sourceCursor = sourceCursor;
-
-        ImmutableMap.Builder<Slice, Tuple> builder = ImmutableMap.builder();
-        for (int i = 0; i < dictionary.length; i++) {
-            builder.put(
-                    dictionary[i],
-                    new Tuple(
-                            Slices.allocate(SizeOf.SIZE_OF_LONG)
-                                    .output()
-                                    .appendLong(i)
-                                    .slice(),
-                            TupleInfo.SINGLE_LONG_TUPLEINFO
-                    )
-
-            );
-        }
-        reverseDictionary = builder.build();
     }
 
     @Override
@@ -54,27 +32,21 @@ public class DictionaryEncodedCursor implements Cursor
     }
 
     @Override
-    public boolean hasNextValue()
+    public boolean isFinished()
     {
-        return sourceCursor.hasNextValue();
+        return sourceCursor.isFinished();
     }
 
     @Override
-    public void advanceNextValue()
+    public boolean advanceNextValue()
     {
-        sourceCursor.advanceNextValue();
+        return sourceCursor.advanceNextValue();
     }
 
     @Override
-    public boolean hasNextPosition()
+    public boolean advanceNextPosition()
     {
-        return sourceCursor.hasNextPosition();
-    }
-
-    @Override
-    public void advanceNextPosition()
-    {
-        sourceCursor.advanceNextPosition();
+        return sourceCursor.advanceNextPosition();
     }
 
     @Override
@@ -112,36 +84,15 @@ public class DictionaryEncodedCursor implements Cursor
     }
 
     @Override
-    public void advanceToPosition(long position)
+    public boolean advanceToPosition(long position)
     {
-        sourceCursor.advanceToPosition(position);
-    }
-
-    @Override
-    public long peekNextValuePosition()
-    {
-        return sourceCursor.peekNextValuePosition();
+        return sourceCursor.advanceToPosition(position);
     }
 
     @Override
     public long getCurrentValueEndPosition()
     {
         return sourceCursor.getCurrentValueEndPosition();
-    }
-
-    @Override
-    public boolean nextValueEquals(Tuple value)
-    {
-        checkNotNull(value, "value is null");
-        if (value.getTupleInfo().getFieldCount() != 1) {
-            return false;
-        }
-        // This operation will be slower in this cursor as it requires a Map lookup
-        Tuple idTuple = reverseDictionary.get(value.getTupleSlice());
-        if (idTuple == null) {
-            return false;
-        }
-        return sourceCursor.nextValueEquals(idTuple);
     }
 
     private Slice decodeSliceValue(int dictionaryKey) {

@@ -6,14 +6,13 @@ package com.facebook.presto;
 import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.slice.Slices;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterators;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
 
+import static com.facebook.presto.Blocks.assertBlockStreamEquals;
 import static com.google.common.base.Charsets.UTF_8;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestUncompressedBlockReader
 {
@@ -41,6 +40,7 @@ public class TestUncompressedBlockReader
         assertEquals(copiedBlocks.size(), 1);
         ValueBlock copiedBlock = copiedBlocks.get(0);
         assertEquals(copiedBlock.getRange(), block.getRange());
-        assertTrue(Iterators.elementsEqual(copiedBlock.iterator(), block.iterator()));
+
+        assertBlockStreamEquals(new UncompressedBlockStream(tupleInfo, copiedBlocks), blockStream);
     }
 }

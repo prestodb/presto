@@ -4,10 +4,7 @@
 package com.facebook.presto.block.cursor;
 
 import com.facebook.presto.Tuples;
-import com.facebook.presto.block.cursor.BlockCursor;
 import org.testng.annotations.Test;
-
-import java.util.NoSuchElementException;
 
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -38,40 +35,17 @@ public abstract class AbstractTestUncompressedBlockCursor
         catch (IllegalStateException expected) {
         }
 
-        try {
-            cursor.advanceNextValuePosition();
-            fail("Expected NoSuchElementException");
-        }
-        catch (NoSuchElementException expected) {
-        }
-
         //
         // advance to end
         //
-        while (cursor.hasNextValue()) {
-            cursor.advanceNextValue();
-        }
-        while (cursor.hasNextValuePosition()) {
-            cursor.advanceNextValuePosition();
-        }
+        while (cursor.advanceNextPosition());
 
         //
         // We are at the last position, so all get next methods should throw a NoSuchElementException
         //
 
-        try {
-            cursor.advanceNextValue();
-            fail("Expected NoSuchElementException");
-        }
-        catch (NoSuchElementException expected) {
-        }
-
-        try {
-            cursor.advanceNextValuePosition();
-            fail("Expected NoSuchElementException");
-        }
-        catch (NoSuchElementException expected) {
-        }
+        assertFalse(cursor.advanceToNextValue());
+        assertFalse(cursor.advanceNextPosition());
     }
 
     @Test
@@ -79,13 +53,11 @@ public abstract class AbstractTestUncompressedBlockCursor
     {
         BlockCursor cursor = createCursor();
 
-        cursor.advanceNextValue();
-        assertFalse(cursor.hasNextValuePosition());
-        assertTrue(cursor.hasNextValue());
+        assertTrue(cursor.advanceToNextValue());
+        assertTrue(cursor.advanceNextPosition());
 
-        cursor.advanceNextValue();
-        assertFalse(cursor.hasNextValuePosition());
-        assertTrue(cursor.hasNextValue());
+        assertTrue(cursor.advanceToNextValue());
+        assertTrue(cursor.advanceNextPosition());
     }
 
     protected abstract BlockCursor createCursor();

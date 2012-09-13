@@ -2,15 +2,8 @@ package com.facebook.presto;
 
 import com.facebook.presto.block.cursor.BlockCursor;
 import com.facebook.presto.slice.Slice;
-import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.PeekingIterator;
 import com.google.common.primitives.Ints;
-
-import java.util.Iterator;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -30,52 +23,6 @@ public class DictionaryEncodedBlock implements ValueBlock
         this.tupleInfo = tupleInfo;
         this.dictionary = dictionary;
         this.sourceValueBlock = sourceValueBlock;
-    }
-
-    @Override
-    public Optional<PositionBlock> selectPositions(Predicate<Tuple> predicate)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public PositionBlock toPositionBlock()
-    {
-        return sourceValueBlock.toPositionBlock();
-    }
-
-    @Override
-    public Optional<ValueBlock> selectPairs(Predicate<Tuple> predicate)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Optional<ValueBlock> filter(PositionBlock positions)
-    {
-        return MaskedValueBlock.maskBlock(this, positions);
-    }
-
-    @Override
-    public PeekingIterator<Pair> pairIterator()
-    {
-        return Iterators.peekingIterator(Iterators.transform(
-                sourceValueBlock.pairIterator(),
-                new Function<Pair, Pair>()
-                {
-                    @Override
-                    public Pair apply(Pair input)
-                    {
-                        return new Pair(input.getPosition(), translateValue(input.getValue()));
-                    }
-                }
-        ));
-    }
-
-    @Override
-    public Tuple getSingleValue()
-    {
-        return translateValue(sourceValueBlock.getSingleValue());
     }
 
     @Override
@@ -103,43 +50,98 @@ public class DictionaryEncodedBlock implements ValueBlock
     }
 
     @Override
-    public Iterable<Long> getPositions()
-    {
-        return sourceValueBlock.getPositions();
-    }
-
-    @Override
     public Range getRange()
     {
         return sourceValueBlock.getRange();
     }
 
     @Override
-    public Iterator<Tuple> iterator()
-    {
-        return Iterators.transform(
-                sourceValueBlock.iterator(),
-                new Function<Tuple, Tuple>()
-                {
-                    @Override
-                    public Tuple apply(Tuple input)
-                    {
-                        return translateValue(input);
-                    }
-                }
-        );
-    }
-
-    @Override
     public BlockCursor blockCursor()
     {
-        throw new UnsupportedOperationException();
+        return new DictionaryEncodedBlockCursor(tupleInfo, sourceValueBlock, dictionary);
     }
 
-    private Tuple translateValue(Tuple tupleKey) {
-        checkArgument(tupleKey.getTupleInfo().getFieldCount() == 1, "should only have one column");
-        int dictionaryKey = Ints.checkedCast(tupleKey.getLong(0));
-        Preconditions.checkPositionIndex(dictionaryKey, dictionary.length, "dictionaryKey does not exist");
-        return new Tuple(dictionary[dictionaryKey], tupleInfo);
+    private static class DictionaryEncodedBlockCursor implements BlockCursor
+    {
+        private final TupleInfo tupleInfo;
+        private final BlockCursor delegate;
+        private final Slice[] dictionary;
+
+        private DictionaryEncodedBlockCursor(TupleInfo tupleInfo, ValueBlock sourceValueBlock, Slice... dictionary)
+        {
+            this.tupleInfo = tupleInfo;
+            this.dictionary = dictionary;
+            delegate = sourceValueBlock.blockCursor();
+        }
+
+        @Override
+        public Range getRange()
+        {
+            return delegate.getRange();
+        }
+
+        @Override
+        public boolean advanceToNextValue()
+        {
+            return delegate.advanceToNextValue();
+        }
+
+        @Override
+        public boolean advanceNextPosition()
+        {
+            return delegate.advanceNextPosition();
+        }
+
+        @Override
+        public boolean advanceToPosition(long position)
+        {
+            return delegate.advanceToPosition(position);
+        }
+
+        @Override
+        public Tuple getTuple()
+        {
+            return new Tuple(getSlice(0), tupleInfo);
+        }
+
+        @Override
+        public long getLong(int field)
+        {
+            int dictionaryKey = Ints.checkedCast(getDictionaryKey());
+            Preconditions.checkPositionIndex(dictionaryKey, dictionary.length, "dictionaryKey does not exist");
+            return dictionary[dictionaryKey].getLong(0);
+        }
+
+        @Override
+        public Slice getSlice(int field)
+        {
+            int dictionaryKey = Ints.checkedCast(getDictionaryKey());
+            Preconditions.checkPositionIndex(dictionaryKey, dictionary.length, "dictionaryKey does not exist");
+            return dictionary[dictionaryKey];
+        }
+
+        public int getDictionaryKey()
+        {
+            return (int) delegate.getLong(0);
+        }
+
+        @Override
+        public boolean tupleEquals(Tuple value)
+        {
+            // todo We should be able to compare the dictionary keys directly if the tuple comes from a block encoded using the same dictionary
+            return tupleInfo.equals(value.getTupleInfo()) && getSlice(0).equals(value.getTupleSlice());
+        }
+
+        @Override
+        public long getPosition()
+        {
+            return delegate.getPosition();
+        }
+
+        @Override
+        public long getValuePositionEnd()
+        {
+            return delegate.getValuePositionEnd();
+        }
     }
 }

@@ -53,8 +53,7 @@ public class BenchmarkLong
         long sum = 0;
         long start = System.nanoTime();
 
-        while (groupBy.hasNextValue()) {
-            groupBy.advanceNextValue();
+        while (groupBy.advanceNextValue()) {
             ++count;
             sum += groupBy.getLong(0);
         }

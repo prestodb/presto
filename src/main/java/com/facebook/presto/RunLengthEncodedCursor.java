@@ -6,19 +6,19 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 
 import java.util.Iterator;
-import java.util.NoSuchElementException;
 
 public class RunLengthEncodedCursor
         implements Cursor
 {
     private final TupleInfo info;
     private final PeekingIterator<RunLengthEncodedBlock> iterator;
-    private RunLengthEncodedBlock current;
+    private RunLengthEncodedBlock block;
     private long position;
 
     public RunLengthEncodedCursor(TupleInfo info, Iterator<RunLengthEncodedBlock> iterator)
     {
         Preconditions.checkNotNull(info, "info is null");
+        Preconditions.checkArgument(iterator.hasNext(), "iterator is empty");
         Preconditions.checkNotNull(iterator, "iterator is null");
 
         this.info = info;
@@ -32,78 +32,84 @@ public class RunLengthEncodedCursor
     }
 
     @Override
-    public boolean hasNextValue()
+    public boolean isFinished()
     {
-        return iterator.hasNext();
+        return !iterator.hasNext() && position > block.getRange().getEnd();
     }
 
     @Override
-    public void advanceNextValue()
+    public boolean advanceNextValue()
     {
-        current = iterator.next();
-        position = current.getRange().getStart();
-    }
-
-    @Override
-    public boolean hasNextPosition()
-    {
-        if (current == null || position == current.getRange().getEnd()) {
-            return hasNextValue();
+        if (!iterator.hasNext()) {
+            return false;
         }
-
+        block = iterator.next();
+        position = block.getRange().getStart();
         return true;
     }
 
     @Override
-    public void advanceNextPosition()
+    public boolean advanceNextPosition()
     {
-        if (current == null || position == current.getRange().getEnd()) {
-            advanceNextValue();
+        if (block == null || position == block.getRange().getEnd()) {
+            return advanceNextValue();
         }
         else {
             position++;
+            return true;
         }
     }
 
     @Override
-    public void advanceToPosition(long position)
+    public boolean advanceToPosition(long newPosition)
     {
-        Preconditions.checkArgument(current == null || position >= getPosition(), "Can't advance backwards");
+        Preconditions.checkArgument(block == null || newPosition >= getPosition(), "Can't advance backwards");
 
-        if (current == null) {
-            advanceNextValue();
+        if (block == null) {
+            if (iterator.hasNext()) {
+                block = iterator.next();
+            }
+            else {
+                return false;
+            }
         }
 
         // skip to block containing requested position
-        while (position > current.getRange().getEnd()) {
-            advanceNextValue();
+        while (newPosition > block.getRange().getEnd() && iterator.hasNext()) {
+            block = iterator.next();
         }
 
-        this.position = Math.max(position, current.getRange().getStart());
+        if (newPosition > block.getRange().getEnd()) {
+            block = null;
+            return false;
+        }
+
+        this.position = Math.max(newPosition, block.getRange().getStart());
+        return true;
     }
 
     @Override
     public Tuple getTuple()
     {
-        Preconditions.checkState(current != null, "Need to call advanceNext() first");
+        Preconditions.checkState(block != null, "Need to call advanceNext() first");
 
-        return current.getSingleValue();
+        return block.getSingleValue();
     }
 
     @Override
     public long getLong(int field)
     {
-        Preconditions.checkState(current != null, "Need to call advanceNext() first");
+        Preconditions.checkState(block != null, "Need to call advanceNext() first");
 
-        return current.getSingleValue().getLong(field);
+        return block.getSingleValue().getLong(field);
     }
 
     @Override
     public Slice getSlice(int field)
     {
-        Preconditions.checkState(current != null, "Need to call advanceNext() first");
+        Preconditions.checkState(block != null, "Need to call advanceNext() first");
 
-        return current.getSingleValue().getSlice(field);
+        return block.getSingleValue().getSlice(field);
     }
 
     @Override
@@ -115,36 +121,17 @@ public class RunLengthEncodedCursor
     @Override
     public long getCurrentValueEndPosition()
     {
-        Preconditions.checkState(current != null, "Need to call advance first");
+        Preconditions.checkState(block != null, "Need to call advance first");
 
-        return current.getRange().getEnd();
-    }
-
-    @Override
-    public long peekNextValuePosition()
-    {
-        if (!iterator.hasNext()) {
-            throw new NoSuchElementException();
-        }
-
-        return iterator.peek().getRange().getStart();
+        return block.getRange().getEnd();
     }
 
     @Override
     public boolean currentValueEquals(Tuple value)
     {
-        Preconditions.checkState(current != null, "Need to call advanceNext() first");
+        Preconditions.checkState(block != null, "Need to call advanceNext() first");
 
-        return current.getSingleValue().equals(value);
+        return block.getSingleValue().equals(value);
     }
 
-    @Override
-    public boolean nextValueEquals(Tuple value)
-    {
-        if (!iterator.hasNext()) {
-            throw new NoSuchElementException();
-        }
-
-        return iterator.peek().getSingleValue().equals(value);
-    }
 }

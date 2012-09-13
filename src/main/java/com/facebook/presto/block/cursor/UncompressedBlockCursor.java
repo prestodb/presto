@@ -4,11 +4,8 @@ import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.UncompressedValueBlock;
-import com.facebook.presto.block.cursor.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
-
-import java.util.NoSuchElementException;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -16,8 +13,8 @@ public class UncompressedBlockCursor
         implements BlockCursor
 {
     private final TupleInfo info;
-    private Slice slice;
-    private Range range;
+    private final Slice slice;
+    private final Range range;
     private long position = -1;
     private int offset = -1;
     private int size = -1;
@@ -34,16 +31,6 @@ public class UncompressedBlockCursor
         this.range = range;
     }
 
-    public UncompressedBlockCursor(TupleInfo info, Slice slice, Range range, long position, int offset, int size)
-    {
-        this.info = info;
-        this.slice = slice;
-        this.range = range;
-        this.position = position;
-        this.offset = offset;
-        this.size = size;
-    }
-
     @Override
     public Range getRange()
     {
@@ -51,38 +38,11 @@ public class UncompressedBlockCursor
     }
 
     @Override
-    public void moveTo(BlockCursor cursor)
-    {
-        Preconditions.checkArgument(cursor instanceof UncompressedBlockCursor, "cursor is not an instance of UncompressedBlockCursor");
-        UncompressedBlockCursor other = (UncompressedBlockCursor) cursor;
-
-        // todo assure that the cursors are for the same block stream?
-
-        this.slice = other.slice;
-        this.range = other.range;
-        this.position = other.position;
-        this.offset = other.offset;
-        this.size = other.size;
-    }
-
-    @Override
-    public BlockCursor duplicate()
-    {
-        return new UncompressedBlockCursor(info, slice, range, position, offset, size);
-    }
-
-    @Override
-    public boolean hasNextValue()
+    public boolean advanceToNextValue()
     {
         // every position is a new value
-        return position < range.getEnd();
-    }
-
-    @Override
-    public void advanceNextValue()
-    {
-        if (!hasNextValue()) {
-            throw new NoSuchElementException();
+        if (position >= range.getEnd()) {
+            return false;
         }
 
         if (position < 0) {
@@ -93,25 +53,24 @@ public class UncompressedBlockCursor
             offset += size;
         }
         size = info.size(slice, offset);
+        return true;
     }
 
     @Override
-    public boolean hasNextValuePosition()
+    public boolean advanceNextPosition()
     {
-        return false;
+        return advanceToNextValue();
     }
 
     @Override
-    public void advanceNextValuePosition()
-    {
-        throw new NoSuchElementException();
-    }
-
-    @Override
-    public void advanceToPosition(long newPosition)
+    public boolean advanceToPosition(long newPosition)
     {
         Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
-        Preconditions.checkArgument(newPosition <= this.range.getEnd(), "Can't advance off the end of the block");
+
+        if (newPosition > range.getEnd()) {
+            position = newPosition;
+            return false;
+        }
 
         // move to initial position
         if (position < 0) {
@@ -126,6 +85,8 @@ public class UncompressedBlockCursor
             offset += size;
             size = info.size(slice, offset);
         }
+
+        return true;
     }
 
     @Override

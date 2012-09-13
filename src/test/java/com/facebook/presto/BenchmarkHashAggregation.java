@@ -1,10 +1,10 @@
 package com.facebook.presto;
 
 import com.facebook.presto.aggregations.SumAggregation;
-import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.Slices;
 import com.facebook.presto.operators.GroupByBlockStream;
 import com.facebook.presto.operators.HashAggregationBlockStream;
+import com.facebook.presto.slice.Slice;
+import com.facebook.presto.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -17,8 +17,8 @@ public class BenchmarkHashAggregation
     public static void main(String[] args)
             throws IOException, InterruptedException
     {
-        File groupByFile = new File("data/column5/column0.data");  // sorted
-//        File groupByFile = new File("data/columns/column5.data");  // not-sorted
+//        File groupByFile = new File("data/column5/column0.data");  // sorted
+        File groupByFile = new File("data/columns/column5.data");  // not-sorted
         File aggregateFile = new File("data/columns/column3.data");
 
         Slice groupBySlice = Slices.mapFileReadOnly(groupByFile);
@@ -51,8 +51,7 @@ public class BenchmarkHashAggregation
         int count = 0;
         long sum = 0;
 
-        while (cursor.hasNextValue()) {
-            cursor.advanceNextValue();
+        while (cursor.advanceNextValue()) {
             ++count;
 //            System.out.printf("%s\t%s\n", cursor.getSlice(0).toString(Charsets.UTF_8), cursor.getLong(1));
         }

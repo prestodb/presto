@@ -40,8 +40,7 @@ public class Benchmark
         long sum = 0;
         long start = System.nanoTime();
 
-        while (groupBy.hasNextValue()) {
-            groupBy.advanceNextValue();
+        while (groupBy.advanceNextValue()) {
             ++count;
             sum += groupBy.getSlice(0).getByte(0);
 //            sum += groupBy.getLong(0);

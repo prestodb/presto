@@ -39,8 +39,7 @@ public class TestAggregations
 
         List<Pair> actual = new ArrayList<>();
         Cursor cursor = aggregation.cursor();
-        while (cursor.hasNextValue()) {
-            cursor.advanceNextValue();
+        while (cursor.advanceNextValue()) {
             long position = cursor.getPosition();
             Tuple tuple = cursor.getTuple();
             actual.add(new Pair(position, tuple));
@@ -66,8 +65,7 @@ public class TestAggregations
 
         Map<Object, Object> actual = new HashMap<>();
         Cursor cursor = aggregation.cursor();
-        while (cursor.hasNextValue()) {
-            cursor.advanceNextValue();
+        while (cursor.advanceNextValue()) {
             Tuple tuple = cursor.getTuple();
             String key = tuple.getSlice(0).toString(UTF_8);
             actual.put(key, tuple);

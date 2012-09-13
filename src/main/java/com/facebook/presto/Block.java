@@ -21,7 +21,5 @@ public interface Block
      */
     boolean isPositionsContiguous();
 
-    Iterable<Long> getPositions();
-
     Range getRange();
 }

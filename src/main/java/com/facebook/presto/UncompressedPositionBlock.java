@@ -1,20 +1,18 @@
 package com.facebook.presto;
 
-import com.google.common.base.Optional;
+import com.facebook.presto.block.cursor.BlockCursor;
+import com.facebook.presto.slice.Slice;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-
-
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.primitives.Longs.asList;
 
 public class UncompressedPositionBlock
-    implements PositionBlock
+        implements ValueBlock
 {
     private final List<Long> positions;
     private final Range range;
@@ -32,18 +30,6 @@ public class UncompressedPositionBlock
         this.positions = ImmutableList.copyOf(positions);
 
         this.range = Range.create(positions.get(0), positions.get(positions.size() - 1));
-    }
-
-    public Optional<PositionBlock> filter(PositionBlock positionBlock) {
-        ImmutableList.Builder<Long> builder = ImmutableList.builder();
-        for (Long position : positions) {
-            if (positionBlock.apply(position)) {
-                builder.add(position);
-            }
-        }
-        ImmutableList<Long> newPositions = builder.build();
-
-        return Optional.<PositionBlock>of(new UncompressedPositionBlock(newPositions));
     }
 
     @Override
@@ -71,26 +57,98 @@ public class UncompressedPositionBlock
     }
 
     @Override
-    public Iterable<Long> getPositions()
-    {
-        return positions;
-    }
-
-    @Override
     public Range getRange()
     {
         return range;
     }
 
-    public boolean contains(long position)
+    @Override
+    public BlockCursor blockCursor()
     {
-        // TODO
-        return Iterables.any(positions, equalTo(position));
+        return new UncompressedPositionBlockCursor(positions, range);
     }
 
-    @Override
-    public boolean apply(Long input)
+    public static class UncompressedPositionBlockCursor
+            implements BlockCursor
     {
-        return contains(input);
+        private final List<Long> positions;
+        private final Range range;
+        private int index = -1;
+
+        public UncompressedPositionBlockCursor(List<Long> positions, Range range)
+        {
+            this.positions = positions;
+            this.range = range;
+        }
+
+        @Override
+        public Range getRange()
+        {
+            return range;
+        }
+
+        @Override
+        public boolean advanceToNextValue()
+        {
+            if (index >= positions.size() - 1) {
+                return false;
+            }
+            index++;
+            return true;
+        }
+
+        @Override
+        public boolean advanceNextPosition()
+        {
+            return advanceToNextValue();
+        }
+
+        @Override
+        public boolean advanceToPosition(long newPosition)
+        {
+            Preconditions.checkArgument(newPosition >= positions.get(index), "Can't advance backwards");
+
+            while(index < positions.size() && newPosition > positions.get(index)) {
+                index++;
+            }
+            return index < positions.size();
+        }
+
+        @Override
+        public long getPosition()
+        {
+            Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
+            return positions.get(index);
+        }
+
+        @Override
+        public long getValuePositionEnd()
+        {
+            return getPosition();
+        }
+
+        @Override
+        public Tuple getTuple()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getLong(int field)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Slice getSlice(int field)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean tupleEquals(Tuple value)
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 }

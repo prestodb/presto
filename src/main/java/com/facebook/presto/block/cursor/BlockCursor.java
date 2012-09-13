@@ -11,15 +11,9 @@ public interface BlockCursor
 {
     Range getRange();
 
-    BlockCursor duplicate();
-    void moveTo(BlockCursor blockForNextValue);
-
-    boolean hasNextValue();
-    void advanceNextValue();
-
-    boolean hasNextValuePosition();
-    void advanceNextValuePosition();
-    void advanceToPosition(long position);
+    boolean advanceToNextValue();
+    boolean advanceNextPosition();
+    boolean advanceToPosition(long position);
 
     Tuple getTuple();
     long getLong(int field);

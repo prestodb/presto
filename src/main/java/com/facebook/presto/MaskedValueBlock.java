@@ -3,101 +3,33 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.UncompressedPositionBlock.UncompressedPositionBlockCursor;
 import com.facebook.presto.block.cursor.BlockCursor;
-import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.PeekingIterator;
+import com.facebook.presto.slice.Slice;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 
-import java.util.Iterator;
-
-import static com.facebook.presto.Pair.valueGetter;
-import static com.google.common.collect.Iterators.transform;
+import java.util.List;
 
 public class MaskedValueBlock implements ValueBlock
 {
-    public static Optional<ValueBlock> maskBlock(ValueBlock valueBlock, PositionBlock positions)
-    {
-        if (!valueBlock.getRange().overlaps(positions.getRange())) {
-            return Optional.absent();
-        }
-
-        Range intersection = valueBlock.getRange().intersect(positions.getRange());
-
-        if (valueBlock.isSingleValue() && positions.isPositionsContiguous()) {
-            Tuple value = valueBlock.iterator().next();
-            return Optional.<ValueBlock>of(new RunLengthEncodedBlock(value, intersection));
-        }
-
-        Optional<PositionBlock> newPositionBlock;
-        if (valueBlock.isPositionsContiguous()) {
-            newPositionBlock = positions.filter(new RangePositionBlock(valueBlock.getRange()));
-        }
-        else {
-            newPositionBlock = positions.filter(valueBlock.toPositionBlock());
-        }
-
-        if (newPositionBlock.isPresent()) {
-            return Optional.<ValueBlock>of(new MaskedValueBlock(valueBlock, newPositionBlock.get()));
-        }
-
-        return Optional.absent();
-    }
-
     private final ValueBlock valueBlock;
-    private final PositionBlock positionBlock;
+    private final List<Long> validPositions;
 
-    private MaskedValueBlock(ValueBlock valueBlock, PositionBlock positionBlock)
+    public MaskedValueBlock(ValueBlock valueBlock, List<Long> validPositions)
     {
+        Preconditions.checkNotNull(valueBlock, "valueBlock is null");
+        Preconditions.checkNotNull(validPositions, "validPositions is null");
+        Preconditions.checkArgument(!validPositions.isEmpty(), "validPositions is empty");
+
         this.valueBlock = valueBlock;
-        this.positionBlock = positionBlock;
-    }
-
-    @Override
-    public Optional<PositionBlock> selectPositions(Predicate<Tuple> predicate)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Optional<ValueBlock> selectPairs(Predicate<Tuple> predicate)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public PositionBlock toPositionBlock()
-    {
-        return positionBlock;
-    }
-
-    @Override
-    public Optional<ValueBlock> filter(PositionBlock positions)
-    {
-        Optional<PositionBlock> activePositions = positionBlock.filter(positions);
-        if (!activePositions.isPresent()) {
-            return Optional.absent();
-        }
-        return Optional.<ValueBlock>of(new MaskedValueBlock(valueBlock, activePositions.get()));
-    }
-
-    @Override
-    public PeekingIterator<Pair> pairIterator()
-    {
-        return Iterators.peekingIterator(Iterators.filter(valueBlock.pairIterator(), new Predicate<Pair>()
-        {
-            @Override
-            public boolean apply(Pair pair)
-            {
-                return positionBlock.apply(pair.getPosition());
-            }
-        }));
+        this.validPositions = ImmutableList.copyOf(validPositions);
     }
 
     @Override
     public int getCount()
     {
-        return positionBlock.getCount();
+        return validPositions.size();
     }
 
     @Override
@@ -113,45 +45,118 @@ public class MaskedValueBlock implements ValueBlock
     }
 
     @Override
-    public Tuple getSingleValue()
-    {
-        return valueBlock.getSingleValue();
-    }
-
-    @Override
     public boolean isPositionsContiguous()
     {
-        return positionBlock.isPositionsContiguous() && valueBlock.isPositionsContiguous();
-    }
-
-    @Override
-    public Iterable<Long> getPositions()
-    {
-        return positionBlock.getPositions();
+        return false;
     }
 
     @Override
     public Range getRange()
     {
-        return positionBlock.getRange();
-    }
-
-    @Override
-    public Iterator<Tuple> iterator()
-    {
-        return transform(Iterators.filter(valueBlock.pairIterator(), new Predicate<Pair>()
-        {
-            @Override
-            public boolean apply(Pair pair)
-            {
-                return positionBlock.apply(pair.getPosition());
-            }
-        }), valueGetter());
+        return valueBlock.getRange();
     }
 
     @Override
     public BlockCursor blockCursor()
     {
-        throw new UnsupportedOperationException();
+        return new MaskedBlockCursor(valueBlock, validPositions);
+    }
+
+    private static class MaskedBlockCursor implements BlockCursor
+    {
+        private final BlockCursor valueCursor;
+        private final BlockCursor validPositions;
+        private boolean isValid;
+
+        private MaskedBlockCursor(ValueBlock valueBlock, List<Long> validPositions)
+        {
+            this.validPositions = new UncompressedPositionBlockCursor(validPositions, valueBlock.getRange());
+            this.valueCursor = valueBlock.blockCursor();
+        }
+
+        @Override
+        public Range getRange()
+        {
+            return valueCursor.getRange();
+        }
+
+        @Override
+        public boolean advanceToNextValue()
+        {
+            if (!isValid) {
+                // advance to first position
+                isValid = true;
+                if (!validPositions.advanceNextPosition()) {
+                    return false;
+                }
+            } else {
+                // advance until the next position is after current value end position
+                long currentValueEndPosition = valueCursor.getValuePositionEnd();
+
+                while (validPositions.advanceNextPosition() && validPositions.getPosition() <= currentValueEndPosition){
+                }
+
+                if (validPositions.getPosition() <= currentValueEndPosition) {
+                    return false;
+                }
+            }
+
+            // move value cursor to to next position
+            return valueCursor.advanceToPosition(validPositions.getPosition());
+        }
+
+        @Override
+        public boolean advanceNextPosition()
+        {
+            // advance current position
+            isValid = true;
+            return validPositions.advanceNextPosition() &&
+                    valueCursor.advanceToPosition(validPositions.getPosition());
+        }
+
+        @Override
+        public boolean advanceToPosition(long newPosition)
+        {
+            isValid = true;
+
+            return validPositions.advanceToPosition(newPosition) &&
+                    valueCursor.advanceToPosition(validPositions.getPosition());
+        }
+
+        @Override
+        public Tuple getTuple()
+        {
+            return valueCursor.getTuple();
+        }
+
+        @Override
+        public long getLong(int field)
+        {
+            return valueCursor.getLong(field);
+        }
+
+        @Override
+        public Slice getSlice(int field)
+        {
+            return valueCursor.getSlice(field);
+        }
+
+        @Override
+        public long getPosition()
+        {
+            return valueCursor.getPosition();
+        }
+
+        @Override
+        public long getValuePositionEnd()
+        {
+            return valueCursor.getValuePositionEnd();
+        }
+
+        @Override
+        public boolean tupleEquals(Tuple value)
+        {
+            return valueCursor.tupleEquals(value);
+        }
     }
 }
