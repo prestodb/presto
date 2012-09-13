@@ -1,87 +1,112 @@
 package com.facebook.presto.operators;
 
 import com.facebook.presto.BlockBuilder;
-import com.facebook.presto.Tuple;
+import com.facebook.presto.BlockStream;
+import com.facebook.presto.Cursor;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.ValueBlock;
-import com.google.common.base.Function;
-import com.google.common.base.Predicate;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
 
 import java.util.Iterator;
 import java.util.List;
 
-import static com.google.common.base.Predicates.not;
-
 public class Merge
-        extends AbstractIterator<ValueBlock>
+        implements BlockStream<ValueBlock>
 {
-    private final List<Iterator<Tuple>> sources;
+    private final List<? extends BlockStream<? extends ValueBlock>> sources;
     private final TupleInfo tupleInfo;
-    private long position;
 
-    public Merge(List<? extends Iterator<ValueBlock>> sources, TupleInfo tupleInfo)
+    @SafeVarargs
+    public Merge(BlockStream<? extends ValueBlock>... sources)
     {
-        ImmutableList.Builder<Iterator<Tuple>> builder = ImmutableList.builder();
-        this.tupleInfo = tupleInfo;
-
-        for (Iterator<ValueBlock> source : sources) {
-            builder.add(Iterators.concat(Iterators.transform(source, toIterator())));
-        }
-
-        this.sources = builder.build();
+        this(ImmutableList.copyOf(sources));
     }
 
-    private static Function<ValueBlock, Iterator<Tuple>> toIterator()
+    public Merge(List<? extends BlockStream<? extends ValueBlock>> sources)
     {
-        return new Function<ValueBlock, Iterator<Tuple>>()
-        {
-            @Override
-            public Iterator<Tuple> apply(ValueBlock input)
-            {
-//                return input.iterator();
-                throw new UnsupportedOperationException();
-            }
-        };
+        // build combined tuple info
+        ImmutableList.Builder<Type> types = ImmutableList.builder();
+        for (BlockStream<? extends ValueBlock> source : sources) {
+            types.addAll(source.getTupleInfo().getTypes());
+        }
+        this.tupleInfo = new TupleInfo(types.build());
+
+        this.sources = ImmutableList.copyOf(sources);
     }
 
     @Override
-    protected ValueBlock computeNext()
+    public TupleInfo getTupleInfo()
     {
-        if (Iterables.any(sources, not(hasNextPredicate()))) {
-            endOfData();
-            return null;
-        }
-
-        BlockBuilder blockBuilder = new BlockBuilder(position, tupleInfo);
-
-        do {
-            for (Iterator<Tuple> source : sources) {
-                blockBuilder.append(source.next());
-            }
-
-            if (blockBuilder.isFull()) {
-                break;
-            }
-        } while (Iterables.all(sources, hasNextPredicate()));
-
-        ValueBlock block = blockBuilder.build();
-        position += block.getCount();
-        return block;
+        return tupleInfo;
     }
 
-    private Predicate<? super Iterator<Tuple>> hasNextPredicate()
+    @Override
+    public Cursor cursor()
     {
-        return new Predicate<Iterator<Tuple>>()
+        return new ValueCursor(tupleInfo, iterator());
+    }
+
+    @Override
+    public Iterator<ValueBlock> iterator()
+    {
+        return new MergeBlockIterator(this.tupleInfo, this.sources);
+    }
+
+    private static class MergeBlockIterator extends AbstractIterator<ValueBlock>
+    {
+        private final TupleInfo tupleInfo;
+        private final List<Cursor> cursors;
+        private long position;
+
+        public MergeBlockIterator(TupleInfo tupleInfo, List<? extends BlockStream<? extends ValueBlock>> sources)
         {
-            @Override
-            public boolean apply(Iterator<Tuple> input)
-            {
-                return input.hasNext();
+            this.tupleInfo = tupleInfo;
+            ImmutableList.Builder<Cursor> cursors = ImmutableList.builder();
+            for (BlockStream<? extends ValueBlock> source : sources) {
+                cursors.add(source.cursor());
             }
-        };
+            this.cursors = cursors.build();
+        }
+
+        @Override
+        protected ValueBlock computeNext()
+        {
+            if (!advanceCursors()) {
+                endOfData();
+                return null;
+            }
+
+            BlockBuilder blockBuilder = new BlockBuilder(position, tupleInfo);
+
+            // write tuple while we have room and there is more data
+            do {
+                for (Cursor cursor : cursors) {
+                    blockBuilder.append(cursor.getTuple());
+                }
+            } while (!blockBuilder.isFull() && advanceCursors());
+
+            ValueBlock block = blockBuilder.build();
+            position += block.getCount();
+            return block;
+        }
+
+        private boolean advanceCursors()
+        {
+            boolean advanced = false;
+            for (Cursor cursor : cursors) {
+                if (cursor.advanceNextPosition()) {
+                    advanced = true;
+                }
+                else if (advanced) {
+                    throw new IllegalStateException("Unaligned cursors");
+                }
+                else {
+                    break;
+                }
+            }
+            return advanced;
+        }
     }
 }
