@@ -1,5 +1,6 @@
 package com.facebook.presto;
 
+import com.facebook.presto.block.Block;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;

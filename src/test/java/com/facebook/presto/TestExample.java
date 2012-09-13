@@ -1,7 +1,13 @@
 package com.facebook.presto;
 
-import com.facebook.presto.operators.DataScan3;
-import com.facebook.presto.operators.Merge;
+import com.facebook.presto.block.Blocks;
+import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.ValueBlockStream;
+import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
+import com.facebook.presto.block.position.UncompressedPositionBlock;
+import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
+import com.facebook.presto.operator.DataScan3;
+import com.facebook.presto.operator.Merge;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

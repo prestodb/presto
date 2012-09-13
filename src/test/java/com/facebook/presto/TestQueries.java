@@ -1,10 +1,14 @@
 package com.facebook.presto;
 
-import com.facebook.presto.aggregations.CountAggregation;
-import com.facebook.presto.aggregations.SumAggregation;
-import com.facebook.presto.operators.AggregationOperator;
-import com.facebook.presto.operators.GroupByBlockStream;
-import com.facebook.presto.operators.HashAggregationBlockStream;
+import com.facebook.presto.aggregation.CountAggregation;
+import com.facebook.presto.aggregation.SumAggregation;
+import com.facebook.presto.block.BlockStream;
+import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.ValueBlock;
+import com.facebook.presto.ingest.RowSourceBuilder;
+import com.facebook.presto.operator.AggregationOperator;
+import com.facebook.presto.operator.GroupByBlockStream;
+import com.facebook.presto.operator.HashAggregationBlockStream;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
@@ -37,7 +41,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
-import static com.facebook.presto.RowSourceBuilder.RowGenerator;
+import static com.facebook.presto.ingest.RowSourceBuilder.RowGenerator;
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Preconditions.checkArgument;
