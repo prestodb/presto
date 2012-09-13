@@ -37,13 +37,14 @@ public class RunLengthEncodedCursor
     @Override
     public boolean isFinished()
     {
-        return !iterator.hasNext() && position > block.getRange().getEnd();
+        return !iterator.hasNext() && (block == null || position > block.getRange().getEnd());
     }
 
     @Override
     public boolean advanceNextValue()
     {
         if (!iterator.hasNext()) {
+            block = null;
             return false;
         }
         block = iterator.next();

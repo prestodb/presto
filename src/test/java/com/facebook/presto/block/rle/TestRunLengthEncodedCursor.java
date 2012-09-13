@@ -51,6 +51,7 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         CursorAssertions.assertNextValue(cursor, 30, "date");
 
         assertFalse(cursor.advanceNextValue());
+        assertTrue(cursor.isFinished());
     }
 
     @Test
@@ -71,6 +72,7 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         CursorAssertions.assertNextPosition(cursor, 30, "date");
 
         assertFalse(cursor.advanceNextPosition());
+        assertTrue(cursor.isFinished());
     }
 
     @Test
@@ -114,6 +116,8 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
 
         // skip past end
         assertFalse(cursor.advanceToPosition(100));
+
+        assertTrue(cursor.isFinished());
     }
 
     @Test
@@ -167,6 +171,7 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         CursorAssertions.assertNextValuePosition(cursor, 30);
 
         assertFalse(cursor.advanceNextValue());
+        assertTrue(cursor.isFinished());
     }
 
     @Test
@@ -179,6 +184,7 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
 
         // advance past end
         assertFalse(cursor.advanceNextPosition());
+        assertTrue(cursor.isFinished());
     }
 
     @Test
@@ -191,6 +197,7 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
 
         // advance past end
         assertFalse(cursor.advanceNextValue());
+        assertTrue(cursor.isFinished());
     }
 
     @Test

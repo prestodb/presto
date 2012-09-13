@@ -79,6 +79,7 @@ public abstract class AbstractTestUncompressedSliceCursor extends AbstractTestCu
         assertNextValue(cursor, 30, "date");
 
         assertFalse(cursor.advanceNextPosition());
+        assertTrue(cursor.isFinished());
     }
 
     @Test
@@ -99,6 +100,7 @@ public abstract class AbstractTestUncompressedSliceCursor extends AbstractTestCu
         assertNextPosition(cursor, 30, "date");
 
         assertFalse(cursor.advanceNextPosition());
+        assertTrue(cursor.isFinished());
     }
 
     @Test
@@ -159,6 +161,7 @@ public abstract class AbstractTestUncompressedSliceCursor extends AbstractTestCu
         assertNextValuePosition(cursor, 30);
 
         assertFalse(cursor.advanceNextValue());
+        assertTrue(cursor.isFinished());
     }
 
     @Test
@@ -202,6 +205,8 @@ public abstract class AbstractTestUncompressedSliceCursor extends AbstractTestCu
 
         // skip past end
         assertFalse(cursor.advanceToPosition(100));
+
+        assertTrue(cursor.isFinished());
     }
 
     @Test
@@ -224,6 +229,7 @@ public abstract class AbstractTestUncompressedSliceCursor extends AbstractTestCu
 
         assertFalse(cursor.advanceNextPosition());
         assertFalse(cursor.advanceNextValue());
+        assertTrue(cursor.isFinished());
     }
 
     @Test
