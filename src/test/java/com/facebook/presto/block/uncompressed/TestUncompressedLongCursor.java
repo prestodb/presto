@@ -81,6 +81,7 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
         assertNextValue(cursor, 30, 4444L);
 
         assertFalse(cursor.advanceNextValue());
+        assertTrue(cursor.isFinished());
     }
 
     @Test
@@ -101,6 +102,7 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
         assertNextPosition(cursor, 30, 4444L);
 
         assertFalse(cursor.advanceNextPosition());
+        assertTrue(cursor.isFinished());
     }
 
     @Test
@@ -144,6 +146,8 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
 
         // skip past end
         assertFalse(cursor.advanceToPosition(100));
+
+        assertTrue(cursor.isFinished());
     }
 
     @Test
@@ -218,6 +222,7 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
         assertNextValuePosition(cursor, 30);
 
         assertFalse(cursor.advanceNextValue());
+        assertTrue(cursor.isFinished());
     }
 
     @Test
@@ -240,6 +245,7 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
 
         assertFalse(cursor.advanceNextPosition());
         assertFalse(cursor.advanceNextValue());
+        assertTrue(cursor.isFinished());
     }
 
     @Test
