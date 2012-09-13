@@ -1,6 +1,6 @@
 package com.facebook.presto.slice;
 
-import com.facebook.presto.RuntimeIOException;
+import com.facebook.presto.ingest.RuntimeIOException;
 import com.google.common.io.CountingOutputStream;
 import com.google.common.io.LittleEndianDataOutputStream;
 

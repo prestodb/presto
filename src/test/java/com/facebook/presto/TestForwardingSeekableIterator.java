@@ -1,5 +1,6 @@
 package com.facebook.presto;
 
+import com.facebook.presto.block.position.RangePositionBlock;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 
@@ -8,7 +9,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.RangePositionBlock.rangeGetter;
+import static com.facebook.presto.block.position.RangePositionBlock.rangeGetter;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
