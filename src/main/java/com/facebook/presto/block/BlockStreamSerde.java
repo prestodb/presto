@@ -3,8 +3,8 @@ package com.facebook.presto.block;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceOutput;
 
-public interface BlockStreamSerde<T extends Block>
+public interface BlockStreamSerde
 {
-    void serialize(BlockStream<? extends Block> blockStream, SliceOutput sliceOutput);
-    BlockStream<T> deserialize(Slice slice);
+    void serialize(BlockStream blockStream, SliceOutput sliceOutput);
+    BlockStream deserialize(Slice slice);
 }

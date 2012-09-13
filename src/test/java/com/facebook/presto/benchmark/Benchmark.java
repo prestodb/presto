@@ -3,7 +3,6 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlockSerde;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import io.airlift.units.DataSize;
@@ -23,7 +22,7 @@ public class Benchmark
         Slice pageTypeColumnSlice = Slices.mapFileReadOnly(file);
 
         for (int i = 0; i < 100000; ++i) {
-            BlockStream<UncompressedValueBlock> pageTypeColumn = UncompressedBlockSerde.readAsStream(pageTypeColumnSlice);
+            BlockStream pageTypeColumn = UncompressedBlockSerde.readAsStream(pageTypeColumnSlice);
 
             Result result = doIt(pageTypeColumn);
             long count = result.count;
@@ -36,7 +35,7 @@ public class Benchmark
         Thread.sleep(1000);
     }
 
-    public static Result doIt(BlockStream<UncompressedValueBlock> pageTypeColumn)
+    public static Result doIt(BlockStream pageTypeColumn)
     {
         Cursor groupBy = pageTypeColumn.cursor();
 

@@ -8,7 +8,8 @@ import java.util.Iterator;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class RunLengthEncodedBlockStream implements BlockStream<RunLengthEncodedBlock>
+public class RunLengthEncodedBlockStream
+        implements BlockStream, Iterable<RunLengthEncodedBlock>
 {
     private final TupleInfo tupleInfo;
     private final Iterable<RunLengthEncodedBlock> runLengthEncodedBlocks;

@@ -56,7 +56,7 @@ public class TestAggregations
                         .build());
     }
 
-    public BlockStream<UncompressedValueBlock> newGroupColumn()
+    public BlockStream newGroupColumn()
     {
         List<UncompressedValueBlock> values = ImmutableList.<UncompressedValueBlock>builder()
                 .add(createBlock(0, "apple", "apple", "apple", "apple", "banana", "banana"))
@@ -69,7 +69,7 @@ public class TestAggregations
         return new UncompressedBlockStream(new TupleInfo(VARIABLE_BINARY), values);
     }
 
-    public BlockStream<UncompressedValueBlock> newAggregateColumn()
+    public BlockStream newAggregateColumn()
     {
         List<UncompressedValueBlock> values = ImmutableList.<UncompressedValueBlock>builder()
                 .add(Blocks.createLongsBlock(0L, 1L, 2L, 3L, 4L, 5L, 6L))

@@ -4,7 +4,6 @@ import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlockSerde;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import io.airlift.units.DataSize;
@@ -26,7 +25,7 @@ public class BenchmarkLong
 //        TupleInfo info = new TupleInfo(TupleInfo.Type.FIXED_INT_64);
 
         for (int i = 0; i < 1000000; ++i) {
-            BlockStream<UncompressedValueBlock> pageTypeColumn = UncompressedBlockSerde.readAsStream(pageTypeColumnSlice);
+            BlockStream pageTypeColumn = UncompressedBlockSerde.readAsStream(pageTypeColumnSlice);
 
 //            int count = pageTypeColumnSlice.length() / 8;
 //            int current = 0;
@@ -50,7 +49,7 @@ public class BenchmarkLong
         Thread.sleep(1000);
     }
 
-    public static Result doIt(BlockStream<UncompressedValueBlock> pageTypeColumn, TupleInfo info)
+    public static Result doIt(BlockStream pageTypeColumn, TupleInfo info)
     {
         Cursor groupBy = pageTypeColumn.cursor();
 

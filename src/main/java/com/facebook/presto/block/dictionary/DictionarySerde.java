@@ -7,38 +7,36 @@ import com.facebook.presto.block.ForwardingCursor;
 import com.facebook.presto.SizeOf;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.Block;
 import com.facebook.presto.block.uncompressed.UncompressedTupleInfoSerde;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class DictionarySerde implements BlockStreamSerde<DictionaryEncodedBlock>
+public class DictionarySerde implements BlockStreamSerde
 {
-    private final BlockStreamSerde<?> idSerde;
+    private final BlockStreamSerde idSerde;
 
-    public DictionarySerde(BlockStreamSerde<?> idSerde)
+    public DictionarySerde(BlockStreamSerde idSerde)
     {
         this.idSerde = idSerde;
     }
 
     @Override
-    public void serialize(final BlockStream<? extends Block> blockStream, SliceOutput sliceOutput)
+    public void serialize(final BlockStream blockStream, SliceOutput sliceOutput)
     {
         checkNotNull(blockStream, "blockStream is null");
         checkNotNull(sliceOutput, "sliceOutput is null");
         checkArgument(blockStream.getTupleInfo().getFieldCount() == 1, "Can only dictionary encode single columns");
 
         final DictionaryBuilder dictionaryBuilder = new DictionaryBuilder();
-        BlockStream<Block> encodedBlockStream = new BlockStream<Block>()
+        BlockStream encodedBlockStream = new BlockStream()
         {
             @Override
             public TupleInfo getTupleInfo()
@@ -78,12 +76,6 @@ public class DictionarySerde implements BlockStreamSerde<DictionaryEncodedBlock>
                     }
                 };
             }
-
-            @Override
-            public Iterator<Block> iterator()
-            {
-                throw new UnsupportedOperationException();
-            }
         };
         idSerde.serialize(encodedBlockStream, sliceOutput);
 
@@ -95,7 +87,7 @@ public class DictionarySerde implements BlockStreamSerde<DictionaryEncodedBlock>
     }
 
     @Override
-    public BlockStream<DictionaryEncodedBlock> deserialize(Slice slice)
+    public BlockStream deserialize(Slice slice)
     {
         checkNotNull(slice, "slice is null");
 

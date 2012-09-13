@@ -8,7 +8,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 
 public class ValueBlockStream<T extends Block>
-        implements BlockStream<T>
+        implements BlockStream, Iterable<T>
 {
     private final TupleInfo info;
     private final Iterable<T> source;

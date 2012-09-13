@@ -4,7 +4,6 @@ import com.facebook.presto.Main;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.uncompressed.UncompressedBlockSerde;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
 import com.google.common.io.Resources;
 import io.airlift.testing.FileUtils;
 import org.testng.annotations.AfterMethod;
@@ -101,11 +100,11 @@ public class TestCsv
                         "abc"));
     }
 
-    private BlockStream<UncompressedValueBlock> readColumn(int columnNumber)
+    private BlockStream readColumn(int columnNumber)
             throws IOException
     {
         File file = new File(outDir, "column" + columnNumber + ".data");
-        BlockStream<UncompressedValueBlock> blockStream = UncompressedBlockSerde.read(file);
+        BlockStream blockStream = UncompressedBlockSerde.read(file);
         return blockStream;
     }
 
