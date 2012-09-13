@@ -116,7 +116,7 @@ public class UncompressedPositionBlock
                 index = 0;
             }
 
-            while(index < positions.size() && newPosition > positions.get(index)) {
+            while (index < positions.size() && newPosition > positions.get(index)) {
                 index++;
             }
 
@@ -128,7 +128,7 @@ public class UncompressedPositionBlock
         {
             Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
 
-            if (index >= positions.size()) {
+            if (index >=  positions.size()) {
                 throw new NoSuchElementException();
             }
 
