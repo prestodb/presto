@@ -18,10 +18,9 @@ public class AverageAggregation
         }
     };
 
-    // TODO: value should be float (?)
-    private static final TupleInfo TUPLE_INFO = new TupleInfo(TupleInfo.Type.FIXED_INT_64);
+    private static final TupleInfo TUPLE_INFO = new TupleInfo(TupleInfo.Type.DOUBLE);
 
-    private long sum;
+    private double sum;
     private long count;
 
     @Override
@@ -38,7 +37,8 @@ public class AverageAggregation
         }
 
         do {
-            sum += cursor.getLong(0);
+            // TODO: operate on longs. Coercions?
+            sum += cursor.getDouble(0);
             ++count;
         } while (cursor.advanceNextPosition() && cursor.getPosition() <= endPosition);
     }
