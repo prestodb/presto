@@ -1,7 +1,6 @@
 package com.facebook.presto.aggregation;
 
 import com.facebook.presto.Range;
-import com.facebook.presto.aggregation.CountAggregation;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
 import com.google.common.collect.ImmutableList;
@@ -66,7 +65,9 @@ public class TestCountAggregation
 
         CountAggregation count = new CountAggregation();
         for (Range range : ranges) {
-            count.add(cursor, range);
+            if (cursor.advanceToPosition(range.getStart())) {
+                count.add(cursor, range.getEnd());
+            }
         }
 
         assertEquals(count.evaluate().getLong(0), expected);

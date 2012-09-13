@@ -1,9 +1,8 @@
 package com.facebook.presto.aggregation;
 
-import com.facebook.presto.block.Cursor;
-import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.Cursor;
 
 import javax.inject.Provider;
 
@@ -29,7 +28,7 @@ public class SumAggregation
     }
 
     @Override
-    public void add(Cursor cursor, Range relevantRange)
+    public void add(Cursor cursor, long endPosition)
     {
 //  todo: rle code
 //        cursor.advanceToPosition(relevantRange.getStart());
@@ -43,17 +42,13 @@ public class SumAggregation
 //            cursor.advanceNextPosition();
 //        }  while (relevantRange.contains(cursor.getPosition()));
 
-        // try to advance to start of range
-        if (!cursor.advanceToPosition(relevantRange.getStart())) {
+        if (cursor.getPosition() > endPosition) {
             return;
         }
 
-        while (relevantRange.contains(cursor.getPosition())) {
+        do {
             sum += cursor.getLong(0);
-            if (!cursor.advanceNextPosition()) {
-                break;
-            }
-        }
+        } while (cursor.advanceNextPosition() && cursor.getPosition() <= endPosition);
     }
 
     @Override

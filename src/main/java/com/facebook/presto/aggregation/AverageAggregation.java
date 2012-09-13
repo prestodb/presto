@@ -1,16 +1,16 @@
 package com.facebook.presto.aggregation;
 
-import com.facebook.presto.block.Cursor;
-import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.Cursor;
 
 import javax.inject.Provider;
 
 public class AverageAggregation
-    implements AggregationFunction
+        implements AggregationFunction
 {
-    public static final Provider<AggregationFunction> PROVIDER = new Provider<AggregationFunction>() {
+    public static final Provider<AggregationFunction> PROVIDER = new Provider<AggregationFunction>()
+    {
         @Override
         public AverageAggregation get()
         {
@@ -31,20 +31,16 @@ public class AverageAggregation
     }
 
     @Override
-    public void add(Cursor cursor, Range relevantRange)
+    public void add(Cursor cursor, long endPosition)
     {
-        // try to advance to start of range
-        if (!cursor.advanceToPosition(relevantRange.getStart())) {
+        if (cursor.getPosition() > endPosition) {
             return;
         }
 
-        while (relevantRange.contains(cursor.getPosition())) {
+        do {
             sum += cursor.getLong(0);
             ++count;
-            if (!cursor.advanceNextPosition()) {
-                break;
-            }
-        }
+        } while (cursor.advanceNextPosition() && cursor.getPosition() <= endPosition);
     }
 
     @Override
