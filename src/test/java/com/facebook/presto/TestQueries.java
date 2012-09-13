@@ -1,5 +1,6 @@
 package com.facebook.presto;
 
+import com.facebook.presto.aggregation.AverageAggregation;
 import com.facebook.presto.aggregation.CountAggregation;
 import com.facebook.presto.aggregation.DoubleSumAggregation;
 import com.facebook.presto.block.BlockStream;
@@ -134,6 +135,17 @@ public class TestQueries
 
         BlockStream orders = createBlockStream(ordersData, Column.ORDER_ORDERKEY, FIXED_INT_64);
         AggregationOperator aggregation = new AggregationOperator(orders, CountAggregation.PROVIDER);
+
+        assertEqualsIgnoreOrder(tuples(aggregation), expected);
+    }
+
+    @Test
+    public void testAverageAll()
+    {
+        List<Tuple> expected = computeExpected("SELECT AVG(totalprice) FROM orders", DOUBLE);
+
+        BlockStream price = createBlockStream(ordersData, Column.ORDER_TOTALPRICE, DOUBLE);
+        AggregationOperator aggregation = new AggregationOperator(price, AverageAggregation.PROVIDER);
 
         assertEqualsIgnoreOrder(tuples(aggregation), expected);
     }
