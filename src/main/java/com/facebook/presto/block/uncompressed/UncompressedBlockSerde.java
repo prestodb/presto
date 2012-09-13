@@ -8,7 +8,6 @@ import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.BlockStreamSerde;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.Block;
 import com.facebook.presto.slice.ByteArraySlice;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.OutputStreamSliceOutput;
@@ -27,19 +26,19 @@ import static com.facebook.presto.SizeOf.SIZE_OF_INT;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 
 public class UncompressedBlockSerde
-        implements BlockStreamSerde<UncompressedValueBlock>
+        implements BlockStreamSerde
 {
     private static final int MAX_BLOCK_SIZE = (int) new DataSize(64, KILOBYTE).toBytes();
     private static final UncompressedBlockSerde INSTANCE = new UncompressedBlockSerde();
 
     @Override
-    public void serialize(BlockStream<? extends Block> blockStream, SliceOutput sliceOutput)
+    public void serialize(BlockStream blockStream, SliceOutput sliceOutput)
     {
         write(blockStream.cursor(), sliceOutput);
     }
 
     @Override
-    public BlockStream<UncompressedValueBlock> deserialize(Slice slice)
+    public BlockStream deserialize(Slice slice)
     {
         return readAsStream(slice);
     }
@@ -76,7 +75,7 @@ public class UncompressedBlockSerde
         destination.writeBytes(slice);
     }
 
-    public static BlockStream<UncompressedValueBlock> read(File file)
+    public static BlockStream read(File file)
             throws IOException
     {
         Slice mappedSlice = Slices.mapFileReadOnly(file);
@@ -88,7 +87,7 @@ public class UncompressedBlockSerde
         return new UncompressedReader(slice);
     }
 
-    public static BlockStream<UncompressedValueBlock> readAsStream(final Slice slice)
+    public static BlockStream readAsStream(final Slice slice)
     {
         UncompressedReader reader = new UncompressedReader(slice);
 

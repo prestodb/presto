@@ -3,7 +3,6 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.aggregation.SumAggregation;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.Block;
 import com.facebook.presto.block.uncompressed.UncompressedBlockSerde;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
@@ -29,8 +28,8 @@ public class BenchmarkPipelineAggregation
         Slice aggregateSlice = Slices.mapFileReadOnly(aggregateFile);
 
         for (int i = 0; i < 100000; ++i) {
-            BlockStream<? extends Block> groupBySource = UncompressedBlockSerde.readAsStream(groupBySlice);
-            BlockStream<? extends Block> aggregateSource = UncompressedBlockSerde.readAsStream(aggregateSlice);
+            BlockStream groupBySource = UncompressedBlockSerde.readAsStream(groupBySlice);
+            BlockStream aggregateSource = UncompressedBlockSerde.readAsStream(aggregateSlice);
 
             GroupByBlockStream groupBy = new GroupByBlockStream(groupBySource);
             PipelinedAggregationBlockStream aggregation = new PipelinedAggregationBlockStream(groupBy, aggregateSource, SumAggregation.PROVIDER);
@@ -46,7 +45,7 @@ public class BenchmarkPipelineAggregation
         Thread.sleep(1000);
     }
 
-    public static Result doIt(BlockStream<? extends Block> source)
+    public static Result doIt(BlockStream source)
     {
         long start = System.nanoTime();
 

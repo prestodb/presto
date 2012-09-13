@@ -2,7 +2,6 @@ package com.facebook.presto;
 
 import com.facebook.presto.aggregation.CountAggregation;
 import com.facebook.presto.aggregation.SumAggregation;
-import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.ingest.RowSourceBuilder;
@@ -105,7 +104,7 @@ public class TestQueries
     {
         List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM orders", FIXED_INT_64);
 
-        BlockStream<Block> orders = createBlockStream(ordersData, 1, FIXED_INT_64);
+        BlockStream orders = createBlockStream(ordersData, 1, FIXED_INT_64);
         AggregationOperator aggregation = new AggregationOperator(orders, CountAggregation.PROVIDER);
 
         assertEqualsIgnoreOrder(tuples(aggregation), expected);
@@ -118,8 +117,8 @@ public class TestQueries
                 "SELECT orderstatus, SUM(custkey) FROM orders GROUP BY orderstatus",
                 VARIABLE_BINARY, FIXED_INT_64);
 
-        BlockStream<Block> groupBySource = createBlockStream(ordersData, 2, VARIABLE_BINARY);
-        BlockStream<Block> aggregateSource = createBlockStream(ordersData, 1, FIXED_INT_64);
+        BlockStream groupBySource = createBlockStream(ordersData, 2, VARIABLE_BINARY);
+        BlockStream aggregateSource = createBlockStream(ordersData, 1, FIXED_INT_64);
 
         GroupByBlockStream groupBy = new GroupByBlockStream(groupBySource);
         HashAggregationBlockStream aggregation = new HashAggregationBlockStream(groupBy, aggregateSource, SumAggregation.PROVIDER);
@@ -135,7 +134,7 @@ public class TestQueries
                 .list();
     }
 
-    private static List<Tuple> tuples(BlockStream<? extends Block> blockStream)
+    private static List<Tuple> tuples(BlockStream blockStream)
     {
         Cursor cursor = blockStream.cursor();
         List<Tuple> list = new ArrayList<>();
@@ -158,7 +157,7 @@ public class TestQueries
         });
     }
 
-    private static BlockStream<Block> createBlockStream(List<List<String>> data, final int index, final TupleInfo.Type type)
+    private static BlockStream createBlockStream(List<List<String>> data, final int index, final TupleInfo.Type type)
     {
         final Iterator<List<String>> iterator = data.iterator();
         return new RowSourceBuilder(new TupleInfo(type), new RowGenerator()

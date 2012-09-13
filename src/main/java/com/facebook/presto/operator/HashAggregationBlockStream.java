@@ -4,11 +4,9 @@ import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.aggregation.AggregationFunction;
-import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedCursor;
 import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
 import com.google.common.base.Preconditions;
@@ -25,15 +23,15 @@ import java.util.Map.Entry;
  * Group input data and produce a single block for each sequence of identical values.
  */
 public class HashAggregationBlockStream
-    implements BlockStream<UncompressedValueBlock>
+    implements BlockStream, Iterable<UncompressedValueBlock>
 {
-    private final BlockStream<? extends Block> groupBySource;
-    private final BlockStream<? extends Block> aggregationSource;
+    private final BlockStream groupBySource;
+    private final BlockStream aggregationSource;
     private final Provider<AggregationFunction> functionProvider;
     private final TupleInfo info;
 
-    public HashAggregationBlockStream(BlockStream<RunLengthEncodedBlock> groupBySource,
-            BlockStream<? extends Block> aggregationSource,
+    public HashAggregationBlockStream(BlockStream groupBySource,
+            BlockStream aggregationSource,
             Provider<AggregationFunction> functionProvider)
     {
         Preconditions.checkNotNull(groupBySource, "groupBySource is null");

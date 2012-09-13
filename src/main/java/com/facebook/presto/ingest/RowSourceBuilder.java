@@ -3,7 +3,6 @@ package com.facebook.presto.ingest;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.Block;
 import com.facebook.presto.block.uncompressed.UncompressedCursor;
 import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
 import com.facebook.presto.slice.Slice;
@@ -11,7 +10,6 @@ import com.google.common.collect.AbstractIterator;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Iterator;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -58,12 +56,6 @@ public class RowSourceBuilder
         checkState(!cursorCreated, "cursor already created");
         cursorCreated = true;
         return new UncompressedCursor(tupleInfo, new RowSourceIterator());
-    }
-
-    @Override
-    public Iterator<Block> iterator()
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override

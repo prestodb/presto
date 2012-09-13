@@ -14,15 +14,15 @@ import com.google.common.collect.ImmutableList;
 import java.util.Iterator;
 
 public class DataScan1
-        implements BlockStream<Block>
+        implements BlockStream
 {
     private static final int RANGES_PER_BLOCK = 100;
     private static final TupleInfo INFO = new TupleInfo();
 
-    private final BlockStream<? extends Block> source;
+    private final BlockStream source;
     private final Predicate<Cursor> predicate;
 
-    public DataScan1(BlockStream<? extends Block> source, Predicate<Cursor> predicate)
+    public DataScan1(BlockStream source, Predicate<Cursor> predicate)
     {
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkNotNull(predicate, "predicate is null");

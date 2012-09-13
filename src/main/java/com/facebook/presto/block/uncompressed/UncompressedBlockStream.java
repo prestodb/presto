@@ -10,7 +10,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 
 public class UncompressedBlockStream
-        implements BlockStream<UncompressedValueBlock>
+        implements BlockStream, Iterable<UncompressedValueBlock>
 {
     private final TupleInfo info;
     private final Iterable<UncompressedValueBlock> source;

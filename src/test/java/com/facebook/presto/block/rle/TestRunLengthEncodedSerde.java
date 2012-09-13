@@ -4,10 +4,8 @@ import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.SliceOutput;
-import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -28,7 +26,7 @@ public class TestRunLengthEncodedSerde
     @Test
     public void testSanity() throws Exception
     {
-        BlockStream<?> blockStream = Blocks.createBlockStream(0, "a", "b", "b", "cde", "fuu", "a", "fuu");
+        BlockStream blockStream = Blocks.createBlockStream(0, "a", "b", "b", "cde", "fuu", "a", "fuu");
         rleSerde.serialize(blockStream, sliceOutput);
         Blocks.assertBlockStreamEquals(blockStream, rleSerde.deserialize(sliceOutput.slice()));
     }
@@ -36,7 +34,7 @@ public class TestRunLengthEncodedSerde
     @Test
     public void testAllSame() throws Exception
     {
-        BlockStream<?> blockStream = Blocks.createBlockStream(0, "a", "a", "a", "a", "a", "a", "a");
+        BlockStream blockStream = Blocks.createBlockStream(0, "a", "a", "a", "a", "a", "a", "a");
         rleSerde.serialize(blockStream, sliceOutput);
         Blocks.assertBlockStreamEquals(blockStream, rleSerde.deserialize(sliceOutput.slice()));
     }
@@ -44,7 +42,7 @@ public class TestRunLengthEncodedSerde
     @Test
     public void testAllUnique() throws Exception
     {
-        BlockStream<?> blockStream = Blocks.createBlockStream(0, "a", "b", "c", "d", "e", "f", "g");
+        BlockStream blockStream = Blocks.createBlockStream(0, "a", "b", "c", "d", "e", "f", "g");
         rleSerde.serialize(blockStream, sliceOutput);
         Blocks.assertBlockStreamEquals(blockStream, rleSerde.deserialize(sliceOutput.slice()));
     }
@@ -52,7 +50,7 @@ public class TestRunLengthEncodedSerde
     @Test
     public void testPositionGaps() throws Exception
     {
-        BlockStream<?> blockStream = new UncompressedBlockStream(
+        BlockStream blockStream = new UncompressedBlockStream(
                 new TupleInfo(VARIABLE_BINARY),
                 Blocks.createBlock(1, "a", "a", "b", "a", "c"),
                 Blocks.createBlock(6, "c", "a", "b", "b", "b"),

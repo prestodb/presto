@@ -74,7 +74,7 @@ public class TestGroupBy
         Assert.assertEquals(actual, expected);
     }
 
-    public BlockStream<UncompressedValueBlock> newGroupColumn()
+    public BlockStream newGroupColumn()
     {
         List<UncompressedValueBlock> values = ImmutableList.<UncompressedValueBlock>builder()
                 .add(createBlock(0, "apple", "apple", "apple", "apple", "banana", "banana"))

@@ -13,13 +13,13 @@ import java.util.Iterator;
 import java.util.List;
 
 public class DataScan3
-        implements BlockStream<Block>
+        implements BlockStream, Iterable<Block>
 {
     private final TupleInfo tupleInfo;
     private final Iterable<? extends Block> source;
-    private final BlockStream<? extends Block> positions;
+    private final BlockStream positions;
 
-    public DataScan3(TupleInfo tupleInfo, Iterable<? extends Block> source, BlockStream<? extends Block> positions)
+    public DataScan3(TupleInfo tupleInfo, Iterable<? extends Block> source, BlockStream positions)
     {
         this.tupleInfo = tupleInfo;
         this.source = source;
