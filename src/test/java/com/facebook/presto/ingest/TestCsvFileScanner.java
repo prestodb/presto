@@ -1,10 +1,7 @@
 package com.facebook.presto.ingest;
 
-import com.facebook.presto.Pair;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.ingest.ColumnProcessors;
-import com.facebook.presto.ingest.CsvReader;
-import com.facebook.presto.ingest.RowSource;
+import com.facebook.presto.block.Blocks;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.InputSupplier;
 import org.testng.annotations.Test;
@@ -12,17 +9,14 @@ import org.testng.annotations.Test;
 import java.io.InputStreamReader;
 import java.util.List;
 
-import static com.facebook.presto.ingest.CsvReader.csvNumericColumn;
-import static com.facebook.presto.ingest.CsvReader.csvStringColumn;
-import static com.facebook.presto.block.Cursors.toPairList;
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
-import static com.facebook.presto.Tuples.createTuple;
+import static com.facebook.presto.block.Blocks.assertBlockStreamEquals;
+import static com.facebook.presto.ingest.CsvReader.csvNumericColumn;
+import static com.facebook.presto.ingest.CsvReader.csvStringColumn;
 import static com.google.common.base.Charsets.UTF_8;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.Resources.getResource;
 import static com.google.common.io.Resources.newReaderSupplier;
-import static org.testng.Assert.assertEquals;
 
 public class TestCsvFileScanner
 {
@@ -50,26 +44,14 @@ public class TestCsvFileScanner
                 processor.finish();
             }
 
-            assertEquals(toPairList(processors.get(0).getBlockStream().cursor()),
-                    ImmutableList.of(
-                            new Pair(0, createTuple(0)),
-                            new Pair(1, createTuple(1)),
-                            new Pair(2, createTuple(2)),
-                            new Pair(3, createTuple(3))));
+            assertBlockStreamEquals(processors.get(0).getBlockStream(),
+                    Blocks.createLongsBlockStream(0, 0, 1, 2, 3));
 
-            assertEquals(toPairList(processors.get(1).getBlockStream().cursor()),
-                    ImmutableList.of(
-                            new Pair(0, createTuple("apple")),
-                            new Pair(1, createTuple("banana")),
-                            new Pair(2, createTuple("cherry")),
-                            new Pair(3, createTuple("date"))));
+            assertBlockStreamEquals(processors.get(1).getBlockStream(),
+                    Blocks.createBlockStream(0, "apple", "banana", "cherry", "date"));
 
-            assertEquals(toPairList(processors.get(2).getBlockStream().cursor()),
-                    ImmutableList.of(
-                            new Pair(0, createTuple("alice")),
-                            new Pair(1, createTuple("bob")),
-                            new Pair(2, createTuple("charlie")),
-                            new Pair(3, createTuple("dave"))));
+            assertBlockStreamEquals(processors.get(2).getBlockStream(),
+                    Blocks.createBlockStream(0, "alice", "bob", "charlie", "dave"));
         }
     }
 }
