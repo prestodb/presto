@@ -25,7 +25,7 @@ public class TestUncompressedBlockReader
             throws Exception
     {
         TupleInfo tupleInfo = new TupleInfo(Type.VARIABLE_BINARY);
-        UncompressedValueBlock block = new BlockBuilder(0, tupleInfo)
+        UncompressedBlock block = new BlockBuilder(0, tupleInfo)
                 .append("alice".getBytes(UTF_8))
                 .append("bob".getBytes(UTF_8))
                 .append("charlie".getBytes(UTF_8))
@@ -38,7 +38,7 @@ public class TestUncompressedBlockReader
         processor.processPositions(Integer.MAX_VALUE);
         processor.finish();
 
-        ImmutableList<UncompressedValueBlock> copiedBlocks = ImmutableList.copyOf(UncompressedBlockSerde.read(Slices.wrappedBuffer(out.toByteArray())));
+        ImmutableList<UncompressedBlock> copiedBlocks = ImmutableList.copyOf(UncompressedBlockSerde.read(Slices.wrappedBuffer(out.toByteArray())));
 
         // this is only true because the input is small
         assertEquals(copiedBlocks.size(), 1);

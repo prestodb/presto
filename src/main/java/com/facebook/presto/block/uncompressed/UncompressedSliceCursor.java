@@ -17,14 +17,14 @@ public class UncompressedSliceCursor
 {
     private static final TupleInfo INFO = new TupleInfo(VARIABLE_BINARY);
 
-    private final Iterator<UncompressedValueBlock> iterator;
+    private final Iterator<UncompressedBlock> iterator;
 
-    private UncompressedValueBlock block;
+    private UncompressedBlock block;
     private int index = -1;
     private int offset = -1;
     private int size = -1;
 
-    public UncompressedSliceCursor(Iterator<UncompressedValueBlock> iterator)
+    public UncompressedSliceCursor(Iterator<UncompressedBlock> iterator)
     {
         Preconditions.checkNotNull(iterator, "iterator is null");
         Preconditions.checkArgument(iterator.hasNext(), "iterator is empty");

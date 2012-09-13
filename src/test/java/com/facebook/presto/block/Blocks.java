@@ -3,8 +3,8 @@ package com.facebook.presto.block;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
 import com.facebook.presto.slice.Slice;
 import com.google.common.collect.ImmutableList;
 import org.testng.Assert;
@@ -67,7 +67,7 @@ public class Blocks
         return new UncompressedBlockStream(new TupleInfo(VARIABLE_BINARY), createBlock(position, values));
     }
 
-    public static UncompressedValueBlock createBlock(long position, String... values)
+    public static UncompressedBlock createBlock(long position, String... values)
     {
         BlockBuilder builder = new BlockBuilder(position, new TupleInfo(VARIABLE_BINARY));
 
@@ -83,7 +83,7 @@ public class Blocks
         return new UncompressedBlockStream(new TupleInfo(FIXED_INT_64), createLongsBlock(position, values));
     }
 
-    public static UncompressedValueBlock createLongsBlock(long position, long... values)
+    public static UncompressedBlock createLongsBlock(long position, long... values)
     {
         BlockBuilder builder = new BlockBuilder(position, new TupleInfo(FIXED_INT_64));
 
@@ -99,7 +99,7 @@ public class Blocks
         return new UncompressedBlockStream(new TupleInfo(DOUBLE), createDoublesBlock(position, values));
     }
 
-    public static UncompressedValueBlock createDoublesBlock(long position, double... values)
+    public static UncompressedBlock createDoublesBlock(long position, double... values)
     {
         BlockBuilder builder = new BlockBuilder(position, new TupleInfo(DOUBLE));
 
@@ -124,7 +124,7 @@ public class Blocks
 
     public static class BlockStreamBuilder
     {
-        private final List<UncompressedValueBlock> blocks = new ArrayList<>();
+        private final List<UncompressedBlock> blocks = new ArrayList<>();
         private final BlockBuilder blockBuilder;
         private final TupleInfo tupleInfo;
 

@@ -1,10 +1,10 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.ValueBlockStream;
+import com.facebook.presto.block.GenericBlockStream;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
 import com.facebook.presto.block.position.UncompressedPositionBlock;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -22,7 +22,7 @@ public class TestDataScan3
     @Test
     public void test()
     {
-        List<UncompressedValueBlock> values = ImmutableList.<UncompressedValueBlock>builder()
+        List<UncompressedBlock> values = ImmutableList.<UncompressedBlock>builder()
                 .add(createBlock(0, "a", "b", "c", "d", "e", "f"))
                 .add(createBlock(20, "h", "i", "j", "k", "l", "m"))
                 .add(createBlock(30, "n", "o", "p", "q", "r", "s"))
@@ -36,7 +36,7 @@ public class TestDataScan3
                 .add(new UncompressedPositionBlock(40L, 41L, 42L))
                 .build();
 
-        DataScan3 dataScan3 = new DataScan3(INFO, new UncompressedBlockStream(INFO, values), new ValueBlockStream<>(new TupleInfo(), positions));
+        DataScan3 dataScan3 = new DataScan3(INFO, new UncompressedBlockStream(INFO, values), new GenericBlockStream<>(new TupleInfo(), positions));
 
         assertBlockStreamEquals(dataScan3,
                 new UncompressedBlockStream(INFO,

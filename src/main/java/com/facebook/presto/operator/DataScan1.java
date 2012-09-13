@@ -65,6 +65,6 @@ public class DataScan1
     @Override
     public Cursor cursor()
     {
-        return new ValueCursor(INFO, iterator());
+        return new GenericCursor(INFO, iterator());
     }
 }

@@ -272,7 +272,7 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
         }
     }
 
-    protected List<UncompressedValueBlock> createBlocks()
+    protected List<UncompressedBlock> createBlocks()
     {
         return ImmutableList.of(
                 Blocks.createLongsBlock(0, 1111L, 1111L, 1111L, 2222L, 2222L),

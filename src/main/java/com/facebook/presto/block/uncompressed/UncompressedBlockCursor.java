@@ -19,7 +19,7 @@ public class UncompressedBlockCursor
     private int offset = -1;
     private int size = -1;
 
-    public UncompressedBlockCursor(TupleInfo info, UncompressedValueBlock block)
+    public UncompressedBlockCursor(TupleInfo info, UncompressedBlock block)
     {
         this(checkNotNull(info, "info is null"), checkNotNull(block, "block is null").getSlice(), block.getRange());
     }

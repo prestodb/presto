@@ -3,7 +3,7 @@ package com.facebook.presto.block;
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
@@ -107,13 +107,13 @@ public class BlockBuilder
         }
     }
 
-    public UncompressedValueBlock build()
+    public UncompressedBlock build()
     {
         flushTupleIfNecessary();
 
         checkState(!tupleBuilder.isPartial(), "Tuple is not complete");
         checkState(!isEmpty(), "Cannot build an empty block");
 
-        return new UncompressedValueBlock(Range.create(startPosition, startPosition + count - 1), tupleInfo, sliceOutput.slice());
+        return new UncompressedBlock(Range.create(startPosition, startPosition + count - 1), tupleInfo, sliceOutput.slice());
     }
 }

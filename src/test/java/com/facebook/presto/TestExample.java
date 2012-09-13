@@ -2,10 +2,10 @@ package com.facebook.presto;
 
 import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.ValueBlockStream;
+import com.facebook.presto.block.GenericBlockStream;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
 import com.facebook.presto.block.position.UncompressedPositionBlock;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
 import com.facebook.presto.operator.DataScan3;
 import com.facebook.presto.operator.Merge;
 import com.google.common.collect.ImmutableList;
@@ -41,7 +41,7 @@ public class TestExample
 
     private static DataScan3 newScan()
     {
-        List<UncompressedValueBlock> values = ImmutableList.<UncompressedValueBlock>builder()
+        List<UncompressedBlock> values = ImmutableList.<UncompressedBlock>builder()
                 .add(Blocks.createBlock(0, "a", "b", "c", "d", "e", "f"))
                 .add(Blocks.createBlock(20, "h", "i", "j", "k", "l", "m"))
                 .add(Blocks.createBlock(30, "n", "o", "p", "q", "r", "s"))
@@ -56,6 +56,6 @@ public class TestExample
                 .build();
 
         TupleInfo tupleInfo = new TupleInfo(VARIABLE_BINARY);
-        return new DataScan3(tupleInfo, new UncompressedBlockStream(tupleInfo, values), new ValueBlockStream<>(new TupleInfo(), positions));
+        return new DataScan3(tupleInfo, new UncompressedBlockStream(tupleInfo, values), new GenericBlockStream<>(new TupleInfo(), positions));
     }
 }

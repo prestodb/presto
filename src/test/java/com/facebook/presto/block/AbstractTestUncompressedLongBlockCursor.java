@@ -3,10 +3,8 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.block.Blocks;
 import com.facebook.presto.Range;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -174,7 +172,7 @@ public abstract class AbstractTestUncompressedLongBlockCursor extends AbstractTe
         Assert.assertEquals(cursor.getRange(), new Range(0, 10));
     }
 
-    protected UncompressedValueBlock createTestBlock()
+    protected UncompressedBlock createTestBlock()
     {
         return Blocks.createLongsBlock(0, 1111L, 1111L, 1111L, 2222L, 2222L, 2222L, 2222L, 2222L, 3333L, 3333L, 4444L);
     }

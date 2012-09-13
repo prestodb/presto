@@ -23,7 +23,7 @@ public class UncompressedSliceBlockCursor
     private int size = -1;
 
 
-    public UncompressedSliceBlockCursor(UncompressedValueBlock block)
+    public UncompressedSliceBlockCursor(UncompressedBlock block)
     {
         this(checkNotNull(block, "block is null").getSlice(), block.getRange());
     }

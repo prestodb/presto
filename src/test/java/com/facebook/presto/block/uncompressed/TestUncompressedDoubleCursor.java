@@ -271,7 +271,7 @@ public class TestUncompressedDoubleCursor extends AbstractTestCursor
         }
     }
 
-    protected List<UncompressedValueBlock> createBlocks()
+    protected List<UncompressedBlock> createBlocks()
     {
         return ImmutableList.of(
                 Blocks.createDoublesBlock(0, 11.11, 11.11, 11.11, 22.22, 22.22),
