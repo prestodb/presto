@@ -3,7 +3,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.ValueBlock;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -11,7 +11,7 @@ import com.google.common.base.Predicate;
 import java.util.Iterator;
 
 public class DataScan2
-        implements BlockStream<ValueBlock>
+        implements BlockStream<Block>
 {
     private final BlockStream<?> source;
     private final Predicate<BlockCursor> predicate;
@@ -25,7 +25,7 @@ public class DataScan2
     }
 
     @Override
-    public Iterator<ValueBlock> iterator()
+    public Iterator<Block> iterator()
     {
         throw new UnsupportedOperationException();
     }

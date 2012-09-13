@@ -3,20 +3,22 @@ package com.facebook.presto.block.dictionary;
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.ValueBlock;
 import com.facebook.presto.slice.Slice;
 import com.google.common.primitives.Ints;
 
-import static com.google.common.base.Preconditions.*;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkPositionIndex;
 
-public class DictionaryEncodedBlock implements ValueBlock
+public class DictionaryEncodedBlock implements Block
 {
     private final TupleInfo tupleInfo;
     private final Slice[] dictionary;
-    private final ValueBlock sourceValueBlock;
+    private final Block sourceValueBlock;
 
-    public DictionaryEncodedBlock(TupleInfo tupleInfo,  Slice[] dictionary, ValueBlock sourceValueBlock)
+    public DictionaryEncodedBlock(TupleInfo tupleInfo, Slice[] dictionary, Block sourceValueBlock)
     {
         checkNotNull(tupleInfo, "tupleInfo is null");
         checkNotNull(dictionary, "dictionary is null");
@@ -69,7 +71,7 @@ public class DictionaryEncodedBlock implements ValueBlock
         private final BlockCursor delegate;
         private final Slice[] dictionary;
 
-        private DictionaryEncodedBlockCursor(TupleInfo tupleInfo, ValueBlock sourceValueBlock, Slice... dictionary)
+        private DictionaryEncodedBlockCursor(TupleInfo tupleInfo, Block sourceValueBlock, Slice... dictionary)
         {
             this.tupleInfo = tupleInfo;
             this.dictionary = dictionary;

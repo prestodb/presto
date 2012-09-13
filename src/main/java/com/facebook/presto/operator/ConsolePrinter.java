@@ -4,7 +4,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Tuple;
-import com.facebook.presto.block.ValueBlock;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
@@ -18,26 +18,26 @@ import java.util.Iterator;
 import static com.google.common.base.Charsets.UTF_8;
 
 public class ConsolePrinter
-        extends AbstractIterator<ValueBlock>
+        extends AbstractIterator<Block>
 {
-    private final Iterator<ValueBlock> input;
+    private final Iterator<Block> input;
     private final TuplePrinter printer;
 
-    public ConsolePrinter(Iterator<ValueBlock> input, TuplePrinter printer)
+    public ConsolePrinter(Iterator<Block> input, TuplePrinter printer)
     {
         this.input = input;
         this.printer = printer;
     }
 
     @Override
-    protected ValueBlock computeNext()
+    protected Block computeNext()
     {
         if (!input.hasNext()) {
             endOfData();
             return null;
         }
 
-        ValueBlock block = input.next();
+        Block block = input.next();
         BlockCursor blockCursor = block.blockCursor();
         while (blockCursor.advanceNextPosition()) {
             printer.print(blockCursor.getTuple());

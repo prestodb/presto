@@ -9,7 +9,7 @@ import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.block.uncompressed.UncompressedCursor;
 import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
-import com.facebook.presto.block.ValueBlock;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.aggregation.AggregationFunction;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
@@ -28,12 +28,12 @@ public class HashAggregationBlockStream
     implements BlockStream<UncompressedValueBlock>
 {
     private final BlockStream<RunLengthEncodedBlock> groupBySource;
-    private final BlockStream<? extends ValueBlock> aggregationSource;
+    private final BlockStream<? extends Block> aggregationSource;
     private final Provider<AggregationFunction> functionProvider;
     private final TupleInfo info;
 
     public HashAggregationBlockStream(BlockStream<RunLengthEncodedBlock> groupBySource,
-            BlockStream<? extends ValueBlock> aggregationSource,
+            BlockStream<? extends Block> aggregationSource,
             Provider<AggregationFunction> functionProvider)
     {
         Preconditions.checkNotNull(groupBySource, "groupBySource is null");
@@ -67,7 +67,7 @@ public class HashAggregationBlockStream
     public Iterator<UncompressedValueBlock> iterator()
     {
         final Iterator<RunLengthEncodedBlock> groupByIterator = groupBySource.iterator();
-//        final SeekableIterator<? extends ValueBlock> aggregationIterator = new ForwardingSeekableIterator<>(aggregationSource.iterator());
+//        final SeekableIterator<? extends Block> aggregationIterator = new ForwardingSeekableIterator<>(aggregationSource.iterator());
         final Cursor aggregationCursor = aggregationSource.cursor();
         aggregationCursor.advanceNextPosition();
 

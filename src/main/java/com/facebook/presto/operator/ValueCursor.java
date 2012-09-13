@@ -6,7 +6,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.ValueBlock;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
@@ -16,13 +16,13 @@ import java.util.NoSuchElementException;
 
 public class ValueCursor implements Cursor
 {
-    private final Iterator<? extends ValueBlock> iterator;
+    private final Iterator<? extends Block> iterator;
     private final TupleInfo info;
 
     private BlockCursor blockCursor;
     private boolean isValid;
 
-    public ValueCursor(TupleInfo info, Iterator<? extends ValueBlock> iterator)
+    public ValueCursor(TupleInfo info, Iterator<? extends Block> iterator)
     {
         Preconditions.checkNotNull(iterator, "iterator is null");
         Preconditions.checkArgument(iterator.hasNext(), "iterator is empty");

@@ -8,7 +8,7 @@ import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.BlockStreamSerde;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.ValueBlock;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.slice.ByteArraySlice;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.OutputStreamSliceOutput;
@@ -33,7 +33,7 @@ public class UncompressedBlockSerde
     private static final UncompressedBlockSerde INSTANCE = new UncompressedBlockSerde();
 
     @Override
-    public void serialize(BlockStream<? extends ValueBlock> blockStream, SliceOutput sliceOutput)
+    public void serialize(BlockStream<? extends Block> blockStream, SliceOutput sliceOutput)
     {
         write(blockStream.cursor(), sliceOutput);
     }

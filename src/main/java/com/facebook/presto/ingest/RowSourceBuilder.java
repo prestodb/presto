@@ -3,7 +3,7 @@ package com.facebook.presto.ingest;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.ValueBlock;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.uncompressed.UncompressedCursor;
 import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
 import com.facebook.presto.slice.Slice;
@@ -61,7 +61,7 @@ public class RowSourceBuilder
     }
 
     @Override
-    public Iterator<ValueBlock> iterator()
+    public Iterator<Block> iterator()
     {
         throw new UnsupportedOperationException();
     }

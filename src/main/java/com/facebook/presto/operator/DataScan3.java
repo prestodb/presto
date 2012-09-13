@@ -4,7 +4,7 @@ import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.MaskedValueBlock;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.ValueBlock;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -13,12 +13,12 @@ import java.util.Iterator;
 import java.util.List;
 
 public class DataScan3
-        implements BlockStream<ValueBlock>
+        implements BlockStream<Block>
 {
-    private final BlockStream<? extends ValueBlock> source;
-    private final BlockStream<? extends ValueBlock> positions;
+    private final BlockStream<? extends Block> source;
+    private final BlockStream<? extends Block> positions;
 
-    public DataScan3(BlockStream<? extends ValueBlock> source, BlockStream<? extends ValueBlock> positions)
+    public DataScan3(BlockStream<? extends Block> source, BlockStream<? extends Block> positions)
     {
         this.source = source;
         this.positions = positions;
@@ -31,19 +31,19 @@ public class DataScan3
     }
 
     @Override
-    public Iterator<ValueBlock> iterator()
+    public Iterator<Block> iterator()
     {
-        return new AbstractIterator<ValueBlock>()
+        return new AbstractIterator<Block>()
         {
-            Iterator<? extends ValueBlock> valueBlocks = source.iterator();
-            Iterator<? extends ValueBlock> positionBlocks = positions.iterator();
-            ValueBlock currentPositionBlock = positionBlocks.next();
+            Iterator<? extends Block> valueBlocks = source.iterator();
+            Iterator<? extends Block> positionBlocks = positions.iterator();
+            Block currentPositionBlock = positionBlocks.next();
 
             @Override
-            protected ValueBlock computeNext()
+            protected Block computeNext()
             {
                 while (valueBlocks.hasNext()) {
-                    ValueBlock currentValueBlock = valueBlocks.next();
+                    Block currentValueBlock = valueBlocks.next();
 
                     // advance current position block to value block
                     while (currentPositionBlock.getRange().getEnd() < currentValueBlock.getRange().getStart()) {
@@ -55,7 +55,7 @@ public class DataScan3
                     }
 
                     // get all position blocks that overlap with the value block
-                    ImmutableList.Builder<ValueBlock> positionsForCurrentBlock = ImmutableList.builder();
+                    ImmutableList.Builder<Block> positionsForCurrentBlock = ImmutableList.builder();
                     while (positionBlocks.hasNext() && currentPositionBlock.getRange().getEnd() < currentValueBlock.getRange().getEnd()) {
                         positionsForCurrentBlock.add(currentPositionBlock);
                         currentPositionBlock = positionBlocks.next();
@@ -76,14 +76,14 @@ public class DataScan3
                 return null;
             }
 
-            private List<Long> getValidPositions(ValueBlock currentValueBlock, List<ValueBlock> positionsForCurrentBlock)
+            private List<Long> getValidPositions(Block currentValueBlock, List<Block> positionsForCurrentBlock)
             {
                 ImmutableList.Builder<Long> validPositions = ImmutableList.builder();
 
                 BlockCursor valueCursor = currentValueBlock.blockCursor();
                 valueCursor.advanceNextPosition();
 
-                for (ValueBlock positionBlock : positionsForCurrentBlock) {
+                for (Block positionBlock : positionsForCurrentBlock) {
                     BlockCursor positionCursor = positionBlock.blockCursor();
                     while (positionCursor.advanceNextPosition()) {
                         long nextPosition = positionCursor.getPosition();

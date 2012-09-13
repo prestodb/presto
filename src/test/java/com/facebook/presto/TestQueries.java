@@ -2,9 +2,9 @@ package com.facebook.presto;
 
 import com.facebook.presto.aggregation.CountAggregation;
 import com.facebook.presto.aggregation.SumAggregation;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.ValueBlock;
 import com.facebook.presto.ingest.RowSourceBuilder;
 import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.GroupByBlockStream;
@@ -41,9 +41,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
-import static com.facebook.presto.ingest.RowSourceBuilder.RowGenerator;
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.ingest.RowSourceBuilder.RowGenerator;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
@@ -105,7 +105,7 @@ public class TestQueries
     {
         List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM orders", FIXED_INT_64);
 
-        BlockStream<ValueBlock> orders = createBlockStream(ordersData, 1, FIXED_INT_64);
+        BlockStream<Block> orders = createBlockStream(ordersData, 1, FIXED_INT_64);
         AggregationOperator aggregation = new AggregationOperator(orders, CountAggregation.PROVIDER);
 
         assertEqualsIgnoreOrder(tuples(aggregation), expected);
@@ -118,8 +118,8 @@ public class TestQueries
                 "SELECT orderstatus, SUM(custkey) FROM orders GROUP BY orderstatus",
                 VARIABLE_BINARY, FIXED_INT_64);
 
-        BlockStream<ValueBlock> groupBySource = createBlockStream(ordersData, 2, VARIABLE_BINARY);
-        BlockStream<ValueBlock> aggregateSource = createBlockStream(ordersData, 1, FIXED_INT_64);
+        BlockStream<Block> groupBySource = createBlockStream(ordersData, 2, VARIABLE_BINARY);
+        BlockStream<Block> aggregateSource = createBlockStream(ordersData, 1, FIXED_INT_64);
 
         GroupByBlockStream groupBy = new GroupByBlockStream(groupBySource);
         HashAggregationBlockStream aggregation = new HashAggregationBlockStream(groupBy, aggregateSource, SumAggregation.PROVIDER);
@@ -135,7 +135,7 @@ public class TestQueries
                 .list();
     }
 
-    private static List<Tuple> tuples(BlockStream<? extends ValueBlock> blockStream)
+    private static List<Tuple> tuples(BlockStream<? extends Block> blockStream)
     {
         Cursor cursor = blockStream.cursor();
         List<Tuple> list = new ArrayList<>();
@@ -158,7 +158,7 @@ public class TestQueries
         });
     }
 
-    private static BlockStream<ValueBlock> createBlockStream(List<List<String>> data, final int index, final TupleInfo.Type type)
+    private static BlockStream<Block> createBlockStream(List<List<String>> data, final int index, final TupleInfo.Type type)
     {
         final Iterator<List<String>> iterator = data.iterator();
         return new RowSourceBuilder(new TupleInfo(type), new RowGenerator()
