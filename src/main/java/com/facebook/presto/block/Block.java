@@ -23,4 +23,6 @@ public interface Block
     boolean isPositionsContiguous();
 
     Range getRange();
+
+    BlockCursor blockCursor();
 }

@@ -7,7 +7,7 @@ import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedCursor;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.ValueBlock;
+import com.facebook.presto.block.Block;
 import com.google.common.collect.AbstractIterator;
 
 import java.util.Iterator;
@@ -18,9 +18,9 @@ import java.util.Iterator;
 public class GroupByBlockStream
         implements BlockStream<RunLengthEncodedBlock>
 {
-    private final BlockStream<? extends ValueBlock> source;
+    private final BlockStream<? extends Block> source;
 
-    public GroupByBlockStream(BlockStream<? extends ValueBlock> keySource)
+    public GroupByBlockStream(BlockStream<? extends Block> keySource)
     {
         this.source = keySource;
     }

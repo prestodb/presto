@@ -2,7 +2,7 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.TupleInfo;
 
-public interface BlockStream<T extends ValueBlock>
+public interface BlockStream<T extends Block>
     extends Iterable<T>
 {
     TupleInfo getTupleInfo();

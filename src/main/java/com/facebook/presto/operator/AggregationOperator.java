@@ -6,7 +6,7 @@ import com.facebook.presto.block.Cursor;
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
-import com.facebook.presto.block.ValueBlock;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.aggregation.AggregationFunction;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -19,9 +19,9 @@ public class AggregationOperator
 {
     private final TupleInfo info;
     private final Provider<AggregationFunction> functionProvider;
-    private final BlockStream<? extends ValueBlock> source;
+    private final BlockStream<? extends Block> source;
 
-    public AggregationOperator(BlockStream<? extends ValueBlock> source, Provider<AggregationFunction> functionProvider)
+    public AggregationOperator(BlockStream<? extends Block> source, Provider<AggregationFunction> functionProvider)
     {
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkNotNull(functionProvider, "functionProvider is null");

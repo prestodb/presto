@@ -5,12 +5,8 @@ package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.ValueBlock;
-import com.facebook.presto.block.uncompressed.UncompressedBlockSerde;
-import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
-import com.facebook.presto.block.uncompressed.UncompressedColumnWriter;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
 import com.facebook.presto.ingest.ColumnProcessor;
 import com.facebook.presto.slice.Slices;
 import com.google.common.collect.ImmutableList;
@@ -46,7 +42,7 @@ public class TestUncompressedBlockReader
 
         // this is only true because the input is small
         assertEquals(copiedBlocks.size(), 1);
-        ValueBlock copiedBlock = copiedBlocks.get(0);
+        Block copiedBlock = copiedBlocks.get(0);
         assertEquals(copiedBlock.getRange(), block.getRange());
 
         assertBlockStreamEquals(new UncompressedBlockStream(tupleInfo, copiedBlocks), blockStream);

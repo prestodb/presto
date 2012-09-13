@@ -7,7 +7,7 @@ import com.facebook.presto.block.ForwardingCursor;
 import com.facebook.presto.SizeOf;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.ValueBlock;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.uncompressed.UncompressedTupleInfoSerde;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
@@ -31,14 +31,14 @@ public class DictionarySerde implements BlockStreamSerde<DictionaryEncodedBlock>
     }
 
     @Override
-    public void serialize(final BlockStream<? extends ValueBlock> blockStream, SliceOutput sliceOutput)
+    public void serialize(final BlockStream<? extends Block> blockStream, SliceOutput sliceOutput)
     {
         checkNotNull(blockStream, "blockStream is null");
         checkNotNull(sliceOutput, "sliceOutput is null");
         checkArgument(blockStream.getTupleInfo().getFieldCount() == 1, "Can only dictionary encode single columns");
 
         final DictionaryBuilder dictionaryBuilder = new DictionaryBuilder();
-        BlockStream<ValueBlock> encodedBlockStream = new BlockStream<ValueBlock>()
+        BlockStream<Block> encodedBlockStream = new BlockStream<Block>()
         {
             @Override
             public TupleInfo getTupleInfo()
@@ -80,7 +80,7 @@ public class DictionarySerde implements BlockStreamSerde<DictionaryEncodedBlock>
             }
 
             @Override
-            public Iterator<ValueBlock> iterator()
+            public Iterator<Block> iterator()
             {
                 throw new UnsupportedOperationException();
             }

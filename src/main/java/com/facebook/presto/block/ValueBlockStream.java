@@ -7,7 +7,7 @@ import com.google.common.base.Preconditions;
 import java.util.Arrays;
 import java.util.Iterator;
 
-public class ValueBlockStream<T extends ValueBlock>
+public class ValueBlockStream<T extends Block>
         implements BlockStream<T>
 {
     private final TupleInfo info;

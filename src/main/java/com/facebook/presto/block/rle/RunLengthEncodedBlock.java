@@ -2,14 +2,14 @@ package com.facebook.presto.block.rle;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
-import com.facebook.presto.block.ValueBlock;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
 public class RunLengthEncodedBlock
-        implements ValueBlock
+        implements Block
 {
     private final Tuple value;
     private final Range range;

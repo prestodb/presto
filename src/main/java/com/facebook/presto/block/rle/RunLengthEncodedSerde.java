@@ -3,10 +3,10 @@ package com.facebook.presto.block.rle;
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.BlockStreamSerde;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.ValueBlock;
 import com.facebook.presto.block.uncompressed.UncompressedTupleInfoSerde;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
@@ -20,7 +20,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class RunLengthEncodedSerde implements BlockStreamSerde<RunLengthEncodedBlock>
 {
     @Override
-    public void serialize(BlockStream<? extends ValueBlock> blockStream, SliceOutput sliceOutput)
+    public void serialize(BlockStream<? extends Block> blockStream, SliceOutput sliceOutput)
     {
         checkNotNull(blockStream, "blockStream is null");
         checkNotNull(sliceOutput, "sliceOutput is null");

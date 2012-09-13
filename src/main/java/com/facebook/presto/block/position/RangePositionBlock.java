@@ -3,14 +3,14 @@ package com.facebook.presto.block.position;
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.ValueBlock;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
 public class RangePositionBlock
-        implements ValueBlock
+        implements Block
 {
     private final Range range;
 

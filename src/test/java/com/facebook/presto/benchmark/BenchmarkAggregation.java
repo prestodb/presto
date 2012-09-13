@@ -1,10 +1,10 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.aggregation.CountAggregation;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.ValueBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlockSerde;
 import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.slice.Slice;
@@ -27,7 +27,7 @@ public class BenchmarkAggregation
 
         Slice columnSlice = Slices.mapFileReadOnly(file);
         for (int i = 0; i < 100000; ++i) {
-            BlockStream<? extends ValueBlock> column = UncompressedBlockSerde.readAsStream(columnSlice);
+            BlockStream<? extends Block> column = UncompressedBlockSerde.readAsStream(columnSlice);
             AggregationOperator sum = new AggregationOperator(column, CountAggregation.PROVIDER);
 
             Result result = doIt(sum);
@@ -41,7 +41,7 @@ public class BenchmarkAggregation
         Thread.sleep(1000);
     }
 
-    public static Result doIt(BlockStream<? extends ValueBlock> source)
+    public static Result doIt(BlockStream<? extends Block> source)
     {
         long start = System.nanoTime();
         Cursor cursor = source.cursor();

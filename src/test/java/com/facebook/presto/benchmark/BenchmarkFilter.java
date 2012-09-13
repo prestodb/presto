@@ -3,7 +3,7 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.ValueBlock;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.uncompressed.UncompressedBlockSerde;
 import com.facebook.presto.operator.DataScan2;
 import com.facebook.presto.slice.Slice;
@@ -30,7 +30,7 @@ public class BenchmarkFilter
 
         Slice pageTypeColumnSlice = Slices.mapFileReadOnly(file);
         for (int i = 0; i < 100000; ++i) {
-            BlockStream<? extends ValueBlock> pageTypeColumn = UncompressedBlockSerde.readAsStream(pageTypeColumnSlice);
+            BlockStream<? extends Block> pageTypeColumn = UncompressedBlockSerde.readAsStream(pageTypeColumnSlice);
             DataScan2 filtered = new DataScan2(pageTypeColumn, predicate) ;
 
             Result result = doIt(filtered);
@@ -44,7 +44,7 @@ public class BenchmarkFilter
         Thread.sleep(1000);
     }
 
-    public static Result doIt(BlockStream<? extends ValueBlock> source)
+    public static Result doIt(BlockStream<? extends Block> source)
     {
         long start = System.nanoTime();
         Cursor cursor = source.cursor();
