@@ -47,8 +47,8 @@ public class TupleInfo
     public enum Type
     {
         FIXED_INT_64(SIZE_OF_LONG),
-        DOUBLE(SIZE_OF_DOUBLE),
-        VARIABLE_BINARY(-1);
+        VARIABLE_BINARY(-1),
+        DOUBLE(SIZE_OF_DOUBLE);
 
         private final int size;
 
