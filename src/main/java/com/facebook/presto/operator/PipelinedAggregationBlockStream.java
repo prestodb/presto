@@ -1,5 +1,6 @@
 package com.facebook.presto.operator;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
@@ -63,8 +64,7 @@ public class PipelinedAggregationBlockStream
     @Override
     public Iterator<UncompressedValueBlock> iterator()
     {
-        final Iterator<RunLengthEncodedBlock> groupByIterator = groupBySource.iterator();
-//        final SeekableIterator<? extends Block> aggregationIterator = new ForwardingSeekableIterator<>(aggregationSource.iterator());
+        final Cursor groupByCursor = groupBySource.cursor();
         final Cursor aggregationCursor = aggregationSource.cursor();
         aggregationCursor.advanceNextPosition();
 
@@ -76,7 +76,7 @@ public class PipelinedAggregationBlockStream
             protected UncompressedValueBlock computeNext()
             {
                 // if no more data, return null
-                if (!groupByIterator.hasNext()) {
+                if (!groupByCursor.advanceNextValue()) {
                     endOfData();
                     return null;
                 }
@@ -84,23 +84,19 @@ public class PipelinedAggregationBlockStream
                 BlockBuilder builder = new BlockBuilder(position, info);
 
                 do {
-                    // get next group
-                    RunLengthEncodedBlock group = groupByIterator.next();
-
                     // create a new aggregate for this group
-                    AggregationFunction aggregationFunction = functionProvider.get();
+                    AggregationFunction aggregation = functionProvider.get();
 
                     // process data
-//                    AggregationUtil.processGroup(aggregationIterator, aggregationFunction, group.getRange());
-                    aggregationFunction.add(aggregationCursor, group.getRange());
+                    aggregation.add(aggregationCursor, new Range(groupByCursor.getPosition(), groupByCursor.getCurrentValueEndPosition()));
 
                     // calculate final value for this group
-                    Tuple value = aggregationFunction.evaluate();
+                    Tuple value = aggregation.evaluate();
 
-                    builder.append(group.getValue());
+                    builder.append(groupByCursor.getTuple());
                     builder.append(value);
                 }
-                while (!builder.isFull() && groupByIterator.hasNext());
+                while (!builder.isFull() && groupByCursor.advanceNextValue());
 
                 // build an output block
                 UncompressedValueBlock block = builder.build();
