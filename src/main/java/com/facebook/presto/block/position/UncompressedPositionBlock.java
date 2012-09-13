@@ -9,6 +9,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -109,11 +110,16 @@ public class UncompressedPositionBlock
         @Override
         public boolean advanceToPosition(long newPosition)
         {
-            Preconditions.checkArgument(newPosition >= positions.get(index), "Can't advance backwards");
+            Preconditions.checkArgument(index < 0 && newPosition >= 0 || newPosition >= positions.get(index), "Can't advance backwards");
+
+            if (index < 0) {
+                index = 0;
+            }
 
             while(index < positions.size() && newPosition > positions.get(index)) {
                 index++;
             }
+
             return index < positions.size();
         }
 
@@ -121,6 +127,11 @@ public class UncompressedPositionBlock
         public long getPosition()
         {
             Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
+
+            if (index >= positions.size()) {
+                throw new NoSuchElementException();
+            }
+
             return positions.get(index);
         }
 

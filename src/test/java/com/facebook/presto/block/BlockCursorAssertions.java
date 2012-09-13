@@ -21,6 +21,12 @@ public class BlockCursorAssertions
         assertCurrentValue(blockCursor, position, value);
     }
 
+    public static void assertNextPosition(BlockCursor blockCursor, long position)
+    {
+        assertTrue(blockCursor.advanceNextPosition());
+        assertEquals(blockCursor.getPosition(), position);
+    }
+
     public static void assertCurrentValue(BlockCursor blockCursor, long position, String value)
     {
         Tuple tuple = Tuples.createTuple(value);
