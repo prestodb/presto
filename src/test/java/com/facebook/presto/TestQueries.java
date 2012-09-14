@@ -10,6 +10,7 @@ import com.facebook.presto.operation.DoubleLessThanComparison;
 import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.ComparisonOperator;
 import com.facebook.presto.operator.DataScan2;
+import com.facebook.presto.operator.DataScan3;
 import com.facebook.presto.operator.GroupByBlockStream;
 import com.facebook.presto.operator.HashAggregationBlockStream;
 import com.facebook.presto.slice.Slices;
@@ -220,6 +221,21 @@ public class TestQueries
         assertEqualsIgnoreOrder(tuples(aggregation), expected);
     }
 
+    @Test
+    public void testSelectWithComparison()
+    {
+        List<Tuple> expected = computeExpected("SELECT orderkey FROM lineitem WHERE tax < discount", FIXED_INT_64);
+
+        RowSourceBuilder orderKey = createBlockStream(lineitemData, Column.LINEITEM_ORDERKEY, FIXED_INT_64);
+        BlockStream discount = createBlockStream(lineitemData, Column.LINEITEM_DISCOUNT, DOUBLE);
+        BlockStream tax = createBlockStream(lineitemData, Column.LINEITEM_TAX, DOUBLE);
+
+        ComparisonOperator comparison = new ComparisonOperator(tax, discount, new DoubleLessThanComparison());
+        DataScan3 result = new DataScan3(orderKey.getTupleInfo(), orderKey, comparison);
+
+        assertEqualsIgnoreOrder(tuples(result), expected);
+    }
+
     private List<Tuple> computeExpected(final String sql, TupleInfo.Type... types)
     {
         TupleInfo tupleInfo = new TupleInfo(types);
@@ -251,7 +267,7 @@ public class TestQueries
         });
     }
 
-    private static BlockStream createBlockStream(List<List<String>> data, final Column column, final TupleInfo.Type type)
+    private static RowSourceBuilder createBlockStream(List<List<String>> data, final Column column, final TupleInfo.Type type)
     {
         final Iterator<List<String>> iterator = data.iterator();
         return new RowSourceBuilder(new TupleInfo(type), new RowGenerator()
