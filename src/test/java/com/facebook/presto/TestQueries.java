@@ -6,7 +6,9 @@ import com.facebook.presto.aggregation.DoubleSumAggregation;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.ingest.RowSourceBuilder;
+import com.facebook.presto.operation.DoubleLessThanComparison;
 import com.facebook.presto.operator.AggregationOperator;
+import com.facebook.presto.operator.ComparisonOperator;
 import com.facebook.presto.operator.DataScan2;
 import com.facebook.presto.operator.GroupByBlockStream;
 import com.facebook.presto.operator.HashAggregationBlockStream;
@@ -200,6 +202,20 @@ public class TestQueries
 
         GroupByBlockStream groupBy = new GroupByBlockStream(groupBySource);
         HashAggregationBlockStream aggregation = new HashAggregationBlockStream(groupBy, aggregateSource, DoubleSumAggregation.PROVIDER);
+
+        assertEqualsIgnoreOrder(tuples(aggregation), expected);
+    }
+
+    @Test
+    public void testCountAllWithComparison()
+    {
+        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM lineitem WHERE tax < discount", FIXED_INT_64);
+
+        BlockStream discount = createBlockStream(lineitemData, Column.LINEITEM_DISCOUNT, DOUBLE);
+        BlockStream tax = createBlockStream(lineitemData, Column.LINEITEM_TAX, DOUBLE);
+
+        ComparisonOperator comparison = new ComparisonOperator(tax, discount, new DoubleLessThanComparison());
+        AggregationOperator aggregation = new AggregationOperator(comparison, CountAggregation.PROVIDER);
 
         assertEqualsIgnoreOrder(tuples(aggregation), expected);
     }
