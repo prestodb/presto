@@ -34,24 +34,6 @@ public class MaskedBlock implements Block
     }
 
     @Override
-    public boolean isSorted()
-    {
-        return valueBlock.isSorted();
-    }
-
-    @Override
-    public boolean isSingleValue()
-    {
-        return valueBlock.isSingleValue();
-    }
-
-    @Override
-    public boolean isPositionsContiguous()
-    {
-        return false;
-    }
-
-    @Override
     public Range getRange()
     {
         return valueBlock.getRange();

@@ -2,10 +2,9 @@ package com.facebook.presto.block.position;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
-import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
@@ -23,24 +22,6 @@ public class RangePositionBlock
     public int getCount()
     {
         return (int) range.length();
-    }
-
-    @Override
-    public boolean isSorted()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isSingleValue()
-    {
-        return getCount() == 1;
-    }
-
-    @Override
-    public boolean isPositionsContiguous()
-    {
-        return true;
     }
 
     @Override
@@ -155,17 +136,5 @@ public class RangePositionBlock
         {
             throw new UnsupportedOperationException();
         }
-    }
-
-    public static Function<RangePositionBlock, Range> rangeGetter()
-    {
-        return new Function<RangePositionBlock, Range>()
-        {
-            @Override
-            public Range apply(RangePositionBlock input)
-            {
-                return input.getRange();
-            }
-        };
     }
 }
