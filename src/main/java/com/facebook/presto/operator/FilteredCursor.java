@@ -43,7 +43,7 @@ public class FilteredCursor implements Cursor
             if (!delegate.advanceNextValue()) {
                 return false;
             }
-        } while (predicate.apply(delegate));
+        } while (!predicate.apply(delegate));
 
         return true;
     }
@@ -56,7 +56,7 @@ public class FilteredCursor implements Cursor
             if (!delegate.advanceNextPosition()) {
                 return false;
             }
-        } while (predicate.apply(delegate));
+        } while (!predicate.apply(delegate));
 
         return true;
     }

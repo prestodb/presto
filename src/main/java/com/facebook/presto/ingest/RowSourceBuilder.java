@@ -15,7 +15,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class RowSourceBuilder
-        implements RowSource
+        implements RowSource, Iterable<UncompressedBlock>
 {
     public static interface RowBuilder
     {
@@ -55,7 +55,13 @@ public class RowSourceBuilder
     {
         checkState(!cursorCreated, "cursor already created");
         cursorCreated = true;
-        return new UncompressedCursor(tupleInfo, new RowSourceIterator());
+        return new UncompressedCursor(tupleInfo, iterator());
+    }
+
+    @Override
+    public RowSourceIterator iterator()
+    {
+        return new RowSourceIterator();
     }
 
     @Override

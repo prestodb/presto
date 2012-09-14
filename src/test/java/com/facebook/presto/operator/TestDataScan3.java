@@ -36,9 +36,9 @@ public class TestDataScan3
                 .add(new UncompressedPositionBlock(40L, 41L, 42L))
                 .build();
 
-        DataScan3 dataScan3 = new DataScan3(INFO, new UncompressedBlockStream(INFO, values), new GenericBlockStream<>(new TupleInfo(), positions));
+        FilterOperator filterOperator = new FilterOperator(INFO, new UncompressedBlockStream(INFO, values), new GenericBlockStream<>(new TupleInfo(), positions));
 
-        assertBlockStreamEquals(dataScan3,
+        assertBlockStreamEquals(filterOperator,
                 new UncompressedBlockStream(INFO,
                         createBlock(2, "c"),
                         createBlock(4, "e"),
