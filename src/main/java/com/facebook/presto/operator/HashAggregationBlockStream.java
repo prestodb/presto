@@ -1,16 +1,14 @@
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockStream;
-import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.block.uncompressed.UncompressedCursor;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
-import com.facebook.presto.block.ValueBlock;
 import com.facebook.presto.aggregation.AggregationFunction;
+import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockStream;
+import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.block.uncompressed.UncompressedCursor;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -25,15 +23,15 @@ import java.util.Map.Entry;
  * Group input data and produce a single block for each sequence of identical values.
  */
 public class HashAggregationBlockStream
-    implements BlockStream<UncompressedValueBlock>
+    implements BlockStream, Iterable<UncompressedBlock>
 {
-    private final BlockStream<RunLengthEncodedBlock> groupBySource;
-    private final BlockStream<? extends ValueBlock> aggregationSource;
+    private final BlockStream groupBySource;
+    private final BlockStream aggregationSource;
     private final Provider<AggregationFunction> functionProvider;
     private final TupleInfo info;
 
-    public HashAggregationBlockStream(BlockStream<RunLengthEncodedBlock> groupBySource,
-            BlockStream<? extends ValueBlock> aggregationSource,
+    public HashAggregationBlockStream(BlockStream groupBySource,
+            BlockStream aggregationSource,
             Provider<AggregationFunction> functionProvider)
     {
         Preconditions.checkNotNull(groupBySource, "groupBySource is null");
@@ -64,33 +62,35 @@ public class HashAggregationBlockStream
     }
 
     @Override
-    public Iterator<UncompressedValueBlock> iterator()
+    public Iterator<UncompressedBlock> iterator()
     {
-        final Iterator<RunLengthEncodedBlock> groupByIterator = groupBySource.iterator();
-//        final SeekableIterator<? extends ValueBlock> aggregationIterator = new ForwardingSeekableIterator<>(aggregationSource.iterator());
+        final Cursor groupByCursor = groupBySource.cursor();
         final Cursor aggregationCursor = aggregationSource.cursor();
         aggregationCursor.advanceNextPosition();
 
-        return new AbstractIterator<UncompressedValueBlock>()
+        return new AbstractIterator<UncompressedBlock>()
         {
             private Iterator<Entry<Tuple, AggregationFunction>> aggregations;
             private long position;
 
             @Override
-            protected UncompressedValueBlock computeNext()
+            protected UncompressedBlock computeNext()
             {
                 // process all data ahead of time
                 if (aggregations == null) {
                     Map<Tuple, AggregationFunction> aggregationMap = new HashMap<>();
-                    while (groupByIterator.hasNext()) {
-                        RunLengthEncodedBlock group = groupByIterator.next();
+                    while (groupByCursor.advanceNextValue()) {
 
-                        AggregationFunction aggregation = aggregationMap.get(group.getValue());
-                        if (aggregation == null) {
-                            aggregation = functionProvider.get();
-                            aggregationMap.put(group.getValue(), aggregation);
+                        Tuple key = groupByCursor.getTuple();
+                        long groupEndPosition = groupByCursor.getCurrentValueEndPosition();
+                        if (aggregationCursor.advanceToPosition(groupByCursor.getPosition()) && aggregationCursor.getPosition() <= groupEndPosition) {
+                            AggregationFunction aggregation = aggregationMap.get(key);
+                            if (aggregation == null) {
+                                aggregation = functionProvider.get();
+                                aggregationMap.put(key, aggregation);
+                            }
+                            aggregation.add(aggregationCursor, groupEndPosition);
                         }
-                        aggregation.add(aggregationCursor, group.getRange());
                     }
 
                     this.aggregations = aggregationMap.entrySet().iterator();
@@ -115,7 +115,7 @@ public class HashAggregationBlockStream
                 }
 
                 // build output block
-                UncompressedValueBlock block = blockBuilder.build();
+                UncompressedBlock block = blockBuilder.build();
 
                 // update position
                 position += block.getCount();

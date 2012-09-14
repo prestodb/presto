@@ -2,14 +2,14 @@ package com.facebook.presto.block.rle;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
-import com.facebook.presto.block.ValueBlock;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
 public class RunLengthEncodedBlock
-        implements ValueBlock
+        implements Block
 {
     private final Tuple value;
     private final Range range;
@@ -31,27 +31,9 @@ public class RunLengthEncodedBlock
         return (int) (range.getEnd() - range.getStart() + 1);
     }
 
-    @Override
-    public boolean isSorted()
-    {
-        return true;
-    }
-
-    @Override
-    public boolean isSingleValue()
-    {
-        return true;
-    }
-
     public Tuple getSingleValue()
     {
         return value;
-    }
-
-    @Override
-    public boolean isPositionsContiguous()
-    {
-        return true;
     }
 
     @Override

@@ -3,25 +3,22 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.block.Blocks;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.MaskedValueBlock;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.google.common.primitives.Longs;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockCursorAssertions.assertNextValue;
 import static org.testng.Assert.assertFalse;
 
-public class TestMaskedValueBlock
+public class TestMaskedBlock
 {
     @Test
     public void test()
             throws Exception
     {
-        UncompressedValueBlock uncompressed = Blocks.createBlock(0, "a", "b", "c", "d", "e", "f");
+        UncompressedBlock uncompressed = Blocks.createBlock(0, "a", "b", "c", "d", "e", "f");
 
-        MaskedValueBlock block = new MaskedValueBlock(uncompressed, Longs.asList(0, 2, 4));
+        MaskedBlock block = new MaskedBlock(uncompressed, Longs.asList(0, 2, 4));
 
         BlockCursor cursor = block.blockCursor();
 

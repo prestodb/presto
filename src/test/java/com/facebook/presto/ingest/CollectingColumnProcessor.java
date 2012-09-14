@@ -6,7 +6,6 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
 import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
@@ -17,7 +16,7 @@ public class CollectingColumnProcessor
         extends AbstractColumnProcessor
 {
     private final BlockBuilder builder;
-    private BlockStream<UncompressedValueBlock> blockStream;
+    private BlockStream blockStream;
 
     CollectingColumnProcessor(Type type, int index, Cursor cursor)
     {
@@ -25,7 +24,7 @@ public class CollectingColumnProcessor
         this.builder = new BlockBuilder(0, new TupleInfo(type));
     }
 
-    public BlockStream<UncompressedValueBlock> getBlockStream()
+    public BlockStream getBlockStream()
     {
         checkState(blockStream != null, "close not called");
         return blockStream;

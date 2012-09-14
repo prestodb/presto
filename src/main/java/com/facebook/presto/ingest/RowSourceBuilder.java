@@ -3,15 +3,13 @@ package com.facebook.presto.ingest;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.ValueBlock;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedCursor;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
 import com.facebook.presto.slice.Slice;
 import com.google.common.collect.AbstractIterator;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Iterator;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -61,12 +59,6 @@ public class RowSourceBuilder
     }
 
     @Override
-    public Iterator<ValueBlock> iterator()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public void close()
             throws IOException
     {
@@ -74,13 +66,13 @@ public class RowSourceBuilder
     }
 
     private class RowSourceIterator
-            extends AbstractIterator<UncompressedValueBlock>
+            extends AbstractIterator<UncompressedBlock>
     {
         private boolean done = false;
         private int position = 0;
 
         @Override
-        protected UncompressedValueBlock computeNext()
+        protected UncompressedBlock computeNext()
         {
             if (done) {
                 return endOfData();
@@ -100,7 +92,7 @@ public class RowSourceBuilder
             }
             while (!blockBuilder.isFull());
 
-            UncompressedValueBlock block = blockBuilder.build();
+            UncompressedBlock block = blockBuilder.build();
             position += block.getCount();
             return block;
         }

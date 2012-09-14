@@ -18,13 +18,13 @@ public class UncompressedDoubleCursor
 {
     private static final TupleInfo INFO = new TupleInfo(DOUBLE);
 
-    private final Iterator<UncompressedValueBlock> iterator;
+    private final Iterator<UncompressedBlock> iterator;
 
-    private UncompressedValueBlock block;
+    private UncompressedBlock block;
     private int index = -1;
     private int offset = -1;
 
-    public UncompressedDoubleCursor(Iterator<UncompressedValueBlock> iterator)
+    public UncompressedDoubleCursor(Iterator<UncompressedBlock> iterator)
     {
         Preconditions.checkNotNull(iterator, "iterator is null");
         Preconditions.checkArgument(iterator.hasNext(), "iterator is empty");

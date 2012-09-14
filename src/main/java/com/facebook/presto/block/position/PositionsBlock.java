@@ -3,7 +3,7 @@ package com.facebook.presto.block.position;
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.ValueBlock;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -15,7 +15,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Arrays.asList;
 
 public class PositionsBlock
-        implements ValueBlock
+        implements Block
 {
     private final List<Range> ranges;
     private final Range totalRange;
@@ -47,24 +47,6 @@ public class PositionsBlock
     public int getCount()
     {
         return ranges.size();
-    }
-
-    @Override
-    public boolean isSorted()
-    {
-        return true;
-    }
-
-    @Override
-    public boolean isSingleValue()
-    {
-        return ranges.size() == 1;
-    }
-
-    @Override
-    public boolean isPositionsContiguous()
-    {
-        return false;
     }
 
     @Override

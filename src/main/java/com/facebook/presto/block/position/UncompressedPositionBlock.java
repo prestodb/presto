@@ -2,7 +2,7 @@ package com.facebook.presto.block.position;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
-import com.facebook.presto.block.ValueBlock;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
@@ -16,7 +16,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.primitives.Longs.asList;
 
 public class UncompressedPositionBlock
-        implements ValueBlock
+        implements Block
 {
     private final List<Long> positions;
     private final Range range;
@@ -40,24 +40,6 @@ public class UncompressedPositionBlock
     public int getCount()
     {
         return positions.size();
-    }
-
-    @Override
-    public boolean isSorted()
-    {
-        return true;
-    }
-
-    @Override
-    public boolean isSingleValue()
-    {
-        return positions.size() == 1;
-    }
-
-    @Override
-    public boolean isPositionsContiguous()
-    {
-        return false;
     }
 
     @Override
@@ -116,7 +98,7 @@ public class UncompressedPositionBlock
                 index = 0;
             }
 
-            while(index < positions.size() && newPosition > positions.get(index)) {
+            while (index < positions.size() && newPosition > positions.get(index)) {
                 index++;
             }
 
@@ -128,7 +110,7 @@ public class UncompressedPositionBlock
         {
             Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
 
-            if (index >= positions.size()) {
+            if (index >=  positions.size()) {
                 throw new NoSuchElementException();
             }
 

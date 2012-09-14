@@ -7,7 +7,6 @@ import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedCursor;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.ValueBlock;
 import com.google.common.collect.AbstractIterator;
 
 import java.util.Iterator;
@@ -16,11 +15,11 @@ import java.util.Iterator;
  * Group input data and produce a single block for each sequence of identical values.
  */
 public class GroupByBlockStream
-        implements BlockStream<RunLengthEncodedBlock>
+        implements BlockStream, Iterable<RunLengthEncodedBlock>
 {
-    private final BlockStream<? extends ValueBlock> source;
+    private final BlockStream source;
 
-    public GroupByBlockStream(BlockStream<? extends ValueBlock> keySource)
+    public GroupByBlockStream(BlockStream keySource)
     {
         this.source = keySource;
     }

@@ -8,7 +8,6 @@ import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.BlockStreamSerde;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.ValueBlock;
 import com.facebook.presto.slice.ByteArraySlice;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.OutputStreamSliceOutput;
@@ -27,19 +26,19 @@ import static com.facebook.presto.SizeOf.SIZE_OF_INT;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 
 public class UncompressedBlockSerde
-        implements BlockStreamSerde<UncompressedValueBlock>
+        implements BlockStreamSerde
 {
     private static final int MAX_BLOCK_SIZE = (int) new DataSize(64, KILOBYTE).toBytes();
     private static final UncompressedBlockSerde INSTANCE = new UncompressedBlockSerde();
 
     @Override
-    public void serialize(BlockStream<? extends ValueBlock> blockStream, SliceOutput sliceOutput)
+    public void serialize(BlockStream blockStream, SliceOutput sliceOutput)
     {
         write(blockStream.cursor(), sliceOutput);
     }
 
     @Override
-    public BlockStream<UncompressedValueBlock> deserialize(Slice slice)
+    public BlockStream deserialize(Slice slice)
     {
         return readAsStream(slice);
     }
@@ -76,33 +75,33 @@ public class UncompressedBlockSerde
         destination.writeBytes(slice);
     }
 
-    public static BlockStream<UncompressedValueBlock> read(File file)
+    public static BlockStream read(File file)
             throws IOException
     {
         Slice mappedSlice = Slices.mapFileReadOnly(file);
         return INSTANCE.deserialize(mappedSlice);
     }
 
-    public static Iterator<UncompressedValueBlock> read(Slice slice)
+    public static Iterator<UncompressedBlock> read(Slice slice)
     {
         return new UncompressedReader(slice);
     }
 
-    public static BlockStream<UncompressedValueBlock> readAsStream(final Slice slice)
+    public static BlockStream readAsStream(final Slice slice)
     {
         UncompressedReader reader = new UncompressedReader(slice);
 
-        return new UncompressedBlockStream(reader.tupleInfo, new Iterable<UncompressedValueBlock>()
+        return new UncompressedBlockStream(reader.tupleInfo, new Iterable<UncompressedBlock>()
         {
             @Override
-            public Iterator<UncompressedValueBlock> iterator()
+            public Iterator<UncompressedBlock> iterator()
             {
                 return new UncompressedReader(slice);
             }
         });
     }
 
-    private static class UncompressedReader extends AbstractIterator<UncompressedValueBlock>
+    private static class UncompressedReader extends AbstractIterator<UncompressedBlock>
     {
         private final TupleInfo tupleInfo;
         private final SliceInput sliceInput;
@@ -114,7 +113,7 @@ public class UncompressedBlockSerde
             this.tupleInfo = UncompressedTupleInfoSerde.deserialize(sliceInput);
         }
 
-        protected UncompressedValueBlock computeNext()
+        protected UncompressedBlock computeNext()
         {
             if (!sliceInput.isReadable()) {
                 endOfData();
@@ -128,7 +127,7 @@ public class UncompressedBlockSerde
             position += tupleCount;
 
             Slice block = sliceInput.readSlice(blockSize);
-            return new UncompressedValueBlock(range, tupleInfo, block);
+            return new UncompressedBlock(range, tupleInfo, block);
         }
     }
 }

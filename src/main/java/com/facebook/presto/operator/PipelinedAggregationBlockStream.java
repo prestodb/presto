@@ -1,16 +1,14 @@
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockStream;
-import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.block.uncompressed.UncompressedCursor;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
-import com.facebook.presto.block.ValueBlock;
 import com.facebook.presto.aggregation.AggregationFunction;
+import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockStream;
+import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.block.uncompressed.UncompressedCursor;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -22,15 +20,15 @@ import java.util.Iterator;
  * Group input data and produce a single block for each sequence of identical values.
  */
 public class PipelinedAggregationBlockStream
-    implements BlockStream<UncompressedValueBlock>
+        implements BlockStream, Iterable<UncompressedBlock>
 {
-    private final BlockStream<RunLengthEncodedBlock> groupBySource;
-    private final BlockStream<? extends ValueBlock> aggregationSource;
+    private final BlockStream groupBySource;
+    private final BlockStream aggregationSource;
     private final Provider<AggregationFunction> functionProvider;
     private final TupleInfo info;
 
-    public PipelinedAggregationBlockStream(BlockStream<RunLengthEncodedBlock> groupBySource,
-            BlockStream<? extends ValueBlock> aggregationSource,
+    public PipelinedAggregationBlockStream(BlockStream groupBySource,
+            BlockStream aggregationSource,
             Provider<AggregationFunction> functionProvider)
     {
         Preconditions.checkNotNull(groupBySource, "groupBySource is null");
@@ -61,22 +59,21 @@ public class PipelinedAggregationBlockStream
     }
 
     @Override
-    public Iterator<UncompressedValueBlock> iterator()
+    public Iterator<UncompressedBlock> iterator()
     {
-        final Iterator<RunLengthEncodedBlock> groupByIterator = groupBySource.iterator();
-//        final SeekableIterator<? extends ValueBlock> aggregationIterator = new ForwardingSeekableIterator<>(aggregationSource.iterator());
+        final Cursor groupByCursor = groupBySource.cursor();
         final Cursor aggregationCursor = aggregationSource.cursor();
         aggregationCursor.advanceNextPosition();
 
-        return new AbstractIterator<UncompressedValueBlock>()
+        return new AbstractIterator<UncompressedBlock>()
         {
             private long position;
 
             @Override
-            protected UncompressedValueBlock computeNext()
+            protected UncompressedBlock computeNext()
             {
                 // if no more data, return null
-                if (!groupByIterator.hasNext()) {
+                if (!groupByCursor.advanceNextValue()) {
                     endOfData();
                     return null;
                 }
@@ -84,26 +81,25 @@ public class PipelinedAggregationBlockStream
                 BlockBuilder builder = new BlockBuilder(position, info);
 
                 do {
-                    // get next group
-                    RunLengthEncodedBlock group = groupByIterator.next();
+                    long groupEndPosition = groupByCursor.getCurrentValueEndPosition();
+                    if (aggregationCursor.advanceToPosition(groupByCursor.getPosition()) && aggregationCursor.getPosition() <= groupEndPosition) {
+                        // create a new aggregate for this group
+                        AggregationFunction aggregation = functionProvider.get();
 
-                    // create a new aggregate for this group
-                    AggregationFunction aggregationFunction = functionProvider.get();
+                        // process data
+                        aggregation.add(aggregationCursor, groupEndPosition);
 
-                    // process data
-//                    AggregationUtil.processGroup(aggregationIterator, aggregationFunction, group.getRange());
-                    aggregationFunction.add(aggregationCursor, group.getRange());
+                        // calculate final value for this group
+                        Tuple value = aggregation.evaluate();
 
-                    // calculate final value for this group
-                    Tuple value = aggregationFunction.evaluate();
-
-                    builder.append(group.getValue());
-                    builder.append(value);
+                        builder.append(groupByCursor.getTuple());
+                        builder.append(value);
+                    }
                 }
-                while (!builder.isFull() && groupByIterator.hasNext());
+                while (!builder.isFull() && groupByCursor.advanceNextValue());
 
                 // build an output block
-                UncompressedValueBlock block = builder.build();
+                UncompressedBlock block = builder.build();
                 position += block.getCount();
                 return block;
             }

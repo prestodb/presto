@@ -3,20 +3,20 @@ package com.facebook.presto.block.uncompressed;
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.block.ValueBlock;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
-public class UncompressedValueBlock
-        implements ValueBlock
+public class UncompressedBlock
+        implements Block
 {
     private final Range range;
     private final TupleInfo info;
     private final Slice slice;
 
-    public UncompressedValueBlock(Range range, TupleInfo info, Slice slice)
+    public UncompressedBlock(Range range, TupleInfo info, Slice slice)
     {
         Preconditions.checkNotNull(range, "range is null");
         Preconditions.checkArgument(range.getStart() >= 0, "range start position is negative");
@@ -37,24 +37,6 @@ public class UncompressedValueBlock
     public int getCount()
     {
         return (int) (range.getEnd() - range.getStart() + 1);
-    }
-
-    @Override
-    public boolean isSorted()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isSingleValue()
-    {
-        return getCount() == 1;
-    }
-
-    @Override
-    public boolean isPositionsContiguous()
-    {
-        return true;
     }
 
     @Override

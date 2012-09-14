@@ -5,7 +5,7 @@ import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.block.ValueBlock;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
@@ -13,22 +13,21 @@ import java.util.Iterator;
 import java.util.List;
 
 public class Merge
-        implements BlockStream<ValueBlock>
+        implements BlockStream, Iterable<UncompressedBlock>
 {
-    private final List<? extends BlockStream<? extends ValueBlock>> sources;
+    private final List<? extends BlockStream> sources;
     private final TupleInfo tupleInfo;
 
-    @SafeVarargs
-    public Merge(BlockStream<? extends ValueBlock>... sources)
+    public Merge(BlockStream... sources)
     {
         this(ImmutableList.copyOf(sources));
     }
 
-    public Merge(List<? extends BlockStream<? extends ValueBlock>> sources)
+    public Merge(Iterable<? extends BlockStream> sources)
     {
         // build combined tuple info
         ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (BlockStream<? extends ValueBlock> source : sources) {
+        for (BlockStream source : sources) {
             types.addAll(source.getTupleInfo().getTypes());
         }
         this.tupleInfo = new TupleInfo(types.build());
@@ -45,33 +44,33 @@ public class Merge
     @Override
     public Cursor cursor()
     {
-        return new ValueCursor(tupleInfo, iterator());
+        return new GenericCursor(tupleInfo, iterator());
     }
 
     @Override
-    public Iterator<ValueBlock> iterator()
+    public Iterator<UncompressedBlock> iterator()
     {
         return new MergeBlockIterator(this.tupleInfo, this.sources);
     }
 
-    private static class MergeBlockIterator extends AbstractIterator<ValueBlock>
+    private static class MergeBlockIterator extends AbstractIterator<UncompressedBlock>
     {
         private final TupleInfo tupleInfo;
         private final List<Cursor> cursors;
         private long position;
 
-        public MergeBlockIterator(TupleInfo tupleInfo, List<? extends BlockStream<? extends ValueBlock>> sources)
+        public MergeBlockIterator(TupleInfo tupleInfo, Iterable<? extends BlockStream> sources)
         {
             this.tupleInfo = tupleInfo;
             ImmutableList.Builder<Cursor> cursors = ImmutableList.builder();
-            for (BlockStream<? extends ValueBlock> source : sources) {
+            for (BlockStream source : sources) {
                 cursors.add(source.cursor());
             }
             this.cursors = cursors.build();
         }
 
         @Override
-        protected ValueBlock computeNext()
+        protected UncompressedBlock computeNext()
         {
             if (!advanceCursors()) {
                 endOfData();
@@ -87,7 +86,7 @@ public class Merge
                 }
             } while (!blockBuilder.isFull() && advanceCursors());
 
-            ValueBlock block = blockBuilder.build();
+            UncompressedBlock block = blockBuilder.build();
             position += block.getCount();
             return block;
         }

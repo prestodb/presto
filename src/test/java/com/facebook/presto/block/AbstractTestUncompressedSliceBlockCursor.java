@@ -4,8 +4,7 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.Range;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.uncompressed.UncompressedValueBlock;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -174,7 +173,7 @@ public abstract class AbstractTestUncompressedSliceBlockCursor extends AbstractT
         Assert.assertEquals(cursor.getRange(), new Range(0, 10));
     }
 
-    public UncompressedValueBlock createTestBlock()
+    public UncompressedBlock createTestBlock()
     {
         return createBlock(0, "apple", "apple", "apple", "banana", "banana", "banana", "banana", "banana", "cherry", "cherry", "date");
     }

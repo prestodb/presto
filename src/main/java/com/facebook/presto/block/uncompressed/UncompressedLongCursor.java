@@ -18,13 +18,13 @@ public class UncompressedLongCursor
 {
     private static final TupleInfo INFO = new TupleInfo(FIXED_INT_64);
 
-    private final Iterator<UncompressedValueBlock> iterator;
+    private final Iterator<UncompressedBlock> iterator;
 
-    private UncompressedValueBlock block;
+    private UncompressedBlock block;
     private int index = -1;
     private int offset = -1;
 
-    public UncompressedLongCursor(Iterator<UncompressedValueBlock> iterator)
+    public UncompressedLongCursor(Iterator<UncompressedBlock> iterator)
     {
         Preconditions.checkNotNull(iterator, "iterator is null");
         Preconditions.checkArgument(iterator.hasNext(), "iterator is empty");

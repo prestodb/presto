@@ -12,12 +12,12 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class MaskedValueBlock implements ValueBlock
+public class MaskedBlock implements Block
 {
-    private final ValueBlock valueBlock;
+    private final Block valueBlock;
     private final List<Long> validPositions;
 
-    public MaskedValueBlock(ValueBlock valueBlock, List<Long> validPositions)
+    public MaskedBlock(Block valueBlock, List<Long> validPositions)
     {
         Preconditions.checkNotNull(valueBlock, "valueBlock is null");
         Preconditions.checkNotNull(validPositions, "validPositions is null");
@@ -31,24 +31,6 @@ public class MaskedValueBlock implements ValueBlock
     public int getCount()
     {
         return validPositions.size();
-    }
-
-    @Override
-    public boolean isSorted()
-    {
-        return valueBlock.isSorted();
-    }
-
-    @Override
-    public boolean isSingleValue()
-    {
-        return valueBlock.isSingleValue();
-    }
-
-    @Override
-    public boolean isPositionsContiguous()
-    {
-        return false;
     }
 
     @Override
@@ -69,7 +51,7 @@ public class MaskedValueBlock implements ValueBlock
         private final BlockCursor validPositions;
         private boolean isValid;
 
-        private MaskedBlockCursor(ValueBlock valueBlock, List<Long> validPositions)
+        private MaskedBlockCursor(Block valueBlock, List<Long> validPositions)
         {
             this.validPositions = new UncompressedPositionBlockCursor(validPositions, valueBlock.getRange());
             this.valueCursor = valueBlock.blockCursor();
@@ -94,12 +76,11 @@ public class MaskedValueBlock implements ValueBlock
                 // advance until the next position is after current value end position
                 long currentValueEndPosition = valueCursor.getValuePositionEnd();
 
-                while (validPositions.advanceNextPosition() && validPositions.getPosition() <= currentValueEndPosition){
-                }
-
-                if (validPositions.getPosition() <= currentValueEndPosition) {
-                    return false;
-                }
+                do {
+                    if (!validPositions.advanceNextPosition()) {
+                        return false;
+                    }
+                } while (validPositions.getPosition() <= currentValueEndPosition);
             }
 
             // move value cursor to to next position
