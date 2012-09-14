@@ -1,7 +1,5 @@
 package com.facebook.presto.ingest;
 
-import com.facebook.presto.ingest.RowSource;
-import com.facebook.presto.ingest.RowSourceBuilder;
 import com.facebook.presto.TupleInfo;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
