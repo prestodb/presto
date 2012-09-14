@@ -7,12 +7,14 @@ import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.ingest.RowSourceBuilder;
 import com.facebook.presto.operator.AggregationOperator;
+import com.facebook.presto.operator.DataScan2;
 import com.facebook.presto.operator.GroupByBlockStream;
 import com.facebook.presto.operator.HashAggregationBlockStream;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -149,6 +151,28 @@ public class TestQueries
 
         assertEqualsIgnoreOrder(tuples(aggregation), expected);
     }
+
+    @Test
+    public void testCountAllWithPredicate()
+    {
+        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM orders WHERE orderstatus = 'F'", FIXED_INT_64);
+
+        BlockStream orderStatus = createBlockStream(ordersData, Column.ORDER_ORDERSTATUS, VARIABLE_BINARY);
+
+        DataScan2 filtered = new DataScan2(orderStatus, new Predicate<Cursor>()
+        {
+            @Override
+            public boolean apply(Cursor input)
+            {
+                return input.getSlice(0).equals(Slices.copiedBuffer("F", Charsets.UTF_8));
+            }
+        });
+
+        AggregationOperator aggregation = new AggregationOperator(filtered, CountAggregation.PROVIDER);
+
+        assertEqualsIgnoreOrder(tuples(aggregation), expected);
+    }
+
 
     @Test
     public void testGroupByCount()
