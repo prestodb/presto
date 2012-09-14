@@ -11,8 +11,7 @@ import com.facebook.presto.slice.Slice;
  * <pre>{@code
  *  Cursor cursor = ...;
  * <p/>
- *  while (cursor.hasNextValue()) {
- *     cursor.advanceNextValue();
+ *  while (cursor.advanceNextValue()) {
  *     long value = cursor.getLong(...);
  *     ...
  *  }
@@ -31,7 +30,9 @@ public interface Cursor
     Range getRange();
 
     /**
-     * Is there any more data in the cursor.  When a cursor is finished, the cursor does not have a current value.
+     * Returns true if the cursor has advanced beyond its last position.
+     * INVARIANT 1: isFinished will only return true once advance* has returned false.
+     * INVARIANT 2: all get* and data access methods will throw java.util.NoSuchElementException once isFinished is true
      */
     boolean isFinished();
 
@@ -59,28 +60,32 @@ public interface Cursor
     /**
      * Gets the current tuple.
      *
-     * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
+     * @throws IllegalStateException if this cursor has not been advanced yet
+     * @throws java.util.NoSuchElementException if this cursor has advanced past its last position
      */
     Tuple getTuple();
 
     /**
      * Gets a field from the current tuple.
      *
-     * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
+     * @throws IllegalStateException if this cursor has not been advanced yet
+     * @throws java.util.NoSuchElementException if this cursor has advanced past its last position
      */
     long getLong(int field);
 
     /**
      * Gets a field from the current tuple.
      *
-     * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
+     * @throws IllegalStateException if this cursor has not been advanced yet
+     * @throws java.util.NoSuchElementException if this cursor has advanced past its last position
      */
     double getDouble(int field);
 
     /**
      * Gets a field from the current tuple.
      *
-     * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
+     * @throws IllegalStateException if this cursor has not been advanced yet
+     * @throws java.util.NoSuchElementException if this cursor has advanced past its last position
      *
      */
     Slice getSlice(int field);
@@ -88,21 +93,24 @@ public interface Cursor
     /**
      * Returns the current position of this cursor
      *
-     * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
+     * @throws IllegalStateException if this cursor has not been advanced yet
+     * @throws java.util.NoSuchElementException if this cursor has advanced past its last position
      */
     long getPosition();
 
     /**
      * Returns the last position of the current value
      *
-     * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
+     * @throws IllegalStateException if this cursor has not been advanced yet
+     * @throws java.util.NoSuchElementException if this cursor has advanced past its last position
      */
     long getCurrentValueEndPosition();
 
     /**
      * True if the next tuple equals the specified tuple.
      *
-     * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
+     * @throws IllegalStateException if this cursor has not been advanced yet
+     * @throws java.util.NoSuchElementException if this cursor has advanced past its last position
      */
     boolean currentTupleEquals(Tuple value);
 }
