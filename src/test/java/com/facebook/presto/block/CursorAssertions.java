@@ -28,6 +28,12 @@ public class CursorAssertions
         assertEquals(cursor.getSlice(0), tuple.getSlice(0));
     }
 
+    public static void assertNextPosition(Cursor cursor, long position)
+    {
+        assertTrue(cursor.advanceNextPosition());
+        assertEquals(cursor.getPosition(), position);
+    }
+
     public static void assertNextPosition(Cursor cursor, long position, String value)
     {
         TupleInfo info = new TupleInfo(TupleInfo.Type.VARIABLE_BINARY);
