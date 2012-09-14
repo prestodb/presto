@@ -8,9 +8,9 @@ import com.facebook.presto.block.Cursor;
 import com.facebook.presto.ingest.RowSourceBuilder;
 import com.facebook.presto.operation.DoubleLessThanComparison;
 import com.facebook.presto.operator.AggregationOperator;
+import com.facebook.presto.operator.ApplyPredicateOperator;
 import com.facebook.presto.operator.ComparisonOperator;
-import com.facebook.presto.operator.DataScan2;
-import com.facebook.presto.operator.DataScan3;
+import com.facebook.presto.operator.FilterOperator;
 import com.facebook.presto.operator.GroupByBlockStream;
 import com.facebook.presto.operator.HashAggregationBlockStream;
 import com.facebook.presto.slice.Slices;
@@ -162,7 +162,7 @@ public class TestQueries
 
         BlockStream orderStatus = createBlockStream(ordersData, Column.ORDER_ORDERSTATUS, VARIABLE_BINARY);
 
-        DataScan2 filtered = new DataScan2(orderStatus, new Predicate<Cursor>()
+        ApplyPredicateOperator filtered = new ApplyPredicateOperator(orderStatus, new Predicate<Cursor>()
         {
             @Override
             public boolean apply(Cursor input)
@@ -231,7 +231,7 @@ public class TestQueries
         BlockStream tax = createBlockStream(lineitemData, Column.LINEITEM_TAX, DOUBLE);
 
         ComparisonOperator comparison = new ComparisonOperator(tax, discount, new DoubleLessThanComparison());
-        DataScan3 result = new DataScan3(orderKey.getTupleInfo(), orderKey, comparison);
+        FilterOperator result = new FilterOperator(orderKey.getTupleInfo(), orderKey, comparison);
 
         assertEqualsIgnoreOrder(tuples(result), expected);
     }
