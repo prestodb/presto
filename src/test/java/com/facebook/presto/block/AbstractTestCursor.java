@@ -7,6 +7,7 @@ import com.facebook.presto.Tuples;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestCursor
@@ -17,9 +18,13 @@ public abstract class AbstractTestCursor
     {
         Cursor cursor = createCursor();
 
+
         //
-        // We are before the first position, so all get current methods should throw an IllegalStateException
+        // We are before the first position, so the cursor is not valid and all get current methods should throw an IllegalStateException
         //
+        assertFalse(cursor.isValid());
+        assertFalse(cursor.isFinished());
+
         try {
             cursor.getTuple();
             fail("Expected IllegalStateException");
@@ -37,14 +42,23 @@ public abstract class AbstractTestCursor
         //
         // advance to end
         //
-        while (cursor.advanceNextPosition());
+        while (cursor.advanceNextPosition()) {
+            assertTrue(cursor.isValid());
+            assertFalse(cursor.isFinished());
+        }
 
         //
-        // We are at the last position, so all get next methods should return false
+        // We are beyond the last position, so the cursor is not valid, finished and all get next methods should return false
         //
+
+        assertFalse(cursor.isValid());
+        assertTrue(cursor.isFinished());
 
         assertFalse(cursor.advanceNextValue());
         assertFalse(cursor.advanceNextPosition());
+
+        assertFalse(cursor.isValid());
+        assertTrue(cursor.isFinished());
     }
 
     protected abstract Cursor createCursor();

@@ -30,6 +30,13 @@ public interface Cursor
     Range getRange();
 
     /**
+     * Returns true if the current position of the cursor is valid; false if the cursor has not been advanced yet, or if the cursor has advanced beyond the last position.
+     * INVARIANT 1: isValid is false if isFinished is true
+     * INVARIANT 2: all get* and data access methods will throw java.util.NoSuchElementException while isValid is false
+     */
+    boolean isValid();
+
+    /**
      * Returns true if the cursor has advanced beyond its last position.
      * INVARIANT 1: isFinished will only return true once advance* has returned false.
      * INVARIANT 2: all get* and data access methods will throw java.util.NoSuchElementException once isFinished is true
@@ -86,7 +93,6 @@ public interface Cursor
      *
      * @throws IllegalStateException if this cursor has not been advanced yet
      * @throws java.util.NoSuchElementException if this cursor has advanced past its last position
-     *
      */
     Slice getSlice(int field);
 

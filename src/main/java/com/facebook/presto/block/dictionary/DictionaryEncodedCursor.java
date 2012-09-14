@@ -40,6 +40,12 @@ public class DictionaryEncodedCursor implements Cursor
     }
 
     @Override
+    public boolean isValid()
+    {
+        return sourceCursor.isValid();
+    }
+
+    @Override
     public boolean isFinished()
     {
         return sourceCursor.isFinished();

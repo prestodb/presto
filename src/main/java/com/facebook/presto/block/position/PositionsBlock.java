@@ -95,6 +95,12 @@ public class PositionsBlock
         }
 
         @Override
+        public boolean isValid()
+        {
+            return totalRange.contains(position);
+        }
+
+        @Override
         public boolean isFinished()
         {
             return position > totalRange.getEnd();
