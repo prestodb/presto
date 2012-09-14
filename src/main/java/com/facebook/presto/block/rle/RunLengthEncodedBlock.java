@@ -31,27 +31,9 @@ public class RunLengthEncodedBlock
         return (int) (range.getEnd() - range.getStart() + 1);
     }
 
-    @Override
-    public boolean isSorted()
-    {
-        return true;
-    }
-
-    @Override
-    public boolean isSingleValue()
-    {
-        return true;
-    }
-
     public Tuple getSingleValue()
     {
         return value;
-    }
-
-    @Override
-    public boolean isPositionsContiguous()
-    {
-        return true;
     }
 
     @Override

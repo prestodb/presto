@@ -5,24 +5,18 @@ import com.facebook.presto.Range;
 
 public interface Block
 {
+    /**
+     * Gets the number of positions in the block
+     */
     int getCount();
 
     /**
-     * Whether the values in this block are sorted
+     * Gets the start and end positions of the block.
      */
-    boolean isSorted();
-
-    /**
-     * Whether the block contains a single value (with one or more positions for that value)
-     */
-    boolean isSingleValue();
-
-    /**
-     * Whether the block contains gaps in its positions
-     */
-    boolean isPositionsContiguous();
-
     Range getRange();
 
+    /**
+     * Gets a cursor over the block
+     */
     BlockCursor blockCursor();
 }

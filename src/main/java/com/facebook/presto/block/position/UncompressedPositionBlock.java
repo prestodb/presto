@@ -43,24 +43,6 @@ public class UncompressedPositionBlock
     }
 
     @Override
-    public boolean isSorted()
-    {
-        return true;
-    }
-
-    @Override
-    public boolean isSingleValue()
-    {
-        return positions.size() == 1;
-    }
-
-    @Override
-    public boolean isPositionsContiguous()
-    {
-        return false;
-    }
-
-    @Override
     public Range getRange()
     {
         return range;

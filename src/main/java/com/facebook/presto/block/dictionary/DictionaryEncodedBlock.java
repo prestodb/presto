@@ -36,24 +36,6 @@ public class DictionaryEncodedBlock implements Block
     }
 
     @Override
-    public boolean isSorted()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isSingleValue()
-    {
-        return sourceValueBlock.isSingleValue();
-    }
-
-    @Override
-    public boolean isPositionsContiguous()
-    {
-        return sourceValueBlock.isPositionsContiguous();
-    }
-
-    @Override
     public Range getRange()
     {
         return sourceValueBlock.getRange();
