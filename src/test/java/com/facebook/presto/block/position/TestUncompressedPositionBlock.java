@@ -34,6 +34,7 @@ public class TestUncompressedPositionBlock
         assertNextPosition(cursor, 14);
 
         assertFalse(cursor.advanceNextPosition());
+        assertTrue(cursor.isFinished());
     }
 
     @Test
@@ -58,6 +59,7 @@ public class TestUncompressedPositionBlock
 
         // advance past end
         assertFalse(cursor.advanceToPosition(20));
+        assertTrue(cursor.isFinished());
 
         try {
             cursor.getPosition();
@@ -65,5 +67,7 @@ public class TestUncompressedPositionBlock
         }
         catch (NoSuchElementException expected) {
         }
+
+        assertTrue(cursor.isFinished());
     }
 }
