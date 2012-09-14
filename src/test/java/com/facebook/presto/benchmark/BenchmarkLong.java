@@ -1,9 +1,9 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.BlockStream;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.uncompressed.UncompressedBlockSerde;
+import com.facebook.presto.block.uncompressed.UncompressedSerde;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import io.airlift.units.DataSize;
@@ -25,7 +25,7 @@ public class BenchmarkLong
 //        TupleInfo info = new TupleInfo(TupleInfo.Type.FIXED_INT_64);
 
         for (int i = 0; i < 1000000; ++i) {
-            BlockStream pageTypeColumn = UncompressedBlockSerde.readAsStream(pageTypeColumnSlice);
+            TupleStream pageTypeColumn = UncompressedSerde.readAsStream(pageTypeColumnSlice);
 
 //            int count = pageTypeColumnSlice.length() / 8;
 //            int current = 0;
@@ -49,7 +49,7 @@ public class BenchmarkLong
         Thread.sleep(1000);
     }
 
-    public static Result doIt(BlockStream pageTypeColumn, TupleInfo info)
+    public static Result doIt(TupleStream pageTypeColumn, TupleInfo info)
     {
         long start = System.nanoTime();
         Cursor groupBy = pageTypeColumn.cursor();

@@ -1,12 +1,12 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.aggregation.AverageAggregation;
-import com.facebook.presto.block.BlockStream;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.uncompressed.UncompressedBlockSerde;
+import com.facebook.presto.block.uncompressed.UncompressedSerde;
 import com.facebook.presto.operation.SubtractionOperation;
-import com.facebook.presto.operator.GroupByBlockStream;
-import com.facebook.presto.operator.HashAggregationBlockStream;
+import com.facebook.presto.operator.GroupByOperator;
+import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.operator.UncompressedBinaryOperator;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
@@ -30,13 +30,13 @@ public class BenchmarkBinaryOperator
         Slice column4Slice = Slices.mapFileReadOnly(column4);
         Slice column5Slice = Slices.mapFileReadOnly(column5);
         for (int i = 0; i < 100000; ++i) {
-            BlockStream column3Stream = UncompressedBlockSerde.readAsStream(column3Slice);
-            BlockStream column4Stream = UncompressedBlockSerde.readAsStream(column4Slice);
-            BlockStream column5Stream = UncompressedBlockSerde.readAsStream(column5Slice);
+            TupleStream column3Stream = UncompressedSerde.readAsStream(column3Slice);
+            TupleStream column4Stream = UncompressedSerde.readAsStream(column4Slice);
+            TupleStream column5Stream = UncompressedSerde.readAsStream(column5Slice);
             UncompressedBinaryOperator sub = new UncompressedBinaryOperator(column4Stream, column3Stream, new SubtractionOperation());
 
-            GroupByBlockStream groupBy = new GroupByBlockStream(column5Stream);
-            HashAggregationBlockStream aggregation = new HashAggregationBlockStream(groupBy, sub, AverageAggregation.PROVIDER);
+            GroupByOperator groupBy = new GroupByOperator(column5Stream);
+            HashAggregationOperator aggregation = new HashAggregationOperator(groupBy, sub, AverageAggregation.PROVIDER);
 
             Result result = doIt(aggregation);
             long count = result.count;
@@ -49,7 +49,7 @@ public class BenchmarkBinaryOperator
         Thread.sleep(1000);
     }
 
-    public static Result doIt(BlockStream source)
+    public static Result doIt(TupleStream source)
     {
         long start = System.nanoTime();
 

@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Cursor;
@@ -28,6 +29,12 @@ public class FilteredCursor implements Cursor
     public TupleInfo getTupleInfo()
     {
         return delegate.getTupleInfo();
+    }
+
+    @Override
+    public Range getRange()
+    {
+        return Range.ALL;
     }
 
     @Override
@@ -105,8 +112,8 @@ public class FilteredCursor implements Cursor
     }
 
     @Override
-    public boolean currentValueEquals(Tuple value)
+    public boolean currentTupleEquals(Tuple value)
     {
-        return delegate.currentValueEquals(value);
+        return delegate.currentTupleEquals(value);
     }
 }

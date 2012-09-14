@@ -1,10 +1,9 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.block;
 
-import com.facebook.presto.block.AbstractTestUncompressedSliceCursor;
-import com.facebook.presto.block.Cursor;
+import com.facebook.presto.operator.GenericCursor;
 
 public class TestGenericCursor
     extends AbstractTestUncompressedSliceCursor

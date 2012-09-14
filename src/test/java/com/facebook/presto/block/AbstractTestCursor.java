@@ -4,7 +4,6 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.Tuples;
-import com.facebook.presto.block.Cursor;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertFalse;
@@ -29,7 +28,7 @@ public abstract class AbstractTestCursor
         }
 
         try {
-            cursor.currentValueEquals(Tuples.createTuple(0L));
+            cursor.currentTupleEquals(Tuples.createTuple(0L));
             fail("Expected IllegalStateException");
         }
         catch (IllegalStateException expected) {

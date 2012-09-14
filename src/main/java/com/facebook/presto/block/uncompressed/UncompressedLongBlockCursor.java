@@ -3,19 +3,22 @@ package com.facebook.presto.block.uncompressed;
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.Cursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
+
+import java.util.NoSuchElementException;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class UncompressedLongBlockCursor
-        implements BlockCursor
+        implements Cursor
 {
     private static final TupleInfo INFO = new TupleInfo(FIXED_INT_64);
 
+    private final TupleInfo tupleInfo;
     private final Slice slice;
     private final Range range;
     private long position = -1;
@@ -23,13 +26,20 @@ public class UncompressedLongBlockCursor
 
     public UncompressedLongBlockCursor(UncompressedBlock block)
     {
-        this(checkNotNull(block, "block is null").getSlice(), block.getRange());
+        this(checkNotNull(block, "block is null").getTupleInfo(), block.getSlice(), block.getRange());
     }
 
-    public UncompressedLongBlockCursor(Slice slice, Range range)
+    public UncompressedLongBlockCursor(TupleInfo tupleInfo, Slice slice, Range range)
     {
+        this.tupleInfo = tupleInfo;
         this.slice = slice;
         this.range = range;
+    }
+
+    @Override
+    public TupleInfo getTupleInfo()
+    {
+        return tupleInfo;
     }
 
     @Override
@@ -39,10 +49,15 @@ public class UncompressedLongBlockCursor
     }
 
     @Override
-    public boolean advanceToNextValue()
+    public boolean isFinished()
     {
-        // every position is a new value
-        if (!(range.getEnd() > position)) {
+        return position > range.getEnd();
+    }
+
+    @Override
+    public boolean advanceNextValue()
+    {
+        if (position >= range.getEnd()) {
             return false;
         }
 
@@ -59,7 +74,8 @@ public class UncompressedLongBlockCursor
     @Override
     public boolean advanceNextPosition()
     {
-        return advanceToNextValue();
+        // every position is a new value
+        return advanceNextValue();
     }
 
     @Override
@@ -67,13 +83,15 @@ public class UncompressedLongBlockCursor
     {
         Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
 
+        // advance to specified position
+        position = newPosition;
+
+        // if new position is out of range, return false
         if (newPosition > range.getEnd()) {
-            position = newPosition;
             return false;
         }
 
-        // advance to specified position
-        position = newPosition;
+        // adjust offset
         offset = (int) ((position - this.range.getStart()) * SIZE_OF_LONG);
         return true;
     }
@@ -82,13 +100,19 @@ public class UncompressedLongBlockCursor
     public long getPosition()
     {
         Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
+        if (isFinished()) {
+            throw new NoSuchElementException();
+        }
         return position;
     }
 
     @Override
-    public long getValuePositionEnd()
+    public long getCurrentValueEndPosition()
     {
         Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
+        if (isFinished()) {
+            throw new NoSuchElementException();
+        }
         return position;
     }
 
@@ -96,6 +120,9 @@ public class UncompressedLongBlockCursor
     public Tuple getTuple()
     {
         Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
+        if (isFinished()) {
+            throw new NoSuchElementException();
+        }
         return new Tuple(slice.slice(offset, SIZE_OF_LONG), INFO);
     }
 
@@ -103,6 +130,9 @@ public class UncompressedLongBlockCursor
     public long getLong(int field)
     {
         Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
+        if (isFinished()) {
+            throw new NoSuchElementException();
+        }
         Preconditions.checkElementIndex(0, 1, "field");
         return slice.getLong(offset);
     }
@@ -120,9 +150,12 @@ public class UncompressedLongBlockCursor
     }
 
     @Override
-    public boolean tupleEquals(Tuple value)
+    public boolean currentTupleEquals(Tuple value)
     {
         Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
+        if (isFinished()) {
+            throw new NoSuchElementException();
+        }
         Slice tupleSlice = value.getTupleSlice();
         return tupleSlice.length() == SIZE_OF_LONG && slice.getLong(offset) == tupleSlice.getLong(0);
     }

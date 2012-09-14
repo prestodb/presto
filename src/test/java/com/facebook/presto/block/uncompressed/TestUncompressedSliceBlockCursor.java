@@ -3,9 +3,8 @@
  */
 package com.facebook.presto.block.uncompressed;
 
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.AbstractTestUncompressedSliceBlockCursor;
-import com.facebook.presto.block.uncompressed.UncompressedSliceBlockCursor;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertTrue;
@@ -16,7 +15,7 @@ public class TestUncompressedSliceBlockCursor extends AbstractTestUncompressedSl
     @Test
     public void testGetLong()
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
         try {
             cursor.getLong(0);
             fail("Expected UnsupportedOperationException");
@@ -24,7 +23,7 @@ public class TestUncompressedSliceBlockCursor extends AbstractTestUncompressedSl
         catch (UnsupportedOperationException expected) {
         }
 
-        assertTrue(cursor.advanceToNextValue());
+        assertTrue(cursor.advanceNextValue());
 
         try {
             cursor.getLong(0);
@@ -35,7 +34,7 @@ public class TestUncompressedSliceBlockCursor extends AbstractTestUncompressedSl
     }
 
     @Override
-    protected BlockCursor createCursor()
+    protected Cursor createCursor()
     {
         return new UncompressedSliceBlockCursor(createTestBlock());
     }

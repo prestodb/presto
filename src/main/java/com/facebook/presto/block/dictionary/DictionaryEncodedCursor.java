@@ -1,5 +1,6 @@
 package com.facebook.presto.block.dictionary;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Cursor;
@@ -30,6 +31,12 @@ public class DictionaryEncodedCursor implements Cursor
     public TupleInfo getTupleInfo()
     {
         return tupleInfo;
+    }
+
+    @Override
+    public Range getRange()
+    {
+        return sourceCursor.getRange();
     }
 
     @Override
@@ -86,7 +93,7 @@ public class DictionaryEncodedCursor implements Cursor
     }
 
     @Override
-    public boolean currentValueEquals(Tuple value)
+    public boolean currentTupleEquals(Tuple value)
     {
         checkNotNull(value, "value is null");
         return tupleInfo.equals(value.getTupleInfo()) && getSlice(0).equals(value.getTupleSlice());

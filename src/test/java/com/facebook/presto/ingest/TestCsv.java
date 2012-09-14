@@ -1,9 +1,9 @@
 package com.facebook.presto.ingest;
 
 import com.facebook.presto.Main;
-import com.facebook.presto.block.BlockStream;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Blocks;
-import com.facebook.presto.block.uncompressed.UncompressedBlockSerde;
+import com.facebook.presto.block.uncompressed.UncompressedSerde;
 import com.google.common.io.Resources;
 import io.airlift.testing.FileUtils;
 import org.testng.annotations.AfterMethod;
@@ -100,12 +100,12 @@ public class TestCsv
                         "abc"));
     }
 
-    private BlockStream readColumn(int columnNumber)
+    private TupleStream readColumn(int columnNumber)
             throws IOException
     {
         File file = new File(outDir, "column" + columnNumber + ".data");
-        BlockStream blockStream = UncompressedBlockSerde.read(file);
-        return blockStream;
+        TupleStream tupleStream = UncompressedSerde.read(file);
+        return tupleStream;
     }
 
     private static String resourceFile(String resourceName)

@@ -5,6 +5,7 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
+import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.position.UncompressedPositionBlock.UncompressedPositionBlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
@@ -12,12 +13,12 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class MaskedBlock implements Block
+public class MaskedBlock implements TupleStream
 {
-    private final Block valueBlock;
+    private final TupleStream valueBlock;
     private final List<Long> validPositions;
 
-    public MaskedBlock(Block valueBlock, List<Long> validPositions)
+    public MaskedBlock(TupleStream valueBlock, List<Long> validPositions)
     {
         Preconditions.checkNotNull(valueBlock, "valueBlock is null");
         Preconditions.checkNotNull(validPositions, "validPositions is null");
@@ -27,10 +28,15 @@ public class MaskedBlock implements Block
         this.validPositions = ImmutableList.copyOf(validPositions);
     }
 
-    @Override
     public int getCount()
     {
         return validPositions.size();
+    }
+
+    @Override
+    public TupleInfo getTupleInfo()
+    {
+        return valueBlock.getTupleInfo();
     }
 
     @Override
@@ -40,21 +46,27 @@ public class MaskedBlock implements Block
     }
 
     @Override
-    public BlockCursor blockCursor()
+    public Cursor cursor()
     {
         return new MaskedBlockCursor(valueBlock, validPositions);
     }
 
-    private static class MaskedBlockCursor implements BlockCursor
+    private static class MaskedBlockCursor implements Cursor
     {
-        private final BlockCursor valueCursor;
-        private final BlockCursor validPositions;
+        private final Cursor valueCursor;
+        private final Cursor validPositions;
         private boolean isValid;
 
-        private MaskedBlockCursor(Block valueBlock, List<Long> validPositions)
+        private MaskedBlockCursor(TupleStream valueBlock, List<Long> validPositions)
         {
             this.validPositions = new UncompressedPositionBlockCursor(validPositions, valueBlock.getRange());
-            this.valueCursor = valueBlock.blockCursor();
+            this.valueCursor = valueBlock.cursor();
+        }
+
+        @Override
+        public TupleInfo getTupleInfo()
+        {
+            return valueCursor.getTupleInfo();
         }
 
         @Override
@@ -64,20 +76,34 @@ public class MaskedBlock implements Block
         }
 
         @Override
-        public boolean advanceToNextValue()
+        public boolean isFinished()
         {
+            return valueCursor.isFinished();
+        }
+
+        @Override
+        public boolean advanceNextValue()
+        {
+            if (isFinished()) {
+                return false;
+            }
+
             if (!isValid) {
                 // advance to first position
                 isValid = true;
                 if (!validPositions.advanceNextPosition()) {
+                    // move to end of value cursor
+                    valueCursor.advanceToPosition(Long.MAX_VALUE);
                     return false;
                 }
             } else {
                 // advance until the next position is after current value end position
-                long currentValueEndPosition = valueCursor.getValuePositionEnd();
+                long currentValueEndPosition = valueCursor.getCurrentValueEndPosition();
 
                 do {
                     if (!validPositions.advanceNextPosition()) {
+                        // move to end of value cursor
+                        valueCursor.advanceToPosition(Long.MAX_VALUE);
                         return false;
                     }
                 } while (validPositions.getPosition() <= currentValueEndPosition);
@@ -90,19 +116,36 @@ public class MaskedBlock implements Block
         @Override
         public boolean advanceNextPosition()
         {
+            if (isFinished()) {
+                return false;
+            }
+
             // advance current position
             isValid = true;
-            return validPositions.advanceNextPosition() &&
-                    valueCursor.advanceToPosition(validPositions.getPosition());
+            if (validPositions.advanceNextPosition()) {
+                return valueCursor.advanceToPosition(validPositions.getPosition());
+            } else {
+                // move to end of value cursor
+                valueCursor.advanceToPosition(Long.MAX_VALUE);
+                return false;
+            }
         }
 
         @Override
         public boolean advanceToPosition(long newPosition)
         {
-            isValid = true;
+            if (isFinished()) {
+                return false;
+            }
 
-            return validPositions.advanceToPosition(newPosition) &&
-                    valueCursor.advanceToPosition(validPositions.getPosition());
+            isValid = true;
+            if (validPositions.advanceToPosition(newPosition)) {
+                return valueCursor.advanceToPosition(validPositions.getPosition());
+            } else {
+                // move to end of value cursor
+                valueCursor.advanceToPosition(Long.MAX_VALUE);
+                return false;
+            }
         }
 
         @Override
@@ -136,15 +179,15 @@ public class MaskedBlock implements Block
         }
 
         @Override
-        public long getValuePositionEnd()
+        public long getCurrentValueEndPosition()
         {
-            return valueCursor.getValuePositionEnd();
+            return valueCursor.getCurrentValueEndPosition();
         }
 
         @Override
-        public boolean tupleEquals(Tuple value)
+        public boolean currentTupleEquals(Tuple value)
         {
-            return valueCursor.tupleEquals(value);
+            return valueCursor.currentTupleEquals(value);
         }
     }
 }

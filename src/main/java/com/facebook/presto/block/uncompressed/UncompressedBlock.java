@@ -3,29 +3,34 @@ package com.facebook.presto.block.uncompressed;
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.Cursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
 public class UncompressedBlock
-        implements Block
+        implements TupleStream
 {
     private final Range range;
-    private final TupleInfo info;
+    private final TupleInfo tupleInfo;
     private final Slice slice;
 
-    public UncompressedBlock(Range range, TupleInfo info, Slice slice)
+    public UncompressedBlock(Range range, TupleInfo tupleInfo, Slice slice)
     {
         Preconditions.checkNotNull(range, "range is null");
         Preconditions.checkArgument(range.getStart() >= 0, "range start position is negative");
-        Preconditions.checkNotNull(info, "tupleInfo is null");
+        Preconditions.checkNotNull(tupleInfo, "tupleInfo is null");
         Preconditions.checkNotNull(slice, "data is null");
 
-        this.info = info;
+        this.tupleInfo = tupleInfo;
         this.slice = slice;
         this.range = range;
+    }
+
+    public TupleInfo getTupleInfo()
+    {
+        return tupleInfo;
     }
 
     public Slice getSlice()
@@ -33,7 +38,6 @@ public class UncompressedBlock
         return slice;
     }
 
-    @Override
     public int getCount()
     {
         return (int) (range.getEnd() - range.getStart() + 1);
@@ -46,10 +50,10 @@ public class UncompressedBlock
     }
 
     @Override
-    public BlockCursor blockCursor()
+    public Cursor cursor()
     {
-        if (info.getFieldCount() == 1) {
-            Type type = info.getTypes().get(0);
+        if (tupleInfo.getFieldCount() == 1) {
+            Type type = tupleInfo.getTypes().get(0);
             if (type == Type.FIXED_INT_64) {
                 return new UncompressedLongBlockCursor(this);
             }
@@ -60,7 +64,7 @@ public class UncompressedBlock
                 return new UncompressedSliceBlockCursor(this);
             }
         }
-        return new UncompressedBlockCursor(info, this);
+        return new UncompressedBlockCursor(this);
     }
 
     @Override
@@ -68,7 +72,7 @@ public class UncompressedBlock
     {
         return Objects.toStringHelper(this)
                 .add("range", range)
-                .add("tupleInfo", info)
+                .add("tupleInfo", tupleInfo)
                 .add("slice", slice)
                 .toString();
     }

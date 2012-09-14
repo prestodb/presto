@@ -5,8 +5,8 @@ package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.BlockStream;
-import com.facebook.presto.block.BlockStreamSerde;
+import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.TupleStreamSerde;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.slice.ByteArraySlice;
 import com.facebook.presto.slice.DynamicSliceOutput;
@@ -25,20 +25,20 @@ import java.util.Iterator;
 import static com.facebook.presto.SizeOf.SIZE_OF_INT;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 
-public class UncompressedBlockSerde
-        implements BlockStreamSerde
+public class UncompressedSerde
+        implements TupleStreamSerde
 {
     private static final int MAX_BLOCK_SIZE = (int) new DataSize(64, KILOBYTE).toBytes();
-    private static final UncompressedBlockSerde INSTANCE = new UncompressedBlockSerde();
+    private static final UncompressedSerde INSTANCE = new UncompressedSerde();
 
     @Override
-    public void serialize(BlockStream blockStream, SliceOutput sliceOutput)
+    public void serialize(TupleStream tupleStream, SliceOutput sliceOutput)
     {
-        write(blockStream.cursor(), sliceOutput);
+        write(tupleStream.cursor(), sliceOutput);
     }
 
     @Override
-    public BlockStream deserialize(Slice slice)
+    public TupleStream deserialize(Slice slice)
     {
         return readAsStream(slice);
     }
@@ -75,7 +75,7 @@ public class UncompressedBlockSerde
         destination.writeBytes(slice);
     }
 
-    public static BlockStream read(File file)
+    public static TupleStream read(File file)
             throws IOException
     {
         Slice mappedSlice = Slices.mapFileReadOnly(file);
@@ -87,7 +87,7 @@ public class UncompressedBlockSerde
         return new UncompressedReader(slice);
     }
 
-    public static BlockStream readAsStream(final Slice slice)
+    public static TupleStream readAsStream(final Slice slice)
     {
         UncompressedReader reader = new UncompressedReader(slice);
 

@@ -1,10 +1,9 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.aggregation.CountAggregation;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.uncompressed.UncompressedBlockSerde;
+import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.uncompressed.UncompressedSerde;
 import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
@@ -26,7 +25,7 @@ public class BenchmarkAggregation
 
         Slice columnSlice = Slices.mapFileReadOnly(file);
         for (int i = 0; i < 100000; ++i) {
-            BlockStream column = UncompressedBlockSerde.readAsStream(columnSlice);
+            TupleStream column = UncompressedSerde.readAsStream(columnSlice);
             AggregationOperator sum = new AggregationOperator(column, CountAggregation.PROVIDER);
 
             Result result = doIt(sum);
@@ -40,7 +39,7 @@ public class BenchmarkAggregation
         Thread.sleep(1000);
     }
 
-    public static Result doIt(BlockStream source)
+    public static Result doIt(TupleStream source)
     {
         long start = System.nanoTime();
         Cursor cursor = source.cursor();
@@ -71,7 +70,7 @@ public class BenchmarkAggregation
         }
     }
 
-    public static class StringFilter implements Predicate<BlockCursor> {
+    public static class StringFilter implements Predicate<Cursor> {
 
         private final long minLength;
 
@@ -81,13 +80,13 @@ public class BenchmarkAggregation
         }
 
         @Override
-        public boolean apply(@Nullable BlockCursor input)
+        public boolean apply(@Nullable Cursor input)
         {
             return input.getSlice(0).length() >= minLength;
         }
     }
 
-    public static class LongFilter implements Predicate<BlockCursor> {
+    public static class LongFilter implements Predicate<Cursor> {
 
         private final long minValue;
 
@@ -97,7 +96,7 @@ public class BenchmarkAggregation
         }
 
         @Override
-        public boolean apply(@Nullable BlockCursor input)
+        public boolean apply(@Nullable Cursor input)
         {
             return input.getLong(0) >= minValue;
         }

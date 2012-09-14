@@ -8,9 +8,6 @@ import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.block.BlockCursorAssertions.assertCurrentValue;
-import static com.facebook.presto.block.BlockCursorAssertions.assertNextPosition;
-import static com.facebook.presto.block.BlockCursorAssertions.assertNextValue;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -20,7 +17,7 @@ public abstract class AbstractTestUncompressedDoubleBlockCursor extends Abstract
     @Test
     public void testGetDoubleState()
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
         try {
             cursor.getDouble(0);
             fail("Expected IllegalStateException");
@@ -33,7 +30,7 @@ public abstract class AbstractTestUncompressedDoubleBlockCursor extends Abstract
     public void testFirstValue()
             throws Exception
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
         BlockCursorAssertions.assertNextValue(cursor, 0, 11.11);
     }
 
@@ -41,7 +38,7 @@ public abstract class AbstractTestUncompressedDoubleBlockCursor extends Abstract
     public void testFirstPosition()
             throws Exception
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
         BlockCursorAssertions.assertNextPosition(cursor, 0, 11.11);
     }
 
@@ -49,7 +46,7 @@ public abstract class AbstractTestUncompressedDoubleBlockCursor extends Abstract
     public void testAdvanceNextValue()
             throws Exception
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
 
         BlockCursorAssertions.assertNextValue(cursor, 0, 11.11);
         BlockCursorAssertions.assertNextValue(cursor, 1, 11.11);
@@ -63,13 +60,13 @@ public abstract class AbstractTestUncompressedDoubleBlockCursor extends Abstract
         BlockCursorAssertions.assertNextValue(cursor, 9, 33.33);
         BlockCursorAssertions.assertNextValue(cursor, 10, 44.44);
 
-        assertFalse(cursor.advanceToNextValue());
+        assertFalse(cursor.advanceNextValue());
     }
 
     @Test
     public void testAdvanceNextPosition()
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
 
         BlockCursorAssertions.assertNextPosition(cursor, 0, 11.11);
         BlockCursorAssertions.assertNextPosition(cursor, 1, 11.11);
@@ -90,7 +87,7 @@ public abstract class AbstractTestUncompressedDoubleBlockCursor extends Abstract
     public void testAdvanceToPosition()
             throws Exception
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
 
         // advance to first position
         assertTrue(cursor.advanceToPosition(0));
@@ -133,7 +130,7 @@ public abstract class AbstractTestUncompressedDoubleBlockCursor extends Abstract
     public void testAdvanceToNextValueAdvancesPosition()
             throws Exception
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
 
         // first, skip to middle of a block
         BlockCursorAssertions.assertNextValue(cursor, 0, 11.11);
@@ -146,7 +143,7 @@ public abstract class AbstractTestUncompressedDoubleBlockCursor extends Abstract
     @Test
     public void testAdvanceToNextPositionAdvancesValue()
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
 
         // first, advance to end of a block
         BlockCursorAssertions.assertNextPosition(cursor, 0, 11.11);
@@ -166,7 +163,7 @@ public abstract class AbstractTestUncompressedDoubleBlockCursor extends Abstract
     public void testAdvanceNextValueAtEndOfBlock()
             throws Exception
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
 
         // first, advance to end of a block
         BlockCursorAssertions.assertNextPosition(cursor, 0, 11.11);
@@ -186,7 +183,7 @@ public abstract class AbstractTestUncompressedDoubleBlockCursor extends Abstract
     public void testMixedValueAndPosition()
             throws Exception
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
 
         BlockCursorAssertions.assertNextValue(cursor, 0, 11.11);
         BlockCursorAssertions.assertNextPosition(cursor, 1, 11.11);
@@ -201,13 +198,13 @@ public abstract class AbstractTestUncompressedDoubleBlockCursor extends Abstract
         BlockCursorAssertions.assertNextValue(cursor, 10, 44.44);
 
         assertFalse(cursor.advanceNextPosition());
-        assertFalse(cursor.advanceToNextValue());
+        assertFalse(cursor.advanceNextValue());
     }
 
     @Test
     public void testRange()
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
         Assert.assertEquals(cursor.getRange(), new Range(0, 10));
     }
 
@@ -216,5 +213,5 @@ public abstract class AbstractTestUncompressedDoubleBlockCursor extends Abstract
         return Blocks.createDoublesBlock(0, 11.11, 11.11, 11.11, 22.22, 22.22, 22.22, 22.22, 22.22, 33.33, 33.33, 44.44);
     }
 
-    protected abstract BlockCursor createCursor();
+    protected abstract Cursor createCursor();
 }

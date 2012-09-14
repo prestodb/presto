@@ -1,5 +1,6 @@
 package com.facebook.presto.block;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.slice.Slice;
@@ -19,7 +20,15 @@ import com.facebook.presto.slice.Slice;
  */
 public interface Cursor
 {
+    /**
+     * Gets the type of all tuples in this cursor
+     */
     TupleInfo getTupleInfo();
+
+    /**
+     * Gets the upper bound on the range of this cursor
+     */
+    Range getRange();
 
     /**
      * Is there any more data in the cursor.  When a cursor is finished, the cursor does not have a current value.
@@ -95,5 +104,5 @@ public interface Cursor
      *
      * @throws java.util.NoSuchElementException if this cursor has not been advanced yet
      */
-    boolean currentValueEquals(Tuple value);
+    boolean currentTupleEquals(Tuple value);
 }

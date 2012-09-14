@@ -1,6 +1,6 @@
 package com.facebook.presto.block.position;
 
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.Cursor;
 import org.testng.annotations.Test;
 
 import java.util.NoSuchElementException;
@@ -19,7 +19,7 @@ public class TestUncompressedPositionBlock
     {
         UncompressedPositionBlock block = new UncompressedPositionBlock(0, 1, 2, 3, 4, 10, 11, 12, 13, 14);
 
-        BlockCursor cursor = block.blockCursor();
+        Cursor cursor = block.cursor();
 
         assertNextPosition(cursor, 0);
         assertNextPosition(cursor, 1);
@@ -34,6 +34,7 @@ public class TestUncompressedPositionBlock
         assertNextPosition(cursor, 14);
 
         assertFalse(cursor.advanceNextPosition());
+        assertTrue(cursor.isFinished());
     }
 
     @Test
@@ -42,7 +43,7 @@ public class TestUncompressedPositionBlock
     {
         UncompressedPositionBlock block = new UncompressedPositionBlock(0, 1, 2, 3, 4, 10, 11, 12, 13, 14);
 
-        BlockCursor cursor = block.blockCursor();
+        Cursor cursor = block.cursor();
 
         // advance to beginning
         assertTrue(cursor.advanceToPosition(0));
@@ -58,6 +59,7 @@ public class TestUncompressedPositionBlock
 
         // advance past end
         assertFalse(cursor.advanceToPosition(20));
+        assertTrue(cursor.isFinished());
 
         try {
             cursor.getPosition();
@@ -65,5 +67,7 @@ public class TestUncompressedPositionBlock
         }
         catch (NoSuchElementException expected) {
         }
+
+        assertTrue(cursor.isFinished());
     }
 }

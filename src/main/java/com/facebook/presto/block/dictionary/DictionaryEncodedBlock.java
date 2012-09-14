@@ -3,8 +3,8 @@ package com.facebook.presto.block.dictionary;
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.Cursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.primitives.Ints;
 
@@ -12,13 +12,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 
-public class DictionaryEncodedBlock implements Block
+public class DictionaryEncodedBlock implements TupleStream
 {
     private final TupleInfo tupleInfo;
     private final Slice[] dictionary;
-    private final Block sourceValueBlock;
+    private final TupleStream sourceValueBlock;
 
-    public DictionaryEncodedBlock(TupleInfo tupleInfo, Slice[] dictionary, Block sourceValueBlock)
+    public DictionaryEncodedBlock(TupleInfo tupleInfo, Slice[] dictionary, TupleStream sourceValueBlock)
     {
         checkNotNull(tupleInfo, "tupleInfo is null");
         checkNotNull(dictionary, "dictionary is null");
@@ -30,9 +30,9 @@ public class DictionaryEncodedBlock implements Block
     }
 
     @Override
-    public int getCount()
+    public TupleInfo getTupleInfo()
     {
-        return sourceValueBlock.getCount();
+        return tupleInfo;
     }
 
     @Override
@@ -42,22 +42,28 @@ public class DictionaryEncodedBlock implements Block
     }
 
     @Override
-    public BlockCursor blockCursor()
+    public Cursor cursor()
     {
         return new DictionaryEncodedBlockCursor(tupleInfo, sourceValueBlock, dictionary);
     }
 
-    private static class DictionaryEncodedBlockCursor implements BlockCursor
+    private static class DictionaryEncodedBlockCursor implements Cursor
     {
         private final TupleInfo tupleInfo;
-        private final BlockCursor delegate;
+        private final Cursor delegate;
         private final Slice[] dictionary;
 
-        private DictionaryEncodedBlockCursor(TupleInfo tupleInfo, Block sourceValueBlock, Slice... dictionary)
+        private DictionaryEncodedBlockCursor(TupleInfo tupleInfo, TupleStream sourceValueBlock, Slice... dictionary)
         {
             this.tupleInfo = tupleInfo;
             this.dictionary = dictionary;
-            delegate = sourceValueBlock.blockCursor();
+            delegate = sourceValueBlock.cursor();
+        }
+
+        @Override
+        public TupleInfo getTupleInfo()
+        {
+            return tupleInfo;
         }
 
         @Override
@@ -67,9 +73,15 @@ public class DictionaryEncodedBlock implements Block
         }
 
         @Override
-        public boolean advanceToNextValue()
+        public boolean isFinished()
         {
-            return delegate.advanceToNextValue();
+            return delegate.isFinished();
+        }
+
+        @Override
+        public boolean advanceNextValue()
+        {
+            return delegate.advanceNextValue();
         }
 
         @Override
@@ -114,7 +126,7 @@ public class DictionaryEncodedBlock implements Block
         }
 
         @Override
-        public boolean tupleEquals(Tuple value)
+        public boolean currentTupleEquals(Tuple value)
         {
             // todo We should be able to compare the dictionary keys directly if the tuple comes from a block encoded using the same dictionary
             return tupleInfo.equals(value.getTupleInfo()) && getSlice(0).equals(value.getTupleSlice());
@@ -127,9 +139,9 @@ public class DictionaryEncodedBlock implements Block
         }
 
         @Override
-        public long getValuePositionEnd()
+        public long getCurrentValueEndPosition()
         {
-            return delegate.getValuePositionEnd();
+            return delegate.getCurrentValueEndPosition();
         }
     }
 }

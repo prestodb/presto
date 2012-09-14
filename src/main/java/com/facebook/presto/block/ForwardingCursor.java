@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.slice.Slice;
@@ -25,6 +26,12 @@ public class ForwardingCursor implements Cursor
     public TupleInfo getTupleInfo()
     {
         return cursor.getTupleInfo();
+    }
+
+    @Override
+    public Range getRange()
+    {
+        return cursor.getRange();
     }
 
     @Override
@@ -88,8 +95,8 @@ public class ForwardingCursor implements Cursor
     }
 
     @Override
-    public boolean currentValueEquals(Tuple value)
+    public boolean currentTupleEquals(Tuple value)
     {
-        return cursor.currentValueEquals(value);
+        return cursor.currentTupleEquals(value);
     }
 }

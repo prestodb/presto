@@ -42,7 +42,8 @@ import static java.util.Arrays.asList;
  */
 public class TupleInfo
 {
-    public static final TupleInfo SINGLE_LONG_TUPLEINFO = new TupleInfo(FIXED_INT_64);
+    public static final TupleInfo EMPTY_TUPLE_INFO = new TupleInfo();
+    public static final TupleInfo SINGLE_LONG_TUPLE_INFO = new TupleInfo(FIXED_INT_64);
 
     public enum Type
     {
