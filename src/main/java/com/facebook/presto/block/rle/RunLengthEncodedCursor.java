@@ -42,6 +42,12 @@ public class RunLengthEncodedCursor
     }
 
     @Override
+    public boolean isValid()
+    {
+        return block != null && !isFinished();
+    }
+
+    @Override
     public boolean isFinished()
     {
         return !iterator.hasNext() && (block == null || position > block.getRange().getEnd());

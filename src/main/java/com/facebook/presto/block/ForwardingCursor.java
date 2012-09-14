@@ -35,6 +35,12 @@ public class ForwardingCursor implements Cursor
     }
 
     @Override
+    public boolean isValid()
+    {
+        return cursor.isValid();
+    }
+
+    @Override
     public boolean isFinished()
     {
         return cursor.isFinished();

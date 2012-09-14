@@ -76,6 +76,12 @@ public class MaskedBlock implements TupleStream
         }
 
         @Override
+        public boolean isValid()
+        {
+            return valueCursor.isValid();
+        }
+
+        @Override
         public boolean isFinished()
         {
             return valueCursor.isFinished();
