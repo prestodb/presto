@@ -151,6 +151,20 @@ public class TestQueries
     }
 
     @Test
+    public void testGroupByCount()
+    {
+        List<Tuple> expected = computeExpected("SELECT orderstatus, CAST(COUNT(*) AS INTEGER) FROM orders GROUP BY orderstatus", VARIABLE_BINARY, FIXED_INT_64);
+
+        BlockStream groupBySource = createBlockStream(ordersData, Column.ORDER_ORDERSTATUS, VARIABLE_BINARY);
+        BlockStream aggregateSource = createBlockStream(ordersData, Column.ORDER_ORDERSTATUS, VARIABLE_BINARY);
+
+        GroupByBlockStream groupBy = new GroupByBlockStream(groupBySource);
+        HashAggregationBlockStream aggregation = new HashAggregationBlockStream(groupBy, aggregateSource, CountAggregation.PROVIDER);
+
+        assertEqualsIgnoreOrder(tuples(aggregation), expected);
+    }
+
+    @Test
     public void testGroupBySum()
     {
         List<Tuple> expected = computeExpected(
