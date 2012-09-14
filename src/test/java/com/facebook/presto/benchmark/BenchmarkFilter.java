@@ -24,7 +24,7 @@ public class BenchmarkFilter
         Predicate<Cursor> predicate = new LongFilter(1_343_900_000_000L);
 
 //        File file = new File("data/columns/column5.data");  // string
-//        Predicate<BlockCursor> predicate = new StringFilter(9);
+//        Predicate<Cursor> predicate = new StringFilter(9);
 
         Slice pageTypeColumnSlice = Slices.mapFileReadOnly(file);
         for (int i = 0; i < 100000; ++i) {

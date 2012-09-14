@@ -3,9 +3,8 @@
  */
 package com.facebook.presto.block.uncompressed;
 
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.AbstractTestUncompressedDoubleBlockCursor;
-import com.facebook.presto.block.uncompressed.UncompressedDoubleBlockCursor;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertTrue;
@@ -16,7 +15,7 @@ public class TestUncompressedDoubleBlockCursor extends AbstractTestUncompressedD
     @Test
     public void testGetSlice()
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
         try {
             cursor.getSlice(0);
             fail("Expected UnsupportedOperationException");
@@ -24,7 +23,7 @@ public class TestUncompressedDoubleBlockCursor extends AbstractTestUncompressedD
         catch (UnsupportedOperationException expected) {
         }
 
-        assertTrue(cursor.advanceToNextValue());
+        assertTrue(cursor.advanceNextValue());
 
         try {
             cursor.getSlice(0);
@@ -37,7 +36,7 @@ public class TestUncompressedDoubleBlockCursor extends AbstractTestUncompressedD
     @Test
     public void testGetLong()
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
         try {
             cursor.getLong(0);
             fail("Expected UnsupportedOperationException");
@@ -45,7 +44,7 @@ public class TestUncompressedDoubleBlockCursor extends AbstractTestUncompressedD
         catch (UnsupportedOperationException expected) {
         }
 
-        assertTrue(cursor.advanceToNextValue());
+        assertTrue(cursor.advanceNextValue());
 
         try {
             cursor.getLong(0);
@@ -56,7 +55,7 @@ public class TestUncompressedDoubleBlockCursor extends AbstractTestUncompressedD
     }
 
     @Override
-    protected BlockCursor createCursor()
+    protected Cursor createCursor()
     {
         return new UncompressedDoubleBlockCursor(createTestBlock());
     }

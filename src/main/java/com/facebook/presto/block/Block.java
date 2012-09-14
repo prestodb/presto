@@ -18,5 +18,5 @@ public interface Block
     /**
      * Gets a cursor over the block
      */
-    BlockCursor blockCursor();
+    Cursor blockCursor();
 }

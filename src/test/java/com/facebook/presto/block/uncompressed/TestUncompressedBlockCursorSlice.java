@@ -3,11 +3,8 @@
  */
 package com.facebook.presto.block.uncompressed;
 
-import com.facebook.presto.TupleInfo;
-import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.AbstractTestUncompressedSliceBlockCursor;
-import com.facebook.presto.block.uncompressed.UncompressedBlockCursor;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.fail;
@@ -17,7 +14,7 @@ public class TestUncompressedBlockCursorSlice extends AbstractTestUncompressedSl
     @Test
     public void testGetLongState()
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
         try {
             cursor.getLong(0);
             fail("Expected IllegalStateException");
@@ -29,7 +26,7 @@ public class TestUncompressedBlockCursorSlice extends AbstractTestUncompressedSl
     @Test
     public void testGetSlice()
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
         try {
             cursor.getSlice(0);
             fail("Expected IllegalStateException");
@@ -39,8 +36,8 @@ public class TestUncompressedBlockCursorSlice extends AbstractTestUncompressedSl
     }
 
     @Override
-    protected BlockCursor createCursor()
+    protected Cursor createCursor()
     {
-        return new UncompressedBlockCursor(new TupleInfo(Type.VARIABLE_BINARY), createTestBlock());
+        return new UncompressedBlockCursor(createTestBlock());
     }
 }

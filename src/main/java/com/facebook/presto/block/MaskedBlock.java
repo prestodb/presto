@@ -5,6 +5,7 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
+import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.position.UncompressedPositionBlock.UncompressedPositionBlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
@@ -40,15 +41,15 @@ public class MaskedBlock implements Block
     }
 
     @Override
-    public BlockCursor blockCursor()
+    public Cursor blockCursor()
     {
         return new MaskedBlockCursor(valueBlock, validPositions);
     }
 
-    private static class MaskedBlockCursor implements BlockCursor
+    private static class MaskedBlockCursor implements Cursor
     {
-        private final BlockCursor valueCursor;
-        private final BlockCursor validPositions;
+        private final Cursor valueCursor;
+        private final Cursor validPositions;
         private boolean isValid;
 
         private MaskedBlockCursor(Block valueBlock, List<Long> validPositions)
@@ -58,13 +59,25 @@ public class MaskedBlock implements Block
         }
 
         @Override
+        public TupleInfo getTupleInfo()
+        {
+            return valueCursor.getTupleInfo();
+        }
+
+        @Override
         public Range getRange()
         {
             return valueCursor.getRange();
         }
 
         @Override
-        public boolean advanceToNextValue()
+        public boolean isFinished()
+        {
+            return valueCursor.isFinished();
+        }
+
+        @Override
+        public boolean advanceNextValue()
         {
             if (!isValid) {
                 // advance to first position
@@ -74,7 +87,7 @@ public class MaskedBlock implements Block
                 }
             } else {
                 // advance until the next position is after current value end position
-                long currentValueEndPosition = valueCursor.getValuePositionEnd();
+                long currentValueEndPosition = valueCursor.getCurrentValueEndPosition();
 
                 do {
                     if (!validPositions.advanceNextPosition()) {
@@ -136,15 +149,15 @@ public class MaskedBlock implements Block
         }
 
         @Override
-        public long getValuePositionEnd()
+        public long getCurrentValueEndPosition()
         {
-            return valueCursor.getValuePositionEnd();
+            return valueCursor.getCurrentValueEndPosition();
         }
 
         @Override
-        public boolean tupleEquals(Tuple value)
+        public boolean currentTupleEquals(Tuple value)
         {
-            return valueCursor.tupleEquals(value);
+            return valueCursor.currentTupleEquals(value);
         }
     }
 }

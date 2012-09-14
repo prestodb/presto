@@ -9,9 +9,6 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.Blocks.createBlock;
-import static com.facebook.presto.block.BlockCursorAssertions.assertCurrentValue;
-import static com.facebook.presto.block.BlockCursorAssertions.assertNextPosition;
-import static com.facebook.presto.block.BlockCursorAssertions.assertNextValue;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -21,7 +18,7 @@ public abstract class AbstractTestUncompressedSliceBlockCursor extends AbstractT
     @Test
     public void testGetSliceState()
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
         try {
             cursor.getSlice(0);
             fail("Expected IllegalStateException");
@@ -34,7 +31,7 @@ public abstract class AbstractTestUncompressedSliceBlockCursor extends AbstractT
     public void testFirstValue()
             throws Exception
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
         BlockCursorAssertions.assertNextValue(cursor, 0, "apple");
     }
 
@@ -42,7 +39,7 @@ public abstract class AbstractTestUncompressedSliceBlockCursor extends AbstractT
     public void testFirstPosition()
             throws Exception
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
         BlockCursorAssertions.assertNextPosition(cursor, 0, "apple");
     }
 
@@ -50,7 +47,7 @@ public abstract class AbstractTestUncompressedSliceBlockCursor extends AbstractT
     public void testAdvanceNextValue()
             throws Exception
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
 
         BlockCursorAssertions.assertNextValue(cursor, 0, "apple");
         BlockCursorAssertions.assertNextValue(cursor, 1, "apple");
@@ -64,13 +61,13 @@ public abstract class AbstractTestUncompressedSliceBlockCursor extends AbstractT
         BlockCursorAssertions.assertNextValue(cursor, 9, "cherry");
         BlockCursorAssertions.assertNextValue(cursor, 10, "date");
 
-        assertFalse(cursor.advanceToNextValue());
+        assertFalse(cursor.advanceNextValue());
     }
 
     @Test
     public void testAdvanceNextPosition()
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
 
         BlockCursorAssertions.assertNextPosition(cursor, 0, "apple");
         BlockCursorAssertions.assertNextPosition(cursor, 1, "apple");
@@ -91,7 +88,7 @@ public abstract class AbstractTestUncompressedSliceBlockCursor extends AbstractT
     public void testAdvanceToPosition()
             throws Exception
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
 
         // advance to first position
         assertTrue(cursor.advanceToPosition(0));
@@ -134,7 +131,7 @@ public abstract class AbstractTestUncompressedSliceBlockCursor extends AbstractT
     public void testAdvanceToNextValueAdvancesPosition()
             throws Exception
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
 
         // first, skip to middle of a block
         BlockCursorAssertions.assertNextValue(cursor, 0, "apple");
@@ -148,7 +145,7 @@ public abstract class AbstractTestUncompressedSliceBlockCursor extends AbstractT
     public void testMixedValueAndPosition()
             throws Exception
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
 
         BlockCursorAssertions.assertNextValue(cursor, 0, "apple");
         BlockCursorAssertions.assertNextPosition(cursor, 1, "apple");
@@ -163,13 +160,13 @@ public abstract class AbstractTestUncompressedSliceBlockCursor extends AbstractT
         BlockCursorAssertions.assertNextValue(cursor, 10, "date");
 
         assertFalse(cursor.advanceNextPosition());
-        assertFalse(cursor.advanceToNextValue());
+        assertFalse(cursor.advanceNextValue());
     }
 
     @Test
     public void testRange()
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
         Assert.assertEquals(cursor.getRange(), new Range(0, 10));
     }
 

@@ -3,17 +3,14 @@
  */
 package com.facebook.presto.block.uncompressed;
 
-import com.facebook.presto.TupleInfo;
-import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.AbstractTestUncompressedDoubleBlockCursor;
-import com.facebook.presto.block.uncompressed.UncompressedBlockCursor;
 
 public class TestUncompressedBlockCursorDouble extends AbstractTestUncompressedDoubleBlockCursor
 {
     @Override
-    protected BlockCursor createCursor()
+    protected Cursor createCursor()
     {
-        return new UncompressedBlockCursor(new TupleInfo(Type.DOUBLE), createTestBlock());
+        return new UncompressedBlockCursor(createTestBlock());
     }
 }

@@ -2,8 +2,9 @@ package com.facebook.presto.block.position;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
+import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.Cursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -49,13 +50,13 @@ public class UncompressedPositionBlock
     }
 
     @Override
-    public BlockCursor blockCursor()
+    public Cursor blockCursor()
     {
         return new UncompressedPositionBlockCursor(positions, range);
     }
 
     public static class UncompressedPositionBlockCursor
-            implements BlockCursor
+            implements Cursor
     {
         private final List<Long> positions;
         private final Range range;
@@ -68,13 +69,25 @@ public class UncompressedPositionBlock
         }
 
         @Override
+        public TupleInfo getTupleInfo()
+        {
+            return TupleInfo.EMPTY_TUPLE_INFO;
+        }
+
+        @Override
         public Range getRange()
         {
             return range;
         }
 
         @Override
-        public boolean advanceToNextValue()
+        public boolean isFinished()
+        {
+            return index >= positions.size();
+        }
+
+        @Override
+        public boolean advanceNextValue()
         {
             if (index >= positions.size() - 1) {
                 return false;
@@ -86,7 +99,7 @@ public class UncompressedPositionBlock
         @Override
         public boolean advanceNextPosition()
         {
-            return advanceToNextValue();
+            return advanceNextValue();
         }
 
         @Override
@@ -118,7 +131,7 @@ public class UncompressedPositionBlock
         }
 
         @Override
-        public long getValuePositionEnd()
+        public long getCurrentValueEndPosition()
         {
             return getPosition();
         }
@@ -148,7 +161,7 @@ public class UncompressedPositionBlock
         }
 
         @Override
-        public boolean tupleEquals(Tuple value)
+        public boolean currentTupleEquals(Tuple value)
         {
             throw new UnsupportedOperationException();
         }

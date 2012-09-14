@@ -1,7 +1,7 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.aggregation.CountAggregation;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlockSerde;
@@ -71,7 +71,7 @@ public class BenchmarkAggregation
         }
     }
 
-    public static class StringFilter implements Predicate<BlockCursor> {
+    public static class StringFilter implements Predicate<Cursor> {
 
         private final long minLength;
 
@@ -81,13 +81,13 @@ public class BenchmarkAggregation
         }
 
         @Override
-        public boolean apply(@Nullable BlockCursor input)
+        public boolean apply(@Nullable Cursor input)
         {
             return input.getSlice(0).length() >= minLength;
         }
     }
 
-    public static class LongFilter implements Predicate<BlockCursor> {
+    public static class LongFilter implements Predicate<Cursor> {
 
         private final long minValue;
 
@@ -97,7 +97,7 @@ public class BenchmarkAggregation
         }
 
         @Override
-        public boolean apply(@Nullable BlockCursor input)
+        public boolean apply(@Nullable Cursor input)
         {
             return input.getLong(0) >= minValue;
         }

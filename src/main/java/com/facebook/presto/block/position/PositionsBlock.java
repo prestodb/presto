@@ -2,8 +2,9 @@ package com.facebook.presto.block.position;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.Cursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -56,14 +57,14 @@ public class PositionsBlock
     }
 
     @Override
-    public BlockCursor blockCursor()
+    public Cursor blockCursor()
     {
         return new RangePositionBlockCursor(ranges, totalRange);
     }
 
 
     public static class RangePositionBlockCursor
-            implements BlockCursor
+            implements Cursor
     {
         private final List<Range> ranges;
         private final Range totalRange;
@@ -77,13 +78,25 @@ public class PositionsBlock
         }
 
         @Override
+        public TupleInfo getTupleInfo()
+        {
+            return TupleInfo.EMPTY_TUPLE_INFO;
+        }
+
+        @Override
         public Range getRange()
         {
             return totalRange;
         }
 
         @Override
-        public boolean advanceToNextValue()
+        public boolean isFinished()
+        {
+            return position > totalRange.getEnd();
+        }
+
+        @Override
+        public boolean advanceNextValue()
         {
             if (position >= totalRange.getEnd()) {
                 return false;
@@ -102,7 +115,7 @@ public class PositionsBlock
         @Override
         public boolean advanceNextPosition()
         {
-            return advanceToNextValue();
+            return advanceNextValue();
         }
 
         @Override
@@ -135,7 +148,7 @@ public class PositionsBlock
         }
 
         @Override
-        public long getValuePositionEnd()
+        public long getCurrentValueEndPosition()
         {
             return getPosition();
         }
@@ -165,7 +178,7 @@ public class PositionsBlock
         }
 
         @Override
-        public boolean tupleEquals(Tuple value)
+        public boolean currentTupleEquals(Tuple value)
         {
             throw new UnsupportedOperationException();
         }

@@ -1,7 +1,6 @@
 package com.facebook.presto;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.AbstractSequentialIterator;
 
 import java.util.Iterator;
@@ -9,11 +8,15 @@ import java.util.Iterator;
 public class Range
     implements Iterable<Long>
 {
+    public static final Range ALL = new Range(0, Long.MAX_VALUE);
+
     private final long start;
     private final long end;
 
     public Range(long start, long end)
     {
+        // todo add this check after PackedLongSerde is updated to not use negative ranges
+        // Preconditions.checkArgument(start >= 0, "start (%s) must be positive", start);
         Preconditions.checkArgument(start <= end, "start (%s) must be <= end (%s)", start, end);
 
         this.start = start;

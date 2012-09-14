@@ -5,7 +5,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Tuple;
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.Cursor;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
@@ -38,7 +38,7 @@ public class ConsolePrinter
         }
 
         Block block = input.next();
-        BlockCursor blockCursor = block.blockCursor();
+        Cursor blockCursor = block.blockCursor();
         while (blockCursor.advanceNextPosition()) {
             printer.print(blockCursor.getTuple());
         }

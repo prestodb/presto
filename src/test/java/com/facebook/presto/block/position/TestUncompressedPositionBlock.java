@@ -1,6 +1,6 @@
 package com.facebook.presto.block.position;
 
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.Cursor;
 import org.testng.annotations.Test;
 
 import java.util.NoSuchElementException;
@@ -19,7 +19,7 @@ public class TestUncompressedPositionBlock
     {
         UncompressedPositionBlock block = new UncompressedPositionBlock(0, 1, 2, 3, 4, 10, 11, 12, 13, 14);
 
-        BlockCursor cursor = block.blockCursor();
+        Cursor cursor = block.blockCursor();
 
         assertNextPosition(cursor, 0);
         assertNextPosition(cursor, 1);
@@ -42,7 +42,7 @@ public class TestUncompressedPositionBlock
     {
         UncompressedPositionBlock block = new UncompressedPositionBlock(0, 1, 2, 3, 4, 10, 11, 12, 13, 14);
 
-        BlockCursor cursor = block.blockCursor();
+        Cursor cursor = block.blockCursor();
 
         // advance to beginning
         assertTrue(cursor.advanceToPosition(0));

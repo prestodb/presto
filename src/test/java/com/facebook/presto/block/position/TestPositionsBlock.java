@@ -4,8 +4,7 @@
 package com.facebook.presto.block.position;
 
 import com.facebook.presto.Range;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.position.PositionsBlock;
+import com.facebook.presto.block.Cursor;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
@@ -19,7 +18,7 @@ public class TestPositionsBlock {
     {
         PositionsBlock block = new PositionsBlock(Range.create(0, 2), Range.create(3, 5));
 
-        BlockCursor cursor = block.blockCursor();
+        Cursor cursor = block.blockCursor();
 
         assertTrue(cursor.advanceNextPosition());
         assertEquals(cursor.getPosition(), 0);

@@ -4,7 +4,6 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.Tuples;
-import com.facebook.presto.block.BlockCursor;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertFalse;
@@ -17,7 +16,7 @@ public abstract class AbstractTestUncompressedBlockCursor
     public void testStates()
             throws Exception
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
 
         //
         // We are before the first position, so all get current methods should throw an IllegalStateException
@@ -30,7 +29,7 @@ public abstract class AbstractTestUncompressedBlockCursor
         }
 
         try {
-            cursor.tupleEquals(Tuples.createTuple(0L));
+            cursor.currentTupleEquals(Tuples.createTuple(0L));
             fail("Expected IllegalStateException");
         }
         catch (IllegalStateException expected) {
@@ -45,21 +44,21 @@ public abstract class AbstractTestUncompressedBlockCursor
         // We are at the last position, so all get next methods should throw a NoSuchElementException
         //
 
-        assertFalse(cursor.advanceToNextValue());
+        assertFalse(cursor.advanceNextValue());
         assertFalse(cursor.advanceNextPosition());
     }
 
     @Test
     public void testAdvanceNextPosition()
     {
-        BlockCursor cursor = createCursor();
+        Cursor cursor = createCursor();
 
-        assertTrue(cursor.advanceToNextValue());
+        assertTrue(cursor.advanceNextValue());
         assertTrue(cursor.advanceNextPosition());
 
-        assertTrue(cursor.advanceToNextValue());
+        assertTrue(cursor.advanceNextValue());
         assertTrue(cursor.advanceNextPosition());
     }
 
-    protected abstract BlockCursor createCursor();
+    protected abstract Cursor createCursor();
 }
