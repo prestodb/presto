@@ -37,11 +37,12 @@ public class Benchmark
 
     public static Result doIt(BlockStream pageTypeColumn)
     {
+        long start = System.nanoTime();
+
         Cursor groupBy = pageTypeColumn.cursor();
 
         int count = 0;
         long sum = 0;
-        long start = System.nanoTime();
 
         while (groupBy.advanceNextValue()) {
             ++count;

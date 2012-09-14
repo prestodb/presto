@@ -1,7 +1,8 @@
 package com.facebook.presto;
 
+import com.facebook.presto.aggregation.AverageAggregation;
 import com.facebook.presto.aggregation.CountAggregation;
-import com.facebook.presto.aggregation.SumAggregation;
+import com.facebook.presto.aggregation.DoubleSumAggregation;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.ingest.RowSourceBuilder;
@@ -40,6 +41,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
+import static com.facebook.presto.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.ingest.RowSourceBuilder.RowGenerator;
@@ -53,6 +55,33 @@ public class TestQueries
     private Handle handle;
     private List<List<String>> ordersData;
     private List<List<String>> lineitemData;
+
+    private enum Column
+    {
+        ORDER_ORDERKEY(0),
+        ORDER_CUSTKEY(1),
+        ORDER_ORDERSTATUS(2),
+        ORDER_TOTALPRICE(3),
+        ORDER_ORDERDATE(4),
+        ORDER_ORDERPRIORITY(5),
+        ORDER_SHIPPRIORITY(6),
+
+        LINEITEM_ORDERKEY(0),
+        LINEITEM_DISCOUNT(6),
+        LINEITEM_TAX(7);
+
+        private final int index;
+
+        Column(int index)
+        {
+            this.index = index;
+        }
+
+        public int getIndex()
+        {
+            return index;
+        }
+    }
 
     @BeforeSuite
     public void setupDatabase()
@@ -104,8 +133,19 @@ public class TestQueries
     {
         List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM orders", FIXED_INT_64);
 
-        BlockStream orders = createBlockStream(ordersData, 1, FIXED_INT_64);
+        BlockStream orders = createBlockStream(ordersData, Column.ORDER_ORDERKEY, FIXED_INT_64);
         AggregationOperator aggregation = new AggregationOperator(orders, CountAggregation.PROVIDER);
+
+        assertEqualsIgnoreOrder(tuples(aggregation), expected);
+    }
+
+    @Test
+    public void testAverageAll()
+    {
+        List<Tuple> expected = computeExpected("SELECT AVG(totalprice) FROM orders", DOUBLE);
+
+        BlockStream price = createBlockStream(ordersData, Column.ORDER_TOTALPRICE, DOUBLE);
+        AggregationOperator aggregation = new AggregationOperator(price, AverageAggregation.PROVIDER);
 
         assertEqualsIgnoreOrder(tuples(aggregation), expected);
     }
@@ -114,14 +154,14 @@ public class TestQueries
     public void testGroupBySum()
     {
         List<Tuple> expected = computeExpected(
-                "SELECT orderstatus, SUM(custkey) FROM orders GROUP BY orderstatus",
-                VARIABLE_BINARY, FIXED_INT_64);
+                "SELECT orderstatus, SUM(totalprice) FROM orders GROUP BY orderstatus",
+                VARIABLE_BINARY, DOUBLE);
 
-        BlockStream groupBySource = createBlockStream(ordersData, 2, VARIABLE_BINARY);
-        BlockStream aggregateSource = createBlockStream(ordersData, 1, FIXED_INT_64);
+        BlockStream groupBySource = createBlockStream(ordersData, Column.ORDER_ORDERSTATUS, VARIABLE_BINARY);
+        BlockStream aggregateSource = createBlockStream(ordersData, Column.ORDER_TOTALPRICE, DOUBLE);
 
         GroupByBlockStream groupBy = new GroupByBlockStream(groupBySource);
-        HashAggregationBlockStream aggregation = new HashAggregationBlockStream(groupBy, aggregateSource, SumAggregation.PROVIDER);
+        HashAggregationBlockStream aggregation = new HashAggregationBlockStream(groupBy, aggregateSource, DoubleSumAggregation.PROVIDER);
 
         assertEqualsIgnoreOrder(tuples(aggregation), expected);
     }
@@ -157,7 +197,7 @@ public class TestQueries
         });
     }
 
-    private static BlockStream createBlockStream(List<List<String>> data, final int index, final TupleInfo.Type type)
+    private static BlockStream createBlockStream(List<List<String>> data, final Column column, final TupleInfo.Type type)
     {
         final Iterator<List<String>> iterator = data.iterator();
         return new RowSourceBuilder(new TupleInfo(type), new RowGenerator()
@@ -168,10 +208,13 @@ public class TestQueries
                 if (!iterator.hasNext()) {
                     return false;
                 }
-                String value = iterator.next().get(index);
+                String value = iterator.next().get(column.getIndex());
                 switch (type) {
                     case FIXED_INT_64:
                         rowBuilder.append(Long.parseLong(value));
+                        break;
+                    case DOUBLE:
+                        rowBuilder.append(Double.parseDouble(value));
                         break;
                     case VARIABLE_BINARY:
                         rowBuilder.append(value.getBytes(Charsets.UTF_8));
@@ -224,6 +267,9 @@ public class TestQueries
                     switch (type) {
                         case FIXED_INT_64:
                             builder.append(rs.getLong(i));
+                            break;
+                        case DOUBLE:
+                            builder.append(rs.getDouble(i));
                             break;
                         case VARIABLE_BINARY:
                             String value = rs.getString(i);
