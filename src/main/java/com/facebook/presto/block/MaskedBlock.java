@@ -84,10 +84,16 @@ public class MaskedBlock implements TupleStream
         @Override
         public boolean advanceNextValue()
         {
+            if (isFinished()) {
+                return false;
+            }
+
             if (!isValid) {
                 // advance to first position
                 isValid = true;
                 if (!validPositions.advanceNextPosition()) {
+                    // move to end of value cursor
+                    valueCursor.advanceToPosition(Long.MAX_VALUE);
                     return false;
                 }
             } else {
@@ -96,6 +102,8 @@ public class MaskedBlock implements TupleStream
 
                 do {
                     if (!validPositions.advanceNextPosition()) {
+                        // move to end of value cursor
+                        valueCursor.advanceToPosition(Long.MAX_VALUE);
                         return false;
                     }
                 } while (validPositions.getPosition() <= currentValueEndPosition);
@@ -108,19 +116,36 @@ public class MaskedBlock implements TupleStream
         @Override
         public boolean advanceNextPosition()
         {
+            if (isFinished()) {
+                return false;
+            }
+
             // advance current position
             isValid = true;
-            return validPositions.advanceNextPosition() &&
-                    valueCursor.advanceToPosition(validPositions.getPosition());
+            if (validPositions.advanceNextPosition()) {
+                return valueCursor.advanceToPosition(validPositions.getPosition());
+            } else {
+                // move to end of value cursor
+                valueCursor.advanceToPosition(Long.MAX_VALUE);
+                return false;
+            }
         }
 
         @Override
         public boolean advanceToPosition(long newPosition)
         {
-            isValid = true;
+            if (isFinished()) {
+                return false;
+            }
 
-            return validPositions.advanceToPosition(newPosition) &&
-                    valueCursor.advanceToPosition(validPositions.getPosition());
+            isValid = true;
+            if (validPositions.advanceToPosition(newPosition)) {
+                return valueCursor.advanceToPosition(validPositions.getPosition());
+            } else {
+                // move to end of value cursor
+                valueCursor.advanceToPosition(Long.MAX_VALUE);
+                return false;
+            }
         }
 
         @Override

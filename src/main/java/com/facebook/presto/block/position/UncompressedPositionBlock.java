@@ -95,6 +95,7 @@ public class UncompressedPositionBlock
         public boolean advanceNextValue()
         {
             if (index >= positions.size() - 1) {
+                index = Integer.MAX_VALUE;
                 return false;
             }
             index++;
