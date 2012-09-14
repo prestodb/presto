@@ -46,6 +46,12 @@ public class UncompressedCursor
     }
 
     @Override
+    public boolean isValid()
+    {
+        return index >= 0 && block != null;
+    }
+
+    @Override
     public boolean isFinished()
     {
         return block == null;

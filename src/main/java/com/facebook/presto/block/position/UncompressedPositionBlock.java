@@ -86,6 +86,12 @@ public class UncompressedPositionBlock
         }
 
         @Override
+        public boolean isValid()
+        {
+            return index >= 0 && index < positions.size();
+        }
+
+        @Override
         public boolean isFinished()
         {
             return index >= positions.size();

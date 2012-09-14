@@ -49,6 +49,12 @@ public class UncompressedSliceBlockCursor
     }
 
     @Override
+    public boolean isValid()
+    {
+        return range.contains(position);
+    }
+
+    @Override
     public boolean isFinished()
     {
         return position > range.getEnd();

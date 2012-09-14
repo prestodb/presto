@@ -20,7 +20,7 @@ public class GenericCursor implements Cursor
     private final TupleInfo info;
 
     private Cursor blockCursor;
-    private boolean isValid;
+    private boolean hasAdvanced;
 
     public GenericCursor(TupleInfo info, Iterator<? extends TupleStream> iterator)
     {
@@ -47,6 +47,12 @@ public class GenericCursor implements Cursor
     }
 
     @Override
+    public boolean isValid()
+    {
+        return hasAdvanced && blockCursor != null;
+    }
+
+    @Override
     public boolean isFinished()
     {
         return blockCursor == null;
@@ -59,7 +65,7 @@ public class GenericCursor implements Cursor
             return false;
         }
 
-        isValid = true;
+        hasAdvanced = true;
         if (!blockCursor.advanceNextValue()) {
             if (iterator.hasNext()) {
                 blockCursor = iterator.next().cursor();
@@ -79,14 +85,14 @@ public class GenericCursor implements Cursor
             return false;
         }
 
-        isValid = true;
+        hasAdvanced = true;
         return blockCursor.advanceNextPosition() || advanceNextValue();
     }
 
     @Override
     public Tuple getTuple()
     {
-        Preconditions.checkState(isValid, "Need to call advanceNext() first");
+        Preconditions.checkState(hasAdvanced, "Need to call advanceNext() first");
         if (blockCursor == null)  {
             throw new NoSuchElementException();
         }
@@ -96,7 +102,7 @@ public class GenericCursor implements Cursor
     @Override
     public long getLong(int field)
     {
-        Preconditions.checkState(isValid, "Need to call advanceNext() first");
+        Preconditions.checkState(hasAdvanced, "Need to call advanceNext() first");
         if (blockCursor == null)  {
             throw new NoSuchElementException();
         }
@@ -106,7 +112,7 @@ public class GenericCursor implements Cursor
     @Override
     public double getDouble(int field)
     {
-        Preconditions.checkState(isValid, "Need to call advanceNext() first");
+        Preconditions.checkState(hasAdvanced, "Need to call advanceNext() first");
         if (blockCursor == null)  {
             throw new NoSuchElementException();
         }
@@ -116,7 +122,7 @@ public class GenericCursor implements Cursor
     @Override
     public Slice getSlice(int field)
     {
-        Preconditions.checkState(isValid, "Need to call advanceNext() first");
+        Preconditions.checkState(hasAdvanced, "Need to call advanceNext() first");
         if (blockCursor == null)  {
             throw new NoSuchElementException();
         }
@@ -126,7 +132,7 @@ public class GenericCursor implements Cursor
     @Override
     public long getPosition()
     {
-        Preconditions.checkState(isValid, "Need to call advanceNext() first");
+        Preconditions.checkState(hasAdvanced, "Need to call advanceNext() first");
         if (blockCursor == null)  {
             throw new NoSuchElementException();
         }
@@ -136,7 +142,7 @@ public class GenericCursor implements Cursor
     @Override
     public long getCurrentValueEndPosition()
     {
-        Preconditions.checkState(isValid, "Need to call advanceNext() first");
+        Preconditions.checkState(hasAdvanced, "Need to call advanceNext() first");
         if (blockCursor == null)  {
             throw new NoSuchElementException();
         }
@@ -146,7 +152,7 @@ public class GenericCursor implements Cursor
     @Override
     public boolean currentTupleEquals(Tuple value)
     {
-        Preconditions.checkState(isValid, "Need to call advanceNext() first");
+        Preconditions.checkState(hasAdvanced, "Need to call advanceNext() first");
         if (blockCursor == null)  {
             throw new NoSuchElementException();
         }
@@ -156,18 +162,18 @@ public class GenericCursor implements Cursor
     @Override
     public boolean advanceToPosition(long newPosition)
     {
-        Preconditions.checkArgument(!isValid || newPosition >= getPosition(), "Can't advance backwards");
+        Preconditions.checkArgument(!hasAdvanced || newPosition >= getPosition(), "Can't advance backwards");
 
         if (blockCursor == null) {
             return false;
         }
 
-        if (isValid && newPosition == getPosition()) {
+        if (hasAdvanced && newPosition == getPosition()) {
             // position to current position? => no op
             return true;
         }
 
-        isValid = true;
+        hasAdvanced = true;
 
         // skip to block containing requested position
         while (newPosition > blockCursor.getRange().getEnd() && iterator.hasNext()) {

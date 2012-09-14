@@ -46,6 +46,12 @@ public class UncompressedBlockCursor
     }
 
     @Override
+    public boolean isValid()
+    {
+        return range.contains(position);
+    }
+
+    @Override
     public boolean isFinished()
     {
         return position > range.getEnd();
@@ -55,6 +61,7 @@ public class UncompressedBlockCursor
     public boolean advanceNextValue()
     {
         if (position >= range.getEnd()) {
+            position = Long.MAX_VALUE;
             return false;
         }
 
@@ -82,7 +89,7 @@ public class UncompressedBlockCursor
         Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
 
         if (newPosition > range.getEnd()) {
-            position = newPosition;
+            position = Long.MAX_VALUE;
             return false;
         }
 

@@ -73,6 +73,12 @@ public class DictionaryEncodedBlock implements TupleStream
         }
 
         @Override
+        public boolean isValid()
+        {
+            return delegate.isValid();
+        }
+
+        @Override
         public boolean isFinished()
         {
             return delegate.isFinished();
