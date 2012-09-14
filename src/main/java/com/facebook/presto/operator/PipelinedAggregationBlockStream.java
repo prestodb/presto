@@ -20,7 +20,7 @@ import java.util.Iterator;
  * Group input data and produce a single block for each sequence of identical values.
  */
 public class PipelinedAggregationBlockStream
-    implements BlockStream, Iterable<UncompressedBlock>
+        implements BlockStream, Iterable<UncompressedBlock>
 {
     private final BlockStream groupBySource;
     private final BlockStream aggregationSource;
@@ -81,19 +81,20 @@ public class PipelinedAggregationBlockStream
                 BlockBuilder builder = new BlockBuilder(position, info);
 
                 do {
-                    // create a new aggregate for this group
-                    AggregationFunction aggregation = functionProvider.get();
+                    long groupEndPosition = groupByCursor.getCurrentValueEndPosition();
+                    if (aggregationCursor.advanceToPosition(groupByCursor.getPosition()) && aggregationCursor.getPosition() <= groupEndPosition) {
+                        // create a new aggregate for this group
+                        AggregationFunction aggregation = functionProvider.get();
 
-                    // process data
-                    if (aggregationCursor.advanceToPosition(groupByCursor.getPosition())) {
-                        aggregation.add(aggregationCursor, groupByCursor.getCurrentValueEndPosition());
+                        // process data
+                        aggregation.add(aggregationCursor, groupEndPosition);
+
+                        // calculate final value for this group
+                        Tuple value = aggregation.evaluate();
+
+                        builder.append(groupByCursor.getTuple());
+                        builder.append(value);
                     }
-
-                    // calculate final value for this group
-                    Tuple value = aggregation.evaluate();
-
-                    builder.append(groupByCursor.getTuple());
-                    builder.append(value);
                 }
                 while (!builder.isFull() && groupByCursor.advanceNextValue());
 

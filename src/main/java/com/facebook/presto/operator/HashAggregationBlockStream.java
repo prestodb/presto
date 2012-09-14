@@ -82,13 +82,14 @@ public class HashAggregationBlockStream
                     while (groupByCursor.advanceNextValue()) {
 
                         Tuple key = groupByCursor.getTuple();
-                        AggregationFunction aggregation = aggregationMap.get(key);
-                        if (aggregation == null) {
-                            aggregation = functionProvider.get();
-                            aggregationMap.put(key, aggregation);
-                        }
-                        if (aggregationCursor.advanceToPosition(groupByCursor.getPosition())) {
-                            aggregation.add(aggregationCursor, groupByCursor.getCurrentValueEndPosition());
+                        long groupEndPosition = groupByCursor.getCurrentValueEndPosition();
+                        if (aggregationCursor.advanceToPosition(groupByCursor.getPosition()) && aggregationCursor.getPosition() <= groupEndPosition) {
+                            AggregationFunction aggregation = aggregationMap.get(key);
+                            if (aggregation == null) {
+                                aggregation = functionProvider.get();
+                                aggregationMap.put(key, aggregation);
+                            }
+                            aggregation.add(aggregationCursor, groupEndPosition);
                         }
                     }
 
