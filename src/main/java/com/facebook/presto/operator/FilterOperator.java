@@ -12,14 +12,14 @@ import com.google.common.collect.ImmutableList;
 import java.util.Iterator;
 import java.util.List;
 
-public class DataScan3
+public class FilterOperator
         implements BlockStream, Iterable<Block>
 {
     private final TupleInfo tupleInfo;
     private final Iterable<? extends Block> source;
     private final BlockStream positions;
 
-    public DataScan3(TupleInfo tupleInfo, Iterable<? extends Block> source, BlockStream positions)
+    public FilterOperator(TupleInfo tupleInfo, Iterable<? extends Block> source, BlockStream positions)
     {
         this.tupleInfo = tupleInfo;
         this.source = source;

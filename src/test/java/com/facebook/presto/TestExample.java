@@ -6,7 +6,7 @@ import com.facebook.presto.block.GenericBlockStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
 import com.facebook.presto.block.position.UncompressedPositionBlock;
-import com.facebook.presto.operator.DataScan3;
+import com.facebook.presto.operator.FilterOperator;
 import com.facebook.presto.operator.Merge;
 import com.google.common.collect.ImmutableList;
 
@@ -19,8 +19,8 @@ public class TestExample
 {
     public static void main(String[] args)
     {
-        DataScan3 scan = newScan();
-        DataScan3 scan2 = newScan();
+        FilterOperator scan = newScan();
+        FilterOperator scan2 = newScan();
 
         Merge merge = new Merge(ImmutableList.of(scan, scan2));
 
@@ -39,7 +39,7 @@ public class TestExample
         }
     }
 
-    private static DataScan3 newScan()
+    private static FilterOperator newScan()
     {
         List<UncompressedBlock> values = ImmutableList.<UncompressedBlock>builder()
                 .add(Blocks.createBlock(0, "a", "b", "c", "d", "e", "f"))
@@ -56,6 +56,6 @@ public class TestExample
                 .build();
 
         TupleInfo tupleInfo = new TupleInfo(VARIABLE_BINARY);
-        return new DataScan3(tupleInfo, new UncompressedBlockStream(tupleInfo, values), new GenericBlockStream<>(new TupleInfo(), positions));
+        return new FilterOperator(tupleInfo, new UncompressedBlockStream(tupleInfo, values), new GenericBlockStream<>(new TupleInfo(), positions));
     }
 }
