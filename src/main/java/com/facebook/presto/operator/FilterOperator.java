@@ -2,7 +2,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.MaskedBlock;
@@ -80,7 +79,7 @@ public class FilterOperator
             {
                 ImmutableList.Builder<Long> validPositions = ImmutableList.builder();
 
-                BlockCursor valueCursor = currentValueBlock.blockCursor();
+                Cursor valueCursor = currentValueBlock.blockCursor();
                 valueCursor.advanceNextPosition();
 
                 for (Long nextPosition : positionsForCurrentBlock) {

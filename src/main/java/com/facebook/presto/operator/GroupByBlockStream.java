@@ -65,7 +65,7 @@ public class GroupByBlockStream
                 long endPosition = cursor.getCurrentValueEndPosition();
 
                 // advance while the next value equals the current value
-                while (cursor.advanceNextValue() && cursor.currentValueEquals(key)) {
+                while (cursor.advanceNextValue() && cursor.currentTupleEquals(key)) {
                     endPosition = cursor.getCurrentValueEndPosition();
                 }
 

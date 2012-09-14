@@ -22,14 +22,14 @@ public class TestRange
     {
         assertEquals(Range.create(0, 0).length(), 1);
         assertEquals(Range.create(0, 9).length(), 10);
-        assertEquals(Range.create(-9, 0).length(), 10);
+        assertEquals(Range.create(9, 18).length(), 10);
     }
 
     @Test
     public void testOverlaps()
     {
         assertTrue(Range.create(0, 0).overlaps(Range.create(0, 0)));
-        assertTrue(Range.create(0, 10).overlaps(Range.create(-10, 0)));
+        assertTrue(Range.create(0, 10).overlaps(Range.create(10, 20)));
         assertTrue(Range.create(0, 10).overlaps(Range.create(5, 20)));
         assertTrue(Range.create(0, 10).overlaps(Range.create(0, 10)));
         assertFalse(Range.create(0, 10).overlaps(Range.create(20, 30)));
@@ -54,7 +54,7 @@ public class TestRange
     public void testIntersect()
     {
         assertEquals(Range.create(0, 20).intersect(Range.create(5, 15)), Range.create(5, 15));
-        assertEquals(Range.create(0, 20).intersect(Range.create(-10, 10)), Range.create(0, 10));
+        assertEquals(Range.create(5, 20).intersect(Range.create(0, 10)), Range.create(5, 10));
         assertEquals(Range.create(0, 20).intersect(Range.create(15, 30)), Range.create(15, 20));
     }
 

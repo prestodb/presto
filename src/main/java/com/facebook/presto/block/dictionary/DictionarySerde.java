@@ -41,7 +41,7 @@ public class DictionarySerde implements BlockStreamSerde
             @Override
             public TupleInfo getTupleInfo()
             {
-                return TupleInfo.SINGLE_LONG_TUPLEINFO;
+                return TupleInfo.SINGLE_LONG_TUPLE_INFO;
             }
 
             @Override
@@ -52,7 +52,7 @@ public class DictionarySerde implements BlockStreamSerde
                     @Override
                     public TupleInfo getTupleInfo()
                     {
-                        return TupleInfo.SINGLE_LONG_TUPLEINFO;
+                        return TupleInfo.SINGLE_LONG_TUPLE_INFO;
                     }
 
                     @Override
@@ -64,7 +64,7 @@ public class DictionarySerde implements BlockStreamSerde
                     @Override
                     public Tuple getTuple()
                     {
-                        return TupleInfo.SINGLE_LONG_TUPLEINFO.builder()
+                        return TupleInfo.SINGLE_LONG_TUPLE_INFO.builder()
                                 .append(getLong(0))
                                 .build();
                     }

@@ -2,11 +2,14 @@ package com.facebook.presto.block.rle;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
+import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.Cursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+
+import java.util.NoSuchElementException;
 
 public class RunLengthEncodedBlock
         implements Block
@@ -52,12 +55,12 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public BlockCursor blockCursor()
+    public Cursor blockCursor()
     {
         return new RunLengthEncodedBlockCursor(value, range);
     }
 
-    public static final class RunLengthEncodedBlockCursor implements BlockCursor
+    public static final class RunLengthEncodedBlockCursor implements Cursor
     {
         private final Tuple value;
         private final Range range;
@@ -70,13 +73,25 @@ public class RunLengthEncodedBlock
         }
 
         @Override
+        public TupleInfo getTupleInfo()
+        {
+            return value.getTupleInfo();
+        }
+
+        @Override
         public Range getRange()
         {
             return range;
         }
 
         @Override
-        public boolean advanceToNextValue()
+        public boolean isFinished()
+        {
+            return position > range.getEnd();
+        }
+
+        @Override
+        public boolean advanceNextValue()
         {
             position = Long.MAX_VALUE;
             return false;
@@ -121,36 +136,54 @@ public class RunLengthEncodedBlock
         @Override
         public long getLong(int field)
         {
+            if (isFinished()) {
+                throw new NoSuchElementException();
+            }
             return value.getLong(field);
         }
 
         @Override
         public double getDouble(int field)
         {
+            if (isFinished()) {
+                throw new NoSuchElementException();
+            }
             return value.getDouble(field);
         }
 
         @Override
         public Slice getSlice(int field)
         {
+            if (isFinished()) {
+                throw new NoSuchElementException();
+            }
             return value.getSlice(field);
         }
 
         @Override
         public long getPosition()
         {
+            if (isFinished()) {
+                throw new NoSuchElementException();
+            }
             return position;
         }
 
         @Override
-        public long getValuePositionEnd()
+        public long getCurrentValueEndPosition()
         {
+            if (isFinished()) {
+                throw new NoSuchElementException();
+            }
             return range.getEnd();
         }
 
         @Override
-        public boolean tupleEquals(Tuple value)
+        public boolean currentTupleEquals(Tuple value)
         {
+            if (isFinished()) {
+                throw new NoSuchElementException();
+            }
             return this.value.equals(value);
         }
     }

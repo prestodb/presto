@@ -3,11 +3,12 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.Cursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 
@@ -19,7 +20,7 @@ public class GenericCursor implements Cursor
     private final Iterator<? extends Block> iterator;
     private final TupleInfo info;
 
-    private BlockCursor blockCursor;
+    private Cursor blockCursor;
     private boolean isValid;
 
     public GenericCursor(TupleInfo info, Iterator<? extends Block> iterator)
@@ -41,6 +42,12 @@ public class GenericCursor implements Cursor
     }
 
     @Override
+    public Range getRange()
+    {
+        return Range.ALL;
+    }
+
+    @Override
     public boolean isFinished()
     {
         return blockCursor == null;
@@ -54,7 +61,7 @@ public class GenericCursor implements Cursor
         }
 
         isValid = true;
-        if (!blockCursor.advanceToNextValue()) {
+        if (!blockCursor.advanceNextValue()) {
             if (iterator.hasNext()) {
                 blockCursor = iterator.next().blockCursor();
                 blockCursor.advanceNextPosition();
@@ -134,17 +141,17 @@ public class GenericCursor implements Cursor
         if (blockCursor == null)  {
             throw new NoSuchElementException();
         }
-        return blockCursor.getValuePositionEnd();
+        return blockCursor.getCurrentValueEndPosition();
     }
 
     @Override
-    public boolean currentValueEquals(Tuple value)
+    public boolean currentTupleEquals(Tuple value)
     {
         Preconditions.checkState(isValid, "Need to call advanceNext() first");
         if (blockCursor == null)  {
             throw new NoSuchElementException();
         }
-        return blockCursor.tupleEquals(value);
+        return blockCursor.currentTupleEquals(value);
     }
 
     @Override

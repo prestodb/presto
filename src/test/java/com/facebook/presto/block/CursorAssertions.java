@@ -3,7 +3,6 @@ package com.facebook.presto.block;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.block.Cursor;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Charsets;
 
@@ -24,7 +23,7 @@ public class CursorAssertions
 
         assertEquals(cursor.getTuple(), tuple);
         assertEquals(cursor.getPosition(), position);
-        assertTrue(cursor.currentValueEquals(tuple));
+        assertTrue(cursor.currentTupleEquals(tuple));
         assertEquals(cursor.getSlice(0), tuple.getSlice(0));
     }
 
@@ -46,7 +45,7 @@ public class CursorAssertions
 
         assertEquals(cursor.getTuple(), tuple);
         assertEquals(cursor.getPosition(), position);
-        assertTrue(cursor.currentValueEquals(tuple));
+        assertTrue(cursor.currentTupleEquals(tuple));
         assertEquals(cursor.getSlice(0), tuple.getSlice(0));
     }
 
@@ -74,7 +73,7 @@ public class CursorAssertions
 
         assertEquals(cursor.getTuple(), tuple);
         assertEquals(cursor.getPosition(), position);
-        assertTrue(cursor.currentValueEquals(tuple));
+        assertTrue(cursor.currentTupleEquals(tuple));
         assertEquals(cursor.getLong(0), tuple.getLong(0));
     }
 
@@ -90,7 +89,7 @@ public class CursorAssertions
 
         assertEquals(cursor.getTuple(), tuple);
         assertEquals(cursor.getPosition(), position);
-        assertTrue(cursor.currentValueEquals(tuple));
+        assertTrue(cursor.currentTupleEquals(tuple));
         assertEquals(cursor.getLong(0), tuple.getLong(0));
     }
 
@@ -118,7 +117,7 @@ public class CursorAssertions
 
         assertEquals(cursor.getTuple(), tuple);
         assertEquals(cursor.getPosition(), position);
-        assertTrue(cursor.currentValueEquals(tuple));
+        assertTrue(cursor.currentTupleEquals(tuple));
         assertEquals(cursor.getDouble(0), tuple.getDouble(0));
     }
 
@@ -134,7 +133,7 @@ public class CursorAssertions
 
         assertEquals(cursor.getTuple(), tuple);
         assertEquals(cursor.getPosition(), position);
-        assertTrue(cursor.currentValueEquals(tuple));
+        assertTrue(cursor.currentTupleEquals(tuple));
         assertEquals(cursor.getDouble(0), tuple.getDouble(0));
     }
 

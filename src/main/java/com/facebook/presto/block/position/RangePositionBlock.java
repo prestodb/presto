@@ -2,8 +2,9 @@ package com.facebook.presto.block.position;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
+import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.Cursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -39,13 +40,13 @@ public class RangePositionBlock
     }
 
     @Override
-    public BlockCursor blockCursor()
+    public Cursor blockCursor()
     {
         return new RangePositionBlockCursor(range);
     }
 
     public static class RangePositionBlockCursor
-            implements BlockCursor
+            implements Cursor
     {
         private final Range range;
         private long position = -1;
@@ -56,13 +57,25 @@ public class RangePositionBlock
         }
 
         @Override
+        public TupleInfo getTupleInfo()
+        {
+            return TupleInfo.EMPTY_TUPLE_INFO;
+        }
+
+        @Override
         public Range getRange()
         {
             return range;
         }
 
         @Override
-        public boolean advanceToNextValue()
+        public boolean isFinished()
+        {
+            return position > range.getEnd();
+        }
+
+        @Override
+        public boolean advanceNextValue()
         {
             if (position >= range.getEnd()) {
                 return false;
@@ -78,7 +91,7 @@ public class RangePositionBlock
         @Override
         public boolean advanceNextPosition()
         {
-            return advanceToNextValue();
+            return advanceNextValue();
         }
 
         @Override
@@ -102,7 +115,7 @@ public class RangePositionBlock
         }
 
         @Override
-        public long getValuePositionEnd()
+        public long getCurrentValueEndPosition()
         {
             return getPosition();
         }
@@ -132,7 +145,7 @@ public class RangePositionBlock
         }
 
         @Override
-        public boolean tupleEquals(Tuple value)
+        public boolean currentTupleEquals(Tuple value)
         {
             throw new UnsupportedOperationException();
         }

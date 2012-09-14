@@ -37,7 +37,7 @@ public class RunLengthEncodedSerde implements BlockStreamSerde
         long endPosition = cursor.getCurrentValueEndPosition();
         Tuple lastTuple = cursor.getTuple();
         while (cursor.advanceNextValue()) {
-            if (cursor.getPosition() != endPosition + 1 || !cursor.currentValueEquals(lastTuple)) {
+            if (cursor.getPosition() != endPosition + 1 || !cursor.currentTupleEquals(lastTuple)) {
                 // Flush out block if next value position is not contiguous, or a different tuple
                 sliceOutput.writeLong(startPosition);
                 sliceOutput.writeLong(endPosition);

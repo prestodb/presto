@@ -4,7 +4,7 @@ import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.Cursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.primitives.Ints;
 
@@ -42,15 +42,15 @@ public class DictionaryEncodedBlock implements Block
     }
 
     @Override
-    public BlockCursor blockCursor()
+    public Cursor blockCursor()
     {
         return new DictionaryEncodedBlockCursor(tupleInfo, sourceValueBlock, dictionary);
     }
 
-    private static class DictionaryEncodedBlockCursor implements BlockCursor
+    private static class DictionaryEncodedBlockCursor implements Cursor
     {
         private final TupleInfo tupleInfo;
-        private final BlockCursor delegate;
+        private final Cursor delegate;
         private final Slice[] dictionary;
 
         private DictionaryEncodedBlockCursor(TupleInfo tupleInfo, Block sourceValueBlock, Slice... dictionary)
@@ -61,15 +61,27 @@ public class DictionaryEncodedBlock implements Block
         }
 
         @Override
+        public TupleInfo getTupleInfo()
+        {
+            return tupleInfo;
+        }
+
+        @Override
         public Range getRange()
         {
             return delegate.getRange();
         }
 
         @Override
-        public boolean advanceToNextValue()
+        public boolean isFinished()
         {
-            return delegate.advanceToNextValue();
+            return delegate.isFinished();
+        }
+
+        @Override
+        public boolean advanceNextValue()
+        {
+            return delegate.advanceNextValue();
         }
 
         @Override
@@ -114,7 +126,7 @@ public class DictionaryEncodedBlock implements Block
         }
 
         @Override
-        public boolean tupleEquals(Tuple value)
+        public boolean currentTupleEquals(Tuple value)
         {
             // todo We should be able to compare the dictionary keys directly if the tuple comes from a block encoded using the same dictionary
             return tupleInfo.equals(value.getTupleInfo()) && getSlice(0).equals(value.getTupleSlice());
@@ -127,9 +139,9 @@ public class DictionaryEncodedBlock implements Block
         }
 
         @Override
-        public long getValuePositionEnd()
+        public long getCurrentValueEndPosition()
         {
-            return delegate.getValuePositionEnd();
+            return delegate.getCurrentValueEndPosition();
         }
     }
 }

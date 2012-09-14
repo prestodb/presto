@@ -1,5 +1,6 @@
 package com.facebook.presto.block.uncompressed;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
@@ -36,6 +37,12 @@ public class UncompressedSliceCursor
     public TupleInfo getTupleInfo()
     {
         return INFO;
+    }
+
+    @Override
+    public Range getRange()
+    {
+        return Range.ALL;
     }
 
     @Override
@@ -185,7 +192,7 @@ public class UncompressedSliceCursor
     }
 
     @Override
-    public boolean currentValueEquals(Tuple value)
+    public boolean currentTupleEquals(Tuple value)
     {
         Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
         if (block == null) {
