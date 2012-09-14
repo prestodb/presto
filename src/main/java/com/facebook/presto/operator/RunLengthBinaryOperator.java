@@ -3,7 +3,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.BlockStream;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedCursor;
@@ -17,13 +17,13 @@ import java.util.Iterator;
  * A binary operator that produces RLE blocks
  */
 public class RunLengthBinaryOperator
-        implements BlockStream, Iterable<RunLengthEncodedBlock>
+        implements TupleStream, Iterable<RunLengthEncodedBlock>
 {
-    private final BlockStream leftSource;
-    private final BlockStream rightSource;
+    private final TupleStream leftSource;
+    private final TupleStream rightSource;
     private final BinaryOperation operation;
 
-    public RunLengthBinaryOperator(BlockStream leftSource, BlockStream rightSource, BinaryOperation operation)
+    public RunLengthBinaryOperator(TupleStream leftSource, TupleStream rightSource, BinaryOperation operation)
     {
         this.leftSource = leftSource;
         this.rightSource = rightSource;
@@ -34,6 +34,12 @@ public class RunLengthBinaryOperator
     public TupleInfo getTupleInfo()
     {
         return operation.getTupleInfo();
+    }
+
+    @Override
+    public Range getRange()
+    {
+        return Range.ALL;
     }
 
     @Override

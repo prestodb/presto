@@ -3,7 +3,7 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.block.Block;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.operator.ConsolePrinter;
 import com.facebook.presto.operator.ConsolePrinter.DelimitedTuplePrinter;
@@ -23,7 +23,7 @@ import static org.testng.Assert.assertTrue;
 public class TestConsolePrinter
 {
 
-    private final Block valueBlock;
+    private final TupleStream valueBlock;
 
     public TestConsolePrinter()
     {

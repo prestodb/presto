@@ -16,7 +16,7 @@ import static com.facebook.presto.block.Blocks.assertBlockStreamEquals;
 import static com.facebook.presto.block.Blocks.createBlock;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 
-public class TestMerge
+public class TestMergeOperator
 {
     @Test
     public void test()
@@ -28,7 +28,7 @@ public class TestMerge
                 .build();
 
         UncompressedBlockStream data = new UncompressedBlockStream(new TupleInfo(VARIABLE_BINARY), values);
-        Merge merge = new Merge(data, data, data);
+        MergeOperator merge = new MergeOperator(data, data, data);
 
         TupleInfo expectedTupleInfo = new TupleInfo(VARIABLE_BINARY, VARIABLE_BINARY, VARIABLE_BINARY);
         BlockBuilder expectedBlock = new BlockBuilder(0, expectedTupleInfo);

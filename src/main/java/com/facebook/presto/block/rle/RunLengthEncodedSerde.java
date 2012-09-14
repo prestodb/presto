@@ -3,8 +3,8 @@ package com.facebook.presto.block.rle;
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.BlockStream;
-import com.facebook.presto.block.BlockStreamSerde;
+import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.TupleStreamSerde;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.uncompressed.UncompressedTupleInfoSerde;
 import com.facebook.presto.slice.Slice;
@@ -16,17 +16,17 @@ import java.util.Iterator;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class RunLengthEncodedSerde implements BlockStreamSerde
+public class RunLengthEncodedSerde implements TupleStreamSerde
 {
     @Override
-    public void serialize(BlockStream blockStream, SliceOutput sliceOutput)
+    public void serialize(TupleStream tupleStream, SliceOutput sliceOutput)
     {
-        checkNotNull(blockStream, "blockStream is null");
+        checkNotNull(tupleStream, "blockStream is null");
         checkNotNull(sliceOutput, "sliceOutput is null");
 
-        UncompressedTupleInfoSerde.serialize(blockStream.getTupleInfo(), sliceOutput);
+        UncompressedTupleInfoSerde.serialize(tupleStream.getTupleInfo(), sliceOutput);
 
-        Cursor cursor = blockStream.cursor();
+        Cursor cursor = tupleStream.cursor();
 
         if (!cursor.advanceNextValue()) {
             // Nothing more to do
@@ -57,7 +57,7 @@ public class RunLengthEncodedSerde implements BlockStreamSerde
     }
 
     @Override
-    public BlockStream deserialize(Slice slice)
+    public TupleStream deserialize(Slice slice)
     {
         checkNotNull(slice, "slice is null");
 

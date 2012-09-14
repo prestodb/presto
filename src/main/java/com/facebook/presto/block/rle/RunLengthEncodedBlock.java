@@ -3,7 +3,7 @@ package com.facebook.presto.block.rle;
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.Block;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Objects;
@@ -12,7 +12,7 @@ import com.google.common.base.Preconditions;
 import java.util.NoSuchElementException;
 
 public class RunLengthEncodedBlock
-        implements Block
+        implements TupleStream
 {
     private final Tuple value;
     private final Range range;
@@ -28,7 +28,6 @@ public class RunLengthEncodedBlock
         return value;
     }
 
-    @Override
     public int getCount()
     {
         return (int) (range.getEnd() - range.getStart() + 1);
@@ -37,6 +36,12 @@ public class RunLengthEncodedBlock
     public Tuple getSingleValue()
     {
         return value;
+    }
+
+    @Override
+    public TupleInfo getTupleInfo()
+    {
+        return value.getTupleInfo();
     }
 
     @Override
@@ -55,7 +60,7 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public Cursor blockCursor()
+    public Cursor cursor()
     {
         return new RunLengthEncodedBlockCursor(value, range);
     }

@@ -2,12 +2,12 @@ package com.facebook.presto;
 
 import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.GenericBlockStream;
+import com.facebook.presto.block.GenericTupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
 import com.facebook.presto.block.position.UncompressedPositionBlock;
 import com.facebook.presto.operator.FilterOperator;
-import com.facebook.presto.operator.Merge;
+import com.facebook.presto.operator.MergeOperator;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -22,7 +22,7 @@ public class TestExample
         FilterOperator scan = newScan();
         FilterOperator scan2 = newScan();
 
-        Merge merge = new Merge(ImmutableList.of(scan, scan2));
+        MergeOperator merge = new MergeOperator(ImmutableList.of(scan, scan2));
 
         // 2 c
         //  4 e
@@ -56,6 +56,6 @@ public class TestExample
                 .build();
 
         TupleInfo tupleInfo = new TupleInfo(VARIABLE_BINARY);
-        return new FilterOperator(tupleInfo, new UncompressedBlockStream(tupleInfo, values), new GenericBlockStream<>(new TupleInfo(), positions));
+        return new FilterOperator(tupleInfo, new UncompressedBlockStream(tupleInfo, values), new GenericTupleStream<>(new TupleInfo(), positions));
     }
 }

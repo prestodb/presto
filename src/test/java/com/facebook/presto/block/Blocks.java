@@ -22,7 +22,7 @@ import static org.testng.Assert.assertTrue;
 
 public class Blocks
 {
-    public static void assertBlockStreamEquals(BlockStream actual, BlockStream expected)
+    public static void assertBlockStreamEquals(TupleStream actual, TupleStream expected)
     {
         Assert.assertEquals(actual.getTupleInfo(), expected.getTupleInfo());
         Cursor actualCursor = actual.cursor();
@@ -34,7 +34,7 @@ public class Blocks
         assertTrue(expectedCursor.isFinished());
     }
 
-    public static void assertBlockStreamEqualsIgnoreOrder(BlockStream actual, BlockStream expected)
+    public static void assertBlockStreamEqualsIgnoreOrder(TupleStream actual, TupleStream expected)
     {
         Assert.assertEquals(actual.getTupleInfo(), expected.getTupleInfo());
 
@@ -43,10 +43,10 @@ public class Blocks
         assertEqualsIgnoreOrder(actualTuples, expectedTuples);
     }
 
-    public static List<Tuple> toTuplesList(BlockStream blockStream)
+    public static List<Tuple> toTuplesList(TupleStream tupleStream)
     {
         ImmutableList.Builder<Tuple> tuples = ImmutableList.builder();
-        Cursor actualCursor = blockStream.cursor();
+        Cursor actualCursor = tupleStream.cursor();
         while(actualCursor.advanceNextPosition()) {
             tuples.add(actualCursor.getTuple());
         }

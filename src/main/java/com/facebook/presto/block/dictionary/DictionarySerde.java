@@ -1,7 +1,8 @@
 package com.facebook.presto.block.dictionary;
 
-import com.facebook.presto.block.BlockStream;
-import com.facebook.presto.block.BlockStreamSerde;
+import com.facebook.presto.Range;
+import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.TupleStreamSerde;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.ForwardingCursor;
 import com.facebook.presto.SizeOf;
@@ -19,24 +20,24 @@ import java.util.Map.Entry;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class DictionarySerde implements BlockStreamSerde
+public class DictionarySerde implements TupleStreamSerde
 {
-    private final BlockStreamSerde idSerde;
+    private final TupleStreamSerde idSerde;
 
-    public DictionarySerde(BlockStreamSerde idSerde)
+    public DictionarySerde(TupleStreamSerde idSerde)
     {
         this.idSerde = idSerde;
     }
 
     @Override
-    public void serialize(final BlockStream blockStream, SliceOutput sliceOutput)
+    public void serialize(final TupleStream tupleStream, SliceOutput sliceOutput)
     {
-        checkNotNull(blockStream, "blockStream is null");
+        checkNotNull(tupleStream, "blockStream is null");
         checkNotNull(sliceOutput, "sliceOutput is null");
-        checkArgument(blockStream.getTupleInfo().getFieldCount() == 1, "Can only dictionary encode single columns");
+        checkArgument(tupleStream.getTupleInfo().getFieldCount() == 1, "Can only dictionary encode single columns");
 
         final DictionaryBuilder dictionaryBuilder = new DictionaryBuilder();
-        BlockStream encodedBlockStream = new BlockStream()
+        TupleStream encodedTupleStream = new TupleStream()
         {
             @Override
             public TupleInfo getTupleInfo()
@@ -45,9 +46,15 @@ public class DictionarySerde implements BlockStreamSerde
             }
 
             @Override
+            public Range getRange()
+            {
+                return Range.ALL;
+            }
+
+            @Override
             public Cursor cursor()
             {
-                return new ForwardingCursor(blockStream.cursor())
+                return new ForwardingCursor(tupleStream.cursor())
                 {
                     @Override
                     public TupleInfo getTupleInfo()
@@ -77,17 +84,17 @@ public class DictionarySerde implements BlockStreamSerde
                 };
             }
         };
-        idSerde.serialize(encodedBlockStream, sliceOutput);
+        idSerde.serialize(encodedTupleStream, sliceOutput);
 
         // Serialize Footer
-        int footerBytes = new Footer(blockStream.getTupleInfo(), dictionaryBuilder.build()).serialize(sliceOutput);
+        int footerBytes = new Footer(tupleStream.getTupleInfo(), dictionaryBuilder.build()).serialize(sliceOutput);
 
         // Write length of Footer
         sliceOutput.writeInt(footerBytes);
     }
 
     @Override
-    public BlockStream deserialize(Slice slice)
+    public TupleStream deserialize(Slice slice)
     {
         checkNotNull(slice, "slice is null");
 

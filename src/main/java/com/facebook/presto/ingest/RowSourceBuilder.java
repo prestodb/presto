@@ -1,5 +1,6 @@
 package com.facebook.presto.ingest;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.Cursor;
@@ -48,6 +49,12 @@ public class RowSourceBuilder
     public TupleInfo getTupleInfo()
     {
         return tupleInfo;
+    }
+
+    @Override
+    public Range getRange()
+    {
+        return Range.ALL;
     }
 
     @Override

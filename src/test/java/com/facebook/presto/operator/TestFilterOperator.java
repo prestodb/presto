@@ -1,7 +1,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.GenericBlockStream;
+import com.facebook.presto.block.GenericTupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
 import com.facebook.presto.block.position.UncompressedPositionBlock;
@@ -14,7 +14,7 @@ import static com.facebook.presto.block.Blocks.assertBlockStreamEquals;
 import static com.facebook.presto.block.Blocks.createBlock;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 
-public class TestDataScan3
+public class TestFilterOperator
 {
 
     private static final TupleInfo INFO = new TupleInfo(VARIABLE_BINARY);
@@ -36,7 +36,7 @@ public class TestDataScan3
                 .add(new UncompressedPositionBlock(40L, 41L, 42L))
                 .build();
 
-        FilterOperator filterOperator = new FilterOperator(INFO, new UncompressedBlockStream(INFO, values), new GenericBlockStream<>(new TupleInfo(), positions));
+        FilterOperator filterOperator = new FilterOperator(INFO, new UncompressedBlockStream(INFO, values), new GenericTupleStream<>(new TupleInfo(), positions));
 
         assertBlockStreamEquals(filterOperator,
                 new UncompressedBlockStream(INFO,

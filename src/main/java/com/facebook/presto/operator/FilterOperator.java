@@ -1,10 +1,10 @@
 package com.facebook.presto.operator;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.MaskedBlock;
+import com.facebook.presto.block.TupleStream;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
@@ -12,17 +12,23 @@ import java.util.Iterator;
 import java.util.List;
 
 public class FilterOperator
-        implements BlockStream, Iterable<Block>
+        implements TupleStream, Iterable<TupleStream>
 {
     private final TupleInfo tupleInfo;
-    private final Iterable<? extends Block> source;
-    private final BlockStream positions;
+    private final Iterable<? extends TupleStream> source;
+    private final TupleStream positions;
 
-    public FilterOperator(TupleInfo tupleInfo, Iterable<? extends Block> source, BlockStream positions)
+    public FilterOperator(TupleInfo tupleInfo, Iterable<? extends TupleStream> source, TupleStream positions)
     {
         this.tupleInfo = tupleInfo;
         this.source = source;
         this.positions = positions;
+    }
+
+    @Override
+    public Range getRange()
+    {
+        return Range.ALL;
     }
 
     @Override
@@ -31,20 +37,20 @@ public class FilterOperator
         return tupleInfo;
     }
 
-    public Iterator<Block> iterator()
+    public Iterator<TupleStream> iterator()
     {
-        return new AbstractIterator<Block>()
+        return new AbstractIterator<TupleStream>()
         {
-            Iterator<? extends Block> valueBlocks = source.iterator();
+            Iterator<? extends TupleStream> valueBlocks = source.iterator();
             Cursor positionsCursor = positions.cursor();
             {
                 positionsCursor.advanceNextPosition();
             }
             @Override
-            protected Block computeNext()
+            protected TupleStream computeNext()
             {
                 while (valueBlocks.hasNext()) {
-                    Block currentValueBlock = valueBlocks.next();
+                    TupleStream currentValueBlock = valueBlocks.next();
 
                     // advance current position cursor to value block
                     if (positionsCursor.getPosition() < currentValueBlock.getRange().getStart() &&
@@ -75,11 +81,11 @@ public class FilterOperator
                 return null;
             }
 
-            private List<Long> getValidPositions(Block currentValueBlock, List<Long> positionsForCurrentBlock)
+            private List<Long> getValidPositions(TupleStream currentValueBlock, List<Long> positionsForCurrentBlock)
             {
                 ImmutableList.Builder<Long> validPositions = ImmutableList.builder();
 
-                Cursor valueCursor = currentValueBlock.blockCursor();
+                Cursor valueCursor = currentValueBlock.cursor();
                 valueCursor.advanceNextPosition();
 
                 for (Long nextPosition : positionsForCurrentBlock) {

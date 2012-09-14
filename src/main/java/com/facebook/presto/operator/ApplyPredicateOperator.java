@@ -1,18 +1,19 @@
 package com.facebook.presto.operator;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.BlockStream;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 
 public class ApplyPredicateOperator
-        implements BlockStream
+        implements TupleStream
 {
-    private final BlockStream source;
+    private final TupleStream source;
     private final Predicate<Cursor> predicate;
 
-    public ApplyPredicateOperator(BlockStream source, Predicate<Cursor> predicate)
+    public ApplyPredicateOperator(TupleStream source, Predicate<Cursor> predicate)
     {
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkNotNull(predicate, "predicate is null");
@@ -24,6 +25,12 @@ public class ApplyPredicateOperator
     public TupleInfo getTupleInfo()
     {
         return source.getTupleInfo();
+    }
+
+    @Override
+    public Range getRange()
+    {
+        return Range.ALL;
     }
 
     @Override

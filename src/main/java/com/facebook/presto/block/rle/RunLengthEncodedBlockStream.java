@@ -1,7 +1,8 @@
 package com.facebook.presto.block.rle;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.BlockStream;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
 
 import java.util.Iterator;
@@ -9,7 +10,7 @@ import java.util.Iterator;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class RunLengthEncodedBlockStream
-        implements BlockStream, Iterable<RunLengthEncodedBlock>
+        implements TupleStream, Iterable<RunLengthEncodedBlock>
 {
     private final TupleInfo tupleInfo;
     private final Iterable<RunLengthEncodedBlock> runLengthEncodedBlocks;
@@ -27,6 +28,12 @@ public class RunLengthEncodedBlockStream
     public TupleInfo getTupleInfo()
     {
         return tupleInfo;
+    }
+
+    @Override
+    public Range getRange()
+    {
+        return Range.ALL;
     }
 
     @Override

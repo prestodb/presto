@@ -1,9 +1,10 @@
 package com.facebook.presto.operator;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.aggregation.AggregationFunction;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockStream;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.google.common.base.Preconditions;
@@ -13,13 +14,13 @@ import javax.inject.Provider;
 import java.util.Iterator;
 
 public class AggregationOperator
-        implements BlockStream
+        implements TupleStream
 {
     private final TupleInfo info;
     private final Provider<AggregationFunction> functionProvider;
-    private final BlockStream source;
+    private final TupleStream source;
 
-    public AggregationOperator(BlockStream source, Provider<AggregationFunction> functionProvider)
+    public AggregationOperator(TupleStream source, Provider<AggregationFunction> functionProvider)
     {
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkNotNull(functionProvider, "functionProvider is null");
@@ -33,6 +34,12 @@ public class AggregationOperator
     public TupleInfo getTupleInfo()
     {
         return info;
+    }
+
+    @Override
+    public Range getRange()
+    {
+        return Range.ALL;
     }
 
     @Override

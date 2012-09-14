@@ -44,13 +44,13 @@ public class TestCsvFileScanner
                 processor.finish();
             }
 
-            assertBlockStreamEquals(processors.get(0).getBlockStream(),
+            assertBlockStreamEquals(processors.get(0).getTupleStream(),
                     Blocks.createLongsBlockStream(0, 0, 1, 2, 3));
 
-            assertBlockStreamEquals(processors.get(1).getBlockStream(),
+            assertBlockStreamEquals(processors.get(1).getTupleStream(),
                     Blocks.createBlockStream(0, "apple", "banana", "cherry", "date"));
 
-            assertBlockStreamEquals(processors.get(2).getBlockStream(),
+            assertBlockStreamEquals(processors.get(2).getTupleStream(),
                     Blocks.createBlockStream(0, "alice", "bob", "charlie", "dave"));
         }
     }

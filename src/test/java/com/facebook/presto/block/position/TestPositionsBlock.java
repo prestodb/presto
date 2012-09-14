@@ -18,7 +18,7 @@ public class TestPositionsBlock {
     {
         PositionsBlock block = new PositionsBlock(Range.create(0, 2), Range.create(3, 5));
 
-        Cursor cursor = block.blockCursor();
+        Cursor cursor = block.cursor();
 
         assertTrue(cursor.advanceNextPosition());
         assertEquals(cursor.getPosition(), 0);

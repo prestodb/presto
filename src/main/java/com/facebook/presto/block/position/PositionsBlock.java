@@ -3,7 +3,7 @@ package com.facebook.presto.block.position;
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.Block;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
@@ -16,7 +16,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Arrays.asList;
 
 public class PositionsBlock
-        implements Block
+        implements TupleStream
 {
     private final List<Range> ranges;
     private final Range totalRange;
@@ -44,10 +44,15 @@ public class PositionsBlock
         this.totalRange = Range.create(ranges.get(0).getStart(), ranges.get(ranges.size() - 1).getEnd());
     }
 
-    @Override
     public int getCount()
     {
         return ranges.size();
+    }
+
+    @Override
+    public TupleInfo getTupleInfo()
+    {
+        return TupleInfo.EMPTY_TUPLE_INFO;
     }
 
     @Override
@@ -57,7 +62,7 @@ public class PositionsBlock
     }
 
     @Override
-    public Cursor blockCursor()
+    public Cursor cursor()
     {
         return new RangePositionBlockCursor(ranges, totalRange);
     }

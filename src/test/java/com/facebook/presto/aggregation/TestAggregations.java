@@ -1,13 +1,13 @@
 package com.facebook.presto.aggregation;
 
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.BlockStream;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
-import com.facebook.presto.operator.GroupByBlockStream;
-import com.facebook.presto.operator.HashAggregationBlockStream;
-import com.facebook.presto.operator.PipelinedAggregationBlockStream;
+import com.facebook.presto.operator.GroupByOperator;
+import com.facebook.presto.operator.HashAggregationOperator;
+import com.facebook.presto.operator.PipelinedAggregationOperator;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -25,8 +25,8 @@ public class TestAggregations
     @Test
     public void testPipelinedAggregation()
     {
-        GroupByBlockStream groupBy = new GroupByBlockStream(newGroupColumn());
-        PipelinedAggregationBlockStream aggregation = new PipelinedAggregationBlockStream(groupBy,
+        GroupByOperator groupBy = new GroupByOperator(newGroupColumn());
+        PipelinedAggregationOperator aggregation = new PipelinedAggregationOperator(groupBy,
                 newAggregateColumn(),
                 SumAggregation.PROVIDER);
 
@@ -42,8 +42,8 @@ public class TestAggregations
     @Test
     public void testHashAggregation()
     {
-        GroupByBlockStream groupBy = new GroupByBlockStream(newGroupColumn());
-        HashAggregationBlockStream aggregation = new HashAggregationBlockStream(groupBy,
+        GroupByOperator groupBy = new GroupByOperator(newGroupColumn());
+        HashAggregationOperator aggregation = new HashAggregationOperator(groupBy,
                 newAggregateColumn(),
                 SumAggregation.PROVIDER);
 
@@ -56,7 +56,7 @@ public class TestAggregations
                         .build());
     }
 
-    public BlockStream newGroupColumn()
+    public TupleStream newGroupColumn()
     {
         List<UncompressedBlock> values = ImmutableList.<UncompressedBlock>builder()
                 .add(createBlock(0, "apple", "apple", "apple", "apple", "banana", "banana"))
@@ -69,7 +69,7 @@ public class TestAggregations
         return new UncompressedBlockStream(new TupleInfo(VARIABLE_BINARY), values);
     }
 
-    public BlockStream newAggregateColumn()
+    public TupleStream newAggregateColumn()
     {
         List<UncompressedBlock> values = ImmutableList.<UncompressedBlock>builder()
                 .add(Blocks.createLongsBlock(0L, 1L, 2L, 3L, 4L, 5L, 6L))

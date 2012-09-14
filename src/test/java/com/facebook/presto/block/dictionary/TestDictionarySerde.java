@@ -1,7 +1,7 @@
 package com.facebook.presto.block.dictionary;
 
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.BlockStream;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.rle.RunLengthEncodedSerde;
 import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
@@ -30,42 +30,42 @@ public class TestDictionarySerde
     public void testSanity()
             throws Exception
     {
-        BlockStream blockStream = Blocks.createBlockStream(0, "a", "b", "cde", "fuu", "a", "fuu");
-        dictionarySerde.serialize(blockStream, sliceOutput);
-        assertBlockStreamEquals(dictionarySerde.deserialize(sliceOutput.slice()), blockStream);
+        TupleStream tupleStream = Blocks.createBlockStream(0, "a", "b", "cde", "fuu", "a", "fuu");
+        dictionarySerde.serialize(tupleStream, sliceOutput);
+        assertBlockStreamEquals(dictionarySerde.deserialize(sliceOutput.slice()), tupleStream);
     }
 
     @Test
     public void testAllSame()
             throws Exception
     {
-        BlockStream blockStream = Blocks.createBlockStream(0, "a", "a", "a", "a", "a", "a", "a");
-        dictionarySerde.serialize(blockStream, sliceOutput);
-        BlockStream deserialize = dictionarySerde.deserialize(sliceOutput.slice());
-        assertBlockStreamEquals(deserialize, blockStream);
+        TupleStream tupleStream = Blocks.createBlockStream(0, "a", "a", "a", "a", "a", "a", "a");
+        dictionarySerde.serialize(tupleStream, sliceOutput);
+        TupleStream deserialize = dictionarySerde.deserialize(sliceOutput.slice());
+        assertBlockStreamEquals(deserialize, tupleStream);
     }
 
     @Test
     public void testAllUnique()
             throws Exception
     {
-        BlockStream blockStream = Blocks.createBlockStream(0, "a", "b", "c", "d", "e", "f", "g");
-        dictionarySerde.serialize(blockStream, sliceOutput);
-        assertBlockStreamEquals(dictionarySerde.deserialize(sliceOutput.slice()), blockStream);
+        TupleStream tupleStream = Blocks.createBlockStream(0, "a", "b", "c", "d", "e", "f", "g");
+        dictionarySerde.serialize(tupleStream, sliceOutput);
+        assertBlockStreamEquals(dictionarySerde.deserialize(sliceOutput.slice()), tupleStream);
     }
 
     @Test
     public void testPositionGaps()
             throws Exception
     {
-        BlockStream blockStream = new UncompressedBlockStream(
+        TupleStream tupleStream = new UncompressedBlockStream(
                 new TupleInfo(VARIABLE_BINARY),
                 Blocks.createBlock(1, "a", "a", "b", "a", "c"),
                 Blocks.createBlock(6, "c", "a", "b", "b", "b"),
                 Blocks.createBlock(100, "y", "y", "a", "y", "b"),
                 Blocks.createBlock(200, "b")
         );
-        dictionarySerde.serialize(blockStream, sliceOutput);
-        Blocks.assertBlockStreamEquals(blockStream, dictionarySerde.deserialize(sliceOutput.slice()));
+        dictionarySerde.serialize(tupleStream, sliceOutput);
+        Blocks.assertBlockStreamEquals(tupleStream, dictionarySerde.deserialize(sliceOutput.slice()));
     }
 }

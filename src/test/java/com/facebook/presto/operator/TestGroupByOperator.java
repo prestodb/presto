@@ -6,7 +6,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.BlockStream;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
@@ -23,12 +23,12 @@ import static com.facebook.presto.block.Blocks.createBlock;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Charsets.UTF_8;
 
-public class TestGroupBy
+public class TestGroupByOperator
 {
     @Test
     public void testGroupBy()
     {
-        GroupByBlockStream groupBy = new GroupByBlockStream(newGroupColumn());
+        GroupByOperator groupBy = new GroupByOperator(newGroupColumn());
 
         Map<String, Range> expected = ImmutableMap.<String, Range>of(
                 "apple", Range.create(0, 3),
@@ -54,7 +54,7 @@ public class TestGroupBy
         UncompressedBlockStream data = new UncompressedBlockStream(new TupleInfo(VARIABLE_BINARY),
                 ImmutableList.of(createBlock(0, "apple", "banana", "cherry", "date")));
 
-        GroupByBlockStream groupBy = new GroupByBlockStream(data);
+        GroupByOperator groupBy = new GroupByOperator(data);
 
         Map<String, Range> expected = ImmutableMap.of(
                 "apple", Range.create(0, 0),
@@ -74,7 +74,7 @@ public class TestGroupBy
         Assert.assertEquals(actual, expected);
     }
 
-    public BlockStream newGroupColumn()
+    public TupleStream newGroupColumn()
     {
         List<UncompressedBlock> values = ImmutableList.<UncompressedBlock>builder()
                 .add(createBlock(0, "apple", "apple", "apple", "apple", "banana", "banana"))
