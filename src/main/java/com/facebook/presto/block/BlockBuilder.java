@@ -16,7 +16,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 public class BlockBuilder
 {
-    private static final DataSize DEFAULT_MAX_BLOCK_SIZE = new DataSize(64, Unit.KILOBYTE);
+    public static final DataSize DEFAULT_MAX_BLOCK_SIZE = new DataSize(64, Unit.KILOBYTE);
 
     private final long startPosition;
     private final TupleInfo tupleInfo;

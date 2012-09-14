@@ -25,13 +25,14 @@ public class GenericCursor implements Cursor
     public GenericCursor(TupleInfo info, Iterator<? extends TupleStream> iterator)
     {
         Preconditions.checkNotNull(iterator, "iterator is null");
-        Preconditions.checkArgument(iterator.hasNext(), "iterator is empty");
         Preconditions.checkNotNull(info, "info is null");
 
         this.info = info;
         this.iterator = iterator;
 
-        blockCursor = iterator.next().cursor();
+        if (iterator.hasNext()) {
+            blockCursor = iterator.next().cursor();
+        }
     }
 
     @Override
