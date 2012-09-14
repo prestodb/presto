@@ -1,14 +1,14 @@
 package com.facebook.presto.block;
 
-
 import com.facebook.presto.Range;
+import com.facebook.presto.TupleInfo;
 
-public interface Block
+public interface TupleStream
 {
     /**
-     * Gets the number of positions in the block
+     * Gets the type of all tuples in this cursor
      */
-    int getCount();
+    TupleInfo getTupleInfo();
 
     /**
      * Gets the start and end positions of the block.
@@ -18,5 +18,5 @@ public interface Block
     /**
      * Gets a cursor over the block
      */
-    Cursor blockCursor();
+    Cursor cursor();
 }

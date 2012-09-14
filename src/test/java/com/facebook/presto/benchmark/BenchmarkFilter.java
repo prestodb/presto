@@ -1,8 +1,8 @@
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.block.BlockStream;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.uncompressed.UncompressedBlockSerde;
+import com.facebook.presto.block.uncompressed.UncompressedSerde;
 import com.facebook.presto.operator.ApplyPredicateOperator;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
@@ -28,7 +28,7 @@ public class BenchmarkFilter
 
         Slice pageTypeColumnSlice = Slices.mapFileReadOnly(file);
         for (int i = 0; i < 100000; ++i) {
-            BlockStream pageTypeColumn = UncompressedBlockSerde.readAsStream(pageTypeColumnSlice);
+            TupleStream pageTypeColumn = UncompressedSerde.readAsStream(pageTypeColumnSlice);
             ApplyPredicateOperator filtered = new ApplyPredicateOperator(pageTypeColumn, predicate) ;
 
             Result result = doIt(filtered);
@@ -42,7 +42,7 @@ public class BenchmarkFilter
         Thread.sleep(1000);
     }
 
-    public static Result doIt(BlockStream source)
+    public static Result doIt(TupleStream source)
     {
         long start = System.nanoTime();
         Cursor cursor = source.cursor();

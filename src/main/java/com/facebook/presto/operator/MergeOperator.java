@@ -1,7 +1,8 @@
 package com.facebook.presto.operator;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockStream;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
@@ -12,22 +13,22 @@ import com.google.common.collect.ImmutableList;
 import java.util.Iterator;
 import java.util.List;
 
-public class Merge
-        implements BlockStream, Iterable<UncompressedBlock>
+public class MergeOperator
+        implements TupleStream, Iterable<UncompressedBlock>
 {
-    private final List<? extends BlockStream> sources;
+    private final List<? extends TupleStream> sources;
     private final TupleInfo tupleInfo;
 
-    public Merge(BlockStream... sources)
+    public MergeOperator(TupleStream... sources)
     {
         this(ImmutableList.copyOf(sources));
     }
 
-    public Merge(Iterable<? extends BlockStream> sources)
+    public MergeOperator(Iterable<? extends TupleStream> sources)
     {
         // build combined tuple info
         ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (BlockStream source : sources) {
+        for (TupleStream source : sources) {
             types.addAll(source.getTupleInfo().getTypes());
         }
         this.tupleInfo = new TupleInfo(types.build());
@@ -39,6 +40,12 @@ public class Merge
     public TupleInfo getTupleInfo()
     {
         return tupleInfo;
+    }
+
+    @Override
+    public Range getRange()
+    {
+        return Range.ALL;
     }
 
     @Override
@@ -59,11 +66,11 @@ public class Merge
         private final List<Cursor> cursors;
         private long position;
 
-        public MergeBlockIterator(TupleInfo tupleInfo, Iterable<? extends BlockStream> sources)
+        public MergeBlockIterator(TupleInfo tupleInfo, Iterable<? extends TupleStream> sources)
         {
             this.tupleInfo = tupleInfo;
             ImmutableList.Builder<Cursor> cursors = ImmutableList.builder();
-            for (BlockStream source : sources) {
+            for (TupleStream source : sources) {
                 cursors.add(source.cursor());
             }
             this.cursors = cursors.build();

@@ -1,11 +1,11 @@
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.block.BlockStream;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.uncompressed.UncompressedBlockSerde;
+import com.facebook.presto.block.uncompressed.UncompressedSerde;
+import com.facebook.presto.operator.GroupByOperator;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
-import com.facebook.presto.operator.GroupByBlockStream;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -23,8 +23,8 @@ public class BenchmarkGroupBy
 
         Slice pageTypeColumnSlice = Slices.mapFileReadOnly(file);
         for (int i = 0; i < 100000; ++i) {
-            BlockStream pageTypeColumn = UncompressedBlockSerde.readAsStream(pageTypeColumnSlice);
-            GroupByBlockStream groupBy = new GroupByBlockStream(pageTypeColumn) ;
+            TupleStream pageTypeColumn = UncompressedSerde.readAsStream(pageTypeColumnSlice);
+            GroupByOperator groupBy = new GroupByOperator(pageTypeColumn) ;
 
             Result result = doIt(groupBy);
             long count = result.count;
@@ -37,7 +37,7 @@ public class BenchmarkGroupBy
         Thread.sleep(1000);
     }
 
-    public static Result doIt(BlockStream source)
+    public static Result doIt(TupleStream source)
     {
         long start = System.nanoTime();
         Cursor cursor = source.cursor();

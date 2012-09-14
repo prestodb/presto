@@ -19,7 +19,7 @@ public class TestUncompressedPositionBlock
     {
         UncompressedPositionBlock block = new UncompressedPositionBlock(0, 1, 2, 3, 4, 10, 11, 12, 13, 14);
 
-        Cursor cursor = block.blockCursor();
+        Cursor cursor = block.cursor();
 
         assertNextPosition(cursor, 0);
         assertNextPosition(cursor, 1);
@@ -42,7 +42,7 @@ public class TestUncompressedPositionBlock
     {
         UncompressedPositionBlock block = new UncompressedPositionBlock(0, 1, 2, 3, 4, 10, 11, 12, 13, 14);
 
-        Cursor cursor = block.blockCursor();
+        Cursor cursor = block.cursor();
 
         // advance to beginning
         assertTrue(cursor.advanceToPosition(0));

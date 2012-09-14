@@ -13,12 +13,12 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class MaskedBlock implements Block
+public class MaskedBlock implements TupleStream
 {
-    private final Block valueBlock;
+    private final TupleStream valueBlock;
     private final List<Long> validPositions;
 
-    public MaskedBlock(Block valueBlock, List<Long> validPositions)
+    public MaskedBlock(TupleStream valueBlock, List<Long> validPositions)
     {
         Preconditions.checkNotNull(valueBlock, "valueBlock is null");
         Preconditions.checkNotNull(validPositions, "validPositions is null");
@@ -28,10 +28,15 @@ public class MaskedBlock implements Block
         this.validPositions = ImmutableList.copyOf(validPositions);
     }
 
-    @Override
     public int getCount()
     {
         return validPositions.size();
+    }
+
+    @Override
+    public TupleInfo getTupleInfo()
+    {
+        return valueBlock.getTupleInfo();
     }
 
     @Override
@@ -41,7 +46,7 @@ public class MaskedBlock implements Block
     }
 
     @Override
-    public Cursor blockCursor()
+    public Cursor cursor()
     {
         return new MaskedBlockCursor(valueBlock, validPositions);
     }
@@ -52,10 +57,10 @@ public class MaskedBlock implements Block
         private final Cursor validPositions;
         private boolean isValid;
 
-        private MaskedBlockCursor(Block valueBlock, List<Long> validPositions)
+        private MaskedBlockCursor(TupleStream valueBlock, List<Long> validPositions)
         {
             this.validPositions = new UncompressedPositionBlockCursor(validPositions, valueBlock.getRange());
-            this.valueCursor = valueBlock.blockCursor();
+            this.valueCursor = valueBlock.cursor();
         }
 
         @Override

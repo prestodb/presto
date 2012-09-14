@@ -20,7 +20,7 @@ public class TestMaskedBlock
 
         MaskedBlock block = new MaskedBlock(uncompressed, Longs.asList(0, 2, 4));
 
-        Cursor cursor = block.blockCursor();
+        Cursor cursor = block.cursor();
 
         assertNextValue(cursor, 0, "a");
         assertNextValue(cursor, 2, "c");

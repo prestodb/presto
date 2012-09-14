@@ -1,11 +1,11 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.aggregation.SumAggregation;
-import com.facebook.presto.block.BlockStream;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.uncompressed.UncompressedBlockSerde;
-import com.facebook.presto.operator.GroupByBlockStream;
-import com.facebook.presto.operator.HashAggregationBlockStream;
+import com.facebook.presto.block.uncompressed.UncompressedSerde;
+import com.facebook.presto.operator.GroupByOperator;
+import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import io.airlift.units.DataSize;
@@ -28,11 +28,11 @@ public class BenchmarkHashAggregation
         Slice aggregateSlice = Slices.mapFileReadOnly(aggregateFile);
 
         for (int i = 0; i < 100000; ++i) {
-            BlockStream groupBySource = UncompressedBlockSerde.readAsStream(groupBySlice);
-            BlockStream aggregateSource = UncompressedBlockSerde.readAsStream(aggregateSlice);
+            TupleStream groupBySource = UncompressedSerde.readAsStream(groupBySlice);
+            TupleStream aggregateSource = UncompressedSerde.readAsStream(aggregateSlice);
 
-            GroupByBlockStream groupBy = new GroupByBlockStream(groupBySource);
-            HashAggregationBlockStream aggregation = new HashAggregationBlockStream(groupBy, aggregateSource, SumAggregation.PROVIDER);
+            GroupByOperator groupBy = new GroupByOperator(groupBySource);
+            HashAggregationOperator aggregation = new HashAggregationOperator(groupBy, aggregateSource, SumAggregation.PROVIDER);
 
             Result result = doIt(aggregation);
             long count = result.count;
@@ -45,7 +45,7 @@ public class BenchmarkHashAggregation
         Thread.sleep(1000);
     }
 
-    public static Result doIt(BlockStream source)
+    public static Result doIt(TupleStream source)
     {
         long start = System.nanoTime();
 

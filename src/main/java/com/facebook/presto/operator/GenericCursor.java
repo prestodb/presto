@@ -7,8 +7,7 @@ import com.facebook.presto.Range;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 
@@ -17,13 +16,13 @@ import java.util.NoSuchElementException;
 
 public class GenericCursor implements Cursor
 {
-    private final Iterator<? extends Block> iterator;
+    private final Iterator<? extends TupleStream> iterator;
     private final TupleInfo info;
 
     private Cursor blockCursor;
     private boolean isValid;
 
-    public GenericCursor(TupleInfo info, Iterator<? extends Block> iterator)
+    public GenericCursor(TupleInfo info, Iterator<? extends TupleStream> iterator)
     {
         Preconditions.checkNotNull(iterator, "iterator is null");
         Preconditions.checkArgument(iterator.hasNext(), "iterator is empty");
@@ -32,7 +31,7 @@ public class GenericCursor implements Cursor
         this.info = info;
         this.iterator = iterator;
 
-        blockCursor = iterator.next().blockCursor();
+        blockCursor = iterator.next().cursor();
     }
 
     @Override
@@ -63,7 +62,7 @@ public class GenericCursor implements Cursor
         isValid = true;
         if (!blockCursor.advanceNextValue()) {
             if (iterator.hasNext()) {
-                blockCursor = iterator.next().blockCursor();
+                blockCursor = iterator.next().cursor();
                 blockCursor.advanceNextPosition();
             } else {
                 blockCursor = null;
@@ -172,7 +171,7 @@ public class GenericCursor implements Cursor
 
         // skip to block containing requested position
         while (newPosition > blockCursor.getRange().getEnd() && iterator.hasNext()) {
-            blockCursor = iterator.next().blockCursor();
+            blockCursor = iterator.next().cursor();
         }
 
         // is the position off the end of the stream?

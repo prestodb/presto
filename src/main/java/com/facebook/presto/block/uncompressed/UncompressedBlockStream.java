@@ -1,6 +1,7 @@
 package com.facebook.presto.block.uncompressed;
 
-import com.facebook.presto.block.BlockStream;
+import com.facebook.presto.Range;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.operator.GenericCursor;
@@ -10,7 +11,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 
 public class UncompressedBlockStream
-        implements BlockStream, Iterable<UncompressedBlock>
+        implements TupleStream, Iterable<UncompressedBlock>
 {
     private final TupleInfo info;
     private final Iterable<UncompressedBlock> source;
@@ -39,6 +40,12 @@ public class UncompressedBlockStream
     public TupleInfo getTupleInfo()
     {
         return info;
+    }
+
+    @Override
+    public Range getRange()
+    {
+        return Range.ALL;
     }
 
     @Override
