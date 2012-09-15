@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.block.Blocks.createBlock;
-import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Charsets.UTF_8;
 
 public class TestGroupByOperator
@@ -51,7 +50,7 @@ public class TestGroupByOperator
     @Test
     public void testGroupBySimple()
     {
-        UncompressedBlockStream data = new UncompressedBlockStream(new TupleInfo(VARIABLE_BINARY),
+        UncompressedBlockStream data = new UncompressedBlockStream(TupleInfo.SINGLE_VARBINARY,
                 ImmutableList.of(createBlock(0, "apple", "banana", "cherry", "date")));
 
         GroupByOperator groupBy = new GroupByOperator(data);
@@ -84,7 +83,7 @@ public class TestGroupByOperator
                 .add(createBlock(32, "date"))
                 .build();
 
-        return new UncompressedBlockStream(new TupleInfo(VARIABLE_BINARY), values);
+        return new UncompressedBlockStream(TupleInfo.SINGLE_VARBINARY, values);
     }
 
 }

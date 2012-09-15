@@ -10,14 +10,11 @@ import com.google.common.base.Preconditions;
 import java.util.NoSuchElementException;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
-import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class UncompressedSliceBlockCursor
         implements Cursor
 {
-    private static final TupleInfo INFO = new TupleInfo(VARIABLE_BINARY);
-
     private final Slice slice;
     private final Range range;
     private long position = -1;
@@ -39,7 +36,7 @@ public class UncompressedSliceBlockCursor
     @Override
     public TupleInfo getTupleInfo()
     {
-        return INFO;
+        return TupleInfo.SINGLE_VARBINARY;
     }
 
     @Override
@@ -139,7 +136,7 @@ public class UncompressedSliceBlockCursor
         if (isFinished()) {
             throw new NoSuchElementException();
         }
-        return new Tuple(slice.slice(offset, size), INFO);
+        return new Tuple(slice.slice(offset, size), TupleInfo.SINGLE_VARBINARY);
     }
 
     @Override

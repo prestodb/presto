@@ -10,7 +10,7 @@ public class SubtractionOperation
     @Override
     public TupleInfo getTupleInfo()
     {
-        return new TupleInfo(TupleInfo.Type.FIXED_INT_64);
+        return TupleInfo.SINGLE_LONG;
     }
 
     @Override

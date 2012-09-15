@@ -16,14 +16,13 @@ public class CountAggregation
             return new CountAggregation();
         }
     };
-    private static final TupleInfo TUPLE_INFO = new TupleInfo(TupleInfo.Type.FIXED_INT_64);
 
     private long count;
 
     @Override
     public TupleInfo getTupleInfo()
     {
-        return TUPLE_INFO;
+        return TupleInfo.SINGLE_LONG;
     }
 
     @Override

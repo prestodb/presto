@@ -3,8 +3,8 @@ package com.facebook.presto.operator;
 import com.facebook.presto.Range;
 import com.facebook.presto.SizeOf;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.position.UncompressedPositionBlock;
 import com.facebook.presto.operation.ComparisonOperation;
 import com.google.common.base.Preconditions;
@@ -18,7 +18,6 @@ import java.util.Iterator;
 public class ComparisonOperator
         implements TupleStream, Iterable<UncompressedPositionBlock>
 {
-    private static final TupleInfo INFO = new TupleInfo();
     private static final int MAX_POSITIONS_PER_BLOCK = Ints.checkedCast(65536 / SizeOf.SIZE_OF_LONG);
 
     private final TupleStream leftSource;
@@ -39,7 +38,7 @@ public class ComparisonOperator
     @Override
     public TupleInfo getTupleInfo()
     {
-        return INFO;
+        return TupleInfo.EMPTY;
     }
 
     @Override
@@ -51,7 +50,7 @@ public class ComparisonOperator
     @Override
     public Cursor cursor()
     {
-        return new GenericCursor(INFO, iterator());
+        return new GenericCursor(TupleInfo.EMPTY, iterator());
     }
 
     @Override

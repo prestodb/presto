@@ -16,8 +16,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class UncompressedLongBlockCursor
         implements Cursor
 {
-    private static final TupleInfo INFO = new TupleInfo(FIXED_INT_64);
-
     private final TupleInfo tupleInfo;
     private final Slice slice;
     private final Range range;
@@ -131,7 +129,7 @@ public class UncompressedLongBlockCursor
         if (isFinished()) {
             throw new NoSuchElementException();
         }
-        return new Tuple(slice.slice(offset, SIZE_OF_LONG), INFO);
+        return new Tuple(slice.slice(offset, SIZE_OF_LONG), TupleInfo.SINGLE_LONG);
     }
 
     @Override

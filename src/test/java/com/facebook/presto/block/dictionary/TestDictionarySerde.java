@@ -1,8 +1,8 @@
 package com.facebook.presto.block.dictionary;
 
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Blocks;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.rle.RunLengthEncodedSerde;
 import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
 import com.facebook.presto.slice.DynamicSliceOutput;
@@ -10,7 +10,6 @@ import com.facebook.presto.slice.SliceOutput;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.block.Blocks.assertBlockStreamEquals;
 
 public class TestDictionarySerde
@@ -59,7 +58,7 @@ public class TestDictionarySerde
             throws Exception
     {
         TupleStream tupleStream = new UncompressedBlockStream(
-                new TupleInfo(VARIABLE_BINARY),
+                TupleInfo.SINGLE_VARBINARY,
                 Blocks.createBlock(1, "a", "a", "b", "a", "c"),
                 Blocks.createBlock(6, "c", "a", "b", "b", "b"),
                 Blocks.createBlock(100, "y", "y", "a", "y", "b"),

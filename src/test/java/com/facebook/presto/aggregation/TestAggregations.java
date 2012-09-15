@@ -66,7 +66,7 @@ public class TestAggregations
                 .add(createBlock(32, "date"))
                 .build();
 
-        return new UncompressedBlockStream(new TupleInfo(VARIABLE_BINARY), values);
+        return new UncompressedBlockStream(TupleInfo.SINGLE_VARBINARY, values);
     }
 
     public TupleStream newAggregateColumn()
@@ -79,7 +79,7 @@ public class TestAggregations
                 .add(Blocks.createLongsBlock(32, 3L))
                 .build();
 
-        return new UncompressedBlockStream(new TupleInfo(FIXED_INT_64), values);
+        return new UncompressedBlockStream(TupleInfo.SINGLE_LONG, values);
     }
 
 }

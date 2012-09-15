@@ -24,15 +24,14 @@ public class TestUncompressedBlockReader
     public void testRoundTrip()
             throws Exception
     {
-        TupleInfo tupleInfo = new TupleInfo(Type.VARIABLE_BINARY);
-        UncompressedBlock block = new BlockBuilder(0, tupleInfo)
+        UncompressedBlock block = new BlockBuilder(0, TupleInfo.SINGLE_VARBINARY)
                 .append("alice".getBytes(UTF_8))
                 .append("bob".getBytes(UTF_8))
                 .append("charlie".getBytes(UTF_8))
                 .append("dave".getBytes(UTF_8))
                 .build();
 
-        UncompressedBlockStream blockStream = new UncompressedBlockStream(tupleInfo, ImmutableList.of(block));
+        UncompressedBlockStream blockStream = new UncompressedBlockStream(TupleInfo.SINGLE_VARBINARY, ImmutableList.of(block));
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ColumnProcessor processor = new UncompressedColumnWriter(Type.VARIABLE_BINARY, 0, blockStream.cursor(), out);
         processor.processPositions(Integer.MAX_VALUE);
@@ -45,6 +44,6 @@ public class TestUncompressedBlockReader
         TupleStream copiedBlock = copiedBlocks.get(0);
         assertEquals(copiedBlock.getRange(), block.getRange());
 
-        assertBlockStreamEquals(new UncompressedBlockStream(tupleInfo, copiedBlocks), blockStream);
+        assertBlockStreamEquals(new UncompressedBlockStream(TupleInfo.SINGLE_VARBINARY, copiedBlocks), blockStream);
     }
 }

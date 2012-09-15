@@ -10,14 +10,11 @@ import com.google.common.base.Preconditions;
 import java.util.NoSuchElementException;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_DOUBLE;
-import static com.facebook.presto.TupleInfo.Type.DOUBLE;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class UncompressedDoubleBlockCursor
         implements Cursor
 {
-    private static final TupleInfo INFO = new TupleInfo(DOUBLE);
-
     private final Slice slice;
     private final Range range;
     private long position = -1;
@@ -37,7 +34,7 @@ public class UncompressedDoubleBlockCursor
     @Override
     public TupleInfo getTupleInfo()
     {
-        return INFO;
+        return TupleInfo.SINGLE_DOUBLE;
     }
 
     @Override
@@ -126,7 +123,7 @@ public class UncompressedDoubleBlockCursor
         if (isFinished()) {
             throw new NoSuchElementException();
         }
-        return new Tuple(slice.slice(offset, SIZE_OF_DOUBLE), INFO);
+        return new Tuple(slice.slice(offset, SIZE_OF_DOUBLE), TupleInfo.SINGLE_DOUBLE);
     }
 
     @Override

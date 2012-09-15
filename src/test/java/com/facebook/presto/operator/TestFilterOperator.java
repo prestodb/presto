@@ -2,9 +2,9 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.GenericTupleStream;
+import com.facebook.presto.block.position.UncompressedPositionBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
-import com.facebook.presto.block.position.UncompressedPositionBlock;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -12,13 +12,9 @@ import java.util.List;
 
 import static com.facebook.presto.block.Blocks.assertBlockStreamEquals;
 import static com.facebook.presto.block.Blocks.createBlock;
-import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 
 public class TestFilterOperator
 {
-
-    private static final TupleInfo INFO = new TupleInfo(VARIABLE_BINARY);
-
     @Test
     public void test()
     {
@@ -36,10 +32,10 @@ public class TestFilterOperator
                 .add(new UncompressedPositionBlock(40L, 41L, 42L))
                 .build();
 
-        FilterOperator filterOperator = new FilterOperator(INFO, new UncompressedBlockStream(INFO, values), new GenericTupleStream<>(new TupleInfo(), positions));
+        FilterOperator filterOperator = new FilterOperator(TupleInfo.SINGLE_VARBINARY, new UncompressedBlockStream(TupleInfo.SINGLE_VARBINARY, values), new GenericTupleStream<>(TupleInfo.EMPTY, positions));
 
         assertBlockStreamEquals(filterOperator,
-                new UncompressedBlockStream(INFO,
+                new UncompressedBlockStream(TupleInfo.SINGLE_VARBINARY,
                         createBlock(2, "c"),
                         createBlock(4, "e"),
                         createBlock(20, "h", "i", "j"),

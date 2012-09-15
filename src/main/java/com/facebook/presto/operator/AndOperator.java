@@ -20,8 +20,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.PriorityQueue;
 
-import static com.facebook.presto.block.TupleStreams.getRangeFunction;
 import static com.facebook.presto.block.TupleStreams.getCursorFunction;
+import static com.facebook.presto.block.TupleStreams.getRangeFunction;
 
 public class AndOperator
         implements TupleStream, Iterable<TupleStream>
@@ -43,7 +43,7 @@ public class AndOperator
     @Override
     public TupleInfo getTupleInfo()
     {
-        return TupleInfo.EMPTY_TUPLE_INFO;
+        return TupleInfo.EMPTY;
     }
 
     @Override
@@ -55,7 +55,7 @@ public class AndOperator
     @Override
     public Cursor cursor()
     {
-        return new GenericCursor(TupleInfo.EMPTY_TUPLE_INFO, iterator());
+        return new GenericCursor(TupleInfo.EMPTY, iterator());
     }
 
     @Override

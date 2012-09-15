@@ -1,13 +1,13 @@
 package com.facebook.presto.block.dictionary;
 
 import com.facebook.presto.Range;
-import com.facebook.presto.block.TupleStream;
-import com.facebook.presto.block.TupleStreamSerde;
-import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.ForwardingCursor;
 import com.facebook.presto.SizeOf;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.ForwardingCursor;
+import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.TupleStreamSerde;
 import com.facebook.presto.block.uncompressed.UncompressedTupleInfoSerde;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
@@ -42,7 +42,7 @@ public class DictionarySerde implements TupleStreamSerde
             @Override
             public TupleInfo getTupleInfo()
             {
-                return TupleInfo.SINGLE_LONG_TUPLE_INFO;
+                return TupleInfo.SINGLE_LONG;
             }
 
             @Override
@@ -59,7 +59,7 @@ public class DictionarySerde implements TupleStreamSerde
                     @Override
                     public TupleInfo getTupleInfo()
                     {
-                        return TupleInfo.SINGLE_LONG_TUPLE_INFO;
+                        return TupleInfo.SINGLE_LONG;
                     }
 
                     @Override
@@ -71,7 +71,7 @@ public class DictionarySerde implements TupleStreamSerde
                     @Override
                     public Tuple getTuple()
                     {
-                        return TupleInfo.SINGLE_LONG_TUPLE_INFO.builder()
+                        return TupleInfo.SINGLE_LONG.builder()
                                 .append(getLong(0))
                                 .build();
                     }
