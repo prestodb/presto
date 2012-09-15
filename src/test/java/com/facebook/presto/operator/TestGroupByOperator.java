@@ -9,7 +9,7 @@ import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
+import com.facebook.presto.block.uncompressed.UncompressedTupleStream;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.Assert;
@@ -50,7 +50,7 @@ public class TestGroupByOperator
     @Test
     public void testGroupBySimple()
     {
-        UncompressedBlockStream data = new UncompressedBlockStream(TupleInfo.SINGLE_VARBINARY,
+        UncompressedTupleStream data = new UncompressedTupleStream(TupleInfo.SINGLE_VARBINARY,
                 ImmutableList.of(createBlock(0, "apple", "banana", "cherry", "date")));
 
         GroupByOperator groupBy = new GroupByOperator(data);
@@ -83,7 +83,7 @@ public class TestGroupByOperator
                 .add(createBlock(32, "date"))
                 .build();
 
-        return new UncompressedBlockStream(TupleInfo.SINGLE_VARBINARY, values);
+        return new UncompressedTupleStream(TupleInfo.SINGLE_VARBINARY, values);
     }
 
 }

@@ -9,13 +9,13 @@ import java.util.Iterator;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class RunLengthEncodedBlockStream
+public class RunLengthEncodedTupleStream
         implements TupleStream, Iterable<RunLengthEncodedBlock>
 {
     private final TupleInfo tupleInfo;
     private final Iterable<RunLengthEncodedBlock> runLengthEncodedBlocks;
 
-    public RunLengthEncodedBlockStream(TupleInfo tupleInfo, Iterable<RunLengthEncodedBlock> runLengthEncodedBlocks)
+    public RunLengthEncodedTupleStream(TupleInfo tupleInfo, Iterable<RunLengthEncodedBlock> runLengthEncodedBlocks)
     {
         checkNotNull(tupleInfo, "tupleInfo is null");
         checkNotNull(runLengthEncodedBlocks, "runLengthEncodedBlocks is null");

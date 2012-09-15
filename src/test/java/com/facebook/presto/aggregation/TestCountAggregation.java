@@ -2,7 +2,7 @@ package com.facebook.presto.aggregation;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
+import com.facebook.presto.block.uncompressed.UncompressedTupleStream;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -17,7 +17,7 @@ public class TestCountAggregation
     public void testBasic()
             throws Exception
     {
-        UncompressedBlockStream values = createBlockStream(0, "apple", "banana", "cherry", "date");
+        UncompressedTupleStream values = createBlockStream(0, "apple", "banana", "cherry", "date");
         Range range = Range.create(0, 3);
 
         assertCount(values, range, 4);
@@ -27,7 +27,7 @@ public class TestCountAggregation
     public void testSubset()
             throws Exception
     {
-        UncompressedBlockStream values = createBlockStream(0, "apple", "banana", "cherry", "date");
+        UncompressedTupleStream values = createBlockStream(0, "apple", "banana", "cherry", "date");
         Range range = Range.create(1, 2);
 
         assertCount(values, range, 2);
@@ -37,7 +37,7 @@ public class TestCountAggregation
     public void testNonOverlapping()
             throws Exception
     {
-        UncompressedBlockStream values = createBlockStream(0, "apple", "banana", "cherry", "date");
+        UncompressedTupleStream values = createBlockStream(0, "apple", "banana", "cherry", "date");
         Range range = Range.create(10, 20);
 
         assertCount(values, range, 0);
@@ -47,18 +47,18 @@ public class TestCountAggregation
     public void testSparse()
             throws Exception
     {
-        UncompressedBlockStream values = createBlockStream(0, "apple", "banana", "cherry", "date");
+        UncompressedTupleStream values = createBlockStream(0, "apple", "banana", "cherry", "date");
         List<Range> ranges = ImmutableList.of(Range.create(1, 1), Range.create(3, 3));
 
         assertCount(values, ranges, 2);
     }
 
-    private void assertCount(UncompressedBlockStream values, Range range, int expected)
+    private void assertCount(UncompressedTupleStream values, Range range, int expected)
     {
         assertCount(values, ImmutableList.of(range), expected);
     }
 
-    private void assertCount(UncompressedBlockStream values, Iterable<Range> ranges, int expected)
+    private void assertCount(UncompressedTupleStream values, Iterable<Range> ranges, int expected)
     {
         Cursor cursor = values.cursor();
         cursor.advanceNextPosition();

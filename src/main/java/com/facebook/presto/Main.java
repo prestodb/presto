@@ -3,8 +3,9 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.block.uncompressed.UncompressedColumnWriter;
+import com.facebook.presto.block.uncompressed.ColumnWriter;
 import com.facebook.presto.ingest.*;
+import com.facebook.presto.ingest.CsvReader.CsvColumnProcessor;
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -18,8 +19,10 @@ import java.io.*;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-import static com.facebook.presto.TupleInfo.Type.*;
-import static com.facebook.presto.ingest.CsvReader.*;
+import static com.facebook.presto.TupleInfo.Type;
+import static com.facebook.presto.ingest.CsvReader.csvDoubleColumn;
+import static com.facebook.presto.ingest.CsvReader.csvNumericColumn;
+import static com.facebook.presto.ingest.CsvReader.csvStringColumn;
 
 public class Main
 {
@@ -85,8 +88,7 @@ public class Main
             InputSupplier<InputStreamReader> inputSupplier;
             if (csvFile != null) {
                 inputSupplier = Files.newReaderSupplier(new File(csvFile), Charsets.UTF_8);
-            }
-            else {
+            } else {
                 inputSupplier = new InputSupplier<InputStreamReader>()
                 {
                     public InputStreamReader getInput()
@@ -101,19 +103,19 @@ public class Main
             for (String type : types) {
                 switch (type) {
                     case "long":
-                        typeBuilder.add(FIXED_INT_64);
+                        typeBuilder.add(Type.FIXED_INT_64);
                         csvColumns.add(csvNumericColumn());
                         break;
                     case "double":
-                        typeBuilder.add(DOUBLE);
+                        typeBuilder.add(Type.DOUBLE);
                         csvColumns.add(csvDoubleColumn());
                         break;
                     case "string":
-                        typeBuilder.add(VARIABLE_BINARY);
+                        typeBuilder.add(Type.VARIABLE_BINARY);
                         csvColumns.add(csvStringColumn());
                         break;
                     case "fmillis":
-                        typeBuilder.add(FIXED_INT_64);
+                        typeBuilder.add(Type.FIXED_INT_64);
                         csvColumns.add(csvFloatMillisColumn());
                         break;
                     default:
@@ -129,11 +131,11 @@ public class Main
             ImmutableList.Builder<RowSource> rowSources = ImmutableList.builder();
             ImmutableList.Builder<OutputStream> outputs = ImmutableList.builder();
             for (int index = 0; index < columnTypes.size(); index++) {
-                TupleInfo.Type type = columnTypes.get(index);
+                Type type = columnTypes.get(index);
                 RowSource rowSource = csvReader.getInput();
                 File file = new File(dir, "column" + index + ".data");
                 OutputStream out = new FileOutputStream(file);
-                processorsBuilder.add(new UncompressedColumnWriter(type, index, rowSource.cursor(), out));
+                processorsBuilder.add(new ColumnWriter(type, index, rowSource.cursor(), out));
                 rowSources.add(rowSource);
                 outputs.add(out);
             }

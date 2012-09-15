@@ -10,18 +10,18 @@ import com.google.common.base.Preconditions;
 import java.util.Arrays;
 import java.util.Iterator;
 
-public class UncompressedBlockStream
+public class UncompressedTupleStream
         implements TupleStream, Iterable<UncompressedBlock>
 {
     private final TupleInfo info;
     private final Iterable<UncompressedBlock> source;
 
-    public UncompressedBlockStream(TupleInfo info, UncompressedBlock... source)
+    public UncompressedTupleStream(TupleInfo info, UncompressedBlock... source)
     {
         this(info, Arrays.asList(source));
     }
 
-    public UncompressedBlockStream(TupleInfo info, Iterable<UncompressedBlock> source)
+    public UncompressedTupleStream(TupleInfo info, Iterable<UncompressedBlock> source)
     {
         Preconditions.checkNotNull(info, "info is null");
         Preconditions.checkNotNull(source, "source is null");

@@ -8,9 +8,9 @@ import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerde;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.TupleStreamWriter;
 import com.facebook.presto.slice.ByteArraySlice;
 import com.facebook.presto.slice.DynamicSliceOutput;
-import com.facebook.presto.slice.OutputStreamSliceOutput;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
@@ -23,6 +23,8 @@ import java.io.IOException;
 import java.util.Iterator;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_INT;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 
 public class UncompressedSerde
@@ -34,35 +36,21 @@ public class UncompressedSerde
     @Override
     public void serialize(TupleStream tupleStream, SliceOutput sliceOutput)
     {
-        write(tupleStream.cursor(), sliceOutput);
+        createTupleStreamWriter(sliceOutput)
+                .append(tupleStream)
+                .finished();
+    }
+
+    @Override
+    public TupleStreamWriter createTupleStreamWriter(SliceOutput sliceOutput)
+    {
+        return new UncompressedTupleStreamWriter(sliceOutput);
     }
 
     @Override
     public TupleStream deserialize(Slice slice)
     {
         return readAsStream(slice);
-    }
-
-    public static void write(Cursor cursor, SliceOutput out)
-    {
-        // todo We should be able to take advantage of the fact that the cursor might already be over uncompressed blocks and just write them down as they come.
-        UncompressedTupleInfoSerde.serialize(cursor.getTupleInfo(), new OutputStreamSliceOutput(out));
-        DynamicSliceOutput buffer = new DynamicSliceOutput(MAX_BLOCK_SIZE);
-
-        int tupleCount = 0;
-        while (cursor.advanceNextPosition()) {
-            cursor.getTuple().writeTo(buffer);
-            tupleCount++;
-
-            if (buffer.size() > MAX_BLOCK_SIZE) {
-                write(out, tupleCount, buffer.slice());
-                tupleCount = 0;
-                buffer = new DynamicSliceOutput(MAX_BLOCK_SIZE);
-            }
-        }
-        if (buffer.size() > 0) {
-            write(out, tupleCount, buffer.slice());
-        }
     }
 
     private static void write(SliceOutput destination, int tupleCount, Slice slice)
@@ -91,7 +79,7 @@ public class UncompressedSerde
     {
         UncompressedReader reader = new UncompressedReader(slice);
 
-        return new UncompressedBlockStream(reader.tupleInfo, new Iterable<UncompressedBlock>()
+        return new UncompressedTupleStream(reader.tupleInfo, new Iterable<UncompressedBlock>()
         {
             @Override
             public Iterator<UncompressedBlock> iterator()
@@ -101,7 +89,64 @@ public class UncompressedSerde
         });
     }
 
-    private static class UncompressedReader extends AbstractIterator<UncompressedBlock>
+    private static class UncompressedTupleStreamWriter
+            implements TupleStreamWriter
+    {
+        private final SliceOutput sliceOutput;
+
+        private boolean initialized = false;
+        private boolean finished = false;
+        private DynamicSliceOutput buffer = new DynamicSliceOutput(MAX_BLOCK_SIZE);
+        private int tupleCount = 0;
+
+        private UncompressedTupleStreamWriter(SliceOutput sliceOutput)
+        {
+            this.sliceOutput = checkNotNull(sliceOutput, "sliceOutput is null");
+        }
+
+        @Override
+        public TupleStreamWriter append(TupleStream tupleStream)
+        {
+            checkNotNull(tupleStream, "tupleStream is null");
+            checkState(!finished, "already finished");
+
+            if (!initialized) {
+                // todo We should be able to take advantage of the fact that the cursor might already be over uncompressed blocks and just write them down as they come.
+                UncompressedTupleInfoSerde.serialize(tupleStream.getTupleInfo(), sliceOutput);
+                initialized = true;
+            }
+
+            Cursor cursor = tupleStream.cursor();
+
+            while (cursor.advanceNextPosition()) {
+                cursor.getTuple().writeTo(buffer);
+                tupleCount++;
+
+                if (buffer.size() > MAX_BLOCK_SIZE) {
+                    write(sliceOutput, tupleCount, buffer.slice());
+                    tupleCount = 0;
+                    buffer = new DynamicSliceOutput(MAX_BLOCK_SIZE);
+                }
+            }
+
+            return this;
+        }
+
+        @Override
+        public void finished()
+        {
+            checkState(initialized, "nothing appended");
+            checkState(!finished, "already finished");
+            finished = true;
+
+            if (buffer.size() > 0) {
+                write(sliceOutput, tupleCount, buffer.slice());
+            }
+        }
+    }
+
+    private static class UncompressedReader
+            extends AbstractIterator<UncompressedBlock>
     {
         private final TupleInfo tupleInfo;
         private final SliceInput sliceInput;

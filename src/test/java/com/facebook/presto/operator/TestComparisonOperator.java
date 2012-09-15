@@ -2,7 +2,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
+import com.facebook.presto.block.uncompressed.UncompressedTupleStream;
 import com.facebook.presto.operation.LongLessThanComparison;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -18,11 +18,11 @@ public class TestComparisonOperator
     public void testAligned()
             throws Exception
     {
-        UncompressedBlockStream left = new UncompressedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
+        UncompressedTupleStream left = new UncompressedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 createLongsBlock(0, 1, 2, 3, 4, 5),
                 createLongsBlock(5, 6, 7, 8, 9, 10)));
 
-        UncompressedBlockStream right = new UncompressedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
+        UncompressedTupleStream right = new UncompressedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 createLongsBlock(0, 1, 0, 2, 5, 3),
                 createLongsBlock(5, 6, 8, 6, 11, 4)));
 
@@ -42,11 +42,11 @@ public class TestComparisonOperator
     public void testUnaligned()
             throws Exception
     {
-        UncompressedBlockStream left = new UncompressedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
+        UncompressedTupleStream left = new UncompressedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 createLongsBlock(0, 1, 2, 3, 4, 5),
                 createLongsBlock(5, 6, 7, 8, 9, 10)));
 
-        UncompressedBlockStream right = new UncompressedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
+        UncompressedTupleStream right = new UncompressedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 createLongsBlock(0, 0, 3, 3, 6, 8, 4, 8, 10),
                 createLongsBlock(8, 5, 20)));
 

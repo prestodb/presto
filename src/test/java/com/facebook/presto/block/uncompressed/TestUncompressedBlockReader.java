@@ -31,9 +31,9 @@ public class TestUncompressedBlockReader
                 .append("dave".getBytes(UTF_8))
                 .build();
 
-        UncompressedBlockStream blockStream = new UncompressedBlockStream(TupleInfo.SINGLE_VARBINARY, ImmutableList.of(block));
+        UncompressedTupleStream tupleStream = new UncompressedTupleStream(TupleInfo.SINGLE_VARBINARY, ImmutableList.of(block));
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        ColumnProcessor processor = new UncompressedColumnWriter(Type.VARIABLE_BINARY, 0, blockStream.cursor(), out);
+        ColumnProcessor processor = new ColumnWriter(Type.VARIABLE_BINARY, 0, tupleStream.cursor(), out);
         processor.processPositions(Integer.MAX_VALUE);
         processor.finish();
 
@@ -44,6 +44,6 @@ public class TestUncompressedBlockReader
         TupleStream copiedBlock = copiedBlocks.get(0);
         assertEquals(copiedBlock.getRange(), block.getRange());
 
-        assertBlockStreamEquals(new UncompressedBlockStream(TupleInfo.SINGLE_VARBINARY, copiedBlocks), blockStream);
+        assertBlockStreamEquals(new UncompressedTupleStream(TupleInfo.SINGLE_VARBINARY, copiedBlocks), tupleStream);
     }
 }

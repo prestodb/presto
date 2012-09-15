@@ -3,13 +3,12 @@ package com.facebook.presto.block.rle;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Blocks;
-import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.block.uncompressed.UncompressedTupleStream;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.SliceOutput;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 
 public class TestRunLengthEncodedSerde
 {
@@ -50,7 +49,7 @@ public class TestRunLengthEncodedSerde
     @Test
     public void testPositionGaps() throws Exception
     {
-        TupleStream tupleStream = new UncompressedBlockStream(
+        TupleStream tupleStream = new UncompressedTupleStream(
                 TupleInfo.SINGLE_VARBINARY,
                 Blocks.createBlock(1, "a", "a", "b", "a", "c"),
                 Blocks.createBlock(6, "c", "a", "b", "b", "b"),
@@ -59,5 +58,29 @@ public class TestRunLengthEncodedSerde
         );
         rleSerde.serialize(tupleStream, sliceOutput);
         Blocks.assertBlockStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
+    }
+
+    @Test
+    public void testTupleWriter()
+            throws Exception
+    {
+        UncompressedBlock block1 = Blocks.createBlock(1, "a", "a", "b", "a", "c");
+        UncompressedBlock block2 = Blocks.createBlock(6, "c", "a", "b", "b", "b");
+        UncompressedBlock block3 = Blocks.createBlock(100, "y", "y", "a", "y", "b");
+        UncompressedBlock block4 = Blocks.createBlock(200, "b");
+        TupleStream tupleStream = new UncompressedTupleStream(
+                TupleInfo.SINGLE_VARBINARY,
+                block1,
+                block2,
+                block3,
+                block4
+        );
+        rleSerde.createTupleStreamWriter(sliceOutput)
+                .append(block1)
+                .append(block2)
+                .append(block3)
+                .append(block4)
+                .finished();
+        Blocks.assertTupleStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
     }
 }
