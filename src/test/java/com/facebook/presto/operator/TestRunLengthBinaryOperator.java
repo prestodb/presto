@@ -1,22 +1,19 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Range;
-import com.facebook.presto.block.rle.RunLengthEncodedBlockStream;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.Tuples;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
+import com.facebook.presto.block.rle.RunLengthEncodedTupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedTupleStream;
 import com.facebook.presto.operation.SubtractionOperation;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.Blocks.createLongsBlock;
-import static com.facebook.presto.block.CursorAssertions.assertNextPosition;
 import static com.facebook.presto.block.CursorAssertions.assertNextValue;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.*;
 
 public class TestRunLengthBinaryOperator
 {
@@ -24,8 +21,8 @@ public class TestRunLengthBinaryOperator
     public void testSingleBlockRleVsRle()
             throws Exception
     {
-        RunLengthEncodedBlockStream left = new RunLengthEncodedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(3), Range.create(0, 4))));
-        RunLengthEncodedBlockStream right = new RunLengthEncodedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(1), Range.create(0, 4))));
+        RunLengthEncodedTupleStream left = new RunLengthEncodedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(3), Range.create(0, 4))));
+        RunLengthEncodedTupleStream right = new RunLengthEncodedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(1), Range.create(0, 4))));
 
         RunLengthBinaryOperator operator = new RunLengthBinaryOperator(left, right, new SubtractionOperation());
 
@@ -73,11 +70,11 @@ public class TestRunLengthBinaryOperator
     public void testUnalignedRleVsRle()
             throws Exception
     {
-        RunLengthEncodedBlockStream left = new RunLengthEncodedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
+        RunLengthEncodedTupleStream left = new RunLengthEncodedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 new RunLengthEncodedBlock(Tuples.createTuple(8), Range.create(0, 4)),
                 new RunLengthEncodedBlock(Tuples.createTuple(16), Range.create(5, 9))));
 
-        RunLengthEncodedBlockStream right = new RunLengthEncodedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
+        RunLengthEncodedTupleStream right = new RunLengthEncodedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 new RunLengthEncodedBlock(Tuples.createTuple(5), Range.create(0, 7)),
                 new RunLengthEncodedBlock(Tuples.createTuple(3), Range.create(8, 9))));
 
@@ -101,11 +98,11 @@ public class TestRunLengthBinaryOperator
     public void testAlignedRleVsRle()
             throws Exception
     {
-        RunLengthEncodedBlockStream left = new RunLengthEncodedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
+        RunLengthEncodedTupleStream left = new RunLengthEncodedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 new RunLengthEncodedBlock(Tuples.createTuple(8), Range.create(0, 4)),
                 new RunLengthEncodedBlock(Tuples.createTuple(16), Range.create(5, 9))));
 
-        RunLengthEncodedBlockStream right = new RunLengthEncodedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
+        RunLengthEncodedTupleStream right = new RunLengthEncodedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 new RunLengthEncodedBlock(Tuples.createTuple(5), Range.create(0, 4)),
                 new RunLengthEncodedBlock(Tuples.createTuple(3), Range.create(5, 9))));
 
@@ -189,8 +186,8 @@ public class TestRunLengthBinaryOperator
     public void testFailsOnOutOfSync()
             throws Exception
     {
-        RunLengthEncodedBlockStream left = new RunLengthEncodedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(3), Range.create(1, 5))));
-        RunLengthEncodedBlockStream right = new RunLengthEncodedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(1), Range.create(0, 5))));
+        RunLengthEncodedTupleStream left = new RunLengthEncodedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(3), Range.create(1, 5))));
+        RunLengthEncodedTupleStream right = new RunLengthEncodedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(1), Range.create(0, 5))));
 
         RunLengthBinaryOperator operator = new RunLengthBinaryOperator(left, right, new SubtractionOperation());
 

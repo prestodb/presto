@@ -8,7 +8,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.block.Blocks.createBlockStream;
+import static com.facebook.presto.block.Blocks.createTupleStream;
 import static org.testng.Assert.assertEquals;
 
 public class TestCountAggregation
@@ -17,7 +17,7 @@ public class TestCountAggregation
     public void testBasic()
             throws Exception
     {
-        UncompressedTupleStream values = createBlockStream(0, "apple", "banana", "cherry", "date");
+        UncompressedTupleStream values = createTupleStream(0, "apple", "banana", "cherry", "date");
         Range range = Range.create(0, 3);
 
         assertCount(values, range, 4);
@@ -27,7 +27,7 @@ public class TestCountAggregation
     public void testSubset()
             throws Exception
     {
-        UncompressedTupleStream values = createBlockStream(0, "apple", "banana", "cherry", "date");
+        UncompressedTupleStream values = createTupleStream(0, "apple", "banana", "cherry", "date");
         Range range = Range.create(1, 2);
 
         assertCount(values, range, 2);
@@ -37,7 +37,7 @@ public class TestCountAggregation
     public void testNonOverlapping()
             throws Exception
     {
-        UncompressedTupleStream values = createBlockStream(0, "apple", "banana", "cherry", "date");
+        UncompressedTupleStream values = createTupleStream(0, "apple", "banana", "cherry", "date");
         Range range = Range.create(10, 20);
 
         assertCount(values, range, 0);
@@ -47,7 +47,7 @@ public class TestCountAggregation
     public void testSparse()
             throws Exception
     {
-        UncompressedTupleStream values = createBlockStream(0, "apple", "banana", "cherry", "date");
+        UncompressedTupleStream values = createTupleStream(0, "apple", "banana", "cherry", "date");
         List<Range> ranges = ImmutableList.of(Range.create(1, 1), Range.create(3, 3));
 
         assertCount(values, ranges, 2);

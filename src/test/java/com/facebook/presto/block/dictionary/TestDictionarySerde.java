@@ -11,7 +11,7 @@ import com.facebook.presto.slice.SliceOutput;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.block.Blocks.assertBlockStreamEquals;
+import static com.facebook.presto.block.Blocks.assertTupleStreamEquals;
 
 public class TestDictionarySerde
 {
@@ -30,28 +30,28 @@ public class TestDictionarySerde
     public void testSanity()
             throws Exception
     {
-        TupleStream tupleStream = Blocks.createBlockStream(0, "a", "b", "cde", "fuu", "a", "fuu");
+        TupleStream tupleStream = Blocks.createTupleStream(0, "a", "b", "cde", "fuu", "a", "fuu");
         dictionarySerde.serialize(tupleStream, sliceOutput);
-        assertBlockStreamEquals(dictionarySerde.deserialize(sliceOutput.slice()), tupleStream);
+        assertTupleStreamEquals(dictionarySerde.deserialize(sliceOutput.slice()), tupleStream);
     }
 
     @Test
     public void testAllSame()
             throws Exception
     {
-        TupleStream tupleStream = Blocks.createBlockStream(0, "a", "a", "a", "a", "a", "a", "a");
+        TupleStream tupleStream = Blocks.createTupleStream(0, "a", "a", "a", "a", "a", "a", "a");
         dictionarySerde.serialize(tupleStream, sliceOutput);
         TupleStream deserialize = dictionarySerde.deserialize(sliceOutput.slice());
-        assertBlockStreamEquals(deserialize, tupleStream);
+        assertTupleStreamEquals(deserialize, tupleStream);
     }
 
     @Test
     public void testAllUnique()
             throws Exception
     {
-        TupleStream tupleStream = Blocks.createBlockStream(0, "a", "b", "c", "d", "e", "f", "g");
+        TupleStream tupleStream = Blocks.createTupleStream(0, "a", "b", "c", "d", "e", "f", "g");
         dictionarySerde.serialize(tupleStream, sliceOutput);
-        assertBlockStreamEquals(dictionarySerde.deserialize(sliceOutput.slice()), tupleStream);
+        assertTupleStreamEquals(dictionarySerde.deserialize(sliceOutput.slice()), tupleStream);
     }
 
     @Test
@@ -66,7 +66,7 @@ public class TestDictionarySerde
                 Blocks.createBlock(200, "b")
         );
         dictionarySerde.serialize(tupleStream, sliceOutput);
-        Blocks.assertBlockStreamEquals(tupleStream, dictionarySerde.deserialize(sliceOutput.slice()));
+        Blocks.assertTupleStreamEquals(tupleStream, dictionarySerde.deserialize(sliceOutput.slice()));
     }
 
     @Test

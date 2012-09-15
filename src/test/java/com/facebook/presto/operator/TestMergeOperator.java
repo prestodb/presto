@@ -13,7 +13,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
-import static com.facebook.presto.block.Blocks.assertBlockStreamEquals;
+import static com.facebook.presto.block.Blocks.assertTupleStreamEquals;
 import static com.facebook.presto.block.Blocks.createBlock;
 
 public class TestMergeOperator
@@ -38,6 +38,6 @@ public class TestMergeOperator
             expectedBlock.append(new byte[]{(byte) i});
         }
 
-        assertBlockStreamEquals(merge, new UncompressedTupleStream(expectedTupleInfo, expectedBlock.build()));
+        assertTupleStreamEquals(merge, new UncompressedTupleStream(expectedTupleInfo, expectedBlock.build()));
     }
 }

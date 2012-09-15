@@ -14,7 +14,7 @@ import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
 
-import static com.facebook.presto.block.Blocks.assertBlockStreamEquals;
+import static com.facebook.presto.block.Blocks.assertTupleStreamEquals;
 import static com.google.common.base.Charsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 
@@ -44,6 +44,6 @@ public class TestUncompressedBlockReader
         TupleStream copiedBlock = copiedBlocks.get(0);
         assertEquals(copiedBlock.getRange(), block.getRange());
 
-        assertBlockStreamEquals(new UncompressedTupleStream(TupleInfo.SINGLE_VARBINARY, copiedBlocks), tupleStream);
+        assertTupleStreamEquals(new UncompressedTupleStream(TupleInfo.SINGLE_VARBINARY, copiedBlocks), tupleStream);
     }
 }

@@ -47,8 +47,8 @@ public class TestCsv
                 resourceFile("action.csv")
         });
 
-        Blocks.assertBlockStreamEquals(readColumn(0),
-                Blocks.createLongsBlockStream(0,
+        Blocks.assertTupleStreamEquals(readColumn(0),
+                Blocks.createLongsTupleStream(0,
                         1879196505L,
                         1879196505L,
                         1879196505L,
@@ -60,8 +60,8 @@ public class TestCsv
                         1306113840L,
                         1659333773L));
 
-        Blocks.assertBlockStreamEquals(readColumn(1),
-                Blocks.createLongsBlockStream(0,
+        Blocks.assertTupleStreamEquals(readColumn(1),
+                Blocks.createLongsTupleStream(0,
                         1343864557153L,
                         1343864681084L,
                         1343864759296L,
@@ -73,8 +73,8 @@ public class TestCsv
                         1343940755299L,
                         1343940261345L));
 
-        Blocks.assertBlockStreamEquals(readColumn(2),
-                Blocks.createLongsBlockStream(0,
+        Blocks.assertTupleStreamEquals(readColumn(2),
+                Blocks.createLongsTupleStream(0,
                         1343864681084L,
                         1343864759296L,
                         1343864769178L,
@@ -86,8 +86,8 @@ public class TestCsv
                         1343940755299L,
                         1343940261345L));
 
-        Blocks.assertBlockStreamEquals(readColumn(3),
-                Blocks.createBlockStream(0,
+        Blocks.assertTupleStreamEquals(readColumn(3),
+                Blocks.createTupleStream(0,
                         "xyz",
                         "xyz",
                         "xyz",

@@ -10,7 +10,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.block.Blocks.assertBlockStreamEquals;
+import static com.facebook.presto.block.Blocks.assertTupleStreamEquals;
 import static com.facebook.presto.block.Blocks.createBlock;
 
 public class TestFilterOperator
@@ -34,7 +34,7 @@ public class TestFilterOperator
 
         FilterOperator filterOperator = new FilterOperator(TupleInfo.SINGLE_VARBINARY, new UncompressedTupleStream(TupleInfo.SINGLE_VARBINARY, values), new GenericTupleStream<>(TupleInfo.EMPTY, positions));
 
-        assertBlockStreamEquals(filterOperator,
+        assertTupleStreamEquals(filterOperator,
                 new UncompressedTupleStream(TupleInfo.SINGLE_VARBINARY,
                         createBlock(2, "c"),
                         createBlock(4, "e"),
