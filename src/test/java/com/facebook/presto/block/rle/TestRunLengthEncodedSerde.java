@@ -25,25 +25,25 @@ public class TestRunLengthEncodedSerde
     @Test
     public void testSanity() throws Exception
     {
-        TupleStream tupleStream = Blocks.createBlockStream(0, "a", "b", "b", "cde", "fuu", "a", "fuu");
+        TupleStream tupleStream = Blocks.createTupleStream(0, "a", "b", "b", "cde", "fuu", "a", "fuu");
         rleSerde.serialize(tupleStream, sliceOutput);
-        Blocks.assertBlockStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
+        Blocks.assertTupleStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
     }
 
     @Test
     public void testAllSame() throws Exception
     {
-        TupleStream tupleStream = Blocks.createBlockStream(0, "a", "a", "a", "a", "a", "a", "a");
+        TupleStream tupleStream = Blocks.createTupleStream(0, "a", "a", "a", "a", "a", "a", "a");
         rleSerde.serialize(tupleStream, sliceOutput);
-        Blocks.assertBlockStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
+        Blocks.assertTupleStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
     }
 
     @Test
     public void testAllUnique() throws Exception
     {
-        TupleStream tupleStream = Blocks.createBlockStream(0, "a", "b", "c", "d", "e", "f", "g");
+        TupleStream tupleStream = Blocks.createTupleStream(0, "a", "b", "c", "d", "e", "f", "g");
         rleSerde.serialize(tupleStream, sliceOutput);
-        Blocks.assertBlockStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
+        Blocks.assertTupleStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
     }
 
     @Test
@@ -57,7 +57,7 @@ public class TestRunLengthEncodedSerde
                 Blocks.createBlock(200, "b")
         );
         rleSerde.serialize(tupleStream, sliceOutput);
-        Blocks.assertBlockStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
+        Blocks.assertTupleStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
     }
 
     @Test

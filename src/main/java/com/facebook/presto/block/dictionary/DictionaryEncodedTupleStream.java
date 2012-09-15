@@ -20,7 +20,7 @@ public class DictionaryEncodedTupleStream
     {
         checkNotNull(tupleInfo, "tupleInfo is null");
         checkNotNull(dictionary, "dictionary is null");
-        checkNotNull(sourceTupleStream, "sourceBlockStream is null");
+        checkNotNull(sourceTupleStream, "sourceTupleStream is null");
         checkArgument(tupleInfo.getFieldCount() == 1, "tupleInfo should only have one column");
 
         this.tupleInfo = tupleInfo;

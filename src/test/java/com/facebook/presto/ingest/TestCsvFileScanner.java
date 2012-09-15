@@ -11,7 +11,7 @@ import java.util.List;
 
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
-import static com.facebook.presto.block.Blocks.assertBlockStreamEquals;
+import static com.facebook.presto.block.Blocks.assertTupleStreamEquals;
 import static com.facebook.presto.ingest.CsvReader.csvNumericColumn;
 import static com.facebook.presto.ingest.CsvReader.csvStringColumn;
 import static com.google.common.base.Charsets.UTF_8;
@@ -44,14 +44,14 @@ public class TestCsvFileScanner
                 processor.finish();
             }
 
-            assertBlockStreamEquals(processors.get(0).getTupleStream(),
-                    Blocks.createLongsBlockStream(0, 0, 1, 2, 3));
+            assertTupleStreamEquals(processors.get(0).getTupleStream(),
+                    Blocks.createLongsTupleStream(0, 0, 1, 2, 3));
 
-            assertBlockStreamEquals(processors.get(1).getTupleStream(),
-                    Blocks.createBlockStream(0, "apple", "banana", "cherry", "date"));
+            assertTupleStreamEquals(processors.get(1).getTupleStream(),
+                    Blocks.createTupleStream(0, "apple", "banana", "cherry", "date"));
 
-            assertBlockStreamEquals(processors.get(2).getTupleStream(),
-                    Blocks.createBlockStream(0, "alice", "bob", "charlie", "dave"));
+            assertTupleStreamEquals(processors.get(2).getTupleStream(),
+                    Blocks.createTupleStream(0, "alice", "bob", "charlie", "dave"));
         }
     }
 }

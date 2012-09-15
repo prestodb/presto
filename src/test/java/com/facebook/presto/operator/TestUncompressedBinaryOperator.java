@@ -1,7 +1,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Range;
-import com.facebook.presto.block.rle.RunLengthEncodedBlockStream;
+import com.facebook.presto.block.rle.RunLengthEncodedTupleStream;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.Tuples;
 import com.facebook.presto.block.Cursor;
@@ -83,8 +83,8 @@ public class TestUncompressedBinaryOperator
     public void testFailsOnOutOfSync()
             throws Exception
     {
-        RunLengthEncodedBlockStream left = new RunLengthEncodedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(3), Range.create(1, 5))));
-        RunLengthEncodedBlockStream right = new RunLengthEncodedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(1), Range.create(0, 5))));
+        RunLengthEncodedTupleStream left = new RunLengthEncodedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(3), Range.create(1, 5))));
+        RunLengthEncodedTupleStream right = new RunLengthEncodedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(1), Range.create(0, 5))));
 
         UncompressedBinaryOperator operator = new UncompressedBinaryOperator(left, right, new SubtractionOperation());
 
