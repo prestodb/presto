@@ -51,7 +51,7 @@ public class TestRunLengthEncodedSerde
     public void testPositionGaps() throws Exception
     {
         TupleStream tupleStream = new UncompressedBlockStream(
-                new TupleInfo(VARIABLE_BINARY),
+                TupleInfo.SINGLE_VARBINARY,
                 Blocks.createBlock(1, "a", "a", "b", "a", "c"),
                 Blocks.createBlock(6, "c", "a", "b", "b", "b"),
                 Blocks.createBlock(100, "y", "y", "a", "y", "b"),

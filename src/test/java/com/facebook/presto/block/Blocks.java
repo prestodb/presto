@@ -64,12 +64,12 @@ public class Blocks
 
     public static UncompressedBlockStream createBlockStream(int position, String... values)
     {
-        return new UncompressedBlockStream(new TupleInfo(VARIABLE_BINARY), createBlock(position, values));
+        return new UncompressedBlockStream(TupleInfo.SINGLE_VARBINARY, createBlock(position, values));
     }
 
     public static UncompressedBlock createBlock(long position, String... values)
     {
-        BlockBuilder builder = new BlockBuilder(position, new TupleInfo(VARIABLE_BINARY));
+        BlockBuilder builder = new BlockBuilder(position, TupleInfo.SINGLE_VARBINARY);
 
         for (String value : values) {
             builder.append(value.getBytes(UTF_8));
@@ -80,12 +80,12 @@ public class Blocks
 
     public static UncompressedBlockStream createLongsBlockStream(long position, long... values)
     {
-        return new UncompressedBlockStream(new TupleInfo(FIXED_INT_64), createLongsBlock(position, values));
+        return new UncompressedBlockStream(TupleInfo.SINGLE_LONG, createLongsBlock(position, values));
     }
 
     public static UncompressedBlock createLongsBlock(long position, long... values)
     {
-        BlockBuilder builder = new BlockBuilder(position, new TupleInfo(FIXED_INT_64));
+        BlockBuilder builder = new BlockBuilder(position, TupleInfo.SINGLE_LONG);
 
         for (long value : values) {
             builder.append(value);
@@ -96,12 +96,12 @@ public class Blocks
 
     public static UncompressedBlockStream createDoublesBlockStream(long position, double... values)
     {
-        return new UncompressedBlockStream(new TupleInfo(DOUBLE), createDoublesBlock(position, values));
+        return new UncompressedBlockStream(TupleInfo.SINGLE_DOUBLE, createDoublesBlock(position, values));
     }
 
     public static UncompressedBlock createDoublesBlock(long position, double... values)
     {
-        BlockBuilder builder = new BlockBuilder(position, new TupleInfo(DOUBLE));
+        BlockBuilder builder = new BlockBuilder(position, TupleInfo.SINGLE_DOUBLE);
 
         for (double value : values) {
             builder.append(value);

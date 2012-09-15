@@ -18,15 +18,13 @@ public class AverageAggregation
         }
     };
 
-    private static final TupleInfo TUPLE_INFO = new TupleInfo(TupleInfo.Type.DOUBLE);
-
     private double sum;
     private long count;
 
     @Override
     public TupleInfo getTupleInfo()
     {
-        return TUPLE_INFO;
+        return TupleInfo.SINGLE_DOUBLE;
     }
 
     @Override

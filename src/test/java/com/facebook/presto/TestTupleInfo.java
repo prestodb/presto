@@ -29,11 +29,9 @@ public class TestTupleInfo
     @Test
     public void testSingleVariableLength()
     {
-        TupleInfo info = new TupleInfo(VARIABLE_BINARY);
-
         Slice binary = Slices.wrappedBuffer(new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 });
 
-        Tuple tuple = info.builder()
+        Tuple tuple = TupleInfo.SINGLE_VARBINARY.builder()
                 .append(binary)
                 .build();
 

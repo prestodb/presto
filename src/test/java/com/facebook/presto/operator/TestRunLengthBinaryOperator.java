@@ -24,10 +24,8 @@ public class TestRunLengthBinaryOperator
     public void testSingleBlockRleVsRle()
             throws Exception
     {
-        TupleInfo info = new TupleInfo(TupleInfo.Type.FIXED_INT_64);
-
-        RunLengthEncodedBlockStream left = new RunLengthEncodedBlockStream(info, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(3), Range.create(0, 4))));
-        RunLengthEncodedBlockStream right = new RunLengthEncodedBlockStream(info, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(1), Range.create(0, 4))));
+        RunLengthEncodedBlockStream left = new RunLengthEncodedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(3), Range.create(0, 4))));
+        RunLengthEncodedBlockStream right = new RunLengthEncodedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(1), Range.create(0, 4))));
 
         RunLengthBinaryOperator operator = new RunLengthBinaryOperator(left, right, new SubtractionOperation());
 
@@ -44,10 +42,8 @@ public class TestRunLengthBinaryOperator
     public void testSingleBlockUncompressedVsUncompressed()
             throws Exception
     {
-        TupleInfo info = new TupleInfo(TupleInfo.Type.FIXED_INT_64);
-
-        UncompressedBlockStream left = new UncompressedBlockStream(info, createLongsBlock(0, 10, 11, 12, 13, 14));
-        UncompressedBlockStream right = new UncompressedBlockStream(info, createLongsBlock(0, 9, 8, 7, 6, 5));
+        UncompressedBlockStream left = new UncompressedBlockStream(TupleInfo.SINGLE_LONG, createLongsBlock(0, 10, 11, 12, 13, 14));
+        UncompressedBlockStream right = new UncompressedBlockStream(TupleInfo.SINGLE_LONG, createLongsBlock(0, 9, 8, 7, 6, 5));
 
         RunLengthBinaryOperator operator = new RunLengthBinaryOperator(left, right, new SubtractionOperation());
 
@@ -77,13 +73,11 @@ public class TestRunLengthBinaryOperator
     public void testUnalignedRleVsRle()
             throws Exception
     {
-        TupleInfo info = new TupleInfo(TupleInfo.Type.FIXED_INT_64);
-
-        RunLengthEncodedBlockStream left = new RunLengthEncodedBlockStream(info, ImmutableList.of(
+        RunLengthEncodedBlockStream left = new RunLengthEncodedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 new RunLengthEncodedBlock(Tuples.createTuple(8), Range.create(0, 4)),
                 new RunLengthEncodedBlock(Tuples.createTuple(16), Range.create(5, 9))));
 
-        RunLengthEncodedBlockStream right = new RunLengthEncodedBlockStream(info, ImmutableList.of(
+        RunLengthEncodedBlockStream right = new RunLengthEncodedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 new RunLengthEncodedBlock(Tuples.createTuple(5), Range.create(0, 7)),
                 new RunLengthEncodedBlock(Tuples.createTuple(3), Range.create(8, 9))));
 
@@ -107,13 +101,11 @@ public class TestRunLengthBinaryOperator
     public void testAlignedRleVsRle()
             throws Exception
     {
-        TupleInfo info = new TupleInfo(TupleInfo.Type.FIXED_INT_64);
-
-        RunLengthEncodedBlockStream left = new RunLengthEncodedBlockStream(info, ImmutableList.of(
+        RunLengthEncodedBlockStream left = new RunLengthEncodedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 new RunLengthEncodedBlock(Tuples.createTuple(8), Range.create(0, 4)),
                 new RunLengthEncodedBlock(Tuples.createTuple(16), Range.create(5, 9))));
 
-        RunLengthEncodedBlockStream right = new RunLengthEncodedBlockStream(info, ImmutableList.of(
+        RunLengthEncodedBlockStream right = new RunLengthEncodedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 new RunLengthEncodedBlock(Tuples.createTuple(5), Range.create(0, 4)),
                 new RunLengthEncodedBlock(Tuples.createTuple(3), Range.create(5, 9))));
 
@@ -135,13 +127,11 @@ public class TestRunLengthBinaryOperator
     public void testAlignedUncompressed()
             throws Exception
     {
-        TupleInfo info = new TupleInfo(TupleInfo.Type.FIXED_INT_64);
-
-        UncompressedBlockStream left = new UncompressedBlockStream(info, ImmutableList.of(
+        UncompressedBlockStream left = new UncompressedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 createLongsBlock(0, 10, 11, 12, 13, 14),
                 createLongsBlock(5, 15, 16, 17, 18, 19)));
 
-        UncompressedBlockStream right = new UncompressedBlockStream(info, ImmutableList.of(
+        UncompressedBlockStream right = new UncompressedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 createLongsBlock(0, 10, 9, 8, 7, 6),
                 createLongsBlock(5, 5, 4, 3, 2, 1)));
 
@@ -168,13 +158,11 @@ public class TestRunLengthBinaryOperator
     public void testUnalignedUncompressed()
             throws Exception
     {
-        TupleInfo info = new TupleInfo(TupleInfo.Type.FIXED_INT_64);
-
-        UncompressedBlockStream left = new UncompressedBlockStream(info, ImmutableList.of(
+        UncompressedBlockStream left = new UncompressedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 createLongsBlock(0, 10, 11, 12, 13, 14),
                 createLongsBlock(5, 15, 16, 17, 18, 19)));
 
-        UncompressedBlockStream right = new UncompressedBlockStream(info, ImmutableList.of(
+        UncompressedBlockStream right = new UncompressedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 createLongsBlock(0, 10, 9, 8, 7, 6, 5, 4, 3),
                 createLongsBlock(8, 2, 1)));
 
@@ -201,10 +189,8 @@ public class TestRunLengthBinaryOperator
     public void testFailsOnOutOfSync()
             throws Exception
     {
-        TupleInfo info = new TupleInfo(TupleInfo.Type.FIXED_INT_64);
-
-        RunLengthEncodedBlockStream left = new RunLengthEncodedBlockStream(info, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(3), Range.create(1, 5))));
-        RunLengthEncodedBlockStream right = new RunLengthEncodedBlockStream(info, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(1), Range.create(0, 5))));
+        RunLengthEncodedBlockStream left = new RunLengthEncodedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(3), Range.create(1, 5))));
+        RunLengthEncodedBlockStream right = new RunLengthEncodedBlockStream(TupleInfo.SINGLE_LONG, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(1), Range.create(0, 5))));
 
         RunLengthBinaryOperator operator = new RunLengthBinaryOperator(left, right, new SubtractionOperation());
 

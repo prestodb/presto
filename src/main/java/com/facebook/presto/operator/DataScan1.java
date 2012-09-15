@@ -16,7 +16,6 @@ public class DataScan1
         implements TupleStream
 {
     private static final int RANGES_PER_BLOCK = 100;
-    private static final TupleInfo INFO = new TupleInfo();
 
     private final TupleStream source;
     private final Predicate<Cursor> predicate;
@@ -32,7 +31,7 @@ public class DataScan1
     @Override
     public TupleInfo getTupleInfo()
     {
-        return INFO;
+        return TupleInfo.EMPTY;
     }
 
     @Override
@@ -70,6 +69,6 @@ public class DataScan1
     @Override
     public Cursor cursor()
     {
-        return new GenericCursor(INFO, iterator());
+        return new GenericCursor(TupleInfo.EMPTY, iterator());
     }
 }

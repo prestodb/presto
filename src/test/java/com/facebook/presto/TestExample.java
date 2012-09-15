@@ -3,16 +3,15 @@ package com.facebook.presto;
 import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.GenericTupleStream;
+import com.facebook.presto.block.position.UncompressedPositionBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
-import com.facebook.presto.block.position.UncompressedPositionBlock;
 import com.facebook.presto.operator.FilterOperator;
 import com.facebook.presto.operator.MergeOperator;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Charsets.UTF_8;
 
 public class TestExample
@@ -55,7 +54,6 @@ public class TestExample
                 .add(new UncompressedPositionBlock(40L, 41L, 42L))
                 .build();
 
-        TupleInfo tupleInfo = new TupleInfo(VARIABLE_BINARY);
-        return new FilterOperator(tupleInfo, new UncompressedBlockStream(tupleInfo, values), new GenericTupleStream<>(new TupleInfo(), positions));
+        return new FilterOperator(TupleInfo.SINGLE_VARBINARY, new UncompressedBlockStream(TupleInfo.SINGLE_VARBINARY, values), new GenericTupleStream<>(TupleInfo.EMPTY, positions));
     }
 }

@@ -22,8 +22,7 @@ public class Tuples
 
     public static Tuple createTuple(long value)
     {
-        TupleInfo tupleInfo = new TupleInfo(FIXED_INT_64);
-        Tuple tuple = tupleInfo.builder()
+        Tuple tuple = TupleInfo.SINGLE_LONG.builder()
                 .append(value)
                 .build();
 
@@ -32,8 +31,7 @@ public class Tuples
 
     public static Tuple createTuple(double value)
     {
-        TupleInfo tupleInfo = new TupleInfo(DOUBLE);
-        Tuple tuple = tupleInfo.builder()
+        Tuple tuple = TupleInfo.SINGLE_DOUBLE.builder()
                 .append(value)
                 .build();
 
@@ -42,8 +40,7 @@ public class Tuples
 
     public static Tuple createTuple(String value)
     {
-        TupleInfo tupleInfo = new TupleInfo(VARIABLE_BINARY);
-        Tuple tuple = tupleInfo.builder()
+        Tuple tuple = TupleInfo.SINGLE_VARBINARY.builder()
                 .append(Slices.wrappedBuffer(value.getBytes(UTF_8)))
                 .build();
 

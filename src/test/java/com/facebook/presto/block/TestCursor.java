@@ -22,7 +22,7 @@ public class TestCursor
             .add(Blocks.createLongsBlock(20, 20, 21, 22, 23, 24, 25, 26))
                 .build();
 
-        UncompressedCursor cursor = new UncompressedCursor(new TupleInfo(TupleInfo.Type.FIXED_INT_64), block.iterator());
+        UncompressedCursor cursor = new UncompressedCursor(TupleInfo.SINGLE_LONG, block.iterator());
 
         ImmutableList.Builder<Long> builder = ImmutableList.builder();
         while (cursor.advanceNextValue()) {

@@ -18,14 +18,13 @@ public class DoubleSumAggregation
             return new DoubleSumAggregation();
         }
     };
-    private static final TupleInfo TUPLE_INFO = new TupleInfo(TupleInfo.Type.DOUBLE);
 
     private double sum;
 
     @Override
     public TupleInfo getTupleInfo()
     {
-        return TUPLE_INFO;
+        return TupleInfo.SINGLE_DOUBLE;
     }
 
     @Override

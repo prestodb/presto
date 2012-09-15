@@ -1,13 +1,12 @@
 package com.facebook.presto.block.rle;
 
-import com.facebook.presto.block.AbstractTestCursor;
-import com.facebook.presto.block.Blocks;
-import com.facebook.presto.block.CursorAssertions;
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.Tuples;
+import com.facebook.presto.block.AbstractTestCursor;
+import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.CursorAssertions;
 import com.facebook.presto.block.uncompressed.UncompressedCursor;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -15,10 +14,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.block.CursorAssertions.assertCurrentValue;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.testng.Assert.*;
 
 public class TestRunLengthEncodedCursor extends AbstractTestCursor
 {
@@ -221,15 +217,13 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
 
     protected RunLengthEncodedCursor createCursor()
     {
-        TupleInfo info = new TupleInfo(TupleInfo.Type.VARIABLE_BINARY);
-
         List<RunLengthEncodedBlock> blocks = ImmutableList.of(
                 new RunLengthEncodedBlock(Tuples.createTuple("apple"), Range.create(0, 4)),
                 new RunLengthEncodedBlock(Tuples.createTuple("banana"), Range.create(5, 7)),
                 new RunLengthEncodedBlock(Tuples.createTuple("cherry"), Range.create(20, 21)),
                 new RunLengthEncodedBlock(Tuples.createTuple("date"), Range.create(30, 30)));
 
-        return new RunLengthEncodedCursor(info, blocks.iterator());
+        return new RunLengthEncodedCursor(TupleInfo.SINGLE_VARBINARY, blocks.iterator());
     }
 
     @Test
@@ -237,11 +231,10 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
             throws Exception
     {
         Cursor cursor = createCursor();
-        TupleInfo tupleInfo = new TupleInfo(Type.VARIABLE_BINARY);
-        assertEquals(cursor.getTupleInfo(), tupleInfo);
+        assertEquals(cursor.getTupleInfo(), TupleInfo.SINGLE_VARBINARY);
 
         try {
-            new UncompressedCursor(tupleInfo, null);
+            new UncompressedCursor(TupleInfo.SINGLE_VARBINARY, null);
             fail("Expected NullPointerException");
         }
         catch (NullPointerException expected) {

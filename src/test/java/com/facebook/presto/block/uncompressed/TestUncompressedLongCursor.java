@@ -30,8 +30,7 @@ public class TestUncompressedLongCursor extends AbstractTestCursor
             throws Exception
     {
         Cursor cursor = createCursor();
-        TupleInfo tupleInfo = new TupleInfo(Type.FIXED_INT_64);
-        assertEquals(cursor.getTupleInfo(), tupleInfo);
+        assertEquals(cursor.getTupleInfo(), TupleInfo.SINGLE_LONG);
     }
 
     @Test
