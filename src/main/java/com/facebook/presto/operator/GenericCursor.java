@@ -67,16 +67,19 @@ public class GenericCursor implements Cursor
         }
 
         hasAdvanced = true;
-        if (!blockCursor.advanceNextValue()) {
-            if (iterator.hasNext()) {
-                blockCursor = iterator.next().cursor();
-                blockCursor.advanceNextPosition();
-            } else {
-                blockCursor = null;
-                return false;
+        if (blockCursor.advanceNextValue()) {
+            return true;
+        }
+
+        while (iterator.hasNext()) {
+            blockCursor = iterator.next().cursor();
+            if (blockCursor.advanceNextPosition()) {
+                return true;
             }
         }
-        return true;
+
+        blockCursor = null;
+        return false;
     }
 
     @Override
