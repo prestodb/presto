@@ -4,6 +4,8 @@ import com.facebook.presto.Main;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.uncompressed.UncompressedSerde;
+import com.facebook.presto.slice.Slices;
+import com.google.common.base.Splitter;
 import com.google.common.io.Resources;
 import io.airlift.testing.FileUtils;
 import org.testng.annotations.AfterMethod;
@@ -13,6 +15,9 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -36,18 +41,19 @@ public class TestCsv
     public void testConvertActions()
             throws Exception
     {
+        List<String> encodings = Arrays.asList("long_rle", "fmillis_dic-rle", "fmillis_raw", "string_dic-raw");
         Main.main(new String[]{
                 "convert", "csv",
                 "-d", "|",
                 "-o", outDir.getAbsolutePath(),
-                "-t", "long",
-                "-t", "fmillis",
-                "-t", "fmillis",
-                "-t", "string",
+                "-t", encodings.get(0),
+                "-t", encodings.get(1),
+                "-t", encodings.get(2),
+                "-t", encodings.get(3),
                 resourceFile("action.csv")
         });
 
-        Blocks.assertTupleStreamEquals(readColumn(0),
+        Blocks.assertTupleStreamEquals(readColumn(0, encodings.get(0)),
                 Blocks.createLongsTupleStream(0,
                         1879196505L,
                         1879196505L,
@@ -60,7 +66,7 @@ public class TestCsv
                         1306113840L,
                         1659333773L));
 
-        Blocks.assertTupleStreamEquals(readColumn(1),
+        Blocks.assertTupleStreamEquals(readColumn(1, encodings.get(1)),
                 Blocks.createLongsTupleStream(0,
                         1343864557153L,
                         1343864681084L,
@@ -73,7 +79,7 @@ public class TestCsv
                         1343940755299L,
                         1343940261345L));
 
-        Blocks.assertTupleStreamEquals(readColumn(2),
+        Blocks.assertTupleStreamEquals(readColumn(2, encodings.get(2)),
                 Blocks.createLongsTupleStream(0,
                         1343864681084L,
                         1343864759296L,
@@ -86,7 +92,7 @@ public class TestCsv
                         1343940755299L,
                         1343940261345L));
 
-        Blocks.assertTupleStreamEquals(readColumn(3),
+        Blocks.assertTupleStreamEquals(readColumn(3, encodings.get(3)),
                 Blocks.createTupleStream(0,
                         "xyz",
                         "xyz",
@@ -100,12 +106,14 @@ public class TestCsv
                         "abc"));
     }
 
-    private TupleStream readColumn(int columnNumber)
+    private TupleStream readColumn(int columnNumber, String encoding)
             throws IOException
     {
-        File file = new File(outDir, "column" + columnNumber + ".data");
-        TupleStream tupleStream = UncompressedSerde.read(file);
-        return tupleStream;
+        File file = new File(outDir, "column" + columnNumber + "." + encoding + ".data");
+        Iterator<String> partsIterator = Splitter.on('_').split(encoding).iterator();
+        String dataType = partsIterator.next();
+        String serdeName = partsIterator.next();
+        return Main.getTupleStreamSerde(serdeName).deserialize(Slices.mapFileReadOnly(file));
     }
 
     private static String resourceFile(String resourceName)
