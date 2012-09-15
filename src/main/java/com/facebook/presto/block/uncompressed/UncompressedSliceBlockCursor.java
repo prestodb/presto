@@ -65,6 +65,7 @@ public class UncompressedSliceBlockCursor
     {
         // every position is a new value
         if (position >= range.getEnd()) {
+            position = Long.MAX_VALUE;
             return false;
         }
 
@@ -88,12 +89,12 @@ public class UncompressedSliceBlockCursor
     @Override
     public boolean advanceToPosition(long newPosition)
     {
-        Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
-
         if (newPosition > range.getEnd()) {
             position = newPosition;
             return false;
         }
+
+        Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
 
         // move to initial position
         if (position < 0) {

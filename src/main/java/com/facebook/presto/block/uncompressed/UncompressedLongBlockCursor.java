@@ -64,6 +64,7 @@ public class UncompressedLongBlockCursor
     public boolean advanceNextValue()
     {
         if (position >= range.getEnd()) {
+            position = Long.MAX_VALUE;
             return false;
         }
 
@@ -87,15 +88,16 @@ public class UncompressedLongBlockCursor
     @Override
     public boolean advanceToPosition(long newPosition)
     {
+        // if new position is out of range, return false
+        if (newPosition > range.getEnd()) {
+            position = Long.MAX_VALUE;
+            return false;
+        }
+
         Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
 
         // advance to specified position
         position = newPosition;
-
-        // if new position is out of range, return false
-        if (newPosition > range.getEnd()) {
-            return false;
-        }
 
         // adjust offset
         offset = (int) ((position - this.range.getStart()) * SIZE_OF_LONG);

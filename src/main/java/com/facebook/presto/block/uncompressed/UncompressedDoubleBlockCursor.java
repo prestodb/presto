@@ -63,6 +63,7 @@ public class UncompressedDoubleBlockCursor
     {
         // every position is a new value
         if (position >= range.getEnd()) {
+            position = Long.MAX_VALUE;
             return false;
         }
 
@@ -88,7 +89,7 @@ public class UncompressedDoubleBlockCursor
         Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
 
         if (newPosition > range.getEnd()) {
-            position = newPosition;
+            position = Long.MAX_VALUE;
             return false;
         }
 
