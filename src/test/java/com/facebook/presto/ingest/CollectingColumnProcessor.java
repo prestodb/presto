@@ -5,7 +5,7 @@ import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
+import com.facebook.presto.block.uncompressed.UncompressedTupleStream;
 import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
@@ -59,6 +59,6 @@ public class CollectingColumnProcessor
     protected void finished()
             throws IOException
     {
-        tupleStream = new UncompressedBlockStream(new TupleInfo(type), ImmutableList.of(builder.build()));
+        tupleStream = new UncompressedTupleStream(new TupleInfo(type), ImmutableList.of(builder.build()));
     }
 }

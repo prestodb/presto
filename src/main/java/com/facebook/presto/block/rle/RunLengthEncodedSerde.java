@@ -6,6 +6,7 @@ import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerde;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.TupleStreamWriter;
 import com.facebook.presto.block.uncompressed.UncompressedTupleInfoSerde;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
@@ -14,46 +15,27 @@ import com.google.common.collect.AbstractIterator;
 
 import java.util.Iterator;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.*;
 
-public class RunLengthEncodedSerde implements TupleStreamSerde
+public class RunLengthEncodedSerde
+        implements TupleStreamSerde
 {
     @Override
     public void serialize(TupleStream tupleStream, SliceOutput sliceOutput)
     {
-        checkNotNull(tupleStream, "blockStream is null");
+        checkNotNull(tupleStream, "tupleStream is null");
         checkNotNull(sliceOutput, "sliceOutput is null");
 
-        UncompressedTupleInfoSerde.serialize(tupleStream.getTupleInfo(), sliceOutput);
+        createTupleStreamWriter(sliceOutput)
+                .append(tupleStream)
+                .finished();
+    }
 
-        Cursor cursor = tupleStream.cursor();
-
-        if (!cursor.advanceNextValue()) {
-            // Nothing more to do
-            return;
-        }
-
-        long startPosition = cursor.getPosition();
-        long endPosition = cursor.getCurrentValueEndPosition();
-        Tuple lastTuple = cursor.getTuple();
-        while (cursor.advanceNextValue()) {
-            if (cursor.getPosition() != endPosition + 1 || !cursor.currentTupleEquals(lastTuple)) {
-                // Flush out block if next value position is not contiguous, or a different tuple
-                sliceOutput.writeLong(startPosition);
-                sliceOutput.writeLong(endPosition);
-                sliceOutput.writeBytes(lastTuple.getTupleSlice());
-                // TODO: we can further compact this if positions are mostly contiguous
-
-                lastTuple = cursor.getTuple();
-                startPosition = cursor.getPosition();
-            }
-            endPosition = cursor.getCurrentValueEndPosition();
-        }
-
-        // Flush out final block
-        sliceOutput.writeLong(startPosition);
-        sliceOutput.writeLong(endPosition);
-        sliceOutput.writeBytes(lastTuple.getTupleSlice());
+    @Override
+    public TupleStreamWriter createTupleStreamWriter(SliceOutput sliceOutput)
+    {
+        checkNotNull(sliceOutput, "sliceOutput is null");
+        return new RunLengthEncodedTupleStreamWriter(sliceOutput);
     }
 
     @Override
@@ -65,7 +47,7 @@ public class RunLengthEncodedSerde implements TupleStreamSerde
         final TupleInfo tupleInfo = UncompressedTupleInfoSerde.deserialize(input);
         final Slice dataSlice = input.slice();
 
-        return new RunLengthEncodedBlockStream(
+        return new RunLengthEncodedTupleStream(
                 tupleInfo,
                 new Iterable<RunLengthEncodedBlock>()
                 {
@@ -78,7 +60,8 @@ public class RunLengthEncodedSerde implements TupleStreamSerde
         );
     }
 
-    private static class RunLengthEncodedIterator extends AbstractIterator<RunLengthEncodedBlock>
+    private static class RunLengthEncodedIterator
+            extends AbstractIterator<RunLengthEncodedBlock>
     {
         private final TupleInfo tupleInfo;
         private final SliceInput sliceInput;
@@ -102,6 +85,77 @@ public class RunLengthEncodedSerde implements TupleStreamSerde
             long endPosition = sliceInput.readLong();
             Tuple tuple = tupleInfo.extractTuple(sliceInput);
             return new RunLengthEncodedBlock(tuple, Range.create(startPosition, endPosition));
+        }
+    }
+
+    private static class RunLengthEncodedTupleStreamWriter
+            implements TupleStreamWriter
+    {
+        private final SliceOutput sliceOutput;
+        private boolean initialized = false;
+        private boolean finished = false;
+
+        private long startPosition = -1;
+        private long endPosition = -1;
+        private Tuple lastTuple = null;
+
+        private RunLengthEncodedTupleStreamWriter(SliceOutput sliceOutput)
+        {
+            this.sliceOutput = checkNotNull(sliceOutput, "sliceOutput is null");
+        }
+
+        @Override
+        public TupleStreamWriter append(TupleStream tupleStream)
+        {
+            checkNotNull(tupleStream, "tupleStream is null");
+            checkState(!finished, "already finished");
+
+            Cursor cursor = tupleStream.cursor();
+
+            if (!initialized) {
+                checkArgument(tupleStream.getTupleInfo().getFieldCount() == 1, "Can only run length encode single columns");
+                UncompressedTupleInfoSerde.serialize(tupleStream.getTupleInfo(), sliceOutput);
+                initialized = true;
+            }
+
+            while (cursor.advanceNextValue()) {
+                if (lastTuple == null) {
+                    startPosition = cursor.getPosition();
+                    endPosition = cursor.getCurrentValueEndPosition();
+                    lastTuple = cursor.getTuple();
+                }
+                else {
+                    checkArgument(cursor.getPosition() > endPosition, "positions are not increasing");
+                    if (cursor.getPosition() != endPosition + 1 || !cursor.currentTupleEquals(lastTuple)) {
+                        // Flush out block if next value position is not contiguous, or a different tuple
+                        sliceOutput.writeLong(startPosition);
+                        sliceOutput.writeLong(endPosition);
+                        sliceOutput.writeBytes(lastTuple.getTupleSlice());
+                        // TODO: we can further compact this if positions are mostly contiguous
+
+                        lastTuple = cursor.getTuple();
+                        startPosition = cursor.getPosition();
+                    }
+                    endPosition = cursor.getCurrentValueEndPosition();
+                }
+            }
+
+            return this;
+        }
+
+        @Override
+        public void finished()
+        {
+            checkState(initialized, "nothing appended");
+            checkState(!finished, "already finished");
+            finished = true;
+
+            if (lastTuple != null) {
+                // Flush out final block if there exists one
+                sliceOutput.writeLong(startPosition);
+                sliceOutput.writeLong(endPosition);
+                sliceOutput.writeBytes(lastTuple.getTupleSlice());
+            }
         }
     }
 }
