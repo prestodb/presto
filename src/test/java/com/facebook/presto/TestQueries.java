@@ -8,6 +8,7 @@ import com.facebook.presto.block.Cursor;
 import com.facebook.presto.ingest.RowSourceBuilder;
 import com.facebook.presto.operation.DoubleLessThanComparison;
 import com.facebook.presto.operator.AggregationOperator;
+import com.facebook.presto.operator.AndOperator;
 import com.facebook.presto.operator.ApplyPredicateOperator;
 import com.facebook.presto.operator.ComparisonOperator;
 import com.facebook.presto.operator.FilterOperator;
@@ -35,6 +36,7 @@ import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -138,7 +140,7 @@ public class TestQueries
     {
         List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM orders", FIXED_INT_64);
 
-        TupleStream orders = createBlockStream(ordersData, Column.ORDER_ORDERKEY, FIXED_INT_64);
+        TupleStream orders = createTupleStream(ordersData, Column.ORDER_ORDERKEY, FIXED_INT_64);
         AggregationOperator aggregation = new AggregationOperator(orders, CountAggregation.PROVIDER);
 
         assertEqualsIgnoreOrder(tuples(aggregation), expected);
@@ -149,7 +151,7 @@ public class TestQueries
     {
         List<Tuple> expected = computeExpected("SELECT AVG(totalprice) FROM orders", DOUBLE);
 
-        TupleStream price = createBlockStream(ordersData, Column.ORDER_TOTALPRICE, DOUBLE);
+        TupleStream price = createTupleStream(ordersData, Column.ORDER_TOTALPRICE, DOUBLE);
         AggregationOperator aggregation = new AggregationOperator(price, AverageAggregation.PROVIDER);
 
         assertEqualsIgnoreOrder(tuples(aggregation), expected);
@@ -160,7 +162,7 @@ public class TestQueries
     {
         List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM orders WHERE orderstatus = 'F'", FIXED_INT_64);
 
-        TupleStream orderStatus = createBlockStream(ordersData, Column.ORDER_ORDERSTATUS, VARIABLE_BINARY);
+        TupleStream orderStatus = createTupleStream(ordersData, Column.ORDER_ORDERSTATUS, VARIABLE_BINARY);
 
         ApplyPredicateOperator filtered = new ApplyPredicateOperator(orderStatus, new Predicate<Cursor>()
         {
@@ -182,8 +184,8 @@ public class TestQueries
     {
         List<Tuple> expected = computeExpected("SELECT orderstatus, CAST(COUNT(*) AS INTEGER) FROM orders GROUP BY orderstatus", VARIABLE_BINARY, FIXED_INT_64);
 
-        TupleStream groupBySource = createBlockStream(ordersData, Column.ORDER_ORDERSTATUS, VARIABLE_BINARY);
-        TupleStream aggregateSource = createBlockStream(ordersData, Column.ORDER_ORDERSTATUS, VARIABLE_BINARY);
+        TupleStream groupBySource = createTupleStream(ordersData, Column.ORDER_ORDERSTATUS, VARIABLE_BINARY);
+        TupleStream aggregateSource = createTupleStream(ordersData, Column.ORDER_ORDERSTATUS, VARIABLE_BINARY);
 
         GroupByOperator groupBy = new GroupByOperator(groupBySource);
         HashAggregationOperator aggregation = new HashAggregationOperator(groupBy, aggregateSource, CountAggregation.PROVIDER);
@@ -198,8 +200,8 @@ public class TestQueries
                 "SELECT orderstatus, SUM(totalprice) FROM orders GROUP BY orderstatus",
                 VARIABLE_BINARY, DOUBLE);
 
-        TupleStream groupBySource = createBlockStream(ordersData, Column.ORDER_ORDERSTATUS, VARIABLE_BINARY);
-        TupleStream aggregateSource = createBlockStream(ordersData, Column.ORDER_TOTALPRICE, DOUBLE);
+        TupleStream groupBySource = createTupleStream(ordersData, Column.ORDER_ORDERSTATUS, VARIABLE_BINARY);
+        TupleStream aggregateSource = createTupleStream(ordersData, Column.ORDER_TOTALPRICE, DOUBLE);
 
         GroupByOperator groupBy = new GroupByOperator(groupBySource);
         HashAggregationOperator aggregation = new HashAggregationOperator(groupBy, aggregateSource, DoubleSumAggregation.PROVIDER);
@@ -212,8 +214,8 @@ public class TestQueries
     {
         List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM lineitem WHERE tax < discount", FIXED_INT_64);
 
-        TupleStream discount = createBlockStream(lineitemData, Column.LINEITEM_DISCOUNT, DOUBLE);
-        TupleStream tax = createBlockStream(lineitemData, Column.LINEITEM_TAX, DOUBLE);
+        TupleStream discount = createTupleStream(lineitemData, Column.LINEITEM_DISCOUNT, DOUBLE);
+        TupleStream tax = createTupleStream(lineitemData, Column.LINEITEM_TAX, DOUBLE);
 
         ComparisonOperator comparison = new ComparisonOperator(tax, discount, new DoubleLessThanComparison());
         AggregationOperator aggregation = new AggregationOperator(comparison, CountAggregation.PROVIDER);
@@ -226,15 +228,52 @@ public class TestQueries
     {
         List<Tuple> expected = computeExpected("SELECT orderkey FROM lineitem WHERE tax < discount", FIXED_INT_64);
 
-        RowSourceBuilder orderKey = createBlockStream(lineitemData, Column.LINEITEM_ORDERKEY, FIXED_INT_64);
-        TupleStream discount = createBlockStream(lineitemData, Column.LINEITEM_DISCOUNT, DOUBLE);
-        TupleStream tax = createBlockStream(lineitemData, Column.LINEITEM_TAX, DOUBLE);
+        RowSourceBuilder orderKey = createTupleStream(lineitemData, Column.LINEITEM_ORDERKEY, FIXED_INT_64);
+        TupleStream discount = createTupleStream(lineitemData, Column.LINEITEM_DISCOUNT, DOUBLE);
+        TupleStream tax = createTupleStream(lineitemData, Column.LINEITEM_TAX, DOUBLE);
 
         ComparisonOperator comparison = new ComparisonOperator(tax, discount, new DoubleLessThanComparison());
         FilterOperator result = new FilterOperator(orderKey.getTupleInfo(), orderKey, comparison);
 
         assertEqualsIgnoreOrder(tuples(result), expected);
     }
+
+    @Test
+    public void testCountWithAndPredicate()
+    {
+        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM lineitem WHERE tax < discount AND tax > 0.01 AND discount < 10.0", FIXED_INT_64);
+
+        TupleStream discount = createTupleStream(lineitemData, Column.LINEITEM_DISCOUNT, DOUBLE);
+        TupleStream filteredDiscount = new ApplyPredicateOperator(discount, new Predicate<Cursor>()
+        {
+            @Override
+            public boolean apply(Cursor input)
+            {
+                return input.getDouble(0) < 10.0;
+            }
+        });
+
+        TupleStream tax = createTupleStream(lineitemData, Column.LINEITEM_TAX, DOUBLE);
+        TupleStream filteredTax = new ApplyPredicateOperator(tax, new Predicate<Cursor>()
+        {
+            @Override
+            public boolean apply(Cursor input)
+            {
+                return input.getDouble(0) > 0.01;
+            }
+        });
+
+        // TODO: use tax and discount directly once RowSourceBuilder is fixed to allow multiple cursors
+        TupleStream tax2 = createTupleStream(lineitemData, Column.LINEITEM_TAX, DOUBLE);
+        TupleStream discount2 = createTupleStream(lineitemData, Column.LINEITEM_DISCOUNT, DOUBLE);
+
+        ComparisonOperator comparison = new ComparisonOperator(tax2, discount2, new DoubleLessThanComparison());
+        AndOperator and = new AndOperator(filteredDiscount, filteredTax, comparison);
+        AggregationOperator count = new AggregationOperator(and, CountAggregation.PROVIDER);
+
+        assertEqualsIgnoreOrder(tuples(count), expected);
+    }
+
 
     private List<Tuple> computeExpected(final String sql, TupleInfo.Type... types)
     {
@@ -267,7 +306,7 @@ public class TestQueries
         });
     }
 
-    private static RowSourceBuilder createBlockStream(List<List<String>> data, final Column column, final TupleInfo.Type type)
+    private static RowSourceBuilder createTupleStream(List<List<String>> data, final Column column, final TupleInfo.Type type)
     {
         final Iterator<List<String>> iterator = data.iterator();
         return new RowSourceBuilder(new TupleInfo(type), new RowGenerator()
