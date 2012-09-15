@@ -8,6 +8,7 @@ import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.ingest.ColumnProcessor;
+import com.facebook.presto.slice.OutputStreamSliceOutput;
 import com.facebook.presto.slice.Slices;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -33,9 +34,7 @@ public class TestUncompressedBlockReader
 
         UncompressedTupleStream tupleStream = new UncompressedTupleStream(TupleInfo.SINGLE_VARBINARY, ImmutableList.of(block));
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        ColumnProcessor processor = new ColumnWriter(Type.VARIABLE_BINARY, 0, tupleStream.cursor(), out);
-        processor.processPositions(Integer.MAX_VALUE);
-        processor.finish();
+        new UncompressedSerde().serialize(tupleStream, new OutputStreamSliceOutput(out));
 
         ImmutableList<UncompressedBlock> copiedBlocks = ImmutableList.copyOf(UncompressedSerde.read(Slices.wrappedBuffer(out.toByteArray())));
 
