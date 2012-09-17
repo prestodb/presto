@@ -3,60 +3,20 @@
  */
 package com.facebook.presto.block.uncompressed;
 
+import com.facebook.presto.block.AbstractTestContiguousCursor;
+import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.AbstractTestUncompressedLongBlockCursor;
-import org.testng.annotations.Test;
 
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
-
-public class TestUncompressedLongBlockCursor extends AbstractTestUncompressedLongBlockCursor
+public class TestUncompressedLongBlockCursor extends AbstractTestContiguousCursor
 {
-    @Test
-    public void testGetSlice()
+    protected UncompressedBlock createExpectedValues()
     {
-        Cursor cursor = createCursor();
-        try {
-            cursor.getSlice(0);
-            fail("Expected UnsupportedOperationException");
-        }
-        catch (UnsupportedOperationException expected) {
-        }
-
-        assertTrue(cursor.advanceNextValue());
-
-        try {
-            cursor.getSlice(0);
-            fail("Expected UnsupportedOperationException");
-        }
-        catch (UnsupportedOperationException expected) {
-        }
-    }
-
-    @Test
-    public void testGetDouble()
-    {
-        Cursor cursor = createCursor();
-        try {
-            cursor.getDouble(0);
-            fail("Expected UnsupportedOperationException");
-        }
-        catch (UnsupportedOperationException expected) {
-        }
-
-        assertTrue(cursor.advanceNextValue());
-
-        try {
-            cursor.getDouble(0);
-            fail("Expected UnsupportedOperationException");
-        }
-        catch (UnsupportedOperationException expected) {
-        }
+        return Blocks.createLongsBlock(0, 1111L, 1111L, 1111L, 2222L, 2222L, 2222L, 2222L, 2222L, 3333L, 3333L, 4444L);
     }
 
     @Override
     protected Cursor createCursor()
     {
-        return new UncompressedLongBlockCursor(createTestBlock());
+        return new UncompressedLongBlockCursor(createExpectedValues());
     }
 }
