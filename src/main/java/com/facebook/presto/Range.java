@@ -63,6 +63,13 @@ public class Range
         return create(Math.max(start, other.start), Math.min(end, other.end));
     }
 
+    public Range merge(Range other)
+    {
+        Preconditions.checkArgument(overlaps(other), "Ranges do not overlap %s vs %s", this, other);
+
+        return create(Math.min(start, other.start), Math.max(end, other.end));
+    }
+
     public String toString()
     {
         return String.format("[%s..%s]", start, end);
