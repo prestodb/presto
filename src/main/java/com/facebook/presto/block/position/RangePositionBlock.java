@@ -93,7 +93,8 @@ public class RangePositionBlock
             }
             if (position < 0) {
                 position = range.getStart();
-            } else {
+            }
+            else {
                 position++;
             }
             return true;
@@ -108,14 +109,14 @@ public class RangePositionBlock
         @Override
         public boolean advanceToPosition(long newPosition)
         {
-            Preconditions.checkArgument(newPosition >= position, "Invalid position");
             if (newPosition > range.getEnd()) {
-                position = newPosition;
+                position = Long.MAX_VALUE;
                 return false;
-            } else {
-                position = newPosition;
-                return true;
             }
+
+            Preconditions.checkArgument(newPosition >= position, "Invalid position");
+            position = newPosition;
+            return true;
         }
 
         @Override

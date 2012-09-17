@@ -3,14 +3,21 @@
  */
 package com.facebook.presto.block.uncompressed;
 
+import com.facebook.presto.block.AbstractTestContiguousCursor;
+import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.AbstractTestUncompressedDoubleBlockCursor;
 
-public class TestUncompressedBlockCursorDouble extends AbstractTestUncompressedDoubleBlockCursor
+public class TestUncompressedBlockCursorDouble extends AbstractTestContiguousCursor
 {
+    @Override
+    protected UncompressedBlock createExpectedValues()
+    {
+        return Blocks.createDoublesBlock(0, 11.11, 11.11, 11.11, 22.22, 22.22, 22.22, 22.22, 22.22, 33.33, 33.33, 44.44);
+    }
+
     @Override
     protected Cursor createCursor()
     {
-        return new UncompressedBlockCursor(createTestBlock());
+        return new UncompressedBlockCursor(createExpectedValues());
     }
 }

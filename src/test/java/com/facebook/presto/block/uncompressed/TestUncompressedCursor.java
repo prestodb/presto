@@ -1,51 +1,35 @@
 package com.facebook.presto.block.uncompressed;
 
-import com.facebook.presto.block.AbstractTestUncompressedSliceCursor;
-import com.facebook.presto.block.Blocks;
-import com.facebook.presto.block.CursorAssertions;
+import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.AbstractTestNonContiguousCursor;
+import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.TupleStream;
 import com.google.common.collect.ImmutableList;
-import org.testng.annotations.Test;
 
-import static org.testng.Assert.fail;
+import java.util.List;
 
-public class TestUncompressedCursor extends AbstractTestUncompressedSliceCursor
+import static com.facebook.presto.block.Blocks.createBlock;
+
+public class TestUncompressedCursor extends AbstractTestNonContiguousCursor
 {
-    @Test
-    public void testFirstValue()
-            throws Exception
+    private List<UncompressedBlock> createBlocks()
     {
-        UncompressedCursor cursor = createCursor();
-        CursorAssertions.assertNextValue(cursor, 0, "apple");
-    }
-
-    @Test
-    public void testFirstPosition()
-            throws Exception
-    {
-        UncompressedCursor cursor = createCursor();
-        CursorAssertions.assertNextPosition(cursor, 0, "apple");
-    }
-
-    @Test
-    public void testConstructorNulls()
-    {
-        try {
-            new UncompressedCursor(createTupleInfo(), null);
-            fail("Expected NullPointerException");
-        }
-        catch (NullPointerException expected) {
-        }
-        try {
-            new UncompressedCursor(null, ImmutableList.of(Blocks.createBlock(0, "a")).iterator());
-            fail("Expected NullPointerException");
-        }
-        catch (NullPointerException expected) {
-        }
+        return ImmutableList.of(
+                createBlock(0, "apple", "apple", "apple", "banana", "banana"),
+                createBlock(5, "banana", "banana", "banana"),
+                createBlock(20, "cherry", "cherry"),
+                createBlock(30, "date"));
     }
 
     @Override
-    protected UncompressedCursor createCursor()
+    protected TupleStream createExpectedValues()
     {
-        return new UncompressedCursor(createTupleInfo(), createBlocks().iterator());
+        return new UncompressedTupleStream(TupleInfo.SINGLE_VARBINARY, createBlocks());
+    }
+
+    @Override
+    protected Cursor createCursor()
+    {
+        return new UncompressedCursor(TupleInfo.SINGLE_VARBINARY, createBlocks().iterator());
     }
 }

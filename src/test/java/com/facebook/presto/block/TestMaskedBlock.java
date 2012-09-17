@@ -7,7 +7,7 @@ import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.google.common.primitives.Longs;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.block.BlockCursorAssertions.assertNextValue;
+import static com.facebook.presto.block.CursorAssertions.assertNextValue;
 import static org.testng.Assert.assertFalse;
 
 public class TestMaskedBlock
