@@ -1,14 +1,19 @@
 package com.facebook.presto.block.rle;
 
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Blocks;
+import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedTupleStream;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.SliceOutput;
+import com.facebook.presto.slice.Slices;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import static com.google.common.base.Charsets.UTF_8;
 
 public class TestRunLengthEncodedSerde
 {
@@ -26,7 +31,7 @@ public class TestRunLengthEncodedSerde
     public void testSanity() throws Exception
     {
         TupleStream tupleStream = Blocks.createTupleStream(0, "a", "b", "b", "cde", "fuu", "a", "fuu");
-        rleSerde.serialize(tupleStream, sliceOutput);
+        TupleStreamSerdes.serialize(rleSerde, tupleStream, sliceOutput);
         Blocks.assertTupleStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
     }
 
@@ -34,7 +39,7 @@ public class TestRunLengthEncodedSerde
     public void testAllSame() throws Exception
     {
         TupleStream tupleStream = Blocks.createTupleStream(0, "a", "a", "a", "a", "a", "a", "a");
-        rleSerde.serialize(tupleStream, sliceOutput);
+        TupleStreamSerdes.serialize(rleSerde, tupleStream, sliceOutput);
         Blocks.assertTupleStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
     }
 
@@ -42,7 +47,7 @@ public class TestRunLengthEncodedSerde
     public void testAllUnique() throws Exception
     {
         TupleStream tupleStream = Blocks.createTupleStream(0, "a", "b", "c", "d", "e", "f", "g");
-        rleSerde.serialize(tupleStream, sliceOutput);
+        TupleStreamSerdes.serialize(rleSerde, tupleStream, sliceOutput);
         Blocks.assertTupleStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
     }
 
@@ -56,10 +61,31 @@ public class TestRunLengthEncodedSerde
                 Blocks.createBlock(100, "y", "y", "a", "y", "b"),
                 Blocks.createBlock(200, "b")
         );
-        rleSerde.serialize(tupleStream, sliceOutput);
+        TupleStreamSerdes.serialize(rleSerde, tupleStream, sliceOutput);
         Blocks.assertTupleStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
     }
 
+    @Test
+    public void testMultiColumn()
+            throws Exception
+    {
+        TupleInfo tupleInfo = new TupleInfo(TupleInfo.Type.FIXED_INT_64, TupleInfo.Type.VARIABLE_BINARY);
+        TupleStream tupleStream = new UncompressedTupleStream(
+                new TupleInfo(TupleInfo.Type.FIXED_INT_64, TupleInfo.Type.VARIABLE_BINARY),
+                new BlockBuilder(0, tupleInfo)
+                        .append(0L).append(Slices.wrappedBuffer("a".getBytes(UTF_8)))
+                        .append(5L).append(Slices.wrappedBuffer("b".getBytes(UTF_8)))
+                        .append(5L).append(Slices.wrappedBuffer("b".getBytes(UTF_8)))
+                        .append(5L).append(Slices.wrappedBuffer("b".getBytes(UTF_8)))
+                        .append(-1L).append(Slices.wrappedBuffer("ccc".getBytes(UTF_8)))
+                        .append(-1L).append(Slices.wrappedBuffer("ccc".getBytes(UTF_8)))
+                        .build()
+        );
+        TupleStreamSerdes.serialize(rleSerde, tupleStream, sliceOutput);
+        Blocks.assertTupleStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
+    }
+    
+    
     @Test
     public void testTupleWriter()
             throws Exception
@@ -80,7 +106,7 @@ public class TestRunLengthEncodedSerde
                 .append(block2)
                 .append(block3)
                 .append(block4)
-                .finished();
+                .close();
         Blocks.assertTupleStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
     }
 }
