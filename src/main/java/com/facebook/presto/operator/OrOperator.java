@@ -44,7 +44,7 @@ public class OrOperator
     @Override
     public TupleInfo getTupleInfo()
     {
-        return TupleInfo.EMPTY_TUPLE_INFO;
+        return TupleInfo.EMPTY;
     }
 
     @Override
@@ -56,7 +56,7 @@ public class OrOperator
     @Override
     public Cursor cursor()
     {
-        return new GenericCursor(TupleInfo.EMPTY_TUPLE_INFO, iterator());
+        return new GenericCursor(TupleInfo.EMPTY, iterator());
     }
 
     @Override
