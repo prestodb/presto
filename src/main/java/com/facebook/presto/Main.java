@@ -3,16 +3,18 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.block.ColumnMappingTupleStream;
-import com.facebook.presto.block.TupleStreamSerde;
+import com.facebook.presto.block.*;
 import com.facebook.presto.block.dictionary.DictionarySerde;
 import com.facebook.presto.block.rle.RunLengthEncodedSerde;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedSerde;
 import com.facebook.presto.ingest.CsvReader;
 import com.facebook.presto.ingest.CsvReader.CsvColumnProcessor;
 import com.facebook.presto.ingest.RowSource;
 import com.facebook.presto.ingest.RowSourceBuilder;
+import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.OutputStreamSliceOutput;
+import com.facebook.presto.slice.SliceOutput;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -145,24 +147,34 @@ public class Main
             TupleInfo tupleInfo = new TupleInfo(columnTypes);
             CsvReader csvReader = new CsvReader(tupleInfo, inputSupplier, toChar(columnSeparator), csvColumns.build());
             ImmutableList<TupleStreamSerde> columnSerdes = columnSerdeBuilder.build();
-
-            ImmutableList.Builder<RowSource> rowSources = ImmutableList.builder();
             ImmutableList.Builder<OutputStream> outputs = ImmutableList.builder();
+            ImmutableList.Builder<TupleStreamWriter> tupleStreamWritersBuilder = ImmutableList.builder();
             for (int index = 0; index < columnTypes.size(); index++) {
-                RowSource rowSource = csvReader.getInput();
-                OutputStream out = new FileOutputStream(new File(dir, "column" + index + "." + types.get(index) + ".data"));
-                // TODO: chunk these tuple streams for better efficiency
-                columnSerdes.get(index)
-                        .createTupleStreamWriter(new OutputStreamSliceOutput(out))
-                        .append(ColumnMappingTupleStream.map(rowSource, index))
-                        .close();
-                rowSources.add(rowSource);
+                OutputStream out = newOutputStreamSupplier(new File(dir, "column" + index + "." + types.get(index) + ".data")).getOutput();
+                tupleStreamWritersBuilder.add(
+                        columnSerdes.get(index)
+                                .createTupleStreamWriter(new OutputStreamSliceOutput(out))
+                );
                 outputs.add(out);
             }
 
-            for (RowSource rowSource : rowSources.build()) {
-                rowSource.close();
+            RowSource rowSource = csvReader.getInput();
+            ImmutableList<TupleStreamWriter> tupleStreamWriters = tupleStreamWritersBuilder.build();
+            for (TupleStream tupleStreamChunk : new TupleStreamChunker(1024, rowSource)) {
+                // In order to support the possibility of single read input sources (e.g. stdin),
+                // Chunk the input source into pieces and copy them to a local buffer
+                DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1048576);
+                TupleStreamSerdes.serialize(UncompressedSerde.INSTANCE, tupleStreamChunk, sliceOutput);
+                TupleStream copiedTupleStreamChunk = TupleStreamSerdes.deserialize(UncompressedSerde.INSTANCE, sliceOutput.slice());
+                for (int index = 0; index < columnTypes.size(); index++) {
+                    tupleStreamWriters.get(index).append(ColumnMappingTupleStream.map(copiedTupleStreamChunk, index));
+                }
             }
+
+            for (TupleStreamWriter tupleStreamWriter : tupleStreamWriters) {
+                tupleStreamWriter.close();
+            }
+            rowSource.close();
             for (OutputStream out : outputs.build()) {
                 out.close();
             }
