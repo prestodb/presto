@@ -28,8 +28,7 @@ public abstract class AbstractTestUncompressedSliceCursor extends AbstractTestCu
             throws Exception
     {
         Cursor cursor = createCursor();
-        TupleInfo tupleInfo = new TupleInfo(Type.VARIABLE_BINARY);
-        assertEquals(cursor.getTupleInfo(), tupleInfo);
+        assertEquals(cursor.getTupleInfo(), TupleInfo.SINGLE_VARBINARY);
     }
 
     @Test
@@ -244,7 +243,7 @@ public abstract class AbstractTestUncompressedSliceCursor extends AbstractTestCu
 
     protected TupleInfo createTupleInfo()
     {
-        return new TupleInfo(Type.VARIABLE_BINARY);
+        return TupleInfo.SINGLE_VARBINARY;
     }
 
     protected List<UncompressedBlock> createBlocks()

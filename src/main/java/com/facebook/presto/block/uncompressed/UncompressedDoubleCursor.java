@@ -1,10 +1,10 @@
 package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.Range;
-import com.facebook.presto.block.Cursor;
 import com.facebook.presto.SizeOf;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.Cursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 
@@ -12,13 +12,10 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_DOUBLE;
-import static com.facebook.presto.TupleInfo.Type.DOUBLE;
 
 public class UncompressedDoubleCursor
         implements Cursor
 {
-    private static final TupleInfo INFO = new TupleInfo(DOUBLE);
-
     private final Iterator<UncompressedBlock> iterator;
 
     private UncompressedBlock block;
@@ -36,7 +33,7 @@ public class UncompressedDoubleCursor
     @Override
     public TupleInfo getTupleInfo()
     {
-        return INFO;
+        return TupleInfo.SINGLE_DOUBLE;
     }
 
     @Override
@@ -148,7 +145,7 @@ public class UncompressedDoubleCursor
         if (block == null)  {
             throw new NoSuchElementException();
         }
-        return new Tuple(block.getSlice().slice(offset, SizeOf.SIZE_OF_DOUBLE), INFO);
+        return new Tuple(block.getSlice().slice(offset, SizeOf.SIZE_OF_DOUBLE), TupleInfo.SINGLE_DOUBLE);
     }
 
     @Override

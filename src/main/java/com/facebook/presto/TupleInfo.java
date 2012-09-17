@@ -42,8 +42,10 @@ import static java.util.Arrays.asList;
  */
 public class TupleInfo
 {
-    public static final TupleInfo EMPTY_TUPLE_INFO = new TupleInfo();
-    public static final TupleInfo SINGLE_LONG_TUPLE_INFO = new TupleInfo(FIXED_INT_64);
+    public static final TupleInfo EMPTY = new TupleInfo();
+    public static final TupleInfo SINGLE_LONG = new TupleInfo(FIXED_INT_64);
+    public static final TupleInfo SINGLE_VARBINARY = new TupleInfo(VARIABLE_BINARY);
+    public static final TupleInfo SINGLE_DOUBLE = new TupleInfo(DOUBLE);
 
     public enum Type
     {

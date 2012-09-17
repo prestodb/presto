@@ -1,10 +1,10 @@
 package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.Range;
-import com.facebook.presto.block.Cursor;
 import com.facebook.presto.SizeOf;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.Cursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 
@@ -12,13 +12,10 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
-import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 
 public class UncompressedLongCursor
         implements Cursor
 {
-    private static final TupleInfo INFO = new TupleInfo(FIXED_INT_64);
-
     private final Iterator<UncompressedBlock> iterator;
 
     private UncompressedBlock block;
@@ -36,7 +33,7 @@ public class UncompressedLongCursor
     @Override
     public TupleInfo getTupleInfo()
     {
-        return INFO;
+        return TupleInfo.SINGLE_LONG;
     }
 
     @Override
@@ -148,7 +145,7 @@ public class UncompressedLongCursor
         if (block == null)  {
             throw new NoSuchElementException();
         }
-        return new Tuple(block.getSlice().slice(offset, SizeOf.SIZE_OF_LONG), INFO);
+        return new Tuple(block.getSlice().slice(offset, SizeOf.SIZE_OF_LONG), TupleInfo.SINGLE_LONG);
     }
 
     @Override

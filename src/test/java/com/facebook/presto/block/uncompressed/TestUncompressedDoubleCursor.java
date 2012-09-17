@@ -30,8 +30,7 @@ public class TestUncompressedDoubleCursor extends AbstractTestCursor
             throws Exception
     {
         Cursor cursor = createCursor();
-        TupleInfo tupleInfo = new TupleInfo(Type.DOUBLE);
-        assertEquals(cursor.getTupleInfo(), tupleInfo);
+        assertEquals(cursor.getTupleInfo(), TupleInfo.SINGLE_DOUBLE);
     }
 
     @Test

@@ -3,10 +3,19 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.block.uncompressed.UncompressedColumnWriter;
-import com.facebook.presto.ingest.*;
+import com.facebook.presto.block.ColumnMappingTupleStream;
+import com.facebook.presto.block.TupleStreamSerde;
+import com.facebook.presto.block.dictionary.DictionarySerde;
+import com.facebook.presto.block.rle.RunLengthEncodedSerde;
+import com.facebook.presto.block.uncompressed.UncompressedSerde;
+import com.facebook.presto.ingest.ColumnProcessor;
+import com.facebook.presto.ingest.CsvReader;
+import com.facebook.presto.ingest.CsvReader.CsvColumnProcessor;
+import com.facebook.presto.ingest.RowSource;
+import com.facebook.presto.ingest.RowSourceBuilder;
+import com.facebook.presto.slice.OutputStreamSliceOutput;
 import com.google.common.base.Charsets;
-import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import com.google.common.io.InputSupplier;
@@ -15,11 +24,13 @@ import io.airlift.command.*;
 import io.airlift.command.Cli.CliBuilder;
 
 import java.io.*;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-import static com.facebook.presto.TupleInfo.Type.*;
-import static com.facebook.presto.ingest.CsvReader.*;
+import static com.facebook.presto.TupleInfo.Type;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 public class Main
 {
@@ -78,7 +89,7 @@ public class Main
         public void run()
                 throws Exception
         {
-            Preconditions.checkArgument(types != null && !types.isEmpty(), "Type is required");
+            checkArgument(types != null && !types.isEmpty(), "Type is required");
 
             File dir = new File(outputDir);
 
@@ -98,51 +109,55 @@ public class Main
 
             ImmutableList.Builder<TupleInfo.Type> typeBuilder = ImmutableList.builder();
             ImmutableList.Builder<CsvColumnProcessor> csvColumns = ImmutableList.builder();
+            ImmutableList.Builder<TupleStreamSerde> columnSerdeBuilder = ImmutableList.builder();
             for (String type : types) {
-                switch (type) {
+                // Extract base type and encoding
+                // Examples: 'long_raw', 'long_uncompressed', 'string_rle', 'double_dic-rle'
+                Iterator<String> partsIterator = Splitter.on('_').split(type).iterator();
+                String dataType = partsIterator.next();
+                String encoding = partsIterator.next();
+                checkState(!partsIterator.hasNext(), "malformed type input");
+
+                switch (dataType) {
                     case "long":
-                        typeBuilder.add(FIXED_INT_64);
-                        csvColumns.add(csvNumericColumn());
+                        typeBuilder.add(Type.FIXED_INT_64);
+                        csvColumns.add(CsvReader.csvNumericColumn());
                         break;
                     case "double":
-                        typeBuilder.add(DOUBLE);
-                        csvColumns.add(csvDoubleColumn());
+                        typeBuilder.add(Type.DOUBLE);
+                        csvColumns.add(CsvReader.csvDoubleColumn());
                         break;
                     case "string":
-                        typeBuilder.add(VARIABLE_BINARY);
-                        csvColumns.add(csvStringColumn());
+                        typeBuilder.add(Type.VARIABLE_BINARY);
+                        csvColumns.add(CsvReader.csvStringColumn());
                         break;
                     case "fmillis":
-                        typeBuilder.add(FIXED_INT_64);
+                        typeBuilder.add(Type.FIXED_INT_64);
                         csvColumns.add(csvFloatMillisColumn());
                         break;
                     default:
                         throw new IllegalArgumentException("Unsupported type " + type);
                 }
+                columnSerdeBuilder.add(getTupleStreamSerde(encoding));
             }
 
             ImmutableList<TupleInfo.Type> columnTypes = typeBuilder.build();
             TupleInfo tupleInfo = new TupleInfo(columnTypes);
             CsvReader csvReader = new CsvReader(tupleInfo, inputSupplier, toChar(columnSeparator), csvColumns.build());
+            ImmutableList<TupleStreamSerde> columnSerdes = columnSerdeBuilder.build();
 
-            ImmutableList.Builder<ColumnProcessor> processorsBuilder = ImmutableList.builder();
             ImmutableList.Builder<RowSource> rowSources = ImmutableList.builder();
             ImmutableList.Builder<OutputStream> outputs = ImmutableList.builder();
             for (int index = 0; index < columnTypes.size(); index++) {
-                TupleInfo.Type type = columnTypes.get(index);
                 RowSource rowSource = csvReader.getInput();
-                File file = new File(dir, "column" + index + ".data");
-                OutputStream out = new FileOutputStream(file);
-                processorsBuilder.add(new UncompressedColumnWriter(type, index, rowSource.cursor(), out));
+                OutputStream out = new FileOutputStream(new File(dir, "column" + index + "." + types.get(index) + ".data"));
+                // TODO: chunk these tuple streams for better efficiency
+                columnSerdes.get(index)
+                        .createTupleStreamWriter(new OutputStreamSliceOutput(out))
+                        .append(ColumnMappingTupleStream.map(rowSource, index))
+                        .finished();
                 rowSources.add(rowSource);
                 outputs.add(out);
-            }
-            List<ColumnProcessor> processors = processorsBuilder.build();
-
-            ColumnProcessors.process(processors);
-
-            for (ColumnProcessor processor : processors) {
-                processor.finish();
             }
 
             for (RowSource rowSource : rowSources.build()) {
@@ -155,7 +170,7 @@ public class Main
 
         private char toChar(String string)
         {
-            Preconditions.checkArgument(!string.isEmpty(), "String is empty");
+            checkArgument(!string.isEmpty(), "String is empty");
             if (string.length() == 1) {
                 return string.charAt(0);
             }
@@ -191,4 +206,23 @@ public class Main
             };
         }
     }
+
+    public static TupleStreamSerde getTupleStreamSerde(String encoding)
+    {
+        // Example: 'rle', 'uncompressed', 'dic-rle', 'dic-uncompressed'
+        Iterator<String> partsIterator = Splitter.on('-').limit(2).split(encoding).iterator();
+        checkArgument(partsIterator.hasNext(), "encoding malformed: " + encoding);
+        switch (partsIterator.next()) {
+            case "raw":
+                return new UncompressedSerde();
+            case "rle":
+                return new RunLengthEncodedSerde();
+            case "dic":
+                checkArgument(partsIterator.hasNext(), "dictionary encoding requires an embedded serde");
+                return new DictionarySerde(getTupleStreamSerde(partsIterator.next()));
+            default:
+                throw new IllegalArgumentException("Unsupported encoding " + encoding);
+        }
+    }
+
 }

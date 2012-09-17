@@ -1,12 +1,12 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Range;
-import com.facebook.presto.block.rle.RunLengthEncodedBlockStream;
+import com.facebook.presto.block.rle.RunLengthEncodedTupleStream;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.Tuples;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
-import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
+import com.facebook.presto.block.uncompressed.UncompressedTupleStream;
 import com.facebook.presto.operation.SubtractionOperation;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -21,13 +21,11 @@ public class TestUncompressedBinaryOperator
     public void testAligned()
             throws Exception
     {
-        TupleInfo info = new TupleInfo(TupleInfo.Type.FIXED_INT_64);
-
-        UncompressedBlockStream left = new UncompressedBlockStream(info, ImmutableList.of(
+        UncompressedTupleStream left = new UncompressedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 createLongsBlock(0, 10, 11, 12, 13, 14),
                 createLongsBlock(5, 15, 16, 17, 18, 19)));
 
-        UncompressedBlockStream right = new UncompressedBlockStream(info, ImmutableList.of(
+        UncompressedTupleStream right = new UncompressedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 createLongsBlock(0, 10, 9, 8, 7, 6),
                 createLongsBlock(5, 5, 4, 3, 2, 1)));
 
@@ -54,13 +52,11 @@ public class TestUncompressedBinaryOperator
     public void testUnaligned()
             throws Exception
     {
-        TupleInfo info = new TupleInfo(TupleInfo.Type.FIXED_INT_64);
-
-        UncompressedBlockStream left = new UncompressedBlockStream(info, ImmutableList.of(
+        UncompressedTupleStream left = new UncompressedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 createLongsBlock(0, 10, 11, 12, 13, 14),
                 createLongsBlock(5, 15, 16, 17, 18, 19)));
 
-        UncompressedBlockStream right = new UncompressedBlockStream(info, ImmutableList.of(
+        UncompressedTupleStream right = new UncompressedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 createLongsBlock(0, 10, 9, 8, 7, 6, 5, 4, 3),
                 createLongsBlock(8, 2, 1)));
 
@@ -87,10 +83,8 @@ public class TestUncompressedBinaryOperator
     public void testFailsOnOutOfSync()
             throws Exception
     {
-        TupleInfo info = new TupleInfo(TupleInfo.Type.FIXED_INT_64);
-
-        RunLengthEncodedBlockStream left = new RunLengthEncodedBlockStream(info, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(3), Range.create(1, 5))));
-        RunLengthEncodedBlockStream right = new RunLengthEncodedBlockStream(info, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(1), Range.create(0, 5))));
+        RunLengthEncodedTupleStream left = new RunLengthEncodedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(3), Range.create(1, 5))));
+        RunLengthEncodedTupleStream right = new RunLengthEncodedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(new RunLengthEncodedBlock(Tuples.createTuple(1), Range.create(0, 5))));
 
         UncompressedBinaryOperator operator = new UncompressedBinaryOperator(left, right, new SubtractionOperation());
 

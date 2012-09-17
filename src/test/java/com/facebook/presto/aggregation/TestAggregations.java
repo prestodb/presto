@@ -4,7 +4,7 @@ import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.block.uncompressed.UncompressedBlockStream;
+import com.facebook.presto.block.uncompressed.UncompressedTupleStream;
 import com.facebook.presto.operator.GroupByOperator;
 import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.operator.PipelinedAggregationOperator;
@@ -15,9 +15,9 @@ import java.util.List;
 
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
-import static com.facebook.presto.block.Blocks.assertBlockStreamEquals;
-import static com.facebook.presto.block.Blocks.assertBlockStreamEqualsIgnoreOrder;
-import static com.facebook.presto.block.Blocks.blockStreamBuilder;
+import static com.facebook.presto.block.Blocks.assertTupleStreamEquals;
+import static com.facebook.presto.block.Blocks.assertTupleStreamEqualsIgnoreOrder;
+import static com.facebook.presto.block.Blocks.tupleStreamBuilder;
 import static com.facebook.presto.block.Blocks.createBlock;
 
 public class TestAggregations
@@ -30,8 +30,8 @@ public class TestAggregations
                 newAggregateColumn(),
                 SumAggregation.PROVIDER);
 
-        assertBlockStreamEquals(aggregation,
-                blockStreamBuilder(VARIABLE_BINARY, FIXED_INT_64)
+        assertTupleStreamEquals(aggregation,
+                tupleStreamBuilder(VARIABLE_BINARY, FIXED_INT_64)
                         .append("apple").append(10L)
                         .append("banana").append(17L)
                         .append("cherry").append(15L)
@@ -47,8 +47,8 @@ public class TestAggregations
                 newAggregateColumn(),
                 SumAggregation.PROVIDER);
 
-        assertBlockStreamEqualsIgnoreOrder(aggregation,
-                blockStreamBuilder(VARIABLE_BINARY, FIXED_INT_64)
+        assertTupleStreamEqualsIgnoreOrder(aggregation,
+                tupleStreamBuilder(VARIABLE_BINARY, FIXED_INT_64)
                         .append("apple").append(10L)
                         .append("banana").append(17L)
                         .append("cherry").append(15L)
@@ -66,7 +66,7 @@ public class TestAggregations
                 .add(createBlock(32, "date"))
                 .build();
 
-        return new UncompressedBlockStream(new TupleInfo(VARIABLE_BINARY), values);
+        return new UncompressedTupleStream(TupleInfo.SINGLE_VARBINARY, values);
     }
 
     public TupleStream newAggregateColumn()
@@ -79,7 +79,7 @@ public class TestAggregations
                 .add(Blocks.createLongsBlock(32, 3L))
                 .build();
 
-        return new UncompressedBlockStream(new TupleInfo(FIXED_INT_64), values);
+        return new UncompressedTupleStream(TupleInfo.SINGLE_LONG, values);
     }
 
 }
