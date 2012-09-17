@@ -34,14 +34,6 @@ public class UncompressedSerde
     private static final UncompressedSerde INSTANCE = new UncompressedSerde();
 
     @Override
-    public void serialize(TupleStream tupleStream, SliceOutput sliceOutput)
-    {
-        createTupleStreamWriter(sliceOutput)
-                .append(tupleStream)
-                .finished();
-    }
-
-    @Override
     public TupleStreamWriter createTupleStreamWriter(SliceOutput sliceOutput)
     {
         return new UncompressedTupleStreamWriter(sliceOutput);
@@ -94,10 +86,10 @@ public class UncompressedSerde
     {
         private final SliceOutput sliceOutput;
 
-        private boolean initialized = false;
-        private boolean finished = false;
+        private boolean initialized;
+        private boolean finished;
         private DynamicSliceOutput buffer = new DynamicSliceOutput(MAX_BLOCK_SIZE);
-        private int tupleCount = 0;
+        private int tupleCount;
 
         private UncompressedTupleStreamWriter(SliceOutput sliceOutput)
         {
@@ -122,7 +114,7 @@ public class UncompressedSerde
                 cursor.getTuple().writeTo(buffer);
                 tupleCount++;
 
-                if (buffer.size() > MAX_BLOCK_SIZE) {
+                if (buffer.size() >= MAX_BLOCK_SIZE) {
                     write(sliceOutput, tupleCount, buffer.slice());
                     tupleCount = 0;
                     buffer = new DynamicSliceOutput(MAX_BLOCK_SIZE);
@@ -133,7 +125,7 @@ public class UncompressedSerde
         }
 
         @Override
-        public void finished()
+        public void close()
         {
             checkState(initialized, "nothing appended");
             checkState(!finished, "already finished");

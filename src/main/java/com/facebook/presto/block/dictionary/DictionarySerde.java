@@ -27,17 +27,6 @@ public class DictionarySerde
     }
 
     @Override
-    public void serialize(final TupleStream tupleStream, SliceOutput sliceOutput)
-    {
-        checkNotNull(tupleStream, "tupleStream is null");
-        checkNotNull(sliceOutput, "sliceOutput is null");
-
-        createTupleStreamWriter(sliceOutput)
-                .append(tupleStream)
-                .finished();
-    }
-
-    @Override
     public TupleStreamWriter createTupleStreamWriter(SliceOutput sliceOutput)
     {
         checkNotNull(sliceOutput, "sliceOutput is null");
@@ -115,9 +104,7 @@ public class DictionarySerde
          */
         private int serialize(SliceOutput sliceOutput)
         {
-            int bytesWritten = 0;
-
-            bytesWritten += UncompressedTupleInfoSerde.serialize(tupleInfo, sliceOutput);
+            int bytesWritten = UncompressedTupleInfoSerde.serialize(tupleInfo, sliceOutput);
 
             sliceOutput.writeInt(dictionary.length);
             bytesWritten += SizeOf.SIZE_OF_INT;
@@ -152,8 +139,8 @@ public class DictionarySerde
         private final TupleStreamWriter idTupleStreamWriter;
         private final SliceOutput sliceOutput;
         private final DictionaryBuilder dictionaryBuilder = new DictionaryBuilder();
-        private TupleInfo tupleInfo = null;
-        private boolean finished = false;
+        private TupleInfo tupleInfo;
+        private boolean finished;
 
         private DictionaryTupleStreamWriter(TupleStreamWriter idTupleStreamWriter, SliceOutput sliceOutput)
         {
@@ -169,7 +156,6 @@ public class DictionarySerde
 
             if (tupleInfo == null) {
                 tupleInfo = tupleStream.getTupleInfo();
-                checkArgument(tupleInfo.getFieldCount() == 1, "Can only dictionary encode single columns");
             }
 
             TupleStream encodedTupleStream = new TupleStream()
@@ -183,7 +169,7 @@ public class DictionarySerde
                 @Override
                 public Range getRange()
                 {
-                    return Range.ALL;
+                    return tupleStream.getRange();
                 }
 
                 @Override
@@ -237,13 +223,13 @@ public class DictionarySerde
         }
 
         @Override
-        public void finished()
+        public void close()
         {
-            checkNotNull(tupleInfo, "nothing appended");
+            checkState(tupleInfo != null, "nothing appended");
             checkState(!finished, "already finished");
             finished = true;
 
-            idTupleStreamWriter.finished();
+            idTupleStreamWriter.close();
 
             // Serialize Footer
             int footerBytes = new Footer(tupleInfo, dictionaryBuilder.build()).serialize(sliceOutput);

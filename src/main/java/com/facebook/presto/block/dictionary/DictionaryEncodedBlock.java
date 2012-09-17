@@ -3,12 +3,11 @@ package com.facebook.presto.block.dictionary;
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.slice.Slice;
 import com.google.common.primitives.Ints;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 
@@ -23,7 +22,7 @@ public class DictionaryEncodedBlock implements TupleStream
         checkNotNull(tupleInfo, "tupleInfo is null");
         checkNotNull(dictionary, "dictionary is null");
         checkNotNull(sourceValueBlock, "sourceValueBlock is null");
-        checkArgument(tupleInfo.getFieldCount() == 1, "tupleInfo should only have one column");
+
         this.tupleInfo = tupleInfo;
         this.dictionary = dictionary;
         this.sourceValueBlock = sourceValueBlock;
@@ -105,37 +104,32 @@ public class DictionaryEncodedBlock implements TupleStream
         @Override
         public Tuple getTuple()
         {
-            return new Tuple(getSlice(0), tupleInfo);
+            return new Tuple(getTupleSlice(), tupleInfo);
         }
 
         @Override
         public long getLong(int field)
         {
-            checkArgument(field == 0, "should only have one field");
-            return tupleInfo.getLong(getSlice(0), 0);
+            return tupleInfo.getLong(getTupleSlice(), field);
         }
 
         @Override
         public double getDouble(int field)
         {
-            checkArgument(field == 0, "should only have one field");
-            return tupleInfo.getDouble(getSlice(0), 0);
+            return tupleInfo.getDouble(getTupleSlice(), field);
         }
 
         @Override
         public Slice getSlice(int field)
         {
-            checkArgument(field == 0, "should only have one field");
-            int dictionaryKey = Ints.checkedCast(delegate.getLong(0));
-            checkPositionIndex(dictionaryKey, dictionary.length, "dictionaryKey does not exist");
-            return dictionary[dictionaryKey];
+            return tupleInfo.getSlice(getTupleSlice(), field);
         }
 
         @Override
         public boolean currentTupleEquals(Tuple value)
         {
             // todo We should be able to compare the dictionary keys directly if the tuple comes from a block encoded using the same dictionary
-            return tupleInfo.equals(value.getTupleInfo()) && getSlice(0).equals(value.getTupleSlice());
+            return tupleInfo.equals(value.getTupleInfo()) && getTupleSlice().equals(value.getTupleSlice());
         }
 
         @Override
@@ -148,6 +142,13 @@ public class DictionaryEncodedBlock implements TupleStream
         public long getCurrentValueEndPosition()
         {
             return delegate.getCurrentValueEndPosition();
+        }
+        
+        private Slice getTupleSlice()
+        {
+            int dictionaryKey = Ints.checkedCast(delegate.getLong(0));
+            checkPositionIndex(dictionaryKey, dictionary.length, "dictionaryKey does not exist");
+            return dictionary[dictionaryKey];
         }
     }
 }

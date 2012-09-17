@@ -8,7 +8,6 @@ import com.facebook.presto.block.TupleStreamSerde;
 import com.facebook.presto.block.dictionary.DictionarySerde;
 import com.facebook.presto.block.rle.RunLengthEncodedSerde;
 import com.facebook.presto.block.uncompressed.UncompressedSerde;
-import com.facebook.presto.ingest.ColumnProcessor;
 import com.facebook.presto.ingest.CsvReader;
 import com.facebook.presto.ingest.CsvReader.CsvColumnProcessor;
 import com.facebook.presto.ingest.RowSource;
@@ -17,6 +16,7 @@ import com.facebook.presto.slice.OutputStreamSliceOutput;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.OutputSupplier;
@@ -112,11 +112,11 @@ public class Main
             ImmutableList.Builder<TupleStreamSerde> columnSerdeBuilder = ImmutableList.builder();
             for (String type : types) {
                 // Extract base type and encoding
-                // Examples: 'long_raw', 'long_uncompressed', 'string_rle', 'double_dic-rle'
-                Iterator<String> partsIterator = Splitter.on('_').split(type).iterator();
-                String dataType = partsIterator.next();
-                String encoding = partsIterator.next();
-                checkState(!partsIterator.hasNext(), "malformed type input");
+                // Examples: 'long_raw', 'string_rle', 'double_dic-rle'
+                List<String> parts = ImmutableList.copyOf(Splitter.on('_').split(type));
+                checkState(parts.size() == 2, "type format: <data_type>_<encoding> (e.g. long_raw, string_rle)");
+                String dataType = parts.get(0);
+                String encoding = parts.get(1);
 
                 switch (dataType) {
                     case "long":
@@ -155,7 +155,7 @@ public class Main
                 columnSerdes.get(index)
                         .createTupleStreamWriter(new OutputStreamSliceOutput(out))
                         .append(ColumnMappingTupleStream.map(rowSource, index))
-                        .finished();
+                        .close();
                 rowSources.add(rowSource);
                 outputs.add(out);
             }
