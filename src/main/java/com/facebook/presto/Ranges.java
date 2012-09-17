@@ -21,4 +21,19 @@ public class Ranges
 
         return result;
     }
+
+    public static Range merge(Iterable<Range> ranges)
+    {
+        Preconditions.checkNotNull(ranges, "ranges is null");
+        Preconditions.checkArgument(!Iterables.isEmpty(ranges), "ranges is empty");
+
+        Iterator<Range> iterator = ranges.iterator();
+
+        Range result = iterator.next();
+        while (iterator.hasNext()) {
+            result = result.merge(iterator.next());
+        }
+
+        return result;
+    }
 }

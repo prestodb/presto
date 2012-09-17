@@ -155,4 +155,12 @@ public class CursorAssertions
         assertTrue(cursor.advanceNextValue());
         assertEquals(cursor.getPosition(), position);
     }
+
+    public static void assertPositions(Cursor cursor, long... positions)
+    {
+        for (long position : positions) {
+            assertTrue(cursor.advanceNextPosition());
+            assertEquals(cursor.getPosition(), position);
+        }
+    }
 }
