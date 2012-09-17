@@ -14,6 +14,7 @@ import com.facebook.presto.operator.ComparisonOperator;
 import com.facebook.presto.operator.FilterOperator;
 import com.facebook.presto.operator.GroupByOperator;
 import com.facebook.presto.operator.HashAggregationOperator;
+import com.facebook.presto.operator.OrOperator;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
@@ -270,6 +271,37 @@ public class TestQueries
         ComparisonOperator comparison = new ComparisonOperator(tax2, discount2, new DoubleLessThanComparison());
         AndOperator and = new AndOperator(filteredDiscount, filteredTax, comparison);
         AggregationOperator count = new AggregationOperator(and, CountAggregation.PROVIDER);
+
+        assertEqualsIgnoreOrder(tuples(count), expected);
+    }
+
+    @Test
+    public void testCountWithOrPredicate()
+    {
+        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM lineitem WHERE tax < 0.01 OR discount > 0.05", FIXED_INT_64);
+
+        TupleStream discount = createTupleStream(lineitemData, Column.LINEITEM_DISCOUNT, DOUBLE);
+        TupleStream filteredDiscount = new ApplyPredicateOperator(discount, new Predicate<Cursor>()
+        {
+            @Override
+            public boolean apply(Cursor input)
+            {
+                return input.getDouble(0) > 0.05;
+            }
+        });
+
+        TupleStream tax = createTupleStream(lineitemData, Column.LINEITEM_TAX, DOUBLE);
+        TupleStream filteredTax = new ApplyPredicateOperator(tax, new Predicate<Cursor>()
+        {
+            @Override
+            public boolean apply(Cursor input)
+            {
+                return input.getDouble(0) < 0.01;
+            }
+        });
+
+        OrOperator or = new OrOperator(filteredDiscount, filteredTax);
+        AggregationOperator count = new AggregationOperator(or, CountAggregation.PROVIDER);
 
         assertEqualsIgnoreOrder(tuples(count), expected);
     }
