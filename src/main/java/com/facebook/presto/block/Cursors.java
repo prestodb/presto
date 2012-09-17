@@ -5,14 +5,19 @@ import com.google.common.primitives.Longs;
 
 public class Cursors
 {
+    /**
+     * Advances all cursors to the next position
+
+     * @return true if all cursors were advanced. Otherwise, false.
+     */
     public static boolean advanceNextPosition(Iterable<Cursor> cursors)
     {
-        boolean done = false;
+        boolean advancedAll = true;
         for (Cursor cursor : cursors) {
-            done = !cursor.advanceNextPosition() || done;
+            advancedAll = cursor.advanceNextPosition() && advancedAll;
         }
 
-        return !done;
+        return advancedAll;
     }
 
     public static Ordering<Cursor> orderByPosition()
