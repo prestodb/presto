@@ -20,7 +20,6 @@ public class DictionaryEncodedCursor implements Cursor
         checkNotNull(tupleInfo, "tupleInfo is null");
         checkNotNull(dictionary, "dictionary is null");
         checkNotNull(sourceCursor, "sourceCursor is null");
-        checkArgument(tupleInfo.getFieldCount() == 1, "tupleInfo should only have one column");
 
         this.tupleInfo = tupleInfo;
         this.dictionary = dictionary;
@@ -66,30 +65,25 @@ public class DictionaryEncodedCursor implements Cursor
     @Override
     public Tuple getTuple()
     {
-        return new Tuple(getSlice(0), tupleInfo);
+        return new Tuple(getTupleSlice(), tupleInfo);
     }
 
     @Override
     public long getLong(int field)
     {
-        checkArgument(field == 0, "should only have one field");
-        return tupleInfo.getLong(getSlice(0), 0);
+        return tupleInfo.getLong(getTupleSlice(), field);
     }
 
     @Override
     public double getDouble(int field)
     {
-        checkArgument(field == 0, "should only have one field");
-        return tupleInfo.getDouble(getSlice(0), 0);
+        return tupleInfo.getDouble(getTupleSlice(), field);
     }
 
     @Override
     public Slice getSlice(int field)
     {
-        checkArgument(field == 0, "should only have one field");
-        int dictionaryKey = Ints.checkedCast(sourceCursor.getLong(0));
-        checkPositionIndex(dictionaryKey, dictionary.length, "dictionaryKey does not exist");
-        return dictionary[dictionaryKey];
+        return tupleInfo.getSlice(getTupleSlice(), field);
     }
 
     @Override
@@ -102,7 +96,7 @@ public class DictionaryEncodedCursor implements Cursor
     public boolean currentTupleEquals(Tuple value)
     {
         checkNotNull(value, "value is null");
-        return tupleInfo.equals(value.getTupleInfo()) && getSlice(0).equals(value.getTupleSlice());
+        return tupleInfo.equals(value.getTupleInfo()) && getTupleSlice().equals(value.getTupleSlice());
     }
 
     @Override
@@ -115,5 +109,12 @@ public class DictionaryEncodedCursor implements Cursor
     public long getCurrentValueEndPosition()
     {
         return sourceCursor.getCurrentValueEndPosition();
+    }
+    
+    private Slice getTupleSlice()
+    {
+        int dictionaryKey = Ints.checkedCast(sourceCursor.getLong(0));
+        checkPositionIndex(dictionaryKey, dictionary.length, "dictionaryKey does not exist");
+        return dictionary[dictionaryKey];
     }
 }

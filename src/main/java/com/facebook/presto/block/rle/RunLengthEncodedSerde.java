@@ -21,17 +21,6 @@ public class RunLengthEncodedSerde
         implements TupleStreamSerde
 {
     @Override
-    public void serialize(TupleStream tupleStream, SliceOutput sliceOutput)
-    {
-        checkNotNull(tupleStream, "tupleStream is null");
-        checkNotNull(sliceOutput, "sliceOutput is null");
-
-        createTupleStreamWriter(sliceOutput)
-                .append(tupleStream)
-                .finished();
-    }
-
-    @Override
     public TupleStreamWriter createTupleStreamWriter(SliceOutput sliceOutput)
     {
         checkNotNull(sliceOutput, "sliceOutput is null");
@@ -92,12 +81,12 @@ public class RunLengthEncodedSerde
             implements TupleStreamWriter
     {
         private final SliceOutput sliceOutput;
-        private boolean initialized = false;
-        private boolean finished = false;
+        private boolean initialized;
+        private boolean finished;
 
         private long startPosition = -1;
         private long endPosition = -1;
-        private Tuple lastTuple = null;
+        private Tuple lastTuple;
 
         private RunLengthEncodedTupleStreamWriter(SliceOutput sliceOutput)
         {
@@ -113,7 +102,6 @@ public class RunLengthEncodedSerde
             Cursor cursor = tupleStream.cursor();
 
             if (!initialized) {
-                checkArgument(tupleStream.getTupleInfo().getFieldCount() == 1, "Can only run length encode single columns");
                 UncompressedTupleInfoSerde.serialize(tupleStream.getTupleInfo(), sliceOutput);
                 initialized = true;
             }
@@ -144,14 +132,14 @@ public class RunLengthEncodedSerde
         }
 
         @Override
-        public void finished()
+        public void close()
         {
             checkState(initialized, "nothing appended");
             checkState(!finished, "already finished");
             finished = true;
 
             if (lastTuple != null) {
-                // Flush out final block if there exists one
+                // Flush out final block if there exists one (null if they were all empty blocks)
                 sliceOutput.writeLong(startPosition);
                 sliceOutput.writeLong(endPosition);
                 sliceOutput.writeBytes(lastTuple.getTupleSlice());
