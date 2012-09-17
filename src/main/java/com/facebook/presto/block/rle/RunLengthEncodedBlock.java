@@ -3,8 +3,8 @@ package com.facebook.presto.block.rle;
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -127,12 +127,12 @@ public class RunLengthEncodedBlock
         @Override
         public boolean advanceToPosition(long newPosition)
         {
-            Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
-
             if (newPosition > range.getEnd()) {
                 position = Long.MAX_VALUE;
                 return false;
             }
+
+            Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
 
             this.position = newPosition;
             return true;

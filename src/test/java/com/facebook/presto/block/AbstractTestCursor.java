@@ -3,21 +3,40 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.Tuple;
 import com.facebook.presto.Tuples;
 import org.testng.annotations.Test;
 
+import java.util.Map.Entry;
+import java.util.SortedMap;
+
+import static com.facebook.presto.block.CursorAssertions.assertNextPosition;
+import static com.facebook.presto.block.CursorAssertions.assertNextValue;
+import static com.facebook.presto.block.CursorAssertions.assertNextValuePosition;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestCursor
 {
+    private final SortedMap<Long,Tuple> expectedValues = CursorAssertions.toTuplesMap(createExpectedValues().cursor());
+
+    public final Tuple getExpectedValue(long position)
+    {
+        return getExpectedValues().get(position);
+    }
+
+    public final SortedMap<Long, Tuple> getExpectedValues()
+    {
+        return expectedValues;
+    }
+
     @Test
     public void testStates()
             throws Exception
     {
         Cursor cursor = createCursor();
-
 
         //
         // We are before the first position, so the cursor is not valid and all get current methods should throw an IllegalStateException
@@ -60,6 +79,94 @@ public abstract class AbstractTestCursor
         assertFalse(cursor.isValid());
         assertTrue(cursor.isFinished());
     }
+
+    @Test
+    public void testFirstValue()
+            throws Exception
+    {
+        Cursor cursor = createCursor();
+        assertNextValue(cursor, 0, getExpectedValue(0));
+    }
+
+    @Test
+    public void testFirstPosition()
+            throws Exception
+    {
+        Cursor cursor = createCursor();
+        assertNextPosition(cursor, 0, getExpectedValue(0));
+    }
+
+    @Test
+    public void testAdvanceNextValue()
+            throws Exception
+    {
+        Cursor cursor = createCursor();
+
+        for (Entry<Long, Tuple> entry : getExpectedValues().entrySet()) {
+            assertNextValue(cursor, entry.getKey(), entry.getValue());
+        }
+
+        assertFalse(cursor.advanceNextValue());
+    }
+
+    @Test
+    public void testAdvanceNextPosition()
+    {
+        Cursor cursor = createCursor();
+
+        for (Entry<Long, Tuple> entry : getExpectedValues().entrySet()) {
+            assertNextPosition(cursor, entry.getKey(), entry.getValue());
+        }
+
+        assertFalse(cursor.advanceNextPosition());
+    }
+
+    @Test
+    public void testNextValuePosition()
+            throws Exception
+    {
+        Cursor cursor = createCursor();
+
+        for (Long position : getExpectedValues().keySet()) {
+            assertNextValuePosition(cursor, position);
+        }
+
+        assertFalse(cursor.advanceNextValue());
+        assertTrue(cursor.isFinished());
+    }
+
+    @Test
+    public void testMixedValueAndPosition()
+            throws Exception
+    {
+        Cursor cursor = createCursor();
+
+        for (Entry<Long, Tuple> entry : getExpectedValues().entrySet()) {
+            long position = entry.getKey();
+            Tuple tuple = entry.getValue();
+            if (position % 2 != 0) {
+                assertNextValue(cursor, position, tuple);
+            }
+            else {
+                assertNextPosition(cursor, position, tuple);
+            }
+        }
+
+        assertFalse(cursor.advanceNextPosition());
+        assertFalse(cursor.advanceNextValue());
+    }
+
+    @Test
+    public void testGetCurrentValueEndPosition()
+            throws Exception
+    {
+        Cursor cursor = createCursor();
+        while (cursor.advanceNextValue()) {
+            assertEquals(cursor.getCurrentValueEndPosition(), cursor.getPosition());
+        }
+    }
+
+    protected abstract TupleStream createExpectedValues();
 
     protected abstract Cursor createCursor();
 }

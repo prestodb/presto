@@ -1,44 +1,30 @@
 package com.facebook.presto.block.uncompressed;
 
-import com.facebook.presto.block.AbstractTestUncompressedSliceCursor;
-import com.facebook.presto.block.Blocks;
+import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.AbstractTestNonContiguousCursor;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.TupleStream;
 import com.google.common.collect.ImmutableList;
-import org.testng.annotations.Test;
 
-import static org.testng.Assert.fail;
+import java.util.List;
 
-public class TestUncompressedSliceCursor extends AbstractTestUncompressedSliceCursor
+import static com.facebook.presto.block.Blocks.createBlock;
+
+public class TestUncompressedSliceCursor extends AbstractTestNonContiguousCursor
 {
-    @Test
-    public void testConstructorNulls()
+    private List<UncompressedBlock> createBlocks()
     {
-        try {
-            new UncompressedCursor(createTupleInfo(), null);
-            fail("Expected NullPointerException");
-        }
-        catch (NullPointerException expected) {
-        }
-        try {
-            new UncompressedCursor(null, ImmutableList.of(Blocks.createBlock(0, "a")).iterator());
-            fail("Expected NullPointerException");
-        }
-        catch (NullPointerException expected) {
-        }
+        return ImmutableList.of(
+                createBlock(0, "apple", "apple", "apple", "banana", "banana"),
+                createBlock(5, "banana", "banana", "banana"),
+                createBlock(20, "cherry", "cherry"),
+                createBlock(30, "date"));
     }
 
-    @Test
-    public void testGetLong()
-            throws Exception
+    @Override
+    protected TupleStream createExpectedValues()
     {
-        Cursor cursor = createCursor();
-
-        try {
-            cursor.getLong(0);
-            fail("Expected UnsupportedOperationException");
-        }
-        catch (UnsupportedOperationException expected) {
-        }
+        return new UncompressedTupleStream(TupleInfo.SINGLE_VARBINARY, createBlocks());
     }
 
     @Override

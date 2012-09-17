@@ -132,13 +132,13 @@ public class PositionsBlock
         @Override
         public boolean advanceToPosition(long newPosition)
         {
-            Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
-
             if (newPosition > totalRange.getEnd()) {
-                index = ranges.size();
-                position = newPosition;
+                index = Integer.MAX_VALUE;
+                position = Long.MAX_VALUE;
                 return false;
             }
+
+            Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
 
             for (int i = index; i < ranges.size(); i++) {
                 if (newPosition <= ranges.get(i).getEnd()) {

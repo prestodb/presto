@@ -3,41 +3,22 @@
  */
 package com.facebook.presto.block.uncompressed;
 
+import com.facebook.presto.block.AbstractTestContiguousCursor;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.AbstractTestUncompressedSliceBlockCursor;
-import org.testng.annotations.Test;
 
-import static org.testng.Assert.fail;
+import static com.facebook.presto.block.Blocks.createBlock;
 
-public class TestUncompressedBlockCursorSlice extends AbstractTestUncompressedSliceBlockCursor
+public class TestUncompressedBlockCursorSlice extends AbstractTestContiguousCursor
 {
-    @Test
-    public void testGetLongState()
+    @Override
+    public UncompressedBlock createExpectedValues()
     {
-        Cursor cursor = createCursor();
-        try {
-            cursor.getLong(0);
-            fail("Expected IllegalStateException");
-        }
-        catch (IllegalStateException expected) {
-        }
-    }
-
-    @Test
-    public void testGetSlice()
-    {
-        Cursor cursor = createCursor();
-        try {
-            cursor.getSlice(0);
-            fail("Expected IllegalStateException");
-        }
-        catch (IllegalStateException expected) {
-        }
+        return createBlock(0, "apple", "apple", "apple", "banana", "banana", "banana", "banana", "banana", "cherry", "cherry", "date");
     }
 
     @Override
     protected Cursor createCursor()
     {
-        return new UncompressedBlockCursor(createTestBlock());
+        return new UncompressedBlockCursor(createExpectedValues());
     }
 }

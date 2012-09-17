@@ -7,34 +7,25 @@ import com.facebook.presto.block.AbstractTestCursor;
 import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.CursorAssertions;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedCursor;
+import com.facebook.presto.block.uncompressed.UncompressedTupleStream;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.block.Blocks.createBlock;
 import static com.facebook.presto.block.CursorAssertions.assertCurrentValue;
-import static org.testng.Assert.*;
+import static com.facebook.presto.block.CursorAssertions.assertNextPosition;
+import static com.facebook.presto.block.CursorAssertions.assertNextValue;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestRunLengthEncodedCursor extends AbstractTestCursor
 {
-    @Test
-    public void testFirstValue()
-            throws Exception
-    {
-        RunLengthEncodedCursor cursor = createCursor();
-        CursorAssertions.assertNextValue(cursor, 0, "apple");
-    }
-
-    @Test
-    public void testFirstPosition()
-            throws Exception
-    {
-        RunLengthEncodedCursor cursor = createCursor();
-        CursorAssertions.assertNextPosition(cursor, 0, "apple");
-    }
-
-
     @Test
     public void testAdvanceNextValue()
             throws Exception
@@ -47,27 +38,6 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         CursorAssertions.assertNextValue(cursor, 30, "date");
 
         assertFalse(cursor.advanceNextValue());
-        assertTrue(cursor.isFinished());
-    }
-
-    @Test
-    public void testAdvanceNextPosition()
-    {
-        RunLengthEncodedCursor cursor = createCursor();
-
-        CursorAssertions.assertNextPosition(cursor, 0, "apple");
-        CursorAssertions.assertNextPosition(cursor, 1, "apple");
-        CursorAssertions.assertNextPosition(cursor, 2, "apple");
-        CursorAssertions.assertNextPosition(cursor, 3, "apple");
-        CursorAssertions.assertNextPosition(cursor, 4, "apple");
-        CursorAssertions.assertNextPosition(cursor, 5, "banana");
-        CursorAssertions.assertNextPosition(cursor, 6, "banana");
-        CursorAssertions.assertNextPosition(cursor, 7, "banana");
-        CursorAssertions.assertNextPosition(cursor, 20, "cherry");
-        CursorAssertions.assertNextPosition(cursor, 21, "cherry");
-        CursorAssertions.assertNextPosition(cursor, 30, "date");
-
-        assertFalse(cursor.advanceNextPosition());
         assertTrue(cursor.isFinished());
     }
 
@@ -176,7 +146,8 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         RunLengthEncodedCursor cursor = createCursor();
 
         // first, skip to end
-        while (cursor.advanceNextPosition());
+        while (cursor.advanceNextPosition()) {
+        }
 
         // advance past end
         assertFalse(cursor.advanceNextPosition());
@@ -189,7 +160,8 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         RunLengthEncodedCursor cursor = createCursor();
 
         // first, skip to end
-        while (cursor.advanceNextValue());
+        while (cursor.advanceNextValue()) {
+        }
 
         // advance past end
         assertFalse(cursor.advanceNextValue());
@@ -197,7 +169,7 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
     }
 
     @Test
-    public void testCurrentValueEndPosition()
+    public void testGetCurrentValueEndPosition()
             throws Exception
     {
         RunLengthEncodedCursor cursor = createCursor();
@@ -213,17 +185,6 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
 
         cursor.advanceNextValue();
         assertEquals(cursor.getCurrentValueEndPosition(), 30);
-    }
-
-    protected RunLengthEncodedCursor createCursor()
-    {
-        List<RunLengthEncodedBlock> blocks = ImmutableList.of(
-                new RunLengthEncodedBlock(Tuples.createTuple("apple"), Range.create(0, 4)),
-                new RunLengthEncodedBlock(Tuples.createTuple("banana"), Range.create(5, 7)),
-                new RunLengthEncodedBlock(Tuples.createTuple("cherry"), Range.create(20, 21)),
-                new RunLengthEncodedBlock(Tuples.createTuple("date"), Range.create(30, 30)));
-
-        return new RunLengthEncodedCursor(TupleInfo.SINGLE_VARBINARY, blocks.iterator());
     }
 
     @Test
@@ -245,5 +206,47 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         }
         catch (NullPointerException expected) {
         }
+    }
+
+    @Override
+    public void testMixedValueAndPosition()
+            throws Exception
+    {
+        Cursor cursor = createCursor();
+
+        assertNextValue(cursor, 0, "apple");
+        assertNextPosition(cursor, 1, "apple");
+        assertNextValue(cursor, 5, "banana");
+        assertNextPosition(cursor, 6, "banana");
+        assertNextValue(cursor, 20, "cherry");
+        assertNextPosition(cursor, 21, "cherry");
+        assertNextValue(cursor, 30, "date");
+
+        assertFalse(cursor.advanceNextPosition());
+        assertFalse(cursor.advanceNextValue());
+        assertTrue(cursor.isFinished());
+    }
+
+    @Override
+    protected TupleStream createExpectedValues()
+    {
+        return new UncompressedTupleStream(TupleInfo.SINGLE_VARBINARY, ImmutableList.of(
+                createBlock(0, "apple", "apple", "apple", "apple", "apple"),
+                createBlock(5, "banana", "banana", "banana"),
+                createBlock(20, "cherry", "cherry"),
+                createBlock(30, "date")));
+    }
+
+
+    @Override
+    protected RunLengthEncodedCursor createCursor()
+    {
+        List<RunLengthEncodedBlock> blocks = ImmutableList.of(
+                new RunLengthEncodedBlock(Tuples.createTuple("apple"), Range.create(0, 4)),
+                new RunLengthEncodedBlock(Tuples.createTuple("banana"), Range.create(5, 7)),
+                new RunLengthEncodedBlock(Tuples.createTuple("cherry"), Range.create(20, 21)),
+                new RunLengthEncodedBlock(Tuples.createTuple("date"), Range.create(30, 30)));
+
+        return new RunLengthEncodedCursor(TupleInfo.SINGLE_VARBINARY, blocks.iterator());
     }
 }
