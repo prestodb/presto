@@ -11,17 +11,14 @@ import static com.google.common.base.Preconditions.*;
 
 public class DictionaryEncodedCursor implements Cursor
 {
-    private final TupleInfo tupleInfo;
-    private final Slice[] dictionary;
+    private final Dictionary dictionary;
     private final Cursor sourceCursor;
 
-    public DictionaryEncodedCursor(TupleInfo tupleInfo, Slice[] dictionary, Cursor sourceCursor)
+    public DictionaryEncodedCursor(Dictionary dictionary, Cursor sourceCursor)
     {
-        checkNotNull(tupleInfo, "tupleInfo is null");
         checkNotNull(dictionary, "dictionary is null");
         checkNotNull(sourceCursor, "sourceCursor is null");
 
-        this.tupleInfo = tupleInfo;
         this.dictionary = dictionary;
         this.sourceCursor = sourceCursor;
     }
@@ -29,7 +26,7 @@ public class DictionaryEncodedCursor implements Cursor
     @Override
     public TupleInfo getTupleInfo()
     {
-        return tupleInfo;
+        return dictionary.getTupleInfo();
     }
 
     @Override
@@ -65,25 +62,25 @@ public class DictionaryEncodedCursor implements Cursor
     @Override
     public Tuple getTuple()
     {
-        return new Tuple(getTupleSlice(), tupleInfo);
+        return dictionary.getTuple(getDictionaryKey());
     }
 
     @Override
     public long getLong(int field)
     {
-        return tupleInfo.getLong(getTupleSlice(), field);
+        return dictionary.getLong(getDictionaryKey(), field);
     }
 
     @Override
     public double getDouble(int field)
     {
-        return tupleInfo.getDouble(getTupleSlice(), field);
+        return dictionary.getDouble(getDictionaryKey(), field);
     }
 
     @Override
     public Slice getSlice(int field)
     {
-        return tupleInfo.getSlice(getTupleSlice(), field);
+        return dictionary.getSlice(getDictionaryKey(), field);
     }
 
     @Override
@@ -95,8 +92,7 @@ public class DictionaryEncodedCursor implements Cursor
     @Override
     public boolean currentTupleEquals(Tuple value)
     {
-        checkNotNull(value, "value is null");
-        return tupleInfo.equals(value.getTupleInfo()) && getTupleSlice().equals(value.getTupleSlice());
+        return dictionary.tupleEquals(getDictionaryKey(), value);
     }
 
     @Override
@@ -110,11 +106,11 @@ public class DictionaryEncodedCursor implements Cursor
     {
         return sourceCursor.getCurrentValueEndPosition();
     }
-    
-    private Slice getTupleSlice()
+
+    public int getDictionaryKey()
     {
         int dictionaryKey = Ints.checkedCast(sourceCursor.getLong(0));
-        checkPositionIndex(dictionaryKey, dictionary.length, "dictionaryKey does not exist");
-        return dictionary[dictionaryKey];
+        checkPositionIndex(dictionaryKey, dictionary.size(), "dictionaryKey does not exist");
+        return dictionaryKey;
     }
 }
