@@ -30,6 +30,11 @@ public class TupleStreamChunker
         this.positionChunkSize = positionChunkWidth;
         this.tupleStream = tupleStream;
     }
+    
+    public static TupleStreamChunker chunk(int positionChunkWidth, TupleStream tupleStream)
+    {
+        return new TupleStreamChunker(positionChunkWidth, tupleStream);
+    }
 
     @Override
     public Iterator<TupleStream> iterator()

@@ -16,7 +16,7 @@ import static com.google.common.base.Preconditions.checkState;
  * The underlying cursor may be initialized or not, and may be at an arbitrary position.
  * RangeBoundedCursor will provide all valid positions/values within the specified range
  * and guarantees that the underlying cursor will not be advanced further
- * than ond valid position beyond the specified range end position.
+ * than one valid position beyond the specified range end position.
  *
  * A single underlying cursor may be passed serially to a contiguous sequence of RangeBoundedCursors
  * to completely process a TupleStream in segments.
@@ -84,6 +84,7 @@ public class RangeBoundedCursor
      * true on all future calls.
      */
     private boolean initializeUnderlyingCursor() {
+        initialized = true;
         if (!cursor.isValid()) {
             // Underlying cursor not yet initialized, so move to first position
             if (!cursor.advanceNextPosition()) {
@@ -95,9 +96,7 @@ public class RangeBoundedCursor
 
         if (cursor.getPosition() < validRange.getStart()) {
             // Cursor has not advanced into range yet
-            if (!cursor.advanceToPosition(validRange.getStart())) {
-                return false;
-            }
+            return cursor.advanceToPosition(validRange.getStart());
         }
         return true;
     }
@@ -109,7 +108,6 @@ public class RangeBoundedCursor
             return false;
         }
         if (!initialized) {
-            initialized = true;
             if (!initializeUnderlyingCursor()) {
                 return false;
             }
@@ -131,7 +129,6 @@ public class RangeBoundedCursor
             return false;
         }
         if (!initialized) {
-            initialized = true;
             if (!initializeUnderlyingCursor()) {
                 return false;
             }
@@ -152,10 +149,10 @@ public class RangeBoundedCursor
         if (isFinished()) {
             return false;
         }
+        checkArgument(position >= validRange.getStart(), "target position is before start");
         if (!initialized) {
             initialized = true;
         }
-        checkArgument(position >= validRange.getStart(), "target position is before start");
         if (!cursor.advanceToPosition(Math.min(position, validRange.getEnd() + 1))) {
             // Advance only as far as one passed the last valid position (to ensure isFinished)
             return false;

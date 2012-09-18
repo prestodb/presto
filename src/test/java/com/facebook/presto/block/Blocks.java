@@ -22,8 +22,12 @@ public class Blocks
     public static void assertTupleStreamEquals(TupleStream actual, TupleStream expected)
     {
         Assert.assertEquals(actual.getTupleInfo(), expected.getTupleInfo());
-        Cursor actualCursor = actual.cursor();
-        Cursor expectedCursor = expected.cursor();
+        assertCursorsEquals(actual.cursor(), expected.cursor());
+    }
+    
+    public static void assertCursorsEquals(Cursor actualCursor, Cursor expectedCursor)
+    {
+        Assert.assertEquals(actualCursor.getTupleInfo(), expectedCursor.getTupleInfo());
         while (advanceAllCursorsToNextPosition(actualCursor, expectedCursor)) {
             assertEquals(actualCursor.getTuple(), expectedCursor.getTuple());
         }

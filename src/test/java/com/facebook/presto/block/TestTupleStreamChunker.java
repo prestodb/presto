@@ -10,7 +10,7 @@ public class TestTupleStreamChunker
     {
         TupleStream base = Blocks.createTupleStream(0, "a", "bb", "c", "d", "e", "e", "a", "bb");
         Blocks.assertTupleStreamEquals(
-                new GenericTupleStream<>(base.getTupleInfo(), new TupleStreamChunker(3, base)),
+                new GenericTupleStream<>(base.getTupleInfo(), TupleStreamChunker.chunk(3, base)),
                 base
         );
     }
@@ -20,7 +20,7 @@ public class TestTupleStreamChunker
     {
         TupleStream base = Blocks.createTupleStream(0, "a", "bb", "c", "d", "e", "e", "a", "bb");
         Blocks.assertTupleStreamEquals(
-                new GenericTupleStream<>(base.getTupleInfo(), new TupleStreamChunker(1, base)),
+                new GenericTupleStream<>(base.getTupleInfo(), TupleStreamChunker.chunk(1, base)),
                 base
         );
     }
@@ -30,7 +30,7 @@ public class TestTupleStreamChunker
     {
         TupleStream base = Blocks.createTupleStream(0, "a", "bb", "c", "d", "e", "e", "a", "bb");
         Blocks.assertTupleStreamEquals(
-                new GenericTupleStream<>(base.getTupleInfo(), new TupleStreamChunker(8, base)),
+                new GenericTupleStream<>(base.getTupleInfo(), TupleStreamChunker.chunk(8, base)),
                 base
         );
     }
@@ -40,7 +40,7 @@ public class TestTupleStreamChunker
     {
         TupleStream base = Blocks.createTupleStream(0, "a", "bb", "c", "d", "e", "e", "a", "bb");
         Blocks.assertTupleStreamEquals(
-                new GenericTupleStream<>(base.getTupleInfo(), new TupleStreamChunker(Integer.MAX_VALUE, base)),
+                new GenericTupleStream<>(base.getTupleInfo(), TupleStreamChunker.chunk(Integer.MAX_VALUE, base)),
                 base
         );
     }
@@ -53,7 +53,7 @@ public class TestTupleStreamChunker
                 ImmutableList.<Long>of(1L, 5L, 7L)
         );
         Blocks.assertTupleStreamEquals(
-                new GenericTupleStream<>(base.getTupleInfo(), new TupleStreamChunker(3, base)),
+                new GenericTupleStream<>(base.getTupleInfo(), TupleStreamChunker.chunk(3, base)),
                 base
         );
     }
@@ -63,7 +63,7 @@ public class TestTupleStreamChunker
     {
         TupleStream base = Blocks.createTupleStream(5, "a", "bb", "c", "d", "e", "e", "a", "bb");
         Blocks.assertTupleStreamEquals(
-                new GenericTupleStream<>(base.getTupleInfo(), new TupleStreamChunker(2, base)),
+                new GenericTupleStream<>(base.getTupleInfo(), TupleStreamChunker.chunk(2, base)),
                 base
         );
     }
