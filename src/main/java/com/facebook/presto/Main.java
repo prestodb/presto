@@ -3,8 +3,7 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.block.ColumnMappingTupleStream;
-import com.facebook.presto.block.TupleStreamSerde;
+import com.facebook.presto.block.*;
 import com.facebook.presto.block.dictionary.DictionarySerde;
 import com.facebook.presto.block.rle.RunLengthEncodedSerde;
 import com.facebook.presto.block.uncompressed.UncompressedSerde;
@@ -12,16 +11,17 @@ import com.facebook.presto.ingest.CsvReader;
 import com.facebook.presto.ingest.CsvReader.CsvColumnProcessor;
 import com.facebook.presto.ingest.RowSource;
 import com.facebook.presto.ingest.RowSourceBuilder;
+import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.OutputStreamSliceOutput;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.OutputSupplier;
 import io.airlift.command.*;
 import io.airlift.command.Cli.CliBuilder;
+import io.airlift.units.DataSize;
 
 import java.io.*;
 import java.util.Iterator;
@@ -34,6 +34,9 @@ import static com.google.common.base.Preconditions.checkState;
 
 public class Main
 {
+    private static final int CHUNK_POSITION_WIDTH = 1024;
+    private static final DataSize ESTIMATED_CHUNK_SIZE = new DataSize(1, DataSize.Unit.MEGABYTE);
+    
     public static void main(String[] args)
             throws Exception
     {
@@ -145,24 +148,34 @@ public class Main
             TupleInfo tupleInfo = new TupleInfo(columnTypes);
             CsvReader csvReader = new CsvReader(tupleInfo, inputSupplier, toChar(columnSeparator), csvColumns.build());
             ImmutableList<TupleStreamSerde> columnSerdes = columnSerdeBuilder.build();
-
-            ImmutableList.Builder<RowSource> rowSources = ImmutableList.builder();
             ImmutableList.Builder<OutputStream> outputs = ImmutableList.builder();
+            ImmutableList.Builder<TupleStreamWriter> tupleStreamWritersBuilder = ImmutableList.builder();
             for (int index = 0; index < columnTypes.size(); index++) {
-                RowSource rowSource = csvReader.getInput();
-                OutputStream out = new FileOutputStream(new File(dir, "column" + index + "." + types.get(index) + ".data"));
-                // TODO: chunk these tuple streams for better efficiency
-                columnSerdes.get(index)
-                        .createTupleStreamWriter(new OutputStreamSliceOutput(out))
-                        .append(ColumnMappingTupleStream.map(rowSource, index))
-                        .close();
-                rowSources.add(rowSource);
+                OutputStream out = newOutputStreamSupplier(new File(dir, String.format("column%d.%s.data", index, types.get(index)))).getOutput();
+                tupleStreamWritersBuilder.add(
+                        columnSerdes.get(index)
+                                .createTupleStreamWriter(new OutputStreamSliceOutput(out))
+                );
                 outputs.add(out);
             }
 
-            for (RowSource rowSource : rowSources.build()) {
-                rowSource.close();
+            RowSource rowSource = csvReader.getInput();
+            ImmutableList<TupleStreamWriter> tupleStreamWriters = tupleStreamWritersBuilder.build();
+            for (TupleStream tupleStreamChunk : TupleStreamChunker.chunk(CHUNK_POSITION_WIDTH, rowSource)) {
+                // In order to support the possibility of single read input sources (e.g. stdin),
+                // Chunk the input source into pieces and copy them to a local buffer
+                DynamicSliceOutput sliceOutput = new DynamicSliceOutput((int) ESTIMATED_CHUNK_SIZE.toBytes());
+                TupleStreamSerdes.serialize(UncompressedSerde.INSTANCE, tupleStreamChunk, sliceOutput);
+                TupleStream copiedTupleStreamChunk = TupleStreamSerdes.deserialize(UncompressedSerde.INSTANCE, sliceOutput.slice());
+                for (int index = 0; index < columnTypes.size(); index++) {
+                    tupleStreamWriters.get(index).append(ColumnMappingTupleStream.map(copiedTupleStreamChunk, index));
+                }
             }
+
+            for (TupleStreamWriter tupleStreamWriter : tupleStreamWriters) {
+                tupleStreamWriter.close();
+            }
+            rowSource.close();
             for (OutputStream out : outputs.build()) {
                 out.close();
             }

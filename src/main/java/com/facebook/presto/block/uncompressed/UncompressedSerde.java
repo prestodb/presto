@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.util.Iterator;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_INT;
+import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
@@ -31,7 +32,7 @@ public class UncompressedSerde
         implements TupleStreamSerde
 {
     private static final int MAX_BLOCK_SIZE = (int) new DataSize(64, KILOBYTE).toBytes();
-    private static final UncompressedSerde INSTANCE = new UncompressedSerde();
+    public static final UncompressedSerde INSTANCE = new UncompressedSerde();
 
     @Override
     public TupleStreamWriter createTupleStreamWriter(SliceOutput sliceOutput)
@@ -45,12 +46,13 @@ public class UncompressedSerde
         return readAsStream(slice);
     }
 
-    private static void write(SliceOutput destination, int tupleCount, Slice slice)
+    private static void write(SliceOutput destination, long startPosition, int tupleCount, Slice slice)
     {
-        ByteArraySlice header = Slices.allocate(SIZE_OF_INT + SIZE_OF_INT);
+        ByteArraySlice header = Slices.allocate(SIZE_OF_INT + SIZE_OF_INT + SIZE_OF_LONG);
         header.output()
                 .appendInt(slice.length())
-                .appendInt(tupleCount);
+                .appendInt(tupleCount)
+                .appendLong(startPosition);
         destination.writeBytes(header);
         destination.writeBytes(slice);
     }
@@ -88,6 +90,7 @@ public class UncompressedSerde
 
         private boolean initialized;
         private boolean finished;
+        private long currentStartPosition = -1;
         private DynamicSliceOutput buffer = new DynamicSliceOutput(MAX_BLOCK_SIZE);
         private int tupleCount;
 
@@ -111,13 +114,17 @@ public class UncompressedSerde
             Cursor cursor = tupleStream.cursor();
 
             while (cursor.advanceNextPosition()) {
+                if (currentStartPosition == -1) {
+                    currentStartPosition = cursor.getPosition();
+                }
                 cursor.getTuple().writeTo(buffer);
                 tupleCount++;
 
                 if (buffer.size() >= MAX_BLOCK_SIZE) {
-                    write(sliceOutput, tupleCount, buffer.slice());
+                    write(sliceOutput, currentStartPosition, tupleCount, buffer.slice());
                     tupleCount = 0;
                     buffer = new DynamicSliceOutput(MAX_BLOCK_SIZE);
+                    currentStartPosition = -1;
                 }
             }
 
@@ -132,7 +139,8 @@ public class UncompressedSerde
             finished = true;
 
             if (buffer.size() > 0) {
-                write(sliceOutput, tupleCount, buffer.slice());
+                checkState(currentStartPosition >= 0, "invariant");
+                write(sliceOutput, currentStartPosition, tupleCount, buffer.slice());
             }
         }
     }
@@ -142,7 +150,6 @@ public class UncompressedSerde
     {
         private final TupleInfo tupleInfo;
         private final SliceInput sliceInput;
-        private int position;
 
         private UncompressedReader(Slice slice)
         {
@@ -159,9 +166,9 @@ public class UncompressedSerde
 
             int blockSize = sliceInput.readInt();
             int tupleCount = sliceInput.readInt();
+            long startPosition = sliceInput.readLong();
 
-            Range range = Range.create(position, position + tupleCount - 1);
-            position += tupleCount;
+            Range range = Range.create(startPosition, startPosition + tupleCount - 1);
 
             Slice block = sliceInput.readSlice(blockSize);
             return new UncompressedBlock(range, tupleInfo, block);
