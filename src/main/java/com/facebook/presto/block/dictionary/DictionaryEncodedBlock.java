@@ -13,17 +13,14 @@ import static com.google.common.base.Preconditions.checkPositionIndex;
 
 public class DictionaryEncodedBlock implements TupleStream
 {
-    private final TupleInfo tupleInfo;
-    private final Slice[] dictionary;
+    private final Dictionary dictionary;
     private final TupleStream sourceValueBlock;
 
-    public DictionaryEncodedBlock(TupleInfo tupleInfo, Slice[] dictionary, TupleStream sourceValueBlock)
+    public DictionaryEncodedBlock(Dictionary dictionary, TupleStream sourceValueBlock)
     {
-        checkNotNull(tupleInfo, "tupleInfo is null");
         checkNotNull(dictionary, "dictionary is null");
         checkNotNull(sourceValueBlock, "sourceValueBlock is null");
 
-        this.tupleInfo = tupleInfo;
         this.dictionary = dictionary;
         this.sourceValueBlock = sourceValueBlock;
     }
@@ -31,7 +28,7 @@ public class DictionaryEncodedBlock implements TupleStream
     @Override
     public TupleInfo getTupleInfo()
     {
-        return tupleInfo;
+        return dictionary.getTupleInfo();
     }
 
     @Override
@@ -43,18 +40,16 @@ public class DictionaryEncodedBlock implements TupleStream
     @Override
     public Cursor cursor()
     {
-        return new DictionaryEncodedBlockCursor(tupleInfo, sourceValueBlock, dictionary);
+        return new DictionaryEncodedBlockCursor(dictionary, sourceValueBlock);
     }
 
     private static class DictionaryEncodedBlockCursor implements Cursor
     {
-        private final TupleInfo tupleInfo;
+        private final Dictionary dictionary;
         private final Cursor delegate;
-        private final Slice[] dictionary;
 
-        private DictionaryEncodedBlockCursor(TupleInfo tupleInfo, TupleStream sourceValueBlock, Slice... dictionary)
+        private DictionaryEncodedBlockCursor(Dictionary dictionary, TupleStream sourceValueBlock)
         {
-            this.tupleInfo = tupleInfo;
             this.dictionary = dictionary;
             delegate = sourceValueBlock.cursor();
         }
@@ -62,7 +57,7 @@ public class DictionaryEncodedBlock implements TupleStream
         @Override
         public TupleInfo getTupleInfo()
         {
-            return tupleInfo;
+            return dictionary.getTupleInfo();
         }
 
         @Override
@@ -104,32 +99,31 @@ public class DictionaryEncodedBlock implements TupleStream
         @Override
         public Tuple getTuple()
         {
-            return new Tuple(getTupleSlice(), tupleInfo);
+            return dictionary.getTuple(getDictionaryKey());
         }
 
         @Override
         public long getLong(int field)
         {
-            return tupleInfo.getLong(getTupleSlice(), field);
+            return dictionary.getLong(getDictionaryKey(), field);
         }
 
         @Override
         public double getDouble(int field)
         {
-            return tupleInfo.getDouble(getTupleSlice(), field);
+            return dictionary.getDouble(getDictionaryKey(), field);
         }
 
         @Override
         public Slice getSlice(int field)
         {
-            return tupleInfo.getSlice(getTupleSlice(), field);
+            return dictionary.getSlice(getDictionaryKey(), field);
         }
 
         @Override
         public boolean currentTupleEquals(Tuple value)
         {
-            // todo We should be able to compare the dictionary keys directly if the tuple comes from a block encoded using the same dictionary
-            return tupleInfo.equals(value.getTupleInfo()) && getTupleSlice().equals(value.getTupleSlice());
+            return dictionary.tupleEquals(getDictionaryKey(), value);
         }
 
         @Override
@@ -144,11 +138,11 @@ public class DictionaryEncodedBlock implements TupleStream
             return delegate.getCurrentValueEndPosition();
         }
         
-        private Slice getTupleSlice()
+        public int getDictionaryKey()
         {
             int dictionaryKey = Ints.checkedCast(delegate.getLong(0));
-            checkPositionIndex(dictionaryKey, dictionary.length, "dictionaryKey does not exist");
-            return dictionary[dictionaryKey];
+            checkPositionIndex(dictionaryKey, dictionary.size(), "dictionaryKey does not exist");
+            return dictionaryKey;
         }
     }
 }

@@ -5,14 +5,11 @@ import com.facebook.presto.SizeOf;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.*;
+import com.facebook.presto.block.dictionary.Dictionary.DictionaryBuilder;
 import com.facebook.presto.block.uncompressed.UncompressedTupleInfoSerde;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
 
 import static com.google.common.base.Preconditions.*;
 
@@ -34,7 +31,7 @@ public class DictionarySerde
     }
 
     @Override
-    public TupleStream deserialize(Slice slice)
+    public DictionaryEncodedTupleStream deserialize(Slice slice)
     {
         checkNotNull(slice, "slice is null");
 
@@ -47,34 +44,7 @@ public class DictionarySerde
 
         Slice payloadSlice = slice.slice(0, slice.length() - footerLen - SizeOf.SIZE_OF_INT);
 
-        return new DictionaryEncodedTupleStream(footer.getTupleInfo(), footer.getDictionary(), idSerde.deserialize(payloadSlice));
-    }
-
-    private static class DictionaryBuilder
-    {
-        private final Map<Slice, Integer> dictionary = new HashMap<>();
-        private int nextId = 0;
-
-        public long getId(Tuple tuple)
-        {
-            Integer id = dictionary.get(tuple.getTupleSlice());
-            if (id == null) {
-                id = nextId;
-                nextId++;
-                dictionary.put(tuple.getTupleSlice(), id);
-            }
-            return id;
-        }
-
-        public Slice[] build()
-        {
-            // Convert ID map to compact dictionary array (should be contiguous)
-            Slice[] dictionary = new Slice[this.dictionary.size()];
-            for (Entry<Slice, Integer> entry : this.dictionary.entrySet()) {
-                dictionary[entry.getValue()] = entry.getKey();
-            }
-            return dictionary;
-        }
+        return new DictionaryEncodedTupleStream(new Dictionary(footer.getTupleInfo(), footer.getDictionary()), idSerde.deserialize(payloadSlice));
     }
 
     // TODO: this encoding can be made more compact if we leverage sorted order of the map
