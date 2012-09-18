@@ -4,17 +4,20 @@ import com.facebook.presto.Range;
 import com.facebook.presto.SizeOf;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.*;
+import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.ForwardingCursor;
+import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.TupleStreamSerde;
+import com.facebook.presto.block.TupleStreamWriter;
+import com.facebook.presto.block.dictionary.Dictionary.DictionaryBuilder;
 import com.facebook.presto.block.uncompressed.UncompressedTupleInfoSerde;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
-
-import static com.google.common.base.Preconditions.*;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 public class DictionarySerde
         implements TupleStreamSerde
@@ -34,103 +37,51 @@ public class DictionarySerde
     }
 
     @Override
-    public TupleStream deserialize(Slice slice)
+    public DictionaryEncodedTupleStream deserialize(Slice slice)
     {
         checkNotNull(slice, "slice is null");
 
-        // Get Footer byte length from tail and reset to beginning
-        int footerLen = slice.slice(slice.length() - SizeOf.SIZE_OF_INT, SizeOf.SIZE_OF_INT).input().readInt();
+        // Get dictionary byte length from tail and reset to beginning
+        int dictionaryLength = slice.slice(slice.length() - SizeOf.SIZE_OF_INT, SizeOf.SIZE_OF_INT).input().readInt();
 
-        // Slice out Footer data and extract it
-        Slice footerSlice = slice.slice(slice.length() - footerLen - SizeOf.SIZE_OF_INT, footerLen);
-        Footer footer = Footer.deserialize(footerSlice);
+        // Slice out dictionary data and extract it
+        Slice dictionarySlice = slice.slice(slice.length() - dictionaryLength - SizeOf.SIZE_OF_INT, dictionaryLength);
+        Dictionary dictionary = deserializeDictionary(dictionarySlice);
 
-        Slice payloadSlice = slice.slice(0, slice.length() - footerLen - SizeOf.SIZE_OF_INT);
+        Slice payloadSlice = slice.slice(0, slice.length() - dictionaryLength - SizeOf.SIZE_OF_INT);
 
-        return new DictionaryEncodedTupleStream(footer.getTupleInfo(), footer.getDictionary(), idSerde.deserialize(payloadSlice));
+        return new DictionaryEncodedTupleStream(dictionary, idSerde.deserialize(payloadSlice));
     }
 
-    private static class DictionaryBuilder
+    private static int serializeDictionary(SliceOutput sliceOutput, Dictionary dictionary)
     {
-        private final Map<Slice, Integer> dictionary = new HashMap<>();
-        private int nextId = 0;
+        int bytesWritten = UncompressedTupleInfoSerde.serialize(dictionary.getTupleInfo(), sliceOutput);
 
-        public long getId(Tuple tuple)
-        {
-            Integer id = dictionary.get(tuple.getTupleSlice());
-            if (id == null) {
-                id = nextId;
-                nextId++;
-                dictionary.put(tuple.getTupleSlice(), id);
-            }
-            return id;
+        sliceOutput.writeInt(dictionary.size());
+        bytesWritten += SizeOf.SIZE_OF_INT;
+        for (int index = 0; index < dictionary.size(); index++) {
+            Slice slice = dictionary.getTupleSlice(index);
+            sliceOutput.writeBytes(slice);
+            bytesWritten += slice.length();
         }
-
-        public Slice[] build()
-        {
-            // Convert ID map to compact dictionary array (should be contiguous)
-            Slice[] dictionary = new Slice[this.dictionary.size()];
-            for (Entry<Slice, Integer> entry : this.dictionary.entrySet()) {
-                dictionary[entry.getValue()] = entry.getKey();
-            }
-            return dictionary;
-        }
+        return bytesWritten;
     }
 
-    // TODO: this encoding can be made more compact if we leverage sorted order of the map
-    private static class Footer
+    private static Dictionary deserializeDictionary(Slice slice)
     {
-        private final TupleInfo tupleInfo;
-        private final Slice[] dictionary;
+        SliceInput sliceInput = slice.input();
+        TupleInfo tupleInfo = UncompressedTupleInfoSerde.deserialize(sliceInput);
 
-        private Footer(TupleInfo tupleInfo, Slice[] dictionary)
-        {
-            this.tupleInfo = tupleInfo;
-            this.dictionary = dictionary;
+        int dictionarySize = sliceInput.readInt();
+        checkArgument(dictionarySize >= 0);
+
+        Slice[] dictionary = new Slice[dictionarySize];
+
+        for (int i = 0; i < dictionarySize; i++) {
+            dictionary[i] = tupleInfo.extractTupleSlice(sliceInput);
         }
 
-        public TupleInfo getTupleInfo()
-        {
-            return tupleInfo;
-        }
-
-        public Slice[] getDictionary()
-        {
-            return dictionary;
-        }
-
-        /**
-         * @return bytes written to sliceOutput
-         */
-        private int serialize(SliceOutput sliceOutput)
-        {
-            int bytesWritten = UncompressedTupleInfoSerde.serialize(tupleInfo, sliceOutput);
-
-            sliceOutput.writeInt(dictionary.length);
-            bytesWritten += SizeOf.SIZE_OF_INT;
-            for (Slice slice : dictionary) {
-                sliceOutput.writeBytes(slice);
-                bytesWritten += slice.length();
-            }
-            return bytesWritten;
-        }
-
-        private static Footer deserialize(Slice slice)
-        {
-            SliceInput sliceInput = slice.input();
-            TupleInfo tupleInfo = UncompressedTupleInfoSerde.deserialize(sliceInput);
-
-            int dictionarySize = sliceInput.readInt();
-            checkArgument(dictionarySize >= 0);
-
-            Slice[] dictionary = new Slice[dictionarySize];
-
-            for (int i = 0; i < dictionarySize; i++) {
-                dictionary[i] = tupleInfo.extractTupleSlice(sliceInput);
-            }
-
-            return new Footer(tupleInfo, dictionary);
-        }
+        return new Dictionary(tupleInfo, dictionary);
     }
 
     private static class DictionaryTupleStreamWriter
@@ -138,8 +89,8 @@ public class DictionarySerde
     {
         private final TupleStreamWriter idTupleStreamWriter;
         private final SliceOutput sliceOutput;
-        private final DictionaryBuilder dictionaryBuilder = new DictionaryBuilder();
         private TupleInfo tupleInfo;
+        private DictionaryBuilder dictionaryBuilder;
         private boolean finished;
 
         private DictionaryTupleStreamWriter(TupleStreamWriter idTupleStreamWriter, SliceOutput sliceOutput)
@@ -156,6 +107,7 @@ public class DictionarySerde
 
             if (tupleInfo == null) {
                 tupleInfo = tupleStream.getTupleInfo();
+                dictionaryBuilder = new DictionaryBuilder(tupleInfo);
             }
 
             TupleStream encodedTupleStream = new TupleStream()
@@ -231,11 +183,11 @@ public class DictionarySerde
 
             idTupleStreamWriter.close();
 
-            // Serialize Footer
-            int footerBytes = new Footer(tupleInfo, dictionaryBuilder.build()).serialize(sliceOutput);
+            // Serialize dictionary
+            int dictionaryBytes = serializeDictionary(sliceOutput, dictionaryBuilder.build());
 
-            // Write length of Footer
-            sliceOutput.writeInt(footerBytes);
+            // Write length of dictionary
+            sliceOutput.writeInt(dictionaryBytes);
         }
     }
 }
