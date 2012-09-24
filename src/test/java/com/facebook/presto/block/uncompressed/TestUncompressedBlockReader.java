@@ -4,11 +4,9 @@
 package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.TupleStreamSerdes;
-import com.facebook.presto.ingest.ColumnProcessor;
 import com.facebook.presto.slice.OutputStreamSliceOutput;
 import com.facebook.presto.slice.Slices;
 import com.google.common.collect.ImmutableList;
