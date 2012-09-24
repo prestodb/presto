@@ -3,6 +3,7 @@ package com.facebook.presto.ingest;
 import com.facebook.presto.Main;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Blocks;
+import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.block.uncompressed.UncompressedSerde;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Splitter;
@@ -46,10 +47,10 @@ public class TestCsv
                 "convert", "csv",
                 "-d", "|",
                 "-o", outDir.getAbsolutePath(),
-                "-t", encodings.get(0),
-                "-t", encodings.get(1),
-                "-t", encodings.get(2),
-                "-t", encodings.get(3),
+                "-e", "0_" + encodings.get(0),
+                "-e", "1_" + encodings.get(1),
+                "-e", "2_" + encodings.get(2),
+                "-e", "3_" + encodings.get(3),
                 resourceFile("action.csv")
         });
 
@@ -67,7 +68,7 @@ public class TestCsv
                         1659333773L));
 
         Blocks.assertTupleStreamEquals(readColumn(1, encodings.get(1)),
-                Blocks.createLongsTupleStream(0,
+                Blocks.createDoublesTupleStream(0,
                         1343864557153L,
                         1343864681084L,
                         1343864759296L,
@@ -80,7 +81,7 @@ public class TestCsv
                         1343940261345L));
 
         Blocks.assertTupleStreamEquals(readColumn(2, encodings.get(2)),
-                Blocks.createLongsTupleStream(0,
+                Blocks.createDoublesTupleStream(0,
                         1343864681084L,
                         1343864759296L,
                         1343864769178L,
@@ -113,7 +114,7 @@ public class TestCsv
         Iterator<String> partsIterator = Splitter.on('_').split(encoding).iterator();
         String dataType = partsIterator.next();
         String serdeName = partsIterator.next();
-        return Main.getTupleStreamSerde(serdeName).deserialize(Slices.mapFileReadOnly(file));
+        return TupleStreamSerdes.createTupleStreamSerde(serdeName).deserialize(Slices.mapFileReadOnly(file));
     }
 
     private static String resourceFile(String resourceName)

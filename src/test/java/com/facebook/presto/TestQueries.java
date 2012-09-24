@@ -3,41 +3,28 @@ package com.facebook.presto;
 import com.facebook.presto.aggregation.AverageAggregation;
 import com.facebook.presto.aggregation.CountAggregation;
 import com.facebook.presto.aggregation.DoubleSumAggregation;
-import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.ingest.RowSourceBuilder;
+import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.block.uncompressed.UncompressedTupleStream;
 import com.facebook.presto.operation.DoubleLessThanComparison;
-import com.facebook.presto.operator.AggregationOperator;
-import com.facebook.presto.operator.AndOperator;
-import com.facebook.presto.operator.ApplyPredicateOperator;
-import com.facebook.presto.operator.ComparisonOperator;
-import com.facebook.presto.operator.FilterOperator;
-import com.facebook.presto.operator.GroupByOperator;
-import com.facebook.presto.operator.HashAggregationOperator;
-import com.facebook.presto.operator.OrOperator;
+import com.facebook.presto.operator.*;
 import com.facebook.presto.slice.Slices;
-import com.google.common.base.Charsets;
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
-import com.google.common.base.Predicate;
-import com.google.common.base.Splitter;
+import com.google.common.base.*;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.CharStreams;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.Resources;
-import org.skife.jdbi.v2.DBI;
-import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.PreparedBatch;
-import org.skife.jdbi.v2.PreparedBatchPart;
-import org.skife.jdbi.v2.StatementContext;
+import org.skife.jdbi.v2.*;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -49,10 +36,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
-import static com.facebook.presto.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
-import static com.facebook.presto.ingest.RowSourceBuilder.RowGenerator;
+import static com.facebook.presto.TupleInfo.Type.*;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
@@ -229,7 +213,7 @@ public class TestQueries
     {
         List<Tuple> expected = computeExpected("SELECT orderkey FROM lineitem WHERE tax < discount", FIXED_INT_64);
 
-        RowSourceBuilder orderKey = createTupleStream(lineitemData, Column.LINEITEM_ORDERKEY, FIXED_INT_64);
+        UncompressedTupleStream orderKey = createTupleStream(lineitemData, Column.LINEITEM_ORDERKEY, FIXED_INT_64);
         TupleStream discount = createTupleStream(lineitemData, Column.LINEITEM_DISCOUNT, DOUBLE);
         TupleStream tax = createTupleStream(lineitemData, Column.LINEITEM_TAX, DOUBLE);
 
@@ -338,37 +322,36 @@ public class TestQueries
         });
     }
 
-    private static RowSourceBuilder createTupleStream(List<List<String>> data, final Column column, final TupleInfo.Type type)
+    private static UncompressedTupleStream createTupleStream(List<List<String>> data, final Column column, final TupleInfo.Type type)
     {
+        final TupleInfo tupleInfo = new TupleInfo(type);
         final Iterator<List<String>> iterator = data.iterator();
-        return new RowSourceBuilder(new TupleInfo(type), new RowGenerator()
-        {
-            @Override
-            public boolean generate(RowSourceBuilder.RowBuilder rowBuilder)
-            {
-                if (!iterator.hasNext()) {
-                    return false;
+        return new UncompressedTupleStream(
+                tupleInfo,
+                new Iterable<UncompressedBlock>() {
+                    @Override
+                    public Iterator<UncompressedBlock> iterator()
+                    {
+                        return new AbstractIterator<UncompressedBlock>() {
+                            long position = 0;
+                            @Override
+                            protected UncompressedBlock computeNext()
+                            {
+                                if (!iterator.hasNext()) {
+                                    return endOfData();
+                                }
+                                BlockBuilder blockBuilder = new BlockBuilder(position, tupleInfo);
+                                while (iterator.hasNext() && !blockBuilder.isFull()) {
+                                    type.getStringValueConverter().convert(iterator.next().get(column.getIndex()), blockBuilder);
+                                }
+                                UncompressedBlock block = blockBuilder.build();
+                                position += block.getCount();
+                                return block;
+                            }
+                        };
+                    }
                 }
-                String value = iterator.next().get(column.getIndex());
-                switch (type) {
-                    case FIXED_INT_64:
-                        rowBuilder.append(Long.parseLong(value));
-                        break;
-                    case DOUBLE:
-                        rowBuilder.append(Double.parseDouble(value));
-                        break;
-                    case VARIABLE_BINARY:
-                        rowBuilder.append(value.getBytes(Charsets.UTF_8));
-                        break;
-                    default:
-                        throw new AssertionError("unhandled type: " + type);
-                }
-                return true;
-            }
-
-            @Override
-            public void close() {}
-        });
+        );
     }
 
     private static void insertRows(String table, Handle handle, List<List<String>> data)

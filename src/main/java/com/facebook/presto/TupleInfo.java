@@ -1,5 +1,9 @@
 package com.facebook.presto;
 
+import com.facebook.presto.ingest.DoubleStringValueConverter;
+import com.facebook.presto.ingest.LongStringValueConverter;
+import com.facebook.presto.ingest.VarBinaryStringValueConverter;
+import com.facebook.presto.ingest.StringValueConverter;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
@@ -49,15 +53,17 @@ public class TupleInfo
 
     public enum Type
     {
-        FIXED_INT_64(SIZE_OF_LONG),
-        VARIABLE_BINARY(-1),
-        DOUBLE(SIZE_OF_DOUBLE);
+        FIXED_INT_64(SIZE_OF_LONG, LongStringValueConverter.INSTANCE),
+        VARIABLE_BINARY(-1, VarBinaryStringValueConverter.INSTANCE),
+        DOUBLE(SIZE_OF_DOUBLE, DoubleStringValueConverter.INSTANCE);
 
         private final int size;
+        private final StringValueConverter stringValueConverter;
 
-        private Type(int size)
+        private Type(int size, StringValueConverter stringValueConverter)
         {
             this.size = size;
+            this.stringValueConverter = stringValueConverter;
         }
 
         int getSize()
@@ -71,6 +77,10 @@ public class TupleInfo
             return size != -1;
         }
 
+        public StringValueConverter getStringValueConverter()
+        {
+            return stringValueConverter;
+        }
     }
 
     private final int size;
