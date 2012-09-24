@@ -110,28 +110,10 @@ public class Main
                 String dataTypeName = parts.get(1);
                 String encodingName = parts.get(2);
 
-                TupleInfo.Type type;
-                switch (dataTypeName) {
-                    case "long":
-                        type = Type.FIXED_INT_64;
-                        break;
-                    case "double":
-                        type = Type.DOUBLE;
-                        break;
-                    case "string":
-                        type = Type.VARIABLE_BINARY;
-                        break;
-                    case "fmillis":
-                        type = Type.DOUBLE;
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Unsupported type " + dataTypeName);
-                }
-
-                columnDefinitionBuilder.add(new DelimitedBlockExtractor.ColumnDefinition(columnIndex, type));
+                columnDefinitionBuilder.add(new DelimitedBlockExtractor.ColumnDefinition(columnIndex, TupleInfo.Type.fromName(dataTypeName)));
                 columnImportSpecBuilder.add(
                         new BlockDataImporter.ColumnImportSpec(
-                                TupleStreamSerdes.createTupleStreamSerde(encodingName),
+                                TupleStreamSerdes.createTupleStreamSerde(TupleStreamSerdes.Encoding.fromName(encodingName)),
                                 newOutputStreamSupplier(new File(outputDir, String.format("column%d.%s_%s.data", columnIndex, dataTypeName, encodingName)))
                         )
                 );
