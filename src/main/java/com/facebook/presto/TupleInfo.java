@@ -11,10 +11,12 @@ import com.facebook.presto.slice.SliceOutput;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_DOUBLE;
 import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
@@ -53,16 +55,27 @@ public class TupleInfo
 
     public enum Type
     {
-        FIXED_INT_64(SIZE_OF_LONG, LongStringValueConverter.INSTANCE),
-        VARIABLE_BINARY(-1, VarBinaryStringValueConverter.INSTANCE),
-        DOUBLE(SIZE_OF_DOUBLE, DoubleStringValueConverter.INSTANCE);
+        FIXED_INT_64(SIZE_OF_LONG, "long", LongStringValueConverter.INSTANCE),
+        VARIABLE_BINARY(-1, "string", VarBinaryStringValueConverter.INSTANCE),
+        DOUBLE(SIZE_OF_DOUBLE, "double", DoubleStringValueConverter.INSTANCE);
+
+        private static final Map<String, Type> NAME_MAP;
+        static {
+            ImmutableMap.Builder<String, Type> builder = ImmutableMap.builder();
+            for (Type encoding : Type.values()) {
+                builder.put(encoding.getName(), encoding);
+            }
+            NAME_MAP = builder.build();
+        }
 
         private final int size;
+        private final String name;
         private final StringValueConverter stringValueConverter;
 
-        private Type(int size, StringValueConverter stringValueConverter)
+        private Type(int size, String name, StringValueConverter stringValueConverter)
         {
             this.size = size;
+            this.name = name;
             this.stringValueConverter = stringValueConverter;
         }
 
@@ -77,9 +90,21 @@ public class TupleInfo
             return size != -1;
         }
 
+        public String getName()
+        {
+            return name;
+        }
+
         public StringValueConverter getStringValueConverter()
         {
             return stringValueConverter;
+        }
+
+        public static Type fromName(String name)
+        {
+            Type encoding = NAME_MAP.get(name);
+            checkArgument(encoding != null, "Invalid type name: %s", name);
+            return encoding;
         }
     }
 

@@ -4,7 +4,6 @@ import com.facebook.presto.Main;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.TupleStreamSerdes;
-import com.facebook.presto.block.uncompressed.UncompressedSerde;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Splitter;
 import com.google.common.io.Resources;
@@ -42,7 +41,7 @@ public class TestCsv
     public void testConvertActions()
             throws Exception
     {
-        List<String> encodings = Arrays.asList("long_rle", "fmillis_dic-rle", "fmillis_raw", "string_dic-raw");
+        List<String> encodings = Arrays.asList("long_rle", "double_dic-rle", "double_raw", "string_dic-raw");
         Main.main(new String[]{
                 "convert", "csv",
                 "-d", "|",
@@ -107,14 +106,14 @@ public class TestCsv
                         "abc"));
     }
 
-    private TupleStream readColumn(int columnNumber, String encoding)
+    private TupleStream readColumn(int columnNumber, String dataType)
             throws IOException
     {
-        File file = new File(outDir, "column" + columnNumber + "." + encoding + ".data");
-        Iterator<String> partsIterator = Splitter.on('_').split(encoding).iterator();
-        String dataType = partsIterator.next();
+        File file = new File(outDir, "column" + columnNumber + "." + dataType + ".data");
+        Iterator<String> partsIterator = Splitter.on('_').split(dataType).iterator();
+        String typeName = partsIterator.next();
         String serdeName = partsIterator.next();
-        return TupleStreamSerdes.createTupleStreamSerde(serdeName).deserialize(Slices.mapFileReadOnly(file));
+        return TupleStreamSerdes.createTupleStreamSerde(TupleStreamSerdes.Encoding.fromName(serdeName)).deserialize(Slices.mapFileReadOnly(file));
     }
 
     private static String resourceFile(String resourceName)
