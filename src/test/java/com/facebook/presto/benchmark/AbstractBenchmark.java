@@ -4,30 +4,38 @@ import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 
+import java.util.Map;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public abstract class AbstractBenchmark
 {
-    private final String benchmarkResultName; // Should include units of result in the name
+    private final String benchmarkName;
     private final int warmupIterations;
     private final int measuredIterations;
 
-    protected AbstractBenchmark(String benchmarkResultName, int warmupIterations, int measuredIterations)
+    protected AbstractBenchmark(String benchmarkName, int warmupIterations, int measuredIterations)
     {
-        checkNotNull(benchmarkResultName, "benchmarkResultName is null");
-        checkArgument(warmupIterations >= 0, "warmupIterations should not be negative");
-        checkArgument(measuredIterations >= 0, "measuredIterations should not be negative");
+        checkNotNull(benchmarkName, "benchmarkName is null");
+        checkArgument(warmupIterations >= 0, "warmupIterations must not be negative");
+        checkArgument(measuredIterations >= 0, "measuredIterations must not be negative");
 
-        this.benchmarkResultName = benchmarkResultName;
+        this.benchmarkName = benchmarkName;
         this.warmupIterations = warmupIterations;
         this.measuredIterations = measuredIterations;
     }
 
-    public String getBenchmarkResultName()
+    public String getBenchmarkName()
     {
-        return benchmarkResultName;
+        return benchmarkName;
     }
+
+    /**
+     * Some monitoring tools only accept one result. Return the name of the result that
+     * should be tracked.
+     */
+    protected abstract String getDefaultResult();
 
     /**
      * Initialize any state necessary to run benchmark. This is run once at start up.
@@ -38,9 +46,9 @@ public abstract class AbstractBenchmark
     }
 
     /**
-     * Runs the benchmark and returns the performance metric result
+     * Runs the benchmark and returns the result metrics
      */
-    protected abstract long runOnce();
+    protected abstract Map<String, Long> runOnce();
 
     /**
      * Clean up any state from the benchmark. This is run once after all the iterations are complete.
@@ -57,24 +65,26 @@ public abstract class AbstractBenchmark
 
     public void runBenchmark(@Nullable BenchmarkResultHook benchmarkResultHook)
     {
-        System.out.println(String.format("Running benchmark: %s", getBenchmarkResultName()));
+        System.out.println(String.format("Running benchmark: %s", getBenchmarkName()));
         long start = System.nanoTime();
         setUp();
-        for (int i = 0; i < warmupIterations; i++) {
-            runOnce();
-        }
-        for (int i = 0; i < measuredIterations; i++) {
-            long result = runOnce();
-            System.out.println(String.format("%s: %d", getBenchmarkResultName(), result));
-            if (benchmarkResultHook != null) {
-                benchmarkResultHook.addResult(result);
+        try {
+            for (int i = 0; i < warmupIterations; i++) {
+                runOnce();
             }
+            for (int i = 0; i < measuredIterations; i++) {
+                Map<String, Long> results = runOnce();
+                if (benchmarkResultHook != null) {
+                    benchmarkResultHook.addResults(results);
+                }
+            }
+        } finally {
+            tearDown();
         }
-        tearDown();
         if (benchmarkResultHook != null) {
             benchmarkResultHook.finished();
         }
         Duration duration = Duration.nanosSince(start);
-        System.out.println(String.format("Finished benchmark: %s, Elapsed: %s", getBenchmarkResultName(), duration));
+        System.out.println(String.format("Finished benchmark: %s, Elapsed: %s", getBenchmarkName(), duration));
     }
 }

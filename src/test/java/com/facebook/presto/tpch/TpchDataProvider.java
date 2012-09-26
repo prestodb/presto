@@ -1,4 +1,4 @@
-package com.facebook.presto.benchmark;
+package com.facebook.presto.tpch;
 
 import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.ingest.BlockDataImporter;
@@ -36,6 +36,11 @@ public class TpchDataProvider
     public TpchDataProvider(String cacheDirectoryName)
     {
         this(new File(checkNotNull(cacheDirectoryName, "cacheDirectoryName is null")));
+    }
+
+    public TpchDataProvider()
+    {
+        this(System.getProperty("tcphCacheDir", "/tmp/tcphdatacache"));
     }
 
     // TODO: make this work for columns with more than one file

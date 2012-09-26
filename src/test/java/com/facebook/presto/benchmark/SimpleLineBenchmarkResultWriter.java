@@ -6,9 +6,10 @@ import com.google.common.base.Throwables;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Map;
 
 public class SimpleLineBenchmarkResultWriter
-    implements BenchmarkResultHook
+        implements BenchmarkResultHook
 {
     private final OutputStream outputStream;
 
@@ -18,10 +19,20 @@ public class SimpleLineBenchmarkResultWriter
     }
 
     @Override
-    public BenchmarkResultHook addResult(long result)
+    public BenchmarkResultHook addResults(Map<String, Long> results)
     {
         try {
-            outputStream.write(String.format("%d\n", result).getBytes(Charsets.UTF_8));
+            boolean first = true;
+            for (Map.Entry<String, Long> entry : results.entrySet()) {
+                if (first) {
+                    first = false;
+                }
+                else {
+                    outputStream.write(",".getBytes(Charsets.UTF_8));
+                }
+                outputStream.write(String.format("%s:%d", entry.getKey(), entry.getValue()).getBytes(Charsets.UTF_8));
+            }
+            outputStream.write("\n".getBytes(Charsets.UTF_8));
         } catch (IOException e) {
             Throwables.propagate(e);
         }
