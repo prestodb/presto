@@ -3,6 +3,7 @@ package com.facebook.presto;
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import org.apache.commons.lang.StringEscapeUtils;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -20,7 +21,6 @@ public class JMeterOutputWriter
 
     public JMeterOutputWriter(OutputStream outputStream)
     {
-
         this.outputStream = Preconditions.checkNotNull(outputStream, "outputStream is null");
         try {
             outputStream.write(HEADER.getBytes(Charsets.UTF_8));
@@ -35,7 +35,7 @@ public class JMeterOutputWriter
             outputStream.write(
                     String.format(
                             "<sample lb=\"%s\" ts=\"%d\" t=\"%d\" s=\"%b\" />\n",
-                            sample.getLabel(), sample.getTimeStamp(), sample.getElapsedTime(), sample.isSuccess()
+                            StringEscapeUtils.escapeXml(sample.getLabel()), sample.getTimeStamp(), sample.getElapsedTime(), sample.isSuccess()
                     ).getBytes(Charsets.UTF_8)
             );
         } catch (IOException e) {

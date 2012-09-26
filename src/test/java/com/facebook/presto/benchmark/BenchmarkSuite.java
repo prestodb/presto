@@ -1,5 +1,6 @@
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.tpch.TpchDataProvider;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
@@ -9,11 +10,13 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.Map;
 
 public class BenchmarkSuite
 {
+    private static final TpchDataProvider TPCH_DATA_PROVIDER = new TpchDataProvider();
     public static final List<AbstractBenchmark> BENCHMARKS = ImmutableList.<AbstractBenchmark>of(
-            // TODO: drop benchmarks into this list
+            new SampleTcphBenchmark(TPCH_DATA_PROVIDER)
     );
 
     private final String outputDirectory;
@@ -34,25 +37,26 @@ public class BenchmarkSuite
             throws IOException
     {
         for (AbstractBenchmark benchmark : BENCHMARKS) {
-            OutputStream jmeterOut = new FileOutputStream(createOutputFile(String.format("%s/jmeter/%s.jtl", outputDirectory, benchmark.getBenchmarkResultName())));
-            OutputStream csvOut = new FileOutputStream(createOutputFile(String.format("%s/csv/%s.csv", outputDirectory, benchmark.getBenchmarkResultName())));
-            benchmark.runBenchmark(
-                    new ForwardingBenchmarkResultWriter(
-                            ImmutableList.of(
-                                    new JMeterBenchmarkResultWriter(jmeterOut),
-                                    new SimpleLineBenchmarkResultWriter(csvOut)
-                            )
-                    )
-            );
-            csvOut.close();
-            jmeterOut.close();
+            try (OutputStream jmeterOut = new FileOutputStream(createOutputFile(String.format("%s/jmeter/%s.jtl", outputDirectory, benchmark.getBenchmarkName())));
+                 OutputStream jsonOut = new FileOutputStream(createOutputFile(String.format("%s/json/%s.json", outputDirectory, benchmark.getBenchmarkName())));
+                 OutputStream csvOut = new FileOutputStream(createOutputFile(String.format("%s/csv/%s.csv", outputDirectory, benchmark.getBenchmarkName())))) {
+                benchmark.runBenchmark(
+                        new ForwardingBenchmarkResultWriter(
+                                ImmutableList.of(
+                                        new JMeterBenchmarkResultWriter(benchmark.getDefaultResult(), jmeterOut),
+                                        new JsonBenchmarkResultWriter(jsonOut),
+                                        new SimpleLineBenchmarkResultWriter(csvOut)
+                                )
+                        )
+                );
+            }
         }
     }
 
     private static class ForwardingBenchmarkResultWriter
             implements BenchmarkResultHook
     {
-        List<BenchmarkResultHook> benchmarkResultHooks;
+        private final List<BenchmarkResultHook> benchmarkResultHooks;
 
         private ForwardingBenchmarkResultWriter(List<BenchmarkResultHook> benchmarkResultHooks)
         {
@@ -61,10 +65,10 @@ public class BenchmarkSuite
         }
 
         @Override
-        public BenchmarkResultHook addResult(long result)
+        public BenchmarkResultHook addResults(Map<String, Long> results)
         {
             for (BenchmarkResultHook benchmarkResultHook : benchmarkResultHooks) {
-                benchmarkResultHook.addResult(result);
+                benchmarkResultHook.addResults(results);
             }
             return this;
         }
