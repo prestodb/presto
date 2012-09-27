@@ -102,6 +102,7 @@ public class TupleInfo
 
         public static Type fromName(String name)
         {
+            Preconditions.checkNotNull(name, "name is null");
             Type encoding = NAME_MAP.get(name);
             checkArgument(encoding != null, "Invalid type name: %s", name);
             return encoding;

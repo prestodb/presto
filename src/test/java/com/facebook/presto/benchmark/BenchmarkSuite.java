@@ -1,7 +1,6 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.tpch.TpchDataProvider;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 
@@ -12,9 +11,11 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class BenchmarkSuite
 {
-    private static final TpchDataProvider TPCH_DATA_PROVIDER = new TpchDataProvider();
+    public static final TpchDataProvider TPCH_DATA_PROVIDER = new TpchDataProvider();
     public static final List<AbstractBenchmark> BENCHMARKS = ImmutableList.<AbstractBenchmark>of(
             new SampleTcphBenchmark(TPCH_DATA_PROVIDER)
     );
@@ -23,7 +24,7 @@ public class BenchmarkSuite
 
     public BenchmarkSuite(String outputDirectory)
     {
-        this.outputDirectory = Preconditions.checkNotNull(outputDirectory, "outputDirectory is null");
+        this.outputDirectory = checkNotNull(outputDirectory, "outputDirectory is null");
     }
 
     private File createOutputFile(String fileName) throws IOException
@@ -60,13 +61,14 @@ public class BenchmarkSuite
 
         private ForwardingBenchmarkResultWriter(List<BenchmarkResultHook> benchmarkResultHooks)
         {
-            Preconditions.checkNotNull(benchmarkResultHooks, "benchmarkResultWriters is null");
+            checkNotNull(benchmarkResultHooks, "benchmarkResultWriters is null");
             this.benchmarkResultHooks = ImmutableList.copyOf(benchmarkResultHooks);
         }
 
         @Override
         public BenchmarkResultHook addResults(Map<String, Long> results)
         {
+            checkNotNull(results, "results is null");
             for (BenchmarkResultHook benchmarkResultHook : benchmarkResultHooks) {
                 benchmarkResultHook.addResults(results);
             }
@@ -84,7 +86,7 @@ public class BenchmarkSuite
 
     public static void main(String[] args) throws IOException
     {
-        String outputDirectory = Preconditions.checkNotNull(System.getProperty("outputDirectory"), "Must specify -DoutputDirectory=...");
+        String outputDirectory = checkNotNull(System.getProperty("outputDirectory"), "Must specify -DoutputDirectory=...");
         new BenchmarkSuite(outputDirectory).runAllBenchmarks();
     }
 }

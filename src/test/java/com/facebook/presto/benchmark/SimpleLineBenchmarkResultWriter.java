@@ -21,6 +21,7 @@ public class SimpleLineBenchmarkResultWriter
     @Override
     public BenchmarkResultHook addResults(Map<String, Long> results)
     {
+        Preconditions.checkNotNull(results, "results is null");
         try {
             boolean first = true;
             for (Map.Entry<String, Long> entry : results.entrySet()) {

@@ -45,6 +45,7 @@ public class TupleStreamSerdes
 
         public static Encoding fromName(String name)
         {
+            checkNotNull(name, "name is null");
             Encoding encoding = NAME_MAP.get(name);
             checkArgument(encoding != null, "Invalid type name: %s", name);
             return encoding;
@@ -67,6 +68,7 @@ public class TupleStreamSerdes
 
     public static TupleStreamSerde createTupleStreamSerde(Encoding encoding)
     {
+        checkNotNull(encoding, "encoding is null");
         switch (encoding) {
             case RAW:
                 return new UncompressedSerde();

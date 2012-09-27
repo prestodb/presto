@@ -1,6 +1,7 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.JMeterOutputWriter;
+import com.google.common.base.Preconditions;
 import org.joda.time.DateTimeUtils;
 
 import java.io.OutputStream;
@@ -27,6 +28,7 @@ public class JMeterBenchmarkResultWriter
     @Override
     public BenchmarkResultHook addResults(Map<String, Long> results)
     {
+        Preconditions.checkNotNull(results, "results is null");
         Long result = results.get(selectedResultName);
         if (result != null) {
             // Encode the benchmark result where
