@@ -203,6 +203,11 @@
                             <key>outputDirectory</key>
                             <value>benchmark_outputs</value>
                         </systemProperty>
+                        <!-- We need this property in order to locate testdata-tpch-1g.jar in exec:java -->
+                        <systemProperty>
+                            <key>tpchDataJar</key>
+                            <value>${project.build.directory}/dependency/testdata-tpch-1g.jar</value>
+                        </systemProperty>
                     </systemProperties>
                 </configuration>
             </plugin>
