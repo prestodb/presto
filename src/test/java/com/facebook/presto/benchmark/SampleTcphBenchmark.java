@@ -7,6 +7,7 @@ import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tpch.TpchDataProvider;
 import com.facebook.presto.tpch.TpchSchema;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -27,6 +28,7 @@ public class SampleTcphBenchmark
     public SampleTcphBenchmark(TpchDataProvider tpchDataProvider)
     {
         super("sample", 2, 10);
+        Preconditions.checkNotNull(tpchDataProvider, "tpchDataProvider is null");
         this.tpchDataProvider = tpchDataProvider;
     }
 
@@ -77,4 +79,10 @@ public class SampleTcphBenchmark
                 .build();
     }
 
+    public static void main(String[] args)
+    {
+        new SampleTcphBenchmark(BenchmarkSuite.TPCH_DATA_PROVIDER).runBenchmark(
+                new SimpleLineBenchmarkResultWriter(System.out)
+        );
+    }
 }

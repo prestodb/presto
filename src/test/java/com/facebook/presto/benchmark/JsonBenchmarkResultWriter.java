@@ -33,6 +33,7 @@ public class JsonBenchmarkResultWriter
     @Override
     public BenchmarkResultHook addResults(Map<String, Long> results)
     {
+        Preconditions.checkNotNull(results, "results is null");
         try {
             jsonGenerator.writeStartObject();
             for (Map.Entry<String, Long> entry : results.entrySet()) {

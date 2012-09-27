@@ -232,6 +232,7 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- Required to enable benchmarks to be run from their Main methods in Intellij -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>

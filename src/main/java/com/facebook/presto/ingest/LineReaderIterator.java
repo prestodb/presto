@@ -1,5 +1,6 @@
 package com.facebook.presto.ingest;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.io.LineReader;
@@ -12,7 +13,7 @@ public class LineReaderIterator extends AbstractIterator<String>
 
     public LineReaderIterator(LineReader lineReader)
     {
-        this.lineReader = lineReader;
+        this.lineReader = Preconditions.checkNotNull(lineReader, "lineReader is null");
     }
 
     @Override

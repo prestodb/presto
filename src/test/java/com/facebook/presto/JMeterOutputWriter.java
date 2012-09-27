@@ -1,12 +1,13 @@
 package com.facebook.presto;
 
 import com.google.common.base.Charsets;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import org.apache.commons.lang.StringEscapeUtils;
 
 import java.io.IOException;
 import java.io.OutputStream;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Encode sample data in JMeter test output format
@@ -21,7 +22,7 @@ public class JMeterOutputWriter
 
     public JMeterOutputWriter(OutputStream outputStream)
     {
-        this.outputStream = Preconditions.checkNotNull(outputStream, "outputStream is null");
+        this.outputStream = checkNotNull(outputStream, "outputStream is null");
         try {
             outputStream.write(HEADER.getBytes(Charsets.UTF_8));
         } catch (IOException e) {
@@ -30,7 +31,7 @@ public class JMeterOutputWriter
     }
 
     public JMeterOutputWriter addSample(Sample sample) {
-        Preconditions.checkNotNull(sample, "sample is null");
+        checkNotNull(sample, "sample is null");
         try {
             outputStream.write(
                     String.format(
@@ -61,7 +62,7 @@ public class JMeterOutputWriter
 
         public Sample(String label, long timeStamp, long elapsedTime, boolean success)
         {
-            this.label = Preconditions.checkNotNull(label, "label is null");
+            this.label = checkNotNull(label, "label is null");
             this.timeStamp = timeStamp;
             this.elapsedTime = elapsedTime;
             this.success = success;

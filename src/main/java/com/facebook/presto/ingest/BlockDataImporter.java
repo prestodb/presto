@@ -36,6 +36,7 @@ public class BlockDataImporter
     public void importFrom(InputSupplier<InputStreamReader> inputSupplier)
             throws IOException
     {
+        checkNotNull(inputSupplier, "inputSupplier is null");
         ImmutableList.Builder<OutputStream> outputStreamBuilder = ImmutableList.builder();
         ImmutableList.Builder<TupleStreamWriter> tupleStreamWriterBuilder = ImmutableList.builder();
         for (ColumnImportSpec columnImportSpec : columnImportSpecs) {
@@ -75,8 +76,8 @@ public class BlockDataImporter
 
         public ColumnImportSpec(TupleStreamSerde tupleStreamSerde, OutputSupplier<? extends OutputStream> outputSupplier)
         {
-            this.tupleStreamSerde = tupleStreamSerde;
-            this.outputSupplier = outputSupplier;
+            this.tupleStreamSerde = checkNotNull(tupleStreamSerde, "tupleStreamSerde is null");
+            this.outputSupplier = checkNotNull(outputSupplier, "outputSupplier is null");
         }
 
         public TupleStreamSerde getTupleStreamSerde()

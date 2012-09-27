@@ -3,6 +3,7 @@ package com.facebook.presto.ingest;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -100,7 +101,7 @@ public class DelimitedBlockExtractor
         public ColumnDefinition(int columnIndex, TupleInfo.Type type)
         {
             this.columnIndex = columnIndex;
-            this.type = type;
+            this.type = checkNotNull(type, "type is null");
         }
 
         public int getColumnIndex()
