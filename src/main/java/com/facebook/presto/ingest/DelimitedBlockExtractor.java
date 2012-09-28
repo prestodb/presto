@@ -3,7 +3,6 @@ package com.facebook.presto.ingest;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -12,24 +11,22 @@ import com.google.common.io.LineReader;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkElementIndex;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.*;
 
 public class DelimitedBlockExtractor
         implements BlockExtractor
 {
-    private final List<ColumnDefinition> columnDefinitions;
     private final Splitter columnSplitter;
+    private final List<ColumnDefinition> columnDefinitions;
 
-    public DelimitedBlockExtractor(List<ColumnDefinition> columnDefinitions, Splitter columnSplitter)
+    public DelimitedBlockExtractor(Splitter columnSplitter, List<ColumnDefinition> columnDefinitions)
     {
+        checkNotNull(columnSplitter, "columnSplitter is null");
         checkNotNull(columnDefinitions, "columnDefinitions is null");
         checkArgument(!columnDefinitions.isEmpty(), "must provide at least one column definition");
-        checkNotNull(columnSplitter, "columnSplitter is null");
 
-        this.columnDefinitions = ImmutableList.copyOf(columnDefinitions);
         this.columnSplitter = columnSplitter;
+        this.columnDefinitions = ImmutableList.copyOf(columnDefinitions);
     }
 
     @Override
@@ -42,23 +39,23 @@ public class DelimitedBlockExtractor
     public Iterator<UncompressedBlock> extract(Iterator<String> sourceIterator)
     {
         checkNotNull(sourceIterator, "sourceIterator is null");
-        return new BlockIterator(sourceIterator, columnDefinitions, columnSplitter);
+        return new DelimitedBlockIterator(sourceIterator, columnSplitter, columnDefinitions);
     }
 
-    private static class BlockIterator
+    private static class DelimitedBlockIterator
             extends AbstractIterator<UncompressedBlock>
     {
         private final Iterator<String> lineIterator;
-        private final List<ColumnDefinition> columnDefinitions;
         private final Splitter columnSplitter;
+        private final List<ColumnDefinition> columnDefinitions;
         private final TupleInfo tupleInfo;
         private int position = 0;
 
-        private BlockIterator(Iterator<String> lineIterator, List<ColumnDefinition> columnDefinitions, Splitter columnSplitter)
+        private DelimitedBlockIterator(Iterator<String> lineIterator, Splitter columnSplitter, List<ColumnDefinition> columnDefinitions)
         {
             this.lineIterator = lineIterator;
-            this.columnDefinitions = columnDefinitions;
             this.columnSplitter = columnSplitter;
+            this.columnDefinitions = columnDefinitions;
 
             ImmutableList.Builder<TupleInfo.Type> builder = ImmutableList.builder();
             for (ColumnDefinition request : columnDefinitions) {
@@ -100,8 +97,10 @@ public class DelimitedBlockExtractor
 
         public ColumnDefinition(int columnIndex, TupleInfo.Type type)
         {
+            checkArgument(columnIndex >= 0, "columnIndex must be greater than or equal to zero");
+            checkNotNull(type, "type is null");
             this.columnIndex = columnIndex;
-            this.type = checkNotNull(type, "type is null");
+            this.type = type;
         }
 
         public int getColumnIndex()

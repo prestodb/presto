@@ -125,8 +125,8 @@ public class TpchDataProvider
         Files.createParentDirs(cachedFile);
 
         BlockExtractor blockExtractor = new DelimitedBlockExtractor(
-                ImmutableList.of(new DelimitedBlockExtractor.ColumnDefinition(column.getIndex(), column.getType())),
-                Splitter.on('|')
+                Splitter.on('|'),
+                ImmutableList.of(new DelimitedBlockExtractor.ColumnDefinition(column.getIndex(), column.getType()))
         );
         BlockDataImporter importer = new BlockDataImporter(
                 blockExtractor,
@@ -154,6 +154,7 @@ public class TpchDataProvider
 
     private static String createFileName(TpchSchema.Column column, TupleStreamSerdes.Encoding encoding)
     {
-        return String.format("column%d.%s_%s.data", column.getIndex(), column.getType().getName(), encoding.getName());
+        // HACK: replace('/', '-') to deal with illegal file name characters
+        return String.format("column%d.%s_%s.data", column.getIndex(), column.getType().getName(), encoding.getName().replace('/', '-'));
     }
 }

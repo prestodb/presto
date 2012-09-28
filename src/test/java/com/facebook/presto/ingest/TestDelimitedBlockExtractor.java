@@ -19,11 +19,11 @@ public class TestDelimitedBlockExtractor
     public void setUp() throws Exception
     {
         blockExtractor = new DelimitedBlockExtractor(
+                Splitter.on(','),
                 ImmutableList.<DelimitedBlockExtractor.ColumnDefinition>of(
                         new DelimitedBlockExtractor.ColumnDefinition(0, VARIABLE_BINARY),
                         new DelimitedBlockExtractor.ColumnDefinition(2, FIXED_INT_64)
-                ),
-                Splitter.on(',')
+                )
         );
     }
 

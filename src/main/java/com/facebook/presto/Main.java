@@ -23,7 +23,8 @@ import java.io.InputStreamReader;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-import static com.facebook.presto.TupleInfo.Type;
+import static com.facebook.presto.ingest.BlockDataImporter.ColumnImportSpec;
+import static com.facebook.presto.ingest.DelimitedBlockExtractor.ColumnDefinition;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -74,7 +75,7 @@ public class Main
         @Option(name = {"-o", "--output-dir"}, description = "Output directory")
         public String outputDir = "data";
 
-        @Option(name = {"-e", "--extract"}, description = "Column extraction specification")
+        @Option(name = {"-t", "--column-type"}, description = "Column type specifications for extraction (e.g. 3:string:rle)")
         public List<String> extractionSpecs;
 
         @Arguments(description = "CSV file to convert")
@@ -99,27 +100,33 @@ public class Main
                 };
             }
 
-            ImmutableList.Builder<DelimitedBlockExtractor.ColumnDefinition> columnDefinitionBuilder = ImmutableList.builder();
-            ImmutableList.Builder<BlockDataImporter.ColumnImportSpec> columnImportSpecBuilder = ImmutableList.builder();
+            ImmutableList.Builder<ColumnDefinition> columnDefinitionBuilder = ImmutableList.builder();
+            ImmutableList.Builder<ColumnImportSpec> columnImportSpecBuilder = ImmutableList.builder();
             for (String extractionSpec : extractionSpecs) {
                 // Extract column index, base type, and encodingName
-                // Examples: '0_long_raw', '3_string_rle', '4_double_dic-rle'
-                List<String> parts = ImmutableList.copyOf(Splitter.on('_').split(extractionSpec));
-                checkState(parts.size() == 3, "type format: <column_index>_<data_type>_<encoding> (e.g. 0_long_raw, 3_string_rle)");
-                Integer columnIndex = Integer.parseInt(parts.get(0));
+                // Examples: '0:long:raw', '3:string:rle', '4:double:dic/rle'
+                List<String> parts = ImmutableList.copyOf(Splitter.on(':').split(extractionSpec));
+                checkState(parts.size() == 3, "type format: <column_index>:<data_type>:<encoding> (e.g. 0:long:raw, 3:string:rle)");
+                Integer columnIndex;
+                try {
+                    columnIndex = Integer.parseInt(parts.get(0));
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException("Malformed column index: " + parts.get(0));
+                }
                 String dataTypeName = parts.get(1);
                 String encodingName = parts.get(2);
 
-                columnDefinitionBuilder.add(new DelimitedBlockExtractor.ColumnDefinition(columnIndex, TupleInfo.Type.fromName(dataTypeName)));
+                columnDefinitionBuilder.add(new ColumnDefinition(columnIndex, TupleInfo.Type.fromName(dataTypeName)));
                 columnImportSpecBuilder.add(
-                        new BlockDataImporter.ColumnImportSpec(
+                        new ColumnImportSpec(
                                 TupleStreamSerdes.createTupleStreamSerde(TupleStreamSerdes.Encoding.fromName(encodingName)),
-                                newOutputStreamSupplier(new File(outputDir, String.format("column%d.%s_%s.data", columnIndex, dataTypeName, encodingName)))
+                                // HACK: replace('/', '-') to deal with illegal file name characters
+                                newOutputStreamSupplier(new File(outputDir, String.format("column%d.%s_%s.data", columnIndex, dataTypeName, encodingName.replace('/', '-'))))
                         )
                 );
             }
 
-            BlockExtractor blockExtractor = new DelimitedBlockExtractor(columnDefinitionBuilder.build(), Splitter.on(toChar(columnSeparator)));
+            BlockExtractor blockExtractor = new DelimitedBlockExtractor(Splitter.on(toChar(columnSeparator)), columnDefinitionBuilder.build());
             BlockDataImporter importer = new BlockDataImporter(blockExtractor, columnImportSpecBuilder.build());
             importer.importFrom(inputSupplier);
         }

@@ -18,6 +18,9 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.*;
 
+/**
+ * Imports the specified blocks according to the provided import specs
+ */
 public class BlockDataImporter
 {
     private final BlockExtractor blockExtractor;
@@ -59,7 +62,7 @@ public class BlockDataImporter
         }
 
         for (TupleStreamWriter tupleStreamWriter : tupleStreamWriters) {
-            tupleStreamWriter.close();
+            tupleStreamWriter.finish();
         }
         for (OutputStream outputStream : outputStreams) {
             outputStream.close();
@@ -67,7 +70,7 @@ public class BlockDataImporter
     }
 
     /**
-     * Defines the serde and target output stream for a column
+     * Defines the serde and output stream to be used for a column
      */
     public static class ColumnImportSpec
     {
@@ -89,7 +92,5 @@ public class BlockDataImporter
         {
             return outputSupplier;
         }
-
-
     }
 }

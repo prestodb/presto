@@ -106,7 +106,7 @@ public class TestRunLengthEncodedSerde
                 .append(block2)
                 .append(block3)
                 .append(block4)
-                .close();
+                .finish();
         Blocks.assertTupleStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
     }
 }

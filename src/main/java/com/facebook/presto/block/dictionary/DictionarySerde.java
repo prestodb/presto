@@ -175,13 +175,13 @@ public class DictionarySerde
         }
 
         @Override
-        public void close()
+        public void finish()
         {
             checkState(tupleInfo != null, "nothing appended");
             checkState(!finished, "already finished");
             finished = true;
 
-            idTupleStreamWriter.close();
+            idTupleStreamWriter.finish();
 
             // Serialize dictionary
             int dictionaryBytes = serializeDictionary(sliceOutput, dictionaryBuilder.build());
