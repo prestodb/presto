@@ -8,7 +8,7 @@ public class Query
         extends Statement
 {
     private final Select select;
-    private final List<TableReference> from;
+    private final List<Relation> from;
     private final Expression where;
     private final List<Expression> groupBy;
     private final Expression having;
@@ -17,7 +17,7 @@ public class Query
 
     public Query(
             Select select,
-            List<TableReference> from,
+            List<Relation> from,
             Expression where,
             List<Expression> groupBy,
             Expression having,
@@ -38,7 +38,7 @@ public class Query
         return select;
     }
 
-    public List<TableReference> getFrom()
+    public List<Relation> getFrom()
     {
         return from;
     }

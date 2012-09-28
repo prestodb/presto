@@ -2,14 +2,13 @@ package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
 
-public class NamedTable
-        extends TablePrimary
+public class Table
+        extends Relation
 {
     private final QualifiedName name;
 
-    public NamedTable(QualifiedName name, TableCorrelation correlation)
+    public Table(QualifiedName name)
     {
-        super(correlation);
         this.name = name;
     }
 
@@ -22,9 +21,7 @@ public class NamedTable
     public String toString()
     {
         return Objects.toStringHelper(this)
-                .add("name", name)
-                .add("correlation", getCorrelation())
-                .omitNullValues()
+                .addValue(name)
                 .toString();
     }
 }

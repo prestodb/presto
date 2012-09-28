@@ -31,8 +31,8 @@ tokens {
     ALL_COLUMNS;
     SELECT_LIST;
     SELECT_ITEM;
-    CORR_SPEC;
-    CORR_LIST;
+    TABLE_ALIAS;
+    ALIASED_COLUMNS;
     SUBQUERY;
     TABLE;
     JOINED_TABLE;
@@ -169,16 +169,16 @@ selectSublist
 
 tableRef
     : ( tablePrimary -> tablePrimary )
-      ( CROSS JOIN tablePrimary             -> ^(CROSS_JOIN $tableRef tablePrimary)
-      | joinType JOIN tablePrimary joinSpec -> ^(QUALIFIED_JOIN joinType joinSpec $tableRef tablePrimary)
-      | NATURAL joinType JOIN tablePrimary  -> ^(QUALIFIED_JOIN joinType NATURAL $tableRef tablePrimary)
+      ( CROSS JOIN tablePrimary                 -> ^(CROSS_JOIN $tableRef tablePrimary)
+      | joinType JOIN tablePrimary joinCriteria -> ^(QUALIFIED_JOIN joinType joinCriteria $tableRef tablePrimary)
+      | NATURAL joinType JOIN tablePrimary      -> ^(QUALIFIED_JOIN joinType NATURAL $tableRef tablePrimary)
       )*
     ;
 
 tablePrimary
-    : qname corrSpec?            -> ^(TABLE qname corrSpec?)
-    | subquery corrSpec          -> ^(SUBQUERY subquery corrSpec)
-    | '(' tableRef ')' corrSpec? -> ^(JOINED_TABLE tableRef corrSpec?)
+    : qname tableAlias?            -> ^(TABLE qname tableAlias?)
+    | subquery tableAlias          -> ^(SUBQUERY subquery tableAlias)
+    | '(' tableRef ')' tableAlias? -> ^(JOINED_TABLE tableRef tableAlias?)
     ;
 
 joinType
@@ -188,17 +188,17 @@ joinType
     | FULL OUTER?  -> FULL_JOIN
     ;
 
-joinSpec
+joinCriteria
     : ON expr                          -> ^(ON expr)
     | USING '(' ident (',' ident)* ')' -> ^(USING ident+)
     ;
 
-corrSpec
-    : AS? ident corrList? -> ^(CORR_SPEC ident corrList?)
+tableAlias
+    : AS? ident aliasedColumns? -> ^(TABLE_ALIAS ident aliasedColumns?)
     ;
 
-corrList
-    : '(' ident (',' ident)* ')' -> ^(CORR_LIST ident+)
+aliasedColumns
+    : '(' ident (',' ident)* ')' -> ^(ALIASED_COLUMNS ident+)
     ;
 
 expr

@@ -18,8 +18,17 @@ public class TestSqlParser
             throws Exception
     {
         printStatement("select * from foo");
+
+        printStatement("select * from foo a (x, y, z)");
+
+        printStatement("" +
+                "select * from foo a " +
+                "join bar b using (bar_id) " +
+                "left join zoo on (a.x = zoo.y) " +
+                "cross join (d natural inner join e)");
+
         for (int i = 1; i <= 22; i++) {
-            if ((i != 13) && (i != 15)) {
+            if (i != 15) {
                 printStatement(getTpchQuery(i));
             }
         }
