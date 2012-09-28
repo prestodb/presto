@@ -1,7 +1,5 @@
 package com.facebook.presto.block.dictionary;
 
-import com.facebook.presto.Range;
-import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.Blocks;
@@ -112,7 +110,7 @@ public class TestDictionarySerde
                 .append(block2)
                 .append(block3)
                 .append(block4)
-                .close();
+                .finish();
         Blocks.assertTupleStreamEquals(tupleStream, dictionarySerde.deserialize(sliceOutput.slice()));
     }
 }

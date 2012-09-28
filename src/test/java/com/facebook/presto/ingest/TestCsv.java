@@ -3,7 +3,7 @@ package com.facebook.presto.ingest;
 import com.facebook.presto.Main;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Blocks;
-import com.facebook.presto.block.uncompressed.UncompressedSerde;
+import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Splitter;
 import com.google.common.io.Resources;
@@ -41,15 +41,15 @@ public class TestCsv
     public void testConvertActions()
             throws Exception
     {
-        List<String> encodings = Arrays.asList("long_rle", "fmillis_dic-rle", "fmillis_raw", "string_dic-raw");
+        List<String> encodings = Arrays.asList("long:rle", "double:dic/rle", "double:raw", "string:dic/raw");
         Main.main(new String[]{
                 "convert", "csv",
                 "-d", "|",
                 "-o", outDir.getAbsolutePath(),
-                "-t", encodings.get(0),
-                "-t", encodings.get(1),
-                "-t", encodings.get(2),
-                "-t", encodings.get(3),
+                "-t", "0:" + encodings.get(0),
+                "-t", "1:" + encodings.get(1),
+                "-t", "2:" + encodings.get(2),
+                "-t", "3:" + encodings.get(3),
                 resourceFile("action.csv")
         });
 
@@ -67,7 +67,7 @@ public class TestCsv
                         1659333773L));
 
         Blocks.assertTupleStreamEquals(readColumn(1, encodings.get(1)),
-                Blocks.createLongsTupleStream(0,
+                Blocks.createDoublesTupleStream(0,
                         1343864557153L,
                         1343864681084L,
                         1343864759296L,
@@ -80,7 +80,7 @@ public class TestCsv
                         1343940261345L));
 
         Blocks.assertTupleStreamEquals(readColumn(2, encodings.get(2)),
-                Blocks.createLongsTupleStream(0,
+                Blocks.createDoublesTupleStream(0,
                         1343864681084L,
                         1343864759296L,
                         1343864769178L,
@@ -106,14 +106,15 @@ public class TestCsv
                         "abc"));
     }
 
-    private TupleStream readColumn(int columnNumber, String encoding)
+    private TupleStream readColumn(int columnNumber, String dataType)
             throws IOException
     {
-        File file = new File(outDir, "column" + columnNumber + "." + encoding + ".data");
-        Iterator<String> partsIterator = Splitter.on('_').split(encoding).iterator();
-        String dataType = partsIterator.next();
+        // HACK: replace('/', '-') to deal with illegal file name characters
+        File file = new File(outDir, "column" + columnNumber + "." + dataType.replace('/', '-').replace(':', '_') + ".data");
+        Iterator<String> partsIterator = Splitter.on(':').split(dataType).iterator();
+        String typeName = partsIterator.next();
         String serdeName = partsIterator.next();
-        return Main.getTupleStreamSerde(serdeName).deserialize(Slices.mapFileReadOnly(file));
+        return TupleStreamSerdes.createTupleStreamSerde(TupleStreamSerdes.Encoding.fromName(serdeName)).deserialize(Slices.mapFileReadOnly(file));
     }
 
     private static String resourceFile(String resourceName)

@@ -1,5 +1,9 @@
 package com.facebook.presto;
 
+import com.facebook.presto.ingest.DoubleStringValueConverter;
+import com.facebook.presto.ingest.LongStringValueConverter;
+import com.facebook.presto.ingest.StringValueConverter;
+import com.facebook.presto.ingest.VarBinaryStringValueConverter;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
@@ -7,19 +11,16 @@ import com.facebook.presto.slice.SliceOutput;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
-import static com.facebook.presto.SizeOf.SIZE_OF_DOUBLE;
-import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
-import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
-import static com.facebook.presto.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
+import static com.facebook.presto.SizeOf.*;
+import static com.facebook.presto.TupleInfo.Type.*;
+import static com.google.common.base.Preconditions.*;
 import static java.util.Arrays.asList;
 
 /**
@@ -49,15 +50,28 @@ public class TupleInfo
 
     public enum Type
     {
-        FIXED_INT_64(SIZE_OF_LONG),
-        VARIABLE_BINARY(-1),
-        DOUBLE(SIZE_OF_DOUBLE);
+        FIXED_INT_64(SIZE_OF_LONG, "long", LongStringValueConverter.INSTANCE),
+        VARIABLE_BINARY(-1, "string", VarBinaryStringValueConverter.INSTANCE),
+        DOUBLE(SIZE_OF_DOUBLE, "double", DoubleStringValueConverter.INSTANCE);
+
+        private static final Map<String, Type> NAME_MAP;
+        static {
+            ImmutableMap.Builder<String, Type> builder = ImmutableMap.builder();
+            for (Type encoding : Type.values()) {
+                builder.put(encoding.getName(), encoding);
+            }
+            NAME_MAP = builder.build();
+        }
 
         private final int size;
+        private final String name;
+        private final StringValueConverter stringValueConverter;
 
-        private Type(int size)
+        private Type(int size, String name, StringValueConverter stringValueConverter)
         {
             this.size = size;
+            this.name = name;
+            this.stringValueConverter = checkNotNull(stringValueConverter, "stringValueConverter is null");
         }
 
         int getSize()
@@ -71,6 +85,23 @@ public class TupleInfo
             return size != -1;
         }
 
+        public String getName()
+        {
+            return name;
+        }
+
+        public StringValueConverter getStringValueConverter()
+        {
+            return stringValueConverter;
+        }
+
+        public static Type fromName(String name)
+        {
+            checkNotNull(name, "name is null");
+            Type encoding = NAME_MAP.get(name);
+            checkArgument(encoding != null, "Invalid type name: %s", name);
+            return encoding;
+        }
     }
 
     private final int size;
@@ -89,7 +120,7 @@ public class TupleInfo
 
     public TupleInfo(List<Type> types)
     {
-        Preconditions.checkNotNull(types, "types is null");
+        checkNotNull(types, "types is null");
 //        Preconditions.checkArgument(!types.isEmpty(), "types is empty");
 
         this.types = ImmutableList.copyOf(types);
