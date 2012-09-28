@@ -19,8 +19,8 @@ public class TupleStreamSerdes
     {
         RAW("raw"),
         RLE("rle"),
-        DICTIONARY_RAW("dic-raw"),
-        DICTIONARY_RLE("dic-rle");
+        DICTIONARY_RAW("dic/raw"),
+        DICTIONARY_RLE("dic/rle");
 
         private static final Map<String, Encoding> NAME_MAP;
         static {
@@ -57,7 +57,7 @@ public class TupleStreamSerdes
         checkNotNull(serde, "serde is null");
         checkNotNull(tupleStream, "tupleStream is null");
         checkNotNull(sliceOutput, "sliceOutput is null");
-        serde.createTupleStreamWriter(sliceOutput).append(tupleStream).close();
+        serde.createTupleStreamWriter(sliceOutput).append(tupleStream).finish();
     }
     
     public static TupleStream deserialize(TupleStreamSerde serde, Slice slice)

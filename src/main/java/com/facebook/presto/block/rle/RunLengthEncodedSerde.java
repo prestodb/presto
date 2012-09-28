@@ -132,7 +132,7 @@ public class RunLengthEncodedSerde
         }
 
         @Override
-        public void close()
+        public void finish()
         {
             checkState(initialized, "nothing appended");
             checkState(!finished, "already finished");

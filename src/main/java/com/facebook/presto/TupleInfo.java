@@ -2,8 +2,8 @@ package com.facebook.presto;
 
 import com.facebook.presto.ingest.DoubleStringValueConverter;
 import com.facebook.presto.ingest.LongStringValueConverter;
-import com.facebook.presto.ingest.VarBinaryStringValueConverter;
 import com.facebook.presto.ingest.StringValueConverter;
+import com.facebook.presto.ingest.VarBinaryStringValueConverter;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
@@ -18,14 +18,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.SizeOf.SIZE_OF_DOUBLE;
-import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
-import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
-import static com.facebook.presto.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
+import static com.facebook.presto.SizeOf.*;
+import static com.facebook.presto.TupleInfo.Type.*;
+import static com.google.common.base.Preconditions.*;
 import static java.util.Arrays.asList;
 
 /**
@@ -76,7 +71,7 @@ public class TupleInfo
         {
             this.size = size;
             this.name = name;
-            this.stringValueConverter = stringValueConverter;
+            this.stringValueConverter = checkNotNull(stringValueConverter, "stringValueConverter is null");
         }
 
         int getSize()
@@ -102,7 +97,7 @@ public class TupleInfo
 
         public static Type fromName(String name)
         {
-            Preconditions.checkNotNull(name, "name is null");
+            checkNotNull(name, "name is null");
             Type encoding = NAME_MAP.get(name);
             checkArgument(encoding != null, "Invalid type name: %s", name);
             return encoding;
@@ -125,7 +120,7 @@ public class TupleInfo
 
     public TupleInfo(List<Type> types)
     {
-        Preconditions.checkNotNull(types, "types is null");
+        checkNotNull(types, "types is null");
 //        Preconditions.checkArgument(!types.isEmpty(), "types is empty");
 
         this.types = ImmutableList.copyOf(types);

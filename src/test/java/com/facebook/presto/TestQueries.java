@@ -39,6 +39,7 @@ import java.util.zip.GZIPInputStream;
 
 import static com.facebook.presto.TupleInfo.Type.*;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
@@ -296,36 +297,53 @@ public class TestQueries
         });
     }
 
-    private static UncompressedTupleStream createTupleStream(List<List<String>> data, final TpchSchema.Column column, final TupleInfo.Type type)
+    private static UncompressedTupleStream createTupleStream(final List<List<String>> data, final TpchSchema.Column column, final TupleInfo.Type type)
     {
-        final TupleInfo tupleInfo = new TupleInfo(type);
-        final Iterator<List<String>> iterator = data.iterator();
         return new UncompressedTupleStream(
-                tupleInfo,
+                new TupleInfo(type),
                 new Iterable<UncompressedBlock>() {
                     @Override
                     public Iterator<UncompressedBlock> iterator()
                     {
-                        return new AbstractIterator<UncompressedBlock>() {
-                            long position = 0;
-                            @Override
-                            protected UncompressedBlock computeNext()
-                            {
-                                if (!iterator.hasNext()) {
-                                    return endOfData();
-                                }
-                                BlockBuilder blockBuilder = new BlockBuilder(position, tupleInfo);
-                                while (iterator.hasNext() && !blockBuilder.isFull()) {
-                                    type.getStringValueConverter().convert(iterator.next().get(column.getIndex()), blockBuilder);
-                                }
-                                UncompressedBlock block = blockBuilder.build();
-                                position += block.getCount();
-                                return block;
-                            }
-                        };
+                        return new RowStringUncompressedBlockIterator(type, column.getIndex(), data.iterator());
                     }
                 }
         );
+    }
+
+    // Given a list of string rows, extracts UncompressedBlocks for a particular column
+    private static class RowStringUncompressedBlockIterator
+            extends AbstractIterator<UncompressedBlock>
+    {
+        private final TupleInfo.Type type;
+        private final TupleInfo tupleInfo;
+        private final int extractedColumnIndex; // Can only extract one column index
+        private final Iterator<List<String>> rowStringIterator;
+        private long position = 0;
+
+        private RowStringUncompressedBlockIterator(TupleInfo.Type type, int extractedColumnIndex, Iterator<List<String>> rowStringIterator)
+        {
+            this.type = checkNotNull(type, "type is null");
+            tupleInfo = new TupleInfo(type);
+            checkArgument(extractedColumnIndex >= 0, "extractedColumnIndex must be greater than or equal to zero");
+            this.extractedColumnIndex = extractedColumnIndex;
+            this.rowStringIterator = checkNotNull(rowStringIterator, "rowStringIterator is null");;
+        }
+
+        @Override
+        protected UncompressedBlock computeNext()
+        {
+            if (!rowStringIterator.hasNext()) {
+                return endOfData();
+            }
+            BlockBuilder blockBuilder = new BlockBuilder(position, tupleInfo);
+            while (rowStringIterator.hasNext() && !blockBuilder.isFull()) {
+                type.getStringValueConverter().convert(rowStringIterator.next().get(extractedColumnIndex), blockBuilder);
+            }
+            UncompressedBlock block = blockBuilder.build();
+            position += block.getCount();
+            return block;
+        }
     }
 
     private static void insertRows(String table, Handle handle, List<List<String>> data)

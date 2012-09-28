@@ -41,15 +41,15 @@ public class TestCsv
     public void testConvertActions()
             throws Exception
     {
-        List<String> encodings = Arrays.asList("long_rle", "double_dic-rle", "double_raw", "string_dic-raw");
+        List<String> encodings = Arrays.asList("long:rle", "double:dic/rle", "double:raw", "string:dic/raw");
         Main.main(new String[]{
                 "convert", "csv",
                 "-d", "|",
                 "-o", outDir.getAbsolutePath(),
-                "-e", "0_" + encodings.get(0),
-                "-e", "1_" + encodings.get(1),
-                "-e", "2_" + encodings.get(2),
-                "-e", "3_" + encodings.get(3),
+                "-t", "0:" + encodings.get(0),
+                "-t", "1:" + encodings.get(1),
+                "-t", "2:" + encodings.get(2),
+                "-t", "3:" + encodings.get(3),
                 resourceFile("action.csv")
         });
 
@@ -109,8 +109,9 @@ public class TestCsv
     private TupleStream readColumn(int columnNumber, String dataType)
             throws IOException
     {
-        File file = new File(outDir, "column" + columnNumber + "." + dataType + ".data");
-        Iterator<String> partsIterator = Splitter.on('_').split(dataType).iterator();
+        // HACK: replace('/', '-') to deal with illegal file name characters
+        File file = new File(outDir, "column" + columnNumber + "." + dataType.replace('/', '-').replace(':', '_') + ".data");
+        Iterator<String> partsIterator = Splitter.on(':').split(dataType).iterator();
         String typeName = partsIterator.next();
         String serdeName = partsIterator.next();
         return TupleStreamSerdes.createTupleStreamSerde(TupleStreamSerdes.Encoding.fromName(serdeName)).deserialize(Slices.mapFileReadOnly(file));
