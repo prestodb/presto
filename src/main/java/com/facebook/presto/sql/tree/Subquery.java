@@ -2,14 +2,13 @@ package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
 
-public class SubqueryTable
-        extends TablePrimary
+public class Subquery
+        extends Relation
 {
     private final Query query;
 
-    public SubqueryTable(Query query, TableCorrelation correlation)
+    public Subquery(Query query)
     {
-        super(correlation);
         this.query = query;
     }
 
@@ -22,9 +21,7 @@ public class SubqueryTable
     public String toString()
     {
         return Objects.toStringHelper(this)
-                .add("query", query)
-                .add("correlation", getCorrelation())
-                .omitNullValues()
+                .addValue(query)
                 .toString();
     }
 }
