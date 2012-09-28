@@ -79,8 +79,8 @@ selectItem returns [SelectItem value]
     | ^(ALL_COLUMNS q=qname)         { $value = new SelectItemAllColumns($q.value); }
     ;
 
-fromClause returns [List<TableReference> value]
-    : ^(FROM t=tableList) { $value = $t.value; }
+fromClause returns [List<Relation> value]
+    : ^(FROM t=relationList) { $value = $t.value; }
     ;
 
 whereClause returns [Expression value]
@@ -118,22 +118,56 @@ limitClause returns [String value]
     : ^(LIMIT integer) { $value = $integer.value; }
     ;
 
-tableList returns [List<TableReference> value = new ArrayList<>()]
-    : ( t=tableRef { $value.add($t.value); } )+
+relationList returns [List<Relation> value = new ArrayList<>()]
+    : ( relation { $value.add($relation.value); } )+
     ;
 
-tableRef returns [TableReference value]
-    : p=tablePrimary { $value = $p.value; }
+relation returns [Relation value]
+    : namedTable       { $value = $namedTable.value; }
+    | subqueryRelation { $value = $subqueryRelation.value; }
+    | joinedTable      { $value = $joinedTable.value; }
+    | joinRelation     { $value = $joinRelation.value; }
     ;
 
-tablePrimary returns [TablePrimary value]
-    : ^(TABLE n=qname c=corrSpec?)           { $value = new NamedTable($n.value, $c.value); }
-    | ^(SUBQUERY q=subquery c=corrSpec)      { $value = new SubqueryTable($q.value, $c.value); }
-    | ^(JOINED_TABLE t=tableRef c=corrSpec?) { $value = new JoinedTable($t.value, $c.value); }
+namedTable returns [Relation value]
+    : ^(TABLE qname { $value = new Table($qname.value); }
+        a=aliasedRelation[$value]? { if ($a.value != null) $value = $a.value; } )
     ;
 
-corrSpec returns [TableCorrelation value]
-    : ^(CORR_SPEC i=ident) { $value = new TableCorrelation($i.value); }
+subqueryRelation returns [Relation value]
+    : ^(SUBQUERY subquery { $value = new Subquery($subquery.value); }
+        a=aliasedRelation[$value]? { if ($a.value != null) $value = $a.value; } )
+    ;
+
+joinedTable returns [Relation value]
+    : ^(JOINED_TABLE relation { $value = $relation.value; }
+        a=aliasedRelation[$value]? { if ($a.value != null) $value = $a.value; } )
+    ;
+
+aliasedRelation[Relation r] returns [AliasedRelation value]
+    : ^(TABLE_ALIAS i=ident c=aliasedColumns?) { $value = new AliasedRelation($r, $i.value, $c.value); }
+    ;
+
+aliasedColumns returns [List<String> value]
+    : ^(ALIASED_COLUMNS identList) { $value = $identList.value; }
+    ;
+
+joinRelation returns [Join value]
+    : ^(CROSS_JOIN a=relation b=relation)                               { $value = new Join(Join.Type.CROSS, $a.value, $b.value, null); }
+    | ^(QUALIFIED_JOIN t=joinType c=joinCriteria a=relation b=relation) { $value = new Join($t.value, $a.value, $b.value, $c.value); }
+    ;
+
+joinType returns [Join.Type value]
+    : INNER_JOIN { $value = Join.Type.INNER; }
+    | LEFT_JOIN  { $value = Join.Type.LEFT; }
+    | RIGHT_JOIN { $value = Join.Type.RIGHT; }
+    | FULL_JOIN  { $value = Join.Type.FULL; }
+    ;
+
+joinCriteria returns [JoinCriteria value]
+    : NATURAL            { $value = new NaturalJoin(); }
+    | ^(ON expr)         { $value = new JoinOn($expr.value); }
+    | ^(USING identList) { $value = new JoinUsing($identList.value); }
     ;
 
 subquery returns [Query value]
