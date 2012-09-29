@@ -179,7 +179,16 @@ public class UnsafeSlice extends AbstractSlice
     public void getBytes(int index, OutputStream out, int length)
             throws IOException
     {
-        throw new UnsupportedOperationException();
+        checkIndexLength(index, length);
+
+        byte[] buffer = new byte[4096];
+
+        while (length > 0) {
+            int size = Math.min(buffer.length, length);
+            getBytes(index, buffer, 0, size);
+            out.write(buffer, 0, size);
+            length -= size;
+        }
     }
 
     @Override
