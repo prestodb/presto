@@ -70,6 +70,11 @@ public class Blocks
 
     public static UncompressedBlock createBlock(long position, String... values)
     {
+        return createStringBlock(position, ImmutableList.copyOf(values));
+    }
+
+    public static UncompressedBlock createStringBlock(long position, Iterable<String> values)
+    {
         BlockBuilder builder = new BlockBuilder(position, TupleInfo.SINGLE_VARBINARY);
 
         for (String value : values) {
