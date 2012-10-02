@@ -192,16 +192,21 @@ public class SemanticAnalyzer
 
             Schema relationSchema = types.get(relation.getRelation());
 
-            List<Field> fields = ImmutableList.copyOf(Iterables.transform(relationSchema.getFields(), new Function<Field, Field>()
-            {
-                @Override
-                public Field apply(Field input)
-                {
-                    return new Field(QualifiedName.of(relation.getAlias(), Iterables.getLast(input.getName().getParts())), null);
+            ImmutableList.Builder<Field> builder = ImmutableList.builder();
+            int count = 0;
+            for (Field field : relationSchema.getFields()) {
+                QualifiedName name;
+                if (field.getName() == null) {
+                    name = QualifiedName.of(relation.getAlias(), "$" + count);
                 }
-            }));
+                else {
+                    name = QualifiedName.of(relation.getAlias(), Iterables.getLast(field.getName().getParts()));
+                }
+                builder.add(new Field(name, field.getType()));
+                count++;
+            }
 
-            types.put(relation, new Schema(fields));
+            types.put(relation, new Schema(builder.build()));
             return null;
         }
     }
