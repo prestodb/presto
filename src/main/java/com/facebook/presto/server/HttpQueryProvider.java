@@ -11,13 +11,16 @@ import java.net.URI;
 
 public class HttpQueryProvider implements QueryDriverProvider
 {
+    private final String query;
     private final AsyncHttpClient httpClient;
     private final URI uri;
 
-    public HttpQueryProvider(AsyncHttpClient httpClient, URI uri)
+    public HttpQueryProvider(String query, AsyncHttpClient httpClient, URI uri)
     {
+        Preconditions.checkNotNull(query, "query is null");
         Preconditions.checkNotNull(httpClient, "httpClient is null");
         Preconditions.checkNotNull(uri, "uri is null");
+        this.query = query;
         this.httpClient = httpClient;
         this.uri = uri;
     }
@@ -25,8 +28,7 @@ public class HttpQueryProvider implements QueryDriverProvider
     @Override
     public QueryDriver create(QueryState queryState, TupleInfo info)
     {
-        HttpQuery httpQuery = new HttpQuery(queryState, info, httpClient, uri);
+        HttpQuery httpQuery = new HttpQuery(query, queryState, info, httpClient, uri);
         return httpQuery;
-
     }
 }

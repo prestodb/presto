@@ -5,12 +5,14 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
+import io.airlift.http.client.StaticBodyGenerator;
 import io.airlift.http.client.UnexpectedResponseException;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -25,6 +27,7 @@ import static io.airlift.http.client.Request.Builder.preparePost;
 
 public class HttpQuery implements QueryDriver
 {
+    private final String query;
     private final QueryState queryState;
     private final TupleInfo info;
     private final AsyncHttpClient httpClient;
@@ -36,8 +39,14 @@ public class HttpQuery implements QueryDriver
     @GuardedBy("this")
     private Future<Void> currentRequest;
 
-    public HttpQuery(QueryState queryState, TupleInfo info, AsyncHttpClient httpClient, URI uri)
+    public HttpQuery(String query, QueryState queryState, TupleInfo info, AsyncHttpClient httpClient, URI uri)
     {
+        Preconditions.checkNotNull(query, "query is null");
+        Preconditions.checkNotNull(queryState, "queryState is null");
+        Preconditions.checkNotNull(info, "info is null");
+        Preconditions.checkNotNull(httpClient, "httpClient is null");
+        Preconditions.checkNotNull(uri, "uri is null");
+        this.query = query;
         this.queryState = queryState;
         this.info = info;
         this.httpClient = httpClient;
@@ -50,7 +59,11 @@ public class HttpQuery implements QueryDriver
         Preconditions.checkState(!done, "Query is already finished");
         Preconditions.checkState(currentRequest == null, "Query is already started");
 
-        currentRequest = httpClient.execute(preparePost().setUri(uri).build(), new CreateQueryResponseHandler());
+        Request request = preparePost()
+                .setUri(uri)
+                .setBodyGenerator(StaticBodyGenerator.createStaticBodyGenerator(query, Charsets.UTF_8))
+                .build();
+        currentRequest = httpClient.execute(request, new CreateQueryResponseHandler());
     }
 
     @Override
