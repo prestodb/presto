@@ -3,7 +3,7 @@ package com.facebook.presto.sql.tree;
 import com.google.common.base.Objects;
 
 public class TimestampLiteral
-        extends Expression
+        extends Literal
 {
     private final String value;
 
@@ -15,6 +15,12 @@ public class TimestampLiteral
     public String getValue()
     {
         return value;
+    }
+
+    @Override
+    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitTimestampLiteral(this, context);
     }
 
     @Override

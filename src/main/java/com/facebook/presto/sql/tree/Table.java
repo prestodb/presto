@@ -18,6 +18,12 @@ public class Table
     }
 
     @Override
+    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitTable(this, context);
+    }
+
+    @Override
     public String toString()
     {
         return Objects.toStringHelper(this)

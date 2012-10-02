@@ -34,6 +34,12 @@ public class AliasedRelation
     }
 
     @Override
+    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitAliasedRelation(this, context);
+    }
+
+    @Override
     public String toString()
     {
         return Objects.toStringHelper(this)

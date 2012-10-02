@@ -18,6 +18,13 @@ public class NotExpression
     }
 
     @Override
+    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitNotExpression(this, context);
+    }
+
+
+    @Override
     public String toString()
     {
         return Objects.toStringHelper(this)

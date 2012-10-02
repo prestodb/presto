@@ -8,6 +8,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Select
+    extends Node
 {
     private final boolean distinct;
     private final List<Expression> selectItems;
@@ -26,6 +27,12 @@ public class Select
     public List<Expression> getSelectItems()
     {
         return selectItems;
+    }
+
+    @Override
+    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitSelect(this, context);
     }
 
     @Override
