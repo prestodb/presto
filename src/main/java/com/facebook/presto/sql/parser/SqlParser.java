@@ -28,7 +28,7 @@ public class SqlParser
     }
 
     @VisibleForTesting
-    static CommonTree parseStatement(String sql)
+    public static CommonTree parseStatement(String sql)
             throws RecognitionException
     {
         return (CommonTree) getParser(sql).singleStatement().getTree();
