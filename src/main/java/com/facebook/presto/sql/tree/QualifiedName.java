@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.tree;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -43,9 +44,7 @@ public class QualifiedName
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
-                .addValue(parts)
-                .toString();
+        return Joiner.on('.').join(parts);
     }
 
     public static Predicate<? super QualifiedName> hasSuffix(final QualifiedName suffix)

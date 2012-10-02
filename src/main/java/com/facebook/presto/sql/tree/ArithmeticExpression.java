@@ -7,7 +7,22 @@ public class ArithmeticExpression
 {
     public enum Type
     {
-        ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULUS
+        ADD("+"),
+        SUBTRACT("-"),
+        MULTIPLY("*"),
+        DIVIDE("/"),
+        MODULUS("%");
+        private final String value;
+
+        Type(String value)
+        {
+            this.value = value;
+        }
+
+        public String getValue()
+        {
+            return value;
+        }
     }
 
     private final Type type;
