@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.collect.Iterables;
 
 public class QualifiedNameReference
         extends Expression
@@ -15,6 +16,11 @@ public class QualifiedNameReference
     public QualifiedName getName()
     {
         return name;
+    }
+
+    public QualifiedName getSuffix()
+    {
+        return QualifiedName.of(Iterables.getLast(name.getParts()));
     }
 
     @Override
