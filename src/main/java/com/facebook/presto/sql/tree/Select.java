@@ -6,25 +6,15 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 public class Select
 {
     private final boolean distinct;
-    private final boolean allColumns;
-    private final List<SelectItem> selectItems;
+    private final List<Expression> selectItems;
 
-    public Select(boolean distinct)
+    public Select(boolean distinct, List<Expression> selectItems)
     {
         this.distinct = distinct;
-        this.allColumns = true;
-        this.selectItems = null;
-    }
-
-    public Select(boolean distinct, List<SelectItem> selectItems)
-    {
-        this.distinct = distinct;
-        this.allColumns = false;
         this.selectItems = ImmutableList.copyOf(checkNotNull(selectItems, "selectItems"));
     }
 
@@ -33,14 +23,8 @@ public class Select
         return distinct;
     }
 
-    public boolean isAllColumns()
+    public List<Expression> getSelectItems()
     {
-        return allColumns;
-    }
-
-    public List<SelectItem> getSelectItems()
-    {
-        checkState(!allColumns, "no select items for all columns query");
         return selectItems;
     }
 
@@ -49,7 +33,6 @@ public class Select
     {
         return Objects.toStringHelper(this)
                 .add("distinct", distinct)
-                .add("allColumns", allColumns)
                 .add("selectItems", selectItems)
                 .omitNullValues()
                 .toString();
