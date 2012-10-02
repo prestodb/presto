@@ -9,16 +9,27 @@ import javax.inject.Provider;
 public class SumAggregation
         implements AggregationFunction
 {
-    public static final Provider<AggregationFunction> PROVIDER = new Provider<AggregationFunction>()
-    {
-        @Override
-        public SumAggregation get()
-        {
-            return new SumAggregation();
-        }
-    };
+    public static final Provider<AggregationFunction> PROVIDER = provider(0);
 
+    public static Provider<AggregationFunction> provider(final int field)
+    {
+        return new Provider<AggregationFunction>()
+        {
+            @Override
+            public SumAggregation get()
+            {
+                return new SumAggregation(field);
+            }
+        };
+    }
+
+    private final int field;
     private long sum;
+
+    public SumAggregation(int field)
+    {
+        this.field = field;
+    }
 
     @Override
     public TupleInfo getTupleInfo()
@@ -47,6 +58,12 @@ public class SumAggregation
             }
             while (cursor.getPosition() < endPosition && cursor.advanceNextPosition());
         }
+    }
+
+    @Override
+    public void addCurrentPosition(Cursor cursor)
+    {
+        sum += cursor.getLong(field);
     }
 
     @Override

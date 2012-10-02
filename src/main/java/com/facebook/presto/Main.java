@@ -3,25 +3,62 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.TupleInfo.Type;
+import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.ingest.BlockDataImporter;
 import com.facebook.presto.ingest.BlockExtractor;
 import com.facebook.presto.ingest.DelimitedBlockExtractor;
+import com.facebook.presto.ingest.RuntimeIOException;
+import com.facebook.presto.operator.ConsolePrinter.DelimitedTuplePrinter;
+import com.facebook.presto.operator.ConsolePrinter.TuplePrinter;
+import com.facebook.presto.server.HttpQueryProvider;
+import com.facebook.presto.server.QueryDriversTupleStream;
+import com.facebook.presto.server.ServerMainModule;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import com.google.common.io.InputSupplier;
+import com.google.common.io.NullOutputStream;
 import com.google.common.io.OutputSupplier;
-import io.airlift.command.*;
+import com.google.inject.Injector;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.command.Arguments;
+import io.airlift.command.Cli;
 import io.airlift.command.Cli.CliBuilder;
+import io.airlift.command.Command;
+import io.airlift.command.Help;
+import io.airlift.command.Option;
+import io.airlift.discovery.client.Announcer;
+import io.airlift.discovery.client.DiscoveryModule;
+import io.airlift.event.client.HttpEventModule;
+import io.airlift.http.client.ApacheHttpClient;
+import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.http.server.HttpServerModule;
+import io.airlift.jaxrs.JaxrsModule;
+import io.airlift.jmx.JmxHttpModule;
+import io.airlift.jmx.JmxModule;
+import io.airlift.json.JsonModule;
+import io.airlift.log.LogJmxModule;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
+import io.airlift.log.LoggingConfiguration;
+import io.airlift.node.NodeModule;
+import io.airlift.tracetoken.TraceTokenModule;
+import io.airlift.units.Duration;
+import org.weakref.jmx.guice.MBeanModule;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.PrintStream;
+import java.net.URI;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static com.facebook.presto.ingest.BlockDataImporter.ColumnImportSpec;
 import static com.facebook.presto.ingest.DelimitedBlockExtractor.ColumnDefinition;
@@ -35,7 +72,14 @@ public class Main
     {
         CliBuilder<Callable<Void>> builder = (CliBuilder<Callable<Void>>) (Object) Cli.buildCli("presto", Callable.class)
                 .withDefaultCommand(Help.class)
+                .withCommand(Server.class)
+                .withCommand(ExampleSumAggregation.class)
                 .withCommands(Help.class);
+
+        builder.withGroup("example")
+                .withDescription("run example queries")
+                .withDefaultCommand(Help.class)
+                .withCommand(ExampleSumAggregation.class);
 
         builder.withGroup("convert")
                 .withDescription("convert file formats")
@@ -62,6 +106,78 @@ public class Main
                 throws Exception
         {
             System.out.println(getClass().getSimpleName());
+        }
+    }
+
+    @Command(name = "server", description = "Run the server")
+    public static class Server
+            extends BaseCommand
+    {
+
+        public void run()
+        {
+            Logger log = Logger.get(Main.class);
+            Bootstrap app = new Bootstrap(
+                    new NodeModule(),
+                    new DiscoveryModule(),
+                    new HttpServerModule(),
+                    new JsonModule(),
+                    new JaxrsModule(),
+                    new MBeanModule(),
+                    new JmxModule(),
+                    new JmxHttpModule(),
+                    new LogJmxModule(),
+                    new HttpEventModule(),
+                    new TraceTokenModule(),
+                    new ServerMainModule());
+
+            try {
+                Injector injector = app.strictConfig().initialize();
+                injector.getInstance(Announcer.class).start();
+            }
+            catch (Throwable e) {
+                log.error(e);
+                System.exit(1);
+            }
+        }
+    }
+
+    @Command(name = "sum", description = "Run an example sum aggregation")
+    public static class ExampleSumAggregation
+            extends BaseCommand
+    {
+        @Arguments(required = true)
+        public URI server;
+
+        public void run()
+        {
+            initializeLogging(false);
+
+            ExecutorService executor = Executors.newCachedThreadPool();
+            try {
+                long start = System.nanoTime();
+
+                AsyncHttpClient asyncHttpClient = new AsyncHttpClient(new ApacheHttpClient(), executor);
+                QueryDriversTupleStream tupleStream = new QueryDriversTupleStream(new TupleInfo(Type.VARIABLE_BINARY, Type.FIXED_INT_64), 10,
+                        new HttpQueryProvider("sum", asyncHttpClient, server)
+                );
+
+//                TuplePrinter tuplePrinter = new RecordTuplePrinter();
+                TuplePrinter tuplePrinter = new DelimitedTuplePrinter();
+
+                int count = 0;
+                Cursor cursor = tupleStream.cursor();
+                while (cursor.advanceNextPosition()) {
+                    count++;
+                    tuplePrinter.print(cursor.getTuple());
+                }
+                Duration duration = Duration.nanosSince(start);
+
+                System.out.printf("%d rows in %4.2f ms\n", count, duration.toMillis());
+            }
+            finally {
+                executor.shutdownNow();
+            }
         }
     }
 
@@ -155,6 +271,34 @@ public class Main
                     return new FileOutputStream(file);
                 }
             };
+        }
+    }
+
+    public static void initializeLogging(boolean debug)
+    {
+        // unhook out and err while initializing logging or logger will print to them
+        PrintStream out = System.out;
+        PrintStream err = System.err;
+        try {
+            if (debug) {
+                Logging logging = new Logging();
+                logging.initialize(new LoggingConfiguration());
+            }
+            else {
+                System.setOut(new PrintStream(new NullOutputStream()));
+                System.setErr(new PrintStream(new NullOutputStream()));
+
+                Logging logging = new Logging();
+                logging.initialize(new LoggingConfiguration());
+                logging.disableConsole();
+            }
+        }
+        catch (IOException e) {
+            throw new RuntimeIOException(e);
+        }
+        finally {
+            System.setOut(out);
+            System.setErr(err);
         }
     }
 }
