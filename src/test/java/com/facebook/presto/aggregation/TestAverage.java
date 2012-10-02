@@ -8,7 +8,7 @@ public class TestAverage
     @Override
     public AverageAggregation getFunction()
     {
-        return new AverageAggregation();
+        return new AverageAggregation(0);
     }
 
     @Override

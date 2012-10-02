@@ -8,7 +8,7 @@ public class TestSum
     @Override
     public SumAggregation getFunction()
     {
-        return new SumAggregation();
+        return new SumAggregation(0);
     }
 
     @Override

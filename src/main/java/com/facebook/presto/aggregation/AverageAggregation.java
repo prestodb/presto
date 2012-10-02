@@ -9,17 +9,29 @@ import javax.inject.Provider;
 public class AverageAggregation
         implements AggregationFunction
 {
-    public static final Provider<AggregationFunction> PROVIDER = new Provider<AggregationFunction>()
-    {
-        @Override
-        public AverageAggregation get()
-        {
-            return new AverageAggregation();
-        }
-    };
+    public static final Provider<AggregationFunction> PROVIDER = provider(0);
 
+    public static Provider<AggregationFunction> provider(final int field)
+    {
+        return new Provider<AggregationFunction>()
+        {
+            @Override
+            public AverageAggregation get()
+            {
+                return new AverageAggregation(field);
+            }
+        };
+    }
+
+
+    private final int field;
     private double sum;
     private long count;
+
+    public AverageAggregation(int field)
+    {
+        this.field = field;
+    }
 
     @Override
     public TupleInfo getTupleInfo()
@@ -38,6 +50,13 @@ public class AverageAggregation
             }
             while (cursor.getPosition() < endPosition && cursor.advanceNextPosition());
         }
+    }
+
+    @Override
+    public void addCurrentPosition(Cursor cursor)
+    {
+        sum += cursor.getDouble(field);
+        ++count;
     }
 
     @Override
