@@ -15,6 +15,8 @@ options {
     import java.util.HashMap;
     import java.util.List;
     import java.util.Map;
+    import com.google.common.collect.ImmutableList;
+    import com.google.common.base.Objects;
 }
 
 @members {
@@ -50,13 +52,21 @@ query returns [Query value]
     ;
 
 selectStmt returns [Query value]
-    : s=selectClause
-      f=fromClause?
-      w=whereClause?
-      (g=groupClause h=havingClause?)?
-      o=orderClause?
-      l=limitClause?
-        { $value = new Query($s.value, $f.value, $w.value, $g.value, $h.value, $o.value, $l.value); }
+    : selectClause
+      fromClause?
+      whereClause?
+      (groupClause havingClause?)?
+      orderClause?
+      limitClause?
+        { $value = new Query(
+            $selectClause.value,
+            $fromClause.value,
+            $whereClause.value,
+            Objects.firstNonNull($groupClause.value, ImmutableList.<Expression>of()),
+            $havingClause.value,
+            Objects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
+            $limitClause.value);
+        }
     ;
 
 
