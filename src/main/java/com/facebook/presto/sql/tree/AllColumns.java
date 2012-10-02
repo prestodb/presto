@@ -1,23 +1,26 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 
 public class AllColumns
         extends Expression
 {
-    private final QualifiedName prefix;
+    private final Optional<QualifiedName> prefix;
 
     public AllColumns()
     {
-        this(null);
+        prefix = Optional.absent();
     }
 
     public AllColumns(QualifiedName prefix)
     {
-        this.prefix = prefix;
+        Preconditions.checkNotNull(prefix, "prefix is null");
+        this.prefix = Optional.of(prefix);
     }
 
-    public QualifiedName getPrefix()
+    public Optional<QualifiedName> getPrefix()
     {
         return prefix;
     }

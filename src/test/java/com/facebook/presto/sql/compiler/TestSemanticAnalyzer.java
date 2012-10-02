@@ -178,6 +178,78 @@ public class TestSemanticAnalyzer
         process("SELECT value, SUM(id) total FROM T GROUP BY value HAVING SUM(id) > 10");
     }
 
+    @Test
+    public void testAllRelationColumns()
+            throws Exception
+    {
+        process("SELECT T.* FROM T");
+    }
+
+    @Test
+    public void testAllRelationColumnsFromMultipleTables()
+            throws Exception
+    {
+        process("SELECT S.*, T.* FROM S, T");
+    }
+
+    @Test
+    public void testAllRelationColumnsFromMultipleTables2()
+            throws Exception
+    {
+        process("SELECT T.* FROM S, T");
+    }
+
+    @Test
+    public void testAllRelationColumnsFromSubSelect()
+            throws Exception
+    {
+        process("SELECT S.* FROM (" +
+                "   SELECT * FROM T" +
+                ") S");
+    }
+
+    @Test
+    public void testAllRelationColumnsFromSubSelectUnnamed()
+            throws Exception
+    {
+        process("SELECT U.* FROM (" +
+                "   SELECT id + id, value + value FROM T" +
+                ") U");
+    }
+
+    @Test
+    public void testAllColumns()
+            throws Exception
+    {
+        process("SELECT * FROM T");
+    }
+
+    @Test
+    public void testAllColumnsFromMultipleTables()
+            throws Exception
+    {
+        process("SELECT * FROM S, T");
+    }
+
+    @Test
+    public void testAllColumnsFromSubSelect()
+            throws Exception
+    {
+        process("SELECT * FROM (" +
+                "   SELECT * FROM T" +
+                ") S");
+    }
+
+    @Test
+    public void testAllColumnsFromSubSelectUnnamed()
+            throws Exception
+    {
+        process("SELECT * FROM (" +
+                "   SELECT id + id, value + value FROM T" +
+                ") U");
+    }
+
+
     private void process(String query)
             throws RecognitionException
     {

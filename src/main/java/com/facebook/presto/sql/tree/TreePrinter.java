@@ -94,6 +94,19 @@ public class TreePrinter
             }
 
             @Override
+            protected Void visitAllColumns(AllColumns node, Integer indent)
+            {
+                if (node.getPrefix() == null) {
+                    print(indent, "*");
+                }
+                else {
+                    print(indent, node.getPrefix() + ".*");
+                }
+
+                return null;
+            }
+
+            @Override
             public Void visitComparisonExpression(ComparisonExpression node, Integer indentLevel)
             {
                 print(indentLevel, node.getType().toString());

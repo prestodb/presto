@@ -2,6 +2,7 @@ package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -24,15 +25,24 @@ public class QualifiedName
         return new QualifiedName(ImmutableList.copyOf(Lists.asList(first, rest)));
     }
 
+    public static QualifiedName of(Iterable<String> parts)
+    {
+        Preconditions.checkNotNull(parts, "parts is null");
+        Preconditions.checkArgument(!Iterables.isEmpty(parts), "parts is empty");
+
+        return new QualifiedName(parts);
+    }
+
     public QualifiedName(String name)
     {
         this(ImmutableList.of(name));
     }
 
-    public QualifiedName(List<String> parts)
+    public QualifiedName(Iterable<String> parts)
     {
-        checkNotNull(parts, "parts");
-        checkArgument(!parts.isEmpty(), "parts is empty");
+        Preconditions.checkNotNull(parts, "parts");
+        Preconditions.checkArgument(!Iterables.isEmpty(parts), "parts is empty");
+
         this.parts = ImmutableList.copyOf(parts);
     }
 
@@ -47,20 +57,38 @@ public class QualifiedName
         return Joiner.on('.').join(parts);
     }
 
-    public static Predicate<? super QualifiedName> hasSuffix(final QualifiedName suffix)
+    /**
+     * For an identifier of the form "a.b.c.d", returns "a.b.c"
+     * For an identifier of the form "a", returns absent
+     */
+    public Optional<QualifiedName> getPrefix()
+    {
+        if (parts.size() == 1) {
+            return Optional.absent();
+        }
+
+        return Optional.of(QualifiedName.of(parts.subList(0, parts.size() - 1)));
+    }
+
+    public boolean hasSuffix(QualifiedName suffix)
+    {
+        if (parts.size() < suffix.getParts().size()) {
+            return false;
+        }
+
+        int start = parts.size() - suffix.getParts().size();
+
+        return parts.subList(start, parts.size()).equals(suffix.getParts());
+    }
+
+    public static Predicate<? super QualifiedName> hasSuffixPredicate(final QualifiedName suffix)
     {
         return new Predicate<QualifiedName>()
         {
             @Override
             public boolean apply(QualifiedName name)
             {
-                if (name.getParts().size() < suffix.getParts().size()) {
-                    return false;
-                }
-
-                int start = name.getParts().size() - suffix.getParts().size();
-
-                return name.getParts().subList(start, name.getParts().size()).equals(suffix.getParts());
+                return name.hasSuffix(suffix);
             }
         };
     }

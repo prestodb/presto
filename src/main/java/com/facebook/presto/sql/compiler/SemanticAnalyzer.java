@@ -5,6 +5,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.AliasedRelation;
+import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Node;
@@ -18,15 +19,22 @@ import com.facebook.presto.sql.tree.Subquery;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 
+import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.sql.compiler.Field.nameGetter;
+import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
 
 public class SemanticAnalyzer
@@ -55,25 +63,41 @@ public class SemanticAnalyzer
         return new AnalysisResult(schema, analyzer.getResolvedNames(), analyzer.getTypes());
     }
 
-    private Schema inferTypes(Select select)
+    private Schema inferTypes(Select select, final List<Field> exported)
     {
-        return new Schema(ImmutableList.copyOf(Iterables.transform(select.getSelectItems(), new Function<Expression, Field>()
+        return new Schema(ImmutableList.copyOf(concat(transform(select.getSelectItems(), new Function<Expression, List<Field>>()
         {
             @Override
-            public Field apply(Expression input)
+            public List<Field> apply(Expression input)
             {
-                QualifiedName name = null;
-
                 if (input instanceof AliasedExpression) {
-                    name = QualifiedName.of(((AliasedExpression) input).getAlias());
+                    return ImmutableList.of(new Field(QualifiedName.of(((AliasedExpression) input).getAlias()), null)); // TODO: type
                 }
                 else if (input instanceof QualifiedNameReference) {
-                    name = ((QualifiedNameReference) input).getSuffix();
+                    return ImmutableList.of(new Field(((QualifiedNameReference) input).getSuffix(), null)); // TODO: type
+                }
+                else if (input instanceof AllColumns) {
+                    final AllColumns all = (AllColumns) input;
+                    if (all.getPrefix().isPresent()) { // "X.*"
+                        return ImmutableList.copyOf(Iterables.filter(exported, new Predicate<Field>()
+                        {
+                            @Override
+                            public boolean apply(Field field)
+                            {
+                                Optional<QualifiedName> prefix = field.getName().getPrefix();
+
+                                return prefix.isPresent() && prefix.get().hasSuffix(all.getPrefix().get());
+                            }
+                        }));
+                    }
+
+                    // "*"
+                    return exported;
                 }
 
-                return new Field(name, null);
+                return ImmutableList.of(new Field(null, null));
             }
-        })));
+        }))));
     }
 
     private class Visitor
@@ -96,7 +120,7 @@ public class SemanticAnalyzer
         protected Void visitQuery(Query query, Void context)
         {
             // analyze FROM clause
-            Set<QualifiedName> exported = new HashSet<>();
+            List<Field> exported = new ArrayList<>();
             for (Relation relation : query.getFrom()) {
                 SemanticAnalyzer analyzer = new SemanticAnalyzer(metadata, symbols);
                 AnalysisResult analysis = analyzer.analyze(relation);
@@ -104,7 +128,7 @@ public class SemanticAnalyzer
                 resolvedNames.putAll(analysis.getResolvedNames());
                 types.putAll(analysis.getTypes());
 
-                Iterables.addAll(exported, Iterables.transform(analysis.getType().getFields(), nameGetter()));
+                Iterables.addAll(exported, analysis.getType().getFields());
             }
 
             SymbolTable newSymbols = new SymbolTable(symbols, exported);
@@ -141,7 +165,7 @@ public class SemanticAnalyzer
                 }
             }
 
-            types.put(query, inferTypes(query.getSelect()));
+            types.put(query, inferTypes(query.getSelect(), exported));
 
             // TODO: infer types
 
