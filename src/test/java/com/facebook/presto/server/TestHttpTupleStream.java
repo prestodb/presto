@@ -108,9 +108,9 @@ public class TestHttpTupleStream
         try {
             AsyncHttpClient httpClient = new AsyncHttpClient(client, executor);
             QueryDriversTupleStream tupleStream = new QueryDriversTupleStream(TupleInfo.SINGLE_VARBINARY, 10,
-                    new HttpQueryProvider(httpClient, server1.getBaseUrl().resolve("/v1/presto/query")),
-                    new HttpQueryProvider(httpClient, server2.getBaseUrl().resolve("/v1/presto/query")),
-                    new HttpQueryProvider(httpClient, server3.getBaseUrl().resolve("/v1/presto/query"))
+                    new HttpQueryProvider("query", httpClient, server1.getBaseUrl().resolve("/v1/presto/query")),
+                    new HttpQueryProvider("query", httpClient, server2.getBaseUrl().resolve("/v1/presto/query")),
+                    new HttpQueryProvider("query", httpClient, server3.getBaseUrl().resolve("/v1/presto/query"))
             );
 
             int count = 0;
@@ -133,9 +133,9 @@ public class TestHttpTupleStream
         try {
             AsyncHttpClient httpClient = new AsyncHttpClient(client, executor);
             QueryDriversTupleStream tupleStream = new QueryDriversTupleStream(TupleInfo.SINGLE_VARBINARY, 10,
-                    new HttpQueryProvider(httpClient, server1.getBaseUrl().resolve("/v1/presto/query")),
-                    new HttpQueryProvider(httpClient, server2.getBaseUrl().resolve("/v1/presto/query")),
-                    new HttpQueryProvider(httpClient, server3.getBaseUrl().resolve("/v1/presto/query"))
+                    new HttpQueryProvider("query", httpClient, server1.getBaseUrl().resolve("/v1/presto/query")),
+                    new HttpQueryProvider("query", httpClient, server2.getBaseUrl().resolve("/v1/presto/query")),
+                    new HttpQueryProvider("query", httpClient, server3.getBaseUrl().resolve("/v1/presto/query"))
             );
 
             int count = 0;
