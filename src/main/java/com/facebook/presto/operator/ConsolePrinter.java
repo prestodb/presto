@@ -57,8 +57,7 @@ public class ConsolePrinter
 
         public DelimitedTuplePrinter()
         {
-            writer = new OutputStreamWriter(System.out, UTF_8);
-            delimiter = "\t";
+            this(new OutputStreamWriter(System.out, UTF_8), "\t");
         }
 
         public DelimitedTuplePrinter(Writer writer, String delimiter)
@@ -72,6 +71,7 @@ public class ConsolePrinter
             try {
                 Joiner.on(delimiter).appendTo(writer, tuple.toValues());
                 writer.write('\n');
+                writer.flush();
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);
@@ -105,6 +105,7 @@ public class ConsolePrinter
                     index++;
                 }
                 writer.write('\n');
+                writer.flush();
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);
