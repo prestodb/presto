@@ -3,7 +3,7 @@ package com.facebook.presto.sql.tree;
 import com.google.common.base.Objects;
 
 public class IntervalLiteral
-        extends Expression
+        extends Literal
 {
     public enum Sign
     {
@@ -34,6 +34,12 @@ public class IntervalLiteral
     public Sign getSign()
     {
         return sign;
+    }
+
+    @Override
+    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitIntervalLiteral(this, context);
     }
 
     @Override
