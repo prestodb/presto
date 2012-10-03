@@ -4,6 +4,8 @@
 package com.facebook.presto.block;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.PeekingIterator;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -28,7 +30,7 @@ public final class BlockIterators
 
     public static <T extends TupleStream> BlockIterator<T> toBlockIterator(Iterator<T> source)
     {
-        return new StaticBlockIterator<>(source);
+        return new StaticBlockIterator<>(Iterators.peekingIterator(source));
     }
 
     private static class EmptyBlockIterator<T extends TupleStream> implements BlockIterator<T>
@@ -58,6 +60,12 @@ public final class BlockIterators
         }
 
         @Override
+        public T peek()
+        {
+            throw new NoSuchElementException();
+        }
+
+        @Override
         public void remove()
         {
             throw new UnsupportedOperationException();
@@ -82,9 +90,9 @@ public final class BlockIterators
 
     private static class StaticBlockIterator<T extends TupleStream> implements BlockIterator<T>
     {
-        private final Iterator<T> source;
+        private final PeekingIterator<T> source;
 
-        public StaticBlockIterator(Iterator<T> source)
+        public StaticBlockIterator(PeekingIterator<T> source)
         {
             this.source = source;
         }
@@ -111,6 +119,12 @@ public final class BlockIterators
         public T next()
         {
             return source.next();
+        }
+
+        @Override
+        public T peek()
+        {
+            return source.peek();
         }
 
         @Override

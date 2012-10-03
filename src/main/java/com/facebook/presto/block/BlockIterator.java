@@ -3,9 +3,10 @@
  */
 package com.facebook.presto.block;
 
-import java.util.Iterator;
+import com.google.common.collect.PeekingIterator;
 
-public interface BlockIterator<T extends TupleStream> extends Iterator<T> {
+public interface BlockIterator<T extends TupleStream> extends PeekingIterator<T>
+{
     boolean mustYield();
     boolean canAdvance();
 }
