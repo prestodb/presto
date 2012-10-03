@@ -19,7 +19,9 @@ public class TpchSchema
         TOTALPRICE(3, Type.DOUBLE),
         ORDERDATE(4, Type.VARIABLE_BINARY),
         ORDERPRIORITY(5, Type.VARIABLE_BINARY),
-        SHIPPRIORITY(6, Type.VARIABLE_BINARY);
+        CLERK(6, Type.VARIABLE_BINARY),
+        SHIPPRIORITY(7, Type.VARIABLE_BINARY),
+        COMMENT(8, Type.VARIABLE_BINARY);
 
         private final String tableName = "orders";
         private final int index;
