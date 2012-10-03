@@ -2,12 +2,13 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.uncompressed.UncompressedTupleStream;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.Blocks.assertCursorsEquals;
 import static com.facebook.presto.block.Blocks.createBlock;
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.CursorAssertions.assertAdvanceNextPosition;
 import static org.testng.Assert.*;
 
 public class TestRangeBoundedCursor extends AbstractTestNonContiguousCursor
@@ -76,7 +77,7 @@ public class TestRangeBoundedCursor extends AbstractTestNonContiguousCursor
     {
         // Total Range: 0-7
         Cursor cursor = Blocks.createTupleStream(0, "a", "bb", "c", "d", "e", "e", "a", "bb").cursor();
-        assertTrue(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor);
         assertCursorsEquals(
                 RangeBoundedCursor.bound(cursor, Range.create(1, 2)),
                 Blocks.createTupleStream(1, "bb", "c").cursor()
@@ -89,9 +90,9 @@ public class TestRangeBoundedCursor extends AbstractTestNonContiguousCursor
     {
         // Total Range: 0-7
         Cursor cursor = Blocks.createTupleStream(0, "a", "bb", "c", "d", "e", "e", "a", "bb").cursor();
-        assertTrue(cursor.advanceNextPosition());
-        assertTrue(cursor.advanceNextPosition());
-        assertTrue(cursor.advanceNextPosition()); // Cursor is at position 2
+        assertAdvanceNextPosition(cursor);
+        assertAdvanceNextPosition(cursor);
+        assertAdvanceNextPosition(cursor); // Cursor is at position 2
         assertCursorsEquals(
                 RangeBoundedCursor.bound(cursor, Range.create(1, 3)),
                 Blocks.createTupleStream(2, "c", "d").cursor() // Only positions 2 & 3 should be emitted
@@ -104,9 +105,9 @@ public class TestRangeBoundedCursor extends AbstractTestNonContiguousCursor
     {
         // Total Range: 0-7
         Cursor cursor = Blocks.createTupleStream(0, "a", "bb", "c", "d", "e", "e", "a", "bb").cursor();
-        assertTrue(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor);
         Cursor rangedCursor = RangeBoundedCursor.bound(cursor, Range.create(10, 13));
-        assertFalse(rangedCursor.advanceNextPosition());
+        assertAdvanceNextPosition(rangedCursor, FINISHED);
         assertTrue(rangedCursor.isFinished());
     }
 
@@ -115,36 +116,32 @@ public class TestRangeBoundedCursor extends AbstractTestNonContiguousCursor
     {
         // Total Range: 0-7
         Cursor cursor = Blocks.createTupleStream(10, "a", "bb", "c", "d", "e", "e", "a", "bb").cursor();
-        assertTrue(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor);
         Cursor rangedCursor = RangeBoundedCursor.bound(cursor, Range.create(0, 1));
-        assertFalse(rangedCursor.advanceNextPosition());
+        assertAdvanceNextPosition(rangedCursor, FINISHED);
         assertTrue(rangedCursor.isFinished());
     }
 
-    private UncompressedTupleStream createBaseTupleStream()
+    private TupleStream createBaseTupleStream()
     {
-        return new UncompressedTupleStream(TupleInfo.SINGLE_VARBINARY,
-                ImmutableList.of(
-                        createBlock(0, "apple", "apple", "apple", "banana", "banana"),
-                        createBlock(5, "banana", "banana", "banana"),
-                        createBlock(20, "cherry", "cherry"),
-                        createBlock(30, "date"),
-                        createBlock(40, "date"),
-                        createBlock(50, "apple", "banana")
-                )
-        );
+        return new GenericTupleStream<>(TupleInfo.SINGLE_VARBINARY, ImmutableList.of(
+                createBlock(0, "apple", "apple", "apple", "banana", "banana"),
+                createBlock(5, "banana", "banana", "banana"),
+                createBlock(20, "cherry", "cherry"),
+                createBlock(30, "date"),
+                createBlock(40, "date"),
+                createBlock(50, "apple", "banana")
+        ));
     }
     
-    private UncompressedTupleStream createExpectedTupleStream()
+    private TupleStream createExpectedTupleStream()
     {
-        return new UncompressedTupleStream(TupleInfo.SINGLE_VARBINARY,
-                ImmutableList.of(
-                        createBlock(0, "apple", "apple", "apple", "banana", "banana"),
-                        createBlock(5, "banana", "banana", "banana"),
-                        createBlock(20, "cherry", "cherry"),
-                        createBlock(30, "date")
-                )
-        );
+        return new GenericTupleStream<>(TupleInfo.SINGLE_VARBINARY, ImmutableList.of(
+                createBlock(0, "apple", "apple", "apple", "banana", "banana"),
+                createBlock(5, "banana", "banana", "banana"),
+                createBlock(20, "cherry", "cherry"),
+                createBlock(30, "date")
+        ));
     }
 
     @Override

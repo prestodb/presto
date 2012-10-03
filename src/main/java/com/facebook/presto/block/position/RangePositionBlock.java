@@ -9,6 +9,9 @@ import com.facebook.presto.slice.Slice;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
+
 public class RangePositionBlock
         implements TupleStream
 {
@@ -86,10 +89,10 @@ public class RangePositionBlock
         }
 
         @Override
-        public boolean advanceNextValue()
+        public AdvanceResult advanceNextValue()
         {
             if (position >= range.getEnd()) {
-                return false;
+                return FINISHED;
             }
             if (position < 0) {
                 position = range.getStart();
@@ -97,26 +100,26 @@ public class RangePositionBlock
             else {
                 position++;
             }
-            return true;
+            return SUCCESS;
         }
 
         @Override
-        public boolean advanceNextPosition()
+        public AdvanceResult advanceNextPosition()
         {
             return advanceNextValue();
         }
 
         @Override
-        public boolean advanceToPosition(long newPosition)
+        public AdvanceResult advanceToPosition(long newPosition)
         {
             if (newPosition > range.getEnd()) {
                 position = Long.MAX_VALUE;
-                return false;
+                return FINISHED;
             }
 
             Preconditions.checkArgument(newPosition >= position, "Invalid position");
             position = newPosition;
-            return true;
+            return SUCCESS;
         }
 
         @Override

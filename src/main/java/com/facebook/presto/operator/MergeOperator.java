@@ -1,20 +1,22 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Range;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.TupleStream;
-import com.facebook.presto.block.Cursor;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
+import com.facebook.presto.block.AbstractBlockIterator;
+import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.block.BlockIterator;
+import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
-import java.util.Iterator;
 import java.util.List;
 
 public class MergeOperator
-        implements TupleStream, Iterable<UncompressedBlock>
+        implements TupleStream, BlockIterable<UncompressedBlock>
 {
     private final List<? extends TupleStream> sources;
     private final TupleInfo tupleInfo;
@@ -55,12 +57,12 @@ public class MergeOperator
     }
 
     @Override
-    public Iterator<UncompressedBlock> iterator()
+    public BlockIterator<UncompressedBlock> iterator()
     {
         return new MergeBlockIterator(this.tupleInfo, this.sources);
     }
 
-    private static class MergeBlockIterator extends AbstractIterator<UncompressedBlock>
+    private static class MergeBlockIterator extends AbstractBlockIterator<UncompressedBlock>
     {
         private final TupleInfo tupleInfo;
         private final List<Cursor> cursors;
@@ -102,7 +104,7 @@ public class MergeOperator
         {
             boolean advanced = false;
             for (Cursor cursor : cursors) {
-                if (cursor.advanceNextPosition()) {
+                if (Cursors.advanceNextPositionNoYield(cursor)) {
                     advanced = true;
                 }
                 else if (advanced) {

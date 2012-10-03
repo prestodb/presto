@@ -10,6 +10,8 @@ import com.google.common.base.Preconditions;
 import java.util.NoSuchElementException;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class UncompressedSliceBlockCursor
@@ -58,12 +60,12 @@ public class UncompressedSliceBlockCursor
     }
 
     @Override
-    public boolean advanceNextValue()
+    public AdvanceResult advanceNextValue()
     {
         // every position is a new value
         if (position >= range.getEnd()) {
             position = Long.MAX_VALUE;
-            return false;
+            return FINISHED;
         }
 
         if (position < 0) {
@@ -74,21 +76,21 @@ public class UncompressedSliceBlockCursor
             offset += size;
         }
         size = slice.getShort(offset);
-        return true;
+        return SUCCESS;
     }
 
     @Override
-    public boolean advanceNextPosition()
+    public AdvanceResult advanceNextPosition()
     {
         return advanceNextValue();
     }
 
     @Override
-    public boolean advanceToPosition(long newPosition)
+    public AdvanceResult advanceToPosition(long newPosition)
     {
         if (newPosition > range.getEnd()) {
             position = newPosition;
-            return false;
+            return FINISHED;
         }
 
         Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
@@ -106,7 +108,7 @@ public class UncompressedSliceBlockCursor
             offset += size;
             size = slice.getShort(offset);
         }
-        return true;
+        return SUCCESS;
     }
 
     @Override

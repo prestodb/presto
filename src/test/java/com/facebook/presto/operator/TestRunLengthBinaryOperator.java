@@ -4,16 +4,21 @@ import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.Tuples;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.GenericTupleStream;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedTupleStream;
-import com.facebook.presto.block.uncompressed.UncompressedTupleStream;
 import com.facebook.presto.operation.SubtractionOperation;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.Blocks.createLongsBlock;
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.CursorAssertions.assertAdvanceNextPosition;
+import static com.facebook.presto.block.CursorAssertions.assertAdvanceNextValue;
 import static com.facebook.presto.block.CursorAssertions.assertNextValue;
-import static org.testng.Assert.*;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestRunLengthBinaryOperator
 {
@@ -31,7 +36,7 @@ public class TestRunLengthBinaryOperator
         assertNextValue(cursor, 0, 2);
         assertEquals(cursor.getCurrentValueEndPosition(), 4);
 
-        assertFalse(cursor.advanceNextValue());
+        assertAdvanceNextValue(cursor, FINISHED);
         assertTrue(cursor.isFinished());
     }
 
@@ -39,8 +44,8 @@ public class TestRunLengthBinaryOperator
     public void testSingleBlockUncompressedVsUncompressed()
             throws Exception
     {
-        UncompressedTupleStream left = new UncompressedTupleStream(TupleInfo.SINGLE_LONG, createLongsBlock(0, 10, 11, 12, 13, 14));
-        UncompressedTupleStream right = new UncompressedTupleStream(TupleInfo.SINGLE_LONG, createLongsBlock(0, 9, 8, 7, 6, 5));
+        TupleStream left = new GenericTupleStream<>(TupleInfo.SINGLE_LONG, createLongsBlock(0, 10, 11, 12, 13, 14));
+        TupleStream right = new GenericTupleStream<>(TupleInfo.SINGLE_LONG, createLongsBlock(0, 9, 8, 7, 6, 5));
 
         RunLengthBinaryOperator operator = new RunLengthBinaryOperator(left, right, new SubtractionOperation());
 
@@ -61,8 +66,8 @@ public class TestRunLengthBinaryOperator
         assertNextValue(cursor, 4, 9);
         assertEquals(cursor.getCurrentValueEndPosition(), 4);
 
-        assertFalse(cursor.advanceNextValue());
-        assertFalse(cursor.advanceNextPosition());
+        assertAdvanceNextValue(cursor, FINISHED);
+        assertAdvanceNextPosition(cursor, FINISHED);
         assertTrue(cursor.isFinished());
     }
 
@@ -91,7 +96,7 @@ public class TestRunLengthBinaryOperator
         assertNextValue(cursor, 8, 13);
         assertEquals(cursor.getCurrentValueEndPosition(), 9);
 
-        assertFalse(cursor.advanceNextValue());
+        assertAdvanceNextValue(cursor, FINISHED);
     }
 
     @Test
@@ -116,7 +121,7 @@ public class TestRunLengthBinaryOperator
         assertNextValue(cursor, 5, 13);
         assertEquals(cursor.getCurrentValueEndPosition(), 9);
 
-        assertFalse(cursor.advanceNextValue());
+        assertAdvanceNextValue(cursor, FINISHED);
     }
 
 
@@ -124,11 +129,11 @@ public class TestRunLengthBinaryOperator
     public void testAlignedUncompressed()
             throws Exception
     {
-        UncompressedTupleStream left = new UncompressedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
+        TupleStream left = new GenericTupleStream<>(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 createLongsBlock(0, 10, 11, 12, 13, 14),
                 createLongsBlock(5, 15, 16, 17, 18, 19)));
 
-        UncompressedTupleStream right = new UncompressedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
+        TupleStream right = new GenericTupleStream<>(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 createLongsBlock(0, 10, 9, 8, 7, 6),
                 createLongsBlock(5, 5, 4, 3, 2, 1)));
 
@@ -147,19 +152,19 @@ public class TestRunLengthBinaryOperator
         assertNextValue(cursor, 8, 16);
         assertNextValue(cursor, 9, 18);
 
-        assertFalse(cursor.advanceNextValue());
-        assertFalse(cursor.advanceNextPosition());
+        assertAdvanceNextValue(cursor, FINISHED);
+        assertAdvanceNextPosition(cursor, FINISHED);
     }
 
     @Test
     public void testUnalignedUncompressed()
             throws Exception
     {
-        UncompressedTupleStream left = new UncompressedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
+        TupleStream left = new GenericTupleStream<>(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 createLongsBlock(0, 10, 11, 12, 13, 14),
                 createLongsBlock(5, 15, 16, 17, 18, 19)));
 
-        UncompressedTupleStream right = new UncompressedTupleStream(TupleInfo.SINGLE_LONG, ImmutableList.of(
+        TupleStream right = new GenericTupleStream<>(TupleInfo.SINGLE_LONG, ImmutableList.of(
                 createLongsBlock(0, 10, 9, 8, 7, 6, 5, 4, 3),
                 createLongsBlock(8, 2, 1)));
 
@@ -178,8 +183,8 @@ public class TestRunLengthBinaryOperator
         assertNextValue(cursor, 8, 16);
         assertNextValue(cursor, 9, 18);
 
-        assertFalse(cursor.advanceNextValue());
-        assertFalse(cursor.advanceNextPosition());
+        assertAdvanceNextValue(cursor, FINISHED);
+        assertAdvanceNextPosition(cursor, FINISHED);
     }
 
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = ".*out of sync.*")
@@ -192,7 +197,7 @@ public class TestRunLengthBinaryOperator
         RunLengthBinaryOperator operator = new RunLengthBinaryOperator(left, right, new SubtractionOperation());
 
         Cursor cursor = operator.cursor();
-        cursor.advanceNextPosition();
+        assertAdvanceNextPosition(cursor);
     }
 
 }

@@ -11,6 +11,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Arrays.asList;
@@ -107,10 +109,10 @@ public class PositionsBlock
         }
 
         @Override
-        public boolean advanceNextValue()
+        public AdvanceResult advanceNextValue()
         {
             if (position >= totalRange.getEnd()) {
-                return false;
+                return FINISHED;
             }
 
             if (index >= 0 && position < ranges.get(index).getEnd()) {
@@ -120,22 +122,22 @@ public class PositionsBlock
                 index++;
                 position = ranges.get(index).getStart();
             }
-            return true;
+            return SUCCESS;
         }
 
         @Override
-        public boolean advanceNextPosition()
+        public AdvanceResult advanceNextPosition()
         {
             return advanceNextValue();
         }
 
         @Override
-        public boolean advanceToPosition(long newPosition)
+        public AdvanceResult advanceToPosition(long newPosition)
         {
             if (newPosition > totalRange.getEnd()) {
                 index = Integer.MAX_VALUE;
                 position = Long.MAX_VALUE;
-                return false;
+                return FINISHED;
             }
 
             Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
@@ -144,7 +146,7 @@ public class PositionsBlock
                 if (newPosition <= ranges.get(i).getEnd()) {
                     index = i;
                     position = Math.max(newPosition, ranges.get(i).getStart());
-                    return true;
+                    return SUCCESS;
                 }
             }
             // this should never happen

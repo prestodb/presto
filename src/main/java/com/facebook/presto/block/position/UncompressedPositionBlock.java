@@ -12,6 +12,8 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.NoSuchElementException;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.primitives.Longs.asList;
@@ -98,24 +100,24 @@ public class UncompressedPositionBlock
         }
 
         @Override
-        public boolean advanceNextValue()
+        public AdvanceResult advanceNextValue()
         {
             if (index >= positions.size() - 1) {
                 index = Integer.MAX_VALUE;
-                return false;
+                return FINISHED;
             }
             index++;
-            return true;
+            return SUCCESS;
         }
 
         @Override
-        public boolean advanceNextPosition()
+        public AdvanceResult advanceNextPosition()
         {
             return advanceNextValue();
         }
 
         @Override
-        public boolean advanceToPosition(long newPosition)
+        public AdvanceResult advanceToPosition(long newPosition)
         {
             Preconditions.checkArgument(index < 0 && newPosition >= 0 || newPosition >= positions.get(index), "Can't advance backwards");
 
@@ -127,7 +129,7 @@ public class UncompressedPositionBlock
                 index++;
             }
 
-            return index < positions.size();
+            return index < positions.size() ? SUCCESS : FINISHED;
         }
 
         @Override

@@ -5,20 +5,21 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.AbstractBlockIterator;
+import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.operator.GenericCursor;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.List;
 
 public class QueryDriversTupleStream
-        implements TupleStream, Iterable<UncompressedBlock>
+        implements TupleStream, BlockIterable<UncompressedBlock>
 {
     private final TupleInfo info;
     private final List<QueryDriverProvider> driverProviders;
@@ -80,7 +81,7 @@ public class QueryDriversTupleStream
         return new GenericCursor(info, iterator());
     }
 
-    public static class QueryDriversBlockIterator extends AbstractIterator<UncompressedBlock>
+    public static class QueryDriversBlockIterator extends AbstractBlockIterator<UncompressedBlock>
     {
         private final QueryState queryState;
         private final List<QueryDriver> queryDrivers;

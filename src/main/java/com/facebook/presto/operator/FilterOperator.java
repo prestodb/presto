@@ -2,17 +2,20 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.AbstractBlockIterator;
+import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.block.BlockIterator;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.MaskedBlock;
 import com.facebook.presto.block.TupleStream;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Iterator;
 import java.util.List;
 
 public class FilterOperator
-        implements TupleStream, Iterable<TupleStream>
+        implements TupleStream, BlockIterable<MaskedBlock>
 {
     private final TupleInfo tupleInfo;
     private final Iterable<? extends TupleStream> source;
@@ -37,24 +40,24 @@ public class FilterOperator
         return tupleInfo;
     }
 
-    public Iterator<TupleStream> iterator()
+    public BlockIterator<MaskedBlock> iterator()
     {
-        return new AbstractIterator<TupleStream>()
+        return new AbstractBlockIterator<MaskedBlock>()
         {
             Iterator<? extends TupleStream> valueBlocks = source.iterator();
             Cursor positionsCursor = positions.cursor();
             {
-                positionsCursor.advanceNextPosition();
+                Cursors.advanceNextPositionNoYield(positionsCursor);
             }
             @Override
-            protected TupleStream computeNext()
+            protected MaskedBlock computeNext()
             {
                 while (valueBlocks.hasNext()) {
                     TupleStream currentValueBlock = valueBlocks.next();
 
                     // advance current position cursor to value block
                     if (positionsCursor.getPosition() < currentValueBlock.getRange().getStart() &&
-                            !positionsCursor.advanceToPosition(currentValueBlock.getRange().getStart())) {
+                            !Cursors.advanceToPositionNoYield(positionsCursor, currentValueBlock.getRange().getStart())) { // todo add support for yield
                         // no more positions
                         endOfData();
                         return null;
@@ -69,7 +72,7 @@ public class FilterOperator
                     ImmutableList.Builder<Long> positionsForCurrentBlock = ImmutableList.builder();
                     do {
                         positionsForCurrentBlock.add(positionsCursor.getPosition());
-                    } while (positionsCursor.advanceNextPosition() && positionsCursor.getPosition() <= currentValueBlock.getRange().getEnd());
+                    } while (Cursors.advanceNextPositionNoYield(positionsCursor) && positionsCursor.getPosition() <= currentValueBlock.getRange().getEnd());
 
                     // if the value block and the position blocks have and positions in common, output a block
                     List<Long> validPositions = getValidPositions(currentValueBlock, positionsForCurrentBlock.build());

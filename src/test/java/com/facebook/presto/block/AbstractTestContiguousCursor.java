@@ -9,6 +9,8 @@ import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.CursorAssertions.assertAdvanceToPosition;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -36,27 +38,27 @@ public abstract class AbstractTestContiguousCursor extends AbstractTestCursor
         Cursor cursor = createCursor();
 
         // advance to first position
-        assertTrue(cursor.advanceToPosition(0));
+        assertAdvanceToPosition(cursor, 0);
         CursorAssertions.assertCurrentValue(cursor, 0, getExpectedValue(0));
 
         // skip to position in first value
-        assertTrue(cursor.advanceToPosition(2));
+        assertAdvanceToPosition(cursor, 2);
         CursorAssertions.assertCurrentValue(cursor, 2, getExpectedValue(2));
 
         // advance to same position
-        assertTrue(cursor.advanceToPosition(2));
+        assertAdvanceToPosition(cursor, 2);
         CursorAssertions.assertCurrentValue(cursor, 2, getExpectedValue(2));
 
         // skip to position in next value
-        assertTrue(cursor.advanceToPosition(4));
+        assertAdvanceToPosition(cursor, 4);
         CursorAssertions.assertCurrentValue(cursor, 4, getExpectedValue(4));
 
         // skip to position in third value
-        assertTrue(cursor.advanceToPosition(8));
+        assertAdvanceToPosition(cursor, 8);
         CursorAssertions.assertCurrentValue(cursor, 8, getExpectedValue(8));
 
         // skip to last position
-        assertTrue(cursor.advanceToPosition(10));
+        assertAdvanceToPosition(cursor, 10);
         CursorAssertions.assertCurrentValue(cursor, 10, getExpectedValue(10));
 
         // skip backwards
@@ -69,7 +71,7 @@ public abstract class AbstractTestContiguousCursor extends AbstractTestCursor
         }
 
         // skip past end
-        assertFalse(cursor.advanceToPosition(100));
+        assertAdvanceToPosition(cursor, 100, FINISHED);
         assertTrue(cursor.isFinished());
         assertFalse(cursor.isValid());
     }

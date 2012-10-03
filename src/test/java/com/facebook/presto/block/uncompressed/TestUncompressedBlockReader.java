@@ -4,6 +4,7 @@
 package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.GenericTupleStream;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.TupleStreamSerdes;
@@ -31,7 +32,7 @@ public class TestUncompressedBlockReader
                 .append("dave".getBytes(UTF_8))
                 .build();
 
-        UncompressedTupleStream tupleStream = new UncompressedTupleStream(TupleInfo.SINGLE_VARBINARY, ImmutableList.of(block));
+        TupleStream tupleStream = new GenericTupleStream<>(TupleInfo.SINGLE_VARBINARY, ImmutableList.of(block));
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         TupleStreamSerdes.serialize(new UncompressedSerde(), tupleStream, new OutputStreamSliceOutput(out));
 
@@ -42,6 +43,6 @@ public class TestUncompressedBlockReader
         TupleStream copiedBlock = copiedBlocks.get(0);
         assertEquals(copiedBlock.getRange(), block.getRange());
 
-        assertTupleStreamEquals(new UncompressedTupleStream(TupleInfo.SINGLE_VARBINARY, copiedBlocks), tupleStream);
+        assertTupleStreamEquals(new GenericTupleStream<>(TupleInfo.SINGLE_VARBINARY, copiedBlocks), tupleStream);
     }
 }

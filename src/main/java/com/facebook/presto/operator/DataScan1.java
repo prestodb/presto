@@ -2,18 +2,23 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.AbstractBlockIterator;
+import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.block.BlockIterator;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursor.AdvanceResult;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.position.PositionsBlock;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
-import java.util.Iterator;
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
 
 public class DataScan1
-        implements TupleStream
+        implements TupleStream, BlockIterable<PositionsBlock>
 {
     private static final int RANGES_PER_BLOCK = 100;
 
@@ -40,26 +45,34 @@ public class DataScan1
         return Range.ALL;
     }
 
-    public Iterator<TupleStream> iterator()
+    public BlockIterator<PositionsBlock> iterator()
     {
-        return new AbstractIterator<TupleStream>()
+        return new AbstractBlockIterator<PositionsBlock>()
         {
             Cursor cursor = source.cursor();
 
             @Override
-            protected TupleStream computeNext()
+            protected PositionsBlock computeNext()
             {
                 int rangesCount = 0;
                 ImmutableList.Builder<Range> ranges = ImmutableList.builder();
-                while (rangesCount < RANGES_PER_BLOCK && cursor.advanceNextValue()) {
+                while (rangesCount < RANGES_PER_BLOCK) {
+                    AdvanceResult result = cursor.advanceNextValue();
+                    if (result != SUCCESS) {
+                        if (rangesCount != 0) {
+                            break;
+                        }
+                        if (result == MUST_YIELD) {
+                            return setMustYield();
+                        }
+                        else if (result == FINISHED) {
+                            return endOfData();
+                        }
+                    }
                     if (predicate.apply(cursor)) {
                         ranges.add(new Range(cursor.getPosition(), cursor.getCurrentValueEndPosition()));
                         rangesCount++;
                     }
-                }
-                if (rangesCount == 0) {
-                    endOfData();
-                    return null;
                 }
                 return new PositionsBlock(ranges.build());
             }

@@ -6,6 +6,8 @@ import com.facebook.presto.block.Cursor;
 
 import javax.inject.Provider;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
+
 public class AverageAggregation
         implements AggregationFunction
 {
@@ -48,7 +50,7 @@ public class AverageAggregation
                 sum += cursor.getDouble(0);
                 ++count;
             }
-            while (cursor.getPosition() < endPosition && cursor.advanceNextPosition());
+            while (cursor.getPosition() < endPosition && cursor.advanceNextPosition() == SUCCESS);
         }
     }
 

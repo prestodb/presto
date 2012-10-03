@@ -4,17 +4,18 @@ import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.aggregation.AggregationFunction;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.block.BlockIterator;
+import com.facebook.presto.block.BlockIterators;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 
 import javax.inject.Provider;
-import java.util.Iterator;
 
 public class AggregationOperator
-        implements TupleStream
+        implements TupleStream, BlockIterable<UncompressedBlock>
 {
     private final TupleInfo info;
     private final Provider<AggregationFunction> functionProvider;
@@ -48,7 +49,7 @@ public class AggregationOperator
         return new GenericCursor(info, iterator());
     }
 
-    public Iterator<UncompressedBlock> iterator()
+    public BlockIterator<UncompressedBlock> iterator()
     {
         AggregationFunction function = functionProvider.get();
 
@@ -60,6 +61,6 @@ public class AggregationOperator
                 .append(function.evaluate())
                 .build();
 
-        return ImmutableList.of(block).iterator();
+        return BlockIterators.newBlockIterator(block);
     }
 }

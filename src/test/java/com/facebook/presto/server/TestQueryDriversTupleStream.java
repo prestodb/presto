@@ -5,6 +5,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.server.QueryDriversTupleStream.QueryDriversBlockIterator;
 import com.google.common.base.Throwables;
@@ -50,7 +51,7 @@ public class TestQueryDriversTupleStream
 
             int count = 0;
             Cursor cursor = tupleStream.cursor();
-            while (cursor.advanceNextPosition()) {
+            while (Cursors.advanceNextPositionNoYield(cursor)) {
                 count++;
             }
             assertEquals(count, expectedCount * 3);

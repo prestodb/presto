@@ -10,6 +10,9 @@ import org.testng.annotations.Test;
 import java.util.Map.Entry;
 import java.util.SortedMap;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.CursorAssertions.assertAdvanceNextPosition;
+import static com.facebook.presto.block.CursorAssertions.assertAdvanceNextValue;
 import static com.facebook.presto.block.CursorAssertions.assertNextPosition;
 import static com.facebook.presto.block.CursorAssertions.assertNextValue;
 import static com.facebook.presto.block.CursorAssertions.assertNextValuePosition;
@@ -61,7 +64,7 @@ public abstract class AbstractTestCursor
         //
         // advance to end
         //
-        while (cursor.advanceNextPosition()) {
+        while (Cursors.advanceNextPositionNoYield(cursor)) {
             assertTrue(cursor.isValid());
             assertFalse(cursor.isFinished());
         }
@@ -73,8 +76,8 @@ public abstract class AbstractTestCursor
         assertFalse(cursor.isValid());
         assertTrue(cursor.isFinished());
 
-        assertFalse(cursor.advanceNextValue());
-        assertFalse(cursor.advanceNextPosition());
+        assertAdvanceNextValue(cursor, FINISHED);
+        assertAdvanceNextPosition(cursor, FINISHED);
 
         assertFalse(cursor.isValid());
         assertTrue(cursor.isFinished());
@@ -106,7 +109,7 @@ public abstract class AbstractTestCursor
             assertNextValue(cursor, entry.getKey(), entry.getValue());
         }
 
-        assertFalse(cursor.advanceNextValue());
+        assertAdvanceNextValue(cursor, FINISHED);
     }
 
     @Test
@@ -118,7 +121,7 @@ public abstract class AbstractTestCursor
             assertNextPosition(cursor, entry.getKey(), entry.getValue());
         }
 
-        assertFalse(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor, FINISHED);
     }
 
     @Test
@@ -131,7 +134,7 @@ public abstract class AbstractTestCursor
             assertNextValuePosition(cursor, position);
         }
 
-        assertFalse(cursor.advanceNextValue());
+        assertAdvanceNextValue(cursor, FINISHED);
         assertTrue(cursor.isFinished());
     }
 
@@ -152,8 +155,8 @@ public abstract class AbstractTestCursor
             }
         }
 
-        assertFalse(cursor.advanceNextPosition());
-        assertFalse(cursor.advanceNextValue());
+        assertAdvanceNextPosition(cursor, FINISHED);
+        assertAdvanceNextValue(cursor, FINISHED);
     }
 
     @Test
@@ -161,7 +164,7 @@ public abstract class AbstractTestCursor
             throws Exception
     {
         Cursor cursor = createCursor();
-        while (cursor.advanceNextValue()) {
+        while (Cursors.advanceNextValueNoYield(cursor)) {
             assertEquals(cursor.getCurrentValueEndPosition(), cursor.getPosition());
         }
     }

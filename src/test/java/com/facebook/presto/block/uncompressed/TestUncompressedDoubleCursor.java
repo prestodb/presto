@@ -7,6 +7,7 @@ import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.AbstractTestNonContiguousCursor;
 import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.GenericTupleStream;
 import com.facebook.presto.block.TupleStream;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -41,7 +42,7 @@ public class TestUncompressedDoubleCursor extends AbstractTestNonContiguousCurso
     @Override
     protected TupleStream createExpectedValues()
     {
-        return new UncompressedTupleStream(TupleInfo.SINGLE_DOUBLE, createBlocks());
+        return new GenericTupleStream<>(TupleInfo.SINGLE_DOUBLE, createBlocks());
     }
 
     @Override

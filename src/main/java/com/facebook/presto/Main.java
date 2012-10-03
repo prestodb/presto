@@ -60,6 +60,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static com.facebook.presto.block.Cursors.advanceNextPositionNoYield;
 import static com.facebook.presto.ingest.BlockDataImporter.ColumnImportSpec;
 import static com.facebook.presto.ingest.DelimitedBlockExtractor.ColumnDefinition;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -167,7 +168,7 @@ public class Main
 
                 int count = 0;
                 Cursor cursor = tupleStream.cursor();
-                while (cursor.advanceNextPosition()) {
+                while (advanceNextPositionNoYield(cursor)) {
                     count++;
                     tuplePrinter.print(cursor.getTuple());
                 }

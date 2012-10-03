@@ -12,6 +12,8 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
 
 public class UncompressedLongCursor
         implements Cursor
@@ -55,59 +57,59 @@ public class UncompressedLongCursor
     }
 
     @Override
-    public boolean advanceNextValue()
+    public AdvanceResult advanceNextValue()
     {
         if (block == null) {
-            return false;
+            return FINISHED;
         }
 
         if (index < 0) {
             // next value is within the current block
             index = 0;
             offset = 0;
-            return true;
+            return SUCCESS;
         }
         else if (index < block.getCount() - 1) {
             // next value is within the current block
             index++;
             offset += SIZE_OF_LONG;
-        return true;
-    }
+            return SUCCESS;
+        }
         else if (iterator.hasNext()) {
             // next value is within the next block
             // advance to next block
             block = iterator.next();
             index = 0;
             offset = 0;
-            return true;
+            return SUCCESS;
         }
         else {
             // no more data
             block = null;
             index = -1;
             offset = -1;
-            return false;
+            return FINISHED;
         }
     }
 
     @Override
-    public boolean advanceNextPosition()
+    public AdvanceResult advanceNextPosition()
     {
         return advanceNextValue();
     }
 
     @Override
-    public boolean advanceToPosition(long newPosition)
+    public AdvanceResult advanceToPosition(long newPosition)
     {
         Preconditions.checkArgument(index < 0 || newPosition >= getPosition(), "Can't advance backwards");
 
         if (block == null) {
-            return false;
+            return FINISHED;
         }
 
         if (index >= 0 && newPosition == getPosition()) {
             // position to current position? => no op
-            return true;
+            return SUCCESS;
         }
 
         // skip to block containing requested position
@@ -121,7 +123,7 @@ public class UncompressedLongCursor
                 block = null;
                 index = -1;
                 offset = -1;
-                return false;
+                return FINISHED;
             }
 
             // point to first entry in the block we skipped to
@@ -135,7 +137,7 @@ public class UncompressedLongCursor
             offset += SIZE_OF_LONG;
         }
 
-        return true;
+        return SUCCESS;
     }
 
     @Override

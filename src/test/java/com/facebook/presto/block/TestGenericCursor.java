@@ -5,7 +5,6 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.block.uncompressed.UncompressedTupleStream;
 import com.facebook.presto.operator.GenericCursor;
 import com.google.common.collect.ImmutableList;
 
@@ -28,12 +27,12 @@ public class TestGenericCursor
     @Override
     protected TupleStream createExpectedValues()
     {
-        return new UncompressedTupleStream(TupleInfo.SINGLE_VARBINARY, createBlocks());
+        return new GenericTupleStream<>(TupleInfo.SINGLE_VARBINARY, createBlocks());
     }
 
     @Override
     protected Cursor createCursor()
     {
-        return new GenericCursor(TupleInfo.SINGLE_VARBINARY, createBlocks().iterator());
+        return new GenericCursor(TupleInfo.SINGLE_VARBINARY, BlockIterators.toBlockIterator(createBlocks().iterator()));
     }
 }

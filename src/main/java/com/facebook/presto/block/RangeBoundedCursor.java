@@ -7,6 +7,9 @@ import com.facebook.presto.slice.Slice;
 
 import java.util.NoSuchElementException;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -17,7 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
  * RangeBoundedCursor will provide all valid positions/values within the specified range
  * and guarantees that the underlying cursor will not be advanced further
  * than one valid position beyond the specified range end position.
- *
+ * <p/>
  * A single underlying cursor may be passed serially to a contiguous sequence of RangeBoundedCursors
  * to completely process a TupleStream in segments.
  */
@@ -75,91 +78,87 @@ public class RangeBoundedCursor
     }
 
     /**
-     * Guarantees that after successfully calling this method, the underlying cursor will be
-     * initialized and at least with a position greater than or equal to the start position.
-     *
+     * Attempts to advance the cursor to the initial position
+     * <p/>
      * Precondition: cursor must not be finished
-     *
-     * @return true if successfully initialized, false otherwise. If false is returned, isFinished() will return
-     * true on all future calls.
      */
-    private boolean initializeUnderlyingCursor() {
-        initialized = true;
+    private AdvanceResult initializeUnderlyingCursor()
+    {
+        checkState(!initialized, "cursor is already initialized");
+        checkState(!cursor.isFinished(), "cursor is already finished");
+
+        AdvanceResult result = SUCCESS;
         if (!cursor.isValid()) {
             // Underlying cursor not yet initialized, so move to first position
-            if (!cursor.advanceNextPosition()) {
-                return false;
-            }
-        }
-        // INVARIANT: underlying cursor isValid at this point
-        checkState(cursor.isValid(), "invariant");
-
-        if (cursor.getPosition() < validRange.getStart()) {
+            result = cursor.advanceToPosition(validRange.getStart());
+        } else if (cursor.getPosition() < validRange.getStart()) {
             // Cursor has not advanced into range yet
-            return cursor.advanceToPosition(validRange.getStart());
+            result = cursor.advanceToPosition(validRange.getStart());
         }
-        return true;
+        return result;
     }
 
     @Override
-    public boolean advanceNextValue()
+    public AdvanceResult advanceNextValue()
     {
         if (isFinished()) {
-            return false;
+            return FINISHED;
         }
+
+        AdvanceResult result;
         if (!initialized) {
-            if (!initializeUnderlyingCursor()) {
-                return false;
-            }
+            result = initializeUnderlyingCursor();
         }
         else {
-            if (!cursor.advanceToPosition(getCurrentValueEndPosition() + 1)) {
-                return false;
-            }
+            result = cursor.advanceToPosition(getCurrentValueEndPosition() + 1);
         }
-        // INVARIANT: cursor is at least ahead of start
-        checkState(cursor.getPosition() >= validRange.getStart(), "invariant");
-        return cursor.getPosition() <= validRange.getEnd();
+
+        return processResult(result);
     }
 
     @Override
-    public boolean advanceNextPosition()
+    public AdvanceResult advanceNextPosition()
     {
         if (isFinished()) {
-            return false;
+            return FINISHED;
         }
+
+        AdvanceResult result;
         if (!initialized) {
-            if (!initializeUnderlyingCursor()) {
-                return false;
-            }
+            result = initializeUnderlyingCursor();
         }
         else {
-            if (!cursor.advanceNextPosition()) {
-                return false;
-            }
+            result = cursor.advanceNextPosition();
         }
-        // INVARIANT: cursor is at least ahead of start
-        checkState(cursor.getPosition() >= validRange.getStart(), "invariant");
-        return cursor.getPosition() <= validRange.getEnd();
+        return processResult(result);
     }
 
     @Override
-    public boolean advanceToPosition(long position)
+    public AdvanceResult advanceToPosition(long position)
     {
         if (isFinished()) {
-            return false;
+            return FINISHED;
         }
         checkArgument(position >= validRange.getStart(), "target position is before start");
         if (!initialized) {
             initialized = true;
         }
-        if (!cursor.advanceToPosition(Math.min(position, validRange.getEnd() + 1))) {
-            // Advance only as far as one passed the last valid position (to ensure isFinished)
-            return false;
+        AdvanceResult result = cursor.advanceToPosition(Math.min(position, validRange.getEnd() + 1));
+        return processResult(result);
+    }
+
+    private AdvanceResult processResult(AdvanceResult result)
+    {
+        // if the advance returned yield, we have not finished initialization.
+        if (result == MUST_YIELD) {
+            return MUST_YIELD;
         }
+
+        initialized = true;
+
         // INVARIANT: cursor is at least ahead of start
-        checkState(cursor.getPosition() >= validRange.getStart(), "invariant");
-        return cursor.getPosition() <= validRange.getEnd();
+        checkState(cursor.isFinished() || cursor.getPosition() >= validRange.getStart(), "invariant");
+        return !cursor.isFinished() && cursor.getPosition() <= validRange.getEnd() ? SUCCESS : FINISHED;
     }
 
     @Override

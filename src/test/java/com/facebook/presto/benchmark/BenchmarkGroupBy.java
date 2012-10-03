@@ -1,6 +1,7 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerde;
 import com.facebook.presto.block.dictionary.DictionarySerde;
@@ -64,7 +65,7 @@ public class BenchmarkGroupBy
         int count = 0;
         long sum = 0;
 
-        while (cursor.advanceNextValue()) {
+        while (Cursors.advanceNextValueNoYield(cursor)) {
             ++count;
         }
 

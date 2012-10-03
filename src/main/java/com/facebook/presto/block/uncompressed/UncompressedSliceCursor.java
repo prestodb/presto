@@ -11,6 +11,8 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
 
 public class UncompressedSliceCursor
         implements Cursor
@@ -55,10 +57,10 @@ public class UncompressedSliceCursor
     }
 
     @Override
-    public boolean advanceNextValue()
+    public AdvanceResult advanceNextValue()
     {
         if (block == null) {
-            return false;
+            return FINISHED;
         }
 
         if (index < 0) {
@@ -66,14 +68,14 @@ public class UncompressedSliceCursor
             index = 0;
             offset = 0;
             size = block.getSlice().getShort(offset);
-            return true;
+            return SUCCESS;
         }
         else if (index < block.getCount() - 1) {
             // next value is within the current block
             index++;
             offset += size;
             size = block.getSlice().getShort(offset);
-            return true;
+            return SUCCESS;
         }
         else if (iterator.hasNext()) {
             // next value is within the next block
@@ -82,7 +84,7 @@ public class UncompressedSliceCursor
             index = 0;
             offset = 0;
             size = block.getSlice().getShort(offset);
-            return true;
+            return SUCCESS;
         }
         else {
             // no more data
@@ -90,28 +92,28 @@ public class UncompressedSliceCursor
             index = Integer.MAX_VALUE;
             offset = -1;
             size = -1;
-            return false;
+            return FINISHED;
         }
     }
 
     @Override
-    public boolean advanceNextPosition()
+    public AdvanceResult advanceNextPosition()
     {
         return advanceNextValue();
     }
 
     @Override
-    public boolean advanceToPosition(long newPosition)
+    public AdvanceResult advanceToPosition(long newPosition)
     {
         Preconditions.checkArgument(index < 0 || newPosition >= getPosition(), "Can't advance backwards");
 
         if (block == null) {
-            return false;
+            return FINISHED;
         }
 
         if (index >= 0 && newPosition == getPosition()) {
             // position to current position? => no op
-            return true;
+            return SUCCESS;
         }
 
         // skip to block containing requested position
@@ -126,7 +128,7 @@ public class UncompressedSliceCursor
                 index = Integer.MAX_VALUE;
                 offset = -1;
                 size = -1;
-                return false;
+                return FINISHED;
             }
 
             // point to first entry in the block we skipped to
@@ -142,7 +144,7 @@ public class UncompressedSliceCursor
             size = block.getSlice().getShort(offset);
         }
 
-        return true;
+        return SUCCESS;
     }
 
     @Override

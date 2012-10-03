@@ -5,8 +5,12 @@ import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.aggregation.AggregationFunction;
+import com.facebook.presto.block.AbstractBlockIterator;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.block.BlockIterator;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursor.AdvanceResult;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.dictionary.Dictionary;
 import com.facebook.presto.block.dictionary.DictionaryEncodedCursor;
@@ -14,17 +18,17 @@ import com.facebook.presto.block.dictionary.DictionaryEncodedTupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedCursor;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Provider;
-import java.util.Iterator;
+
+import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
 
 /**
  * Group input data and produce a single block for each sequence of identical values.
  */
 public class DictionaryAggregationOperator
-    implements TupleStream, Iterable<UncompressedBlock>
+    implements TupleStream, BlockIterable<UncompressedBlock>
 {
     private final DictionaryEncodedTupleStream groupBySource;
     private final TupleStream aggregationSource;
@@ -71,13 +75,13 @@ public class DictionaryAggregationOperator
     }
 
     @Override
-    public Iterator<UncompressedBlock> iterator()
+    public BlockIterator<UncompressedBlock> iterator()
     {
         final DictionaryEncodedCursor groupByCursor = groupBySource.cursor();
         final Cursor aggregationCursor = aggregationSource.cursor();
         aggregationCursor.advanceNextPosition();
 
-        return new AbstractIterator<UncompressedBlock>()
+        return new AbstractBlockIterator<UncompressedBlock>()
         {
             private final AggregationFunction[] aggregationMap = new AggregationFunction[dictionary.size()];
             private int index = -1;
@@ -88,17 +92,46 @@ public class DictionaryAggregationOperator
             {
                 // process all data ahead of time
                 if (index < 0) {
-                    while (groupByCursor.advanceNextValue()) {
-                        int key = groupByCursor.getDictionaryKey();
+                    while (!groupByCursor.isFinished() && !aggregationCursor.isFinished()) {
+                        // advance the group by one value, if group has been completely processed
                         long groupEndPosition = groupByCursor.getCurrentValueEndPosition();
-                        if (aggregationCursor.advanceToPosition(groupByCursor.getPosition()) && aggregationCursor.getPosition() <= groupEndPosition) {
-                            AggregationFunction aggregation = aggregationMap[key];
-                            if (aggregation == null) {
-                                aggregation = functionProvider.get();
-                                aggregationMap[key] = aggregation;
+                        if (groupEndPosition < aggregationCursor.getPosition()) {
+                            AdvanceResult result = groupByCursor.advanceNextValue();
+                            if (result != AdvanceResult.SUCCESS) {
+                                if (result == MUST_YIELD) {
+                                    return setMustYield();
+                                }
+                                else if (result == AdvanceResult.FINISHED) {
+                                    if (aggregationCursor.advanceToPosition(Long.MAX_VALUE) == MUST_YIELD) {
+                                        return setMustYield();
+                                    }
+                                    break;
+                                }
                             }
-                            aggregation.add(aggregationCursor, groupEndPosition);
+                            groupEndPosition = groupByCursor.getCurrentValueEndPosition();
                         }
+
+                        // advance aggregate cursor to start of group, if necessary
+                        if (aggregationCursor.getPosition() < groupEndPosition) {
+                            AdvanceResult result = aggregationCursor.advanceToPosition(groupByCursor.getPosition());
+                            if (result == MUST_YIELD) {
+                                return setMustYield();
+                            }
+                            else if (result == AdvanceResult.FINISHED) {
+                                if (groupByCursor.advanceToPosition(Long.MAX_VALUE) == MUST_YIELD) {
+                                    return setMustYield();
+                                }
+                                break;
+                            }
+                        }
+
+                        int key = groupByCursor.getDictionaryKey();
+                        AggregationFunction aggregation = aggregationMap[key];
+                        if (aggregation == null) {
+                            aggregation = functionProvider.get();
+                            aggregationMap[key] = aggregation;
+                        }
+                        aggregation.add(aggregationCursor, groupEndPosition);
                     }
                     index = 0;
                 }

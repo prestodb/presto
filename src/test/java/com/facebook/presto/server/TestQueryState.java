@@ -23,6 +23,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.CursorAssertions.assertAdvanceNextPosition;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -755,9 +757,9 @@ public class TestQueryState
     private static long getBlockOnlyValue(UncompressedBlock block)
     {
         Cursor cursor = block.cursor();
-        assertTrue(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor);
         long value = cursor.getLong(0);
-        assertFalse(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor, FINISHED);
         return value;
     }
 }

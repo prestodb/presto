@@ -48,13 +48,13 @@ public class DictionaryEncodedCursor implements Cursor
     }
 
     @Override
-    public boolean advanceNextValue()
+    public AdvanceResult advanceNextValue()
     {
         return sourceCursor.advanceNextValue();
     }
 
     @Override
-    public boolean advanceNextPosition()
+    public AdvanceResult advanceNextPosition()
     {
         return sourceCursor.advanceNextPosition();
     }
@@ -96,7 +96,7 @@ public class DictionaryEncodedCursor implements Cursor
     }
 
     @Override
-    public boolean advanceToPosition(long position)
+    public AdvanceResult advanceToPosition(long position)
     {
         return sourceCursor.advanceToPosition(position);
     }

@@ -9,6 +9,7 @@ import com.facebook.presto.aggregation.CountAggregation;
 import com.facebook.presto.aggregation.SumAggregation;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerde;
 import com.facebook.presto.block.dictionary.DictionarySerde;
@@ -182,12 +183,12 @@ public class StaticQueryManager implements QueryManager
 
                 Cursor cursor = aggregation.cursor();
                 long position = 0;
-                while (cursor.advanceNextPosition()) {
+                while (Cursors.advanceNextPositionNoYield(cursor)) {
                     // build a block
                     BlockBuilder blockBuilder = new BlockBuilder(position, cursor.getTupleInfo());
                     do {
                         blockBuilder.append(cursor.getTuple());
-                    } while (!blockBuilder.isFull() && cursor.advanceNextPosition());
+                    } while (!blockBuilder.isFull() && Cursors.advanceNextPositionNoYield(cursor));
                     UncompressedBlock block = blockBuilder.build();
 
                     queryState.addBlock(block);
@@ -243,12 +244,12 @@ public class StaticQueryManager implements QueryManager
 
                 Cursor cursor = aggregation.cursor();
                 long position = 0;
-                while (cursor.advanceNextPosition()) {
+                while (Cursors.advanceNextPositionNoYield(cursor)) {
                     // build a block
                     BlockBuilder blockBuilder = new BlockBuilder(position, cursor.getTupleInfo());
                     do {
                         blockBuilder.append(cursor.getTuple());
-                    } while (!blockBuilder.isFull() && cursor.advanceNextPosition());
+                    } while (!blockBuilder.isFull() && Cursors.advanceNextPositionNoYield(cursor));
                     UncompressedBlock block = blockBuilder.build();
 
                     queryState.addBlock(block);
