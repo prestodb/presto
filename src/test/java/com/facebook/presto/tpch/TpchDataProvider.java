@@ -1,6 +1,7 @@
 package com.facebook.presto.tpch;
 
 import com.facebook.presto.block.TupleStreamSerde;
+import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.ingest.BlockDataImporter;
 import com.facebook.presto.ingest.BlockExtractor;
 import com.facebook.presto.ingest.DelimitedBlockExtractor;
@@ -115,7 +116,7 @@ public class TpchDataProvider
         checkNotNull(column, "column is null");
         checkNotNull(encoding, "encoding is null");
 
-        String hash = ByteStreams.hash(tableInputSupplierFactory.getInputSupplier(column.getTableName()), Hashing.sha1()).toString();
+        String hash = ByteStreams.hash(tableInputSupplierFactory.getInputSupplier(column.getTableName()), Hashing.md5()).toString();
 
         File cachedFile = new File(new File(cacheDirectory, column.getTableName() + "-" + hash), createFileName(column, encoding));
         if (cachedFile.exists()) {
@@ -132,7 +133,8 @@ public class TpchDataProvider
                 blockExtractor,
                 ImmutableList.of(
                         new BlockDataImporter.ColumnImportSpec(
-                                encoding.createSerde().createSerializer(),
+                                // The TPCH data will use default stats annotated and self ID'ed serde
+                                TupleStreamSerdes.createDefaultSerializer(encoding.createSerde()),
                                 Files.newOutputStreamSupplier(cachedFile)))
         );
         importer.importFrom(

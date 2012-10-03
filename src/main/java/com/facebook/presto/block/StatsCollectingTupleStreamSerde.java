@@ -109,6 +109,12 @@ public class StatsCollectingTupleStreamSerde
         {
             return stats;
         }
+
+        // HACK: for testing purposes
+        public TupleStream getUnderlyingTupleStream()
+        {
+            return tupleStream;
+        }
     }
 
     private static class StatsCollectingTupleStreamWriter
@@ -313,6 +319,7 @@ public class StatsCollectingTupleStreamSerde
 
     /**
      * Serializable and deserializable with Jackson JSON Processor
+     * TODO: figure out how to manage introduction of new stats after already having old data (versioning?)
      */
     public static class Stats
     {
@@ -365,7 +372,6 @@ public class StatsCollectingTupleStreamSerde
         {
             return rowCount / Math.max(runsCount, 1);
         }
-
 
         public Range getPositionRange()
         {
