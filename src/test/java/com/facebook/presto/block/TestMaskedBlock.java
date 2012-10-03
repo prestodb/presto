@@ -7,8 +7,9 @@ import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.google.common.primitives.Longs;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.CursorAssertions.assertAdvanceNextPosition;
 import static com.facebook.presto.block.CursorAssertions.assertNextValue;
-import static org.testng.Assert.assertFalse;
 
 public class TestMaskedBlock
 {
@@ -26,6 +27,6 @@ public class TestMaskedBlock
         assertNextValue(cursor, 2, "c");
         assertNextValue(cursor, 4, "e");
 
-        assertFalse(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor, FINISHED);
     }
 }

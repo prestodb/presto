@@ -1,21 +1,27 @@
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.TupleStream;
-import com.facebook.presto.block.Cursor;
 import com.facebook.presto.Range;
-import com.facebook.presto.block.rle.RunLengthEncodedBlock;
-import com.facebook.presto.block.rle.RunLengthEncodedCursor;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.google.common.collect.AbstractIterator;
+import com.facebook.presto.block.AbstractBlockIterator;
+import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.block.BlockIterator;
+import com.facebook.presto.block.BlockIterators;
+import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursor.AdvanceResult;
+import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.rle.RunLengthEncodedBlock;
+import com.facebook.presto.block.rle.RunLengthEncodedCursor;
 
-import java.util.Iterator;
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
 
 /**
  * Group input data and produce a single block for each sequence of identical values.
  */
 public class GroupByOperator
-        implements TupleStream, Iterable<RunLengthEncodedBlock>
+        implements TupleStream, BlockIterable<RunLengthEncodedBlock>
 {
     private final TupleStream source;
 
@@ -43,46 +49,53 @@ public class GroupByOperator
     }
 
     @Override
-    public Iterator<RunLengthEncodedBlock> iterator()
+    public BlockIterator<RunLengthEncodedBlock> iterator()
     {
         final Cursor cursor = source.cursor();
+        if (!Cursors.advanceNextPositionNoYield(cursor)) {
+            return BlockIterators.emptyIterator();
+        }
 
-        return new AbstractIterator<RunLengthEncodedBlock>()
+        return new AbstractBlockIterator<RunLengthEncodedBlock>()
         {
-            private boolean done;
-
-            {
-                // advance to first position
-                done = !cursor.advanceNextPosition();
-            }
+            private Tuple currentKey;
+            private long currentKeyStartPosition;
 
             @Override
             protected RunLengthEncodedBlock computeNext()
             {
-                // if no more data, return null
-                if (done) {
-                    endOfData();
-                    return null;
+                if (cursor.isFinished()) {
+                    return endOfData();
                 }
 
-                // get starting key and position
-                Tuple key = cursor.getTuple();
-                long startPosition = cursor.getPosition();
-                long endPosition = cursor.getCurrentValueEndPosition();
+                // get starting key and position, if we don't already have one from a prior yielded loop
+                if (currentKey == null) {
+                    currentKey = cursor.getTuple();
+                    currentKeyStartPosition = cursor.getPosition();
+                }
 
                 // advance while the next value equals the current value
-                while (cursor.advanceNextValue() && cursor.currentTupleEquals(key)) {
+                long endPosition;
+                do {
                     endPosition = cursor.getCurrentValueEndPosition();
-                }
 
-                if (cursor.isFinished()) {
-                    // no more data
-                    done = true;
-                }
+                    AdvanceResult result = cursor.advanceNextValue();
+                    if (result == MUST_YIELD) {
+                        return setMustYield();
+                    } else if (result == FINISHED) {
+                        break;
+                    }
+                } while (cursor.currentTupleEquals(currentKey));
 
                 // range does not include the current element
-                Range range = Range.create(startPosition, endPosition);
-                return new RunLengthEncodedBlock(key, range);
+                Range range = Range.create(currentKeyStartPosition, endPosition);
+                RunLengthEncodedBlock block = new RunLengthEncodedBlock(currentKey, range);
+
+                // reset for next iteration
+                currentKey = null;
+                currentKeyStartPosition = -1;
+
+                return block;
             }
         };
     }

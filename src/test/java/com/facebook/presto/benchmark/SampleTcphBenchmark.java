@@ -1,6 +1,7 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.slice.Slice;
@@ -59,7 +60,7 @@ public class SampleTcphBenchmark
         Cursor cursor = tupleStream.cursor();
         long count = 0;
         double sum = 0;
-        while (cursor.advanceNextValue()) {
+        while (Cursors.advanceNextValueNoYield(cursor)) {
             count++;
             sum += cursor.getDouble(0);
         }

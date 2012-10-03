@@ -25,7 +25,7 @@ public class TestCursor
         UncompressedCursor cursor = new UncompressedCursor(TupleInfo.SINGLE_LONG, block.iterator());
 
         ImmutableList.Builder<Long> builder = ImmutableList.builder();
-        while (cursor.advanceNextValue()) {
+        while (Cursors.advanceNextValueNoYield(cursor)) {
             long value = cursor.getLong(0);
             builder.add(value);
         }

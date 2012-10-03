@@ -7,11 +7,12 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.CursorAssertions.assertAdvanceToPosition;
 import static com.facebook.presto.block.CursorAssertions.assertCurrentValue;
 import static com.facebook.presto.block.CursorAssertions.assertNextPosition;
 import static com.facebook.presto.block.CursorAssertions.assertNextValue;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -44,7 +45,7 @@ public abstract class AbstractTestNonContiguousCursor extends AbstractTestCursor
         Cursor cursor = createCursor();
 
         // first, advance to end of a block
-        assertTrue(cursor.advanceToPosition(7));
+        assertAdvanceToPosition(cursor, 7);
 
         // force jump to next block
         assertNextPosition(cursor, 20, getExpectedValue(20));
@@ -57,7 +58,7 @@ public abstract class AbstractTestNonContiguousCursor extends AbstractTestCursor
         Cursor cursor = createCursor();
 
         // first, advance to end of a block
-        assertTrue(cursor.advanceToPosition(7));
+        assertAdvanceToPosition(cursor, 7);
 
         // force jump to next block
         assertNextValue(cursor, 20, getExpectedValue(20));
@@ -79,27 +80,27 @@ public abstract class AbstractTestNonContiguousCursor extends AbstractTestCursor
         Cursor cursor = createCursor();
 
         // advance to first position
-        assertTrue(cursor.advanceToPosition(0));
+        assertAdvanceToPosition(cursor, 0);
         assertCurrentValue(cursor, 0, getExpectedValue(0));
 
         // skip to position in first block
-        assertTrue(cursor.advanceToPosition(2));
+        assertAdvanceToPosition(cursor, 2);
         assertCurrentValue(cursor, 2, getExpectedValue(2));
 
         // advance to same position
-        assertTrue(cursor.advanceToPosition(2));
+        assertAdvanceToPosition(cursor, 2);
         assertCurrentValue(cursor, 2, getExpectedValue(2));
 
         // skip to position in same block
-        assertTrue(cursor.advanceToPosition(4));
+        assertAdvanceToPosition(cursor, 4);
         assertCurrentValue(cursor, 4, getExpectedValue(4));
 
         // skip to position in middle block
-        assertTrue(cursor.advanceToPosition(21));
+        assertAdvanceToPosition(cursor, 21);
         assertCurrentValue(cursor, 21, getExpectedValue(21));
 
         // skip to position in gap
-        assertTrue(cursor.advanceToPosition(25));
+        assertAdvanceToPosition(cursor, 25);
         assertCurrentValue(cursor, 30, getExpectedValue(30));
 
         // skip backwards
@@ -112,7 +113,7 @@ public abstract class AbstractTestNonContiguousCursor extends AbstractTestCursor
         }
 
         // skip past end
-        assertFalse(cursor.advanceToPosition(100));
+        assertAdvanceToPosition(cursor, 100, FINISHED);
 
         assertTrue(cursor.isFinished());
     }

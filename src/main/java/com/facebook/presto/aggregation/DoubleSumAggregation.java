@@ -6,6 +6,8 @@ import com.facebook.presto.block.Cursor;
 
 import javax.inject.Provider;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
+
 public class DoubleSumAggregation
         implements AggregationFunction
 {
@@ -47,7 +49,7 @@ public class DoubleSumAggregation
         do {
             sum += cursor.getDouble(field);
         }
-        while (cursor.advanceNextPosition() && cursor.getPosition() <= endPosition);
+        while (cursor.advanceNextPosition() == SUCCESS && cursor.getPosition() <= endPosition);
     }
 
     @Override

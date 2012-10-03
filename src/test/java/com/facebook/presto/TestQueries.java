@@ -3,24 +3,42 @@ package com.facebook.presto;
 import com.facebook.presto.aggregation.AverageAggregation;
 import com.facebook.presto.aggregation.CountAggregation;
 import com.facebook.presto.aggregation.DoubleSumAggregation;
+import com.facebook.presto.block.AbstractBlockIterator;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.block.BlockIterator;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.GenericTupleStream;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.block.uncompressed.UncompressedTupleStream;
 import com.facebook.presto.operation.DoubleLessThanComparison;
-import com.facebook.presto.operator.*;
+import com.facebook.presto.operator.AggregationOperator;
+import com.facebook.presto.operator.AndOperator;
+import com.facebook.presto.operator.ApplyPredicateOperator;
+import com.facebook.presto.operator.ComparisonOperator;
+import com.facebook.presto.operator.FilterOperator;
+import com.facebook.presto.operator.GroupByOperator;
+import com.facebook.presto.operator.HashAggregationOperator;
+import com.facebook.presto.operator.OrOperator;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tpch.TpchSchema;
-import com.google.common.base.*;
-import com.google.common.collect.AbstractIterator;
+import com.google.common.base.Charsets;
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.CharStreams;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.Resources;
-import org.skife.jdbi.v2.*;
+import org.skife.jdbi.v2.DBI;
+import org.skife.jdbi.v2.Handle;
+import org.skife.jdbi.v2.PreparedBatch;
+import org.skife.jdbi.v2.PreparedBatchPart;
+import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
@@ -37,7 +55,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
-import static com.facebook.presto.TupleInfo.Type.*;
+import static com.facebook.presto.TupleInfo.Type.DOUBLE;
+import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
@@ -191,7 +211,7 @@ public class TestQueries
     {
         List<Tuple> expected = computeExpected("SELECT orderkey FROM lineitem WHERE tax < discount", FIXED_INT_64);
 
-        UncompressedTupleStream orderKey = createTupleStream(lineitemData, TpchSchema.LineItem.ORDERKEY, FIXED_INT_64);
+        GenericTupleStream<UncompressedBlock> orderKey = createTupleStream(lineitemData, TpchSchema.LineItem.ORDERKEY, FIXED_INT_64);
         TupleStream discount = createTupleStream(lineitemData, TpchSchema.LineItem.DISCOUNT, DOUBLE);
         TupleStream tax = createTupleStream(lineitemData, TpchSchema.LineItem.TAX, DOUBLE);
 
@@ -281,7 +301,7 @@ public class TestQueries
     {
         Cursor cursor = tupleStream.cursor();
         List<Tuple> list = new ArrayList<>();
-        while (cursor.advanceNextPosition()) {
+        while (Cursors.advanceNextPositionNoYield(cursor)) {
             list.add(cursor.getTuple());
         }
         return list;
@@ -300,23 +320,21 @@ public class TestQueries
         });
     }
 
-    private static UncompressedTupleStream createTupleStream(final List<List<String>> data, final TpchSchema.Column column, final TupleInfo.Type type)
+    private static GenericTupleStream<UncompressedBlock> createTupleStream(final List<List<String>> data, final TpchSchema.Column column, final TupleInfo.Type type)
     {
-        return new UncompressedTupleStream(
-                new TupleInfo(type),
-                new Iterable<UncompressedBlock>() {
-                    @Override
-                    public Iterator<UncompressedBlock> iterator()
-                    {
-                        return new RowStringUncompressedBlockIterator(type, column.getIndex(), data.iterator());
-                    }
-                }
-        );
+        return new GenericTupleStream<>(new TupleInfo(type), new BlockIterable<UncompressedBlock>()
+        {
+            @Override
+            public BlockIterator<UncompressedBlock> iterator()
+            {
+                return new RowStringUncompressedBlockIterator(type, column.getIndex(), data.iterator());
+            }
+        });
     }
 
     // Given a list of string rows, extracts UncompressedBlocks for a particular column
     private static class RowStringUncompressedBlockIterator
-            extends AbstractIterator<UncompressedBlock>
+            extends AbstractBlockIterator<UncompressedBlock>
     {
         private final TupleInfo.Type type;
         private final TupleInfo tupleInfo;
@@ -330,7 +348,7 @@ public class TestQueries
             tupleInfo = new TupleInfo(type);
             checkArgument(extractedColumnIndex >= 0, "extractedColumnIndex must be greater than or equal to zero");
             this.extractedColumnIndex = extractedColumnIndex;
-            this.rowStringIterator = checkNotNull(rowStringIterator, "rowStringIterator is null");;
+            this.rowStringIterator = checkNotNull(rowStringIterator, "rowStringIterator is null");
         }
 
         @Override

@@ -1,10 +1,10 @@
 package com.facebook.presto.aggregation;
 
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.GenericTupleStream;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.block.uncompressed.UncompressedTupleStream;
 import com.facebook.presto.operator.GroupByOperator;
 import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.operator.PipelinedAggregationOperator;
@@ -66,7 +66,7 @@ public class TestAggregations
                 .add(createBlock(32, "date"))
                 .build();
 
-        return new UncompressedTupleStream(TupleInfo.SINGLE_VARBINARY, values);
+        return new GenericTupleStream<>(TupleInfo.SINGLE_VARBINARY, values);
     }
 
     public TupleStream newAggregateColumn()
@@ -79,7 +79,7 @@ public class TestAggregations
                 .add(Blocks.createLongsBlock(32, 3L))
                 .build();
 
-        return new UncompressedTupleStream(TupleInfo.SINGLE_LONG, values);
+        return new GenericTupleStream<>(TupleInfo.SINGLE_LONG, values);
     }
 
 }

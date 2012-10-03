@@ -1,6 +1,7 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.aggregation.AverageAggregation;
+import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.uncompressed.UncompressedSerde;
@@ -56,7 +57,7 @@ public class BenchmarkBinaryOperator
         Cursor cursor = source.cursor();
 
         int count = 0;
-        while (cursor.advanceNextPosition()) {
+        while (Cursors.advanceNextPositionNoYield(cursor)) {
             ++count;
         }
 

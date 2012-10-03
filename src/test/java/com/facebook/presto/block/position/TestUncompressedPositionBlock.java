@@ -5,9 +5,11 @@ import org.testng.annotations.Test;
 
 import java.util.NoSuchElementException;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.CursorAssertions.assertAdvanceNextPosition;
+import static com.facebook.presto.block.CursorAssertions.assertAdvanceToPosition;
 import static com.facebook.presto.block.CursorAssertions.assertNextPosition;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -33,7 +35,7 @@ public class TestUncompressedPositionBlock
         assertNextPosition(cursor, 13);
         assertNextPosition(cursor, 14);
 
-        assertFalse(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor, FINISHED);
         assertTrue(cursor.isFinished());
     }
 
@@ -46,19 +48,19 @@ public class TestUncompressedPositionBlock
         Cursor cursor = block.cursor();
 
         // advance to beginning
-        assertTrue(cursor.advanceToPosition(0));
+        assertAdvanceToPosition(cursor, 0);
         assertEquals(cursor.getPosition(), 0);
 
         // advance to gap
-        assertTrue(cursor.advanceToPosition(7));
+        assertAdvanceToPosition(cursor, 7);
         assertEquals(cursor.getPosition(), 10);
 
         // advance to other valid position
-        assertTrue(cursor.advanceToPosition(12));
+        assertAdvanceToPosition(cursor, 12);
         assertEquals(cursor.getPosition(), 12);
 
         // advance past end
-        assertFalse(cursor.advanceToPosition(20));
+        assertAdvanceToPosition(cursor, 20, FINISHED);
         assertTrue(cursor.isFinished());
 
         try {

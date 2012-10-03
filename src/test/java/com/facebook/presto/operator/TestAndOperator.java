@@ -7,9 +7,9 @@ import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.position.UncompressedPositionBlock;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.block.CursorAssertions.assertNextPosition;
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.CursorAssertions.assertAdvanceNextPosition;
 import static com.facebook.presto.block.CursorAssertions.assertPositions;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestAndOperator
@@ -26,7 +26,7 @@ public class TestAndOperator
 
         assertPositions(cursor, 0, 1, 2, 3, 4);
 
-        assertFalse(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor, FINISHED);
         assertTrue(cursor.isFinished());
     }
 
@@ -42,7 +42,7 @@ public class TestAndOperator
 
         assertPositions(cursor, 0, 2, 4, 5);
 
-        assertFalse(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor, FINISHED);
         assertTrue(cursor.isFinished());
     }
 
@@ -56,7 +56,7 @@ public class TestAndOperator
         AndOperator and = new AndOperator(left, right);
         Cursor cursor = and.cursor();
 
-        assertFalse(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor, FINISHED);
         assertTrue(cursor.isFinished());
     }
 
@@ -72,7 +72,7 @@ public class TestAndOperator
 
         assertPositions(cursor, 0, 2, 5);
 
-        assertFalse(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor, FINISHED);
         assertTrue(cursor.isFinished());
 
     }

@@ -7,6 +7,9 @@ import com.facebook.presto.block.Cursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
+
 /**
  * A cursor that enumerates longs up to a max
  */
@@ -52,25 +55,25 @@ public class LongSequenceCursor
     }
 
     @Override
-    public boolean advanceNextValue()
+    public AdvanceResult advanceNextValue()
     {
         current++;
-        return !isFinished();
+        return isFinished() ? FINISHED : SUCCESS;
     }
 
     @Override
-    public boolean advanceNextPosition()
+    public AdvanceResult advanceNextPosition()
     {
         return advanceNextValue();
     }
 
     @Override
-    public boolean advanceToPosition(long position)
+    public AdvanceResult advanceToPosition(long position)
     {
         Preconditions.checkArgument(position >= current, "Can't advance backwards");
         current = position;
 
-        return !isFinished();
+        return isFinished() ? FINISHED : SUCCESS;
     }
 
     @Override

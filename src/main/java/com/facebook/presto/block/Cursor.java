@@ -19,6 +19,10 @@ import com.facebook.presto.slice.Slice;
  */
 public interface Cursor
 {
+    public static enum AdvanceResult {
+        SUCCESS, MUST_YIELD, FINISHED
+    }
+
     /**
      * Gets the type of all tuples in this cursor
      */
@@ -30,7 +34,9 @@ public interface Cursor
     Range getRange();
 
     /**
-     * Returns true if the current position of the cursor is valid; false if the cursor has not been advanced yet, or if the cursor has advanced beyond the last position.
+     * Returns true if the current position of the cursor is valid; false if
+     * the cursor has not been advanced yet, or if the cursor has advanced
+     * beyond the last position.
      * INVARIANT 1: isValid is false if isFinished is true
      * INVARIANT 2: all get* and data access methods will throw java.util.NoSuchElementException while isValid is false
      */
@@ -45,24 +51,18 @@ public interface Cursor
 
     /**
      * Attempts to advance to the first position of the next value
-     *
-     * @returns true if the stream had a next value; false if the stream contains no more data
      */
-    boolean advanceNextValue();
+    AdvanceResult advanceNextValue();
 
     /**
      * Attempts to advance to the next position in this stream and possibly to the next value if the current position if the last one for the current value
-     *
-     * @returns true if the stream had a next position; false if the stream contains no more data
      */
-    boolean advanceNextPosition();
+    AdvanceResult advanceNextPosition();
 
     /**
      * Attempts to advance to the requested position or the next immediately available if that position does not exist in this stream (e.g., there's a gap in the sequence)
-     *
-     * @returns true if the stream advanced to the position; false if the stream contains no more data
      */
-    boolean advanceToPosition(long position);
+    AdvanceResult advanceToPosition(long position);
 
     /**
      * Gets the current tuple.

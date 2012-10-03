@@ -3,20 +3,26 @@ package com.facebook.presto.operator;
 import com.facebook.presto.Range;
 import com.facebook.presto.SizeOf;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.AbstractBlockIterator;
+import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.block.BlockIterator;
+import com.facebook.presto.block.BlockIterators;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursor.AdvanceResult;
+import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.position.UncompressedPositionBlock;
 import com.facebook.presto.operation.ComparisonOperation;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterators;
 import com.google.common.primitives.Ints;
 
-import java.util.Iterator;
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
 
 public class ComparisonOperator
-        implements TupleStream, Iterable<UncompressedPositionBlock>
+        implements TupleStream, BlockIterable<UncompressedPositionBlock>
 {
     private static final int MAX_POSITIONS_PER_BLOCK = Ints.checkedCast(65536 / SizeOf.SIZE_OF_LONG);
 
@@ -54,30 +60,34 @@ public class ComparisonOperator
     }
 
     @Override
-    public Iterator<UncompressedPositionBlock> iterator()
+    public BlockIterator<UncompressedPositionBlock> iterator()
     {
         final Cursor left = leftSource.cursor();
         final Cursor right = rightSource.cursor();
 
-        boolean advancedLeft = left.advanceNextPosition();
-        boolean advancedRight = right.advanceNextPosition();
+        boolean advancedLeft = Cursors.advanceNextPositionNoYield(left);
+        boolean advancedRight = Cursors.advanceNextPositionNoYield(right);
 
         Preconditions.checkState(advancedLeft && advancedRight || !advancedLeft && !advancedRight, "Left and right don't have the same cardinality");
 
         if (!advancedLeft || !advancedRight) {
-            return Iterators.emptyIterator();
+            return BlockIterators.emptyIterator();
         }
 
-        return new AbstractIterator<UncompressedPositionBlock>()
+        return new AbstractBlockIterator<UncompressedPositionBlock>()
         {
-            private boolean done = false;
-
             @Override
             protected UncompressedPositionBlock computeNext()
             {
-                if (done) {
-                    endOfData();
-                    return null;
+                // we assume, left is always advanced first, and left and right have the exact same positions
+                if (left.isFinished()) {
+                    return endOfData();
+                }
+                if (right.getPosition() < left.getPosition()) {
+                    if (right.advanceNextPosition() == MUST_YIELD) {
+                        return setMustYield();
+                    }
+                    Preconditions.checkState(right.getPosition() == left.getPosition());
                 }
 
                 ImmutableList.Builder<Long> positions = ImmutableList.builder();
@@ -88,19 +98,51 @@ public class ComparisonOperator
 
                     if (operation.evaluate(left, right)) {
                         // add all the positions for the current match
-                        while (!done && left.getPosition() <= endPosition && count < MAX_POSITIONS_PER_BLOCK) {
+                        while (left.getPosition() <= endPosition && count < MAX_POSITIONS_PER_BLOCK) {
                             positions.add(left.getPosition());
                             ++count;
 
-                            done = !left.advanceNextPosition() || !right.advanceNextPosition();
+                            // always advance left and then right
+                            AdvanceResult result = left.advanceNextPosition();
+                            if (result == SUCCESS) {
+                                result = right.advanceNextPosition();
+                            }
+
+                            if (result != SUCCESS) {
+                                if (count != 0) {
+                                    return new UncompressedPositionBlock(positions.build());
+                                }
+                                if (result == MUST_YIELD) {
+                                    return setMustYield();
+                                }
+                                if (result == FINISHED) {
+                                    return endOfData();
+                                }
+                            }
                         }
                     }
                     else {
                         // skip ahead to the next position after the common range for the next round
-                        done = !left.advanceToPosition(endPosition + 1) || !right.advanceToPosition(endPosition + 1);
+                        // always advance left and then right
+                        AdvanceResult result = left.advanceToPosition(endPosition + 1);
+                        if (result == SUCCESS) {
+                            result = right.advanceToPosition(endPosition + 1);
+                        }
+
+                        if (result != SUCCESS) {
+                            if (count != 0) {
+                                return new UncompressedPositionBlock(positions.build());
+                            }
+                            if (result == MUST_YIELD) {
+                                return setMustYield();
+                            }
+                            if (result == FINISHED) {
+                                return endOfData();
+                            }
+                        }
                     }
                 }
-                while (!done && count < MAX_POSITIONS_PER_BLOCK);
+                while (count < MAX_POSITIONS_PER_BLOCK);
 
                 if (count == 0) {
                     endOfData();

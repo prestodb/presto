@@ -47,19 +47,19 @@ public class ForwardingCursor implements Cursor
     }
 
     @Override
-    public boolean advanceNextValue()
+    public AdvanceResult advanceNextValue()
     {
         return cursor.advanceNextValue();
     }
 
     @Override
-    public boolean advanceNextPosition()
+    public AdvanceResult advanceNextPosition()
     {
         return cursor.advanceNextPosition();
     }
 
     @Override
-    public boolean advanceToPosition(long position)
+    public AdvanceResult advanceToPosition(long position)
     {
         return cursor.advanceToPosition(position);
     }

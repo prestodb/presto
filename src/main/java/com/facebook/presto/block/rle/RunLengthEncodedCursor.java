@@ -11,6 +11,9 @@ import com.google.common.collect.PeekingIterator;
 
 import java.util.Iterator;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
+
 public class RunLengthEncodedCursor
         implements Cursor
 {
@@ -54,31 +57,31 @@ public class RunLengthEncodedCursor
     }
 
     @Override
-    public boolean advanceNextValue()
+    public AdvanceResult advanceNextValue()
     {
         if (!iterator.hasNext()) {
             block = null;
-            return false;
+            return FINISHED;
         }
         block = iterator.next();
         position = block.getRange().getStart();
-        return true;
+        return SUCCESS;
     }
 
     @Override
-    public boolean advanceNextPosition()
+    public AdvanceResult advanceNextPosition()
     {
         if (block == null || position == block.getRange().getEnd()) {
             return advanceNextValue();
         }
         else {
             position++;
-            return true;
+            return SUCCESS;
         }
     }
 
     @Override
-    public boolean advanceToPosition(long newPosition)
+    public AdvanceResult advanceToPosition(long newPosition)
     {
         Preconditions.checkArgument(block == null || newPosition >= getPosition(), "Can't advance backwards");
 
@@ -87,7 +90,7 @@ public class RunLengthEncodedCursor
                 block = iterator.next();
             }
             else {
-                return false;
+                return FINISHED;
             }
         }
 
@@ -98,11 +101,11 @@ public class RunLengthEncodedCursor
 
         if (newPosition > block.getRange().getEnd()) {
             block = null;
-            return false;
+            return FINISHED;
         }
 
         this.position = Math.max(newPosition, block.getRange().getStart());
-        return true;
+        return SUCCESS;
     }
 
     @Override

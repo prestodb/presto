@@ -4,7 +4,6 @@ import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.block.uncompressed.UncompressedTupleStream;
 import com.facebook.presto.slice.Slice;
 import com.google.common.collect.ImmutableList;
 import org.testng.Assert;
@@ -48,7 +47,7 @@ public class Blocks
     {
         ImmutableList.Builder<Tuple> tuples = ImmutableList.builder();
         Cursor actualCursor = tupleStream.cursor();
-        while(actualCursor.advanceNextPosition()) {
+        while(Cursors.advanceNextPositionNoYield(actualCursor)) {
             tuples.add(actualCursor.getTuple());
         }
         return tuples.build();
@@ -58,14 +57,14 @@ public class Blocks
     {
         boolean allAdvanced = true;
         for (Cursor cursor : cursors) {
-            allAdvanced = cursor.advanceNextPosition() && allAdvanced;
+            allAdvanced = Cursors.advanceNextPositionNoYield(cursor) && allAdvanced;
         }
         return allAdvanced;
     }
 
-    public static UncompressedTupleStream createTupleStream(int position, String... values)
+    public static TupleStream createTupleStream(int position, String... values)
     {
-        return new UncompressedTupleStream(TupleInfo.SINGLE_VARBINARY, createBlock(position, values));
+        return new GenericTupleStream<>(TupleInfo.SINGLE_VARBINARY, createBlock(position, values));
     }
 
     public static UncompressedBlock createBlock(long position, String... values)
@@ -84,9 +83,9 @@ public class Blocks
         return builder.build();
     }
 
-    public static UncompressedTupleStream createLongsTupleStream(long position, long... values)
+    public static TupleStream createLongsTupleStream(long position, long... values)
     {
-        return new UncompressedTupleStream(TupleInfo.SINGLE_LONG, createLongsBlock(position, values));
+        return new GenericTupleStream<>(TupleInfo.SINGLE_LONG, createLongsBlock(position, values));
     }
 
     public static UncompressedBlock createLongsBlock(long position, long... values)
@@ -100,9 +99,9 @@ public class Blocks
         return builder.build();
     }
 
-    public static UncompressedTupleStream createDoublesTupleStream(long position, double... values)
+    public static TupleStream createDoublesTupleStream(long position, double... values)
     {
-        return new UncompressedTupleStream(TupleInfo.SINGLE_DOUBLE, createDoublesBlock(position, values));
+        return new GenericTupleStream<>(TupleInfo.SINGLE_DOUBLE, createDoublesBlock(position, values));
     }
 
     public static UncompressedBlock createDoublesBlock(long position, double... values)
@@ -184,9 +183,9 @@ public class Blocks
             return this;
         }
 
-        public UncompressedTupleStream build() {
+        public TupleStream build() {
             newBlock();
-            return new UncompressedTupleStream(tupleInfo, blocks);
+            return new GenericTupleStream<>(tupleInfo, blocks);
         }
     }
 }

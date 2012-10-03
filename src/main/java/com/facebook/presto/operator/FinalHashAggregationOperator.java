@@ -5,14 +5,17 @@ import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.aggregation.AggregationFunction;
+import com.facebook.presto.block.AbstractBlockIterator;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.block.BlockIterator;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursor.AdvanceResult;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedCursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Provider;
@@ -21,11 +24,13 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
+
 /**
  * Group input data and produce a single block for each sequence of identical values.
  */
 public class FinalHashAggregationOperator
-        implements TupleStream, Iterable<UncompressedBlock>
+        implements TupleStream, BlockIterable<UncompressedBlock>
 {
     private final TupleStream groupBySource;
     private final Provider<AggregationFunction> functionProvider;
@@ -69,12 +74,13 @@ public class FinalHashAggregationOperator
     }
 
     @Override
-    public Iterator<UncompressedBlock> iterator()
+    public BlockIterator<UncompressedBlock> iterator()
     {
         final Cursor cursor = groupBySource.cursor();
 
-        return new AbstractIterator<UncompressedBlock>()
+        return new AbstractBlockIterator<UncompressedBlock>()
         {
+            private final Map<Tuple, AggregationFunction> aggregationMap = new HashMap<>();
             private Iterator<Entry<Tuple, AggregationFunction>> aggregations;
             private long position;
 
@@ -83,8 +89,17 @@ public class FinalHashAggregationOperator
             {
                 // process all data ahead of time
                 if (aggregations == null) {
-                    Map<Tuple, AggregationFunction> aggregationMap = new HashMap<>();
-                    while (cursor.advanceNextPosition()) {
+                    while (cursor.isFinished()) {
+                        AdvanceResult result = cursor.advanceNextValue();
+                        if (result != AdvanceResult.SUCCESS) {
+                            if (result == MUST_YIELD) {
+                                return setMustYield();
+                            }
+                            else if (result == AdvanceResult.FINISHED) {
+                                break;
+                            }
+                        }
+
                         Tuple key = getKey();
                         AggregationFunction aggregation = aggregationMap.get(key);
                         if (aggregation == null) {

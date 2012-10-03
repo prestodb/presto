@@ -4,27 +4,31 @@ import com.facebook.presto.Range;
 import com.facebook.presto.Ranges;
 import com.facebook.presto.SizeOf;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.AbstractBlockIterator;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.block.BlockIterator;
+import com.facebook.presto.block.BlockIterators;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursor.AdvanceResult;
 import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.position.UncompressedPositionBlock;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
 import com.google.common.primitives.Ints;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.PriorityQueue;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
 import static com.facebook.presto.block.TupleStreams.getCursorFunction;
 import static com.facebook.presto.block.TupleStreams.getRangeFunction;
 
 public class AndOperator
-        implements TupleStream, Iterable<TupleStream>
+        implements TupleStream, BlockIterable<UncompressedPositionBlock>
 {
     private static final int MAX_POSITIONS_PER_BLOCK = Ints.checkedCast(BlockBuilder.DEFAULT_MAX_BLOCK_SIZE.toBytes() / SizeOf.SIZE_OF_LONG);
 
@@ -59,19 +63,19 @@ public class AndOperator
     }
 
     @Override
-    public Iterator<TupleStream> iterator()
+    public BlockIterator<UncompressedPositionBlock> iterator()
     {
         final List<Cursor> cursors = ImmutableList.copyOf(Iterables.transform(sources, getCursorFunction()));
 
-        if (!Cursors.advanceNextPosition(cursors)) {
-            return Iterators.emptyIterator();
+        if (!Cursors.advanceNextPositionNoYield(cursors)) {
+            return BlockIterators.newBlockIterator();
         }
 
         return new AndOperatorIterator(cursors);
     }
 
     private static class AndOperatorIterator
-        extends AbstractIterator<TupleStream>
+            extends AbstractBlockIterator<UncompressedPositionBlock>
     {
         private final PriorityQueue<Cursor> queue;
         private boolean done = false;
@@ -88,7 +92,7 @@ public class AndOperator
         }
 
         @Override
-        protected TupleStream computeNext()
+        protected UncompressedPositionBlock computeNext()
         {
             if (done) {
                 endOfData();
@@ -98,10 +102,12 @@ public class AndOperator
             ImmutableList.Builder<Long> positions = ImmutableList.builder();
 
             int count = 0;
+            AdvanceResult result = FINISHED;
             while (count < MAX_POSITIONS_PER_BLOCK) {
                 Cursor head = queue.remove();
 
-                if (head.getPosition() == currentMax) {
+                long initialPosition = head.getPosition();
+                if (initialPosition == currentMax) {
                     // all cursors have this position in common
                     positions.add(currentMax);
                     ++count;
@@ -110,18 +116,30 @@ public class AndOperator
                     currentMax++;
                 }
 
-                if (!head.advanceToPosition(currentMax)) {
+                result = head.advanceToPosition(currentMax);
+                if (result == FINISHED) {
                     done = true;
                     break;
                 }
 
-                currentMax = Math.max(currentMax, head.getPosition());
+                long endPosition = head.getPosition();
+                currentMax = Math.max(currentMax, endPosition);
                 queue.add(head);
+
+                if (result == MUST_YIELD && initialPosition == endPosition) {
+                    break;
+                }
             }
 
             if (count == 0) {
-                endOfData();
-                return null;
+                switch (result) {
+                    case SUCCESS:
+                        throw new IllegalStateException("No positions produced and input was not finished");
+                    case MUST_YIELD:
+                        return setMustYield();
+                    case FINISHED:
+                        return endOfData();
+                }
             }
 
             return new UncompressedPositionBlock(positions.build());
