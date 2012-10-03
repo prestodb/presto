@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkState;
 public class BlockBuilder
 {
     public static final DataSize DEFAULT_MAX_BLOCK_SIZE = new DataSize(64, Unit.KILOBYTE);
+    public static final double DEFAULT_STORAGE_MULTIPLIER = 1.2;
 
     private final long startPosition;
     private final TupleInfo tupleInfo;
@@ -28,10 +29,10 @@ public class BlockBuilder
 
     public BlockBuilder(long startPosition, TupleInfo tupleInfo)
     {
-        this(startPosition, tupleInfo, DEFAULT_MAX_BLOCK_SIZE);
+        this(startPosition, tupleInfo, DEFAULT_MAX_BLOCK_SIZE, DEFAULT_STORAGE_MULTIPLIER);
     }
 
-    public BlockBuilder(long startPosition, TupleInfo tupleInfo, DataSize blockSize)
+    public BlockBuilder(long startPosition, TupleInfo tupleInfo, DataSize blockSize, double storageMultiplier)
     {
         checkArgument(startPosition >= 0, "startPosition is negative");
         checkNotNull(blockSize, "blockSize is null");
@@ -39,7 +40,8 @@ public class BlockBuilder
         this.startPosition = startPosition;
         this.tupleInfo = tupleInfo;
         maxBlockSize = (int) blockSize.toBytes();
-        sliceOutput = new DynamicSliceOutput((int) blockSize.toBytes());
+        // Use slightly larger storage size to minimize resizing when we just exceed full capacity
+        sliceOutput = new DynamicSliceOutput((int) (maxBlockSize * storageMultiplier));
 
         tupleBuilder = tupleInfo.builder(sliceOutput);
     }
