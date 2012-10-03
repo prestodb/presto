@@ -64,7 +64,9 @@ public class TestQueries
                 "  totalprice DOUBLE NOT NULL,\n" +
                 "  orderdate CHAR(10) NOT NULL,\n" +
                 "  orderpriority CHAR(15) NOT NULL,\n" +
-                "  shippriority BIGINT NOT NULL\n" +
+                "  clerk CHAR(15) NOT NULL,\n" +
+                "  shippriority BIGINT NOT NULL,\n" +
+                "  comment VARCHAR(79) NOT NULL\n" +
                 ")");
         insertRows("orders", handle, ordersData);
 
@@ -84,7 +86,8 @@ public class TestQueries
                 "  commitdate CHAR(10) NOT NULL,\n" +
                 "  receiptdate CHAR(10) NOT NULL,\n" +
                 "  shipinstruct VARCHAR(25) NOT NULL,\n" +
-                "  shipmode VARCHAR(10) NOT NULL\n" +
+                "  shipmode VARCHAR(10) NOT NULL,\n" +
+                "  comment VARCHAR(44) NOT NULL\n" +
                 ")");
         insertRows("lineitem", handle, lineitemData);
     }
@@ -433,6 +436,9 @@ public class TestQueries
         Splitter splitter = Splitter.on('|');
         List<List<String>> list = new ArrayList<>();
         for (String line : CharStreams.readLines(inputSupplier)) {
+            checkArgument(!line.isEmpty(), "line is empty");
+            checkArgument(line.charAt(line.length() - 1) == '|', "line does not end in delimiter");
+            line = line.substring(0, line.length() - 1);
             list.add(ImmutableList.copyOf(splitter.split(line)));
         }
         return list;
