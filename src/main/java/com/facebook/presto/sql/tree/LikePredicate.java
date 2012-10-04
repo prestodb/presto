@@ -31,6 +31,12 @@ public class LikePredicate
     }
 
     @Override
+    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitLikePredicate(this, context);
+    }
+
+    @Override
     public String toString()
     {
         return Objects.toStringHelper(this)

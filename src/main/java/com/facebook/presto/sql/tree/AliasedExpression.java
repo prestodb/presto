@@ -2,40 +2,32 @@ package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
 
-public class SelectItemExpression
-        extends SelectItem
+public class AliasedExpression
+        extends Expression
 {
     private final Expression expression;
     private final String alias;
 
-    public SelectItemExpression(Expression expression, String alias)
+    public AliasedExpression(Expression expression, String alias)
     {
         this.expression = expression;
         this.alias = alias;
     }
 
-    @Override
-    public boolean isAllColumns()
-    {
-        return false;
-    }
-
-    @Override
-    public QualifiedName getAllColumnsName()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Expression getExpression()
     {
         return expression;
     }
 
-    @Override
     public String getAlias()
     {
         return alias;
+    }
+
+    @Override
+    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitAliasedExpression(this, context);
     }
 
     @Override

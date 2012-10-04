@@ -7,7 +7,22 @@ public class ArithmeticExpression
 {
     public enum Type
     {
-        ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULUS
+        ADD("+"),
+        SUBTRACT("-"),
+        MULTIPLY("*"),
+        DIVIDE("/"),
+        MODULUS("%");
+        private final String value;
+
+        Type(String value)
+        {
+            this.value = value;
+        }
+
+        public String getValue()
+        {
+            return value;
+        }
     }
 
     private final Type type;
@@ -34,6 +49,12 @@ public class ArithmeticExpression
     public Expression getRight()
     {
         return right;
+    }
+
+    @Override
+    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitArithmeticExpression(this, context);
     }
 
     @Override

@@ -15,6 +15,8 @@ options {
     import java.util.HashMap;
     import java.util.List;
     import java.util.Map;
+    import com.google.common.collect.ImmutableList;
+    import com.google.common.base.Objects;
 }
 
 @members {
@@ -50,18 +52,26 @@ query returns [Query value]
     ;
 
 selectStmt returns [Query value]
-    : s=selectClause
-      f=fromClause?
-      w=whereClause?
-      (g=groupClause h=havingClause?)?
-      o=orderClause?
-      l=limitClause?
-        { $value = new Query($s.value, $f.value, $w.value, $g.value, $h.value, $o.value, $l.value); }
+    : selectClause
+      fromClause?
+      whereClause?
+      (groupClause havingClause?)?
+      orderClause?
+      limitClause?
+        { $value = new Query(
+            $selectClause.value,
+            $fromClause.value,
+            $whereClause.value,
+            Objects.firstNonNull($groupClause.value, ImmutableList.<Expression>of()),
+            $havingClause.value,
+            Objects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
+            $limitClause.value);
+        }
     ;
 
 
 selectClause returns [Select value]
-    : ^(SELECT d=distinct ALL_COLUMNS)  { $value = new Select($d.value); }
+    : ^(SELECT d=distinct ALL_COLUMNS)  { $value = new Select($d.value, ImmutableList.<Expression>of(new AllColumns())); }
     | ^(SELECT d=distinct s=selectList) { $value = new Select($d.value, $s.value); }
     ;
 
@@ -70,13 +80,14 @@ distinct returns [boolean value]
     |          { $value = false; }
     ;
 
-selectList returns [List<SelectItem> value = new ArrayList<>()]
+selectList returns [List<Expression> value = new ArrayList<>()]
     : ^(SELECT_LIST ( selectItem { $value.add($selectItem.value); } )+ )
     ;
 
-selectItem returns [SelectItem value]
-    : ^(SELECT_ITEM e=expr i=ident?) { $value = new SelectItemExpression($e.value, $i.value); }
-    | ^(ALL_COLUMNS q=qname)         { $value = new SelectItemAllColumns($q.value); }
+selectItem returns [Expression value]
+    : (^(SELECT_ITEM expr ident)) => ^(SELECT_ITEM e=expr i=ident)  { $value = new AliasedExpression($e.value, $i.value); }
+    | ^(SELECT_ITEM expr)            { $value = $expr.value; }
+    | ^(ALL_COLUMNS q=qname)         { $value = new AllColumns($q.value); }
     ;
 
 fromClause returns [List<Relation> value]
