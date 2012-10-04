@@ -7,6 +7,7 @@ import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.slice.ByteArraySlice;
+import com.facebook.presto.slice.OutputStreamSliceOutput;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.Slices;
@@ -133,19 +134,14 @@ public class UncompressedBlocksMapper implements MessageBodyReader<List<Uncompre
             OutputStream output)
             throws IOException, WebApplicationException
     {
+        OutputStreamSliceOutput sliceOutput = new OutputStreamSliceOutput(output);
         for (UncompressedBlock block : blocks) {
             Slice slice = block.getSlice();
-
-            // write header
-            ByteArraySlice blockHeader = Slices.allocate(SIZE_OF_INT + SIZE_OF_INT + SIZE_OF_LONG);
-            blockHeader.output()
-                    .appendInt(slice.length())
+            sliceOutput.appendInt(slice.length())
                     .appendInt(block.getCount())
-                    .appendLong(block.getRange().getStart());
-            output.write(blockHeader.getRawArray());
-
-            // write slice
-            slice.getBytes(0, output, slice.length());
+                    .appendLong(block.getRange().getStart())
+                    .appendBytes(slice)
+                    .flush();
         }
     }
 }

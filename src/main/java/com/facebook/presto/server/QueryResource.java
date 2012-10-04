@@ -26,6 +26,7 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 @Path("/v1/presto/query")
 public class QueryResource
 {
+    private static final int DEFAULT_MAX_BLOCK_COUNT = 10;
     private final QueryManager queryManager;
 
     @Inject
@@ -49,7 +50,7 @@ public class QueryResource
     {
         Preconditions.checkNotNull(operatorId, "operatorId is null");
 
-        List<UncompressedBlock> blocks = queryManager.getQueryResults(operatorId, 10);
+        List<UncompressedBlock> blocks = queryManager.getQueryResults(operatorId, DEFAULT_MAX_BLOCK_COUNT);
         if (blocks.isEmpty()) {
             return Response.status(Status.GONE).build();
         }

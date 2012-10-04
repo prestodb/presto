@@ -186,7 +186,7 @@ public class TestQueryState
         queryState.cancel();
         assertFailed(queryState, exception, anotherException);
 
-        // try to cancel the query and verify it doesn't work
+        // try to cancel the query again and verify it doesn't work
         queryState.cancel();
         assertFailed(queryState, exception, anotherException);
 
@@ -508,12 +508,6 @@ public class TestQueryState
 
         // verify thread is released
         addBlocksJob.waitForFinished();
-    }
-
-    @Test
-    public void testBufferSizeFailed()
-            throws Exception
-    {
     }
 
     private static class GetBlocksJob implements Runnable

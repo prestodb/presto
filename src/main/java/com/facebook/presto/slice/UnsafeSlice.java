@@ -184,10 +184,11 @@ public class UnsafeSlice extends AbstractSlice
         byte[] buffer = new byte[4096];
 
         while (length > 0) {
-            int size = Math.min(buffer.length, length);
+            int size = Math.min(buffer.length - index, length);
             getBytes(index, buffer, 0, size);
             out.write(buffer, 0, size);
             length -= size;
+            index += size;
         }
     }
 

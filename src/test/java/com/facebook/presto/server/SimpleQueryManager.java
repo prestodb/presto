@@ -10,6 +10,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 import java.util.Collections;
 import java.util.HashMap;
@@ -19,9 +20,11 @@ import java.util.NoSuchElementException;
 
 import static com.facebook.presto.block.Blocks.createStringBlock;
 
+@ThreadSafe
 public class SimpleQueryManager implements QueryManager
 {
     private final int blockBufferMax;
+    private final int initialBlocks;
 
     @GuardedBy("this")
     private int nextQueryId;
@@ -33,13 +36,16 @@ public class SimpleQueryManager implements QueryManager
     @Inject
     public SimpleQueryManager()
     {
-        this(20);
+        this(20, 12);
     }
 
-    public SimpleQueryManager(int blockBufferMax)
+    public SimpleQueryManager(int blockBufferMax, int initialBlocks)
     {
         Preconditions.checkArgument(blockBufferMax > 0, "blockBufferMax must be at least 1");
+        Preconditions.checkArgument(initialBlocks >= 0, "initialBlocks is negative");
+        Preconditions.checkArgument(initialBlocks <= blockBufferMax, "initialBlocks is greater than blockBufferMax");
         this.blockBufferMax = blockBufferMax;
+        this.initialBlocks = initialBlocks;
     }
 
     @Override
@@ -53,8 +59,8 @@ public class SimpleQueryManager implements QueryManager
 
         List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");
 
-        // load 12 blocks into the buffer
-        for (int i = 0; i < 12; i++) {
+        // load initial blocks
+        for (int i = 0; i < initialBlocks; i++) {
             UncompressedBlock block = createStringBlock(0, Iterables.concat(Collections.nCopies(i + 1, data)));
             try {
                 queryState.addBlock(block);
