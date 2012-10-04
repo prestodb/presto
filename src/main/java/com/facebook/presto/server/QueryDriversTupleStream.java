@@ -9,6 +9,7 @@ import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.operator.GenericCursor;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -30,6 +31,10 @@ public class QueryDriversTupleStream
 
     public QueryDriversTupleStream(TupleInfo info, int blockBufferMax, Iterable<QueryDriverProvider> driverProviders)
     {
+        Preconditions.checkNotNull(info, "info is null");
+        Preconditions.checkArgument(blockBufferMax > 0, "blockBufferMax must be at least 1");
+        Preconditions.checkNotNull(driverProviders, "driverProviders is null");
+
         this.info = info;
         this.blockBufferMax = blockBufferMax;
         this.driverProviders = ImmutableList.copyOf(driverProviders);
@@ -87,7 +92,8 @@ public class QueryDriversTupleStream
             this.queryDrivers = ImmutableList.copyOf(queries);
         }
 
-        public void cancel() {
+        public void cancel()
+        {
             queryState.cancel();
             for (QueryDriver queryDriver : queryDrivers) {
                 queryDriver.cancel();

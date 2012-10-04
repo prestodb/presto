@@ -13,6 +13,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 /**
  * QueryState contains the current state of the query and output buffer.
@@ -88,11 +89,9 @@ public class QueryState
             state = State.CANCELED;
             sourceCount = 0;
             blockBuffer.clear();
+            // free up threads quickly
             notEmpty.release();
-
-            // Just to be safe release most notFull permits, so threads blocked in addNextBlock are released
-            // the 1000 is to avoid overflow problems due to programing bugs
-            notFull.release(Integer.MAX_VALUE - notFull.availablePermits() - 1000);
+            notFull.release();
         }
     }
 
@@ -110,11 +109,9 @@ public class QueryState
                 if (blockBuffer.isEmpty()) {
                     state = State.FINISHED;
                 }
+                // free up threads quickly
                 notEmpty.release();
-
-                // Just to be safe release most notFull permits, so threads blocked in addNextBlock are released
-                // the 1000 is to avoid overflow problems due to programing bugs
-                notFull.release(Integer.MAX_VALUE - notFull.availablePermits() - 1000);
+                notFull.release();
             }
         }
     }
@@ -134,11 +131,9 @@ public class QueryState
             causes.add(cause);
             sourceCount = 0;
             blockBuffer.clear();
+            // free up threads quickly
             notEmpty.release();
-
-            // Just to be safe release most notFull permits, so threads blocked in addNextBlock are released
-            // the 1000 is to avoid overflow problems due to programing bugs
-            notFull.release(Integer.MAX_VALUE - notFull.availablePermits() - 1000);
+            notFull.release();
         }
     }
 
@@ -146,24 +141,29 @@ public class QueryState
      * Add a block to the buffer.  The buffers space is limited, so the caller will be blocked until
      * space is available in the buffer.
      *
-     * @throws InterruptedException the thread is interrupted while waiting for buffer space to be freed
+     * @throws InterruptedException if the thread is interrupted while waiting for buffer space to be freed
      * @throws IllegalStateException if the query is finished
      */
     public void addBlock(UncompressedBlock block)
             throws InterruptedException
     {
-        notFull.acquire();
+        // acquire write permit
+        while (!isDone() && !notFull.tryAcquire(1, TimeUnit.SECONDS)) {
+        }
+
         synchronized (blockBuffer) {
             // don't throw an exception if the query was canceled or failed as the caller may not be aware of this
             if (state == State.CANCELED || state == State.FAILED) {
-                // release additional threads blocked in the code above
+                // release an additional thread blocked in the code above
+                // all blocked threads will be release due to the chain reaction
                 notFull.release();
                 return;
             }
 
             // if all sources are finished throw an exception
             if (sourceCount == 0) {
-                // release additional threads blocked in the code above
+                // release an additional thread blocked in the code above
+                // all blocked threads will be release due to the chain reaction
                 notFull.release();
                 throw new IllegalStateException("All sources are finished");
             }
@@ -173,9 +173,12 @@ public class QueryState
     }
 
     /**
-     * Gets the next blocks from the buffer.  The caller will block until at least one block is available.
+     * Gets the next blocks from the buffer.  The caller will block until at least one block is available, the
+     * query is canceled, or the query fails.
      *
-     * @throws InterruptedException the thread is interrupted while waiting for blocks to be buffered
+     * @return one to masBlockCount blocks if the query is not done; no block if the query is done
+     * @throws FailedQueryException if the query failed
+     * @throws InterruptedException if the thread is interrupted while waiting for blocks to be buffered
      */
     public List<UncompressedBlock> getNextBlocks(int maxBlockCount)
             throws InterruptedException
@@ -183,17 +186,20 @@ public class QueryState
         Preconditions.checkArgument(maxBlockCount > 0, "blockBufferMax must be at least 1");
 
         // block until first block is available
-        notEmpty.acquire();
+        while (!isDone() && !notEmpty.tryAcquire(1, TimeUnit.SECONDS)) {
+        }
+
         synchronized (blockBuffer) {
             // verify state
             if (state == State.CANCELED || state == State.FINISHED) {
-                // allow thread blocked in getNextBlocks (above) through
-                // todo do we want a cancel exception
+                // release an additional thread blocked in the code above
+                // all blocked threads will be release due to the chain reaction
                 notEmpty.release();
                 return ImmutableList.of();
             }
             if (state == State.FAILED) {
-                // allow thread blocked in getNextBlocks (above) through
+                // release an additional thread blocked in the code above
+                // all blocked threads will be release due to the chain reaction
                 notEmpty.release();
                 throw new FailedQueryException(causes);
             }
@@ -205,9 +211,10 @@ public class QueryState
             do {
                 if (blockBuffer.isEmpty()) {
                     // there is one extra permit when all sources are finished
-                    Preconditions.checkState(sourceCount == 0, "All sources to be finished");
+                    Preconditions.checkState(sourceCount == 0, "A read permit was acquired but no blocks are available");
 
-                    // allow thread blocked in getNextBlocks (above) through
+                    // release an additional thread blocked in the code above
+                    // all blocked threads will be release due to the chain reaction
                     notEmpty.release();
                     break;
                 }

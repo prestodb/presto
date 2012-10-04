@@ -22,6 +22,7 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 import io.airlift.http.client.StatusResponseHandler;
+import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.http.client.UnexpectedResponseException;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.http.server.testing.TestingHttpServerModule;
@@ -96,12 +97,12 @@ public class TestQueryResourceServer
         assertEquals(loadData(location), 220);
         assertEquals(loadData(location), 44 + 48);
 
-        client.execute(prepareDelete().setUri(location).build(), StatusResponseHandler.createStatusResponseHandler());
+        StatusResponse response = client.execute(prepareDelete().setUri(location).build(), StatusResponseHandler.createStatusResponseHandler());
+        assertEquals(response.getStatusCode(), Status.NO_CONTENT.getStatusCode());
     }
 
     private int loadData(URI location)
     {
-        // load 10 blocks from the server
         Iterator<UncompressedBlock> blockIterator = client.execute(
                 prepareGet().setUri(location).build(),
                 new BlockResponseHandler(TupleInfo.SINGLE_VARBINARY));
@@ -130,7 +131,7 @@ public class TestQueryResourceServer
         @Override
         public URI handle(Request request, Response response)
         {
-            if (response.getStatusCode() != 201) {
+            if (response.getStatusCode() != Status.CREATED.getStatusCode()) {
                 throw new UnexpectedResponseException(
                         String.format("Expected response code to be 201 CREATED, but was %d %s", response.getStatusCode(), response.getStatusMessage()),
                         request,
@@ -162,7 +163,7 @@ public class TestQueryResourceServer
         @Override
         public Iterator<UncompressedBlock> handle(Request request, Response response)
         {
-            if (response.getStatusCode() != 200) {
+            if (response.getStatusCode() != Status.OK.getStatusCode()) {
                 if (response.getStatusCode() == Status.GONE.getStatusCode()) {
                     return Iterators.emptyIterator();
                 }

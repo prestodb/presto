@@ -176,7 +176,7 @@ public class HttpQuery implements QueryDriver
                     done();
                     return null;
                 }
-                if (response.getStatusCode() != 200) {
+                if (response.getStatusCode() != Status.OK.getStatusCode()) {
                     throw new UnexpectedResponseException(
                             String.format("Expected response code to be 200, but was %d: %s", response.getStatusCode(), response.getStatusMessage()),
                             request,

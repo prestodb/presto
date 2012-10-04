@@ -21,7 +21,6 @@ import java.util.concurrent.Future;
 import static com.facebook.presto.block.Blocks.createStringBlock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestQueryDriversTupleStream
@@ -87,10 +86,10 @@ public class TestQueryDriversTupleStream
             // cancel the iterator
             iterator.cancel();
 
-            // due to buffering in the iterator, we still have one more element, so read it and
-            // verify there are no more elements
-            assertTrue(iterator.hasNext());
-            assertNotNull(iterator.next());
+            // drain any blocks buffered in the iterator implementation
+            while (iterator.hasNext()) {
+                iterator.next();
+            }
             assertFalse(iterator.hasNext());
         }
         finally {
