@@ -30,13 +30,13 @@ public class TreePrinter
         AstVisitor<Void, Integer> printer = new DefaultTraversalVisitor<Void, Integer>()
         {
             @Override
-            public Void visitNode(Node node, Integer indentLevel)
+            protected Void visitNode(Node node, Integer indentLevel)
             {
                 throw new UnsupportedOperationException("not yet implemented: " + node);
             }
 
             @Override
-            public Void visitQuery(Query node, Integer indentLevel)
+            protected Void visitQuery(Query node, Integer indentLevel)
             {
                 print(indentLevel, "Query " + outputSchemas.get(node));
 
@@ -80,7 +80,7 @@ public class TreePrinter
             }
 
             @Override
-            public Void visitSelect(Select node, Integer indentLevel)
+            protected Void visitSelect(Select node, Integer indentLevel)
             {
                 String distinct = "";
                 if (node.isDistinct()) {
@@ -107,7 +107,7 @@ public class TreePrinter
             }
 
             @Override
-            public Void visitComparisonExpression(ComparisonExpression node, Integer indentLevel)
+            protected Void visitComparisonExpression(ComparisonExpression node, Integer indentLevel)
             {
                 print(indentLevel, node.getType().toString());
 
@@ -117,7 +117,7 @@ public class TreePrinter
             }
 
             @Override
-            public Void visitArithmeticExpression(ArithmeticExpression node, Integer indentLevel)
+            protected Void visitArithmeticExpression(ArithmeticExpression node, Integer indentLevel)
             {
                 print(indentLevel, node.getType().toString());
 
@@ -127,7 +127,7 @@ public class TreePrinter
             }
 
             @Override
-            public Void visitLogicalBinaryExpression(LogicalBinaryExpression node, Integer indentLevel)
+            protected Void visitLogicalBinaryExpression(LogicalBinaryExpression node, Integer indentLevel)
             {
                 print(indentLevel, node.getType().toString());
 
@@ -137,21 +137,21 @@ public class TreePrinter
             }
 
             @Override
-            public Void visitStringLiteral(StringLiteral node, Integer indentLevel)
+            protected Void visitStringLiteral(StringLiteral node, Integer indentLevel)
             {
                 print(indentLevel, "String[" + node.getValue() + "]");
                 return null;
             }
 
             @Override
-            public Void visitLongLiteral(LongLiteral node, Integer indentLevel)
+            protected Void visitLongLiteral(LongLiteral node, Integer indentLevel)
             {
                 print(indentLevel, "Long[" + node.getValue() + "]");
                 return null;
             }
 
             @Override
-            public Void visitLikePredicate(LikePredicate node, Integer indentLevel)
+            protected Void visitLikePredicate(LikePredicate node, Integer indentLevel)
             {
                 print(indentLevel, "LIKE");
 
@@ -161,7 +161,7 @@ public class TreePrinter
             }
 
             @Override
-            public Void visitQualifiedNameReference(QualifiedNameReference node, Integer indentLevel)
+            protected Void visitQualifiedNameReference(QualifiedNameReference node, Integer indentLevel)
             {
                 QualifiedName resolved = resolvedNameReferences.get(node);
                 String resolvedName = "";
@@ -173,7 +173,7 @@ public class TreePrinter
             }
 
             @Override
-            public Void visitFunctionCall(FunctionCall node, Integer indentLevel)
+            protected Void visitFunctionCall(FunctionCall node, Integer indentLevel)
             {
                 String name = Joiner.on('.').join(node.getName().getParts());
                 print(indentLevel, "FunctionCall[" + name + "]");
@@ -184,7 +184,7 @@ public class TreePrinter
             }
 
             @Override
-            public Void visitTable(Table node, Integer indentLevel)
+            protected Void visitTable(Table node, Integer indentLevel)
             {
                 String name = Joiner.on('.').join(node.getName().getParts());
                 print(indentLevel, "Table[" + name + "] " + outputSchemas.get(node));
@@ -193,7 +193,7 @@ public class TreePrinter
             }
 
             @Override
-            public Void visitAliasedRelation(AliasedRelation node, Integer indentLevel)
+            protected Void visitAliasedRelation(AliasedRelation node, Integer indentLevel)
             {
                 print(indentLevel, "Alias[" + node.getAlias() + "] " + outputSchemas.get(node));
 
@@ -203,7 +203,7 @@ public class TreePrinter
             }
 
             @Override
-            public Void visitAliasedExpression(AliasedExpression node, Integer indentLevel)
+            protected Void visitAliasedExpression(AliasedExpression node, Integer indentLevel)
             {
                 print(indentLevel, "Alias[" + node.getAlias() + "]");
 
@@ -213,7 +213,7 @@ public class TreePrinter
             }
 
             @Override
-            public Void visitSubquery(Subquery node, Integer indentLevel)
+            protected Void visitSubquery(Subquery node, Integer indentLevel)
             {
                 print(indentLevel, "SubQuery " + outputSchemas.get(node));
 
