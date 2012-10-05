@@ -35,6 +35,7 @@ import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.event.client.HttpEventModule;
 import io.airlift.http.client.ApacheHttpClient;
 import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.server.HttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.JmxHttpModule;
@@ -59,6 +60,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.block.Cursors.advanceNextPositionNoYield;
 import static com.facebook.presto.ingest.BlockDataImporter.ColumnImportSpec;
@@ -158,7 +160,10 @@ public class Main
             try {
                 long start = System.nanoTime();
 
-                AsyncHttpClient asyncHttpClient = new AsyncHttpClient(new ApacheHttpClient(), executor);
+                ApacheHttpClient httpClient = new ApacheHttpClient(new HttpClientConfig()
+                        .setConnectTimeout(new Duration(1, TimeUnit.MINUTES))
+                        .setReadTimeout(new Duration(1, TimeUnit.MINUTES)));
+                AsyncHttpClient asyncHttpClient = new AsyncHttpClient(httpClient, executor);
                 QueryDriversTupleStream tupleStream = new QueryDriversTupleStream(new TupleInfo(Type.VARIABLE_BINARY, Type.FIXED_INT_64), 10,
                         new HttpQueryProvider("sum", asyncHttpClient, server)
                 );

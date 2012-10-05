@@ -5,7 +5,6 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.aggregation.CountAggregation;
 import com.facebook.presto.aggregation.SumAggregation;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.Cursor;
@@ -28,6 +27,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.airlift.http.client.ApacheHttpClient;
 import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.http.client.HttpClientConfig;
+import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -40,6 +41,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class StaticQueryManager implements QueryManager
 {
@@ -162,7 +164,10 @@ public class StaticQueryManager implements QueryManager
             this.queryState = queryState;
             this.executor = executor;
             this.servers = ImmutableList.copyOf(servers);
-            asyncHttpClient = new AsyncHttpClient(new ApacheHttpClient(), executor);
+            ApacheHttpClient httpClient = new ApacheHttpClient(new HttpClientConfig()
+                    .setConnectTimeout(new Duration(1, TimeUnit.MINUTES))
+                    .setReadTimeout(new Duration(1, TimeUnit.MINUTES)));
+            asyncHttpClient = new AsyncHttpClient(httpClient, executor);
         }
 
         @Override
@@ -240,7 +245,7 @@ public class StaticQueryManager implements QueryManager
                 TupleStream aggregateSource = aggregateSerde.deserialize(aggregateSlice);
 
                 GroupByOperator groupBy = new GroupByOperator(groupBySource);
-                HashAggregationOperator aggregation = new HashAggregationOperator(groupBy, aggregateSource, CountAggregation.PROVIDER);
+                HashAggregationOperator aggregation = new HashAggregationOperator(groupBy, aggregateSource, SumAggregation.PROVIDER);
 
                 Cursor cursor = aggregation.cursor();
                 long position = 0;

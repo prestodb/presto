@@ -89,7 +89,7 @@ public class FinalHashAggregationOperator
             {
                 // process all data ahead of time
                 if (aggregations == null) {
-                    while (cursor.isFinished()) {
+                    while (!cursor.isFinished()) {
                         AdvanceResult result = cursor.advanceNextValue();
                         if (result != AdvanceResult.SUCCESS) {
                             if (result == MUST_YIELD) {
