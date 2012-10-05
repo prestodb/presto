@@ -47,12 +47,19 @@ public class StatsCollectingTupleStreamSerde
     @Override
     public StatsAnnotatedTupleStreamDeserializer createDeserializer()
     {
-        return new StatsAnnotatedTupleStreamDeserializer();
+        return new StatsAnnotatedTupleStreamDeserializer(tupleStreamSerde.createDeserializer());
     }
 
-    public class StatsAnnotatedTupleStreamDeserializer
+    public static class StatsAnnotatedTupleStreamDeserializer
             implements TupleStreamDeserializer
     {
+        private final TupleStreamDeserializer tupleStreamDeserializer;
+
+        public StatsAnnotatedTupleStreamDeserializer(TupleStreamDeserializer tupleStreamDeserializer)
+        {
+            this.tupleStreamDeserializer = checkNotNull(tupleStreamDeserializer, "tupleStreamDeserializer is null");
+        }
+
         @Override
         public StatsAnnotatedTupleStream deserialize(Slice slice)
         {
@@ -61,7 +68,7 @@ public class StatsCollectingTupleStreamSerde
             int footerOffset = slice.length() - footerLength - SizeOf.SIZE_OF_INT;
             try {
                 Stats stats = OBJECT_MAPPER.readValue(slice.slice(footerOffset, footerLength).input(), Stats.class);
-                return new StatsAnnotatedTupleStream(tupleStreamSerde.createDeserializer().deserialize(slice.slice(0, footerOffset)), stats);
+                return new StatsAnnotatedTupleStream(tupleStreamDeserializer.deserialize(slice.slice(0, footerOffset)), stats);
             } catch (IOException e) {
                 throw Throwables.propagate(e);
             }
