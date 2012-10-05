@@ -203,7 +203,10 @@ public class QueryState
                 // release an additional thread blocked in the code above
                 // all blocked threads will be release due to the chain reaction
                 notEmpty.release();
-                throw new FailedQueryException(causes);
+                // todo remove this when airlift log prints suppressed exceptions
+                FailedQueryException failedQueryException = new FailedQueryException(causes);
+                failedQueryException.printStackTrace(System.err);
+                throw failedQueryException;
             }
 
             // acquire all available blocks up to the limit

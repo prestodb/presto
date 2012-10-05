@@ -27,13 +27,17 @@ public class UncompressedCursor
     public UncompressedCursor(TupleInfo info, Iterator<UncompressedBlock> iterator)
     {
         Preconditions.checkNotNull(iterator, "iterator is null");
-        Preconditions.checkArgument(iterator.hasNext(), "iterator is empty");
         Preconditions.checkNotNull(info, "info is null");
 
         this.info = info;
         this.iterator = iterator;
 
-        block = iterator.next();
+        if (iterator.hasNext()) {
+            block = iterator.next();
+        } else {
+            // already finished
+            block = null;
+        }
     }
 
     @Override
