@@ -4,7 +4,7 @@ import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
-import com.facebook.presto.block.TupleStreamSerdes;
+import com.facebook.presto.block.TupleStreamSerde;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tpch.TpchDataProvider;
@@ -44,7 +44,7 @@ public class SampleTcphBenchmark
     protected void setUp()
     {
         try {
-            totalPriceColumnFile = tpchDataProvider.getColumnFile(TpchSchema.Orders.TOTALPRICE, TupleStreamSerdes.Encoding.RAW);
+            totalPriceColumnFile = tpchDataProvider.getColumnFile(TpchSchema.Orders.TOTALPRICE, TupleStreamSerde.Encoding.RAW);
             totalPriceSlice = Slices.mapFileReadOnly(totalPriceColumnFile);
         } catch (IOException e) {
             throw Throwables.propagate(e);
@@ -56,7 +56,8 @@ public class SampleTcphBenchmark
     {
         long start = System.nanoTime();
 
-        TupleStream tupleStream = TupleStreamSerdes.createTupleStreamSerde(TupleStreamSerdes.Encoding.RAW)
+        TupleStream tupleStream = TupleStreamSerde.Encoding.RAW.createSerde()
+                .createDeserializer()
                 .deserialize(totalPriceSlice);
         Cursor cursor = tupleStream.cursor(new QuerySession());
         long count = 0;

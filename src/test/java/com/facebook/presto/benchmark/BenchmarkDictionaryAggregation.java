@@ -41,8 +41,8 @@ public class BenchmarkDictionaryAggregation
         Slice aggregateSlice = Slices.mapFileReadOnly(aggregateFile);
 
         for (int i = 0; i < 100000; ++i) {
-            DictionaryEncodedTupleStream groupBySource = groupBySerde.deserialize(groupBySlice);
-            TupleStream aggregateSource = aggregateSerde.deserialize(aggregateSlice);
+            DictionaryEncodedTupleStream groupBySource = (DictionaryEncodedTupleStream) groupBySerde.createDeserializer().deserialize(groupBySlice);
+            TupleStream aggregateSource = aggregateSerde.createDeserializer().deserialize(aggregateSlice);
 
             DictionaryAggregationOperator aggregation = new DictionaryAggregationOperator(groupBySource, aggregateSource, SumAggregation.PROVIDER);
 

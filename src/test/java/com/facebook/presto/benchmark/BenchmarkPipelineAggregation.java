@@ -58,8 +58,8 @@ public class BenchmarkPipelineAggregation
         Slice aggregateSlice = Slices.mapFileReadOnly(aggregateFile);
 
         for (int i = 0; i < 100000; ++i) {
-            TupleStream groupBySource = groupBySerde.deserialize(groupBySlice);
-            TupleStream aggregateSource = aggregateSerde.deserialize(aggregateSlice);
+            TupleStream groupBySource = groupBySerde.createDeserializer().deserialize(groupBySlice);
+            TupleStream aggregateSource = aggregateSerde.createDeserializer().deserialize(aggregateSlice);
 
             GroupByOperator groupBy = new GroupByOperator(groupBySource);
             PipelinedAggregationOperator aggregation = new PipelinedAggregationOperator(groupBy, aggregateSource, SumAggregation.PROVIDER);

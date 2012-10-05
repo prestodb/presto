@@ -1,9 +1,9 @@
 package com.facebook.presto.ingest;
 
 import com.facebook.presto.Main;
-import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Blocks;
-import com.facebook.presto.block.TupleStreamSerdes;
+import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.TupleStreamSerde;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Splitter;
 import com.google.common.io.Resources;
@@ -41,7 +41,7 @@ public class TestCsv
     public void testConvertActions()
             throws Exception
     {
-        List<String> encodings = Arrays.asList("long:rle", "double:dic/rle", "double:raw", "string:dic/raw");
+        List<String> encodings = Arrays.asList("long:rle", "double:dicrle", "double:raw", "string:dicraw");
         Main.main(new String[]{
                 "convert", "csv",
                 "-d", "|",
@@ -109,12 +109,11 @@ public class TestCsv
     private TupleStream readColumn(int columnNumber, String dataType)
             throws IOException
     {
-        // HACK: replace('/', '-') to deal with illegal file name characters
-        File file = new File(outDir, "column" + columnNumber + "." + dataType.replace('/', '-').replace(':', '_') + ".data");
+        File file = new File(outDir, "column" + columnNumber + "." + dataType.replace(':', '_') + ".data");
         Iterator<String> partsIterator = Splitter.on(':').split(dataType).iterator();
         String typeName = partsIterator.next();
         String serdeName = partsIterator.next();
-        return TupleStreamSerdes.createTupleStreamSerde(TupleStreamSerdes.Encoding.fromName(serdeName)).deserialize(Slices.mapFileReadOnly(file));
+        return TupleStreamSerde.Encoding.fromName(serdeName).createSerde().createDeserializer().deserialize(Slices.mapFileReadOnly(file));
     }
 
     private static String resourceFile(String resourceName)

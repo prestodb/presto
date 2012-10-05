@@ -1,7 +1,7 @@
 package com.facebook.presto.ingest;
 
 import com.facebook.presto.block.ColumnMappingTupleStream;
-import com.facebook.presto.block.TupleStreamSerde;
+import com.facebook.presto.block.TupleStreamSerializer;
 import com.facebook.presto.block.TupleStreamWriter;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.slice.OutputStreamSliceOutput;
@@ -45,7 +45,7 @@ public class BlockDataImporter
         for (ColumnImportSpec columnImportSpec : columnImportSpecs) {
             OutputStream outputStream =  columnImportSpec.getOutputSupplier().getOutput();
             outputStreamBuilder.add(outputStream);
-            tupleStreamWriterBuilder.add(columnImportSpec.getTupleStreamSerde().createTupleStreamWriter(new OutputStreamSliceOutput(outputStream)));
+            tupleStreamWriterBuilder.add(columnImportSpec.getTupleStreamSerializer().createTupleStreamWriter(new OutputStreamSliceOutput(outputStream)));
         }
         List<OutputStream> outputStreams = outputStreamBuilder.build();
         List<TupleStreamWriter> tupleStreamWriters = tupleStreamWriterBuilder.build();
@@ -70,22 +70,22 @@ public class BlockDataImporter
     }
 
     /**
-     * Defines the serde and output stream to be used for a column
+     * Defines the serializer and output stream to be used for a column
      */
     public static class ColumnImportSpec
     {
-        private final TupleStreamSerde tupleStreamSerde;
+        private final TupleStreamSerializer tupleStreamSerializer;
         private final OutputSupplier<? extends OutputStream> outputSupplier;
 
-        public ColumnImportSpec(TupleStreamSerde tupleStreamSerde, OutputSupplier<? extends OutputStream> outputSupplier)
+        public ColumnImportSpec(TupleStreamSerializer tupleStreamSerializer, OutputSupplier<? extends OutputStream> outputSupplier)
         {
-            this.tupleStreamSerde = checkNotNull(tupleStreamSerde, "tupleStreamSerde is null");
+            this.tupleStreamSerializer = checkNotNull(tupleStreamSerializer, "tupleStreamSerializer is null");
             this.outputSupplier = checkNotNull(outputSupplier, "outputSupplier is null");
         }
 
-        public TupleStreamSerde getTupleStreamSerde()
+        public TupleStreamSerializer getTupleStreamSerializer()
         {
-            return tupleStreamSerde;
+            return tupleStreamSerializer;
         }
 
         public OutputSupplier<? extends OutputStream> getOutputSupplier()
