@@ -5,10 +5,10 @@ import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.aggregation.AggregationFunction;
-import com.facebook.presto.block.AbstractBlockIterator;
+import com.facebook.presto.block.AbstractYieldingIterator;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.block.BlockIterator;
+import com.facebook.presto.block.YieldingIterable;
+import com.facebook.presto.block.YieldingIterator;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursor.AdvanceResult;
 import com.facebook.presto.block.Cursors;
@@ -25,7 +25,7 @@ import javax.inject.Provider;
  * Group input data and produce a single block for each sequence of identical values.
  */
 public class PipelinedAggregationOperator
-        implements TupleStream, BlockIterable<UncompressedBlock>
+        implements TupleStream, YieldingIterable<UncompressedBlock>
 {
     private final TupleStream groupBySource;
     private final TupleStream aggregationSource;
@@ -71,14 +71,14 @@ public class PipelinedAggregationOperator
     }
 
     @Override
-    public BlockIterator<UncompressedBlock> iterator(QuerySession session)
+    public YieldingIterator<UncompressedBlock> iterator(QuerySession session)
     {
         Preconditions.checkNotNull(session, "session is null");
         final Cursor groupByCursor = groupBySource.cursor(session);
         final Cursor aggregationCursor = aggregationSource.cursor(session);
         aggregationCursor.advanceNextPosition();
 
-        return new AbstractBlockIterator<UncompressedBlock>()
+        return new AbstractYieldingIterator<UncompressedBlock>()
         {
             private long position;
 

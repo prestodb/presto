@@ -2,10 +2,10 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.AbstractBlockIterator;
+import com.facebook.presto.block.AbstractYieldingIterator;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.block.BlockIterator;
+import com.facebook.presto.block.YieldingIterable;
+import com.facebook.presto.block.YieldingIterator;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursor.AdvanceResult;
 import com.facebook.presto.block.Cursors;
@@ -24,7 +24,7 @@ import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
  * A binary operator that produces uncompressed blocks
  */
 public class UncompressedBinaryOperator
-        implements TupleStream, BlockIterable<UncompressedBlock>
+        implements TupleStream, YieldingIterable<UncompressedBlock>
 {
     private final TupleStream leftOperandSource;
     private final TupleStream rightOperandSource;
@@ -57,7 +57,7 @@ public class UncompressedBinaryOperator
     }
 
     @Override
-    public BlockIterator<UncompressedBlock> iterator(QuerySession session)
+    public YieldingIterator<UncompressedBlock> iterator(QuerySession session)
     {
         Preconditions.checkNotNull(session, "session is null");
         final Cursor left = leftOperandSource.cursor(session);
@@ -69,7 +69,7 @@ public class UncompressedBinaryOperator
 
         Preconditions.checkState(advancedLeft && advancedRight, "Empty source cursor"); // TODO: we should be able to support this scenario
 
-        return new AbstractBlockIterator<UncompressedBlock>()
+        return new AbstractYieldingIterator<UncompressedBlock>()
         {
             @Override
             protected UncompressedBlock computeNext()

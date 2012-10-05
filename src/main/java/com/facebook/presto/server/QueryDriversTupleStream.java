@@ -5,8 +5,8 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.AbstractBlockIterator;
-import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.block.AbstractYieldingIterator;
+import com.facebook.presto.block.YieldingIterable;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
@@ -20,7 +20,7 @@ import com.google.common.collect.Iterables;
 import java.util.List;
 
 public class QueryDriversTupleStream
-        implements TupleStream, BlockIterable<UncompressedBlock>
+        implements TupleStream, YieldingIterable<UncompressedBlock>
 {
     private final TupleInfo info;
     private final List<QueryDriverProvider> driverProviders;
@@ -43,7 +43,7 @@ public class QueryDriversTupleStream
     }
 
     @Override
-    public QueryDriversBlockIterator iterator(QuerySession session)
+    public QueryDriversYieldingIterator iterator(QuerySession session)
     {
         Preconditions.checkNotNull(session, "session is null");
         ImmutableList.Builder<QueryDriver> queries = ImmutableList.builder();
@@ -55,7 +55,7 @@ public class QueryDriversTupleStream
                 queryDriver.start();
             }
 
-            return new QueryDriversBlockIterator(queryState, queries.build());
+            return new QueryDriversYieldingIterator(queryState, queries.build());
         }
         catch (Throwable e) {
             for (QueryDriver queryDriver : queries.build()) {
@@ -84,13 +84,13 @@ public class QueryDriversTupleStream
         return new GenericCursor(session, info, iterator(session));
     }
 
-    public static class QueryDriversBlockIterator extends AbstractBlockIterator<UncompressedBlock>
+    public static class QueryDriversYieldingIterator extends AbstractYieldingIterator<UncompressedBlock>
     {
         private final QueryState queryState;
         private final List<QueryDriver> queryDrivers;
         private long position;
 
-        private QueryDriversBlockIterator(QueryState queryState, Iterable<QueryDriver> queries)
+        private QueryDriversYieldingIterator(QueryState queryState, Iterable<QueryDriver> queries)
         {
             this.queryState = queryState;
             this.queryDrivers = ImmutableList.copyOf(queries);

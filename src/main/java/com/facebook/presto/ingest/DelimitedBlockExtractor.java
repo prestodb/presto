@@ -1,17 +1,19 @@
 package com.facebook.presto.ingest;
 
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.AbstractYieldingIterator;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.google.common.base.Splitter;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.LineReader;
 
 import java.util.Iterator;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.*;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkElementIndex;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class DelimitedBlockExtractor
         implements BlockExtractor
@@ -39,11 +41,11 @@ public class DelimitedBlockExtractor
     public Iterator<UncompressedBlock> extract(Iterator<String> sourceIterator)
     {
         checkNotNull(sourceIterator, "sourceIterator is null");
-        return new DelimitedBlockIterator(sourceIterator, columnSplitter, columnDefinitions);
+        return new DelimitedYieldingIterator(sourceIterator, columnSplitter, columnDefinitions);
     }
 
-    private static class DelimitedBlockIterator
-            extends AbstractIterator<UncompressedBlock>
+    private static class DelimitedYieldingIterator
+            extends AbstractYieldingIterator<UncompressedBlock>
     {
         private final Iterator<String> lineIterator;
         private final Splitter columnSplitter;
@@ -51,7 +53,7 @@ public class DelimitedBlockExtractor
         private final TupleInfo tupleInfo;
         private int position = 0;
 
-        private DelimitedBlockIterator(Iterator<String> lineIterator, Splitter columnSplitter, List<ColumnDefinition> columnDefinitions)
+        private DelimitedYieldingIterator(Iterator<String> lineIterator, Splitter columnSplitter, List<ColumnDefinition> columnDefinitions)
         {
             this.lineIterator = lineIterator;
             this.columnSplitter = columnSplitter;

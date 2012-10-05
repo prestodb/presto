@@ -3,10 +3,10 @@ package com.facebook.presto.operator;
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.block.AbstractBlockIterator;
+import com.facebook.presto.block.AbstractYieldingIterator;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.block.BlockIterator;
+import com.facebook.presto.block.YieldingIterable;
+import com.facebook.presto.block.YieldingIterator;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.QuerySession;
@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 public class MergeOperator
-        implements TupleStream, BlockIterable<UncompressedBlock>
+        implements TupleStream, YieldingIterable<UncompressedBlock>
 {
     private final List<? extends TupleStream> sources;
     private final TupleInfo tupleInfo;
@@ -60,19 +60,19 @@ public class MergeOperator
     }
 
     @Override
-    public BlockIterator<UncompressedBlock> iterator(QuerySession session)
+    public YieldingIterator<UncompressedBlock> iterator(QuerySession session)
     {
         Preconditions.checkNotNull(session, "session is null");
-        return new MergeBlockIterator(session, this.tupleInfo, this.sources);
+        return new MergeYieldingIterator(session, this.tupleInfo, this.sources);
     }
 
-    private static class MergeBlockIterator extends AbstractBlockIterator<UncompressedBlock>
+    private static class MergeYieldingIterator extends AbstractYieldingIterator<UncompressedBlock>
     {
         private final TupleInfo tupleInfo;
         private final List<Cursor> cursors;
         private long position;
 
-        public MergeBlockIterator(QuerySession session, TupleInfo tupleInfo, Iterable<? extends TupleStream> sources)
+        public MergeYieldingIterator(QuerySession session, TupleInfo tupleInfo, Iterable<? extends TupleStream> sources)
         {
             Preconditions.checkNotNull(session, "session is null");
             this.tupleInfo = tupleInfo;

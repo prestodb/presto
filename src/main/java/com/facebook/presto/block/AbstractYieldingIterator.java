@@ -23,16 +23,16 @@ import java.util.NoSuchElementException;
 import static com.google.common.base.Preconditions.checkState;
 
 // NOTE: this was forked from Guava
-public abstract class AbstractBlockIterator<T extends TupleStream>
+public abstract class AbstractYieldingIterator<T extends TupleStream>
         extends UnmodifiableIterator<T>
-        implements BlockIterator<T>
+        implements YieldingIterator<T>
 {
     private State state = State.NOT_READY;
 
     /**
      * Constructor for use by subclasses.
      */
-    protected AbstractBlockIterator()
+    protected AbstractYieldingIterator()
     {
     }
 

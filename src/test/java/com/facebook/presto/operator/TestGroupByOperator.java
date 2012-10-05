@@ -20,7 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.block.BlockIterators.iterate;
+import static com.facebook.presto.block.YieldingIterators.iterate;
 import static com.facebook.presto.block.Blocks.createBlock;
 import static com.google.common.base.Charsets.UTF_8;
 

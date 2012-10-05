@@ -3,10 +3,10 @@ package com.facebook.presto;
 import com.facebook.presto.aggregation.AverageAggregation;
 import com.facebook.presto.aggregation.CountAggregation;
 import com.facebook.presto.aggregation.DoubleSumAggregation;
-import com.facebook.presto.block.AbstractBlockIterator;
+import com.facebook.presto.block.AbstractYieldingIterator;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.block.BlockIterator;
+import com.facebook.presto.block.YieldingIterable;
+import com.facebook.presto.block.YieldingIterator;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.GenericTupleStream;
@@ -324,20 +324,20 @@ public class TestQueries
 
     private static GenericTupleStream<UncompressedBlock> createTupleStream(final List<List<String>> data, final TpchSchema.Column column, final TupleInfo.Type type)
     {
-        return new GenericTupleStream<>(new TupleInfo(type), new BlockIterable<UncompressedBlock>()
+        return new GenericTupleStream<>(new TupleInfo(type), new YieldingIterable<UncompressedBlock>()
         {
             @Override
-            public BlockIterator<UncompressedBlock> iterator(QuerySession session)
+            public YieldingIterator<UncompressedBlock> iterator(QuerySession session)
             {
                 Preconditions.checkNotNull(session, "session is null");
-                return new RowStringUncompressedBlockIterator(type, column.getIndex(), data.iterator());
+                return new RowStringUncompressedYieldingIterator(type, column.getIndex(), data.iterator());
             }
         });
     }
 
     // Given a list of string rows, extracts UncompressedBlocks for a particular column
-    private static class RowStringUncompressedBlockIterator
-            extends AbstractBlockIterator<UncompressedBlock>
+    private static class RowStringUncompressedYieldingIterator
+            extends AbstractYieldingIterator<UncompressedBlock>
     {
         private final TupleInfo.Type type;
         private final TupleInfo tupleInfo;
@@ -345,7 +345,7 @@ public class TestQueries
         private final Iterator<List<String>> rowStringIterator;
         private long position = 0;
 
-        private RowStringUncompressedBlockIterator(TupleInfo.Type type, int extractedColumnIndex, Iterator<List<String>> rowStringIterator)
+        private RowStringUncompressedYieldingIterator(TupleInfo.Type type, int extractedColumnIndex, Iterator<List<String>> rowStringIterator)
         {
             this.type = checkNotNull(type, "type is null");
             tupleInfo = new TupleInfo(type);

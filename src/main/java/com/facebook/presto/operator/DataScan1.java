@@ -2,9 +2,9 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.AbstractBlockIterator;
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.block.BlockIterator;
+import com.facebook.presto.block.AbstractYieldingIterator;
+import com.facebook.presto.block.YieldingIterable;
+import com.facebook.presto.block.YieldingIterator;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursor.AdvanceResult;
 import com.facebook.presto.block.QuerySession;
@@ -19,7 +19,7 @@ import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
 import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
 
 public class DataScan1
-        implements TupleStream, BlockIterable<PositionsBlock>
+        implements TupleStream, YieldingIterable<PositionsBlock>
 {
     private static final int RANGES_PER_BLOCK = 100;
 
@@ -46,10 +46,10 @@ public class DataScan1
         return Range.ALL;
     }
 
-    public BlockIterator<PositionsBlock> iterator(QuerySession session)
+    public YieldingIterator<PositionsBlock> iterator(QuerySession session)
     {
         Preconditions.checkNotNull(session, "session is null");
-        return new AbstractBlockIterator<PositionsBlock>()
+        return new AbstractYieldingIterator<PositionsBlock>()
         {
             Cursor cursor = source.cursor(new QuerySession());
 

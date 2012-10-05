@@ -4,11 +4,11 @@ import com.facebook.presto.Range;
 import com.facebook.presto.Ranges;
 import com.facebook.presto.SizeOf;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.AbstractBlockIterator;
+import com.facebook.presto.block.AbstractYieldingIterator;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.block.BlockIterator;
-import com.facebook.presto.block.BlockIterators;
+import com.facebook.presto.block.YieldingIterable;
+import com.facebook.presto.block.YieldingIterator;
+import com.facebook.presto.block.YieldingIterators;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursor.AdvanceResult;
 import com.facebook.presto.block.Cursors;
@@ -29,7 +29,7 @@ import static com.facebook.presto.block.TupleStreams.getCursorFunction;
 import static com.facebook.presto.block.TupleStreams.getRangeFunction;
 
 public class AndOperator
-        implements TupleStream, BlockIterable<UncompressedPositionBlock>
+        implements TupleStream, YieldingIterable<UncompressedPositionBlock>
 {
     private static final int MAX_POSITIONS_PER_BLOCK = Ints.checkedCast(BlockBuilder.DEFAULT_MAX_BLOCK_SIZE.toBytes() / SizeOf.SIZE_OF_LONG);
 
@@ -65,21 +65,21 @@ public class AndOperator
     }
 
     @Override
-    public BlockIterator<UncompressedPositionBlock> iterator(QuerySession session)
+    public YieldingIterator<UncompressedPositionBlock> iterator(QuerySession session)
     {
         Preconditions.checkNotNull(session, "session is null");
 
         final List<Cursor> cursors = ImmutableList.copyOf(Iterables.transform(sources, getCursorFunction(session)));
 
         if (!Cursors.advanceNextPositionNoYield(cursors)) {
-            return BlockIterators.newBlockIterator();
+            return YieldingIterators.yieldingIterable();
         }
 
         return new AndOperatorIterator(cursors);
     }
 
     private static class AndOperatorIterator
-            extends AbstractBlockIterator<UncompressedPositionBlock>
+            extends AbstractYieldingIterator<UncompressedPositionBlock>
     {
         private final PriorityQueue<Cursor> queue;
         private boolean done = false;

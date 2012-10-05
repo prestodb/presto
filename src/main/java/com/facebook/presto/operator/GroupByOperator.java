@@ -3,10 +3,10 @@ package com.facebook.presto.operator;
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.AbstractBlockIterator;
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.block.BlockIterator;
-import com.facebook.presto.block.BlockIterators;
+import com.facebook.presto.block.AbstractYieldingIterator;
+import com.facebook.presto.block.YieldingIterable;
+import com.facebook.presto.block.YieldingIterator;
+import com.facebook.presto.block.YieldingIterators;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursor.AdvanceResult;
 import com.facebook.presto.block.Cursors;
@@ -23,7 +23,7 @@ import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
  * Group input data and produce a single block for each sequence of identical values.
  */
 public class GroupByOperator
-        implements TupleStream, BlockIterable<RunLengthEncodedBlock>
+        implements TupleStream, YieldingIterable<RunLengthEncodedBlock>
 {
     private final TupleStream source;
 
@@ -52,15 +52,15 @@ public class GroupByOperator
     }
 
     @Override
-    public BlockIterator<RunLengthEncodedBlock> iterator(QuerySession session)
+    public YieldingIterator<RunLengthEncodedBlock> iterator(QuerySession session)
     {
         Preconditions.checkNotNull(session, "session is null");
         final Cursor cursor = source.cursor(session);
         if (!Cursors.advanceNextPositionNoYield(cursor)) {
-            return BlockIterators.emptyIterator();
+            return YieldingIterators.emptyIterator();
         }
 
-        return new AbstractBlockIterator<RunLengthEncodedBlock>()
+        return new AbstractYieldingIterator<RunLengthEncodedBlock>()
         {
             private Tuple currentKey;
             private long currentKeyStartPosition;
