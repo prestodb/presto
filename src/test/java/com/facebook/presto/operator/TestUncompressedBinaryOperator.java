@@ -5,6 +5,7 @@ import com.facebook.presto.TupleInfo;
 import com.facebook.presto.Tuples;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.GenericTupleStream;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedTupleStream;
@@ -34,7 +35,7 @@ public class TestUncompressedBinaryOperator
 
         UncompressedBinaryOperator operator = new UncompressedBinaryOperator(left, right, new SubtractionOperation());
 
-        Cursor cursor = operator.cursor();
+        Cursor cursor = operator.cursor(new QuerySession());
 
         assertNextValue(cursor, 0, 0);
         assertNextValue(cursor, 1, 2);
@@ -65,7 +66,7 @@ public class TestUncompressedBinaryOperator
 
         UncompressedBinaryOperator operator = new UncompressedBinaryOperator(left, right, new SubtractionOperation());
 
-        Cursor cursor = operator.cursor();
+        Cursor cursor = operator.cursor(new QuerySession());
 
         assertNextValue(cursor, 0, 0);
         assertNextValue(cursor, 1, 2);
@@ -91,7 +92,7 @@ public class TestUncompressedBinaryOperator
 
         UncompressedBinaryOperator operator = new UncompressedBinaryOperator(left, right, new SubtractionOperation());
 
-        Cursor cursor = operator.cursor();
+        Cursor cursor = operator.cursor(new QuerySession());
         assertAdvanceNextPosition(cursor);
     }
 

@@ -2,7 +2,9 @@ package com.facebook.presto.block.dictionary;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
+import com.google.common.base.Preconditions;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -39,8 +41,9 @@ public class DictionaryEncodedTupleStream
     }
 
     @Override
-    public DictionaryEncodedCursor cursor()
+    public DictionaryEncodedCursor cursor(QuerySession session)
     {
-        return new DictionaryEncodedCursor(dictionary, sourceTupleStream.cursor());
+        Preconditions.checkNotNull(session, "session is null");
+        return new DictionaryEncodedCursor(dictionary, sourceTupleStream.cursor(session));
     }
 }

@@ -3,6 +3,7 @@ package com.facebook.presto.block.uncompressed;
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.slice.Slice;
@@ -50,8 +51,9 @@ public class UncompressedBlock
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
+        Preconditions.checkNotNull(session, "session is null");
         if (tupleInfo.getFieldCount() == 1) {
             Type type = tupleInfo.getTypes().get(0);
             if (type == Type.FIXED_INT_64) {

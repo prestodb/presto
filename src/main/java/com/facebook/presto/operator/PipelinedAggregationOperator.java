@@ -12,6 +12,7 @@ import com.facebook.presto.block.BlockIterator;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursor.AdvanceResult;
 import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedCursor;
@@ -63,16 +64,18 @@ public class PipelinedAggregationOperator
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new UncompressedCursor(getTupleInfo(), iterator());
+        Preconditions.checkNotNull(session, "session is null");
+        return new UncompressedCursor(getTupleInfo(), iterator(session));
     }
 
     @Override
-    public BlockIterator<UncompressedBlock> iterator()
+    public BlockIterator<UncompressedBlock> iterator(QuerySession session)
     {
-        final Cursor groupByCursor = groupBySource.cursor();
-        final Cursor aggregationCursor = aggregationSource.cursor();
+        Preconditions.checkNotNull(session, "session is null");
+        final Cursor groupByCursor = groupBySource.cursor(session);
+        final Cursor aggregationCursor = aggregationSource.cursor(session);
         aggregationCursor.advanceNextPosition();
 
         return new AbstractBlockIterator<UncompressedBlock>()

@@ -3,21 +3,22 @@ package com.facebook.presto.operator;
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.AbstractBlockIterator;
+import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.block.BlockIterator;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.QuerySession;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedCursor;
 import com.facebook.presto.operation.BinaryOperation;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.AbstractIterator;
-
-import java.util.Iterator;
 
 /**
  * A binary operator that produces RLE blocks
  */
 public class RunLengthBinaryOperator
-        implements TupleStream, Iterable<RunLengthEncodedBlock>
+        implements TupleStream, BlockIterable<RunLengthEncodedBlock>
 {
     private final TupleStream leftSource;
     private final TupleStream rightSource;
@@ -43,23 +44,25 @@ public class RunLengthBinaryOperator
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new RunLengthEncodedCursor(getTupleInfo(), iterator());
+        Preconditions.checkNotNull(session, "session is null");
+        return new RunLengthEncodedCursor(getTupleInfo(), iterator(session));
     }
 
     @Override
-    public Iterator<RunLengthEncodedBlock> iterator()
+    public BlockIterator<RunLengthEncodedBlock> iterator(QuerySession session)
     {
-        final Cursor left = leftSource.cursor();
-        final Cursor right = rightSource.cursor();
+        Preconditions.checkNotNull(session, "session is null");
+        final Cursor left = leftSource.cursor(session);
+        final Cursor right = rightSource.cursor(session);
 
         left.advanceNextPosition();
         right.advanceNextPosition();
 
         Preconditions.checkState(!left.isFinished() && !right.isFinished(), "Source cursors are empty"); // TODO: we should be able to handle this case
 
-        return new AbstractIterator<RunLengthEncodedBlock>()
+        return new AbstractBlockIterator<RunLengthEncodedBlock>()
         {
             @Override
             protected RunLengthEncodedBlock computeNext()

@@ -5,6 +5,7 @@ package com.facebook.presto;
 
 import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.ingest.BlockDataImporter;
 import com.facebook.presto.ingest.BlockExtractor;
@@ -173,7 +174,7 @@ public class Main
 
                 int count = 0;
                 long grandTotal = 0;
-                Cursor cursor = tupleStream.cursor();
+                Cursor cursor = tupleStream.cursor(new QuerySession());
                 while (advanceNextPositionNoYield(cursor)) {
                     count++;
                     Tuple tuple = cursor.getTuple();

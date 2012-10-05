@@ -3,6 +3,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.GenericTupleStream;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.position.UncompressedPositionBlock;
 import org.testng.annotations.Test;
@@ -22,7 +23,7 @@ public class TestOrOperator
         TupleStream right = new GenericTupleStream<>(TupleInfo.EMPTY, new UncompressedPositionBlock(0, 1, 2, 3, 4));
 
         OrOperator operator = new OrOperator(left, right);
-        Cursor cursor = operator.cursor();
+        Cursor cursor = operator.cursor(new QuerySession());
 
         assertPositions(cursor, 0, 1, 2, 3, 4);
 
@@ -38,7 +39,7 @@ public class TestOrOperator
         TupleStream right = new GenericTupleStream<>(TupleInfo.EMPTY, new UncompressedPositionBlock(0, 2, 4, 5, 6));
 
         OrOperator operator = new OrOperator(left, right);
-        Cursor cursor = operator.cursor();
+        Cursor cursor = operator.cursor(new QuerySession());
 
         assertPositions(cursor, 0, 2, 3, 4, 5, 6, 8);
 
@@ -54,7 +55,7 @@ public class TestOrOperator
         TupleStream right = new GenericTupleStream<>(TupleInfo.EMPTY, new UncompressedPositionBlock(5, 6, 7, 8, 9));
 
         OrOperator operator = new OrOperator(left, right);
-        Cursor cursor = operator.cursor();
+        Cursor cursor = operator.cursor(new QuerySession());
 
         assertPositions(cursor, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
 
@@ -70,7 +71,7 @@ public class TestOrOperator
         TupleStream three = new GenericTupleStream<>(TupleInfo.EMPTY, new UncompressedPositionBlock(0, 1, 2, 3, 5, 8));
 
         OrOperator operator = new OrOperator(one, two, three);
-        Cursor cursor = operator.cursor();
+        Cursor cursor = operator.cursor(new QuerySession());
 
         assertPositions(cursor, 0, 1, 2, 3, 4, 5, 6, 7, 8);
 

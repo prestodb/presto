@@ -4,6 +4,7 @@ import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerde;
 import com.facebook.presto.block.TupleStreamWriter;
@@ -102,7 +103,7 @@ public class RunLengthEncodedSerde
             checkNotNull(tupleStream, "tupleStream is null");
             checkState(!finished, "already finished");
 
-            Cursor cursor = tupleStream.cursor();
+            Cursor cursor = tupleStream.cursor(new QuerySession());
 
             if (!initialized) {
                 UncompressedTupleInfoSerde.serialize(tupleStream.getTupleInfo(), sliceOutput);

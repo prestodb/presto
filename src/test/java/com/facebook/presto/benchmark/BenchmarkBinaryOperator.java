@@ -2,6 +2,7 @@ package com.facebook.presto.benchmark;
 
 import com.facebook.presto.aggregation.AverageAggregation;
 import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.uncompressed.UncompressedSerde;
@@ -54,7 +55,7 @@ public class BenchmarkBinaryOperator
     {
         long start = System.nanoTime();
 
-        Cursor cursor = source.cursor();
+        Cursor cursor = source.cursor(new QuerySession());
 
         int count = 0;
         while (Cursors.advanceNextPositionNoYield(cursor)) {

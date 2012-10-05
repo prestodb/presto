@@ -21,7 +21,7 @@ public class TestMaskedBlock
 
         MaskedBlock block = new MaskedBlock(uncompressed, Longs.asList(0, 2, 4));
 
-        Cursor cursor = block.cursor();
+        Cursor cursor = block.cursor(new QuerySession());
 
         assertNextValue(cursor, 0, "a");
         assertNextValue(cursor, 2, "c");

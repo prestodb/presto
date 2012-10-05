@@ -4,6 +4,7 @@ import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.GenericTupleStream;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.position.UncompressedPositionBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.operator.FilterOperator;
@@ -32,7 +33,7 @@ public class TestExample
         // 33 q
         // 35 s
 
-        Cursor cursor = merge.cursor();
+        Cursor cursor = merge.cursor(new QuerySession());
         while (Cursors.advanceNextPositionNoYield(cursor)) {
             System.out.printf("%d %s %s\n", cursor.getPosition(), cursor.getSlice(0).toString(UTF_8), cursor.getSlice(1).toString(UTF_8));
         }

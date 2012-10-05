@@ -3,6 +3,7 @@ package com.facebook.presto.block;
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.operator.GenericCursor;
+import com.google.common.base.Preconditions;
 
 import java.util.Arrays;
 
@@ -36,9 +37,10 @@ public class GenericTupleStream<T extends TupleStream>
     }
 
     @Override
-    public BlockIterator<T> iterator()
+    public BlockIterator<T> iterator(QuerySession session)
     {
-        return source.iterator();
+        Preconditions.checkNotNull(session, "session is null");
+        return source.iterator(session);
     }
 
     @Override
@@ -54,8 +56,9 @@ public class GenericTupleStream<T extends TupleStream>
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new GenericCursor(info, source.iterator());
+        Preconditions.checkNotNull(session, "session is null");
+        return new GenericCursor(session, info, source.iterator(session));
     }
 }

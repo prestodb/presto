@@ -6,6 +6,7 @@ package com.facebook.presto.server;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.server.QueryDriversTupleStream.QueryDriversBlockIterator;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
@@ -113,7 +114,7 @@ public class TestHttpTupleStream
         );
 
         int count = 0;
-        Cursor cursor = tupleStream.cursor();
+        Cursor cursor = tupleStream.cursor(new QuerySession());
         while (Cursors.advanceNextPositionNoYield(cursor)) {
             count++;
         }
@@ -131,7 +132,7 @@ public class TestHttpTupleStream
         );
 
         int count = 0;
-        QueryDriversBlockIterator iterator = tupleStream.iterator();
+        QueryDriversBlockIterator iterator = tupleStream.iterator(new QuerySession());
         while (count < 20 && iterator.hasNext()) {
             iterator.next();
             count++;

@@ -9,8 +9,10 @@ import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.block.BlockIterator;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -51,15 +53,17 @@ public class MergeOperator
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new GenericCursor(tupleInfo, iterator());
+        Preconditions.checkNotNull(session, "session is null");
+        return new GenericCursor(session, tupleInfo, iterator(session));
     }
 
     @Override
-    public BlockIterator<UncompressedBlock> iterator()
+    public BlockIterator<UncompressedBlock> iterator(QuerySession session)
     {
-        return new MergeBlockIterator(this.tupleInfo, this.sources);
+        Preconditions.checkNotNull(session, "session is null");
+        return new MergeBlockIterator(session, this.tupleInfo, this.sources);
     }
 
     private static class MergeBlockIterator extends AbstractBlockIterator<UncompressedBlock>
@@ -68,12 +72,13 @@ public class MergeOperator
         private final List<Cursor> cursors;
         private long position;
 
-        public MergeBlockIterator(TupleInfo tupleInfo, Iterable<? extends TupleStream> sources)
+        public MergeBlockIterator(QuerySession session, TupleInfo tupleInfo, Iterable<? extends TupleStream> sources)
         {
+            Preconditions.checkNotNull(session, "session is null");
             this.tupleInfo = tupleInfo;
             ImmutableList.Builder<Cursor> cursors = ImmutableList.builder();
             for (TupleStream source : sources) {
-                cursors.add(source.cursor());
+                cursors.add(source.cursor(session));
             }
             this.cursors = cursors.build();
         }

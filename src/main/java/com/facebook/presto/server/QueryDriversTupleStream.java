@@ -8,6 +8,7 @@ import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.AbstractBlockIterator;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.operator.GenericCursor;
@@ -42,8 +43,9 @@ public class QueryDriversTupleStream
     }
 
     @Override
-    public QueryDriversBlockIterator iterator()
+    public QueryDriversBlockIterator iterator(QuerySession session)
     {
+        Preconditions.checkNotNull(session, "session is null");
         ImmutableList.Builder<QueryDriver> queries = ImmutableList.builder();
         try {
             QueryState queryState = new QueryState(driverProviders.size(), blockBufferMax);
@@ -76,9 +78,10 @@ public class QueryDriversTupleStream
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new GenericCursor(info, iterator());
+        Preconditions.checkNotNull(session, "session is null");
+        return new GenericCursor(session, info, iterator(session));
     }
 
     public static class QueryDriversBlockIterator extends AbstractBlockIterator<UncompressedBlock>

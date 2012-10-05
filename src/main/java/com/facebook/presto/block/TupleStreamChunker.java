@@ -1,9 +1,7 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.Range;
-import com.google.common.collect.AbstractIterator;
-
-import java.util.Iterator;
+import com.google.common.base.Preconditions;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -17,7 +15,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * in any fashion.
  */
 public class TupleStreamChunker
-        implements Iterable<TupleStream>
+        implements BlockIterable<TupleStream>
 {
     private final int positionChunkSize;
     private final TupleStream tupleStream;
@@ -37,13 +35,14 @@ public class TupleStreamChunker
     }
 
     @Override
-    public Iterator<TupleStream> iterator()
+    public BlockIterator<TupleStream> iterator(QuerySession session)
     {
-        return new ChunkingTupleStreamIterator(positionChunkSize, tupleStream.cursor());
+        Preconditions.checkNotNull(session, "session is null");
+        return new ChunkingTupleStreamIterator(positionChunkSize, tupleStream.cursor(session));
     }
 
     private static class ChunkingTupleStreamIterator
-            extends AbstractIterator<TupleStream>
+            extends AbstractBlockIterator<TupleStream>
     {
         private final int positionChunkWidth;
         private final Cursor cursor;

@@ -4,6 +4,7 @@ import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.slice.Slice;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
@@ -61,9 +62,10 @@ public class ColumnMappingTupleStream
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new ForwardingCursor(delegate.cursor())
+        Preconditions.checkNotNull(session, "session is null");
+        return new ForwardingCursor(delegate.cursor(session))
         {
             @Override
             public TupleInfo getTupleInfo()

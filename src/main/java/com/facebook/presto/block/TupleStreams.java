@@ -2,17 +2,19 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.Range;
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 
 public class TupleStreams
 {
-    public static Function<TupleStream, Cursor> getCursorFunction()
+    public static Function<TupleStream, Cursor> getCursorFunction(final QuerySession session)
     {
+        Preconditions.checkNotNull(session, "session is null");
         return new Function<TupleStream, Cursor>()
         {
             @Override
             public Cursor apply(TupleStream input)
             {
-                return input.cursor();
+                return input.cursor(session);
             }
         };
     }

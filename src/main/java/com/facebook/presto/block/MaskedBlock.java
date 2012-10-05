@@ -50,9 +50,10 @@ public class MaskedBlock implements TupleStream
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new MaskedBlockCursor(valueBlock, validPositions);
+        Preconditions.checkNotNull(session, "session is null");
+        return new MaskedBlockCursor(valueBlock.cursor(session), validPositions);
     }
 
     private static class MaskedBlockCursor implements Cursor
@@ -61,10 +62,10 @@ public class MaskedBlock implements TupleStream
         private final Cursor validPositions;
         private boolean isValid;
 
-        private MaskedBlockCursor(TupleStream valueBlock, List<Long> validPositions)
+        private MaskedBlockCursor(Cursor cursor, List<Long> validPositions)
         {
-            this.validPositions = new UncompressedPositionBlockCursor(validPositions, valueBlock.getRange());
-            this.valueCursor = valueBlock.cursor();
+            this.validPositions = new UncompressedPositionBlockCursor(validPositions, cursor.getRange());
+            this.valueCursor = cursor;
         }
 
         @Override

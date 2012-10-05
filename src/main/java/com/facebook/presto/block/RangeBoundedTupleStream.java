@@ -2,6 +2,7 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
+import com.google.common.base.Preconditions;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -31,8 +32,9 @@ public class RangeBoundedTupleStream
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
+        Preconditions.checkNotNull(session, "session is null");
         return new RangeBoundedCursor(validRange, baseCursor);
     }
 }

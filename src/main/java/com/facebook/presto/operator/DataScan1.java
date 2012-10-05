@@ -7,6 +7,7 @@ import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.block.BlockIterator;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursor.AdvanceResult;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.position.PositionsBlock;
 import com.google.common.base.Preconditions;
@@ -45,11 +46,12 @@ public class DataScan1
         return Range.ALL;
     }
 
-    public BlockIterator<PositionsBlock> iterator()
+    public BlockIterator<PositionsBlock> iterator(QuerySession session)
     {
+        Preconditions.checkNotNull(session, "session is null");
         return new AbstractBlockIterator<PositionsBlock>()
         {
-            Cursor cursor = source.cursor();
+            Cursor cursor = source.cursor(new QuerySession());
 
             @Override
             protected PositionsBlock computeNext()
@@ -80,8 +82,9 @@ public class DataScan1
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new GenericCursor(TupleInfo.EMPTY, iterator());
+        Preconditions.checkNotNull(session, "session is null");
+        return new GenericCursor(session, TupleInfo.EMPTY, iterator(session));
     }
 }

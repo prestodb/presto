@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.block;
 
-public interface BlockIterable<T extends TupleStream> extends Iterable<T> {
-    @Override
-    BlockIterator<T> iterator();
+public interface BlockIterable<T extends TupleStream>
+{
+    BlockIterator<T> iterator(QuerySession session);
 }
