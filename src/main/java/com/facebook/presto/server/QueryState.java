@@ -141,10 +141,11 @@ public class QueryState
      * Add a block to the buffer.  The buffers space is limited, so the caller will be blocked until
      * space is available in the buffer.
      *
+     * @return true if the block was added; false if the query has already been canceled or failed
      * @throws InterruptedException if the thread is interrupted while waiting for buffer space to be freed
      * @throws IllegalStateException if the query is finished
      */
-    public void addBlock(UncompressedBlock block)
+    public boolean addBlock(UncompressedBlock block)
             throws InterruptedException
     {
         // acquire write permit
@@ -157,7 +158,7 @@ public class QueryState
                 // release an additional thread blocked in the code above
                 // all blocked threads will be release due to the chain reaction
                 notFull.release();
-                return;
+                return false;
             }
 
             // if all sources are finished throw an exception
@@ -170,6 +171,7 @@ public class QueryState
             blockBuffer.addLast(block);
             notEmpty.release();
         }
+        return true;
     }
 
     /**

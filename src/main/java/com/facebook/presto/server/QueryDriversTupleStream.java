@@ -29,7 +29,7 @@ public class QueryDriversTupleStream
         this(info, blockBufferMax, ImmutableList.copyOf(driverProviders));
     }
 
-    public QueryDriversTupleStream(TupleInfo info, int blockBufferMax, Iterable<QueryDriverProvider> driverProviders)
+    public QueryDriversTupleStream(TupleInfo info, int blockBufferMax, Iterable<? extends QueryDriverProvider> driverProviders)
     {
         Preconditions.checkNotNull(info, "info is null");
         Preconditions.checkArgument(blockBufferMax > 0, "blockBufferMax must be at least 1");
