@@ -3,10 +3,13 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.aggregation.SumAggregation;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockIterator;
+import com.facebook.presto.block.ColumnMappingTupleStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.TupleStream;
@@ -15,9 +18,10 @@ import com.facebook.presto.block.dictionary.DictionarySerde;
 import com.facebook.presto.block.rle.RunLengthEncodedSerde;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedSerde;
-import com.facebook.presto.operator.FinalHashAggregationOperator;
+import com.facebook.presto.operator.GenericCursor;
 import com.facebook.presto.operator.GroupByOperator;
 import com.facebook.presto.operator.HashAggregationOperator;
+import com.facebook.presto.operator.SplitIterator;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Function;
@@ -184,7 +188,11 @@ public class StaticQueryManager implements QueryManager
                             }
                         })
                 );
-                FinalHashAggregationOperator aggregation = new FinalHashAggregationOperator(tupleStream, SumAggregation.provider(1));
+                SplitIterator<UncompressedBlock> splitIterator = new SplitIterator<>(tupleStream.getTupleInfo(), 2, 10, tupleStream);
+
+                TupleStream groupBy = new ColumnMappingTupleStream(new OneTimeUseTupleStream(tupleStream.getTupleInfo(), splitIterator.getSplit(0)), 0);
+                TupleStream aggregateSource = new ColumnMappingTupleStream(new OneTimeUseTupleStream(tupleStream.getTupleInfo(), splitIterator.getSplit(1)), 1);
+                HashAggregationOperator aggregation = new HashAggregationOperator(groupBy, aggregateSource, SumAggregation.PROVIDER);
 
                 Cursor cursor = aggregation.cursor();
                 long position = 0;
@@ -210,6 +218,41 @@ public class StaticQueryManager implements QueryManager
                 queryState.queryFailed(e);
                 throw Throwables.propagate(e);
             }
+        }
+    }
+
+    private static class OneTimeUseTupleStream implements TupleStream
+    {
+        private final TupleInfo tupleInfo;
+        private BlockIterator<? extends TupleStream> blockIterator;
+
+        private OneTimeUseTupleStream(TupleInfo tupleInfo, BlockIterator<? extends TupleStream> blockIterator)
+        {
+            Preconditions.checkNotNull(tupleInfo, "tupleInfo is null");
+            Preconditions.checkNotNull(blockIterator, "blockIterator is null");
+            this.tupleInfo = tupleInfo;
+            this.blockIterator = blockIterator;
+        }
+
+        @Override
+        public TupleInfo getTupleInfo()
+        {
+            return tupleInfo;
+        }
+
+        @Override
+        public Range getRange()
+        {
+            return Range.ALL;
+        }
+
+        @Override
+        public Cursor cursor()
+        {
+            Preconditions.checkState(blockIterator != null, "Cursor has already been used");
+            GenericCursor cursor = new GenericCursor(tupleInfo, blockIterator);
+            blockIterator = null;
+            return cursor;
         }
     }
 

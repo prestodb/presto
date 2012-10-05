@@ -172,14 +172,17 @@ public class Main
                 TuplePrinter tuplePrinter = new DelimitedTuplePrinter();
 
                 int count = 0;
+                long grandTotal = 0;
                 Cursor cursor = tupleStream.cursor();
                 while (advanceNextPositionNoYield(cursor)) {
                     count++;
-                    tuplePrinter.print(cursor.getTuple());
+                    Tuple tuple = cursor.getTuple();
+                    grandTotal += tuple.getLong(1);
+                    tuplePrinter.print(tuple);
                 }
                 Duration duration = Duration.nanosSince(start);
 
-                System.out.printf("%d rows in %4.2f ms\n", count, duration.toMillis());
+                System.out.printf("%d rows in %4.2f ms %d grandTotal\n", count, duration.toMillis(), grandTotal);
             }
             finally {
                 executor.shutdownNow();
