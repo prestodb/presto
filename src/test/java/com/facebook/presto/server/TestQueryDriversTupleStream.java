@@ -12,11 +12,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.block.Blocks.createStringBlock;
 import static org.testng.Assert.assertEquals;
@@ -65,12 +68,8 @@ public class TestQueryDriversTupleStream
         ExecutorService executor = Executors.newCachedThreadPool();
         try {
 
-            QueryDriversTupleStream tupleStream = new QueryDriversTupleStream(TupleInfo.SINGLE_VARBINARY, 10,
-                    new StaticQueryDriverProvider(executor, blocks),
-                    new StaticQueryDriverProvider(executor, blocks),
-                    new StaticQueryDriverProvider(executor, blocks)
-            );
-
+            StaticQueryDriverProvider provider = new StaticQueryDriverProvider(executor, blocks);
+            QueryDriversTupleStream tupleStream = new QueryDriversTupleStream(TupleInfo.SINGLE_VARBINARY, 1, provider, provider, provider);
 
             int count = 0;
             QueryDriversBlockIterator iterator = tupleStream.iterator();
@@ -83,8 +82,21 @@ public class TestQueryDriversTupleStream
             // verify we have more data
             assertTrue(iterator.hasNext());
 
+            // verify all producers are not finished
+            IdentityHashMap<StaticQueryDriver, Integer> driverBlocksAdded = new IdentityHashMap<>();
+            for (StaticQueryDriver driver : provider.getCreatedDrivers()) {
+                assertFalse(driver.isDone());
+                driverBlocksAdded.put(driver, driver.getBlocksAdded());
+            }
+
             // cancel the iterator
             iterator.cancel();
+
+            // verify all producers are finished, and no additional blocks have been added
+            for (StaticQueryDriver driver : provider.getCreatedDrivers()) {
+                assertTrue(driver.isDone());
+                assertEquals(driver.getBlocksAdded(), (int) driverBlocksAdded.get(driver));
+            }
 
             // drain any blocks buffered in the iterator implementation
             while (iterator.hasNext()) {
@@ -112,6 +124,7 @@ public class TestQueryDriversTupleStream
     {
         private final ExecutorService executor;
         private final List<UncompressedBlock> blocks;
+        private final List<StaticQueryDriver> createdDrivers = new ArrayList<>();
 
         private StaticQueryDriverProvider(ExecutorService executor, List<UncompressedBlock> blocks)
         {
@@ -119,10 +132,17 @@ public class TestQueryDriversTupleStream
             this.blocks = blocks;
         }
 
+        public List<StaticQueryDriver> getCreatedDrivers()
+        {
+            return ImmutableList.copyOf(createdDrivers);
+        }
+
         @Override
         public QueryDriver create(QueryState queryState, TupleInfo info)
         {
-            return new StaticQueryDriver(executor, queryState, blocks);
+            StaticQueryDriver driver = new StaticQueryDriver(executor, queryState, blocks);
+            createdDrivers.add(driver);
+            return driver;
         }
     }
 
@@ -132,6 +152,7 @@ public class TestQueryDriversTupleStream
         private final QueryState queryState;
         private final List<UncompressedBlock> blocks;
         private Future<?> jobFuture;
+        private AddBlocksJob job;
 
         public StaticQueryDriver(ExecutorService executor, QueryState queryState, List<UncompressedBlock> blocks)
         {
@@ -140,21 +161,26 @@ public class TestQueryDriversTupleStream
             this.blocks = blocks;
         }
 
-        @Override
-        public void start()
+        public synchronized int getBlocksAdded()
         {
-            AddBlocksJob job = new AddBlocksJob(queryState, blocks);
+            return job.getBlocksAdded();
+        }
+
+        @Override
+        public synchronized void start()
+        {
+            job = new AddBlocksJob(queryState, blocks);
             jobFuture = executor.submit(job);
         }
 
         @Override
-        public boolean isDone()
+        public synchronized boolean isDone()
         {
             return jobFuture.isDone();
         }
 
         @Override
-        public void cancel()
+        public synchronized void cancel()
         {
             jobFuture.cancel(true);
         }
@@ -164,6 +190,7 @@ public class TestQueryDriversTupleStream
     {
         private final QueryState queryState;
         private final List<UncompressedBlock> blocks;
+        private final AtomicInteger blocksAdded = new AtomicInteger();
 
         private AddBlocksJob(QueryState queryState, List<UncompressedBlock> blocks)
         {
@@ -171,12 +198,19 @@ public class TestQueryDriversTupleStream
             this.blocks = ImmutableList.copyOf(blocks);
         }
 
+        public int getBlocksAdded()
+        {
+            return blocksAdded.get();
+        }
+
         @Override
         public void run()
         {
             for (UncompressedBlock block : blocks) {
                 try {
-                    queryState.addBlock(block);
+                    if (queryState.addBlock(block)) {
+                        blocksAdded.incrementAndGet();
+                    }
                 }
                 catch (InterruptedException e) {
                     queryState.queryFailed(e);
