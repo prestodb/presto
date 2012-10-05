@@ -5,6 +5,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -756,7 +757,7 @@ public class TestQueryState
 
     private static long getBlockOnlyValue(UncompressedBlock block)
     {
-        Cursor cursor = block.cursor();
+        Cursor cursor = block.cursor(new QuerySession());
         assertAdvanceNextPosition(cursor);
         long value = cursor.getLong(0);
         assertAdvanceNextPosition(cursor, FINISHED);

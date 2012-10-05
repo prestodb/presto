@@ -8,6 +8,7 @@ import com.facebook.presto.block.AbstractBlockIterator;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.block.BlockIterator;
 import com.facebook.presto.block.Cursor.AdvanceResult;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.google.common.collect.ImmutableList;
 
@@ -30,7 +31,7 @@ public class SplitIterator<T extends TupleStream>
     {
         this.tupleInfo = tupleInfo;
         this.maxBufferSize = maxBufferSize;
-        this.source = source.iterator();
+        this.source = source.iterator(new QuerySession());// todo this is not correct
 
         ImmutableList.Builder<ArrayDeque<T>> queueBuilder = ImmutableList.builder();
         ImmutableList.Builder<Split> splitBuilder = ImmutableList.builder();

@@ -8,6 +8,7 @@ import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.BlockIterator;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
@@ -20,22 +21,25 @@ import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
 
 public class GenericCursor implements Cursor
 {
-    private final BlockIterator<? extends TupleStream> iterator;
+    private final QuerySession session;
     private final TupleInfo info;
+    private final BlockIterator<? extends TupleStream> iterator;
 
     private Cursor blockCursor;
     private boolean hasAdvanced;
 
-    public GenericCursor(TupleInfo info, BlockIterator<? extends TupleStream> iterator)
+    public GenericCursor(QuerySession session, TupleInfo info, BlockIterator<? extends TupleStream> iterator)
     {
-        Preconditions.checkNotNull(iterator, "iterator is null");
+        Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkNotNull(info, "info is null");
+        Preconditions.checkNotNull(iterator, "iterator is null");
 
+        this.session = session;
         this.info = info;
         this.iterator = iterator;
 
         if (iterator.hasNext()) {
-            blockCursor = iterator.next().cursor();
+            blockCursor = iterator.next().cursor(session);
         }
     }
 
@@ -77,7 +81,7 @@ public class GenericCursor implements Cursor
         }
 
         while (iterator.canAdvance()) {
-            blockCursor = iterator.next().cursor();
+            blockCursor = iterator.next().cursor(session);
             result = blockCursor.advanceNextPosition();
             if (result != FINISHED) {
                 return result;
@@ -195,7 +199,7 @@ public class GenericCursor implements Cursor
 
         // skip to block containing requested position
         while (newPosition > blockCursor.getRange().getEnd() && iterator.canAdvance()) {
-            blockCursor = iterator.next().cursor();
+            blockCursor = iterator.next().cursor(session);
         }
 
         if (iterator.mustYield()) {

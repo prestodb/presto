@@ -23,7 +23,7 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestCursor
 {
-    private final SortedMap<Long,Tuple> expectedValues = CursorAssertions.toTuplesMap(createExpectedValues().cursor());
+    private final SortedMap<Long,Tuple> expectedValues = CursorAssertions.toTuplesMap(createExpectedValues().cursor(new QuerySession()));
 
     public final Tuple getExpectedValue(long position)
     {

@@ -6,6 +6,7 @@ import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.ForwardingCursor;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerde;
 import com.facebook.presto.block.TupleStreamWriter;
@@ -14,6 +15,7 @@ import com.facebook.presto.block.uncompressed.UncompressedTupleInfoSerde;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
+import com.google.common.base.Preconditions;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -125,9 +127,10 @@ public class DictionarySerde
                 }
 
                 @Override
-                public Cursor cursor()
+                public Cursor cursor(QuerySession session)
                 {
-                    return new ForwardingCursor(tupleStream.cursor())
+                    Preconditions.checkNotNull(session, "session is null");
+                    return new ForwardingCursor(tupleStream.cursor(session))
                     {
                         @Override
                         public TupleInfo getTupleInfo()

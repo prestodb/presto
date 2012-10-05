@@ -3,6 +3,7 @@ package com.facebook.presto.ingest;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.BlockIterators;
 import com.facebook.presto.block.Blocks;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.operator.GenericCursor;
 import com.google.common.base.Splitter;
@@ -37,12 +38,12 @@ public class TestDelimitedBlockExtractor
         TupleInfo tupleInfo = new TupleInfo(VARIABLE_BINARY, FIXED_INT_64);
         Iterator<UncompressedBlock> blocks = blockExtractor.extract(ImmutableList.<String>of("apple,fuu,123", "banana,bar,456").iterator());
         Blocks.assertCursorsEquals(
-                new GenericCursor(tupleInfo, BlockIterators.toBlockIterator(blocks)),
+                new GenericCursor(new QuerySession(), tupleInfo, BlockIterators.toBlockIterator(blocks)),
                 Blocks.tupleStreamBuilder(tupleInfo)
                         .append("apple").append(123L)
                         .append("banana").append(456L)
                         .build()
-                        .cursor()
+                        .cursor(new QuerySession())
 
         );
     }

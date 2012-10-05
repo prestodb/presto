@@ -11,6 +11,7 @@ import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.block.BlockIterator;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursor.AdvanceResult;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.dictionary.Dictionary;
 import com.facebook.presto.block.dictionary.DictionaryEncodedCursor;
@@ -69,16 +70,18 @@ public class DictionaryAggregationOperator
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new UncompressedCursor(getTupleInfo(), iterator());
+        Preconditions.checkNotNull(session, "session is null");
+        return new UncompressedCursor(getTupleInfo(), iterator(session));
     }
 
     @Override
-    public BlockIterator<UncompressedBlock> iterator()
+    public BlockIterator<UncompressedBlock> iterator(QuerySession session)
     {
-        final DictionaryEncodedCursor groupByCursor = groupBySource.cursor();
-        final Cursor aggregationCursor = aggregationSource.cursor();
+        Preconditions.checkNotNull(session, "session is null");
+        final DictionaryEncodedCursor groupByCursor = groupBySource.cursor(session);
+        final Cursor aggregationCursor = aggregationSource.cursor(session);
         aggregationCursor.advanceNextPosition();
 
         return new AbstractBlockIterator<UncompressedBlock>()

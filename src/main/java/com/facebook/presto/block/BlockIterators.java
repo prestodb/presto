@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.block;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
@@ -12,6 +13,19 @@ import java.util.NoSuchElementException;
 
 public final class BlockIterators
 {
+    public static <T extends TupleStream> Iterable<T> iterate(final QuerySession session, final BlockIterable<T> iterable)
+    {
+        Preconditions.checkNotNull(session, "session is null");
+        Preconditions.checkNotNull(iterable, "iterable is null");
+        return new Iterable<T>() {
+            @Override
+            public Iterator<T> iterator()
+            {
+                return iterable.iterator(session);
+            }
+        };
+    }
+
     public static <T extends TupleStream> BlockIterator<T> emptyIterator()
     {
         return new EmptyBlockIterator<>();
@@ -82,8 +96,9 @@ public final class BlockIterators
         }
 
         @Override
-        public BlockIterator<T> iterator()
+        public BlockIterator<T> iterator(QuerySession session)
         {
+            Preconditions.checkNotNull(session, "session is null");
             return toBlockIterator(source.iterator());
         }
     }

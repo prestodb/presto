@@ -8,6 +8,7 @@ import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.block.BlockIterator;
 import com.facebook.presto.block.BlockIterators;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.google.common.base.Preconditions;
@@ -44,16 +45,18 @@ public class AggregationOperator
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new GenericCursor(info, iterator());
+        Preconditions.checkNotNull(session, "session is null");
+        return new GenericCursor(session, info, iterator(session));
     }
 
-    public BlockIterator<UncompressedBlock> iterator()
+    public BlockIterator<UncompressedBlock> iterator(QuerySession session)
     {
+        Preconditions.checkNotNull(session, "session is null");
         AggregationFunction function = functionProvider.get();
 
-        Cursor cursor = source.cursor();
+        Cursor cursor = source.cursor(session);
         cursor.advanceNextPosition();
         function.add(cursor, Long.MAX_VALUE);
 

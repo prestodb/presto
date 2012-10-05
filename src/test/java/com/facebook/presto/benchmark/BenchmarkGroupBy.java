@@ -2,6 +2,7 @@ package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerde;
 import com.facebook.presto.block.dictionary.DictionarySerde;
@@ -60,7 +61,7 @@ public class BenchmarkGroupBy
     public static Result doIt(TupleStream source)
     {
         long start = System.nanoTime();
-        Cursor cursor = source.cursor();
+        Cursor cursor = source.cursor(new QuerySession());
 
         int count = 0;
         long sum = 0;

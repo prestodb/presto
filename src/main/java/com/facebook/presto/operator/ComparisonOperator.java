@@ -10,6 +10,7 @@ import com.facebook.presto.block.BlockIterators;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursor.AdvanceResult;
 import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.position.UncompressedPositionBlock;
 import com.facebook.presto.operation.ComparisonOperation;
@@ -54,16 +55,18 @@ public class ComparisonOperator
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new GenericCursor(TupleInfo.EMPTY, iterator());
+        Preconditions.checkNotNull(session, "session is null");
+        return new GenericCursor(session, TupleInfo.EMPTY, iterator(session));
     }
 
     @Override
-    public BlockIterator<UncompressedPositionBlock> iterator()
+    public BlockIterator<UncompressedPositionBlock> iterator(QuerySession session)
     {
-        final Cursor left = leftSource.cursor();
-        final Cursor right = rightSource.cursor();
+        Preconditions.checkNotNull(session, "session is null");
+        final Cursor left = leftSource.cursor(session);
+        final Cursor right = rightSource.cursor(session);
 
         boolean advancedLeft = Cursors.advanceNextPositionNoYield(left);
         boolean advancedRight = Cursors.advanceNextPositionNoYield(right);

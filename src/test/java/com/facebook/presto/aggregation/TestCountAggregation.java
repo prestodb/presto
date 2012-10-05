@@ -3,6 +3,7 @@ package com.facebook.presto.aggregation;
 import com.facebook.presto.Range;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -62,7 +63,7 @@ public class TestCountAggregation
 
     private void assertCount(TupleStream values, Iterable<Range> ranges, int expected)
     {
-        Cursor cursor = values.cursor();
+        Cursor cursor = values.cursor(new QuerySession());
         assertAdvanceNextPosition(cursor);
 
         CountAggregation count = new CountAggregation();

@@ -7,6 +7,7 @@ import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.GenericTupleStream;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
@@ -19,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.block.BlockIterators.iterate;
 import static com.facebook.presto.block.Blocks.createBlock;
 import static com.google.common.base.Charsets.UTF_8;
 
@@ -37,7 +39,7 @@ public class TestGroupByOperator
         );
 
         Map<String, Range> actual = new HashMap<>();
-        for (RunLengthEncodedBlock block : groupBy) {
+        for (RunLengthEncodedBlock block : iterate(new QuerySession(), groupBy)) {
             Tuple tuple = block.getValue();
             String key = tuple.getSlice(0).toString(UTF_8);
             Range range = block.getRange();
@@ -62,7 +64,7 @@ public class TestGroupByOperator
         );
 
         Map<String, Range> actual = new HashMap<>();
-        for (RunLengthEncodedBlock block : groupBy) {
+        for (RunLengthEncodedBlock block : iterate(new QuerySession(), groupBy)) {
             Tuple tuple = block.getValue();
             String key = tuple.getSlice(0).toString(UTF_8);
             Range range = block.getRange();

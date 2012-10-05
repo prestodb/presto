@@ -10,6 +10,7 @@ import com.facebook.presto.block.BlockIterator;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.GenericTupleStream;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.operation.DoubleLessThanComparison;
@@ -26,6 +27,7 @@ import com.facebook.presto.tpch.TpchSchema;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -299,7 +301,7 @@ public class TestQueries
 
     private static List<Tuple> tuples(TupleStream tupleStream)
     {
-        Cursor cursor = tupleStream.cursor();
+        Cursor cursor = tupleStream.cursor(new QuerySession());
         List<Tuple> list = new ArrayList<>();
         while (Cursors.advanceNextPositionNoYield(cursor)) {
             list.add(cursor.getTuple());
@@ -325,8 +327,9 @@ public class TestQueries
         return new GenericTupleStream<>(new TupleInfo(type), new BlockIterable<UncompressedBlock>()
         {
             @Override
-            public BlockIterator<UncompressedBlock> iterator()
+            public BlockIterator<UncompressedBlock> iterator(QuerySession session)
             {
+                Preconditions.checkNotNull(session, "session is null");
                 return new RowStringUncompressedBlockIterator(type, column.getIndex(), data.iterator());
             }
         });

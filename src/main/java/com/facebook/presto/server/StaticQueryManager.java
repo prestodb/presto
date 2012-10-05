@@ -12,6 +12,7 @@ import com.facebook.presto.block.BlockIterator;
 import com.facebook.presto.block.ColumnMappingTupleStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerde;
 import com.facebook.presto.block.dictionary.DictionarySerde;
@@ -194,7 +195,7 @@ public class StaticQueryManager implements QueryManager
                 TupleStream aggregateSource = new ColumnMappingTupleStream(new OneTimeUseTupleStream(tupleStream.getTupleInfo(), splitIterator.getSplit(1)), 1);
                 HashAggregationOperator aggregation = new HashAggregationOperator(groupBy, aggregateSource, SumAggregation.PROVIDER);
 
-                Cursor cursor = aggregation.cursor();
+                Cursor cursor = aggregation.cursor(new QuerySession());
                 long position = 0;
                 while (Cursors.advanceNextPositionNoYield(cursor)) {
                     // build a block
@@ -247,10 +248,11 @@ public class StaticQueryManager implements QueryManager
         }
 
         @Override
-        public Cursor cursor()
+        public Cursor cursor(QuerySession session)
         {
+            Preconditions.checkNotNull(session, "session is null");
             Preconditions.checkState(blockIterator != null, "Cursor has already been used");
-            GenericCursor cursor = new GenericCursor(tupleInfo, blockIterator);
+            GenericCursor cursor = new GenericCursor(session, tupleInfo, blockIterator);
             blockIterator = null;
             return cursor;
         }
@@ -290,7 +292,7 @@ public class StaticQueryManager implements QueryManager
                 GroupByOperator groupBy = new GroupByOperator(groupBySource);
                 HashAggregationOperator aggregation = new HashAggregationOperator(groupBy, aggregateSource, SumAggregation.PROVIDER);
 
-                Cursor cursor = aggregation.cursor();
+                Cursor cursor = aggregation.cursor(new QuerySession());
                 long position = 0;
                 while (Cursors.advanceNextPositionNoYield(cursor)) {
                     // build a block

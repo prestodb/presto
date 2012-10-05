@@ -10,9 +10,11 @@ import com.facebook.presto.block.BlockIterators;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursor.AdvanceResult;
 import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedCursor;
+import com.google.common.base.Preconditions;
 
 import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
 import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
@@ -43,15 +45,17 @@ public class GroupByOperator
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new RunLengthEncodedCursor(getTupleInfo(), iterator());
+        Preconditions.checkNotNull(session, "session is null");
+        return new RunLengthEncodedCursor(getTupleInfo(), iterator(session));
     }
 
     @Override
-    public BlockIterator<RunLengthEncodedBlock> iterator()
+    public BlockIterator<RunLengthEncodedBlock> iterator(QuerySession session)
     {
-        final Cursor cursor = source.cursor();
+        Preconditions.checkNotNull(session, "session is null");
+        final Cursor cursor = source.cursor(session);
         if (!Cursors.advanceNextPositionNoYield(cursor)) {
             return BlockIterators.emptyIterator();
         }

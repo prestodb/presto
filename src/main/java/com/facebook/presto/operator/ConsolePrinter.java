@@ -5,6 +5,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Tuple;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
@@ -39,7 +40,7 @@ public class ConsolePrinter
         }
 
         TupleStream block = input.next();
-        Cursor blockCursor = block.cursor();
+        Cursor blockCursor = block.cursor(new QuerySession());
         while (advanceNextPositionNoYield(blockCursor)) {
             printer.print(blockCursor.getTuple());
         }

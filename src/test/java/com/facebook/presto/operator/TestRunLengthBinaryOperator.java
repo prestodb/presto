@@ -5,6 +5,7 @@ import com.facebook.presto.TupleInfo;
 import com.facebook.presto.Tuples;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.GenericTupleStream;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedTupleStream;
@@ -31,7 +32,7 @@ public class TestRunLengthBinaryOperator
 
         RunLengthBinaryOperator operator = new RunLengthBinaryOperator(left, right, new SubtractionOperation());
 
-        Cursor cursor = operator.cursor();
+        Cursor cursor = operator.cursor(new QuerySession());
 
         assertNextValue(cursor, 0, 2);
         assertEquals(cursor.getCurrentValueEndPosition(), 4);
@@ -49,7 +50,7 @@ public class TestRunLengthBinaryOperator
 
         RunLengthBinaryOperator operator = new RunLengthBinaryOperator(left, right, new SubtractionOperation());
 
-        Cursor cursor = operator.cursor();
+        Cursor cursor = operator.cursor(new QuerySession());
 
         assertNextValue(cursor, 0, 1);
         assertEquals(cursor.getCurrentValueEndPosition(), 0);
@@ -85,7 +86,7 @@ public class TestRunLengthBinaryOperator
 
         RunLengthBinaryOperator operator = new RunLengthBinaryOperator(left, right, new SubtractionOperation());
 
-        Cursor cursor = operator.cursor();
+        Cursor cursor = operator.cursor(new QuerySession());
 
         assertNextValue(cursor, 0, 3);
         assertEquals(cursor.getCurrentValueEndPosition(), 4);
@@ -113,7 +114,7 @@ public class TestRunLengthBinaryOperator
 
         RunLengthBinaryOperator operator = new RunLengthBinaryOperator(left, right, new SubtractionOperation());
 
-        Cursor cursor = operator.cursor();
+        Cursor cursor = operator.cursor(new QuerySession());
 
         assertNextValue(cursor, 0, 3);
         assertEquals(cursor.getCurrentValueEndPosition(), 4);
@@ -139,7 +140,7 @@ public class TestRunLengthBinaryOperator
 
         RunLengthBinaryOperator operator = new RunLengthBinaryOperator(left, right, new SubtractionOperation());
 
-        Cursor cursor = operator.cursor();
+        Cursor cursor = operator.cursor(new QuerySession());
 
         assertNextValue(cursor, 0, 0);
         assertNextValue(cursor, 1, 2);
@@ -170,7 +171,7 @@ public class TestRunLengthBinaryOperator
 
         RunLengthBinaryOperator operator = new RunLengthBinaryOperator(left, right, new SubtractionOperation());
 
-        Cursor cursor = operator.cursor();
+        Cursor cursor = operator.cursor(new QuerySession());
 
         assertNextValue(cursor, 0, 0);
         assertNextValue(cursor, 1, 2);
@@ -196,7 +197,7 @@ public class TestRunLengthBinaryOperator
 
         RunLengthBinaryOperator operator = new RunLengthBinaryOperator(left, right, new SubtractionOperation());
 
-        Cursor cursor = operator.cursor();
+        Cursor cursor = operator.cursor(new QuerySession());
         assertAdvanceNextPosition(cursor);
     }
 

@@ -12,6 +12,7 @@ import com.facebook.presto.block.BlockIterators;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursor.AdvanceResult;
 import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.position.UncompressedPositionBlock;
 import com.google.common.base.Preconditions;
@@ -58,15 +59,17 @@ public class OrOperator
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new GenericCursor(TupleInfo.EMPTY, iterator());
+        Preconditions.checkNotNull(session, "session is null");
+        return new GenericCursor(session, TupleInfo.EMPTY, iterator(session));
     }
 
     @Override
-    public BlockIterator<UncompressedPositionBlock> iterator()
+    public BlockIterator<UncompressedPositionBlock> iterator(QuerySession session)
     {
-        List<Cursor> cursors = ImmutableList.copyOf(Iterables.transform(sources, getCursorFunction()));
+        Preconditions.checkNotNull(session, "session is null");
+        List<Cursor> cursors = ImmutableList.copyOf(Iterables.transform(sources, getCursorFunction(session)));
         Cursors.advanceNextPositionNoYield(cursors);
 
         cursors = ImmutableList.copyOf(Iterables.filter(cursors, not(Cursors.isFinished())));

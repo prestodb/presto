@@ -2,6 +2,7 @@ package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.slice.Slice;
@@ -57,7 +58,7 @@ public class SampleTcphBenchmark
 
         TupleStream tupleStream = TupleStreamSerdes.createTupleStreamSerde(TupleStreamSerdes.Encoding.RAW)
                 .deserialize(totalPriceSlice);
-        Cursor cursor = tupleStream.cursor();
+        Cursor cursor = tupleStream.cursor(new QuerySession());
         long count = 0;
         double sum = 0;
         while (Cursors.advanceNextValueNoYield(cursor)) {

@@ -33,6 +33,6 @@ public class TestGenericCursor
     @Override
     protected Cursor createCursor()
     {
-        return new GenericCursor(TupleInfo.SINGLE_VARBINARY, BlockIterators.toBlockIterator(createBlocks().iterator()));
+        return new GenericCursor(new QuerySession(), TupleInfo.SINGLE_VARBINARY, BlockIterators.toBlockIterator(createBlocks().iterator()));
     }
 }

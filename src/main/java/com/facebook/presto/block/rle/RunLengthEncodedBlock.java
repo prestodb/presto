@@ -4,6 +4,7 @@ import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Objects;
@@ -63,8 +64,9 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
+        Preconditions.checkNotNull(session, "session is null");
         return new RunLengthEncodedBlockCursor(value, range);
     }
 

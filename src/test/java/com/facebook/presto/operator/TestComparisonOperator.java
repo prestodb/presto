@@ -3,6 +3,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.GenericTupleStream;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.operation.LongLessThanComparison;
 import com.google.common.collect.ImmutableList;
@@ -31,7 +32,7 @@ public class TestComparisonOperator
 
         ComparisonOperator operator = new ComparisonOperator(left, right, new LongLessThanComparison());
 
-        Cursor cursor = operator.cursor();
+        Cursor cursor = operator.cursor(new QuerySession());
 
         assertNextPosition(cursor, 3);
         assertNextPosition(cursor, 6);
@@ -55,7 +56,7 @@ public class TestComparisonOperator
 
         ComparisonOperator operator = new ComparisonOperator(left, right, new LongLessThanComparison());
 
-        Cursor cursor = operator.cursor();
+        Cursor cursor = operator.cursor(new QuerySession());
 
         assertNextPosition(cursor, 1);
         assertNextPosition(cursor, 3);

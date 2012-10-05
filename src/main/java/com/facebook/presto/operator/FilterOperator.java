@@ -8,7 +8,9 @@ import com.facebook.presto.block.BlockIterator;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.MaskedBlock;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Iterator;
@@ -18,10 +20,10 @@ public class FilterOperator
         implements TupleStream, BlockIterable<MaskedBlock>
 {
     private final TupleInfo tupleInfo;
-    private final Iterable<? extends TupleStream> source;
+    private final BlockIterable<? extends TupleStream> source;
     private final TupleStream positions;
 
-    public FilterOperator(TupleInfo tupleInfo, Iterable<? extends TupleStream> source, TupleStream positions)
+    public FilterOperator(TupleInfo tupleInfo, BlockIterable<? extends TupleStream> source, TupleStream positions)
     {
         this.tupleInfo = tupleInfo;
         this.source = source;
@@ -40,12 +42,13 @@ public class FilterOperator
         return tupleInfo;
     }
 
-    public BlockIterator<MaskedBlock> iterator()
+    public BlockIterator<MaskedBlock> iterator(final QuerySession session)
     {
+        Preconditions.checkNotNull(session, "session is null");
         return new AbstractBlockIterator<MaskedBlock>()
         {
-            Iterator<? extends TupleStream> valueBlocks = source.iterator();
-            Cursor positionsCursor = positions.cursor();
+            Iterator<? extends TupleStream> valueBlocks = source.iterator(session);
+            Cursor positionsCursor = positions.cursor(session);
             {
                 Cursors.advanceNextPositionNoYield(positionsCursor);
             }
@@ -88,7 +91,7 @@ public class FilterOperator
             {
                 ImmutableList.Builder<Long> validPositions = ImmutableList.builder();
 
-                Cursor valueCursor = currentValueBlock.cursor();
+                Cursor valueCursor = currentValueBlock.cursor(session);
                 valueCursor.advanceNextPosition();
 
                 for (Long nextPosition : positionsForCurrentBlock) {
@@ -108,8 +111,9 @@ public class FilterOperator
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new GenericCursor(getTupleInfo(), iterator());
+        Preconditions.checkNotNull(session, "session is null");
+        return new GenericCursor(session, getTupleInfo(), iterator(session));
     }
 }

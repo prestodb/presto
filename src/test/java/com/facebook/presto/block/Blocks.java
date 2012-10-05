@@ -21,7 +21,7 @@ public class Blocks
     public static void assertTupleStreamEquals(TupleStream actual, TupleStream expected)
     {
         Assert.assertEquals(actual.getTupleInfo(), expected.getTupleInfo());
-        assertCursorsEquals(actual.cursor(), expected.cursor());
+        assertCursorsEquals(actual.cursor(new QuerySession()), expected.cursor(new QuerySession()));
     }
     
     public static void assertCursorsEquals(Cursor actualCursor, Cursor expectedCursor)
@@ -46,7 +46,7 @@ public class Blocks
     public static List<Tuple> toTuplesList(TupleStream tupleStream)
     {
         ImmutableList.Builder<Tuple> tuples = ImmutableList.builder();
-        Cursor actualCursor = tupleStream.cursor();
+        Cursor actualCursor = tupleStream.cursor(new QuerySession());
         while(Cursors.advanceNextPositionNoYield(actualCursor)) {
             tuples.add(actualCursor.getTuple());
         }
