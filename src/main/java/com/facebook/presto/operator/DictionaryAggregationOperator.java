@@ -105,6 +105,7 @@ public class DictionaryAggregationOperator
                                     return setMustYield();
                                 }
                                 else if (result == AdvanceResult.FINISHED) {
+                                    // todo replace with cursor.close()
                                     if (aggregationCursor.advanceToPosition(Long.MAX_VALUE) == MUST_YIELD) {
                                         return setMustYield();
                                     }
@@ -121,6 +122,7 @@ public class DictionaryAggregationOperator
                                 return setMustYield();
                             }
                             else if (result == AdvanceResult.FINISHED) {
+                                // todo replace with cursor.close()
                                 if (groupByCursor.advanceToPosition(Long.MAX_VALUE) == MUST_YIELD) {
                                     return setMustYield();
                                 }

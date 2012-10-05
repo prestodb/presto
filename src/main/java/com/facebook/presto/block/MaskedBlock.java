@@ -110,6 +110,7 @@ public class MaskedBlock implements TupleStream
                 }
                 if (result == FINISHED) {
                     // move to end of value cursor
+                    // todo replace with cursor.close()
                     valueCursor.advanceToPosition(Long.MAX_VALUE);
                     return FINISHED;
                 }
@@ -126,6 +127,7 @@ public class MaskedBlock implements TupleStream
                     }
                     if (result == FINISHED) {
                         // move to end of value cursor
+                        // todo replace with cursor.close()
                         valueCursor.advanceToPosition(Long.MAX_VALUE);
                         return FINISHED;
                     }
@@ -156,6 +158,7 @@ public class MaskedBlock implements TupleStream
             }
             if (result == FINISHED) {
                 // move to end of value cursor
+                // todo replace with cursor.close()
                 valueCursor.advanceToPosition(Long.MAX_VALUE);
                 return FINISHED;
             }
@@ -181,6 +184,7 @@ public class MaskedBlock implements TupleStream
             }
             if (result == FINISHED) {
                 // move to end of value cursor
+                // todo replace with cursor.close()
                 valueCursor.advanceToPosition(Long.MAX_VALUE);
                 return FINISHED;
             }
