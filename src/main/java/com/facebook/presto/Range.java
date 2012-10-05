@@ -1,9 +1,11 @@
 package com.facebook.presto;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractSequentialIterator;
 
 import java.util.Iterator;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Range
     implements Iterable<Long>
@@ -17,7 +19,7 @@ public class Range
     {
         // todo add this check after PackedLongSerde is updated to not use negative ranges
         // Preconditions.checkArgument(start >= 0, "start (%s) must be positive", start);
-        Preconditions.checkArgument(start <= end, "start (%s) must be <= end (%s)", start, end);
+        checkArgument(start <= end, "start (%s) must be <= end (%s)", start, end);
 
         this.start = start;
         this.end = end;
@@ -53,20 +55,29 @@ public class Range
 
     public boolean overlaps(Range other)
     {
+        checkNotNull(other, "other is null");
         return start <= other.end && other.start <= end;
     }
 
     public Range intersect(Range other)
     {
-        Preconditions.checkArgument(overlaps(other), "Ranges do not overlap %s vs %s", this, other);
+        checkNotNull(other, "other is null");
+        checkArgument(overlaps(other), "Ranges do not overlap %s vs %s", this, other);
 
         return create(Math.max(start, other.start), Math.min(end, other.end));
     }
 
     public Range merge(Range other)
     {
-        Preconditions.checkArgument(overlaps(other), "Ranges do not overlap %s vs %s", this, other);
+        checkNotNull(other, "other is null");
+        checkArgument(overlaps(other), "Ranges do not overlap %s vs %s", this, other);
 
+        return outerBound(other);
+    }
+
+    public Range outerBound(Range other)
+    {
+        checkNotNull(other, "other is null");
         return create(Math.min(start, other.start), Math.max(end, other.end));
     }
 
