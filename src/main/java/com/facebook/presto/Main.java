@@ -6,7 +6,7 @@ package com.facebook.presto;
 import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.QuerySession;
-import com.facebook.presto.block.TupleStreamSerdes;
+import com.facebook.presto.block.TupleStreamSerde;
 import com.facebook.presto.ingest.BlockDataImporter;
 import com.facebook.presto.ingest.BlockExtractor;
 import com.facebook.presto.ingest.DelimitedBlockExtractor;
@@ -25,12 +25,8 @@ import com.google.common.io.NullOutputStream;
 import com.google.common.io.OutputSupplier;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
-import io.airlift.command.Arguments;
-import io.airlift.command.Cli;
+import io.airlift.command.*;
 import io.airlift.command.Cli.CliBuilder;
-import io.airlift.command.Command;
-import io.airlift.command.Help;
-import io.airlift.command.Option;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.event.client.HttpEventModule;
@@ -51,11 +47,7 @@ import io.airlift.tracetoken.TraceTokenModule;
 import io.airlift.units.Duration;
 import org.weakref.jmx.guice.MBeanModule;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintStream;
+import java.io.*;
 import java.net.URI;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -230,7 +222,7 @@ public class Main
             ImmutableList.Builder<ColumnImportSpec> columnImportSpecBuilder = ImmutableList.builder();
             for (String extractionSpec : extractionSpecs) {
                 // Extract column index, base type, and encodingName
-                // Examples: '0:long:raw', '3:string:rle', '4:double:dic/rle'
+                // Examples: '0:long:raw', '3:string:rle', '4:double:dicrle'
                 List<String> parts = ImmutableList.copyOf(Splitter.on(':').split(extractionSpec));
                 checkState(parts.size() == 3, "type format: <column_index>:<data_type>:<encoding> (e.g. 0:long:raw, 3:string:rle)");
                 Integer columnIndex;
@@ -245,9 +237,8 @@ public class Main
                 columnDefinitionBuilder.add(new ColumnDefinition(columnIndex, TupleInfo.Type.fromName(dataTypeName)));
                 columnImportSpecBuilder.add(
                         new ColumnImportSpec(
-                                TupleStreamSerdes.createTupleStreamSerde(TupleStreamSerdes.Encoding.fromName(encodingName)),
-                                // HACK: replace('/', '-') to deal with illegal file name characters
-                                newOutputStreamSupplier(new File(outputDir, String.format("column%d.%s_%s.data", columnIndex, dataTypeName, encodingName.replace('/', '-'))))
+                                TupleStreamSerde.Encoding.fromName(encodingName).createSerde().createSerializer(),
+                                newOutputStreamSupplier(new File(outputDir, String.format("column%d.%s_%s.data", columnIndex, dataTypeName, encodingName)))
                         )
                 );
             }

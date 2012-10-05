@@ -3,11 +3,7 @@ package com.facebook.presto.block.rle;
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.QuerySession;
-import com.facebook.presto.block.TupleStream;
-import com.facebook.presto.block.TupleStreamSerde;
-import com.facebook.presto.block.TupleStreamWriter;
+import com.facebook.presto.block.*;
 import com.facebook.presto.block.uncompressed.UncompressedTupleInfoSerde;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
@@ -17,40 +13,50 @@ import com.google.common.collect.AbstractIterator;
 import java.util.Iterator;
 
 import static com.facebook.presto.block.Cursors.advanceNextValueNoYield;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.*;
 
 public class RunLengthEncodedSerde
         implements TupleStreamSerde
 {
     @Override
-    public TupleStreamWriter createTupleStreamWriter(SliceOutput sliceOutput)
+    public TupleStreamSerializer createSerializer()
     {
-        checkNotNull(sliceOutput, "sliceOutput is null");
-        return new RunLengthEncodedTupleStreamWriter(sliceOutput);
+        return new TupleStreamSerializer() {
+            @Override
+            public TupleStreamWriter createTupleStreamWriter(SliceOutput sliceOutput)
+            {
+                checkNotNull(sliceOutput, "sliceOutput is null");
+                return new RunLengthEncodedTupleStreamWriter(sliceOutput);
+            }
+        };
     }
 
     @Override
-    public TupleStream deserialize(Slice slice)
+    public TupleStreamDeserializer createDeserializer()
     {
-        checkNotNull(slice, "slice is null");
+        return new TupleStreamDeserializer() {
+            @Override
+            public TupleStream deserialize(Slice slice)
+            {
+                checkNotNull(slice, "slice is null");
 
-        SliceInput input = slice.input();
-        final TupleInfo tupleInfo = UncompressedTupleInfoSerde.deserialize(input);
-        final Slice dataSlice = input.slice();
+                SliceInput input = slice.input();
+                final TupleInfo tupleInfo = UncompressedTupleInfoSerde.deserialize(input);
+                final Slice dataSlice = input.slice();
 
-        return new RunLengthEncodedTupleStream(
-                tupleInfo,
-                new Iterable<RunLengthEncodedBlock>()
-                {
-                    @Override
-                    public Iterator<RunLengthEncodedBlock> iterator()
-                    {
-                        return new RunLengthEncodedIterator(tupleInfo, dataSlice.input());
-                    }
-                }
-        );
+                return new RunLengthEncodedTupleStream(
+                        tupleInfo,
+                        new Iterable<RunLengthEncodedBlock>()
+                        {
+                            @Override
+                            public Iterator<RunLengthEncodedBlock> iterator()
+                            {
+                                return new RunLengthEncodedIterator(tupleInfo, dataSlice.input());
+                            }
+                        }
+                );
+            }
+        };
     }
 
     private static class RunLengthEncodedIterator

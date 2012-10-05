@@ -76,7 +76,10 @@ public final class SliceInput extends InputStream implements DataInput
     @Override
     public int read()
     {
-        return readByte();
+        if (position >= slice.length()) {
+            return -1;
+        }
+        return slice.getByte(position++) & 0xFF;
     }
 
     /**
@@ -87,10 +90,11 @@ public final class SliceInput extends InputStream implements DataInput
      */
     public byte readByte()
     {
-        if (position == slice.length()) {
+        int value = read();
+        if (value == -1) {
             throw new IndexOutOfBoundsException();
         }
-        return slice.getByte(position++);
+        return (byte) value;
     }
 
     /**

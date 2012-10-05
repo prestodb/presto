@@ -5,18 +5,8 @@ package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.GenericTupleStream;
-import com.facebook.presto.block.QuerySession;
-import com.facebook.presto.block.TupleStream;
-import com.facebook.presto.block.TupleStreamSerde;
-import com.facebook.presto.block.TupleStreamWriter;
-import com.facebook.presto.slice.ByteArraySlice;
-import com.facebook.presto.slice.DynamicSliceOutput;
-import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.SliceInput;
-import com.facebook.presto.slice.SliceOutput;
-import com.facebook.presto.slice.Slices;
+import com.facebook.presto.block.*;
+import com.facebook.presto.slice.*;
 import com.google.common.collect.AbstractIterator;
 import io.airlift.units.DataSize;
 
@@ -38,15 +28,27 @@ public class UncompressedSerde
     public static final UncompressedSerde INSTANCE = new UncompressedSerde();
 
     @Override
-    public TupleStreamWriter createTupleStreamWriter(SliceOutput sliceOutput)
+    public TupleStreamSerializer createSerializer()
     {
-        return new UncompressedTupleStreamWriter(sliceOutput);
+        return new TupleStreamSerializer() {
+            @Override
+            public TupleStreamWriter createTupleStreamWriter(SliceOutput sliceOutput)
+            {
+                return new UncompressedTupleStreamWriter(sliceOutput);
+            }
+        };
     }
 
     @Override
-    public TupleStream deserialize(Slice slice)
+    public TupleStreamDeserializer createDeserializer()
     {
-        return readAsStream(slice);
+        return new TupleStreamDeserializer() {
+            @Override
+            public TupleStream deserialize(Slice slice)
+            {
+                return readAsStream(slice);
+            }
+        };
     }
 
     private static void write(SliceOutput destination, long startPosition, int tupleCount, Slice slice)
@@ -64,7 +66,7 @@ public class UncompressedSerde
             throws IOException
     {
         Slice mappedSlice = Slices.mapFileReadOnly(file);
-        return INSTANCE.deserialize(mappedSlice);
+        return INSTANCE.createDeserializer().deserialize(mappedSlice);
     }
 
     public static Iterator<UncompressedBlock> read(Slice slice)

@@ -4,55 +4,69 @@ import com.facebook.presto.Range;
 import com.facebook.presto.SizeOf;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.ForwardingCursor;
-import com.facebook.presto.block.QuerySession;
-import com.facebook.presto.block.TupleStream;
-import com.facebook.presto.block.TupleStreamSerde;
-import com.facebook.presto.block.TupleStreamWriter;
+import com.facebook.presto.block.*;
 import com.facebook.presto.block.dictionary.Dictionary.DictionaryBuilder;
 import com.facebook.presto.block.uncompressed.UncompressedTupleInfoSerde;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
 import com.google.common.base.Preconditions;
+import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonProperty;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.*;
 
 public class DictionarySerde
         implements TupleStreamSerde
 {
     private final TupleStreamSerde idSerde;
 
-    public DictionarySerde(TupleStreamSerde idSerde)
+    @JsonCreator
+    public DictionarySerde(@JsonProperty("idSerde") TupleStreamSerde idSerde)
     {
         this.idSerde = checkNotNull(idSerde, "idSerde is null");
     }
 
-    @Override
-    public TupleStreamWriter createTupleStreamWriter(SliceOutput sliceOutput)
+    @JsonProperty
+    public TupleStreamSerde getIdSerde()
     {
-        checkNotNull(sliceOutput, "sliceOutput is null");
-        return new DictionaryTupleStreamWriter(idSerde.createTupleStreamWriter(sliceOutput), sliceOutput);
+        return idSerde;
     }
 
     @Override
-    public DictionaryEncodedTupleStream deserialize(Slice slice)
+    public TupleStreamSerializer createSerializer()
     {
-        checkNotNull(slice, "slice is null");
+        return new TupleStreamSerializer() {
+            @Override
+            public TupleStreamWriter createTupleStreamWriter(SliceOutput sliceOutput)
+            {
+                checkNotNull(sliceOutput, "sliceOutput is null");
+                return new DictionaryTupleStreamWriter(idSerde.createSerializer().createTupleStreamWriter(sliceOutput), sliceOutput);
+            }
+        };
+    }
 
-        // Get dictionary byte length from tail and reset to beginning
-        int dictionaryLength = slice.slice(slice.length() - SizeOf.SIZE_OF_INT, SizeOf.SIZE_OF_INT).input().readInt();
+    @Override
+    public TupleStreamDeserializer createDeserializer()
+    {
+        return new TupleStreamDeserializer() {
+            @Override
+            public TupleStream deserialize(Slice slice)
+            {
+                checkNotNull(slice, "slice is null");
 
-        // Slice out dictionary data and extract it
-        Slice dictionarySlice = slice.slice(slice.length() - dictionaryLength - SizeOf.SIZE_OF_INT, dictionaryLength);
-        Dictionary dictionary = deserializeDictionary(dictionarySlice);
+                // Get dictionary byte length from tail and reset to beginning
+                int dictionaryLength = slice.slice(slice.length() - SizeOf.SIZE_OF_INT, SizeOf.SIZE_OF_INT).input().readInt();
 
-        Slice payloadSlice = slice.slice(0, slice.length() - dictionaryLength - SizeOf.SIZE_OF_INT);
+                // Slice out dictionary data and extract it
+                Slice dictionarySlice = slice.slice(slice.length() - dictionaryLength - SizeOf.SIZE_OF_INT, dictionaryLength);
+                Dictionary dictionary = deserializeDictionary(dictionarySlice);
 
-        return new DictionaryEncodedTupleStream(dictionary, idSerde.deserialize(payloadSlice));
+                Slice payloadSlice = slice.slice(0, slice.length() - dictionaryLength - SizeOf.SIZE_OF_INT);
+
+                return new DictionaryEncodedTupleStream(dictionary, idSerde.createDeserializer().deserialize(payloadSlice));
+            }
+        };
     }
 
     private static int serializeDictionary(SliceOutput sliceOutput, Dictionary dictionary)

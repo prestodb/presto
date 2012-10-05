@@ -1,6 +1,6 @@
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.block.TupleStreamSerdes;
+import com.facebook.presto.block.TupleStreamSerde;
 import com.facebook.presto.ingest.BlockDataImporter;
 import com.facebook.presto.ingest.BlockExtractor;
 import com.facebook.presto.ingest.DelimitedBlockExtractor;
@@ -110,7 +110,7 @@ public class TpchDataProvider
     }
 
     // TODO: make this work for columns with more than one file
-    public File getColumnFile(final TpchSchema.Column column, TupleStreamSerdes.Encoding encoding) throws IOException
+    public File getColumnFile(final TpchSchema.Column column, TupleStreamSerde.Encoding encoding) throws IOException
     {
         checkNotNull(column, "column is null");
         checkNotNull(encoding, "encoding is null");
@@ -132,7 +132,7 @@ public class TpchDataProvider
                 blockExtractor,
                 ImmutableList.of(
                         new BlockDataImporter.ColumnImportSpec(
-                                TupleStreamSerdes.createTupleStreamSerde(encoding),
+                                encoding.createSerde().createSerializer(),
                                 Files.newOutputStreamSupplier(cachedFile)))
         );
         importer.importFrom(
@@ -152,9 +152,8 @@ public class TpchDataProvider
         return tableName + ".tbl";
     }
 
-    private static String createFileName(TpchSchema.Column column, TupleStreamSerdes.Encoding encoding)
+    private static String createFileName(TpchSchema.Column column, TupleStreamSerde.Encoding encoding)
     {
-        // HACK: replace('/', '-') to deal with illegal file name characters
-        return String.format("column%d.%s_%s.data", column.getIndex(), column.getType().getName(), encoding.getName().replace('/', '-'));
+        return String.format("column%d.%s_%s.data", column.getIndex(), column.getType().getName(), encoding.getName());
     }
 }
