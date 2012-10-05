@@ -4,11 +4,11 @@ import com.facebook.presto.Range;
 import com.facebook.presto.Ranges;
 import com.facebook.presto.SizeOf;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.AbstractBlockIterator;
+import com.facebook.presto.block.AbstractYieldingIterator;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.block.BlockIterator;
-import com.facebook.presto.block.BlockIterators;
+import com.facebook.presto.block.YieldingIterable;
+import com.facebook.presto.block.YieldingIterator;
+import com.facebook.presto.block.YieldingIterators;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursor.AdvanceResult;
 import com.facebook.presto.block.Cursors;
@@ -30,7 +30,7 @@ import static com.facebook.presto.block.TupleStreams.getRangeFunction;
 import static com.google.common.base.Predicates.not;
 
 public class OrOperator
-        implements TupleStream, BlockIterable<UncompressedPositionBlock>
+        implements TupleStream, YieldingIterable<UncompressedPositionBlock>
 {
     private static final int MAX_POSITIONS_PER_BLOCK = Ints.checkedCast(BlockBuilder.DEFAULT_MAX_BLOCK_SIZE.toBytes() / SizeOf.SIZE_OF_LONG);
 
@@ -66,7 +66,7 @@ public class OrOperator
     }
 
     @Override
-    public BlockIterator<UncompressedPositionBlock> iterator(QuerySession session)
+    public YieldingIterator<UncompressedPositionBlock> iterator(QuerySession session)
     {
         Preconditions.checkNotNull(session, "session is null");
         List<Cursor> cursors = ImmutableList.copyOf(Iterables.transform(sources, getCursorFunction(session)));
@@ -74,14 +74,14 @@ public class OrOperator
 
         cursors = ImmutableList.copyOf(Iterables.filter(cursors, not(Cursors.isFinished())));
         if (cursors.isEmpty()) {
-            return BlockIterators.emptyIterator();
+            return YieldingIterators.emptyIterator();
         }
 
         return new OrOperatorIterator(cursors);
     }
 
     private static class OrOperatorIterator
-            extends AbstractBlockIterator<UncompressedPositionBlock>
+            extends AbstractYieldingIterator<UncompressedPositionBlock>
     {
         private final PriorityQueue<Cursor> queue;
         private long threshold = Long.MAX_VALUE;

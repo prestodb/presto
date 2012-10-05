@@ -3,10 +3,10 @@ package com.facebook.presto.operator;
 import com.facebook.presto.Range;
 import com.facebook.presto.SizeOf;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.AbstractBlockIterator;
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.block.BlockIterator;
-import com.facebook.presto.block.BlockIterators;
+import com.facebook.presto.block.AbstractYieldingIterator;
+import com.facebook.presto.block.YieldingIterable;
+import com.facebook.presto.block.YieldingIterator;
+import com.facebook.presto.block.YieldingIterators;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursor.AdvanceResult;
 import com.facebook.presto.block.Cursors;
@@ -23,7 +23,7 @@ import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
 import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
 
 public class ComparisonOperator
-        implements TupleStream, BlockIterable<UncompressedPositionBlock>
+        implements TupleStream, YieldingIterable<UncompressedPositionBlock>
 {
     private static final int MAX_POSITIONS_PER_BLOCK = Ints.checkedCast(65536 / SizeOf.SIZE_OF_LONG);
 
@@ -62,7 +62,7 @@ public class ComparisonOperator
     }
 
     @Override
-    public BlockIterator<UncompressedPositionBlock> iterator(QuerySession session)
+    public YieldingIterator<UncompressedPositionBlock> iterator(QuerySession session)
     {
         Preconditions.checkNotNull(session, "session is null");
         final Cursor left = leftSource.cursor(session);
@@ -74,10 +74,10 @@ public class ComparisonOperator
         Preconditions.checkState(advancedLeft && advancedRight || !advancedLeft && !advancedRight, "Left and right don't have the same cardinality");
 
         if (!advancedLeft || !advancedRight) {
-            return BlockIterators.emptyIterator();
+            return YieldingIterators.emptyIterator();
         }
 
-        return new AbstractBlockIterator<UncompressedPositionBlock>()
+        return new AbstractYieldingIterator<UncompressedPositionBlock>()
         {
             @Override
             protected UncompressedPositionBlock computeNext()

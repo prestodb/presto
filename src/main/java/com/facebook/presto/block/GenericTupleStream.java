@@ -7,14 +7,14 @@ import com.google.common.base.Preconditions;
 
 import java.util.Arrays;
 
-import static com.facebook.presto.block.BlockIterators.toBlockIterable;
+import static com.facebook.presto.block.YieldingIterators.yieldingIterable;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class GenericTupleStream<T extends TupleStream>
-        implements TupleStream, BlockIterable<T>
+        implements TupleStream, YieldingIterable<T>
 {
     private final TupleInfo info;
-    private final BlockIterable<T> source;
+    private final YieldingIterable<T> source;
 
     @SafeVarargs
     public GenericTupleStream(TupleInfo info, T... source)
@@ -24,10 +24,10 @@ public class GenericTupleStream<T extends TupleStream>
 
     public GenericTupleStream(TupleInfo info, Iterable<T> source)
     {
-        this(info, toBlockIterable(checkNotNull(source, "source is null")));
+        this(info, yieldingIterable(checkNotNull(source, "source is null")));
     }
 
-    public GenericTupleStream(TupleInfo info, BlockIterable<T> source)
+    public GenericTupleStream(TupleInfo info, YieldingIterable<T> source)
     {
         checkNotNull(info, "info is null");
         checkNotNull(source, "source is null");
@@ -37,7 +37,7 @@ public class GenericTupleStream<T extends TupleStream>
     }
 
     @Override
-    public BlockIterator<T> iterator(QuerySession session)
+    public YieldingIterator<T> iterator(QuerySession session)
     {
         Preconditions.checkNotNull(session, "session is null");
         return source.iterator(session);

@@ -4,9 +4,9 @@ import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.aggregation.AggregationFunction;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.block.BlockIterator;
-import com.facebook.presto.block.BlockIterators;
+import com.facebook.presto.block.YieldingIterable;
+import com.facebook.presto.block.YieldingIterator;
+import com.facebook.presto.block.YieldingIterators;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
@@ -16,7 +16,7 @@ import com.google.common.base.Preconditions;
 import javax.inject.Provider;
 
 public class AggregationOperator
-        implements TupleStream, BlockIterable<UncompressedBlock>
+        implements TupleStream, YieldingIterable<UncompressedBlock>
 {
     private final TupleInfo info;
     private final Provider<AggregationFunction> functionProvider;
@@ -51,7 +51,7 @@ public class AggregationOperator
         return new GenericCursor(session, info, iterator(session));
     }
 
-    public BlockIterator<UncompressedBlock> iterator(QuerySession session)
+    public YieldingIterator<UncompressedBlock> iterator(QuerySession session)
     {
         Preconditions.checkNotNull(session, "session is null");
         AggregationFunction function = functionProvider.get();
@@ -64,6 +64,6 @@ public class AggregationOperator
                 .append(function.evaluate())
                 .build();
 
-        return BlockIterators.newBlockIterator(block);
+        return YieldingIterators.yieldingIterable(block);
     }
 }

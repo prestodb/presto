@@ -6,7 +6,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.BlockIterator;
+import com.facebook.presto.block.YieldingIterator;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
@@ -23,12 +23,12 @@ public class GenericCursor implements Cursor
 {
     private final QuerySession session;
     private final TupleInfo info;
-    private final BlockIterator<? extends TupleStream> iterator;
+    private final YieldingIterator<? extends TupleStream> iterator;
 
     private Cursor blockCursor;
     private boolean hasAdvanced;
 
-    public GenericCursor(QuerySession session, TupleInfo info, BlockIterator<? extends TupleStream> iterator)
+    public GenericCursor(QuerySession session, TupleInfo info, YieldingIterator<? extends TupleStream> iterator)
     {
         Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkNotNull(info, "info is null");

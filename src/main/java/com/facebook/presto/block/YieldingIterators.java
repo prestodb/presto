@@ -11,9 +11,9 @@ import com.google.common.collect.PeekingIterator;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-public final class BlockIterators
+public final class YieldingIterators
 {
-    public static <T extends TupleStream> Iterable<T> iterate(final QuerySession session, final BlockIterable<T> iterable)
+    public static <T extends TupleStream> Iterable<T> iterate(final QuerySession session, final YieldingIterable<T> iterable)
     {
         Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkNotNull(iterable, "iterable is null");
@@ -26,28 +26,28 @@ public final class BlockIterators
         };
     }
 
-    public static <T extends TupleStream> BlockIterator<T> emptyIterator()
+    public static <T extends TupleStream> YieldingIterator<T> emptyIterator()
     {
-        return new EmptyBlockIterator<>();
+        return new EmptyYieldingIterator<>();
     }
 
     @SafeVarargs
-    public static <T extends TupleStream> BlockIterator<T> newBlockIterator(T... block)
+    public static <T extends TupleStream> YieldingIterator<T> yieldingIterable(T... block)
     {
-        return toBlockIterator(ImmutableList.copyOf(block).iterator());
+        return yieldingIterator(ImmutableList.copyOf(block).iterator());
     }
 
-    public static <T extends TupleStream> BlockIterable<T> toBlockIterable(final Iterable<T> source)
+    public static <T extends TupleStream> YieldingIterable<T> yieldingIterable(final Iterable<T> source)
     {
-        return new StaticBlockIterable<>(source);
+        return new YieldingIterableAdapter<>(source);
     }
 
-    public static <T extends TupleStream> BlockIterator<T> toBlockIterator(Iterator<T> source)
+    public static <T extends TupleStream> YieldingIterator<T> yieldingIterator(Iterator<T> source)
     {
-        return new StaticBlockIterator<>(Iterators.peekingIterator(source));
+        return new YieldingIteratorAdapter<>(Iterators.peekingIterator(source));
     }
 
-    private static class EmptyBlockIterator<T extends TupleStream> implements BlockIterator<T>
+    private static class EmptyYieldingIterator<T extends TupleStream> implements YieldingIterator<T>
     {
         @Override
         public boolean mustYield()
@@ -86,28 +86,28 @@ public final class BlockIterators
         }
     }
 
-    private static class StaticBlockIterable<T extends TupleStream> implements BlockIterable<T>
+    private static class YieldingIterableAdapter<T extends TupleStream> implements YieldingIterable<T>
     {
         private final Iterable<T> source;
 
-        public StaticBlockIterable(Iterable<T> source)
+        public YieldingIterableAdapter(Iterable<T> source)
         {
             this.source = source;
         }
 
         @Override
-        public BlockIterator<T> iterator(QuerySession session)
+        public YieldingIterator<T> iterator(QuerySession session)
         {
             Preconditions.checkNotNull(session, "session is null");
-            return toBlockIterator(source.iterator());
+            return yieldingIterator(source.iterator());
         }
     }
 
-    private static class StaticBlockIterator<T extends TupleStream> implements BlockIterator<T>
+    private static class YieldingIteratorAdapter<T extends TupleStream> implements YieldingIterator<T>
     {
         private final PeekingIterator<T> source;
 
-        public StaticBlockIterator(PeekingIterator<T> source)
+        public YieldingIteratorAdapter(PeekingIterator<T> source)
         {
             this.source = source;
         }
@@ -149,7 +149,7 @@ public final class BlockIterators
         }
     }
 
-    private BlockIterators()
+    private YieldingIterators()
     {
     }
 }

@@ -5,7 +5,7 @@ package com.facebook.presto.block;
 
 import com.google.common.collect.PeekingIterator;
 
-public interface BlockIterator<T extends TupleStream> extends PeekingIterator<T>
+public interface YieldingIterator<T extends TupleStream> extends PeekingIterator<T>
 {
     boolean mustYield();
     boolean canAdvance();

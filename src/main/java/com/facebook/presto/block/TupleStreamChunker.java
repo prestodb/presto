@@ -15,7 +15,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * in any fashion.
  */
 public class TupleStreamChunker
-        implements BlockIterable<TupleStream>
+        implements YieldingIterable<TupleStream>
 {
     private final int positionChunkSize;
     private final TupleStream tupleStream;
@@ -35,14 +35,14 @@ public class TupleStreamChunker
     }
 
     @Override
-    public BlockIterator<TupleStream> iterator(QuerySession session)
+    public YieldingIterator<TupleStream> iterator(QuerySession session)
     {
         Preconditions.checkNotNull(session, "session is null");
         return new ChunkingTupleStreamIterator(positionChunkSize, tupleStream.cursor(session));
     }
 
     private static class ChunkingTupleStreamIterator
-            extends AbstractBlockIterator<TupleStream>
+            extends AbstractYieldingIterator<TupleStream>
     {
         private final int positionChunkWidth;
         private final Cursor cursor;

@@ -3,9 +3,9 @@ package com.facebook.presto.operator;
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.AbstractBlockIterator;
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.block.BlockIterator;
+import com.facebook.presto.block.AbstractYieldingIterator;
+import com.facebook.presto.block.YieldingIterable;
+import com.facebook.presto.block.YieldingIterator;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
@@ -18,7 +18,7 @@ import com.google.common.base.Preconditions;
  * A binary operator that produces RLE blocks
  */
 public class RunLengthBinaryOperator
-        implements TupleStream, BlockIterable<RunLengthEncodedBlock>
+        implements TupleStream, YieldingIterable<RunLengthEncodedBlock>
 {
     private final TupleStream leftSource;
     private final TupleStream rightSource;
@@ -51,7 +51,7 @@ public class RunLengthBinaryOperator
     }
 
     @Override
-    public BlockIterator<RunLengthEncodedBlock> iterator(QuerySession session)
+    public YieldingIterator<RunLengthEncodedBlock> iterator(QuerySession session)
     {
         Preconditions.checkNotNull(session, "session is null");
         final Cursor left = leftSource.cursor(session);
@@ -62,7 +62,7 @@ public class RunLengthBinaryOperator
 
         Preconditions.checkState(!left.isFinished() && !right.isFinished(), "Source cursors are empty"); // TODO: we should be able to handle this case
 
-        return new AbstractBlockIterator<RunLengthEncodedBlock>()
+        return new AbstractYieldingIterator<RunLengthEncodedBlock>()
         {
             @Override
             protected RunLengthEncodedBlock computeNext()

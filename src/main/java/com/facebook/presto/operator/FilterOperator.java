@@ -2,9 +2,9 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.AbstractBlockIterator;
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.block.BlockIterator;
+import com.facebook.presto.block.AbstractYieldingIterator;
+import com.facebook.presto.block.YieldingIterable;
+import com.facebook.presto.block.YieldingIterator;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.MaskedBlock;
@@ -17,13 +17,13 @@ import java.util.Iterator;
 import java.util.List;
 
 public class FilterOperator
-        implements TupleStream, BlockIterable<MaskedBlock>
+        implements TupleStream, YieldingIterable<MaskedBlock>
 {
     private final TupleInfo tupleInfo;
-    private final BlockIterable<? extends TupleStream> source;
+    private final YieldingIterable<? extends TupleStream> source;
     private final TupleStream positions;
 
-    public FilterOperator(TupleInfo tupleInfo, BlockIterable<? extends TupleStream> source, TupleStream positions)
+    public FilterOperator(TupleInfo tupleInfo, YieldingIterable<? extends TupleStream> source, TupleStream positions)
     {
         this.tupleInfo = tupleInfo;
         this.source = source;
@@ -42,10 +42,10 @@ public class FilterOperator
         return tupleInfo;
     }
 
-    public BlockIterator<MaskedBlock> iterator(final QuerySession session)
+    public YieldingIterator<MaskedBlock> iterator(final QuerySession session)
     {
         Preconditions.checkNotNull(session, "session is null");
-        return new AbstractBlockIterator<MaskedBlock>()
+        return new AbstractYieldingIterator<MaskedBlock>()
         {
             Iterator<? extends TupleStream> valueBlocks = source.iterator(session);
             Cursor positionsCursor = positions.cursor(session);
