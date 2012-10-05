@@ -30,15 +30,14 @@ public class AverageAggregation
     @Override
     public void add(Cursor cursor, long endPosition)
     {
-        if (cursor.getPosition() > endPosition) {
-            return;
+        if (cursor.getPosition() <= endPosition) {
+            do {
+                // TODO: operate on longs. Coercions?
+                sum += cursor.getDouble(0);
+                ++count;
+            }
+            while (cursor.getPosition() < endPosition && cursor.advanceNextPosition());
         }
-
-        do {
-            // TODO: operate on longs. Coercions?
-            sum += cursor.getDouble(0);
-            ++count;
-        } while (cursor.advanceNextPosition() && cursor.getPosition() <= endPosition);
     }
 
     @Override

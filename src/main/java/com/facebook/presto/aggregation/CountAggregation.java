@@ -28,13 +28,12 @@ public class CountAggregation
     @Override
     public void add(Cursor cursor, long endPosition)
     {
-        if (cursor.getPosition() > endPosition) {
-            return;
+        if (cursor.getPosition() <= endPosition) {
+            do {
+                count++;
+            }
+            while (cursor.getPosition() < endPosition && cursor.advanceNextPosition());
         }
-
-        do {
-            count ++;
-        } while (cursor.advanceNextPosition() && cursor.getPosition() <= endPosition);
     }
 
     @Override
