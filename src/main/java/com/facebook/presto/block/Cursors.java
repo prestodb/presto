@@ -24,7 +24,7 @@ public class Cursors
     {
         AdvanceResult result = cursor.advanceNextValue();
         if (result == MUST_YIELD) {
-            throw new IllegalStateException("Cursor must yield but support yield is not supported here");
+            throw new IllegalStateException("Cursor requested caller to yield but yield is not supported here");
         }
         return result != FINISHED;
     }
@@ -33,7 +33,7 @@ public class Cursors
     {
         AdvanceResult result = cursor.advanceToPosition(position);
         if (result == MUST_YIELD) {
-            throw new IllegalStateException("Cursor must yield but support yield is not supported here");
+            throw new IllegalStateException("Cursor requested caller to yield but yield is not supported here");
         }
         return result != FINISHED;
     }
