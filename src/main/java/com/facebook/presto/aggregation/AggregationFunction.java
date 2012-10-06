@@ -11,6 +11,4 @@ public interface AggregationFunction
     void add(Cursor cursor, long endPosition);
 
     Tuple evaluate();
-
-    void addCurrentPosition(Cursor cursor);
 }
