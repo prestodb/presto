@@ -53,12 +53,6 @@ public class DoubleSumAggregation
     }
 
     @Override
-    public void addCurrentPosition(Cursor cursor)
-    {
-        sum += cursor.getDouble(field);
-    }
-
-    @Override
     public Tuple evaluate()
     {
         return getTupleInfo().builder()

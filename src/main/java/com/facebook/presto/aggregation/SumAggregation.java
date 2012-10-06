@@ -56,16 +56,10 @@ public class SumAggregation
 
         if (cursor.getPosition() <= endPosition) {
             do {
-                sum += cursor.getLong(0);
+                sum += cursor.getLong(field);
             }
             while (cursor.getPosition() < endPosition && cursor.advanceNextPosition() == SUCCESS);
         }
-    }
-
-    @Override
-    public void addCurrentPosition(Cursor cursor)
-    {
-        sum += cursor.getLong(field);
     }
 
     @Override

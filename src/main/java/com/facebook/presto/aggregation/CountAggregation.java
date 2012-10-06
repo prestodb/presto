@@ -39,12 +39,6 @@ public class CountAggregation
     }
 
     @Override
-    public void addCurrentPosition(Cursor cursor)
-    {
-        count++;
-    }
-
-    @Override
     public Tuple evaluate()
     {
         return getTupleInfo().builder()

@@ -47,18 +47,11 @@ public class AverageAggregation
         if (cursor.getPosition() <= endPosition) {
             do {
                 // TODO: operate on longs. Coercions?
-                sum += cursor.getDouble(0);
+                sum += cursor.getDouble(field);
                 ++count;
             }
             while (cursor.getPosition() < endPosition && cursor.advanceNextPosition() == SUCCESS);
         }
-    }
-
-    @Override
-    public void addCurrentPosition(Cursor cursor)
-    {
-        sum += cursor.getDouble(field);
-        ++count;
     }
 
     @Override
