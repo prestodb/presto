@@ -72,7 +72,7 @@ public class AndOperator
         final List<Cursor> cursors = ImmutableList.copyOf(Iterables.transform(sources, getCursorFunction(session)));
 
         if (!Cursors.advanceNextPositionNoYield(cursors)) {
-            return YieldingIterators.yieldingIterable();
+            return YieldingIterators.emptyIterator();
         }
 
         return new AndOperatorIterator(cursors);

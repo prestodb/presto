@@ -84,6 +84,7 @@ public class DictionaryAggregationOperator
         final Cursor aggregationCursor = aggregationSource.cursor(session);
         aggregationCursor.advanceNextPosition();
 
+        // todo add code to advance to watermark position
         return new AbstractYieldingIterator<UncompressedBlock>()
         {
             private final AggregationFunction[] aggregationMap = new AggregationFunction[dictionary.size()];
@@ -116,7 +117,7 @@ public class DictionaryAggregationOperator
                         }
 
                         // advance aggregate cursor to start of group, if necessary
-                        if (aggregationCursor.getPosition() < groupEndPosition) {
+                        if (aggregationCursor.getPosition() < groupByCursor.getPosition()) {
                             AdvanceResult result = aggregationCursor.advanceToPosition(groupByCursor.getPosition());
                             if (result == MUST_YIELD) {
                                 return setMustYield();

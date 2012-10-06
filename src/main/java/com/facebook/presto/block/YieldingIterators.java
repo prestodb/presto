@@ -4,8 +4,8 @@
 package com.facebook.presto.block;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
 import com.google.common.collect.PeekingIterator;
 
 import java.util.Iterator;
@@ -32,9 +32,9 @@ public final class YieldingIterators
     }
 
     @SafeVarargs
-    public static <T extends TupleStream> YieldingIterator<T> yieldingIterable(T... block)
+    public static <T extends TupleStream> YieldingIterator<T> yieldingIterable(T first, T... rest)
     {
-        return yieldingIterator(ImmutableList.copyOf(block).iterator());
+        return yieldingIterator(Lists.asList(first, rest).iterator());
     }
 
     public static <T extends TupleStream> YieldingIterable<T> yieldingIterable(final Iterable<T> source)
