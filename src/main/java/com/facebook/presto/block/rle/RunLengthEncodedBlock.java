@@ -4,12 +4,16 @@ import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
 import java.util.NoSuchElementException;
+
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
 
 public class RunLengthEncodedBlock
         implements TupleStream
@@ -60,8 +64,9 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
+        Preconditions.checkNotNull(session, "session is null");
         return new RunLengthEncodedBlockCursor(value, range);
     }
 
@@ -102,18 +107,18 @@ public class RunLengthEncodedBlock
         }
 
         @Override
-        public boolean advanceNextValue()
+        public AdvanceResult advanceNextValue()
         {
             position = Long.MAX_VALUE;
-            return false;
+            return FINISHED;
         }
 
         @Override
-        public boolean advanceNextPosition()
+        public AdvanceResult advanceNextPosition()
         {
             if (position >= range.getEnd()) {
                 position = Long.MAX_VALUE;
-                return false;
+                return FINISHED;
             }
 
             if (position < 0) {
@@ -121,21 +126,21 @@ public class RunLengthEncodedBlock
             } else {
                 position++;
             }
-            return true;
+            return SUCCESS;
         }
 
         @Override
-        public boolean advanceToPosition(long newPosition)
+        public AdvanceResult advanceToPosition(long newPosition)
         {
             if (newPosition > range.getEnd()) {
                 position = Long.MAX_VALUE;
-                return false;
+                return FINISHED;
             }
 
             Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
 
             this.position = newPosition;
-            return true;
+            return SUCCESS;
         }
 
         @Override

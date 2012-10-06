@@ -6,20 +6,34 @@ import com.facebook.presto.block.Cursor;
 
 import javax.inject.Provider;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
+
 public class AverageAggregation
         implements AggregationFunction
 {
-    public static final Provider<AggregationFunction> PROVIDER = new Provider<AggregationFunction>()
-    {
-        @Override
-        public AverageAggregation get()
-        {
-            return new AverageAggregation();
-        }
-    };
+    public static final Provider<AggregationFunction> PROVIDER = provider(0);
 
+    public static Provider<AggregationFunction> provider(final int field)
+    {
+        return new Provider<AggregationFunction>()
+        {
+            @Override
+            public AverageAggregation get()
+            {
+                return new AverageAggregation(field);
+            }
+        };
+    }
+
+
+    private final int field;
     private double sum;
     private long count;
+
+    public AverageAggregation(int field)
+    {
+        this.field = field;
+    }
 
     @Override
     public TupleInfo getTupleInfo()
@@ -33,10 +47,10 @@ public class AverageAggregation
         if (cursor.getPosition() <= endPosition) {
             do {
                 // TODO: operate on longs. Coercions?
-                sum += cursor.getDouble(0);
+                sum += cursor.getDouble(field);
                 ++count;
             }
-            while (cursor.getPosition() < endPosition && cursor.advanceNextPosition());
+            while (cursor.getPosition() < endPosition && cursor.advanceNextPosition() == SUCCESS);
         }
     }
 

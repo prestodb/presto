@@ -5,13 +5,19 @@ import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.aggregation.AggregationFunction;
+import com.facebook.presto.block.AbstractYieldingIterator;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.YieldingIterable;
+import com.facebook.presto.block.YieldingIterator;
+import com.facebook.presto.block.YieldingIterators;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursor.AdvanceResult;
+import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.QuerySession;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedCursor;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Provider;
@@ -20,11 +26,13 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
+
 /**
  * Group input data and produce a single block for each sequence of identical values.
  */
 public class HashAggregationOperator
-    implements TupleStream, Iterable<UncompressedBlock>
+        implements TupleStream, YieldingIterable<UncompressedBlock>
 {
     private final TupleStream groupBySource;
     private final TupleStream aggregationSource;
@@ -63,20 +71,29 @@ public class HashAggregationOperator
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new UncompressedCursor(getTupleInfo(), iterator());
+        Preconditions.checkNotNull(session, "session is null");
+        return new UncompressedCursor(getTupleInfo(), iterator(session));
     }
 
     @Override
-    public Iterator<UncompressedBlock> iterator()
+    public YieldingIterator<UncompressedBlock> iterator(QuerySession session)
     {
-        final Cursor groupByCursor = groupBySource.cursor();
-        final Cursor aggregationCursor = aggregationSource.cursor();
-        aggregationCursor.advanceNextPosition();
+        Preconditions.checkNotNull(session, "session is null");
+        final Cursor groupByCursor = groupBySource.cursor(session);
+        final Cursor aggregationCursor = aggregationSource.cursor(session);
+        if (!Cursors.advanceNextPositionNoYield(groupByCursor)) {
+            return YieldingIterators.emptyIterator();
+        }
+        if (!Cursors.advanceNextPositionNoYield(aggregationCursor)) {
+            return YieldingIterators.emptyIterator();
+        }
 
-        return new AbstractIterator<UncompressedBlock>()
+        // todo add code to advance to watermark position
+        return new AbstractYieldingIterator<UncompressedBlock>()
         {
+            private final Map<Tuple, AggregationFunction> aggregationMap = new HashMap<>();
             private Iterator<Entry<Tuple, AggregationFunction>> aggregations;
             private long position;
 
@@ -85,19 +102,48 @@ public class HashAggregationOperator
             {
                 // process all data ahead of time
                 if (aggregations == null) {
-                    Map<Tuple, AggregationFunction> aggregationMap = new HashMap<>();
-                    while (groupByCursor.advanceNextValue()) {
+                    while (!groupByCursor.isFinished() && !aggregationCursor.isFinished()) {
+                        // advance the group by one value, if group has been completely processed
+                        long groupEndPosition = groupByCursor.getCurrentValueEndPosition();
+                        if (groupEndPosition <= aggregationCursor.getPosition()) {
+                            AdvanceResult result = groupByCursor.advanceNextValue();
+                            if (result != AdvanceResult.SUCCESS) {
+                                if (result == MUST_YIELD) {
+                                    return setMustYield();
+                                }
+                                else if (result == AdvanceResult.FINISHED) {
+                                    // todo replace with cursor.close()
+                                    if (aggregationCursor.advanceToPosition(Long.MAX_VALUE) == MUST_YIELD) {
+                                        return setMustYield();
+                                    }
+                                    break;
+                                }
+                            }
+                            groupEndPosition = groupByCursor.getCurrentValueEndPosition();
+                        }
+
+                        // advance aggregate cursor to start of group, if necessary
+                        if (aggregationCursor.getPosition() < groupEndPosition) {
+                            AdvanceResult result = aggregationCursor.advanceToPosition(groupByCursor.getPosition());
+                            if (result == MUST_YIELD) {
+                                return setMustYield();
+                            }
+                            else if (result == AdvanceResult.FINISHED) {
+                                // todo replace with cursor.close()
+                                if (groupByCursor.advanceToPosition(Long.MAX_VALUE) == MUST_YIELD) {
+                                    return setMustYield();
+                                }
+                                break;
+                            }
+                        }
 
                         Tuple key = groupByCursor.getTuple();
-                        long groupEndPosition = groupByCursor.getCurrentValueEndPosition();
-                        if (aggregationCursor.advanceToPosition(groupByCursor.getPosition()) && aggregationCursor.getPosition() <= groupEndPosition) {
-                            AggregationFunction aggregation = aggregationMap.get(key);
-                            if (aggregation == null) {
-                                aggregation = functionProvider.get();
-                                aggregationMap.put(key, aggregation);
-                            }
-                            aggregation.add(aggregationCursor, groupEndPosition);
+                        AggregationFunction aggregation = aggregationMap.get(key);
+                        if (aggregation == null) {
+                            aggregation = functionProvider.get();
+                            aggregationMap.put(key, aggregation);
                         }
+                        aggregation.add(aggregationCursor, groupEndPosition);
                     }
 
                     this.aggregations = aggregationMap.entrySet().iterator();

@@ -4,8 +4,9 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Tuple;
-import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.QuerySession;
+import com.facebook.presto.block.TupleStream;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
@@ -15,6 +16,7 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.Iterator;
 
+import static com.facebook.presto.block.Cursors.advanceNextPositionNoYield;
 import static com.google.common.base.Charsets.UTF_8;
 
 public class ConsolePrinter
@@ -38,8 +40,8 @@ public class ConsolePrinter
         }
 
         TupleStream block = input.next();
-        Cursor blockCursor = block.cursor();
-        while (blockCursor.advanceNextPosition()) {
+        Cursor blockCursor = block.cursor(new QuerySession());
+        while (advanceNextPositionNoYield(blockCursor)) {
             printer.print(blockCursor.getTuple());
         }
         return block;
@@ -57,8 +59,7 @@ public class ConsolePrinter
 
         public DelimitedTuplePrinter()
         {
-            writer = new OutputStreamWriter(System.out, UTF_8);
-            delimiter = "\t";
+            this(new OutputStreamWriter(System.out, UTF_8), "\t");
         }
 
         public DelimitedTuplePrinter(Writer writer, String delimiter)
@@ -72,6 +73,7 @@ public class ConsolePrinter
             try {
                 Joiner.on(delimiter).appendTo(writer, tuple.toValues());
                 writer.write('\n');
+                writer.flush();
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);
@@ -105,6 +107,7 @@ public class ConsolePrinter
                     index++;
                 }
                 writer.write('\n');
+                writer.flush();
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);

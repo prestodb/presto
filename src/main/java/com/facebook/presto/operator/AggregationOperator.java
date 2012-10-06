@@ -4,17 +4,19 @@ import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.aggregation.AggregationFunction;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.YieldingIterable;
+import com.facebook.presto.block.YieldingIterator;
+import com.facebook.presto.block.YieldingIterators;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.QuerySession;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 
 import javax.inject.Provider;
-import java.util.Iterator;
 
 public class AggregationOperator
-        implements TupleStream
+        implements TupleStream, YieldingIterable<UncompressedBlock>
 {
     private final TupleInfo info;
     private final Provider<AggregationFunction> functionProvider;
@@ -43,16 +45,18 @@ public class AggregationOperator
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new GenericCursor(info, iterator());
+        Preconditions.checkNotNull(session, "session is null");
+        return new GenericCursor(session, info, iterator(session));
     }
 
-    public Iterator<UncompressedBlock> iterator()
+    public YieldingIterator<UncompressedBlock> iterator(QuerySession session)
     {
+        Preconditions.checkNotNull(session, "session is null");
         AggregationFunction function = functionProvider.get();
 
-        Cursor cursor = source.cursor();
+        Cursor cursor = source.cursor(session);
         cursor.advanceNextPosition();
         function.add(cursor, Long.MAX_VALUE);
 
@@ -60,6 +64,6 @@ public class AggregationOperator
                 .append(function.evaluate())
                 .build();
 
-        return ImmutableList.of(block).iterator();
+        return YieldingIterators.yieldingIterable(block);
     }
 }

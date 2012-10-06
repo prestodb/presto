@@ -1,20 +1,24 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Range;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.TupleStream;
-import com.facebook.presto.block.Cursor;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
+import com.facebook.presto.block.AbstractYieldingIterator;
+import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.YieldingIterable;
+import com.facebook.presto.block.YieldingIterator;
+import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.QuerySession;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.google.common.collect.AbstractIterator;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
-import java.util.Iterator;
 import java.util.List;
 
 public class MergeOperator
-        implements TupleStream, Iterable<UncompressedBlock>
+        implements TupleStream, YieldingIterable<UncompressedBlock>
 {
     private final List<? extends TupleStream> sources;
     private final TupleInfo tupleInfo;
@@ -49,29 +53,32 @@ public class MergeOperator
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new GenericCursor(tupleInfo, iterator());
+        Preconditions.checkNotNull(session, "session is null");
+        return new GenericCursor(session, tupleInfo, iterator(session));
     }
 
     @Override
-    public Iterator<UncompressedBlock> iterator()
+    public YieldingIterator<UncompressedBlock> iterator(QuerySession session)
     {
-        return new MergeBlockIterator(this.tupleInfo, this.sources);
+        Preconditions.checkNotNull(session, "session is null");
+        return new MergeYieldingIterator(session, this.tupleInfo, this.sources);
     }
 
-    private static class MergeBlockIterator extends AbstractIterator<UncompressedBlock>
+    private static class MergeYieldingIterator extends AbstractYieldingIterator<UncompressedBlock>
     {
         private final TupleInfo tupleInfo;
         private final List<Cursor> cursors;
         private long position;
 
-        public MergeBlockIterator(TupleInfo tupleInfo, Iterable<? extends TupleStream> sources)
+        public MergeYieldingIterator(QuerySession session, TupleInfo tupleInfo, Iterable<? extends TupleStream> sources)
         {
+            Preconditions.checkNotNull(session, "session is null");
             this.tupleInfo = tupleInfo;
             ImmutableList.Builder<Cursor> cursors = ImmutableList.builder();
             for (TupleStream source : sources) {
-                cursors.add(source.cursor());
+                cursors.add(source.cursor(session));
             }
             this.cursors = cursors.build();
         }
@@ -102,7 +109,7 @@ public class MergeOperator
         {
             boolean advanced = false;
             for (Cursor cursor : cursors) {
-                if (cursor.advanceNextPosition()) {
+                if (Cursors.advanceNextPositionNoYield(cursor)) {
                     advanced = true;
                 }
                 else if (advanced) {

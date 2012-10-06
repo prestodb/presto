@@ -13,6 +13,10 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
+
 public class MaskedBlock implements TupleStream
 {
     private final TupleStream valueBlock;
@@ -46,9 +50,10 @@ public class MaskedBlock implements TupleStream
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new MaskedBlockCursor(valueBlock, validPositions);
+        Preconditions.checkNotNull(session, "session is null");
+        return new MaskedBlockCursor(valueBlock.cursor(session), validPositions);
     }
 
     private static class MaskedBlockCursor implements Cursor
@@ -57,10 +62,10 @@ public class MaskedBlock implements TupleStream
         private final Cursor validPositions;
         private boolean isValid;
 
-        private MaskedBlockCursor(TupleStream valueBlock, List<Long> validPositions)
+        private MaskedBlockCursor(Cursor cursor, List<Long> validPositions)
         {
-            this.validPositions = new UncompressedPositionBlockCursor(validPositions, valueBlock.getRange());
-            this.valueCursor = valueBlock.cursor();
+            this.validPositions = new UncompressedPositionBlockCursor(validPositions, cursor.getRange());
+            this.valueCursor = cursor;
         }
 
         @Override
@@ -88,70 +93,105 @@ public class MaskedBlock implements TupleStream
         }
 
         @Override
-        public boolean advanceNextValue()
+        public AdvanceResult advanceNextValue()
         {
             if (isFinished()) {
-                return false;
+                return FINISHED;
             }
 
             if (!isValid) {
                 // advance to first position
                 isValid = true;
-                if (!validPositions.advanceNextPosition()) {
+                AdvanceResult result = validPositions.advanceNextPosition();
+                if (result == MUST_YIELD) {
+                    // advance the value cursor before yielding
+                    valueCursor.advanceToPosition(validPositions.getPosition());
+                    return MUST_YIELD;
+                }
+                if (result == FINISHED) {
                     // move to end of value cursor
+                    // todo replace with cursor.close()
                     valueCursor.advanceToPosition(Long.MAX_VALUE);
-                    return false;
+                    return FINISHED;
                 }
             } else {
                 // advance until the next position is after current value end position
                 long currentValueEndPosition = valueCursor.getCurrentValueEndPosition();
 
                 do {
-                    if (!validPositions.advanceNextPosition()) {
+                    AdvanceResult result = validPositions.advanceNextPosition();
+                    if (result == MUST_YIELD) {
+                        // advance the value cursor before yielding
+                        valueCursor.advanceToPosition(validPositions.getPosition());
+                        return MUST_YIELD;
+                    }
+                    if (result == FINISHED) {
                         // move to end of value cursor
+                        // todo replace with cursor.close()
                         valueCursor.advanceToPosition(Long.MAX_VALUE);
-                        return false;
+                        return FINISHED;
                     }
                 } while (validPositions.getPosition() <= currentValueEndPosition);
             }
 
             // move value cursor to to next position
-            return valueCursor.advanceToPosition(validPositions.getPosition());
+            AdvanceResult result = valueCursor.advanceToPosition(validPositions.getPosition());
+            // todo forcing the advance to be successful is wrong: if the advance next position works, and we yield here, we will skip positions
+            Preconditions.checkState(result == SUCCESS);
+            return result;
         }
 
         @Override
-        public boolean advanceNextPosition()
+        public AdvanceResult advanceNextPosition()
         {
             if (isFinished()) {
-                return false;
+                return FINISHED;
             }
 
             // advance current position
             isValid = true;
-            if (validPositions.advanceNextPosition()) {
-                return valueCursor.advanceToPosition(validPositions.getPosition());
-            } else {
-                // move to end of value cursor
-                valueCursor.advanceToPosition(Long.MAX_VALUE);
-                return false;
+            AdvanceResult result = validPositions.advanceNextPosition();
+            if (result == MUST_YIELD) {
+                // advance the value cursor before yielding
+                valueCursor.advanceToPosition(validPositions.getPosition());
+                return MUST_YIELD;
             }
+            if (result == FINISHED) {
+                // move to end of value cursor
+                // todo replace with cursor.close()
+                valueCursor.advanceToPosition(Long.MAX_VALUE);
+                return FINISHED;
+            }
+            result = valueCursor.advanceToPosition(validPositions.getPosition());
+            // todo forcing the advance to be successful is wrong: if the advance next position works, and we yield here, we will skip positions
+            Preconditions.checkState(result == SUCCESS);
+            return SUCCESS;
         }
 
         @Override
-        public boolean advanceToPosition(long newPosition)
+        public AdvanceResult advanceToPosition(long newPosition)
         {
             if (isFinished()) {
-                return false;
+                return FINISHED;
             }
 
             isValid = true;
-            if (validPositions.advanceToPosition(newPosition)) {
-                return valueCursor.advanceToPosition(validPositions.getPosition());
-            } else {
-                // move to end of value cursor
-                valueCursor.advanceToPosition(Long.MAX_VALUE);
-                return false;
+            AdvanceResult result = validPositions.advanceToPosition(newPosition);
+            if (result == MUST_YIELD) {
+                // advance the value cursor before yielding
+                valueCursor.advanceToPosition(validPositions.getPosition());
+                return MUST_YIELD;
             }
+            if (result == FINISHED) {
+                // move to end of value cursor
+                // todo replace with cursor.close()
+                valueCursor.advanceToPosition(Long.MAX_VALUE);
+                return FINISHED;
+            }
+            result = valueCursor.advanceToPosition(validPositions.getPosition());
+            // todo forcing the advance to be successful is wrong: if the advance next position works, and we yield here, we will skip positions
+            Preconditions.checkState(result == SUCCESS);
+            return SUCCESS;
         }
 
         @Override

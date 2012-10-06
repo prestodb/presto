@@ -5,20 +5,22 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.AbstractYieldingIterator;
+import com.facebook.presto.block.YieldingIterable;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.operator.GenericCursor;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.List;
 
 public class QueryDriversTupleStream
-        implements TupleStream, Iterable<UncompressedBlock>
+        implements TupleStream, YieldingIterable<UncompressedBlock>
 {
     private final TupleInfo info;
     private final List<QueryDriverProvider> driverProviders;
@@ -41,8 +43,9 @@ public class QueryDriversTupleStream
     }
 
     @Override
-    public QueryDriversBlockIterator iterator()
+    public QueryDriversYieldingIterator iterator(QuerySession session)
     {
+        Preconditions.checkNotNull(session, "session is null");
         ImmutableList.Builder<QueryDriver> queries = ImmutableList.builder();
         try {
             QueryState queryState = new QueryState(driverProviders.size(), blockBufferMax);
@@ -52,7 +55,7 @@ public class QueryDriversTupleStream
                 queryDriver.start();
             }
 
-            return new QueryDriversBlockIterator(queryState, queries.build());
+            return new QueryDriversYieldingIterator(queryState, queries.build());
         }
         catch (Throwable e) {
             for (QueryDriver queryDriver : queries.build()) {
@@ -75,18 +78,19 @@ public class QueryDriversTupleStream
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new GenericCursor(info, iterator());
+        Preconditions.checkNotNull(session, "session is null");
+        return new GenericCursor(session, info, iterator(session));
     }
 
-    public static class QueryDriversBlockIterator extends AbstractIterator<UncompressedBlock>
+    public static class QueryDriversYieldingIterator extends AbstractYieldingIterator<UncompressedBlock>
     {
         private final QueryState queryState;
         private final List<QueryDriver> queryDrivers;
         private long position;
 
-        private QueryDriversBlockIterator(QueryState queryState, Iterable<QueryDriver> queries)
+        private QueryDriversYieldingIterator(QueryState queryState, Iterable<QueryDriver> queries)
         {
             this.queryState = queryState;
             this.queryDrivers = ImmutableList.copyOf(queries);

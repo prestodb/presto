@@ -2,6 +2,8 @@ package com.facebook.presto.benchmark;
 
 import com.facebook.presto.aggregation.SumAggregation;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerde;
 import com.facebook.presto.block.dictionary.DictionarySerde;
@@ -78,12 +80,12 @@ public class BenchmarkHashAggregation
     {
         long start = System.nanoTime();
 
-        Cursor cursor = source.cursor();
+        Cursor cursor = source.cursor(new QuerySession());
 
         int count = 0;
         long sum = 0;
 
-        while (cursor.advanceNextValue()) {
+        while (Cursors.advanceNextValueNoYield(cursor)) {
             ++count;
 //            System.out.printf("%s\t%s\n", cursor.getSlice(0).toString(Charsets.UTF_8), cursor.getLong(1));
         }

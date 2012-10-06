@@ -5,11 +5,12 @@ package com.facebook.presto.block.position;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.QuerySession;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.CursorAssertions.assertAdvanceNextPosition;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestPositionsBlock {
     @Test
@@ -18,26 +19,26 @@ public class TestPositionsBlock {
     {
         PositionsBlock block = new PositionsBlock(Range.create(0, 2), Range.create(3, 5));
 
-        Cursor cursor = block.cursor();
+        Cursor cursor = block.cursor(new QuerySession());
 
-        assertTrue(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor);
         assertEquals(cursor.getPosition(), 0);
 
-        assertTrue(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor);
         assertEquals(cursor.getPosition(), 1);
 
-        assertTrue(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor);
         assertEquals(cursor.getPosition(), 2);
 
-        assertTrue(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor);
         assertEquals(cursor.getPosition(), 3);
 
-        assertTrue(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor);
         assertEquals(cursor.getPosition(), 4);
 
-        assertTrue(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor);
         assertEquals(cursor.getPosition(), 5);
 
-        assertFalse(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor, FINISHED);
     }
 }

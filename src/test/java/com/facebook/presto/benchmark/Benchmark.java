@@ -1,5 +1,7 @@
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.uncompressed.UncompressedSerde;
@@ -39,12 +41,12 @@ public class Benchmark
     {
         long start = System.nanoTime();
 
-        Cursor groupBy = pageTypeColumn.cursor();
+        Cursor groupBy = pageTypeColumn.cursor(new QuerySession());
 
         int count = 0;
         long sum = 0;
 
-        while (groupBy.advanceNextValue()) {
+        while (Cursors.advanceNextValueNoYield(groupBy)) {
             ++count;
             sum += groupBy.getSlice(0).getByte(0);
 //            sum += groupBy.getLong(0);

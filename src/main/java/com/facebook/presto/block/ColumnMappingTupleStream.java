@@ -4,7 +4,9 @@ import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.slice.Slice;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 
 import java.util.Arrays;
 import java.util.List;
@@ -17,6 +19,11 @@ public class ColumnMappingTupleStream
     private final TupleStream delegate;
     private final int[] selectedColumns;
     private final TupleInfo tupleInfo;
+
+    public ColumnMappingTupleStream(TupleStream delegate, int... selectedColumns)
+    {
+        this(delegate, Ints.asList(selectedColumns));
+    }
 
     public ColumnMappingTupleStream(TupleStream delegate, List<Integer> selectedColumnList)
     {
@@ -55,9 +62,10 @@ public class ColumnMappingTupleStream
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new ForwardingCursor(delegate.cursor())
+        Preconditions.checkNotNull(session, "session is null");
+        return new ForwardingCursor(delegate.cursor(session))
         {
             @Override
             public TupleInfo getTupleInfo()

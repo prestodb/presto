@@ -17,6 +17,7 @@ public interface TupleStream
 
     /**
      * Gets a cursor over the block
+     * @param session
      */
-    Cursor cursor();
+    Cursor cursor(QuerySession session);
 }

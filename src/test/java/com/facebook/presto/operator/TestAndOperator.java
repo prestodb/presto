@@ -3,13 +3,14 @@ package com.facebook.presto.operator;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.GenericTupleStream;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.position.UncompressedPositionBlock;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.block.CursorAssertions.assertNextPosition;
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.CursorAssertions.assertAdvanceNextPosition;
 import static com.facebook.presto.block.CursorAssertions.assertPositions;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestAndOperator
@@ -22,11 +23,11 @@ public class TestAndOperator
         TupleStream right = new GenericTupleStream<>(TupleInfo.EMPTY, new UncompressedPositionBlock(0, 1, 2, 3, 4));
 
         AndOperator and = new AndOperator(left, right);
-        Cursor cursor = and.cursor();
+        Cursor cursor = and.cursor(new QuerySession());
 
         assertPositions(cursor, 0, 1, 2, 3, 4);
 
-        assertFalse(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor, FINISHED);
         assertTrue(cursor.isFinished());
     }
 
@@ -38,11 +39,11 @@ public class TestAndOperator
         TupleStream right = new GenericTupleStream<>(TupleInfo.EMPTY, new UncompressedPositionBlock(0, 2, 4, 5));
 
         AndOperator and = new AndOperator(left, right);
-        Cursor cursor = and.cursor();
+        Cursor cursor = and.cursor(new QuerySession());
 
         assertPositions(cursor, 0, 2, 4, 5);
 
-        assertFalse(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor, FINISHED);
         assertTrue(cursor.isFinished());
     }
 
@@ -54,9 +55,9 @@ public class TestAndOperator
         TupleStream right = new GenericTupleStream<>(TupleInfo.EMPTY, new UncompressedPositionBlock(5, 6, 7, 8, 9));
 
         AndOperator and = new AndOperator(left, right);
-        Cursor cursor = and.cursor();
+        Cursor cursor = and.cursor(new QuerySession());
 
-        assertFalse(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor, FINISHED);
         assertTrue(cursor.isFinished());
     }
 
@@ -68,11 +69,11 @@ public class TestAndOperator
         TupleStream three = new GenericTupleStream<>(TupleInfo.EMPTY, new UncompressedPositionBlock(0, 1, 2, 3, 5));
 
         AndOperator and = new AndOperator(one, two, three);
-        Cursor cursor = and.cursor();
+        Cursor cursor = and.cursor(new QuerySession());
 
         assertPositions(cursor, 0, 2, 5);
 
-        assertFalse(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor, FINISHED);
         assertTrue(cursor.isFinished());
 
     }

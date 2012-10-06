@@ -6,14 +6,17 @@ import com.facebook.presto.operator.GenericCursor;
 import com.google.common.base.Preconditions;
 
 import java.util.Arrays;
-import java.util.Iterator;
+
+import static com.facebook.presto.block.YieldingIterators.yieldingIterable;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class GenericTupleStream<T extends TupleStream>
-        implements TupleStream, Iterable<T>
+        implements TupleStream, YieldingIterable<T>
 {
     private final TupleInfo info;
-    private final Iterable<T> source;
+    private final YieldingIterable<T> source;
 
+    @SafeVarargs
     public GenericTupleStream(TupleInfo info, T... source)
     {
         this(info, Arrays.asList(source));
@@ -21,17 +24,23 @@ public class GenericTupleStream<T extends TupleStream>
 
     public GenericTupleStream(TupleInfo info, Iterable<T> source)
     {
-        Preconditions.checkNotNull(info, "info is null");
-        Preconditions.checkNotNull(source, "source is null");
+        this(info, yieldingIterable(checkNotNull(source, "source is null")));
+    }
+
+    public GenericTupleStream(TupleInfo info, YieldingIterable<T> source)
+    {
+        checkNotNull(info, "info is null");
+        checkNotNull(source, "source is null");
 
         this.info = info;
         this.source = source;
     }
 
     @Override
-    public Iterator<T> iterator()
+    public YieldingIterator<T> iterator(QuerySession session)
     {
-        return source.iterator();
+        Preconditions.checkNotNull(session, "session is null");
+        return source.iterator(session);
     }
 
     @Override
@@ -47,8 +56,9 @@ public class GenericTupleStream<T extends TupleStream>
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new GenericCursor(info, source.iterator());
+        Preconditions.checkNotNull(session, "session is null");
+        return new GenericCursor(session, info, source.iterator(session));
     }
 }

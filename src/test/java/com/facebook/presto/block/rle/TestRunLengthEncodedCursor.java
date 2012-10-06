@@ -7,20 +7,24 @@ import com.facebook.presto.block.AbstractTestCursor;
 import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.CursorAssertions;
+import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.GenericTupleStream;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedCursor;
-import com.facebook.presto.block.uncompressed.UncompressedTupleStream;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
 import static com.facebook.presto.block.Blocks.createBlock;
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.CursorAssertions.assertAdvanceNextPosition;
+import static com.facebook.presto.block.CursorAssertions.assertAdvanceNextValue;
+import static com.facebook.presto.block.CursorAssertions.assertAdvanceToPosition;
 import static com.facebook.presto.block.CursorAssertions.assertCurrentValue;
 import static com.facebook.presto.block.CursorAssertions.assertNextPosition;
 import static com.facebook.presto.block.CursorAssertions.assertNextValue;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -37,7 +41,7 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         CursorAssertions.assertNextValue(cursor, 20, "cherry");
         CursorAssertions.assertNextValue(cursor, 30, "date");
 
-        assertFalse(cursor.advanceNextValue());
+        assertAdvanceNextValue(cursor, FINISHED);
         assertTrue(cursor.isFinished());
     }
 
@@ -48,27 +52,27 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         Cursor cursor = createCursor();
 
         // advance to first position
-        assertTrue(cursor.advanceToPosition(0));
+        assertAdvanceToPosition(cursor, 0);
         assertCurrentValue(cursor, 0, "apple");
 
         // skip to position in first block
-        assertTrue(cursor.advanceToPosition(2));
+        assertAdvanceToPosition(cursor, 2);
         assertCurrentValue(cursor, 2, "apple");
 
         // advance to same position
-        assertTrue(cursor.advanceToPosition(2));
+        assertAdvanceToPosition(cursor, 2);
         assertCurrentValue(cursor, 2, "apple");
 
         // skip to position in same block
-        assertTrue(cursor.advanceToPosition(4));
+        assertAdvanceToPosition(cursor, 4);
         assertCurrentValue(cursor, 4, "apple");
 
         // skip to position in middle block
-        assertTrue(cursor.advanceToPosition(21));
+        assertAdvanceToPosition(cursor, 21);
         assertCurrentValue(cursor, 21, "cherry");
 
         // skip to position in gap
-        assertTrue(cursor.advanceToPosition(25));
+        assertAdvanceToPosition(cursor, 25);
         assertCurrentValue(cursor, 30, "date");
 
         // skip backwards
@@ -81,7 +85,7 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         }
 
         // skip past end
-        assertFalse(cursor.advanceToPosition(100));
+        assertAdvanceToPosition(cursor, 100, FINISHED);
 
         assertTrue(cursor.isFinished());
     }
@@ -106,7 +110,7 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         RunLengthEncodedCursor cursor = createCursor();
 
         // first, advance to end of first block
-        assertTrue(cursor.advanceToPosition(4));
+        assertAdvanceToPosition(cursor, 4);
 
         // force jump to next block
         CursorAssertions.assertNextPosition(cursor, 5, "banana");
@@ -119,7 +123,7 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         RunLengthEncodedCursor cursor = createCursor();
 
         // first, advance to end of first block
-        assertTrue(cursor.advanceToPosition(4));
+        assertAdvanceToPosition(cursor, 4);
 
         // force jump to next block
         CursorAssertions.assertNextValue(cursor, 5, "banana");
@@ -136,7 +140,7 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         CursorAssertions.assertNextValuePosition(cursor, 20);
         CursorAssertions.assertNextValuePosition(cursor, 30);
 
-        assertFalse(cursor.advanceNextValue());
+        assertAdvanceNextValue(cursor, FINISHED);
         assertTrue(cursor.isFinished());
     }
 
@@ -146,11 +150,11 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         RunLengthEncodedCursor cursor = createCursor();
 
         // first, skip to end
-        while (cursor.advanceNextPosition()) {
+        while (Cursors.advanceNextPositionNoYield(cursor)) {
         }
 
         // advance past end
-        assertFalse(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor, FINISHED);
         assertTrue(cursor.isFinished());
     }
 
@@ -160,11 +164,11 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         RunLengthEncodedCursor cursor = createCursor();
 
         // first, skip to end
-        while (cursor.advanceNextValue()) {
+        while (Cursors.advanceNextValueNoYield(cursor)) {
         }
 
         // advance past end
-        assertFalse(cursor.advanceNextValue());
+        assertAdvanceNextValue(cursor, FINISHED);
         assertTrue(cursor.isFinished());
     }
 
@@ -174,16 +178,16 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
     {
         RunLengthEncodedCursor cursor = createCursor();
 
-        cursor.advanceNextValue();
+        assertAdvanceNextValue(cursor);
         assertEquals(cursor.getCurrentValueEndPosition(), 4);
 
-        cursor.advanceNextValue();
+        assertAdvanceNextValue(cursor);
         assertEquals(cursor.getCurrentValueEndPosition(), 7);
 
-        cursor.advanceNextValue();
+        assertAdvanceNextValue(cursor);
         assertEquals(cursor.getCurrentValueEndPosition(), 21);
 
-        cursor.advanceNextValue();
+        assertAdvanceNextValue(cursor);
         assertEquals(cursor.getCurrentValueEndPosition(), 30);
     }
 
@@ -222,15 +226,15 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         assertNextPosition(cursor, 21, "cherry");
         assertNextValue(cursor, 30, "date");
 
-        assertFalse(cursor.advanceNextPosition());
-        assertFalse(cursor.advanceNextValue());
+        assertAdvanceNextPosition(cursor, FINISHED);
+        assertAdvanceNextValue(cursor, FINISHED);
         assertTrue(cursor.isFinished());
     }
 
     @Override
     protected TupleStream createExpectedValues()
     {
-        return new UncompressedTupleStream(TupleInfo.SINGLE_VARBINARY, ImmutableList.of(
+        return new GenericTupleStream<>(TupleInfo.SINGLE_VARBINARY, ImmutableList.of(
                 createBlock(0, "apple", "apple", "apple", "apple", "apple"),
                 createBlock(5, "banana", "banana", "banana"),
                 createBlock(20, "cherry", "cherry"),

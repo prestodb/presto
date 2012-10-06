@@ -10,6 +10,8 @@ import com.google.common.base.Preconditions;
 import java.util.NoSuchElementException;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_DOUBLE;
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class UncompressedDoubleBlockCursor
@@ -56,12 +58,12 @@ public class UncompressedDoubleBlockCursor
     }
 
     @Override
-    public boolean advanceNextValue()
+    public AdvanceResult advanceNextValue()
     {
         // every position is a new value
         if (position >= range.getEnd()) {
             position = Long.MAX_VALUE;
-            return false;
+            return FINISHED;
         }
 
         if (position < 0) {
@@ -71,29 +73,29 @@ public class UncompressedDoubleBlockCursor
             position++;
             offset += SIZE_OF_DOUBLE;
         }
-        return true;
+        return SUCCESS;
     }
 
     @Override
-    public boolean advanceNextPosition()
+    public AdvanceResult advanceNextPosition()
     {
         return advanceNextValue();
     }
 
     @Override
-    public boolean advanceToPosition(long newPosition)
+    public AdvanceResult advanceToPosition(long newPosition)
     {
         Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
 
         if (newPosition > range.getEnd()) {
             position = Long.MAX_VALUE;
-            return false;
+            return FINISHED;
         }
 
         // advance to specified position
         position = newPosition;
         offset = (int) ((position - this.range.getStart()) * SIZE_OF_DOUBLE);
-        return true;
+        return SUCCESS;
     }
 
     @Override

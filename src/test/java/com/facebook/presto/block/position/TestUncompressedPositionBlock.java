@@ -1,13 +1,16 @@
 package com.facebook.presto.block.position;
 
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.QuerySession;
 import org.testng.annotations.Test;
 
 import java.util.NoSuchElementException;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.CursorAssertions.assertAdvanceNextPosition;
+import static com.facebook.presto.block.CursorAssertions.assertAdvanceToPosition;
 import static com.facebook.presto.block.CursorAssertions.assertNextPosition;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -19,7 +22,7 @@ public class TestUncompressedPositionBlock
     {
         UncompressedPositionBlock block = new UncompressedPositionBlock(0, 1, 2, 3, 4, 10, 11, 12, 13, 14);
 
-        Cursor cursor = block.cursor();
+        Cursor cursor = block.cursor(new QuerySession());
 
         assertNextPosition(cursor, 0);
         assertNextPosition(cursor, 1);
@@ -33,7 +36,7 @@ public class TestUncompressedPositionBlock
         assertNextPosition(cursor, 13);
         assertNextPosition(cursor, 14);
 
-        assertFalse(cursor.advanceNextPosition());
+        assertAdvanceNextPosition(cursor, FINISHED);
         assertTrue(cursor.isFinished());
     }
 
@@ -43,22 +46,22 @@ public class TestUncompressedPositionBlock
     {
         UncompressedPositionBlock block = new UncompressedPositionBlock(0, 1, 2, 3, 4, 10, 11, 12, 13, 14);
 
-        Cursor cursor = block.cursor();
+        Cursor cursor = block.cursor(new QuerySession());
 
         // advance to beginning
-        assertTrue(cursor.advanceToPosition(0));
+        assertAdvanceToPosition(cursor, 0);
         assertEquals(cursor.getPosition(), 0);
 
         // advance to gap
-        assertTrue(cursor.advanceToPosition(7));
+        assertAdvanceToPosition(cursor, 7);
         assertEquals(cursor.getPosition(), 10);
 
         // advance to other valid position
-        assertTrue(cursor.advanceToPosition(12));
+        assertAdvanceToPosition(cursor, 12);
         assertEquals(cursor.getPosition(), 12);
 
         // advance past end
-        assertFalse(cursor.advanceToPosition(20));
+        assertAdvanceToPosition(cursor, 20, FINISHED);
         assertTrue(cursor.isFinished());
 
         try {

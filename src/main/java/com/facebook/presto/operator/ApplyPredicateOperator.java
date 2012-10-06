@@ -2,6 +2,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.Cursor;
 import com.google.common.base.Preconditions;
@@ -34,8 +35,9 @@ public class ApplyPredicateOperator
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new FilteredCursor(predicate, source.cursor());
+        Preconditions.checkNotNull(session, "session is null");
+        return new FilteredCursor(predicate, source.cursor(session));
     }
 }

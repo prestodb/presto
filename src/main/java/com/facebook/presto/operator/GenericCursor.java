@@ -4,34 +4,42 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Range;
-import com.facebook.presto.block.Cursor;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.YieldingIterator;
+import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 
-import java.util.Iterator;
 import java.util.NoSuchElementException;
+
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
 
 public class GenericCursor implements Cursor
 {
-    private final Iterator<? extends TupleStream> iterator;
+    private final QuerySession session;
     private final TupleInfo info;
+    private final YieldingIterator<? extends TupleStream> iterator;
 
     private Cursor blockCursor;
     private boolean hasAdvanced;
 
-    public GenericCursor(TupleInfo info, Iterator<? extends TupleStream> iterator)
+    public GenericCursor(QuerySession session, TupleInfo info, YieldingIterator<? extends TupleStream> iterator)
     {
-        Preconditions.checkNotNull(iterator, "iterator is null");
+        Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkNotNull(info, "info is null");
+        Preconditions.checkNotNull(iterator, "iterator is null");
 
+        this.session = session;
         this.info = info;
         this.iterator = iterator;
 
         if (iterator.hasNext()) {
-            blockCursor = iterator.next().cursor();
+            blockCursor = iterator.next().cursor(session);
         }
     }
 
@@ -60,37 +68,47 @@ public class GenericCursor implements Cursor
     }
 
     @Override
-    public boolean advanceNextValue()
+    public AdvanceResult advanceNextValue()
     {
         if (blockCursor == null) {
-            return false;
+            return FINISHED;
         }
 
         hasAdvanced = true;
-        if (blockCursor.advanceNextValue()) {
-            return true;
+        AdvanceResult result = blockCursor.advanceNextValue();
+        if (result != FINISHED) {
+            return result;
         }
 
-        while (iterator.hasNext()) {
-            blockCursor = iterator.next().cursor();
-            if (blockCursor.advanceNextPosition()) {
-                return true;
+        while (iterator.canAdvance()) {
+            blockCursor = iterator.next().cursor(session);
+            result = blockCursor.advanceNextPosition();
+            if (result != FINISHED) {
+                return result;
             }
+        }
+        if (iterator.mustYield()) {
+            return MUST_YIELD;
         }
 
         blockCursor = null;
-        return false;
+        return FINISHED;
     }
 
     @Override
-    public boolean advanceNextPosition()
+    public AdvanceResult advanceNextPosition()
     {
         if (blockCursor == null) {
-            return false;
+            return FINISHED;
         }
 
         hasAdvanced = true;
-        return blockCursor.advanceNextPosition() || advanceNextValue();
+
+        AdvanceResult result = blockCursor.advanceNextPosition();
+        if (result != FINISHED) {
+            return result;
+        }
+        return advanceNextValue();
     }
 
     @Override
@@ -164,35 +182,41 @@ public class GenericCursor implements Cursor
     }
 
     @Override
-    public boolean advanceToPosition(long newPosition)
+    public AdvanceResult advanceToPosition(long newPosition)
     {
         Preconditions.checkArgument(!hasAdvanced || newPosition >= getPosition(), "Can't advance backwards");
 
         if (blockCursor == null) {
-            return false;
+            return FINISHED;
         }
 
         if (hasAdvanced && newPosition == getPosition()) {
             // position to current position? => no op
-            return true;
+            return SUCCESS;
         }
 
         hasAdvanced = true;
 
         // skip to block containing requested position
-        while (newPosition > blockCursor.getRange().getEnd() && iterator.hasNext()) {
-            blockCursor = iterator.next().cursor();
+        while (newPosition > blockCursor.getRange().getEnd() && iterator.canAdvance()) {
+            blockCursor = iterator.next().cursor(session);
+        }
+
+        if (iterator.mustYield()) {
+            return MUST_YIELD;
         }
 
         // is the position off the end of the stream?
         if (newPosition > blockCursor.getRange().getEnd()) {
             blockCursor = null;
-            return false;
+            return FINISHED;
         }
 
-        if (!blockCursor.advanceToPosition(newPosition)){
+        AdvanceResult result = blockCursor.advanceToPosition(newPosition);
+        if (result == FINISHED) {
+            // todo this is wrong, a filtered block could not contain the specified position
             throw new IllegalStateException("Internal error: position not found");
         }
-        return true;
+        return result;
     }
 }

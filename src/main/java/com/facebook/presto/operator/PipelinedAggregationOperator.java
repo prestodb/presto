@@ -5,23 +5,27 @@ import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.aggregation.AggregationFunction;
+import com.facebook.presto.block.AbstractYieldingIterator;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.YieldingIterable;
+import com.facebook.presto.block.YieldingIterator;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursor.AdvanceResult;
+import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.QuerySession;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedCursor;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Provider;
-import java.util.Iterator;
 
 /**
  * Group input data and produce a single block for each sequence of identical values.
  */
 public class PipelinedAggregationOperator
-        implements TupleStream, Iterable<UncompressedBlock>
+        implements TupleStream, YieldingIterable<UncompressedBlock>
 {
     private final TupleStream groupBySource;
     private final TupleStream aggregationSource;
@@ -60,36 +64,48 @@ public class PipelinedAggregationOperator
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new UncompressedCursor(getTupleInfo(), iterator());
+        Preconditions.checkNotNull(session, "session is null");
+        return new UncompressedCursor(getTupleInfo(), iterator(session));
     }
 
     @Override
-    public Iterator<UncompressedBlock> iterator()
+    public YieldingIterator<UncompressedBlock> iterator(QuerySession session)
     {
-        final Cursor groupByCursor = groupBySource.cursor();
-        final Cursor aggregationCursor = aggregationSource.cursor();
+        Preconditions.checkNotNull(session, "session is null");
+        final Cursor groupByCursor = groupBySource.cursor(session);
+        final Cursor aggregationCursor = aggregationSource.cursor(session);
         aggregationCursor.advanceNextPosition();
 
-        return new AbstractIterator<UncompressedBlock>()
+        // todo add code to advance to watermark position
+        return new AbstractYieldingIterator<UncompressedBlock>()
         {
             private long position;
 
             @Override
             protected UncompressedBlock computeNext()
             {
-                // if no more data, return null
-                if (!groupByCursor.advanceNextValue()) {
-                    endOfData();
-                    return null;
-                }
-
                 BlockBuilder builder = new BlockBuilder(position, info);
+                while (!builder.isFull()) {
+                    // advance the group by one value
+                    AdvanceResult result = groupByCursor.advanceNextValue();
+                    if (result != AdvanceResult.SUCCESS) {
+                        if (!builder.isEmpty()) {
+                            // output current block
+                            break;
+                        } else if (result == AdvanceResult.MUST_YIELD) {
+                            // todo produce partial result
+                            return setMustYield();
+                        }
+                        else if (result == AdvanceResult.FINISHED) {
+                            return endOfData();
+                        }
+                    }
 
-                do {
+                    // process the group - pipeline can not yield
                     long groupEndPosition = groupByCursor.getCurrentValueEndPosition();
-                    if (aggregationCursor.advanceToPosition(groupByCursor.getPosition()) && aggregationCursor.getPosition() <= groupEndPosition) {
+                    if (Cursors.advanceToPositionNoYield(aggregationCursor, groupByCursor.getPosition()) && aggregationCursor.getPosition() <= groupEndPosition) {
                         // create a new aggregate for this group
                         AggregationFunction aggregation = functionProvider.get();
 
@@ -103,7 +119,6 @@ public class PipelinedAggregationOperator
                         builder.append(value);
                     }
                 }
-                while (!builder.isFull() && groupByCursor.advanceNextValue());
 
                 // build an output block
                 UncompressedBlock block = builder.build();

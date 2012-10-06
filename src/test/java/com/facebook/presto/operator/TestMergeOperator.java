@@ -5,8 +5,9 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.GenericTupleStream;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.block.uncompressed.UncompressedTupleStream;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -27,7 +28,7 @@ public class TestMergeOperator
                 .add(createBlock(30, "n", "o", "p", "q", "r", "s"))
                 .build();
 
-        UncompressedTupleStream data = new UncompressedTupleStream(TupleInfo.SINGLE_VARBINARY, values);
+        TupleStream data = new GenericTupleStream<>(TupleInfo.SINGLE_VARBINARY, values);
         MergeOperator merge = new MergeOperator(data, data, data);
 
         TupleInfo expectedTupleInfo = new TupleInfo(VARIABLE_BINARY, VARIABLE_BINARY, VARIABLE_BINARY);
@@ -38,6 +39,6 @@ public class TestMergeOperator
             expectedBlock.append(new byte[]{(byte) i});
         }
 
-        assertTupleStreamEquals(merge, new UncompressedTupleStream(expectedTupleInfo, expectedBlock.build()));
+        assertTupleStreamEquals(merge, new GenericTupleStream<>(expectedTupleInfo, expectedBlock.build()));
     }
 }

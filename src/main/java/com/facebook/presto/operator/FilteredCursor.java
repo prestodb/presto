@@ -11,6 +11,8 @@ import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
+
 public class FilteredCursor implements Cursor
 {
     private final Predicate<Cursor> predicate;
@@ -50,35 +52,43 @@ public class FilteredCursor implements Cursor
     }
 
     @Override
-    public boolean advanceNextValue()
+    public AdvanceResult advanceNextValue()
     {
         do {
-            if (!delegate.advanceNextValue()) {
-                return false;
+            AdvanceResult result = delegate.advanceNextValue();
+            if (result != SUCCESS) {
+                return result;
             }
         } while (!predicate.apply(delegate));
 
-        return true;
+        return SUCCESS;
     }
 
     @Override
-    public boolean advanceNextPosition()
+    public AdvanceResult advanceNextPosition()
     {
         // todo only apply predicate when value changes
         do {
-            if (!delegate.advanceNextPosition()) {
-                return false;
+            AdvanceResult result = delegate.advanceNextPosition();
+            if (result != SUCCESS) {
+                return result;
             }
         } while (!predicate.apply(delegate));
 
-        return true;
+        return SUCCESS;
     }
 
     @Override
-    public boolean advanceToPosition(long newPosition)
+    public AdvanceResult advanceToPosition(long newPosition)
     {
-        return delegate.advanceToPosition(newPosition) &&
-                (predicate.apply(delegate) || advanceNextPosition());
+        AdvanceResult result = delegate.advanceToPosition(newPosition);
+        if (result != SUCCESS) {
+            return result;
+        }
+        if (predicate.apply(delegate)) {
+            return SUCCESS;
+        }
+        return advanceNextPosition();
     }
 
     @Override

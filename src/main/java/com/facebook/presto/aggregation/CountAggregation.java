@@ -6,6 +6,8 @@ import com.facebook.presto.block.Cursor;
 
 import javax.inject.Provider;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
+
 public class CountAggregation
         implements AggregationFunction
 {
@@ -32,7 +34,7 @@ public class CountAggregation
             do {
                 count++;
             }
-            while (cursor.getPosition() < endPosition && cursor.advanceNextPosition());
+            while (cursor.getPosition() < endPosition && cursor.advanceNextPosition() == SUCCESS);
         }
     }
 

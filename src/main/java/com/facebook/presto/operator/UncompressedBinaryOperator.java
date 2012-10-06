@@ -2,22 +2,29 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.AbstractYieldingIterator;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.YieldingIterable;
+import com.facebook.presto.block.YieldingIterator;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursor.AdvanceResult;
+import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.QuerySession;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedCursor;
 import com.facebook.presto.operation.BinaryOperation;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.AbstractIterator;
 
-import java.util.Iterator;
+import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
+import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
 
 /**
  * A binary operator that produces uncompressed blocks
  */
 public class UncompressedBinaryOperator
-        implements TupleStream, Iterable<UncompressedBlock>
+        implements TupleStream, YieldingIterable<UncompressedBlock>
 {
     private final TupleStream leftOperandSource;
     private final TupleStream rightOperandSource;
@@ -43,32 +50,40 @@ public class UncompressedBinaryOperator
     }
 
     @Override
-    public Cursor cursor()
+    public Cursor cursor(QuerySession session)
     {
-        return new UncompressedCursor(getTupleInfo(), iterator());
+        Preconditions.checkNotNull(session, "session is null");
+        return new UncompressedCursor(getTupleInfo(), iterator(session));
     }
 
     @Override
-    public Iterator<UncompressedBlock> iterator()
+    public YieldingIterator<UncompressedBlock> iterator(QuerySession session)
     {
-        final Cursor left = leftOperandSource.cursor();
-        final Cursor right = rightOperandSource.cursor();
+        Preconditions.checkNotNull(session, "session is null");
+        final Cursor left = leftOperandSource.cursor(session);
+        final Cursor right = rightOperandSource.cursor(session);
 
-        boolean advancedLeft = left.advanceNextPosition();
-        boolean advancedRight = right.advanceNextPosition();
+        // todo advance cursors to first position - moving to the first position is not allowed to cause a yield
+        boolean advancedLeft = Cursors.advanceNextPositionNoYield(left);
+        boolean advancedRight = Cursors.advanceNextPositionNoYield(right);
 
         Preconditions.checkState(advancedLeft && advancedRight, "Empty source cursor"); // TODO: we should be able to support this scenario
 
-        return new AbstractIterator<UncompressedBlock>()
+        // todo add code to advance to watermark position
+        return new AbstractYieldingIterator<UncompressedBlock>()
         {
-            private boolean done = false;
-
             @Override
             protected UncompressedBlock computeNext()
             {
-                if (done) {
-                    endOfData();
-                    return null;
+                // we assume, left is always advanced first, and left and right have the exact same positions
+                if (left.isFinished()) {
+                    return endOfData();
+                }
+                if (right.getPosition() < left.getPosition()) {
+                    if (right.advanceNextPosition() == MUST_YIELD) {
+                        return setMustYield();
+                    }
+                    Preconditions.checkState(right.getPosition() == left.getPosition());
                 }
 
                 BlockBuilder builder = new BlockBuilder(left.getPosition(), getTupleInfo());
@@ -77,14 +92,29 @@ public class UncompressedBinaryOperator
 
                     // TODO: arbitrary types
                     long value = operation.evaluateAsLong(left, right);
-
-                    while (!done && left.getPosition() <= endPosition && !builder.isFull()) {
+                    while (left.getPosition() <= endPosition && !builder.isFull()) {
                         builder.append(value);
 
-                        done = !left.advanceNextPosition() || !right.advanceNextPosition();
+                        // always advance left and then right
+                        AdvanceResult result = left.advanceNextPosition();
+                        if (result == SUCCESS) {
+                            result = right.advanceNextPosition();
+                        }
+
+                        if (result != SUCCESS) {
+                            if (!builder.isEmpty()) {
+                                return builder.build();
+                            }
+                            if (result == MUST_YIELD) {
+                                return setMustYield();
+                            }
+                            if (result == FINISHED) {
+                                return endOfData();
+                            }
+                        }
                     }
                 }
-                while (!done && !builder.isFull());
+                while (!builder.isFull());
 
                 return builder.build();
             }

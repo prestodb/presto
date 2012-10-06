@@ -6,19 +6,32 @@ import com.facebook.presto.block.Cursor;
 
 import javax.inject.Provider;
 
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
+
 public class SumAggregation
         implements AggregationFunction
 {
-    public static final Provider<AggregationFunction> PROVIDER = new Provider<AggregationFunction>()
-    {
-        @Override
-        public SumAggregation get()
-        {
-            return new SumAggregation();
-        }
-    };
+    public static final Provider<AggregationFunction> PROVIDER = provider(0);
 
+    public static Provider<AggregationFunction> provider(final int field)
+    {
+        return new Provider<AggregationFunction>()
+        {
+            @Override
+            public SumAggregation get()
+            {
+                return new SumAggregation(field);
+            }
+        };
+    }
+
+    private final int field;
     private long sum;
+
+    public SumAggregation(int field)
+    {
+        this.field = field;
+    }
 
     @Override
     public TupleInfo getTupleInfo()
@@ -43,9 +56,9 @@ public class SumAggregation
 
         if (cursor.getPosition() <= endPosition) {
             do {
-                sum += cursor.getLong(0);
+                sum += cursor.getLong(field);
             }
-            while (cursor.getPosition() < endPosition && cursor.advanceNextPosition());
+            while (cursor.getPosition() < endPosition && cursor.advanceNextPosition() == SUCCESS);
         }
     }
 
