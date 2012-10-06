@@ -85,6 +85,7 @@ public class GroupByOperator
 
                     AdvanceResult result = cursor.advanceNextValue();
                     if (result == MUST_YIELD) {
+                        // todo product partial group block before yielding
                         return setMustYield();
                     } else if (result == FINISHED) {
                         break;

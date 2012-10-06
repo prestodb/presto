@@ -63,12 +63,13 @@ public class UncompressedBinaryOperator
         final Cursor left = leftOperandSource.cursor(session);
         final Cursor right = rightOperandSource.cursor(session);
 
-        // advance cursors to first position - moving to the first position is not allowed to cause a yield
+        // todo advance cursors to first position - moving to the first position is not allowed to cause a yield
         boolean advancedLeft = Cursors.advanceNextPositionNoYield(left);
         boolean advancedRight = Cursors.advanceNextPositionNoYield(right);
 
         Preconditions.checkState(advancedLeft && advancedRight, "Empty source cursor"); // TODO: we should be able to support this scenario
 
+        // todo add code to advance to watermark position
         return new AbstractYieldingIterator<UncompressedBlock>()
         {
             @Override

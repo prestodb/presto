@@ -78,6 +78,7 @@ public class PipelinedAggregationOperator
         final Cursor aggregationCursor = aggregationSource.cursor(session);
         aggregationCursor.advanceNextPosition();
 
+        // todo add code to advance to watermark position
         return new AbstractYieldingIterator<UncompressedBlock>()
         {
             private long position;
@@ -94,6 +95,7 @@ public class PipelinedAggregationOperator
                             // output current block
                             break;
                         } else if (result == AdvanceResult.MUST_YIELD) {
+                            // todo produce partial result
                             return setMustYield();
                         }
                         else if (result == AdvanceResult.FINISHED) {

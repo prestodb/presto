@@ -149,7 +149,6 @@ public class RangeBoundedCursor
 
     private AdvanceResult processResult(AdvanceResult result)
     {
-        // if the advance returned yield, we have not finished initialization.
         if (result == MUST_YIELD) {
             return MUST_YIELD;
         }

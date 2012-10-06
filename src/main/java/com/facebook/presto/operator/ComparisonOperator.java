@@ -77,6 +77,7 @@ public class ComparisonOperator
             return YieldingIterators.emptyIterator();
         }
 
+        // todo add code to advance to watermark position
         return new AbstractYieldingIterator<UncompressedPositionBlock>()
         {
             @Override
