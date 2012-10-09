@@ -95,9 +95,9 @@ public abstract class AbstractTupleStreamBenchmark
 
         TupleStream tupleStream = createBenchmarkedTupleStream(inputTupleStreams);
 
-        Cursor cursor = tupleStream.cursor();
+        Cursor cursor = tupleStream.cursor(new QuerySession());
         long outputRows = 0;
-        while (cursor.advanceNextValue()) {
+        while (Cursors.advanceNextValueNoYield(cursor)) {
             outputRows += cursor.getCurrentValueEndPosition() - cursor.getPosition() + 1;
         }
 
