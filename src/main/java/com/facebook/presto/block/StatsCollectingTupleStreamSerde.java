@@ -100,9 +100,9 @@ public class StatsCollectingTupleStreamSerde
         }
 
         @Override
-        public Cursor cursor()
+        public Cursor cursor(QuerySession session)
         {
-            return tupleStream.cursor();
+            return tupleStream.cursor(session);
         }
 
         public Stats getStats()
@@ -183,15 +183,15 @@ public class StatsCollectingTupleStreamSerde
         }
 
         @Override
-        public Cursor cursor()
+        public Cursor cursor(QuerySession querySession)
         {
             if (statsBuilder == null) {
                 statsBuilder = new StatsBuilder();
-                return new StatsCollectingCursor(tupleStream.cursor(), statsBuilder);
+                return new StatsCollectingCursor(tupleStream.cursor(querySession), statsBuilder);
             }
             else {
                 // Stats should already have been collected
-                return tupleStream.cursor();
+                return tupleStream.cursor(querySession);
             }
         }
 
@@ -216,41 +216,53 @@ public class StatsCollectingTupleStreamSerde
         }
 
         @Override
-        public boolean advanceNextValue()
+        public AdvanceResult advanceNextValue()
         {
-            boolean result = getDelegate().advanceNextValue();
+            AdvanceResult result = getDelegate().advanceNextValue();
             processCurrentValueIfNecessary(result);
             return result;
         }
 
         @Override
-        public boolean advanceNextPosition()
+        public AdvanceResult advanceNextPosition()
         {
-            boolean result = getDelegate().advanceNextPosition();
+            AdvanceResult result = getDelegate().advanceNextPosition();
             processCurrentValueIfNecessary(result);
             return result;
         }
 
         @Override
-        public boolean advanceToPosition(long position)
+        public AdvanceResult advanceToPosition(long position)
         {
-            // Skipping over too many positions will cause values to be omitted, which is not valid for a serializer
-            Preconditions.checkArgument(position <= getDelegate().getCurrentValueEndPosition() + 1, "Serializer should not be skipping over values");
-            boolean result = getDelegate().advanceToPosition(position);
-            processCurrentValueIfNecessary(result);
-            return result;
-        }
-
-        private void processCurrentValueIfNecessary(boolean successfulAdvance)
-        {
-            if (successfulAdvance) {
-                if (getDelegate().getPosition() > measuredPosition) {
-                    statsBuilder.process(getDelegate().getTuple(), Range.create(getDelegate().getPosition(), getDelegate().getCurrentValueEndPosition()));
-                    measuredPosition = getDelegate().getCurrentValueEndPosition();
+            // We should always have processed as much as the current value end position
+            while (position > getDelegate().getCurrentValueEndPosition()) {
+                AdvanceResult result = getDelegate().advanceNextValue();
+                processCurrentValueIfNecessary(result);
+                if (result == AdvanceResult.MUST_YIELD || result == AdvanceResult.FINISHED) {
+                    return result;
                 }
             }
-            else {
-                statsBuilder.markFinished();
+            // All intermediate values and all positions of the current value should already be processed
+            return (position == getDelegate().getPosition()) ? AdvanceResult.SUCCESS : getDelegate().advanceToPosition(position);
+        }
+
+        private void processCurrentValueIfNecessary(AdvanceResult advanceResult)
+        {
+            switch (advanceResult) {
+                case SUCCESS:
+                    if (getDelegate().getPosition() > measuredPosition) {
+                        statsBuilder.process(getDelegate().getTuple(), Range.create(getDelegate().getPosition(), getDelegate().getCurrentValueEndPosition()));
+                        measuredPosition = getDelegate().getCurrentValueEndPosition();
+                    }
+                    break;
+                case MUST_YIELD:
+                    // No advancement
+                    break;
+                case FINISHED:
+                    statsBuilder.markFinished();
+                    break;
+                default:
+                    throw new AssertionError("Missing advance state");
             }
         }
     }

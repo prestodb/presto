@@ -245,8 +245,8 @@ public class StaticQueryManager implements QueryManager
                 Slice groupBySlice = Slices.mapFileReadOnly(groupByFile);
                 Slice aggregateSlice = Slices.mapFileReadOnly(aggregateFile);
 
-                TupleStream groupBySource = groupBySerde.deserialize(groupBySlice);
-                TupleStream aggregateSource = aggregateSerde.deserialize(aggregateSlice);
+                TupleStream groupBySource = groupBySerde.createDeserializer().deserialize(groupBySlice);
+                TupleStream aggregateSource = aggregateSerde.createDeserializer().deserialize(aggregateSlice);
 
                 GroupByOperator groupBy = new GroupByOperator(groupBySource);
                 HashAggregationOperator aggregation = new HashAggregationOperator(groupBy, aggregateSource, SumAggregation.PROVIDER);
