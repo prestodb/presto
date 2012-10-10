@@ -7,26 +7,27 @@ import com.google.common.base.Throwables;
 import com.google.inject.Guice;
 import com.google.inject.Stage;
 import io.airlift.json.JsonModule;
+import io.airlift.json.ObjectMapperProvider;
 import org.codehaus.jackson.map.ObjectMapper;
 
 import java.io.IOException;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class SelfIdTupleStreamSerde
+public class SelfDescriptiveSerde
         implements TupleStreamSerde
 {
-    private static final ObjectMapper OBJECT_MAPPER = Guice.createInjector(Stage.PRODUCTION, new JsonModule()).getInstance(ObjectMapper.class);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
     public static final TupleStreamDeserializer DESERIALIZER = new SelfIdTupleStreamDeserializer();
 
-    private final TupleStreamSerde serializationSerde;
+    private final TupleStreamSerde tupleStreamSerde;
 
     /**
      * Provided tupleStreamSerde must be registered with TupleStreamSerde interface
      */
-    public SelfIdTupleStreamSerde(TupleStreamSerde serializationSerde)
+    public SelfDescriptiveSerde(TupleStreamSerde tupleStreamSerde)
     {
-        this.serializationSerde = checkNotNull(serializationSerde, "serializationSerde is null");
+        this.tupleStreamSerde = checkNotNull(tupleStreamSerde, "tupleStreamSerde is null");
     }
 
     @Override
@@ -39,13 +40,13 @@ public class SelfIdTupleStreamSerde
                 checkNotNull(sliceOutput, "sliceOutput is null");
                 try {
                     // TODO: we can make this more efficient by writing the length in the footer
-                    byte[] header = OBJECT_MAPPER.writeValueAsBytes(serializationSerde);
+                    byte[] header = OBJECT_MAPPER.writeValueAsBytes(tupleStreamSerde);
                     sliceOutput.writeInt(header.length);
                     sliceOutput.writeBytes(header);
                 } catch (IOException e) {
                     throw Throwables.propagate(e);
                 }
-                return serializationSerde.createSerializer().createTupleStreamWriter(sliceOutput);
+                return tupleStreamSerde.createSerializer().createTupleStreamWriter(sliceOutput);
             }
         };
     }

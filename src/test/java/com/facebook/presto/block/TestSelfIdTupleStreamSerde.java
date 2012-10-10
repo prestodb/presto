@@ -22,14 +22,14 @@ public class TestSelfIdTupleStreamSerde
     @Test
     public void testRaw() throws Exception
     {
-        TupleStreamSerde serde = new SelfIdTupleStreamSerde(new UncompressedSerde());
+        TupleStreamSerde serde = new SelfDescriptiveSerde(new UncompressedSerde());
         serde.createSerializer()
                 .createTupleStreamWriter(sliceOutput)
                 .append(tupleStream)
                 .finish();
         Blocks.assertTupleStreamEquals(
                 // Should be able to use generic deserializer
-                SelfIdTupleStreamSerde.DESERIALIZER.deserialize(sliceOutput.slice()),
+                SelfDescriptiveSerde.DESERIALIZER.deserialize(sliceOutput.slice()),
                 tupleStream
         );
     }
@@ -37,14 +37,14 @@ public class TestSelfIdTupleStreamSerde
     @Test
     public void testRle() throws Exception
     {
-        TupleStreamSerde serde = new SelfIdTupleStreamSerde(new RunLengthEncodedSerde());
+        TupleStreamSerde serde = new SelfDescriptiveSerde(new RunLengthEncodedSerde());
         serde.createSerializer()
                 .createTupleStreamWriter(sliceOutput)
                 .append(tupleStream)
                 .finish();
         Blocks.assertTupleStreamEquals(
                 // Should be able to use generic deserializer
-                SelfIdTupleStreamSerde.DESERIALIZER.deserialize(sliceOutput.slice()),
+                SelfDescriptiveSerde.DESERIALIZER.deserialize(sliceOutput.slice()),
                 tupleStream
         );
     }
@@ -52,14 +52,14 @@ public class TestSelfIdTupleStreamSerde
     @Test
     public void testDicDicRle() throws Exception
     {
-        TupleStreamSerde serde = new SelfIdTupleStreamSerde(new DictionarySerde(new DictionarySerde(new RunLengthEncodedSerde())));
+        TupleStreamSerde serde = new SelfDescriptiveSerde(new DictionarySerde(new DictionarySerde(new RunLengthEncodedSerde())));
         serde.createSerializer()
                 .createTupleStreamWriter(sliceOutput)
                 .append(tupleStream)
                 .finish();
         Blocks.assertTupleStreamEquals(
                 // Should be able to use generic deserializer
-                SelfIdTupleStreamSerde.DESERIALIZER.deserialize(sliceOutput.slice()),
+                SelfDescriptiveSerde.DESERIALIZER.deserialize(sliceOutput.slice()),
                 tupleStream
         );
     }

@@ -6,7 +6,7 @@ package com.facebook.presto;
 import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.QuerySession;
-import com.facebook.presto.block.TupleStreamSerde;
+import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.ingest.BlockDataImporter;
 import com.facebook.presto.ingest.BlockExtractor;
 import com.facebook.presto.ingest.DelimitedBlockExtractor;
@@ -237,7 +237,7 @@ public class Main
                 columnDefinitionBuilder.add(new ColumnDefinition(columnIndex, TupleInfo.Type.fromName(dataTypeName)));
                 columnImportSpecBuilder.add(
                         new ColumnImportSpec(
-                                TupleStreamSerde.Encoding.fromName(encodingName).createSerde().createSerializer(),
+                                TupleStreamSerdes.Encoding.fromName(encodingName).createSerde().createSerializer(),
                                 newOutputStreamSupplier(new File(outputDir, String.format("column%d.%s_%s.data", columnIndex, dataTypeName, encodingName)))
                         )
                 );

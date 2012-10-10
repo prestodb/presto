@@ -59,7 +59,7 @@ public abstract class AbstractTupleStreamBenchmark
      * @param column - TPCH column
      * @param encoding - Encoding to use for this column
      */
-    protected void loadColumnFile(TpchSchema.Column column, TupleStreamSerde.Encoding encoding)
+    protected void loadColumnFile(TpchSchema.Column column, TupleStreamSerdes.Encoding encoding)
     {
         Preconditions.checkNotNull(column, "column is null");
         Preconditions.checkNotNull(encoding, "encoding is null");

@@ -14,6 +14,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.codehaus.jackson.annotate.JsonSubTypes.Type;
 
+// TODO: switch the JSON encoding to operate on data representations that can be translated to serdes
+// We should start considering doing this when the serdes start to have more member fields
 @JsonTypeInfo(use=JsonTypeInfo.Id.NAME, include=JsonTypeInfo.As.PROPERTY, property="serde")
 @JsonSubTypes({
         @Type(value = RunLengthEncodedSerde.class, name = "rle"),
@@ -24,72 +26,4 @@ public interface TupleStreamSerde
 {
     TupleStreamSerializer createSerializer();
     TupleStreamDeserializer createDeserializer();
-
-    public static enum Encoding
-    {
-        RAW("raw")
-                {
-                    @Override
-                    public TupleStreamSerde createSerde()
-                    {
-                        return new UncompressedSerde();
-                    }
-                },
-        RLE("rle")
-                {
-                    @Override
-                    public TupleStreamSerde createSerde()
-                    {
-                        return new RunLengthEncodedSerde();
-                    }
-                },
-        DICTIONARY_RAW("dicraw")
-                {
-                    @Override
-                    public TupleStreamSerde createSerde()
-                    {
-                        return new DictionarySerde(RAW.createSerde());
-                    }
-                },
-        DICTIONARY_RLE("dicrle")
-                {
-                    @Override
-                    public TupleStreamSerde createSerde()
-                    {
-                        return new DictionarySerde(RLE.createSerde());
-                    }
-                };
-
-        private static final Map<String, Encoding> NAME_MAP;
-        static {
-            ImmutableMap.Builder<String, Encoding> builder = ImmutableMap.builder();
-            for (Encoding encoding : Encoding.values()) {
-                builder.put(encoding.getName(), encoding);
-            }
-            NAME_MAP = builder.build();
-        }
-
-        // Name should be usable as a filename
-        private final String name;
-
-        private Encoding(String name)
-        {
-            this.name = checkNotNull(name, "name is null");
-        }
-
-        public String getName()
-        {
-            return name;
-        }
-
-        public abstract TupleStreamSerde createSerde();
-
-        public static Encoding fromName(String name)
-        {
-            checkNotNull(name, "name is null");
-            Encoding encoding = NAME_MAP.get(name);
-            checkArgument(encoding != null, "Invalid type name: %s", name);
-            return encoding;
-        }
-    }
 }

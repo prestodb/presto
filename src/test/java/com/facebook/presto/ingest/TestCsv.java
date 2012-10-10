@@ -3,7 +3,7 @@ package com.facebook.presto.ingest;
 import com.facebook.presto.Main;
 import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.TupleStream;
-import com.facebook.presto.block.TupleStreamSerde;
+import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Splitter;
 import com.google.common.io.Resources;
@@ -113,7 +113,7 @@ public class TestCsv
         Iterator<String> partsIterator = Splitter.on(':').split(dataType).iterator();
         String typeName = partsIterator.next();
         String serdeName = partsIterator.next();
-        return TupleStreamSerde.Encoding.fromName(serdeName).createSerde().createDeserializer().deserialize(Slices.mapFileReadOnly(file));
+        return TupleStreamSerdes.Encoding.fromName(serdeName).createSerde().createDeserializer().deserialize(Slices.mapFileReadOnly(file));
     }
 
     private static String resourceFile(String resourceName)

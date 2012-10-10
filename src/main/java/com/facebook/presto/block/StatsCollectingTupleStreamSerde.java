@@ -6,11 +6,8 @@ import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceOutput;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.inject.Guice;
-import com.google.inject.Stage;
-import io.airlift.json.JsonModule;
+import io.airlift.json.ObjectMapperProvider;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -22,7 +19,7 @@ import static com.google.common.base.Preconditions.*;
 public class StatsCollectingTupleStreamSerde
         implements TupleStreamSerde
 {
-    private static final ObjectMapper OBJECT_MAPPER = Guice.createInjector(Stage.PRODUCTION, new JsonModule()).getInstance(ObjectMapper.class);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
 
     private final TupleStreamSerde tupleStreamSerde;
 
