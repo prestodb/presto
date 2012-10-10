@@ -1,6 +1,5 @@
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.block.TupleStreamSerde;
 import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.ingest.BlockDataImporter;
 import com.facebook.presto.ingest.BlockExtractor;
@@ -111,7 +110,7 @@ public class TpchDataProvider
     }
 
     // TODO: make this work for columns with more than one file
-    public File getColumnFile(final TpchSchema.Column column, TupleStreamSerde.Encoding encoding) throws IOException
+    public File getColumnFile(final TpchSchema.Column column, TupleStreamSerdes.Encoding encoding) throws IOException
     {
         checkNotNull(column, "column is null");
         checkNotNull(encoding, "encoding is null");
@@ -154,7 +153,7 @@ public class TpchDataProvider
         return tableName + ".tbl";
     }
 
-    private static String createFileName(TpchSchema.Column column, TupleStreamSerde.Encoding encoding)
+    private static String createFileName(TpchSchema.Column column, TupleStreamSerdes.Encoding encoding)
     {
         return String.format("column%d.%s_%s.data", column.getIndex(), column.getType().getName(), encoding.getName());
     }

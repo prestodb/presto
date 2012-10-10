@@ -1,7 +1,7 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.TupleStream;
-import com.facebook.presto.block.TupleStreamSerde;
+import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.tpch.TpchSchema;
 
 import java.util.List;
@@ -17,7 +17,7 @@ public class RawStreamingBenchmark
     @Override
     protected void setUp()
     {
-        loadColumnFile(TpchSchema.Orders.TOTALPRICE, TupleStreamSerde.Encoding.RAW);
+        loadColumnFile(TpchSchema.Orders.TOTALPRICE, TupleStreamSerdes.Encoding.RAW);
     }
 
     @Override

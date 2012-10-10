@@ -1,12 +1,11 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.operator.GroupByOperator;
 import com.facebook.presto.tpch.TpchSchema;
 
 import java.util.List;
-
-import static com.facebook.presto.block.StatsCollectingTupleStreamSerde.Encoding;
 
 public class DicRleGroupByBenchmark
         extends AbstractTupleStreamBenchmark
@@ -20,7 +19,7 @@ public class DicRleGroupByBenchmark
     @Override
     protected void setUp()
     {
-        loadColumnFile(TpchSchema.Orders.ORDERSTATUS, Encoding.DICTIONARY_RLE);
+        loadColumnFile(TpchSchema.Orders.ORDERSTATUS, TupleStreamSerdes.Encoding.DICTIONARY_RLE);
     }
 
     @Override

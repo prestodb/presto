@@ -8,7 +8,7 @@ import com.google.common.base.Predicate;
 
 import java.util.List;
 
-import static com.facebook.presto.block.TupleStreamSerde.Encoding;
+import static com.facebook.presto.block.TupleStreamSerdes.Encoding;
 
 public class PredicateFilterBenchmark
         extends AbstractTupleStreamBenchmark

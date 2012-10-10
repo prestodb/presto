@@ -2,7 +2,7 @@ package com.facebook.presto.benchmark;
 
 import com.facebook.presto.aggregation.DoubleSumAggregation;
 import com.facebook.presto.block.TupleStream;
-import com.facebook.presto.block.TupleStreamSerde;
+import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.operator.GroupByOperator;
 import com.facebook.presto.operator.PipelinedAggregationOperator;
 import com.facebook.presto.tpch.TpchSchema;
@@ -20,8 +20,8 @@ public class RlePipelinedAggregationBenchmark
     @Override
     protected void setUp()
     {
-        loadColumnFile(TpchSchema.Orders.ORDERSTATUS, TupleStreamSerde.Encoding.RLE);
-        loadColumnFile(TpchSchema.Orders.TOTALPRICE, TupleStreamSerde.Encoding.RAW);
+        loadColumnFile(TpchSchema.Orders.ORDERSTATUS, TupleStreamSerdes.Encoding.RLE);
+        loadColumnFile(TpchSchema.Orders.TOTALPRICE, TupleStreamSerdes.Encoding.RAW);
     }
 
     @Override

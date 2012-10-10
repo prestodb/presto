@@ -2,7 +2,7 @@ package com.facebook.presto.benchmark;
 
 import com.facebook.presto.aggregation.SumAggregation;
 import com.facebook.presto.block.TupleStream;
-import com.facebook.presto.block.TupleStreamSerde;
+import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.operation.SubtractionOperation;
 import com.facebook.presto.operator.GroupByOperator;
 import com.facebook.presto.operator.HashAggregationOperator;
@@ -22,9 +22,9 @@ public class BinaryOperatorBenchmark
     @Override
     protected void setUp()
     {
-        loadColumnFile(TpchSchema.LineItem.ORDERKEY, TupleStreamSerde.Encoding.RAW);
-        loadColumnFile(TpchSchema.LineItem.PARTKEY, TupleStreamSerde.Encoding.RAW);
-        loadColumnFile(TpchSchema.LineItem.LINESTATUS, TupleStreamSerde.Encoding.RAW);
+        loadColumnFile(TpchSchema.LineItem.ORDERKEY, TupleStreamSerdes.Encoding.RAW);
+        loadColumnFile(TpchSchema.LineItem.PARTKEY, TupleStreamSerdes.Encoding.RAW);
+        loadColumnFile(TpchSchema.LineItem.LINESTATUS, TupleStreamSerdes.Encoding.RAW);
     }
 
     @Override
