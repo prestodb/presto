@@ -31,6 +31,7 @@ public class TestStatsInlinedOperator
         statsInlinedOperator.process(Cursors.asTupleStreamPosition(cursor));
     }
     
+    @Test
     public void testPartial() throws Exception
     {
         cursor.advanceNextPosition();
@@ -45,6 +46,7 @@ public class TestStatsInlinedOperator
         Assert.assertEquals(statsInlinedOperator.getRange(), Range.create(0, 0));
     }
     
+    @Test
     public void testFull() throws Exception
     {
         cursor.advanceNextValue();

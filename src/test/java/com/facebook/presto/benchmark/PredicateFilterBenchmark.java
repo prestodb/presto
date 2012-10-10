@@ -2,13 +2,11 @@ package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.operator.ApplyPredicateOperator;
 import com.facebook.presto.tpch.TpchSchema;
+import com.facebook.presto.tpch.TpchTupleStreamProvider;
 import com.google.common.base.Predicate;
-
-import java.util.List;
-
-import static com.facebook.presto.block.TupleStreamSerdes.Encoding;
 
 public class PredicateFilterBenchmark
         extends AbstractTupleStreamBenchmark
@@ -19,15 +17,12 @@ public class PredicateFilterBenchmark
     }
 
     @Override
-    protected void setUp()
+    protected TupleStream createBenchmarkedTupleStream(TpchTupleStreamProvider inputStreamProvider)
     {
-        loadColumnFile(TpchSchema.Orders.TOTALPRICE, Encoding.RAW);
-    }
-
-    @Override
-    protected TupleStream createBenchmarkedTupleStream(List<? extends TupleStream> inputTupleStreams)
-    {
-        return new ApplyPredicateOperator(inputTupleStreams.get(0), new DoubleFilter(50000.00));
+        return new ApplyPredicateOperator(
+                inputStreamProvider.getTupleStream(TpchSchema.Orders.TOTALPRICE, TupleStreamSerdes.Encoding.RAW),
+                new DoubleFilter(50000.00)
+        );
     }
 
     public static class DoubleFilter implements Predicate<Cursor> {

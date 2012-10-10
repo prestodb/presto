@@ -2,12 +2,11 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.block.uncompressed.UncompressedSerde;
+import com.facebook.presto.operator.inlined.StatsInlinedOperator;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import static com.facebook.presto.block.StatsCollectingTupleStreamSerde.*;
 
 public class TestStatsCollectingTupleStreamSerde
 {
@@ -29,11 +28,14 @@ public class TestStatsCollectingTupleStreamSerde
                 .createTupleStreamWriter(sliceOutput)
                 .append(tupleStream)
                 .finish();
-        StatsAnnotatedTupleStream statsAnnotatedTupleStream = serde.createDeserializer().deserialize(sliceOutput.slice());
-        Blocks.assertTupleStreamEquals(statsAnnotatedTupleStream, tupleStream);
-        Assert.assertEquals(statsAnnotatedTupleStream.getStats().getPositionRange(), Range.create(0, 7));
-        Assert.assertEquals(statsAnnotatedTupleStream.getStats().getRowCount(), 8);
-        Assert.assertEquals(statsAnnotatedTupleStream.getStats().getRunsCount(), 4);
-        Assert.assertEquals(statsAnnotatedTupleStream.getStats().getAverageRunLength(), 2);
+        TupleStream resultTupleStream = serde.createDeserializer().deserialize(sliceOutput.slice());
+        StatsInlinedOperator.Stats stats = serde.createDeserializer().deserializeStats(sliceOutput.slice());
+        Blocks.assertTupleStreamEquals(resultTupleStream, tupleStream);
+        
+        Assert.assertEquals(stats.getAvgRunLength() , 2);
+        Assert.assertEquals(stats.getMinPosition() , 0);
+        Assert.assertEquals(stats.getMaxPosition() , 7);
+        Assert.assertEquals(stats.getRowCount() , 8);
+        Assert.assertEquals(stats.getRunsCount() , 4);
     }
 }

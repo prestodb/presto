@@ -3,8 +3,7 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.tpch.TpchSchema;
-
-import java.util.List;
+import com.facebook.presto.tpch.TpchTupleStreamProvider;
 
 public class RawStreamingBenchmark
         extends AbstractTupleStreamBenchmark
@@ -15,15 +14,9 @@ public class RawStreamingBenchmark
     }
 
     @Override
-    protected void setUp()
+    protected TupleStream createBenchmarkedTupleStream(TpchTupleStreamProvider inputStreamProvider)
     {
-        loadColumnFile(TpchSchema.Orders.TOTALPRICE, TupleStreamSerdes.Encoding.RAW);
-    }
-
-    @Override
-    protected TupleStream createBenchmarkedTupleStream(List<? extends TupleStream> inputTupleStreams)
-    {
-        return inputTupleStreams.get(0);
+        return inputStreamProvider.getTupleStream(TpchSchema.Orders.TOTALPRICE, TupleStreamSerdes.Encoding.RAW);
     }
 
     public static void main(String[] args)

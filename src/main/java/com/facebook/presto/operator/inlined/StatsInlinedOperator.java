@@ -20,19 +20,19 @@ public class StatsInlinedOperator
         MAX_POSITION(3),
         AVG_RUN_LENGTH(4),;
 
-        private final int fieldIndex;
+        private final int columnIndex;
 
-        private Fields(int fieldIndex)
+        private Fields(int columnIndex)
         {
-            this.fieldIndex = fieldIndex;
+            this.columnIndex = columnIndex;
         }
 
         public int getFieldIndex()
         {
-            return fieldIndex;
+            return columnIndex;
         }
     }
-    
+
     private static final TupleInfo RESULT_TUPLE_INFO = new TupleInfo(
             TupleInfo.Type.FIXED_INT_64, // Row count
             TupleInfo.Type.FIXED_INT_64, // Runs count
@@ -76,7 +76,7 @@ public class StatsInlinedOperator
     {
         return finished;
     }
-    
+
     @Override
     public TupleInfo getTupleInfo()
     {
@@ -100,5 +100,61 @@ public class StatsInlinedOperator
                 .append(maxPosition)
                 .append(rowCount / (runsCount + 1)) // Average run length
                 .build();
+    }
+
+    public static Stats resultsAsStats(TupleStream tupleStream)
+    {
+        Cursor cursor = tupleStream.cursor(new QuerySession());
+        cursor.advanceNextPosition();
+        return new Stats(
+                cursor.getLong(Fields.ROW_COUNT.getFieldIndex()),
+                cursor.getLong(Fields.RUNS_COUNT.getFieldIndex()),
+                cursor.getLong(Fields.MIN_POSITION.getFieldIndex()),
+                cursor.getLong(Fields.MAX_POSITION.getFieldIndex()),
+                cursor.getLong(Fields.AVG_RUN_LENGTH.getFieldIndex())
+        );
+    }
+
+    public static class Stats
+    {
+        private final long rowCount;
+        private final long runsCount;
+        private final long minPosition;
+        private final long maxPosition;
+        private final long avgRunLength;
+
+        public Stats(long rowCount, long runsCount, long minPosition, long maxPosition, long avgRunLength)
+        {
+            this.rowCount = rowCount;
+            this.runsCount = runsCount;
+            this.minPosition = minPosition;
+            this.maxPosition = maxPosition;
+            this.avgRunLength = avgRunLength;
+        }
+
+        public long getRowCount()
+        {
+            return rowCount;
+        }
+
+        public long getRunsCount()
+        {
+            return runsCount;
+        }
+
+        public long getMinPosition()
+        {
+            return minPosition;
+        }
+
+        public long getMaxPosition()
+        {
+            return maxPosition;
+        }
+
+        public long getAvgRunLength()
+        {
+            return avgRunLength;
+        }
     }
 }
