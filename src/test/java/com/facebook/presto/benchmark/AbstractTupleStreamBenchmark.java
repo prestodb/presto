@@ -1,10 +1,10 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.*;
+import com.facebook.presto.operator.inlined.StatsInlinedOperator;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
-import com.facebook.presto.tpch.TpchDataProvider;
-import com.facebook.presto.tpch.TpchSchema;
+import com.facebook.presto.tpch.*;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -12,12 +12,13 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
-import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Abstract template for benchmarks that want to test the performance of a single TupleStream.
@@ -30,10 +31,11 @@ import java.util.concurrent.TimeUnit;
  * - The first column to be requested will be used to represent the count of the number of input rows
  */
 public abstract class AbstractTupleStreamBenchmark
-    extends AbstractBenchmark
+        extends AbstractBenchmark
 {
+    private static final TpchDataProvider TPCH_DATA_PROVIDER = new CachingTpchDataProvider(new GeneratingTpchDataProvider());
+
     private final TpchDataProvider tpchDataProvider;
-    private List<TupleStreamDataSource> dataSources = new ArrayList<>();
 
     protected AbstractTupleStreamBenchmark(String benchmarkName, int warmupIterations, int measuredIterations, TpchDataProvider tpchDataProvider)
     {
@@ -43,7 +45,7 @@ public abstract class AbstractTupleStreamBenchmark
 
     protected AbstractTupleStreamBenchmark(String benchmarkName, int warmupIterations, int measuredIterations)
     {
-        this(benchmarkName, warmupIterations, measuredIterations, BenchmarkSuite.TPCH_DATA_PROVIDER);
+        this(benchmarkName, warmupIterations, measuredIterations, TPCH_DATA_PROVIDER);
     }
 
     @Override
@@ -52,48 +54,17 @@ public abstract class AbstractTupleStreamBenchmark
         return "input_rows_per_second";
     }
 
-    /**
-     * Loads a specific TPCH column to be used for benchmarking. Requested column order will match
-     * the arguments provided to createBenchmarkedTupleStream(...)
-     *
-     * @param column - TPCH column
-     * @param encoding - Encoding to use for this column
-     */
-    protected void loadColumnFile(TpchSchema.Column column, TupleStreamSerdes.Encoding encoding)
-    {
-        Preconditions.checkNotNull(column, "column is null");
-        Preconditions.checkNotNull(encoding, "encoding is null");
-        try {
-            File columnFile = tpchDataProvider.getColumnFile(column, encoding);
-            dataSources.add(new TupleStreamDataSource(columnFile));
-        } catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    /**
-     * Creates the TupleStream to be benchmarked given the list of previously requested columns
-     * as TupleStreams (in the order they were requested).
-     *
-     * @param inputTupleStreams - Column decoded TupleStreams
-     * @return TupleStream to be benchmarked
-     */
-    protected abstract TupleStream createBenchmarkedTupleStream(List<? extends TupleStream> inputTupleStreams);
+    protected abstract TupleStream createBenchmarkedTupleStream(TpchTupleStreamProvider inputStreamProvider);
 
     @Override
     protected Map<String, Long> runOnce()
     {
-        Preconditions.checkState(!dataSources.isEmpty(), "No data sources requested!");
-
         long start = System.nanoTime();
 
-        ImmutableList.Builder<StatsCollectingTupleStreamSerde.StatsAnnotatedTupleStream> builder = ImmutableList.builder();
-        for (TupleStreamDataSource dataSource : dataSources) {
-            builder.add(TupleStreamSerdes.createDefaultDeserializer().deserialize(dataSource.getSlice()));
-        }
-        ImmutableList<StatsCollectingTupleStreamSerde.StatsAnnotatedTupleStream> inputTupleStreams = builder.build();
+        MetricRecordingTpchDataProvider metricRecordingTpchDataProvider = new MetricRecordingTpchDataProvider(tpchDataProvider);
+        StatsTpchTupleStreamProvider statsTpchTupleStreamProvider = new StatsTpchTupleStreamProvider(metricRecordingTpchDataProvider);
 
-        TupleStream tupleStream = createBenchmarkedTupleStream(inputTupleStreams);
+        TupleStream tupleStream = createBenchmarkedTupleStream(statsTpchTupleStreamProvider);
 
         Cursor cursor = tupleStream.cursor(new QuerySession());
         long outputRows = 0;
@@ -101,51 +72,61 @@ public abstract class AbstractTupleStreamBenchmark
             outputRows += cursor.getCurrentValueEndPosition() - cursor.getPosition() + 1;
         }
 
-        Duration duration = Duration.nanosSince(start);
+        Duration totalDuration = Duration.nanosSince(start);
+        Duration dataGenerationDuration = metricRecordingTpchDataProvider.getDataFetchElapsedTime();
+        checkState(totalDuration.compareTo(dataGenerationDuration) >= 0, "total time should be at least as large as data generation time");
 
-        long elapsedMillis = (long) duration.convertTo(TimeUnit.MILLISECONDS);
-        double elapsedSeconds = duration.convertTo(TimeUnit.SECONDS);
+        // Compute the benchmark execution time without factoring in the time to generate the data source
+        double executionMillis = totalDuration.convertTo(TimeUnit.MILLISECONDS) - dataGenerationDuration.toMillis();
+        double executionSeconds = executionMillis / TimeUnit.SECONDS.toMillis(1);
 
-        double inputBytes = 0;
-        for (TupleStreamDataSource dataSource : dataSources) {
-            inputBytes += dataSource.getFile().length();
-        }
-        DataSize totalDataSize = new DataSize(inputBytes, DataSize.Unit.BYTE);
+        DataSize totalDataSize = metricRecordingTpchDataProvider.getCumulativeDataSize();
+        
+        checkState(!statsTpchTupleStreamProvider.getStats().isEmpty(), "no columns were fetched");
+        // Use the first column fetched as the indicator of the number of rows
+        long inputRows = statsTpchTupleStreamProvider.getStats().get(0).getRowCount();
 
         return ImmutableMap.<String, Long>builder()
-                .put("elapsed_millis", elapsedMillis)
-                .put("input_rows", inputTupleStreams.get(0).getStats().getRowCount())
-                .put("input_rows_per_second", (long) (inputTupleStreams.get(0).getStats().getRowCount() / elapsedSeconds))
+                .put("elapsed_millis", (long) executionMillis)
+                .put("input_rows", inputRows)
+                .put("input_rows_per_second", (long) (inputRows / executionSeconds))
                 .put("output_rows", outputRows)
-                .put("output_rows_per_second", (long) (outputRows / elapsedSeconds))
+                .put("output_rows_per_second", (long) (outputRows / executionSeconds))
                 .put("input_megabytes", (long) totalDataSize.getValue(DataSize.Unit.MEGABYTE))
-                .put("input_megabytes_per_second", (long) (totalDataSize.getValue(DataSize.Unit.MEGABYTE) / elapsedSeconds))
+                .put("input_megabytes_per_second", (long) (totalDataSize.getValue(DataSize.Unit.MEGABYTE) / executionSeconds))
                 .build();
     }
 
-    private static class TupleStreamDataSource
+    private static class StatsTpchTupleStreamProvider
+            implements TpchTupleStreamProvider
     {
-        private final File file;
-        private final Slice slice;
+        private final TpchDataProvider tpchDataProvider;
+        private final ImmutableList.Builder<StatsInlinedOperator.Stats> statsBuilder = ImmutableList.builder();
 
-        private TupleStreamDataSource(File file)
+        private StatsTpchTupleStreamProvider(TpchDataProvider tpchDataProvider)
         {
-            this.file = file;
+            this.tpchDataProvider = checkNotNull(tpchDataProvider, "tpchDataProvider is null");
+        }
+
+        @Override
+        public TupleStream getTupleStream(TpchSchema.Column column, TupleStreamSerdes.Encoding encoding)
+        {
+            checkNotNull(column, "column is null");
+            checkNotNull(encoding, "encoding is null");
+            // Wrap the encoding with stats collection
+            StatsCollectingTupleStreamSerde serde = new StatsCollectingTupleStreamSerde(encoding.createSerde());
             try {
-                this.slice = Slices.mapFileReadOnly(file);
+                Slice slice = Slices.mapFileReadOnly(tpchDataProvider.getColumnFile(column, serde.createSerializer(), encoding.getName()));
+                statsBuilder.add(serde.createDeserializer().deserializeStats(slice));
+                return serde.createDeserializer().deserialize(slice);
             } catch (IOException e) {
                 throw Throwables.propagate(e);
             }
         }
-
-        public File getFile()
+        
+        public List<StatsInlinedOperator.Stats> getStats()
         {
-            return file;
-        }
-
-        public Slice getSlice()
-        {
-            return slice;
+            return statsBuilder.build();
         }
     }
 }

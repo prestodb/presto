@@ -4,8 +4,10 @@ import com.facebook.presto.aggregation.DoubleSumAggregation;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.operator.GroupByOperator;
+import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.operator.PipelinedAggregationOperator;
 import com.facebook.presto.tpch.TpchSchema;
+import com.facebook.presto.tpch.TpchTupleStreamProvider;
 
 import java.util.List;
 
@@ -16,20 +18,15 @@ public class RlePipelinedAggregationBenchmark
     {
         super("pipelined_agg_rle", 5, 20);
     }
-
+    
     @Override
-    protected void setUp()
-    {
-        loadColumnFile(TpchSchema.Orders.ORDERSTATUS, TupleStreamSerdes.Encoding.RLE);
-        loadColumnFile(TpchSchema.Orders.TOTALPRICE, TupleStreamSerdes.Encoding.RAW);
-    }
-
-    @Override
-    protected TupleStream createBenchmarkedTupleStream(List<? extends TupleStream> inputTupleStreams)
+    protected TupleStream createBenchmarkedTupleStream(TpchTupleStreamProvider inputStreamProvider)
     {
         return new PipelinedAggregationOperator(
-                new GroupByOperator(inputTupleStreams.get(0)),
-                inputTupleStreams.get(1),
+                new GroupByOperator(
+                        inputStreamProvider.getTupleStream(TpchSchema.Orders.ORDERSTATUS, TupleStreamSerdes.Encoding.RLE)
+                ),
+                inputStreamProvider.getTupleStream(TpchSchema.Orders.TOTALPRICE, TupleStreamSerdes.Encoding.RAW),
                 DoubleSumAggregation.PROVIDER
         );
     }
