@@ -1,6 +1,9 @@
 package com.facebook.presto.block;
 
+import com.facebook.presto.Tuple;
+import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Cursor.AdvanceResult;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
@@ -8,6 +11,7 @@ import com.google.common.primitives.Longs;
 
 import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
 import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
+import static com.google.common.base.Preconditions.*;
 
 public class Cursors
 {
@@ -85,5 +89,46 @@ public class Cursors
     public static TupleStreamPosition asTupleStreamPosition(Cursor cursor)
     {
         return new TupleStreamPosition(cursor);
+    }
+
+    public static boolean currentTupleFieldEquals(Cursor cursor, Tuple tuple, int field)
+    {
+        checkNotNull(cursor, "cursor is null");
+        checkNotNull(tuple, "tuple is null");
+        checkArgument(field >= 0, "field must be greater than or equal to zero");
+        TupleInfo.Type type = tuple.getTupleInfo().getTypes().get(field);
+        if (!type.equals(cursor.getTupleInfo().getTypes().get(field))) {
+            // Type mismatch
+            return false;
+        }
+        switch (type) {
+            case FIXED_INT_64:
+                return tuple.getLong(field) == cursor.getLong(field);
+            case DOUBLE:
+                return tuple.getDouble(field) == cursor.getDouble(field);
+            case VARIABLE_BINARY:
+                return tuple.getSlice(field).equals(cursor.getSlice(field));
+            default:
+                throw new AssertionError("Unknown type: " + type);
+        }
+    }
+
+    /**
+     * Generic implementation of currentTupleEquals that is fairly efficient in most case.
+     * TODO: this can probably be used to replace a lot of the lesser efficient currentTupleEquals() implementations in some cursors
+     */
+    public static boolean currentTupleEquals(Cursor cursor, Tuple tuple)
+    {
+        checkNotNull(cursor, "cursor is null");
+        checkNotNull(tuple, "tuple is null");
+        if (cursor.getTupleInfo().getFieldCount() != tuple.getTupleInfo().getFieldCount()) {
+            return false;
+        }
+        for (int field = 0; field < cursor.getTupleInfo().getFieldCount(); field++) {
+            if (!currentTupleFieldEquals(cursor, tuple, field)) {
+                return false;
+            }
+        }
+        return true;
     }
 }
