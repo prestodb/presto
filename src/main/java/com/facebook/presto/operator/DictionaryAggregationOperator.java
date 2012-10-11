@@ -29,7 +29,7 @@ import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
  * Group input data and produce a single block for each sequence of identical values.
  */
 public class DictionaryAggregationOperator
-    implements TupleStream, YieldingIterable<UncompressedBlock>
+        implements TupleStream, YieldingIterable<UncompressedBlock>
 {
     private final DictionaryEncodedTupleStream groupBySource;
     private final TupleStream aggregationSource;
@@ -38,8 +38,8 @@ public class DictionaryAggregationOperator
     private final Dictionary dictionary;
 
     public DictionaryAggregationOperator(DictionaryEncodedTupleStream groupBySource,
-            TupleStream aggregationSource,
-            Provider<AggregationFunction> functionProvider)
+                                         TupleStream aggregationSource,
+                                         Provider<AggregationFunction> functionProvider)
     {
         Preconditions.checkNotNull(groupBySource, "groupBySource is null");
         Preconditions.checkNotNull(aggregationSource, "aggregationSource is null");
@@ -96,6 +96,24 @@ public class DictionaryAggregationOperator
             {
                 // process all data ahead of time
                 if (index < 0) {
+                    // Initialize first positions
+                    if (!groupByCursor.isValid()) {
+                        switch (groupByCursor.advanceNextPosition()) {
+                            case MUST_YIELD:
+                                return setMustYield();
+                            case FINISHED:
+                                return endOfData();
+                        }
+                    }
+                    if (!aggregationCursor.isValid()) {
+                        switch (aggregationCursor.advanceNextPosition()) {
+                            case MUST_YIELD:
+                                return setMustYield();
+                            case FINISHED:
+                                return endOfData();
+                        }
+                    }
+
                     while (!groupByCursor.isFinished() && !aggregationCursor.isFinished()) {
                         // advance the group by one value, if group has been completely processed
                         long groupEndPosition = groupByCursor.getCurrentValueEndPosition();
