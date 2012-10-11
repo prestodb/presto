@@ -81,4 +81,9 @@ public class Cursors
             }
         };
     }
+    
+    public static TupleStreamPosition asTupleStreamPosition(Cursor cursor)
+    {
+        return new TupleStreamPosition(cursor);
+    }
 }
