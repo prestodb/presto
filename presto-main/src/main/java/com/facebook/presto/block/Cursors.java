@@ -85,10 +85,32 @@ public class Cursors
             }
         };
     }
-    
+
     public static TupleStreamPosition asTupleStreamPosition(Cursor cursor)
     {
         return new TupleStreamPosition(cursor);
+    }
+
+    public static void appendCurrentTupleToBlockBuilder(Cursor cursor, BlockBuilder blockBuilder)
+    {
+        checkNotNull(cursor, "cursor is null");
+        checkNotNull(blockBuilder, "blockBuilder is null");
+        for (int column = 0; column < cursor.getTupleInfo().getFieldCount(); column++) {
+            TupleInfo.Type type = cursor.getTupleInfo().getTypes().get(column);
+            switch (type) {
+                case FIXED_INT_64:
+                    blockBuilder.append(cursor.getLong(column));
+                    break;
+                case DOUBLE:
+                    blockBuilder.append(cursor.getDouble(column));
+                    break;
+                case VARIABLE_BINARY:
+                    blockBuilder.append(cursor.getSlice(column));
+                    break;
+                default:
+                    throw new AssertionError("Unknown type: " + type);
+            }
+        }
     }
 
     public static boolean currentTupleFieldEquals(Cursor cursor, Tuple tuple, int field)
