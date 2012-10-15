@@ -5,14 +5,8 @@ import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.slice.Slice;
 
-import java.util.NoSuchElementException;
-
-import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
-import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
-import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
+import static com.facebook.presto.block.Cursor.AdvanceResult.*;
+import static com.google.common.base.Preconditions.*;
 
 /**
  * Applies a position range bound on a given cursor of arbitrary state.
@@ -40,16 +34,6 @@ public class RangeBoundedCursor
     public static RangeBoundedCursor bound(Cursor cursor, Range range)
     {
         return new RangeBoundedCursor(range, cursor);
-    }
-
-    private void checkDataAccess()
-    {
-        if (!initialized) {
-            throw new IllegalStateException("cursor not yet advanced");
-        }
-        if (isFinished()) {
-            throw new NoSuchElementException("cursor advanced beyond last position");
-        }
     }
 
     @Override
@@ -163,42 +147,42 @@ public class RangeBoundedCursor
     @Override
     public Tuple getTuple()
     {
-        checkDataAccess();
+        Cursors.checkReadablePosition(this);
         return cursor.getTuple();
     }
 
     @Override
     public long getLong(int field)
     {
-        checkDataAccess();
+        Cursors.checkReadablePosition(this);
         return cursor.getLong(field);
     }
 
     @Override
     public double getDouble(int field)
     {
-        checkDataAccess();
+        Cursors.checkReadablePosition(this);
         return cursor.getDouble(field);
     }
 
     @Override
     public Slice getSlice(int field)
     {
-        checkDataAccess();
+        Cursors.checkReadablePosition(this);
         return cursor.getSlice(field);
     }
 
     @Override
     public long getPosition()
     {
-        checkDataAccess();
+        Cursors.checkReadablePosition(this);
         return cursor.getPosition();
     }
 
     @Override
     public long getCurrentValueEndPosition()
     {
-        checkDataAccess();
+        Cursors.checkReadablePosition(this);
         // Should not report an end position beyond the valid range
         return Math.min(cursor.getCurrentValueEndPosition(), validRange.getEnd());
     }
@@ -206,7 +190,7 @@ public class RangeBoundedCursor
     @Override
     public boolean currentTupleEquals(Tuple value)
     {
-        checkDataAccess();
+        Cursors.checkReadablePosition(this);
         return cursor.currentTupleEquals(value);
     }
 }

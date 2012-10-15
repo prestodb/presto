@@ -4,13 +4,12 @@ import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-
-import java.util.NoSuchElementException;
 
 import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
 import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
@@ -146,60 +145,49 @@ public class RunLengthEncodedBlock
         @Override
         public Tuple getTuple()
         {
+            Cursors.checkReadablePosition(this);
             return value;
         }
 
         @Override
         public long getLong(int field)
         {
-            if (isFinished()) {
-                throw new NoSuchElementException();
-            }
+            Cursors.checkReadablePosition(this);
             return value.getLong(field);
         }
 
         @Override
         public double getDouble(int field)
         {
-            if (isFinished()) {
-                throw new NoSuchElementException();
-            }
+            Cursors.checkReadablePosition(this);
             return value.getDouble(field);
         }
 
         @Override
         public Slice getSlice(int field)
         {
-            if (isFinished()) {
-                throw new NoSuchElementException();
-            }
+            Cursors.checkReadablePosition(this);
             return value.getSlice(field);
         }
 
         @Override
         public long getPosition()
         {
-            if (isFinished()) {
-                throw new NoSuchElementException();
-            }
+            Cursors.checkReadablePosition(this);
             return position;
         }
 
         @Override
         public long getCurrentValueEndPosition()
         {
-            if (isFinished()) {
-                throw new NoSuchElementException();
-            }
+            Cursors.checkReadablePosition(this);
             return range.getEnd();
         }
 
         @Override
         public boolean currentTupleEquals(Tuple value)
         {
-            if (isFinished()) {
-                throw new NoSuchElementException();
-            }
+            Cursors.checkReadablePosition(this);
             return this.value.equals(value);
         }
     }

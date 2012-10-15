@@ -67,42 +67,49 @@ public class ForwardingCursor implements Cursor
     @Override
     public Tuple getTuple()
     {
+        Cursors.checkReadablePosition(this);
         return cursor.getTuple();
     }
 
     @Override
     public long getLong(int field)
     {
+        Cursors.checkReadablePosition(this);
         return cursor.getLong(field);
     }
 
     @Override
     public double getDouble(int field)
     {
+        Cursors.checkReadablePosition(this);
         return cursor.getDouble(field);
     }
 
     @Override
     public Slice getSlice(int field)
     {
+        Cursors.checkReadablePosition(this);
         return cursor.getSlice(field);
     }
 
     @Override
     public long getPosition()
     {
+        Cursors.checkReadablePosition(this);
         return cursor.getPosition();
     }
 
     @Override
     public long getCurrentValueEndPosition()
     {
+        Cursors.checkReadablePosition(this);
         return cursor.getCurrentValueEndPosition();
     }
 
     @Override
     public boolean currentTupleEquals(Tuple value)
     {
+        Cursors.checkReadablePosition(this);
         return cursor.currentTupleEquals(value);
     }
 }

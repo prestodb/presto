@@ -197,42 +197,49 @@ public class MaskedBlock implements TupleStream
         @Override
         public Tuple getTuple()
         {
+            Cursors.checkReadablePosition(this);
             return valueCursor.getTuple();
         }
 
         @Override
         public long getLong(int field)
         {
+            Cursors.checkReadablePosition(this);
             return valueCursor.getLong(field);
         }
 
         @Override
         public double getDouble(int field)
         {
+            Cursors.checkReadablePosition(this);
             return valueCursor.getDouble(field);
         }
 
         @Override
         public Slice getSlice(int field)
         {
+            Cursors.checkReadablePosition(this);
             return valueCursor.getSlice(field);
         }
 
         @Override
         public long getPosition()
         {
+            Cursors.checkReadablePosition(this);
             return valueCursor.getPosition();
         }
 
         @Override
         public long getCurrentValueEndPosition()
         {
+            Cursors.checkReadablePosition(this);
             return valueCursor.getCurrentValueEndPosition();
         }
 
         @Override
         public boolean currentTupleEquals(Tuple value)
         {
+            Cursors.checkReadablePosition(this);
             return valueCursor.currentTupleEquals(value);
         }
     }
