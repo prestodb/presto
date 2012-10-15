@@ -53,14 +53,13 @@ public class Tap
             extends ForwardingCursor
     {
         private final TupleValueSink tupleValueSink;
-        private final TupleStreamPosition tupleStreamPosition;
+        private TupleStreamPosition tupleStreamPosition;
         private long measuredPosition = -1;
 
         private InterceptingCursor(Cursor cursor, TupleValueSink tupleValueSink)
         {
             super(checkNotNull(cursor, "cursor is null"));
             this.tupleValueSink = checkNotNull(tupleValueSink, "inlinedOperatorWriter is null");
-            tupleStreamPosition = Cursors.asTupleStreamPosition(cursor);
         }
 
         @Override
@@ -96,6 +95,9 @@ public class Tap
 
         private void processCurrentValueIfNecessary(AdvanceResult advanceResult)
         {
+            if (tupleStreamPosition == null) {
+                tupleStreamPosition = Cursors.asTupleStreamPosition(getDelegate());
+            }
             switch (advanceResult) {
                 case SUCCESS:
                     if (getDelegate().getPosition() > measuredPosition) {
