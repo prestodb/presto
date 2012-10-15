@@ -6,18 +6,11 @@ package com.facebook.presto.operator;
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.YieldingIterator;
-import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.QuerySession;
-import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.*;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 
-import java.util.NoSuchElementException;
-
-import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
-import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
-import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
+import static com.facebook.presto.block.Cursor.AdvanceResult.*;
 
 public class GenericCursor implements Cursor
 {
@@ -114,70 +107,49 @@ public class GenericCursor implements Cursor
     @Override
     public Tuple getTuple()
     {
-        Preconditions.checkState(hasAdvanced, "Need to call advanceNext() first");
-        if (blockCursor == null)  {
-            throw new NoSuchElementException();
-        }
+        Cursors.checkReadablePosition(this);
         return blockCursor.getTuple();
     }
 
     @Override
     public long getLong(int field)
     {
-        Preconditions.checkState(hasAdvanced, "Need to call advanceNext() first");
-        if (blockCursor == null)  {
-            throw new NoSuchElementException();
-        }
+        Cursors.checkReadablePosition(this);
         return blockCursor.getLong(field);
     }
 
     @Override
     public double getDouble(int field)
     {
-        Preconditions.checkState(hasAdvanced, "Need to call advanceNext() first");
-        if (blockCursor == null)  {
-            throw new NoSuchElementException();
-        }
+        Cursors.checkReadablePosition(this);
         return blockCursor.getDouble(field);
     }
 
     @Override
     public Slice getSlice(int field)
     {
-        Preconditions.checkState(hasAdvanced, "Need to call advanceNext() first");
-        if (blockCursor == null)  {
-            throw new NoSuchElementException();
-        }
+        Cursors.checkReadablePosition(this);
         return blockCursor.getSlice(field);
     }
 
     @Override
     public long getPosition()
     {
-        Preconditions.checkState(hasAdvanced, "Need to call advanceNext() first");
-        if (blockCursor == null)  {
-            throw new NoSuchElementException();
-        }
+        Cursors.checkReadablePosition(this);
         return blockCursor.getPosition();
     }
 
     @Override
     public long getCurrentValueEndPosition()
     {
-        Preconditions.checkState(hasAdvanced, "Need to call advanceNext() first");
-        if (blockCursor == null)  {
-            throw new NoSuchElementException();
-        }
+        Cursors.checkReadablePosition(this);
         return blockCursor.getCurrentValueEndPosition();
     }
 
     @Override
     public boolean currentTupleEquals(Tuple value)
     {
-        Preconditions.checkState(hasAdvanced, "Need to call advanceNext() first");
-        if (blockCursor == null)  {
-            throw new NoSuchElementException();
-        }
+        Cursors.checkReadablePosition(this);
         return blockCursor.currentTupleEquals(value);
     }
 

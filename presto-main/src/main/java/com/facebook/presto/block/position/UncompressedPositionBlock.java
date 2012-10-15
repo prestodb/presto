@@ -4,6 +4,7 @@ import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.slice.Slice;
@@ -11,7 +12,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 
 import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
 import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
@@ -137,12 +137,7 @@ public class UncompressedPositionBlock
         @Override
         public long getPosition()
         {
-            Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
-
-            if (index >=  positions.size()) {
-                throw new NoSuchElementException();
-            }
-
+            Cursors.checkReadablePosition(this);
             return positions.get(index);
         }
 

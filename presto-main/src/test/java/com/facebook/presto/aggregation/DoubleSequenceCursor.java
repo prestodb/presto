@@ -4,6 +4,7 @@ import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursors;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 
@@ -79,6 +80,7 @@ public class DoubleSequenceCursor
     @Override
     public Tuple getTuple()
     {
+        Cursors.checkReadablePosition(this);
         return getTupleInfo().builder()
                 .append(current)
                 .build();
@@ -95,7 +97,7 @@ public class DoubleSequenceCursor
     {
 
         Preconditions.checkArgument(field == 0, "Tuple has only one field (0)");
-        Preconditions.checkState(isValid(), "Cursor is not valid");
+        Cursors.checkReadablePosition(this);
         return current;
     }
 
@@ -108,18 +110,21 @@ public class DoubleSequenceCursor
     @Override
     public long getPosition()
     {
+        Cursors.checkReadablePosition(this);
         return current;
     }
 
     @Override
     public long getCurrentValueEndPosition()
     {
+        Cursors.checkReadablePosition(this);
         return current;
     }
 
     @Override
     public boolean currentTupleEquals(Tuple value)
     {
+        Cursors.checkReadablePosition(this);
         return current == value.getDouble(0);
     }
 }

@@ -1,9 +1,10 @@
 package com.facebook.presto.block.rle;
 
 import com.facebook.presto.Range;
-import com.facebook.presto.block.Cursor;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursors;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterators;
@@ -111,54 +112,49 @@ public class RunLengthEncodedCursor
     @Override
     public Tuple getTuple()
     {
-        Preconditions.checkState(block != null, "Need to call advanceNext() first");
-
+        Cursors.checkReadablePosition(this);
         return block.getSingleValue();
     }
 
     @Override
     public long getLong(int field)
     {
-        Preconditions.checkState(block != null, "Need to call advanceNext() first");
-
+        Cursors.checkReadablePosition(this);
         return block.getSingleValue().getLong(field);
     }
 
     @Override
     public double getDouble(int field)
     {
-        Preconditions.checkState(block != null, "Need to call advanceNext() first");
-
+        Cursors.checkReadablePosition(this);
         return block.getSingleValue().getDouble(field);
     }
 
     @Override
     public Slice getSlice(int field)
     {
-        Preconditions.checkState(block != null, "Need to call advanceNext() first");
-
+        Cursors.checkReadablePosition(this);
         return block.getSingleValue().getSlice(field);
     }
 
     @Override
     public long getPosition()
     {
+        Cursors.checkReadablePosition(this);
         return position;
     }
 
     @Override
     public long getCurrentValueEndPosition()
     {
-        Preconditions.checkState(block != null, "Need to call advance first");
-
+        Cursors.checkReadablePosition(this);
         return block.getRange().getEnd();
     }
 
     @Override
     public boolean currentTupleEquals(Tuple value)
     {
-        Preconditions.checkState(block != null, "Need to call advanceNext() first");
-
+        Cursors.checkReadablePosition(this);
         return block.getSingleValue().equals(value);
     }
 

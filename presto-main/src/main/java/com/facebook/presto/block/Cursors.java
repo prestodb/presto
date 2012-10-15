@@ -9,6 +9,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Longs;
 
+import java.util.NoSuchElementException;
+
 import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
 import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
 import static com.google.common.base.Preconditions.*;
@@ -152,5 +154,16 @@ public class Cursors
             }
         }
         return true;
+    }
+
+    /**
+     * Validate whether the given cursor is currently at a readable position
+     */
+    public static void checkReadablePosition(Cursor cursor)
+    {
+        if (cursor.isFinished()) {
+            throw new NoSuchElementException("already finished");
+        }
+        checkState(cursor.isValid(), "cursor not yet advanced");
     }
 }

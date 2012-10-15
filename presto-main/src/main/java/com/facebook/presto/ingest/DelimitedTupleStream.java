@@ -16,7 +16,6 @@ import com.google.common.io.LineReader;
 
 import java.util.Iterator;
 import java.util.List;
-import java.util.NoSuchElementException;
 
 import static com.google.common.base.Preconditions.*;
 
@@ -133,7 +132,7 @@ public class DelimitedTupleStream
         @Override
         public Tuple getTuple()
         {
-            checkAccess();
+            Cursors.checkReadablePosition(this);
             int index = 0;
             TupleInfo.Builder tupleBuilder = tupleInfo.builder();
             for (String value : getRowSplit()) {
@@ -147,7 +146,7 @@ public class DelimitedTupleStream
         @Override
         public long getLong(int field)
         {
-            checkAccess();
+            Cursors.checkReadablePosition(this);
             checkArgument(tupleInfo.getTypes().get(field) == TupleInfo.Type.FIXED_INT_64, "incorrect type");
             return Long.valueOf(getRowSplit().get(field));
         }
@@ -155,7 +154,7 @@ public class DelimitedTupleStream
         @Override
         public double getDouble(int field)
         {
-            checkAccess();
+            Cursors.checkReadablePosition(this);
             checkArgument(tupleInfo.getTypes().get(field) == TupleInfo.Type.DOUBLE, "incorrect type");
             return Double.valueOf(getRowSplit().get(field));
         }
@@ -163,7 +162,7 @@ public class DelimitedTupleStream
         @Override
         public Slice getSlice(int field)
         {
-            checkAccess();
+            Cursors.checkReadablePosition(this);
             checkArgument(tupleInfo.getTypes().get(field) == TupleInfo.Type.VARIABLE_BINARY, "incorrect type");
             return Slices.wrappedBuffer(getRowSplit().get(field).getBytes(Charsets.UTF_8));
         }
@@ -171,31 +170,23 @@ public class DelimitedTupleStream
         @Override
         public long getPosition()
         {
-            checkAccess();
+            Cursors.checkReadablePosition(this);
             return currentPosition;
         }
 
         @Override
         public long getCurrentValueEndPosition()
         {
-            checkAccess();
+            Cursors.checkReadablePosition(this);
             return currentPosition;
         }
 
         @Override
         public boolean currentTupleEquals(Tuple value)
         {
-            checkAccess();
+            Cursors.checkReadablePosition(this);
             checkNotNull(value, "value is null");
             return Cursors.currentTupleEquals(this, value);
-        }
-
-        private void checkAccess()
-        {
-            checkState(isValid(), "cursor not yet advanced");
-            if (isFinished()) {
-                throw new NoSuchElementException("already finished");
-            }
         }
 
         private List<String> getRowSplit() {

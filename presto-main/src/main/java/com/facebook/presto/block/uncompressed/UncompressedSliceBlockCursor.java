@@ -4,10 +4,9 @@ import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursors;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
-
-import java.util.NoSuchElementException;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
 import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
@@ -114,30 +113,21 @@ public class UncompressedSliceBlockCursor
     @Override
     public long getPosition()
     {
-        Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
-        if (isFinished()) {
-            throw new NoSuchElementException();
-        }
+        Cursors.checkReadablePosition(this);
         return position;
     }
 
     @Override
     public long getCurrentValueEndPosition()
     {
-        Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
-        if (isFinished()) {
-            throw new NoSuchElementException();
-        }
+        Cursors.checkReadablePosition(this);
         return position;
     }
 
     @Override
     public Tuple getTuple()
     {
-        Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
-        if (isFinished()) {
-            throw new NoSuchElementException();
-        }
+        Cursors.checkReadablePosition(this);
         return new Tuple(slice.slice(offset, size), TupleInfo.SINGLE_VARBINARY);
     }
 
@@ -156,10 +146,7 @@ public class UncompressedSliceBlockCursor
     @Override
     public Slice getSlice(int field)
     {
-        Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
-        if (isFinished()) {
-            throw new NoSuchElementException();
-        }
+        Cursors.checkReadablePosition(this);
         Preconditions.checkElementIndex(0, 1, "field");
         return slice.slice(offset + SIZE_OF_SHORT, size - SIZE_OF_SHORT);
     }
@@ -167,10 +154,7 @@ public class UncompressedSliceBlockCursor
     @Override
     public boolean currentTupleEquals(Tuple value)
     {
-        Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
-        if (isFinished()) {
-            throw new NoSuchElementException();
-        }
+        Cursors.checkReadablePosition(this);
         Slice tupleSlice = value.getTupleSlice();
         return slice.equals(offset, size, tupleSlice, 0, tupleSlice.length());
     }
