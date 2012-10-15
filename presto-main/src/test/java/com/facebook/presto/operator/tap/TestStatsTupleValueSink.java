@@ -20,7 +20,7 @@ public class TestStatsTupleValueSink
         cursor = tupleStream.cursor(new QuerySession());
     }
 
-    @Test(expectedExceptions = IllegalStateException.class)
+    @Test(expectedExceptions = IllegalArgumentException.class)
     public void testInitFail() throws Exception
     {
         // Should throw if underlying cursor is not advanced
