@@ -81,7 +81,7 @@ public class QualifiedName
         return parts.subList(start, parts.size()).equals(suffix.getParts());
     }
 
-    public static Predicate<? super QualifiedName> hasSuffixPredicate(final QualifiedName suffix)
+    public static Predicate<QualifiedName> hasSuffixPredicate(final QualifiedName suffix)
     {
         return new Predicate<QualifiedName>()
         {
