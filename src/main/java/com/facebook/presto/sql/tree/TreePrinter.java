@@ -95,11 +95,11 @@ public class TreePrinter
             @Override
             protected Void visitAllColumns(AllColumns node, Integer indent)
             {
-                if (node.getPrefix() == null) {
-                    print(indent, "*");
+                if (node.getPrefix().isPresent()) {
+                    print(indent, node.getPrefix() + ".*");
                 }
                 else {
-                    print(indent, node.getPrefix() + ".*");
+                    print(indent, "*");
                 }
 
                 return null;
