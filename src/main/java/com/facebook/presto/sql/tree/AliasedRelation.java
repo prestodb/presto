@@ -49,4 +49,38 @@ public class AliasedRelation
                 .omitNullValues()
                 .toString();
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        AliasedRelation that = (AliasedRelation) o;
+
+        if (!alias.equals(that.alias)) {
+            return false;
+        }
+        if (columnNames != null ? !columnNames.equals(that.columnNames) : that.columnNames != null) {
+            return false;
+        }
+        if (!relation.equals(that.relation)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = relation.hashCode();
+        result = 31 * result + alias.hashCode();
+        result = 31 * result + (columnNames != null ? columnNames.hashCode() : 0);
+        return result;
+    }
 }

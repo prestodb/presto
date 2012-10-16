@@ -41,4 +41,34 @@ public class SearchedCaseExpression
                 .add("defaultValue", defaultValue)
                 .toString();
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        SearchedCaseExpression that = (SearchedCaseExpression) o;
+
+        if (defaultValue != null ? !defaultValue.equals(that.defaultValue) : that.defaultValue != null) {
+            return false;
+        }
+        if (!whenClauses.equals(that.whenClauses)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = whenClauses.hashCode();
+        result = 31 * result + (defaultValue != null ? defaultValue.hashCode() : 0);
+        return result;
+    }
 }

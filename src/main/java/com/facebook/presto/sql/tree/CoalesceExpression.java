@@ -33,4 +33,29 @@ public class CoalesceExpression
                 .addValue(operands)
                 .toString();
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        CoalesceExpression that = (CoalesceExpression) o;
+
+        if (!operands.equals(that.operands)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return operands.hashCode();
+    }
 }

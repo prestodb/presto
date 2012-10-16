@@ -41,4 +41,34 @@ public class NullIfExpression
                 .add("second", second)
                 .toString();
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        NullIfExpression that = (NullIfExpression) o;
+
+        if (!first.equals(that.first)) {
+            return false;
+        }
+        if (!second.equals(that.second)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = first.hashCode();
+        result = 31 * result + second.hashCode();
+        return result;
+    }
 }

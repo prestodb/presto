@@ -38,4 +38,29 @@ public class AllColumns
                 .add("name", prefix)
                 .toString();
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        AllColumns that = (AllColumns) o;
+
+        if (prefix != null ? !prefix.equals(that.prefix) : that.prefix != null) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return prefix != null ? prefix.hashCode() : 0;
+    }
 }

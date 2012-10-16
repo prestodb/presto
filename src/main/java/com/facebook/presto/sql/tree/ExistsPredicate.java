@@ -30,4 +30,29 @@ public class ExistsPredicate
                 .addValue(subquery)
                 .toString();
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        ExistsPredicate that = (ExistsPredicate) o;
+
+        if (!subquery.equals(that.subquery)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return subquery.hashCode();
+    }
 }

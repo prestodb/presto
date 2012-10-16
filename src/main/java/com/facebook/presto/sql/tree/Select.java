@@ -44,4 +44,34 @@ public class Select
                 .omitNullValues()
                 .toString();
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Select select = (Select) o;
+
+        if (distinct != select.distinct) {
+            return false;
+        }
+        if (!selectItems.equals(select.selectItems)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = (distinct ? 1 : 0);
+        result = 31 * result + selectItems.hashCode();
+        return result;
+    }
 }

@@ -56,4 +56,38 @@ public class SortItem
                 .add("nullOrdering", nullOrdering)
                 .toString();
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        SortItem sortItem = (SortItem) o;
+
+        if (nullOrdering != sortItem.nullOrdering) {
+            return false;
+        }
+        if (ordering != sortItem.ordering) {
+            return false;
+        }
+        if (!sortKey.equals(sortItem.sortKey)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = sortKey.hashCode();
+        result = 31 * result + (ordering != null ? ordering.hashCode() : 0);
+        result = 31 * result + (nullOrdering != null ? nullOrdering.hashCode() : 0);
+        return result;
+    }
 }

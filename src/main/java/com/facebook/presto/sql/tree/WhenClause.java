@@ -38,4 +38,34 @@ public class WhenClause
                 .add("result", result)
                 .toString();
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        WhenClause that = (WhenClause) o;
+
+        if (!operand.equals(that.operand)) {
+            return false;
+        }
+        if (!result.equals(that.result)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result1 = operand.hashCode();
+        result1 = 31 * result1 + result.hashCode();
+        return result1;
+    }
 }

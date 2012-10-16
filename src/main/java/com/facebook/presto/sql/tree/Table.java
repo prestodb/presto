@@ -30,4 +30,29 @@ public class Table
                 .addValue(name)
                 .toString();
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Table table = (Table) o;
+
+        if (!name.equals(table.name)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return name.hashCode();
+    }
 }

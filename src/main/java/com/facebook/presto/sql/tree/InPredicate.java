@@ -38,4 +38,34 @@ public class InPredicate
                 .add("valueList", valueList)
                 .toString();
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        InPredicate that = (InPredicate) o;
+
+        if (!value.equals(that.value)) {
+            return false;
+        }
+        if (!valueList.equals(that.valueList)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = value.hashCode();
+        result = 31 * result + valueList.hashCode();
+        return result;
+    }
 }
