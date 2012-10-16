@@ -61,4 +61,38 @@ public class LogicalBinaryExpression
     {
         return new LogicalBinaryExpression(Type.OR, left, right);
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        LogicalBinaryExpression that = (LogicalBinaryExpression) o;
+
+        if (!left.equals(that.left)) {
+            return false;
+        }
+        if (!right.equals(that.right)) {
+            return false;
+        }
+        if (type != that.type) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = type.hashCode();
+        result = 31 * result + left.hashCode();
+        result = 31 * result + right.hashCode();
+        return result;
+    }
 }

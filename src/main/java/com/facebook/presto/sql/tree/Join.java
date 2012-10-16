@@ -60,4 +60,42 @@ public class Join
                 .omitNullValues()
                 .toString();
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Join join = (Join) o;
+
+        if (criteria != null ? !criteria.equals(join.criteria) : join.criteria != null) {
+            return false;
+        }
+        if (!left.equals(join.left)) {
+            return false;
+        }
+        if (!right.equals(join.right)) {
+            return false;
+        }
+        if (type != join.type) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = type != null ? type.hashCode() : 0;
+        result = 31 * result + left.hashCode();
+        result = 31 * result + right.hashCode();
+        result = 31 * result + (criteria != null ? criteria.hashCode() : 0);
+        return result;
+    }
 }

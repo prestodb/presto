@@ -49,4 +49,38 @@ public class SimpleCaseExpression
                 .add("defaultValue", defaultValue)
                 .toString();
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        SimpleCaseExpression that = (SimpleCaseExpression) o;
+
+        if (defaultValue != null ? !defaultValue.equals(that.defaultValue) : that.defaultValue != null) {
+            return false;
+        }
+        if (!operand.equals(that.operand)) {
+            return false;
+        }
+        if (!whenClauses.equals(that.whenClauses)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = operand.hashCode();
+        result = 31 * result + whenClauses.hashCode();
+        result = 31 * result + (defaultValue != null ? defaultValue.hashCode() : 0);
+        return result;
+    }
 }

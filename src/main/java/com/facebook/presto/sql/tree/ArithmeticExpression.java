@@ -66,4 +66,38 @@ public class ArithmeticExpression
                 .add("right", right)
                 .toString();
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        ArithmeticExpression that = (ArithmeticExpression) o;
+
+        if (!left.equals(that.left)) {
+            return false;
+        }
+        if (!right.equals(that.right)) {
+            return false;
+        }
+        if (type != that.type) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = type.hashCode();
+        result = 31 * result + left.hashCode();
+        result = 31 * result + right.hashCode();
+        return result;
+    }
 }
