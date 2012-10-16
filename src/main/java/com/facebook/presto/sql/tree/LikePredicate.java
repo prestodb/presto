@@ -10,7 +10,8 @@ public class LikePredicate
     private final Expression pattern;
     private final Expression escape;
 
-    public LikePredicate(Expression value, Expression pattern, Expression escape) {
+    public LikePredicate(Expression value, Expression pattern, Expression escape)
+    {
         Preconditions.checkNotNull(value, "value is null");
         Preconditions.checkNotNull(pattern, "pattern is null");
 
