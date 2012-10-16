@@ -158,10 +158,12 @@ public class UncompressedCursor
     @Override
     public Tuple getTuple()
     {
-        Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
         if (block == null)  {
             throw new NoSuchElementException();
         }
+
+        Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
+
         Slice slice = block.getSlice();
         return new Tuple(slice.slice(offset, size), info);
     }
@@ -169,10 +171,12 @@ public class UncompressedCursor
     @Override
     public long getLong(int field)
     {
-        Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
         if (block == null)  {
             throw new NoSuchElementException();
         }
+
+        Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
+
         return info.getLong(block.getSlice(), offset, field);
     }
 
@@ -189,20 +193,24 @@ public class UncompressedCursor
     @Override
     public Slice getSlice(int field)
     {
-        Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
         if (block == null)  {
             throw new NoSuchElementException();
         }
+
+        Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
+
         return info.getSlice(block.getSlice(), offset, field);
     }
 
     @Override
     public long getPosition()
     {
-        Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
         if (block == null)  {
             throw new NoSuchElementException();
         }
+
+        Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
+
         return block.getRange().getStart() + index;
     }
 
@@ -215,10 +223,12 @@ public class UncompressedCursor
     @Override
     public boolean currentTupleEquals(Tuple value)
     {
-        Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
         if (block == null)  {
             throw new NoSuchElementException();
         }
+
+        Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
+
         Slice tupleSlice = value.getTupleSlice();
         return block.getSlice().equals(offset, size, tupleSlice, 0, tupleSlice.length());
     }
