@@ -9,6 +9,9 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+/**
+ * Finds all SubqueryExpressions in a given expression
+ */
 class NestedQueryExtractor
 {
     public List<Query> extract(Expression expression)
@@ -25,7 +28,7 @@ class NestedQueryExtractor
             }
         };
 
-        extractor.process(expression);
+        extractor.process(expression, null);
         return builder.build();
     }
 }

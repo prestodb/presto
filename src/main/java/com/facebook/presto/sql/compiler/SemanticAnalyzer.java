@@ -23,16 +23,11 @@ import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 
-import javax.annotation.Nullable;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Set;
 
-import static com.facebook.presto.sql.compiler.Field.nameGetter;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
@@ -56,7 +51,7 @@ public class SemanticAnalyzer
     public AnalysisResult analyze(Node node)
     {
         Visitor analyzer = new Visitor();
-        analyzer.process(node);
+        analyzer.process(node, null);
 
         Schema schema = analyzer.getTypes().get(node);
 
@@ -176,7 +171,7 @@ public class SemanticAnalyzer
         @Override
         protected Void visitSubquery(Subquery subquery, Void context)
         {
-            process(subquery.getQuery());
+            process(subquery.getQuery(), context);
 
             types.put(subquery, types.get(subquery.getQuery()));
             return null;
@@ -185,7 +180,7 @@ public class SemanticAnalyzer
         @Override
         protected Void visitSubqueryExpression(SubqueryExpression subquery, Void context)
         {
-            process(subquery.getQuery());
+            process(subquery.getQuery(), context);
 
             types.put(subquery, types.get(subquery.getQuery()));
             return null;
@@ -212,7 +207,7 @@ public class SemanticAnalyzer
         @Override
         protected Void visitAliasedRelation(final AliasedRelation relation, Void context)
         {
-            process(relation.getRelation());
+            process(relation.getRelation(), context);
 
             Schema relationSchema = types.get(relation.getRelation());
 
