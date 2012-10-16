@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 
 import java.util.List;
 
@@ -24,6 +25,12 @@ public class Query
             List<SortItem> orderBy,
             String limit)
     {
+        Preconditions.checkNotNull(select, "select is null");
+        Preconditions.checkNotNull(from, "from is null");
+        Preconditions.checkArgument(!from.isEmpty(), "from is empty");
+        Preconditions.checkNotNull(groupBy, "groupBy is null");
+        Preconditions.checkNotNull(orderBy, "orderBy is null");
+
         this.select = select;
         this.from = from;
         this.where = where;

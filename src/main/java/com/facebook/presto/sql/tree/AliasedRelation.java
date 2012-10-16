@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 
 import java.util.List;
 
@@ -13,6 +14,9 @@ public class AliasedRelation
 
     public AliasedRelation(Relation relation, String alias, List<String> columnNames)
     {
+        Preconditions.checkNotNull(relation, "relation is null");
+        Preconditions.checkNotNull(alias, " is null");
+
         this.relation = relation;
         this.alias = alias;
         this.columnNames = columnNames;

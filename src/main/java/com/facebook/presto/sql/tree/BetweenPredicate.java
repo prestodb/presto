@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 
 public class BetweenPredicate
         extends Expression
@@ -11,6 +12,10 @@ public class BetweenPredicate
 
     public BetweenPredicate(Expression value, Expression min, Expression max)
     {
+        Preconditions.checkNotNull(value, "value is null");
+        Preconditions.checkNotNull(min, "min is null");
+        Preconditions.checkNotNull(max, "max is null");
+
         this.value = value;
         this.min = min;
         this.max = max;

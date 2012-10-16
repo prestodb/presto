@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -14,6 +15,9 @@ public class SimpleCaseExpression
 
     public SimpleCaseExpression(Expression operand, List<WhenClause> whenClauses, Expression defaultValue)
     {
+        Preconditions.checkNotNull(operand, "operand is null");
+        Preconditions.checkNotNull(whenClauses, "whenClauses is null");
+
         this.operand = operand;
         this.whenClauses = ImmutableList.copyOf(whenClauses);
         this.defaultValue = defaultValue;

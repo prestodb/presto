@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 
 public class IntervalLiteral
         extends Literal
@@ -16,6 +17,9 @@ public class IntervalLiteral
 
     public IntervalLiteral(String value, String type, Sign sign)
     {
+        Preconditions.checkNotNull(value, "value is null");
+        Preconditions.checkNotNull(type, "type is null");
+
         this.value = value;
         this.type = type;
         this.sign = sign;
