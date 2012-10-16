@@ -32,4 +32,29 @@ public class InListExpression
                 .addValue(values)
                 .toString();
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        InListExpression that = (InListExpression) o;
+
+        if (!values.equals(that.values)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return values.hashCode();
+    }
 }

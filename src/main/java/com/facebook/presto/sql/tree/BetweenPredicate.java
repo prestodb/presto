@@ -46,4 +46,38 @@ public class BetweenPredicate
                 .add("max", max)
                 .toString();
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        BetweenPredicate that = (BetweenPredicate) o;
+
+        if (!max.equals(that.max)) {
+            return false;
+        }
+        if (!min.equals(that.min)) {
+            return false;
+        }
+        if (!value.equals(that.value)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = value.hashCode();
+        result = 31 * result + min.hashCode();
+        result = 31 * result + max.hashCode();
+        return result;
+    }
 }

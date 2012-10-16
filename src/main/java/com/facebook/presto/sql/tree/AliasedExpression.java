@@ -38,4 +38,34 @@ public class AliasedExpression
                 .add("alias", alias)
                 .toString();
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        AliasedExpression that = (AliasedExpression) o;
+
+        if (!alias.equals(that.alias)) {
+            return false;
+        }
+        if (!expression.equals(that.expression)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = expression.hashCode();
+        result = 31 * result + alias.hashCode();
+        return result;
+    }
 }

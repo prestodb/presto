@@ -7,4 +7,11 @@ public abstract class Node
         return visitor.visitNode(this, context);
     }
 
+
+    // Force subclasses to have a proper equals and hashcode implementation
+    @Override
+    public abstract int hashCode();
+
+    @Override
+    public abstract boolean equals(Object obj);
 }
