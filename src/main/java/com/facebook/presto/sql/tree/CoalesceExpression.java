@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -12,6 +13,8 @@ public class CoalesceExpression
 
     public CoalesceExpression(List<Expression> operands)
     {
+        Preconditions.checkNotNull(operands, "operands is null");
+
         this.operands = ImmutableList.copyOf(operands);
     }
 

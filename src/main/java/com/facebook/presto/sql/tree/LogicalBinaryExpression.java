@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 
 public class LogicalBinaryExpression
         extends Expression
@@ -16,6 +17,10 @@ public class LogicalBinaryExpression
 
     public LogicalBinaryExpression(Type type, Expression left, Expression right)
     {
+        Preconditions.checkNotNull(type, "type is null");
+        Preconditions.checkNotNull(left, "left is null");
+        Preconditions.checkNotNull(right, "right is null");
+
         this.type = type;
         this.left = left;
         this.right = right;

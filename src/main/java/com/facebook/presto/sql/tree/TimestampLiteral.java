@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 
 public class TimestampLiteral
         extends Literal
@@ -9,6 +10,8 @@ public class TimestampLiteral
 
     public TimestampLiteral(String value)
     {
+        Preconditions.checkNotNull(value, "value is null");
+
         this.value = value;
     }
 
