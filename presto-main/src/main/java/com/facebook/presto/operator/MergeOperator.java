@@ -2,23 +2,19 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.block.AbstractYieldingIterator;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.YieldingIterable;
-import com.facebook.presto.block.YieldingIterator;
 import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+/**
+ * Assumes all of the provided sources are already position aligned
+ */
 public class MergeOperator
-        implements TupleStream, YieldingIterable<UncompressedBlock>
+        implements TupleStream
 {
     private final List<? extends TupleStream> sources;
     private final TupleInfo tupleInfo;
@@ -30,14 +26,16 @@ public class MergeOperator
 
     public MergeOperator(Iterable<? extends TupleStream> sources)
     {
-        // build combined tuple info
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
+        Preconditions.checkNotNull(sources, "sources is null");
+        this.sources = ImmutableList.copyOf(sources);
+        Preconditions.checkArgument(!this.sources.isEmpty(), "must provide at least one source");
+
+        // Build combined tuple info
+        ImmutableList.Builder<TupleInfo.Type> types = ImmutableList.builder();
         for (TupleStream source : sources) {
             types.addAll(source.getTupleInfo().getTypes());
         }
         this.tupleInfo = new TupleInfo(types.build());
-
-        this.sources = ImmutableList.copyOf(sources);
     }
 
     @Override
@@ -56,70 +54,10 @@ public class MergeOperator
     public Cursor cursor(QuerySession session)
     {
         Preconditions.checkNotNull(session, "session is null");
-        return new GenericCursor(session, tupleInfo, iterator(session));
-    }
-
-    @Override
-    public YieldingIterator<UncompressedBlock> iterator(QuerySession session)
-    {
-        Preconditions.checkNotNull(session, "session is null");
-        return new MergeYieldingIterator(session, this.tupleInfo, this.sources);
-    }
-
-    private static class MergeYieldingIterator extends AbstractYieldingIterator<UncompressedBlock>
-    {
-        private final TupleInfo tupleInfo;
-        private final List<Cursor> cursors;
-        private long position;
-
-        public MergeYieldingIterator(QuerySession session, TupleInfo tupleInfo, Iterable<? extends TupleStream> sources)
-        {
-            Preconditions.checkNotNull(session, "session is null");
-            this.tupleInfo = tupleInfo;
-            ImmutableList.Builder<Cursor> cursors = ImmutableList.builder();
-            for (TupleStream source : sources) {
-                cursors.add(source.cursor(session));
-            }
-            this.cursors = cursors.build();
+        ImmutableList.Builder<Cursor> builder = ImmutableList.builder();
+        for (TupleStream tupleStream : sources) {
+            builder.add(tupleStream.cursor(session));
         }
-
-        @Override
-        protected UncompressedBlock computeNext()
-        {
-            if (!advanceCursors()) {
-                endOfData();
-                return null;
-            }
-
-            BlockBuilder blockBuilder = new BlockBuilder(position, tupleInfo);
-
-            // write tuple while we have room and there is more data
-            do {
-                for (Cursor cursor : cursors) {
-                    blockBuilder.append(cursor.getTuple());
-                }
-            } while (!blockBuilder.isFull() && advanceCursors());
-
-            UncompressedBlock block = blockBuilder.build();
-            position += block.getCount();
-            return block;
-        }
-
-        private boolean advanceCursors()
-        {
-            boolean advanced = false;
-            for (Cursor cursor : cursors) {
-                if (Cursors.advanceNextPositionNoYield(cursor)) {
-                    advanced = true;
-                }
-                else if (advanced) {
-                    throw new IllegalStateException("Unaligned cursors");
-                }
-                else {
-                    break;
-                }
-            }
-            return advanced;
-        }
+        return new MergeCursor(builder.build());
     }
 }
