@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -13,6 +14,7 @@ public class SearchedCaseExpression
 
     public SearchedCaseExpression(List<WhenClause> whenClauses, Expression defaultValue)
     {
+        Preconditions.checkNotNull(whenClauses, "whenClauses is null");
         this.whenClauses = ImmutableList.copyOf(whenClauses);
         this.defaultValue = defaultValue;
     }

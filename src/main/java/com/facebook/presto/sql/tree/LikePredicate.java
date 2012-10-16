@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 
 public class LikePredicate
         extends Expression
@@ -10,6 +11,9 @@ public class LikePredicate
     private final Expression escape;
 
     public LikePredicate(Expression value, Expression pattern, Expression escape) {
+        Preconditions.checkNotNull(value, "value is null");
+        Preconditions.checkNotNull(pattern, "pattern is null");
+
         this.value = value;
         this.pattern = pattern;
         this.escape = escape;

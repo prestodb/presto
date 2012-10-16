@@ -1,12 +1,16 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 
 public class Join
         extends Relation
 {
     public Join(Type type, Relation left, Relation right, JoinCriteria criteria)
     {
+        Preconditions.checkNotNull(left, "left is null");
+        Preconditions.checkNotNull(right, "right is null");
+
         this.type = type;
         this.left = left;
         this.right = right;
