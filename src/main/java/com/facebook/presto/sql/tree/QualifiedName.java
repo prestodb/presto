@@ -19,6 +19,14 @@ public class QualifiedName
 {
     private final List<String> parts;
 
+    public static QualifiedName of(QualifiedName prefix, String suffix)
+    {
+        Preconditions.checkNotNull(prefix, "prefix is null");
+        Preconditions.checkNotNull(suffix, "suffix is null");
+
+        return new QualifiedName(Iterables.concat(prefix.getParts(), ImmutableList.of(suffix)));
+    }
+
     public static QualifiedName of(String first, String... rest)
     {
         Preconditions.checkNotNull(first, "first is null");
@@ -91,5 +99,29 @@ public class QualifiedName
                 return name.hasSuffix(suffix);
             }
         };
+    }
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        QualifiedName that = (QualifiedName) o;
+
+        if (!parts.equals(that.parts)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return parts.hashCode();
     }
 }

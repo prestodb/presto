@@ -8,10 +8,10 @@ import java.util.Map;
 
 public class Metadata
 {
-    private final Map<String, TableMetadata> tables;
-    private final Map<String, FunctionInfo> functions;
+    private final Map<QualifiedName, TableMetadata> tables;
+    private final Map<QualifiedName, FunctionInfo> functions;
 
-    public Metadata(Map<String, TableMetadata> tables, Map<String, FunctionInfo> functions)
+    public Metadata(Map<QualifiedName, TableMetadata> tables, Map<QualifiedName, FunctionInfo> functions)
     {
         Preconditions.checkNotNull(tables, "tables is null");
         Preconditions.checkNotNull(functions, "functions is null");
@@ -22,11 +22,19 @@ public class Metadata
 
     public FunctionInfo getFunction(QualifiedName name)
     {
-        return functions.get(name.getParts().get(0).toUpperCase()); // TODO
+        FunctionInfo functionInfo = functions.get(name);
+
+        Preconditions.checkArgument(functionInfo != null, "Function '%s' not defined", name);
+
+        return functionInfo; // TODO
     }
 
     public TableMetadata getTable(QualifiedName name)
     {
-        return tables.get(name.getParts().get(0).toUpperCase()); // TODO
+        TableMetadata table = tables.get(name);
+
+        Preconditions.checkArgument(table != null, "Table '%s' not defined", name);
+
+        return table; // TODO
     }
 }
