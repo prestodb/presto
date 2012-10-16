@@ -1,6 +1,9 @@
 package com.facebook.presto.sql.compiler;
 
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.aggregation.AverageAggregation;
+import com.facebook.presto.aggregation.CountAggregation;
+import com.facebook.presto.aggregation.SumAggregation;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
@@ -46,11 +49,9 @@ public class TestSemanticAnalyzer
                 .build();
 
         Map<String, FunctionInfo> functions = ImmutableMap.<String, FunctionInfo>builder()
-                .put("COUNT", new FunctionInfo(true))
-                .put("SUM", new FunctionInfo(true))
-                .put("AVG", new FunctionInfo(true))
-                .put("MAX", new FunctionInfo(true))
-                .put("MIN", new FunctionInfo(true))
+                .put("COUNT", new FunctionInfo(true, CountAggregation.PROVIDER))
+                .put("SUM", new FunctionInfo(true, SumAggregation.PROVIDER))
+                .put("AVG", new FunctionInfo(true, AverageAggregation.PROVIDER))
                 .build();
 
         metadata = new Metadata(tables, functions);
