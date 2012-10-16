@@ -99,20 +99,56 @@ public class Cursors
         checkNotNull(cursor, "cursor is null");
         checkNotNull(blockBuilder, "blockBuilder is null");
         for (int column = 0; column < cursor.getTupleInfo().getFieldCount(); column++) {
-            TupleInfo.Type type = cursor.getTupleInfo().getTypes().get(column);
-            switch (type) {
-                case FIXED_INT_64:
-                    blockBuilder.append(cursor.getLong(column));
-                    break;
-                case DOUBLE:
-                    blockBuilder.append(cursor.getDouble(column));
-                    break;
-                case VARIABLE_BINARY:
-                    blockBuilder.append(cursor.getSlice(column));
-                    break;
-                default:
-                    throw new AssertionError("Unknown type: " + type);
-            }
+            appendCurrentTupleFieldToBlockBuilder(cursor, column, blockBuilder);
+        }
+    }
+
+    public static void appendCurrentTupleToTupleBuilder(Cursor cursor, TupleInfo.Builder tupleBuilder)
+    {
+        checkNotNull(cursor, "cursor is null");
+        checkNotNull(tupleBuilder, "tupleBuilder is null");
+        for (int column = 0; column < cursor.getTupleInfo().getFieldCount(); column++) {
+            appendCurrentTupleFieldToTupleBuilder(cursor, column, tupleBuilder);
+        }
+    }
+
+    public static void appendCurrentTupleFieldToBlockBuilder(Cursor cursor, int field, BlockBuilder blockBuilder)
+    {
+        checkNotNull(cursor, "cursor is null");
+        checkNotNull(blockBuilder, "blockBuilder is null");
+        TupleInfo.Type type = cursor.getTupleInfo().getTypes().get(field);
+        switch (type) {
+            case FIXED_INT_64:
+                blockBuilder.append(cursor.getLong(field));
+                break;
+            case DOUBLE:
+                blockBuilder.append(cursor.getDouble(field));
+                break;
+            case VARIABLE_BINARY:
+                blockBuilder.append(cursor.getSlice(field));
+                break;
+            default:
+                throw new AssertionError("Unknown type: " + type);
+        }
+    }
+
+    public static void appendCurrentTupleFieldToTupleBuilder(Cursor cursor, int field, TupleInfo.Builder tupleBuilder)
+    {
+        checkNotNull(cursor, "cursor is null");
+        checkNotNull(tupleBuilder, "tupleBuilder is null");
+        TupleInfo.Type type = cursor.getTupleInfo().getTypes().get(field);
+        switch (type) {
+            case FIXED_INT_64:
+                tupleBuilder.append(cursor.getLong(field));
+                break;
+            case DOUBLE:
+                tupleBuilder.append(cursor.getDouble(field));
+                break;
+            case VARIABLE_BINARY:
+                tupleBuilder.append(cursor.getSlice(field));
+                break;
+            default:
+                throw new AssertionError("Unknown type: " + type);
         }
     }
 
