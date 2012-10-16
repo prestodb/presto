@@ -53,7 +53,7 @@ class ReferenceResolver
             }
         };
 
-        visitor.process(node);
+        visitor.process(node, null);
     }
 
     public Map<QualifiedNameReference, QualifiedName> getResolvedNames()
