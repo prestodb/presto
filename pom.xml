@@ -19,6 +19,13 @@
 
     <dependencies>
         <dependency>
+            <!-- really only needed at compilation time -->
+            <groupId>com.intellij</groupId>
+            <artifactId>annotations</artifactId>
+            <version>9.0.4</version>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>airline</artifactId>
             <version>0.4</version>
