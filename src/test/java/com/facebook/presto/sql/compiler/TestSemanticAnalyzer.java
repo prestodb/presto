@@ -39,6 +39,10 @@ public class TestSemanticAnalyzer
                         new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "s_id"),
                         new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "name"),
                         new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "value"))))
+                .put("A.B", new TableMetadata("A.B", ImmutableList.of(
+                        new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "a_b_id"),
+                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "name"),
+                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "value"))))
                 .build();
 
         Map<String, FunctionInfo> functions = ImmutableMap.<String, FunctionInfo>builder()
@@ -249,6 +253,13 @@ public class TestSemanticAnalyzer
                 ") U");
     }
 
+
+    @Test
+    public void testWithQualifiedTableName()
+            throws Exception
+    {
+        process("select B.* from A.B");
+    }
 
     private void process(String query)
             throws RecognitionException
