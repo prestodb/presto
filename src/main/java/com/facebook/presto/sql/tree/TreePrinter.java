@@ -3,25 +3,24 @@ package com.facebook.presto.sql.tree;
 import com.facebook.presto.sql.compiler.Schema;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableMap;
 
 import java.io.PrintStream;
-import java.util.Map;
+import java.util.IdentityHashMap;
 
 public class TreePrinter
 {
     private static final String INDENT = "   ";
 
-    private final Map<QualifiedNameReference, QualifiedName> resolvedNameReferences;
-    private final ImmutableMap<Node, Schema> outputSchemas;
+    private final IdentityHashMap<QualifiedNameReference, QualifiedName> resolvedNameReferences;
+    private final IdentityHashMap<Node, Schema> outputSchemas;
     private final PrintStream out;
 
-    public TreePrinter(Map<QualifiedNameReference, QualifiedName> resolvedNameReferences,
-            Map<Node, Schema> outputSchemas,
+    public TreePrinter(IdentityHashMap<QualifiedNameReference, QualifiedName> resolvedNameReferences,
+            IdentityHashMap<Node, Schema> outputSchemas,
             PrintStream out)
     {
-        this.resolvedNameReferences = ImmutableMap.copyOf(resolvedNameReferences);
-        this.outputSchemas = ImmutableMap.copyOf(outputSchemas);
+        this.resolvedNameReferences = new IdentityHashMap<>(resolvedNameReferences);
+        this.outputSchemas = new IdentityHashMap<>(outputSchemas);
         this.out = out;
     }
 
