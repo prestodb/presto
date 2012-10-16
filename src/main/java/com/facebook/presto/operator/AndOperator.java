@@ -36,13 +36,19 @@ public class AndOperator
     private final List<TupleStream> sources;
     private final Range range;
 
-    public AndOperator(TupleStream... sources)
+    public AndOperator(List<TupleStream> sources)
     {
         Preconditions.checkNotNull(sources, "sources is null");
-        Preconditions.checkArgument(sources.length > 0, "sources is empty");
+        Preconditions.checkArgument(!sources.isEmpty(), "sources is empty");
 
         this.sources = ImmutableList.copyOf(sources);
         this.range = Ranges.intersect(Iterables.transform(this.sources, getRangeFunction()));
+
+    }
+
+    public AndOperator(TupleStream... sources)
+    {
+        this(ImmutableList.copyOf(sources));
     }
 
     @Override
