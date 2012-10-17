@@ -25,4 +25,13 @@ public class TableMetadata
     {
         return columns;
     }
+
+    public List<QualifiedName> getSchema()
+    {
+        ImmutableList.Builder<QualifiedName> names = ImmutableList.builder();
+        for (ColumnMetadata column : columns) {
+            names.add(QualifiedName.of(name, column.getName()));
+        }
+        return names.build();
+    }
 }
