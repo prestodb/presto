@@ -4,13 +4,15 @@
 package com.facebook.presto;
 
 import com.facebook.presto.TupleInfo.Type;
+import com.facebook.presto.block.ColumnMappingTupleStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStreamSerdes;
-import com.facebook.presto.ingest.BlockDataImporter;
-import com.facebook.presto.ingest.BlockExtractor;
-import com.facebook.presto.ingest.DelimitedBlockExtractor;
+import com.facebook.presto.block.TupleStreamSerializer;
+import com.facebook.presto.ingest.DelimitedTupleStream;
 import com.facebook.presto.ingest.RuntimeIOException;
+import com.facebook.presto.ingest.StreamWriterTupleValueSink;
+import com.facebook.presto.ingest.TupleStreamImporter;
 import com.facebook.presto.operator.ConsolePrinter.DelimitedTuplePrinter;
 import com.facebook.presto.operator.ConsolePrinter.TuplePrinter;
 import com.facebook.presto.server.HttpQueryProvider;
@@ -19,14 +21,19 @@ import com.facebook.presto.server.ServerMainModule;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.io.Files;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.NullOutputStream;
 import com.google.common.io.OutputSupplier;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
-import io.airlift.command.*;
+import io.airlift.command.Arguments;
+import io.airlift.command.Cli;
 import io.airlift.command.Cli.CliBuilder;
+import io.airlift.command.Command;
+import io.airlift.command.Help;
+import io.airlift.command.Option;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.event.client.HttpEventModule;
@@ -47,7 +54,12 @@ import io.airlift.tracetoken.TraceTokenModule;
 import io.airlift.units.Duration;
 import org.weakref.jmx.guice.MBeanModule;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.net.URI;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -56,8 +68,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.block.Cursors.advanceNextPositionNoYield;
-import static com.facebook.presto.ingest.BlockDataImporter.ColumnImportSpec;
-import static com.facebook.presto.ingest.DelimitedBlockExtractor.ColumnDefinition;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -161,7 +171,7 @@ public class Main
                         new HttpQueryProvider("sum", asyncHttpClient, server)
                 );
 
-//                TuplePrinter tuplePrinter = new RecordTuplePrinter();
+                //                TuplePrinter tuplePrinter = new RecordTuplePrinter();
                 TuplePrinter tuplePrinter = new DelimitedTuplePrinter();
 
                 int count = 0;
@@ -187,6 +197,8 @@ public class Main
     public static class ConvertCsv
             extends BaseCommand
     {
+        private static final Logger log = Logger.get(ConvertCsv.class);
+
         @Option(name = {"-d", "--column-delimiter"}, description = "Column delimiter character")
         public String columnSeparator = ",";
 
@@ -218,8 +230,10 @@ public class Main
                 };
             }
 
-            ImmutableList.Builder<ColumnDefinition> columnDefinitionBuilder = ImmutableList.builder();
-            ImmutableList.Builder<ColumnImportSpec> columnImportSpecBuilder = ImmutableList.builder();
+            ImmutableSortedMap.Builder<Integer, Type> schemaBuilder = ImmutableSortedMap.naturalOrder();
+            ImmutableList.Builder<Integer> extractionColumnsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<TupleStreamSerializer> serializerBuilder = ImmutableList.builder();
+            ImmutableList.Builder<OutputSupplier<? extends OutputStream>> outputSupplierBuilder = ImmutableList.builder();
             for (String extractionSpec : extractionSpecs) {
                 // Extract column index, base type, and encodingName
                 // Examples: '0:long:raw', '3:string:rle', '4:double:dicrle'
@@ -234,18 +248,41 @@ public class Main
                 String dataTypeName = parts.get(1);
                 String encodingName = parts.get(2);
 
-                columnDefinitionBuilder.add(new ColumnDefinition(columnIndex, TupleInfo.Type.fromName(dataTypeName)));
-                columnImportSpecBuilder.add(
-                        new ColumnImportSpec(
-                                TupleStreamSerdes.Encoding.fromName(encodingName).createSerde().createSerializer(),
-                                newOutputStreamSupplier(new File(outputDir, String.format("column%d.%s_%s.data", columnIndex, dataTypeName, encodingName)))
-                        )
-                );
+                schemaBuilder.put(columnIndex, TupleInfo.Type.fromName(dataTypeName));
+                extractionColumnsBuilder.add(columnIndex);
+                serializerBuilder.add(TupleStreamSerdes.Encoding.fromName(encodingName).createSerde().createSerializer());
+                outputSupplierBuilder.add(newOutputStreamSupplier(new File(outputDir, String.format("column%d.%s_%s.data", columnIndex, dataTypeName, encodingName))));
+            }
+            ImmutableSortedMap<Integer, Type> schema = schemaBuilder.build();
+            ImmutableList<Integer> extractionColumns = extractionColumnsBuilder.build();
+            ImmutableList<TupleStreamSerializer> serializers = serializerBuilder.build();
+            ImmutableList<OutputSupplier<? extends OutputStream>> outputSuppliers = outputSupplierBuilder.build();
+
+            ImmutableList.Builder<Type> inferredTypes = ImmutableList.builder();
+            for (int index = 0; index <= schema.lastKey(); index++) {
+                if (schema.containsKey(index)) {
+                    inferredTypes.add(schema.get(index));
+                }
+                else {
+                    // Default to VARIABLE_BINARY if we don't know some of the intermediate types
+                    inferredTypes.add(Type.VARIABLE_BINARY);
+                }
             }
 
-            BlockExtractor blockExtractor = new DelimitedBlockExtractor(Splitter.on(toChar(columnSeparator)), columnDefinitionBuilder.build());
-            BlockDataImporter importer = new BlockDataImporter(blockExtractor, columnImportSpecBuilder.build());
-            importer.importFrom(inputSupplier);
+            TupleInfo tupleInfo = new TupleInfo(inferredTypes.build());
+
+            try (InputStreamReader input = inputSupplier.getInput()) {
+                DelimitedTupleStream delimitedTupleStream = new DelimitedTupleStream(input, Splitter.on(toChar(columnSeparator)), tupleInfo);
+                ColumnMappingTupleStream projectedStream = new ColumnMappingTupleStream(delimitedTupleStream, extractionColumns);
+
+                ImmutableList.Builder<StreamWriterTupleValueSink> tupleValueSinkBuilder = ImmutableList.builder();
+                for (int index = 0; index < extractionColumns.size(); index++) {
+                    tupleValueSinkBuilder.add(new StreamWriterTupleValueSink(outputSuppliers.get(index), serializers.get(index)));
+                }
+
+                long rowCount = TupleStreamImporter.importFrom(projectedStream, tupleValueSinkBuilder.build());
+                log.info("Imported %d rows", rowCount);
+            }
         }
 
         private char toChar(String string)
