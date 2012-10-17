@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.compiler;
 
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 
 import java.util.HashSet;
@@ -58,5 +59,17 @@ public class NameGenerator
         String result = "_a" + fieldCount;
         ++fieldCount;
         return result;
+    }
+
+    public static <T> Function<T, String> fieldAliasGenerator(final NameGenerator namer)
+    {
+        return new Function<T, String>()
+        {
+            @Override
+            public String apply(T input)
+            {
+                return namer.generateFieldAlias();
+            }
+        };
     }
 }
