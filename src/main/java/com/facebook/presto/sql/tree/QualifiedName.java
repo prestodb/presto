@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.tree;
 
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
@@ -97,6 +98,19 @@ public class QualifiedName
             public boolean apply(QualifiedName name)
             {
                 return name.hasSuffix(suffix);
+            }
+        };
+    }
+
+
+    public static Function<String, QualifiedName> addPrefixFunction(final QualifiedName prefix)
+    {
+        return new Function<String, QualifiedName>()
+        {
+            @Override
+            public QualifiedName apply(@Nullable String suffix)
+            {
+                return QualifiedName.of(prefix, suffix);
             }
         };
     }
