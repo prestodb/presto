@@ -1,9 +1,10 @@
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.TupleStreamSerializer;
-import com.facebook.presto.ingest.BlockDataImporter;
-import com.facebook.presto.ingest.BlockExtractor;
-import com.facebook.presto.ingest.DelimitedBlockExtractor;
+import com.facebook.presto.ingest.DelimitedTupleStream;
+import com.facebook.presto.ingest.StreamWriterTupleValueSink;
+import com.facebook.presto.ingest.TupleStreamImporter;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
@@ -28,7 +29,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * It will also cache the extracted columns in the local file system to help mitigate the cost of the operation.
  */
 public class GeneratingTpchDataProvider
-    implements TpchDataProvider
+        implements TpchDataProvider
 {
     private final TableInputSupplierFactory tableInputSupplierFactory;
     private final File cacheDirectory;
@@ -132,26 +133,17 @@ public class GeneratingTpchDataProvider
 
             Files.createParentDirs(cachedFile);
 
-            BlockExtractor blockExtractor = new DelimitedBlockExtractor(
-                    Splitter.on('|'),
-                    ImmutableList.of(new DelimitedBlockExtractor.ColumnDefinition(column.getIndex(), column.getType()))
-            );
-            BlockDataImporter importer = new BlockDataImporter(
-                    blockExtractor,
-                    ImmutableList.of(
-                            new BlockDataImporter.ColumnImportSpec(
-                                    serializer,
-                                    Files.newOutputStreamSupplier(cachedFile)))
-            );
-            importer.importFrom(
-                    new InputSupplier<InputStreamReader>() {
-                        @Override
-                        public InputStreamReader getInput() throws IOException
-                        {
-                            return new InputStreamReader(tableInputSupplierFactory.getInputSupplier(column.getTableName()).getInput(), Charsets.UTF_8);
-                        }
-                    }
-            );
+            try (InputStream input = tableInputSupplierFactory.getInputSupplier(column.getTableName()).getInput()) {
+                TupleStreamImporter.importFrom(
+                        new DelimitedTupleStream(
+                                new InputStreamReader(input, Charsets.UTF_8),
+                                Splitter.on("|"),
+                                new TupleInfo(column.getType())
+                        ),
+                        ImmutableList.of(new StreamWriterTupleValueSink(Files.newOutputStreamSupplier(cachedFile), serializer))
+                );
+            }
+
             return cachedFile;
         } catch (IOException e) {
             throw Throwables.propagate(e);
