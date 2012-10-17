@@ -48,4 +48,20 @@ public class AstFunctions
             }
         };
     }
+
+    public static Function<Expression, Expression> unalias()
+    {
+        return new Function<Expression, Expression>()
+        {
+            @Override
+            public Expression apply(Expression input)
+            {
+                if (input instanceof AliasedExpression) {
+                    return apply(((AliasedExpression) input).getExpression());
+                }
+
+                return input;
+            }
+        };
+    }
 }
