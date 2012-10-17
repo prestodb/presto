@@ -21,7 +21,10 @@ import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Subquery;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.Nullable;
 
 import static com.facebook.presto.sql.compiler.IterableUtils.sameElements;
 
@@ -52,6 +55,18 @@ public final class TreeRewriter<C>
     public <T extends Node> T defaultRewrite(T node, C context)
     {
         return (T) visitor.process(node, new Context<>(context, true));
+    }
+
+    public static <C, T extends Node> Function<Node, T> rewriteFunction(final NodeRewriter<C> rewriter)
+    {
+        return new Function<Node, T>()
+        {
+            @Override
+            public T apply(Node node)
+            {
+                return (T) rewriteWith(rewriter, node);
+            }
+        };
     }
 
     private class RewritingVisitor
