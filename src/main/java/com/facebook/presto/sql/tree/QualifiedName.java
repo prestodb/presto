@@ -100,6 +100,12 @@ public class QualifiedName
             }
         };
     }
+
+    public String getSuffix()
+    {
+        return Iterables.getLast(parts);
+    }
+
     @Override
     public boolean equals(Object o)
     {
