@@ -1,11 +1,10 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.*;
-import com.facebook.presto.operator.inlined.StatsInlinedOperator;
+import com.facebook.presto.operator.tap.StatsTupleValueSink;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tpch.*;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -101,7 +100,7 @@ public abstract class AbstractTupleStreamBenchmark
             implements TpchTupleStreamProvider
     {
         private final TpchDataProvider tpchDataProvider;
-        private final ImmutableList.Builder<StatsInlinedOperator.Stats> statsBuilder = ImmutableList.builder();
+        private final ImmutableList.Builder<StatsTupleValueSink.Stats> statsBuilder = ImmutableList.builder();
 
         private StatsTpchTupleStreamProvider(TpchDataProvider tpchDataProvider)
         {
@@ -124,7 +123,7 @@ public abstract class AbstractTupleStreamBenchmark
             }
         }
         
-        public List<StatsInlinedOperator.Stats> getStats()
+        public List<StatsTupleValueSink.Stats> getStats()
         {
             return statsBuilder.build();
         }

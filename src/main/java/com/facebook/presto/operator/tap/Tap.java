@@ -1,4 +1,4 @@
-package com.facebook.presto.operator.inlined;
+package com.facebook.presto.operator.tap;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
@@ -7,21 +7,21 @@ import com.facebook.presto.block.*;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
- * Feeds data to an InlinedOperatorWriter one value at a time (rather than one position at a time) 
- * For completeness, InlinedOperatorWriter used here should process the entire range for the given
+ * Feeds data to an TupleValueSink one value at a time (rather than one position at a time) 
+ * For completeness, TupleValueSink used here should process the entire range for the given
  * positional value on each invocation.
  */
-public class InlinedOperatorHook
+public class Tap
         implements TupleStream
 {
     private final TupleStream tupleStream;
-    private final InlinedOperatorWriter inlinedOperatorWriter;
+    private final TupleValueSink tupleValueSink;
     private boolean first = true;
 
-    public InlinedOperatorHook(TupleStream tupleStream, InlinedOperatorWriter inlinedOperatorWriter)
+    public Tap(TupleStream tupleStream, TupleValueSink tupleValueSink)
     {
         this.tupleStream = checkNotNull(tupleStream, "tupleStream is null");
-        this.inlinedOperatorWriter = checkNotNull(inlinedOperatorWriter, "inlinedOperatorWriter is null");
+        this.tupleValueSink = checkNotNull(tupleValueSink, "inlinedOperatorWriter is null");
     }
 
     @Override
@@ -41,25 +41,25 @@ public class InlinedOperatorHook
     {
         if (first) {
             first = false;
-            // Only need to intercept one pass
-            return new InterceptingCursor(tupleStream.cursor(session), inlinedOperatorWriter);
+            return new InterceptingCursor(tupleStream.cursor(session), tupleValueSink);
         }
         else {
-            return tupleStream.cursor(session);
+            // TODO: consider making this work with multiple cursors using sessions
+            throw new UnsupportedOperationException("only support single cursors right now");
         }
     }
 
     private static class InterceptingCursor
             extends ForwardingCursor
     {
-        private final InlinedOperatorWriter inlinedOperatorWriter;
+        private final TupleValueSink tupleValueSink;
         private final TupleStreamPosition tupleStreamPosition;
         private long measuredPosition = -1;
 
-        private InterceptingCursor(Cursor cursor, InlinedOperatorWriter inlinedOperatorWriter)
+        private InterceptingCursor(Cursor cursor, TupleValueSink tupleValueSink)
         {
             super(checkNotNull(cursor, "cursor is null"));
-            this.inlinedOperatorWriter = checkNotNull(inlinedOperatorWriter, "inlinedOperatorWriter is null");
+            this.tupleValueSink = checkNotNull(tupleValueSink, "inlinedOperatorWriter is null");
             tupleStreamPosition = Cursors.asTupleStreamPosition(cursor);
         }
 
@@ -99,12 +99,12 @@ public class InlinedOperatorHook
             switch (advanceResult) {
                 case SUCCESS:
                     if (getDelegate().getPosition() > measuredPosition) {
-                        inlinedOperatorWriter.process(tupleStreamPosition);
+                        tupleValueSink.process(tupleStreamPosition);
                         measuredPosition = getDelegate().getCurrentValueEndPosition();
                     }
                     break;
                 case FINISHED:
-                    inlinedOperatorWriter.finished();
+                    tupleValueSink.finished();
                     break;
                 case MUST_YIELD:
                     // Do nothing
