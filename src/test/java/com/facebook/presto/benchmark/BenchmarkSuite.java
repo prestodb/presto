@@ -1,6 +1,5 @@
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.tpch.TpchDataProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 
@@ -15,9 +14,15 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class BenchmarkSuite
 {
-    public static final TpchDataProvider TPCH_DATA_PROVIDER = new TpchDataProvider();
     public static final List<AbstractBenchmark> BENCHMARKS = ImmutableList.<AbstractBenchmark>of(
-            new SampleTcphBenchmark(TPCH_DATA_PROVIDER)
+            new BinaryOperatorBenchmark(),
+            new CountAggregationBenchmark(),
+            new DicRleGroupByBenchmark(),
+            new DictionaryAggregationBenchmark(),
+            new PredicateFilterBenchmark(),
+            new RawStreamingBenchmark(),
+            new RleHashAggregationBenchmark(),
+            new RlePipelinedAggregationBenchmark()
     );
 
     private final String outputDirectory;

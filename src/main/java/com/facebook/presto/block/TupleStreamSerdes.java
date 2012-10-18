@@ -14,13 +14,54 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TupleStreamSerdes
 {
-    // TODO: how can we associate this with the actual serdes?
+    public static void serialize(TupleStreamSerde serde, TupleStream tupleStream, SliceOutput sliceOutput)
+    {
+        checkNotNull(serde, "serde is null");
+        checkNotNull(tupleStream, "tupleStream is null");
+        checkNotNull(sliceOutput, "sliceOutput is null");
+        serde.createSerializer().createTupleStreamWriter(sliceOutput).append(tupleStream).finish();
+    }
+
+    public static TupleStream deserialize(TupleStreamSerde serde, Slice slice)
+    {
+        checkNotNull(serde, "serde is null");
+        return serde.createDeserializer().deserialize(slice);
+    }
+
     public static enum Encoding
     {
-        RAW("raw"),
-        RLE("rle"),
-        DICTIONARY_RAW("dic/raw"),
-        DICTIONARY_RLE("dic/rle");
+        RAW("raw")
+                {
+                    @Override
+                    public TupleStreamSerde createSerde()
+                    {
+                        return new UncompressedSerde();
+                    }
+                },
+        RLE("rle")
+                {
+                    @Override
+                    public TupleStreamSerde createSerde()
+                    {
+                        return new RunLengthEncodedSerde();
+                    }
+                },
+        DICTIONARY_RAW("dicraw")
+                {
+                    @Override
+                    public TupleStreamSerde createSerde()
+                    {
+                        return new DictionarySerde(RAW.createSerde());
+                    }
+                },
+        DICTIONARY_RLE("dicrle")
+                {
+                    @Override
+                    public TupleStreamSerde createSerde()
+                    {
+                        return new DictionarySerde(RLE.createSerde());
+                    }
+                };
 
         private static final Map<String, Encoding> NAME_MAP;
         static {
@@ -31,11 +72,12 @@ public class TupleStreamSerdes
             NAME_MAP = builder.build();
         }
 
+        // Name should be usable as a filename
         private final String name;
 
         private Encoding(String name)
         {
-            this.name = name;
+            this.name = checkNotNull(name, "name is null");
         }
 
         public String getName()
@@ -43,43 +85,14 @@ public class TupleStreamSerdes
             return name;
         }
 
+        public abstract TupleStreamSerde createSerde();
+
         public static Encoding fromName(String name)
         {
             checkNotNull(name, "name is null");
             Encoding encoding = NAME_MAP.get(name);
             checkArgument(encoding != null, "Invalid type name: %s", name);
             return encoding;
-        }
-    }
-
-    public static void serialize(TupleStreamSerde serde, TupleStream tupleStream, SliceOutput sliceOutput)
-    {
-        checkNotNull(serde, "serde is null");
-        checkNotNull(tupleStream, "tupleStream is null");
-        checkNotNull(sliceOutput, "sliceOutput is null");
-        serde.createTupleStreamWriter(sliceOutput).append(tupleStream).finish();
-    }
-    
-    public static TupleStream deserialize(TupleStreamSerde serde, Slice slice)
-    {
-        checkNotNull(serde, "serde is null");
-        return serde.deserialize(slice);
-    }
-
-    public static TupleStreamSerde createTupleStreamSerde(Encoding encoding)
-    {
-        checkNotNull(encoding, "encoding is null");
-        switch (encoding) {
-            case RAW:
-                return new UncompressedSerde();
-            case RLE:
-                return new RunLengthEncodedSerde();
-            case DICTIONARY_RAW:
-                return new DictionarySerde(new UncompressedSerde());
-            case DICTIONARY_RLE:
-                return new DictionarySerde(new RunLengthEncodedSerde());
-            default:
-                throw new AssertionError("Missing encoding type!");
         }
     }
 }

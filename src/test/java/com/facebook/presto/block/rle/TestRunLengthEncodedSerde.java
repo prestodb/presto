@@ -32,7 +32,7 @@ public class TestRunLengthEncodedSerde
     {
         TupleStream tupleStream = Blocks.createTupleStream(0, "a", "b", "b", "cde", "fuu", "a", "fuu");
         TupleStreamSerdes.serialize(rleSerde, tupleStream, sliceOutput);
-        Blocks.assertTupleStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
+        Blocks.assertTupleStreamEquals(tupleStream, rleSerde.createDeserializer().deserialize(sliceOutput.slice()));
     }
 
     @Test
@@ -40,7 +40,7 @@ public class TestRunLengthEncodedSerde
     {
         TupleStream tupleStream = Blocks.createTupleStream(0, "a", "a", "a", "a", "a", "a", "a");
         TupleStreamSerdes.serialize(rleSerde, tupleStream, sliceOutput);
-        Blocks.assertTupleStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
+        Blocks.assertTupleStreamEquals(tupleStream, rleSerde.createDeserializer().deserialize(sliceOutput.slice()));
     }
 
     @Test
@@ -48,7 +48,7 @@ public class TestRunLengthEncodedSerde
     {
         TupleStream tupleStream = Blocks.createTupleStream(0, "a", "b", "c", "d", "e", "f", "g");
         TupleStreamSerdes.serialize(rleSerde, tupleStream, sliceOutput);
-        Blocks.assertTupleStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
+        Blocks.assertTupleStreamEquals(tupleStream, rleSerde.createDeserializer().deserialize(sliceOutput.slice()));
     }
 
     @Test
@@ -60,7 +60,7 @@ public class TestRunLengthEncodedSerde
                 Blocks.createBlock(100, "y", "y", "a", "y", "b"),
                 Blocks.createBlock(200, "b"));
         TupleStreamSerdes.serialize(rleSerde, tupleStream, sliceOutput);
-        Blocks.assertTupleStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
+        Blocks.assertTupleStreamEquals(tupleStream, rleSerde.createDeserializer().deserialize(sliceOutput.slice()));
     }
 
     @Test
@@ -77,7 +77,7 @@ public class TestRunLengthEncodedSerde
                 .append(-1L).append(Slices.wrappedBuffer("ccc".getBytes(UTF_8)))
                 .build());
         TupleStreamSerdes.serialize(rleSerde, tupleStream, sliceOutput);
-        Blocks.assertTupleStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
+        Blocks.assertTupleStreamEquals(tupleStream, rleSerde.createDeserializer().deserialize(sliceOutput.slice()));
     }
     
     
@@ -89,13 +89,15 @@ public class TestRunLengthEncodedSerde
         UncompressedBlock block2 = Blocks.createBlock(6, "c", "a", "b", "b", "b");
         UncompressedBlock block3 = Blocks.createBlock(100, "y", "y", "a", "y", "b");
         UncompressedBlock block4 = Blocks.createBlock(200, "b");
+
         TupleStream tupleStream = new GenericTupleStream<>(TupleInfo.SINGLE_VARBINARY, block1, block2, block3, block4);
-        rleSerde.createTupleStreamWriter(sliceOutput)
+
+        rleSerde.createSerializer().createTupleStreamWriter(sliceOutput)
                 .append(block1)
                 .append(block2)
                 .append(block3)
                 .append(block4)
                 .finish();
-        Blocks.assertTupleStreamEquals(tupleStream, rleSerde.deserialize(sliceOutput.slice()));
+        Blocks.assertTupleStreamEquals(tupleStream, rleSerde.createDeserializer().deserialize(sliceOutput.slice()));
     }
 }

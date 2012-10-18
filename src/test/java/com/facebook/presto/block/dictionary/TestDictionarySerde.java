@@ -36,7 +36,7 @@ public class TestDictionarySerde
     {
         TupleStream tupleStream = Blocks.createTupleStream(0, "a", "b", "cde", "fuu", "a", "fuu");
         TupleStreamSerdes.serialize(dictionarySerde, tupleStream, sliceOutput);
-        assertTupleStreamEquals(dictionarySerde.deserialize(sliceOutput.slice()), tupleStream);
+        assertTupleStreamEquals(dictionarySerde.createDeserializer().deserialize(sliceOutput.slice()), tupleStream);
     }
 
     @Test
@@ -45,7 +45,7 @@ public class TestDictionarySerde
     {
         TupleStream tupleStream = Blocks.createTupleStream(0, "a", "a", "a", "a", "a", "a", "a");
         TupleStreamSerdes.serialize(dictionarySerde, tupleStream, sliceOutput);
-        TupleStream deserialize = dictionarySerde.deserialize(sliceOutput.slice());
+        TupleStream deserialize = dictionarySerde.createDeserializer().deserialize(sliceOutput.slice());
         assertTupleStreamEquals(deserialize, tupleStream);
     }
 
@@ -55,7 +55,7 @@ public class TestDictionarySerde
     {
         TupleStream tupleStream = Blocks.createTupleStream(0, "a", "b", "c", "d", "e", "f", "g");
         TupleStreamSerdes.serialize(dictionarySerde, tupleStream, sliceOutput);
-        assertTupleStreamEquals(dictionarySerde.deserialize(sliceOutput.slice()), tupleStream);
+        assertTupleStreamEquals(dictionarySerde.createDeserializer().deserialize(sliceOutput.slice()), tupleStream);
     }
 
     @Test
@@ -68,7 +68,7 @@ public class TestDictionarySerde
                 Blocks.createBlock(100, "y", "y", "a", "y", "b"),
                 Blocks.createBlock(200, "b"));
         TupleStreamSerdes.serialize(dictionarySerde, tupleStream, sliceOutput);
-        Blocks.assertTupleStreamEquals(tupleStream, dictionarySerde.deserialize(sliceOutput.slice()));
+        Blocks.assertTupleStreamEquals(tupleStream, dictionarySerde.createDeserializer().deserialize(sliceOutput.slice()));
     }
     
     @Test
@@ -82,7 +82,7 @@ public class TestDictionarySerde
                 .append(-1L).append(Slices.wrappedBuffer("ccc".getBytes(UTF_8)))
                 .build());
         TupleStreamSerdes.serialize(dictionarySerde, tupleStream, sliceOutput);
-        Blocks.assertTupleStreamEquals(tupleStream, dictionarySerde.deserialize(sliceOutput.slice()));
+        Blocks.assertTupleStreamEquals(tupleStream, dictionarySerde.createDeserializer().deserialize(sliceOutput.slice()));
     }
 
     @Test
@@ -93,13 +93,15 @@ public class TestDictionarySerde
         UncompressedBlock block2 = Blocks.createBlock(6, "c", "a", "b", "b", "b");
         UncompressedBlock block3 = Blocks.createBlock(100, "y", "y", "a", "y", "b");
         UncompressedBlock block4 = Blocks.createBlock(200, "b");
+
         TupleStream tupleStream = new GenericTupleStream<>(TupleInfo.SINGLE_VARBINARY, block1, block2, block3, block4);
-        dictionarySerde.createTupleStreamWriter(sliceOutput)
+        
+        dictionarySerde.createSerializer().createTupleStreamWriter(sliceOutput)
                 .append(block1)
                 .append(block2)
                 .append(block3)
                 .append(block4)
                 .finish();
-        Blocks.assertTupleStreamEquals(tupleStream, dictionarySerde.deserialize(sliceOutput.slice()));
+        Blocks.assertTupleStreamEquals(tupleStream, dictionarySerde.createDeserializer().deserialize(sliceOutput.slice()));
     }
 }
