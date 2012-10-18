@@ -13,7 +13,7 @@ public class PredicateFilterBenchmark
 {
     public PredicateFilterBenchmark()
     {
-        super("predicate_filter", 10, 100);
+        super("predicate_filter", 5, 50);
     }
 
     @Override
