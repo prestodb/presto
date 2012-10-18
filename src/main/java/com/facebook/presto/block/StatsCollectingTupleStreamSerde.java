@@ -1,9 +1,8 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.SizeOf;
-import com.facebook.presto.operator.inlined.InlinedOperator;
-import com.facebook.presto.operator.inlined.InlinedOperatorHook;
-import com.facebook.presto.operator.inlined.StatsInlinedOperator;
+import com.facebook.presto.operator.tap.StatsTupleValueSink;
+import com.facebook.presto.operator.tap.Tap;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceOutput;
 
@@ -59,19 +58,19 @@ public class StatsCollectingTupleStreamSerde
         }
 
         // TODO: how do we expose the stats data to other components?
-        public StatsInlinedOperator.Stats deserializeStats(Slice slice)
+        public StatsTupleValueSink.Stats deserializeStats(Slice slice)
         {
             checkNotNull(slice, "slice is null");
             int footerLength = slice.getInt(slice.length() - SizeOf.SIZE_OF_INT);
             int footerOffset = slice.length() - footerLength - SizeOf.SIZE_OF_INT;
-            return StatsInlinedOperator.resultsAsStats(TupleStreamSerdes.deserialize(TupleStreamSerdes.Encoding.RAW.createSerde(), slice.slice(footerOffset, footerLength)));
+            return StatsTupleValueSink.Stats.deserialize(slice.slice(footerOffset, footerLength));
         }
     }
 
     private static class StatsCollectingTupleStreamWriter
             implements TupleStreamWriter
     {
-        private final InlinedOperator statsInlinedOperator = new StatsInlinedOperator() {
+        private final StatsTupleValueSink statsTupleValueSink = new StatsTupleValueSink() {
             @Override
             public void finished()
             {
@@ -91,7 +90,7 @@ public class StatsCollectingTupleStreamSerde
         public StatsCollectingTupleStreamWriter append(TupleStream tupleStream)
         {
             checkNotNull(tupleStream, "tupleStream is null");
-            delegate.append(new InlinedOperatorHook(tupleStream, statsInlinedOperator));
+            delegate.append(new Tap(tupleStream, statsTupleValueSink));
             return this;
         }
 
@@ -100,8 +99,7 @@ public class StatsCollectingTupleStreamSerde
         {
             delegate.finish();
             int startingIndex = sliceOutput.size();
-            // TODO: add a better way of serializing the stats that is less fragile
-            TupleStreamSerdes.serialize(TupleStreamSerdes.Encoding.RAW.createSerde(), statsInlinedOperator.getResult(), sliceOutput);
+            StatsTupleValueSink.Stats.serialize(statsTupleValueSink.getStats(), sliceOutput);
             int endingIndex = sliceOutput.size();
             checkState(endingIndex > startingIndex);
             sliceOutput.writeInt(endingIndex - startingIndex);
