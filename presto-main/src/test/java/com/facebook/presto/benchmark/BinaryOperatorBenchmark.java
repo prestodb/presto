@@ -17,7 +17,7 @@ public class BinaryOperatorBenchmark
 {
     public BinaryOperatorBenchmark()
     {
-        super("binary_operator", 5, 20);
+        super("binary_operator", 1, 4);
     }
 
     @Override

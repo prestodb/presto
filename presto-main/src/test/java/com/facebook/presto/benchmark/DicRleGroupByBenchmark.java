@@ -14,7 +14,7 @@ public class DicRleGroupByBenchmark
 {
     public DicRleGroupByBenchmark()
     {
-        super("groupby_dic_rle", 10, 50);
+        super("groupby_dic_rle", 5, 25);
     }
 
     @Override
