@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 
 import java.util.List;
 
@@ -24,6 +25,12 @@ public class Query
             List<SortItem> orderBy,
             String limit)
     {
+        Preconditions.checkNotNull(select, "select is null");
+        Preconditions.checkNotNull(from, "from is null");
+        Preconditions.checkArgument(!from.isEmpty(), "from is empty");
+        Preconditions.checkNotNull(groupBy, "groupBy is null");
+        Preconditions.checkNotNull(orderBy, "orderBy is null");
+
         this.select = select;
         this.from = from;
         this.where = where;
@@ -86,5 +93,55 @@ public class Query
                 .add("orderBy", orderBy)
                 .add("limit", limit)
                 .toString();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Query query = (Query) o;
+
+        if (!from.equals(query.from)) {
+            return false;
+        }
+        if (!groupBy.equals(query.groupBy)) {
+            return false;
+        }
+        if (having != null ? !having.equals(query.having) : query.having != null) {
+            return false;
+        }
+        if (limit != null ? !limit.equals(query.limit) : query.limit != null) {
+            return false;
+        }
+        if (!orderBy.equals(query.orderBy)) {
+            return false;
+        }
+        if (!select.equals(query.select)) {
+            return false;
+        }
+        if (where != null ? !where.equals(query.where) : query.where != null) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = select.hashCode();
+        result = 31 * result + from.hashCode();
+        result = 31 * result + (where != null ? where.hashCode() : 0);
+        result = 31 * result + groupBy.hashCode();
+        result = 31 * result + (having != null ? having.hashCode() : 0);
+        result = 31 * result + orderBy.hashCode();
+        result = 31 * result + (limit != null ? limit.hashCode() : 0);
+        return result;
     }
 }

@@ -30,4 +30,29 @@ public class Subquery
                 .addValue(query)
                 .toString();
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Subquery subquery = (Subquery) o;
+
+        if (!query.equals(subquery.query)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return query.hashCode();
+    }
 }

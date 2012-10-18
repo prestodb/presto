@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.tree;
 
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
@@ -18,6 +19,14 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class QualifiedName
 {
     private final List<String> parts;
+
+    public static QualifiedName of(QualifiedName prefix, String suffix)
+    {
+        Preconditions.checkNotNull(prefix, "prefix is null");
+        Preconditions.checkNotNull(suffix, "suffix is null");
+
+        return new QualifiedName(Iterables.concat(prefix.getParts(), ImmutableList.of(suffix)));
+    }
 
     public static QualifiedName of(String first, String... rest)
     {
@@ -81,7 +90,7 @@ public class QualifiedName
         return parts.subList(start, parts.size()).equals(suffix.getParts());
     }
 
-    public static Predicate<? super QualifiedName> hasSuffixPredicate(final QualifiedName suffix)
+    public static Predicate<QualifiedName> hasSuffixPredicate(final QualifiedName suffix)
     {
         return new Predicate<QualifiedName>()
         {
@@ -91,5 +100,48 @@ public class QualifiedName
                 return name.hasSuffix(suffix);
             }
         };
+    }
+
+
+    public static Function<String, QualifiedName> addPrefixFunction(final QualifiedName prefix)
+    {
+        return new Function<String, QualifiedName>()
+        {
+            @Override
+            public QualifiedName apply(@Nullable String suffix)
+            {
+                return QualifiedName.of(prefix, suffix);
+            }
+        };
+    }
+
+    public String getSuffix()
+    {
+        return Iterables.getLast(parts);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        QualifiedName that = (QualifiedName) o;
+
+        if (!parts.equals(that.parts)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return parts.hashCode();
     }
 }

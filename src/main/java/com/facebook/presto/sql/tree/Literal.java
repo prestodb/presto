@@ -1,6 +1,6 @@
 package com.facebook.presto.sql.tree;
 
-public class Literal
+public abstract class Literal
     extends Expression
 {
     @Override

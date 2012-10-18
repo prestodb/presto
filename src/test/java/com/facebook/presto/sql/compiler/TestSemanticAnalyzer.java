@@ -1,11 +1,15 @@
 package com.facebook.presto.sql.compiler;
 
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.aggregation.AverageAggregation;
+import com.facebook.presto.aggregation.CountAggregation;
+import com.facebook.presto.aggregation.SumAggregation;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.TreePrinter;
 import com.google.common.base.Strings;
@@ -29,24 +33,26 @@ public class TestSemanticAnalyzer
     public void setUp()
             throws Exception
     {
-        Map<String, TableMetadata> tables = ImmutableMap.<String, TableMetadata>builder()
-                .put("T", new TableMetadata("T", ImmutableList.of(
+        Map<QualifiedName, TableMetadata> tables = ImmutableMap.<QualifiedName, TableMetadata>builder()
+                .put(QualifiedName.of("T"), new TableMetadata(QualifiedName.of("T"), ImmutableList.of(
                         new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "id"),
                         new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "value"),
                         new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "title"),
                         new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "description"))))
-                .put("S", new TableMetadata("S", ImmutableList.of(
+                .put(QualifiedName.of("S"), new TableMetadata(QualifiedName.of("S"), ImmutableList.of(
                         new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "s_id"),
+                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "name"),
+                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "value"))))
+                .put(QualifiedName.of("A", "B"), new TableMetadata(QualifiedName.of("A", "B"), ImmutableList.of(
+                        new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "a_b_id"),
                         new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "name"),
                         new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "value"))))
                 .build();
 
-        Map<String, FunctionInfo> functions = ImmutableMap.<String, FunctionInfo>builder()
-                .put("COUNT", new FunctionInfo(true))
-                .put("SUM", new FunctionInfo(true))
-                .put("AVG", new FunctionInfo(true))
-                .put("MAX", new FunctionInfo(true))
-                .put("MIN", new FunctionInfo(true))
+        Map<QualifiedName, FunctionInfo> functions = ImmutableMap.<QualifiedName, FunctionInfo>builder()
+                .put(QualifiedName.of("COUNT"), new FunctionInfo(true, CountAggregation.PROVIDER))
+                .put(QualifiedName.of("SUM"), new FunctionInfo(true, SumAggregation.PROVIDER))
+                .put(QualifiedName.of("AVG"), new FunctionInfo(true, AverageAggregation.PROVIDER))
                 .build();
 
         metadata = new Metadata(tables, functions);
@@ -249,6 +255,13 @@ public class TestSemanticAnalyzer
                 ") U");
     }
 
+
+    @Test
+    public void testWithQualifiedTableName()
+            throws Exception
+    {
+        process("select B.* from A.B");
+    }
 
     private void process(String query)
             throws RecognitionException

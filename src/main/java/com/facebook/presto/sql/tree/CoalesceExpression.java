@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -12,6 +13,8 @@ public class CoalesceExpression
 
     public CoalesceExpression(List<Expression> operands)
     {
+        Preconditions.checkNotNull(operands, "operands is null");
+
         this.operands = ImmutableList.copyOf(operands);
     }
 
@@ -32,5 +35,30 @@ public class CoalesceExpression
         return Objects.toStringHelper(this)
                 .addValue(operands)
                 .toString();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        CoalesceExpression that = (CoalesceExpression) o;
+
+        if (!operands.equals(that.operands)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return operands.hashCode();
     }
 }

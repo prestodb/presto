@@ -1,12 +1,16 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 
 public class Join
         extends Relation
 {
     public Join(Type type, Relation left, Relation right, JoinCriteria criteria)
     {
+        Preconditions.checkNotNull(left, "left is null");
+        Preconditions.checkNotNull(right, "right is null");
+
         this.type = type;
         this.left = left;
         this.right = right;
@@ -59,5 +63,43 @@ public class Join
                 .add("criteria", criteria)
                 .omitNullValues()
                 .toString();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Join join = (Join) o;
+
+        if (criteria != null ? !criteria.equals(join.criteria) : join.criteria != null) {
+            return false;
+        }
+        if (!left.equals(join.left)) {
+            return false;
+        }
+        if (!right.equals(join.right)) {
+            return false;
+        }
+        if (type != join.type) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = type != null ? type.hashCode() : 0;
+        result = 31 * result + left.hashCode();
+        result = 31 * result + right.hashCode();
+        result = 31 * result + (criteria != null ? criteria.hashCode() : 0);
+        return result;
     }
 }

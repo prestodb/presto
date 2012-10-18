@@ -64,4 +64,39 @@ public class FunctionCall
                 .add("arguments", arguments)
                 .toString();
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        FunctionCall that = (FunctionCall) o;
+
+        if (distinct != that.distinct) {
+            return false;
+        }
+        if (!arguments.equals(that.arguments)) {
+            return false;
+        }
+        if (!name.equals(that.name)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = name.hashCode();
+        result = 31 * result + (distinct ? 1 : 0);
+        result = 31 * result + arguments.hashCode();
+        return result;
+    }
+
 }

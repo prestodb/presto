@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 
 public class ComparisonExpression
         extends Expression
@@ -13,6 +14,7 @@ public class ComparisonExpression
         LESS_THAN_OR_EQUAL("<="),
         GREATER_THAN(">"),
         GREATER_THAN_OR_EQUAL(">=");
+
         private final String value;
 
         Type(String value)
@@ -32,6 +34,10 @@ public class ComparisonExpression
 
     public ComparisonExpression(Type type, Expression left, Expression right)
     {
+        Preconditions.checkNotNull(type, "type is null");
+        Preconditions.checkNotNull(left, "left is null");
+        Preconditions.checkNotNull(right, "right is null");
+
         this.type = type;
         this.left = left;
         this.right = right;
@@ -67,4 +73,39 @@ public class ComparisonExpression
                 .add("right", right)
                 .toString();
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        ComparisonExpression that = (ComparisonExpression) o;
+
+        if (!left.equals(that.left)) {
+            return false;
+        }
+        if (!right.equals(that.right)) {
+            return false;
+        }
+        if (type != that.type) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = type.hashCode();
+        result = 31 * result + left.hashCode();
+        result = 31 * result + right.hashCode();
+        return result;
+    }
 }
+
