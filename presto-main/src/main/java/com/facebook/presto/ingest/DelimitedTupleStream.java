@@ -189,7 +189,8 @@ public class DelimitedTupleStream
             return Cursors.currentTupleEquals(this, value);
         }
 
-        private List<String> getRowSplit() {
+        private List<String> getRowSplit()
+        {
             checkState(currentLine != null, "No row to split");
             if (currentRowSplit == null) {
                 currentRowSplit = ImmutableList.copyOf(splitter.split(currentLine));

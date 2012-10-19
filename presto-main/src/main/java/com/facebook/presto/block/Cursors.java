@@ -3,7 +3,6 @@ package com.facebook.presto.block;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Cursor.AdvanceResult;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
@@ -13,7 +12,9 @@ import java.util.NoSuchElementException;
 
 import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
 import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
-import static com.google.common.base.Preconditions.*;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 public class Cursors
 {

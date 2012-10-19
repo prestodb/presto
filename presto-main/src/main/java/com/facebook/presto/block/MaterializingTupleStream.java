@@ -60,7 +60,7 @@ public class MaterializingTupleStream
             protected TupleStream computeNext()
             {
                 // TODO: should we respect the underlying positions? right now, it will reindex everything packed from position zero
-                BlockBuilder blockBuilder = new BlockBuilder(position, delegate.getTupleInfo());
+                BlockBuilder blockBuilder = new BlockBuilder(position, delegate.getTupleInfo(), blockSize, storageMultiplier);
                 do {
                     AdvanceResult result = cursor.advanceNextPosition();
                     switch (result) {
