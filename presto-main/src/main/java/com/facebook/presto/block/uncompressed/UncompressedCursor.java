@@ -1,14 +1,14 @@
 package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.Range;
-import com.facebook.presto.block.Cursor;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursors;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 
 import java.util.Iterator;
-import java.util.NoSuchElementException;
 
 import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
 import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
@@ -158,12 +158,7 @@ public class UncompressedCursor
     @Override
     public Tuple getTuple()
     {
-        if (block == null)  {
-            throw new NoSuchElementException();
-        }
-
-        Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
-
+        Cursors.checkReadablePosition(this);
         Slice slice = block.getSlice();
         return new Tuple(slice.slice(offset, size), info);
     }
@@ -171,46 +166,28 @@ public class UncompressedCursor
     @Override
     public long getLong(int field)
     {
-        if (block == null)  {
-            throw new NoSuchElementException();
-        }
-
-        Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
-
+        Cursors.checkReadablePosition(this);
         return info.getLong(block.getSlice(), offset, field);
     }
 
     @Override
     public double getDouble(int field)
     {
-        Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
-        if (block == null)  {
-            throw new NoSuchElementException();
-        }
+        Cursors.checkReadablePosition(this);
         return info.getDouble(block.getSlice(), offset, field);
     }
 
     @Override
     public Slice getSlice(int field)
     {
-        if (block == null)  {
-            throw new NoSuchElementException();
-        }
-
-        Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
-
+        Cursors.checkReadablePosition(this);
         return info.getSlice(block.getSlice(), offset, field);
     }
 
     @Override
     public long getPosition()
     {
-        if (block == null)  {
-            throw new NoSuchElementException();
-        }
-
-        Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
-
+        Cursors.checkReadablePosition(this);
         return block.getRange().getStart() + index;
     }
 
@@ -223,12 +200,7 @@ public class UncompressedCursor
     @Override
     public boolean currentTupleEquals(Tuple value)
     {
-        if (block == null)  {
-            throw new NoSuchElementException();
-        }
-
-        Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
-
+        Cursors.checkReadablePosition(this);
         Slice tupleSlice = value.getTupleSlice();
         return block.getSlice().equals(offset, size, tupleSlice, 0, tupleSlice.length());
     }

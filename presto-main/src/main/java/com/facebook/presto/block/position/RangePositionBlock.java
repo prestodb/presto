@@ -4,6 +4,7 @@ import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.slice.Slice;
@@ -127,7 +128,7 @@ public class RangePositionBlock
         @Override
         public long getPosition()
         {
-            Preconditions.checkState(position >= 0, "Need to call advanceNext() first");
+            Cursors.checkReadablePosition(this);
             return position;
         }
 

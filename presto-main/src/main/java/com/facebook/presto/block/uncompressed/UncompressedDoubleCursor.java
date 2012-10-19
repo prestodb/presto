@@ -5,11 +5,11 @@ import com.facebook.presto.SizeOf;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursors;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 
 import java.util.Iterator;
-import java.util.NoSuchElementException;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_DOUBLE;
 import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
@@ -143,10 +143,7 @@ public class UncompressedDoubleCursor
     @Override
     public Tuple getTuple()
     {
-        Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
-        if (block == null)  {
-            throw new NoSuchElementException();
-        }
+        Cursors.checkReadablePosition(this);
         return new Tuple(block.getSlice().slice(offset, SizeOf.SIZE_OF_DOUBLE), TupleInfo.SINGLE_DOUBLE);
     }
 
@@ -159,10 +156,7 @@ public class UncompressedDoubleCursor
     @Override
     public double getDouble(int field)
     {
-        Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
-        if (block == null)  {
-            throw new NoSuchElementException();
-        }
+        Cursors.checkReadablePosition(this);
         Preconditions.checkElementIndex(0, 1, "field");
         return block.getSlice().getDouble(offset);
     }
@@ -176,10 +170,7 @@ public class UncompressedDoubleCursor
     @Override
     public long getPosition()
     {
-        Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
-        if (block == null)  {
-            throw new NoSuchElementException();
-        }
+        Cursors.checkReadablePosition(this);
         return block.getRange().getStart() + index;
     }
 
@@ -192,10 +183,7 @@ public class UncompressedDoubleCursor
     @Override
     public boolean currentTupleEquals(Tuple value)
     {
-        Preconditions.checkState(index >= 0, "Need to call advanceNext() first");
-        if (block == null)  {
-            throw new NoSuchElementException();
-        }
+        Cursors.checkReadablePosition(this);
         Slice tupleSlice = value.getTupleSlice();
         // compare using long which is simpler
         return tupleSlice.length() == SIZE_OF_DOUBLE && block.getSlice().getLong(offset) == tupleSlice.getLong(0);
