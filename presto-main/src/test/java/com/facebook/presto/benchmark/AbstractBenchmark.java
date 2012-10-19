@@ -1,9 +1,9 @@
 package com.facebook.presto.benchmark;
 
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
-
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -11,6 +11,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public abstract class AbstractBenchmark
 {
+    private static final Logger LOGGER = Logger.get(AbstractBenchmark.class);
+
     private final String benchmarkName;
     private final int warmupIterations;
     private final int measuredIterations;
@@ -65,7 +67,7 @@ public abstract class AbstractBenchmark
 
     public void runBenchmark(@Nullable BenchmarkResultHook benchmarkResultHook)
     {
-        System.out.println(String.format("Running benchmark: %s", getBenchmarkName()));
+        LOGGER.info("Running benchmark: %s", getBenchmarkName());
         long start = System.nanoTime();
         setUp();
         try {
@@ -85,6 +87,6 @@ public abstract class AbstractBenchmark
             benchmarkResultHook.finished();
         }
         Duration duration = Duration.nanosSince(start);
-        System.out.println(String.format("Finished benchmark: %s, Elapsed: %s", getBenchmarkName(), duration));
+        LOGGER.info("Finished benchmark: %s, Elapsed: %s", getBenchmarkName(), duration);
     }
 }

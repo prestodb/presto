@@ -2,6 +2,7 @@ package com.facebook.presto.benchmark;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
+import io.airlift.log.Logger;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -14,6 +15,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class BenchmarkSuite
 {
+    private static final Logger LOGGER = Logger.get(BenchmarkSuite.class);
+
     public static final List<AbstractBenchmark> BENCHMARKS = ImmutableList.<AbstractBenchmark>of(
             new BinaryOperatorBenchmark(),
             new CountAggregationBenchmark(),
@@ -42,16 +45,24 @@ public class BenchmarkSuite
     public void runAllBenchmarks()
             throws IOException
     {
+        LOGGER.info("=== Pre-running all benchmarks for JVM warmup ===");
+        for (AbstractBenchmark benchmark : BENCHMARKS) {
+            benchmark.runBenchmark();
+        }
+
+        LOGGER.info("=== Actually running benchmarks for metrics ===");
         for (AbstractBenchmark benchmark : BENCHMARKS) {
             try (OutputStream jmeterOut = new FileOutputStream(createOutputFile(String.format("%s/jmeter/%s.jtl", outputDirectory, benchmark.getBenchmarkName())));
                  OutputStream jsonOut = new FileOutputStream(createOutputFile(String.format("%s/json/%s.json", outputDirectory, benchmark.getBenchmarkName())));
-                 OutputStream csvOut = new FileOutputStream(createOutputFile(String.format("%s/csv/%s.csv", outputDirectory, benchmark.getBenchmarkName())))) {
+                 OutputStream csvOut = new FileOutputStream(createOutputFile(String.format("%s/csv/%s.csv", outputDirectory, benchmark.getBenchmarkName())));
+                 OutputStream odsOut = new FileOutputStream(createOutputFile(String.format("%s/ods/%s.json", outputDirectory, benchmark.getBenchmarkName())))) {
                 benchmark.runBenchmark(
                         new ForwardingBenchmarkResultWriter(
                                 ImmutableList.of(
                                         new JMeterBenchmarkResultWriter(benchmark.getDefaultResult(), jmeterOut),
                                         new JsonBenchmarkResultWriter(jsonOut),
-                                        new SimpleLineBenchmarkResultWriter(csvOut)
+                                        new SimpleLineBenchmarkResultWriter(csvOut),
+                                        new OdsBenchmarkResultWriter("presto.benchmark." + benchmark.getBenchmarkName(), odsOut)
                                 )
                         )
                 );

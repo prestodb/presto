@@ -13,7 +13,7 @@ public class DictionaryAggregationBenchmark
 {
     public DictionaryAggregationBenchmark()
     {
-        super("dictionary_agg", 10, 50);
+        super("dictionary_agg", 5, 25);
     }
     
     @Override
