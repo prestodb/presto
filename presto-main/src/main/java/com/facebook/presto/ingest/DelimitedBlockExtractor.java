@@ -81,7 +81,7 @@ public class DelimitedBlockExtractor
                 for (ColumnDefinition definition : columnDefinitions) {
                     checkElementIndex(definition.getColumnIndex(), values.size(), "columnIndex larger than split size");
                     String value = values.get(definition.getColumnIndex());
-                    definition.getType().getStringValueConverter().convert(value, blockBuilder);
+                    definition.getType().convert(value, blockBuilder);
                 }
             } while (!blockBuilder.isFull() && lineIterator.hasNext());
 

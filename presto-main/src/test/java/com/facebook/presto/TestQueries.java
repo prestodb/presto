@@ -362,7 +362,7 @@ public class TestQueries
             }
             BlockBuilder blockBuilder = new BlockBuilder(position, tupleInfo);
             while (rowStringIterator.hasNext() && !blockBuilder.isFull()) {
-                type.getStringValueConverter().convert(rowStringIterator.next().get(extractedColumnIndex), blockBuilder);
+                type.convert(rowStringIterator.next().get(extractedColumnIndex), blockBuilder);
             }
             UncompressedBlock block = blockBuilder.build();
             position += block.getCount();

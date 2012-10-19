@@ -1,13 +1,12 @@
 package com.facebook.presto;
 
-import com.facebook.presto.ingest.DoubleStringValueConverter;
-import com.facebook.presto.ingest.LongStringValueConverter;
-import com.facebook.presto.ingest.StringValueConverter;
-import com.facebook.presto.ingest.VarBinaryStringValueConverter;
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
+import com.facebook.presto.slice.Slices;
+import com.google.common.base.Charsets;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -50,9 +49,48 @@ public class TupleInfo
 
     public enum Type
     {
-        FIXED_INT_64(SIZE_OF_LONG, "long", LongStringValueConverter.INSTANCE),
-        VARIABLE_BINARY(-1, "string", VarBinaryStringValueConverter.INSTANCE),
-        DOUBLE(SIZE_OF_DOUBLE, "double", DoubleStringValueConverter.INSTANCE);
+        FIXED_INT_64(SIZE_OF_LONG, "long")
+                {
+                    @Override
+                    public void convert(String value, BlockBuilder blockBuilder)
+                    {
+                        blockBuilder.append(Long.valueOf(value));
+                    }
+
+                    @Override
+                    public void convert(String value, TupleInfo.Builder tupleBuilder)
+                    {
+                        tupleBuilder.append(Long.valueOf(value));
+                    }
+                },
+        VARIABLE_BINARY(-1, "string")
+                {
+                    @Override
+                    public void convert(String value, BlockBuilder blockBuilder)
+                    {
+                        blockBuilder.append(value.getBytes(Charsets.UTF_8));
+                    }
+
+                    @Override
+                    public void convert(String value, TupleInfo.Builder tupleBuilder)
+                    {
+                        tupleBuilder.append(Slices.wrappedBuffer(value.getBytes(Charsets.UTF_8)));
+                    }
+                },
+        DOUBLE(SIZE_OF_DOUBLE, "double")
+                {
+                    @Override
+                    public void convert(String value, BlockBuilder blockBuilder)
+                    {
+                        blockBuilder.append(Double.valueOf(value));
+                    }
+
+                    @Override
+                    public void convert(String value, TupleInfo.Builder tupleBuilder)
+                    {
+                        tupleBuilder.append(Double.valueOf(value));
+                    }
+                };
 
         private static final Map<String, Type> NAME_MAP;
         static {
@@ -65,13 +103,11 @@ public class TupleInfo
 
         private final int size;
         private final String name;
-        private final StringValueConverter stringValueConverter;
 
-        private Type(int size, String name, StringValueConverter stringValueConverter)
+        private Type(int size, String name)
         {
             this.size = size;
             this.name = name;
-            this.stringValueConverter = checkNotNull(stringValueConverter, "stringValueConverter is null");
         }
 
         int getSize()
@@ -90,10 +126,9 @@ public class TupleInfo
             return name;
         }
 
-        public StringValueConverter getStringValueConverter()
-        {
-            return stringValueConverter;
-        }
+        public abstract void convert(String value, BlockBuilder blockBuilder);
+
+        public abstract void convert(String value, Builder tupleBuilder);
 
         public static Type fromName(String name)
         {

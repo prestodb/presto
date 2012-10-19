@@ -11,6 +11,7 @@ import com.google.common.io.LineReader;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -54,7 +55,7 @@ public class DelimitedTupleStream
     {
         int index = 0;
         for (String value : getRowSplit()) {
-            tupleInfo.getTypes().get(index).getStringValueConverter().convert(value, tupleBuilder);
+            tupleInfo.getTypes().get(index).convert(value, tupleBuilder);
             index++;
         }
         checkState(tupleBuilder.isComplete(), "import row schema mismatch: %s", currentLine);
