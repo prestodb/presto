@@ -48,56 +48,48 @@ public class BlockBuilder
 
     public boolean isEmpty()
     {
+        checkState(!tupleBuilder.isPartial(), "Tuple is not complete");
         return count == 0;
     }
 
     public boolean isFull()
     {
+        checkState(!tupleBuilder.isPartial(), "Tuple is not complete");
         return sliceOutput.size() > maxBlockSize;
     }
 
     public BlockBuilder append(long value)
     {
-        flushTupleIfNecessary();
-
         tupleBuilder.append(value);
-
+        flushTupleIfNecessary();
         return this;
     }
 
     public BlockBuilder append(double value)
     {
-        flushTupleIfNecessary();
-
         tupleBuilder.append(value);
-
+        flushTupleIfNecessary();
         return this;
     }
 
     public BlockBuilder append(byte[] value)
     {
-        flushTupleIfNecessary();
-
         tupleBuilder.append(Slices.wrappedBuffer(value));
-
+        flushTupleIfNecessary();
         return this;
     }
 
     public BlockBuilder append(Slice value)
     {
-        flushTupleIfNecessary();
-
         tupleBuilder.append(value);
-
+        flushTupleIfNecessary();
         return this;
     }
 
     public BlockBuilder append(Tuple tuple)
     {
-        flushTupleIfNecessary();
-
         tupleBuilder.append(tuple);
-
+        flushTupleIfNecessary();
         return this;
     }
 
@@ -111,8 +103,6 @@ public class BlockBuilder
 
     public UncompressedBlock build()
     {
-        flushTupleIfNecessary();
-
         checkState(!tupleBuilder.isPartial(), "Tuple is not complete");
         checkState(!isEmpty(), "Cannot build an empty block");
 
