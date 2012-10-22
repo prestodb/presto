@@ -19,6 +19,12 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-hive</artifactId>
+            <version>0.1-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
             <!-- really only needed at compilation time -->
             <groupId>com.intellij</groupId>
             <artifactId>annotations</artifactId>
