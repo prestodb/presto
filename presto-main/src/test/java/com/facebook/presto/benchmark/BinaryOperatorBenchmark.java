@@ -1,6 +1,6 @@
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.aggregation.SumAggregation;
+import com.facebook.presto.aggregation.LongSumAggregation;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.operation.SubtractionOperation;
@@ -30,7 +30,7 @@ public class BinaryOperatorBenchmark
                         inputStreamProvider.getTupleStream(TpchSchema.LineItem.PARTKEY, TupleStreamSerdes.Encoding.RAW),
                         new SubtractionOperation()
                 ),
-                SumAggregation.PROVIDER
+                LongSumAggregation.PROVIDER
         );
     }
 
