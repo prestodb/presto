@@ -37,7 +37,7 @@ public class ExpressionFormatter
         };
     }
 
-    private static class Formatter
+    public static class Formatter
             extends AstVisitor<String, Void>
     {
         @Override
@@ -79,13 +79,20 @@ public class ExpressionFormatter
         @Override
         protected String visitAliasedExpression(AliasedExpression node, Void context)
         {
-            return ExpressionFormatter.toString(node.getExpression()) + ' ' + node.getAlias();
+            return process(node.getExpression(), null) + ' ' + node.getAlias();
         }
 
         @Override
         protected String visitFunctionCall(FunctionCall node, Void context)
         {
-            return node.getName() + "(" + Joiner.on(", ").join(Iterables.transform(node.getArguments(), expressionFormatterFunction())) + ")";
+            return node.getName() + "(" + Joiner.on(", ").join(Iterables.transform(node.getArguments(), new Function<Expression, Object>()
+            {
+                @Override
+                public Object apply(Expression input)
+                {
+                    return process(input, null);
+                }
+            })) + ")";
         }
 
         @Override
@@ -112,13 +119,13 @@ public class ExpressionFormatter
             StringBuilder builder = new StringBuilder();
 
             builder.append('(')
-                    .append(ExpressionFormatter.toString(node.getValue()))
+                    .append(process(node.getValue(), null))
                     .append(" LIKE ")
-                    .append(ExpressionFormatter.toString(node.getPattern()));
+                    .append(process(node.getPattern(), null));
 
             if (node.getEscape() != null) {
                 builder.append(" ESCAPE ")
-                        .append(ExpressionFormatter.toString(node.getEscape()));
+                        .append(process(node.getEscape(), null));
             }
 
             builder.append(')');
@@ -138,7 +145,7 @@ public class ExpressionFormatter
 
         private String formatBinaryExpression(String operator, Expression left, Expression right)
         {
-            return '(' + ExpressionFormatter.toString(left) + ' ' + operator + ' ' + ExpressionFormatter.toString(right) + ')';
+            return '(' + process(left, null) + ' ' + operator + ' ' + process(right, null) + ')';
         }
     }
 }
