@@ -6,9 +6,9 @@ public class TestSum
     extends TestAggregationFunction
 {
     @Override
-    public SumAggregation getFunction()
+    public LongSumAggregation getFunction()
     {
-        return new SumAggregation(0);
+        return new LongSumAggregation(0);
     }
 
     @Override

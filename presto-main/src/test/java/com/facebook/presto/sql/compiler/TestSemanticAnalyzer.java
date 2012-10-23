@@ -3,7 +3,7 @@ package com.facebook.presto.sql.compiler;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.aggregation.AverageAggregation;
 import com.facebook.presto.aggregation.CountAggregation;
-import com.facebook.presto.aggregation.SumAggregation;
+import com.facebook.presto.aggregation.LongSumAggregation;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
@@ -51,7 +51,7 @@ public class TestSemanticAnalyzer
 
         Map<QualifiedName, FunctionInfo> functions = ImmutableMap.<QualifiedName, FunctionInfo>builder()
                 .put(QualifiedName.of("COUNT"), new FunctionInfo(true, CountAggregation.PROVIDER))
-                .put(QualifiedName.of("SUM"), new FunctionInfo(true, SumAggregation.PROVIDER))
+                .put(QualifiedName.of("SUM"), new FunctionInfo(true, LongSumAggregation.PROVIDER))
                 .put(QualifiedName.of("AVG"), new FunctionInfo(true, AverageAggregation.PROVIDER))
                 .build();
 
