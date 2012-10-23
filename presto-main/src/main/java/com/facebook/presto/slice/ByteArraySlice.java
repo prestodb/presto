@@ -420,7 +420,7 @@ public final class ByteArraySlice
         int length = min(this.length, that.length);
         for (int i = 0; i < length; i++) {
             byte a = this.data[this.offset + i];
-            byte b = that.data[this.offset + i];
+            byte b = that.data[that.offset + i];
             int v = UnsignedBytes.compare(a, b);
             if (v != 0) {
                 return v;
