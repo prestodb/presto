@@ -95,12 +95,12 @@ public class Tap
 
         private void processCurrentValueIfNecessary(AdvanceResult advanceResult)
         {
-            if (tupleStreamPosition == null) {
-                tupleStreamPosition = Cursors.asTupleStreamPosition(getDelegate());
-            }
             switch (advanceResult) {
                 case SUCCESS:
                     if (getDelegate().getPosition() > measuredPosition) {
+                        if (tupleStreamPosition == null) {
+                            tupleStreamPosition = Cursors.asTupleStreamPosition(getDelegate());
+                        }
                         tupleValueSink.process(tupleStreamPosition);
                         measuredPosition = getDelegate().getCurrentValueEndPosition();
                     }
