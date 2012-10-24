@@ -4,12 +4,13 @@ import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.aggregation.AggregationFunction;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.QuerySession;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.YieldingIterable;
 import com.facebook.presto.block.YieldingIterator;
 import com.facebook.presto.block.YieldingIterators;
-import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.QuerySession;
-import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.google.common.base.Preconditions;
 
@@ -57,8 +58,9 @@ public class AggregationOperator
         AggregationFunction function = functionProvider.get();
 
         Cursor cursor = source.cursor(session);
-        cursor.advanceNextPosition();
-        function.add(cursor, Long.MAX_VALUE);
+        if (Cursors.advanceNextPositionNoYield(cursor)) {
+            function.add(cursor, Long.MAX_VALUE);
+        }
 
         UncompressedBlock block = new BlockBuilder(0, info)
                 .append(function.evaluate())
