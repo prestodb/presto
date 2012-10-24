@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.compiler.transforms;
 
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.sql.compiler.SessionMetadata;
 import com.facebook.presto.sql.tree.Node;
 import org.antlr.runtime.RecognitionException;
 import org.testng.annotations.Test;
@@ -11,7 +12,7 @@ public class TestExpandAllColumnsWildcard
     @Override
     protected ExpandAllColumnsWildcard getRewriter(Metadata metadata, Node tree)
     {
-        return new ExpandAllColumnsWildcard(metadata);
+        return new ExpandAllColumnsWildcard(new SessionMetadata(metadata));
     }
 
     @Test

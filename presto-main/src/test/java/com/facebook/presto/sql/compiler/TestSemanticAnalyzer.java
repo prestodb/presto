@@ -8,8 +8,8 @@ import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.TreePrinter;
 import com.google.common.base.Strings;
@@ -20,6 +20,7 @@ import org.antlr.runtime.tree.CommonTree;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.sql.parser.TreePrinter.treeToString;
@@ -33,29 +34,29 @@ public class TestSemanticAnalyzer
     public void setUp()
             throws Exception
     {
-        Map<QualifiedName, TableMetadata> tables = ImmutableMap.<QualifiedName, TableMetadata>builder()
-                .put(QualifiedName.of("T"), new TableMetadata(QualifiedName.of("T"), ImmutableList.of(
+        List<TableMetadata> tables = ImmutableList.<TableMetadata>builder()
+                .add(new TableMetadata("default", "default", "T", ImmutableList.of(
                         new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "id"),
                         new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "value"),
                         new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "title"),
                         new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "description"))))
-                .put(QualifiedName.of("S"), new TableMetadata(QualifiedName.of("S"), ImmutableList.of(
+                .add(new TableMetadata("default", "default", "S", ImmutableList.of(
                         new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "s_id"),
                         new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "name"),
                         new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "value"))))
-                .put(QualifiedName.of("A", "B"), new TableMetadata(QualifiedName.of("A", "B"), ImmutableList.of(
+                .add(new TableMetadata("default", "A", "B", ImmutableList.of(
                         new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "a_b_id"),
                         new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "name"),
                         new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "value"))))
                 .build();
 
-        Map<QualifiedName, FunctionInfo> functions = ImmutableMap.<QualifiedName, FunctionInfo>builder()
-                .put(QualifiedName.of("COUNT"), new FunctionInfo(true, CountAggregation.PROVIDER))
-                .put(QualifiedName.of("SUM"), new FunctionInfo(true, LongSumAggregation.PROVIDER))
-                .put(QualifiedName.of("AVG"), new FunctionInfo(true, AverageAggregation.PROVIDER))
+        Map<String, FunctionInfo> functions = ImmutableMap.<String, FunctionInfo>builder()
+                .put("COUNT", new FunctionInfo(true, CountAggregation.PROVIDER))
+                .put("SUM", new FunctionInfo(true, LongSumAggregation.PROVIDER))
+                .put("AVG", new FunctionInfo(true, AverageAggregation.PROVIDER))
                 .build();
 
-        metadata = new Metadata(tables, functions);
+        metadata = new TestingMetadata(tables, functions);
     }
 
     @Test
@@ -255,7 +256,6 @@ public class TestSemanticAnalyzer
                 ") U");
     }
 
-
     @Test
     public void testWithQualifiedTableName()
             throws Exception
@@ -298,6 +298,4 @@ public class TestSemanticAnalyzer
         String bar = Strings.repeat("=", barWidth);
         return bar + " " + title + " " + bar;
     }
-
 }
-

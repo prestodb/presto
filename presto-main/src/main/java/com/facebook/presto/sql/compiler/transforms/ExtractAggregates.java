@@ -1,10 +1,10 @@
 package com.facebook.presto.sql.compiler.transforms;
 
 import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.compiler.IterableUtils;
 import com.facebook.presto.sql.compiler.NameGenerator;
 import com.facebook.presto.sql.compiler.NodeRewriter;
+import com.facebook.presto.sql.compiler.SessionMetadata;
 import com.facebook.presto.sql.compiler.TreeRewriter;
 import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.AliasedRelation;
@@ -55,10 +55,10 @@ import static com.google.common.collect.Iterables.concat;
 public class ExtractAggregates
         extends NodeRewriter<Void>
 {
-    private final Metadata metadata;
+    private final SessionMetadata metadata;
     private final NameGenerator namer;
 
-    public ExtractAggregates(Metadata metadata, NameGenerator namer)
+    public ExtractAggregates(SessionMetadata metadata, NameGenerator namer)
     {
         this.metadata = metadata;
         this.namer = namer;

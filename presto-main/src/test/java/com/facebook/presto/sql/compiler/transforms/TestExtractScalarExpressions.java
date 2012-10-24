@@ -2,6 +2,7 @@ package com.facebook.presto.sql.compiler.transforms;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.compiler.NameGenerator;
+import com.facebook.presto.sql.compiler.SessionMetadata;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableSet;
@@ -13,7 +14,8 @@ public class TestExtractScalarExpressions
     @Override
     protected ExtractScalarExpressions getRewriter(Metadata metadata, Node tree)
     {
-        return new ExtractScalarExpressions(metadata, new NameGenerator(ImmutableSet.<String>of(), ImmutableSet.<QualifiedName>of()));
+        NameGenerator nameGenerator = new NameGenerator(ImmutableSet.<String>of(), ImmutableSet.<QualifiedName>of());
+        return new ExtractScalarExpressions(new SessionMetadata(metadata), nameGenerator);
     }
 
     @Test

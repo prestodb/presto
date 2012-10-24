@@ -3,12 +3,8 @@ package com.facebook.presto.sql.compiler.transforms;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.SemanticAnalyzer;
-import com.facebook.presto.sql.compiler.TreeRewriter;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.Statement;
 import org.antlr.runtime.RecognitionException;
-import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 public class TestQualifyNames
