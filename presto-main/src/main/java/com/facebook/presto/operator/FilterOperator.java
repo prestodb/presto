@@ -3,27 +3,28 @@ package com.facebook.presto.operator;
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.AbstractYieldingIterator;
-import com.facebook.presto.block.YieldingIterable;
-import com.facebook.presto.block.YieldingIterator;
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursor.AdvanceResult;
 import com.facebook.presto.block.Cursors;
-import com.facebook.presto.block.MaskedBlock;
 import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.YieldingIterable;
+import com.facebook.presto.block.YieldingIterator;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 
-import java.util.Iterator;
-import java.util.List;
+import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
 
 public class FilterOperator
-        implements TupleStream, YieldingIterable<MaskedBlock>
+        implements TupleStream, YieldingIterable<UncompressedBlock>
 {
     private final TupleInfo tupleInfo;
-    private final YieldingIterable<? extends TupleStream> source;
+    private final TupleStream source;
     private final TupleStream positions;
 
-    public FilterOperator(TupleInfo tupleInfo, YieldingIterable<? extends TupleStream> source, TupleStream positions)
+    public FilterOperator(TupleInfo tupleInfo, TupleStream source, TupleStream positions)
     {
         this.tupleInfo = tupleInfo;
         this.source = source;
@@ -42,70 +43,60 @@ public class FilterOperator
         return tupleInfo;
     }
 
-    public YieldingIterator<MaskedBlock> iterator(final QuerySession session)
+    public YieldingIterator<UncompressedBlock> iterator(final QuerySession session)
     {
         Preconditions.checkNotNull(session, "session is null");
-        return new AbstractYieldingIterator<MaskedBlock>()
+        final Cursor valueCursor = source.cursor(session);
+        final Cursor positionsCursor = positions.cursor(session);
+
+        return new AbstractYieldingIterator<UncompressedBlock>()
         {
-            Iterator<? extends TupleStream> valueBlocks = source.iterator(session);
-            Cursor positionsCursor = positions.cursor(session);
-            {
-                Cursors.advanceNextPositionNoYield(positionsCursor);
-            }
+            private long position;
+
             @Override
-            protected MaskedBlock computeNext()
+            protected UncompressedBlock computeNext()
             {
-                while (valueBlocks.hasNext()) {
-                    TupleStream currentValueBlock = valueBlocks.next();
-
-                    // advance current position cursor to value block
-                    if (positionsCursor.getPosition() < currentValueBlock.getRange().getStart() &&
-                            !Cursors.advanceToPositionNoYield(positionsCursor, currentValueBlock.getRange().getStart())) { // todo add support for yield
-                        // no more positions
-                        endOfData();
-                        return null;
-                    }
-
-                    // if the position cursor is past the current block end, continue with the next block
-                    if (positionsCursor.getPosition() > currentValueBlock.getRange().getEnd()) {
-                        continue;
-                    }
-
-                    // get all positions that overlap with the value block
-                    ImmutableList.Builder<Long> positionsForCurrentBlock = ImmutableList.builder();
-                    do {
-                        positionsForCurrentBlock.add(positionsCursor.getPosition());
-                    } while (Cursors.advanceNextPositionNoYield(positionsCursor) && positionsCursor.getPosition() <= currentValueBlock.getRange().getEnd());
-
-                    // if the value block and the position blocks have and positions in common, output a block
-                    List<Long> validPositions = getValidPositions(currentValueBlock, positionsForCurrentBlock.build());
-                    if (!validPositions.isEmpty()) {
-                        return new MaskedBlock(currentValueBlock, validPositions);
-                    }
+                if (valueCursor.isFinished() || positionsCursor.isFinished()) {
+                    return endOfData();
                 }
-                endOfData();
-                return null;
-            }
 
-            private List<Long> getValidPositions(TupleStream currentValueBlock, List<Long> positionsForCurrentBlock)
-            {
-                ImmutableList.Builder<Long> validPositions = ImmutableList.builder();
-
-                Cursor valueCursor = currentValueBlock.cursor(session);
-                valueCursor.advanceNextPosition();
-
-                for (Long nextPosition : positionsForCurrentBlock) {
-                    if (nextPosition > valueCursor.getRange().getEnd()) {
+                BlockBuilder blockBuilder = new BlockBuilder(position, tupleInfo);
+                AdvanceResult result;
+                do {
+                    // get the next valid position
+                    // if position cursor is before value cursor, advance it to the current value cursor
+                    // this can happen when the value cursor is advanced to a position it doesn't have
+                    if (positionsCursor.isValid() && valueCursor.isValid() && positionsCursor.getPosition() < valueCursor.getPosition()) {
+                        result = positionsCursor.advanceToPosition(valueCursor.getPosition());
+                    } else {
+                        result = positionsCursor.advanceNextPosition();
+                    }
+                    if (result != SUCCESS) {
                         break;
                     }
-                    if (nextPosition > valueCursor.getPosition()) {
-                        valueCursor.advanceToPosition(nextPosition);
+                    long nextPosition = positionsCursor.getPosition();
+
+                    // advance value cursor to the position
+                    result = valueCursor.advanceToPosition(nextPosition);
+                    if (result != SUCCESS) {
+                        break;
                     }
-                    if (valueCursor.getPosition() == nextPosition) {
-                        validPositions.add(nextPosition);
+
+                    // if value cursor has the position, add it to the output block
+                    if (nextPosition == valueCursor.getPosition()) {
+                        Cursors.appendCurrentTupleToBlockBuilder(valueCursor, blockBuilder);
                     }
+                } while (!blockBuilder.isFull());
+
+                if (!blockBuilder.isEmpty()) {
+                    UncompressedBlock block = blockBuilder.build();
+                    position += block.getCount();
+                    return block;
                 }
-                return validPositions.build();
+                if (result == MUST_YIELD) {
+                    return setMustYield();
+                }
+                return endOfData();
             }
         };
     }
