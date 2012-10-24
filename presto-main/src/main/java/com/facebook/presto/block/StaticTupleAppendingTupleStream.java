@@ -6,6 +6,7 @@ import com.facebook.presto.TupleInfo;
 import com.facebook.presto.slice.Slice;
 import com.google.common.collect.ImmutableList;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -20,8 +21,12 @@ public class StaticTupleAppendingTupleStream
 
     public StaticTupleAppendingTupleStream(TupleStream delegate, Tuple tuple)
     {
-        this.delegate = checkNotNull(delegate, "delegate is null");
-        this.tuple = checkNotNull(tuple, "tuple is null");
+        checkNotNull(delegate, "delegate is null");
+        checkNotNull(tuple, "tuple is null");
+        checkArgument(tuple.getTupleInfo().getFieldCount() > 0, "tuple should have at least one column");
+        
+        this.delegate = delegate;
+        this.tuple = tuple;
         tupleInfo = new TupleInfo(
                 ImmutableList.<TupleInfo.Type>builder()
                         .addAll(delegate.getTupleInfo().getTypes())
@@ -58,7 +63,9 @@ public class StaticTupleAppendingTupleStream
         private StaticTupleAppendingCursor(Cursor cursor, Tuple tuple)
         {
             super(checkNotNull(cursor, "cursor is null"));
-            this.tuple = checkNotNull(tuple, "tuple is null");
+            checkNotNull(tuple, "tuple is null");
+            checkArgument(tuple.getTupleInfo().getFieldCount() > 0, "tuple should have at least one column");
+            this.tuple = tuple;
             tupleInfo = new TupleInfo(
                     ImmutableList.<TupleInfo.Type>builder()
                             .addAll(cursor.getTupleInfo().getTypes())

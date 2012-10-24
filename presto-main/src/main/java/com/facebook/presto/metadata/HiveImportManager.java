@@ -11,10 +11,12 @@ import com.facebook.presto.hive.SchemaField;
 import com.facebook.presto.ingest.HiveTupleStream;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Charsets;
+import com.google.common.collect.Iterators;
 import com.google.inject.Inject;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.tweak.HandleCallback;
+import org.skife.jdbi.v2.util.LongMapper;
 
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -61,7 +63,7 @@ public class HiveImportManager
             {
                 return hiveClient.getPartitionChunks(databaseName, tableName, partitionName);
             }
-        });
+        }, databaseName + "." + tableName + "." + partitionName + ".getPartitionChunks");
 
         final List<SchemaField> schemaFields = runWithRetry(new Callable<List<SchemaField>>()
         {
@@ -71,7 +73,7 @@ public class HiveImportManager
             {
                 return hiveClient.getTableSchema(databaseName, tableName);
             }
-        });
+        }, databaseName + "." + tableName + "." + partitionName + ".getTableSchema");
 
         long rowCount = 0;
         // TODO: right now, failures can result in partial partitions to be loaded (smallest unit needs to be transactional)
@@ -91,7 +93,7 @@ public class HiveImportManager
                         return storageManager.importTableShard(sourceTupleStream, databaseName, tableName);
                     }
                 }
-            });
+            }, databaseName + "." + tableName + "." + partitionName + "." + chunk + ".import");
         }
         hiveImportRegistry.markPartitionImported(databaseName, tableName, partitionName);
         return rowCount;
@@ -136,8 +138,8 @@ public class HiveImportManager
                 public Boolean withHandle(Handle handle)
                         throws Exception
                 {
-                    return !handle.createQuery(
-                            "SELECT * " +
+                    return handle.createQuery(
+                            "SELECT COUNT(*) " +
                                     "FROM imported_hive_partitions " +
                                     "WHERE database = :database " +
                                     "AND table = :table " +
@@ -145,8 +147,8 @@ public class HiveImportManager
                             .bind("database", databaseName)
                             .bind("table", tableName)
                             .bind("partition", partitionName)
-                            .list()
-                            .isEmpty();
+                            .map(LongMapper.FIRST)
+                            .first() != 0;
                 }
             });
         }

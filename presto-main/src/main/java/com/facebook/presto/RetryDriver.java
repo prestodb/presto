@@ -1,6 +1,7 @@
 package com.facebook.presto;
 
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
@@ -11,6 +12,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class RetryDriver
 {
     private static final Logger log = Logger.get(RetryDriver.class);
+    private static final int DEFAULT_RETRY_ATTEMPTS = 10;
+    private static final Duration DEFAULT_SLEEP_DURATION = Duration.valueOf("1s");
 
     private RetryDriver()
     {
@@ -31,22 +34,22 @@ public class RetryDriver
     public static <V> V runWithRetry(Callable<V> callable, String callableName)
             throws Exception
     {
-        return runWithRetry(callable, callableName, 10);
+        return runWithRetry(callable, callableName, DEFAULT_RETRY_ATTEMPTS);
     }
 
     public static <V> V runWithRetry(Callable<V> callable, String callableName, int maxRetryAttempts)
             throws Exception
     {
-        return runWithRetry(callable, callableName, maxRetryAttempts, 1);
+        return runWithRetry(callable, callableName, maxRetryAttempts, DEFAULT_SLEEP_DURATION);
     }
 
-    public static <V> V runWithRetry(Callable<V> callable, String callableName, int maxRetryAttempts, int sleepSecs)
+    public static <V> V runWithRetry(Callable<V> callable, String callableName, int maxRetryAttempts, Duration duration)
             throws Exception
     {
         checkNotNull(callable, "callable is null");
         checkNotNull(callableName, "callableName is null");
         checkArgument(maxRetryAttempts > 0, "maxRetryAttempts must be greater than zero");
-        checkArgument(sleepSecs >= 0, "sleepSecs must be at least than zero");
+        checkNotNull(duration, "duration is null");
 
         int attempt = 0;
         while (true) {
@@ -59,9 +62,9 @@ public class RetryDriver
                     throw e;
                 }
                 else {
-                    log.warn("Failed on executing %s with attempt %d, will retry. Exception: %s", callableName, attempt, e.getMessage());
+                    log.debug("Failed on executing %s with attempt %d, will retry. Exception: %s", callableName, attempt, e.getMessage());
                 }
-                TimeUnit.SECONDS.sleep(sleepSecs);
+                TimeUnit.MILLISECONDS.sleep((long) duration.toMillis());
             }
         }
     }

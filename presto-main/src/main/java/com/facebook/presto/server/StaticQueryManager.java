@@ -7,7 +7,7 @@ import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.aggregation.LongSumAggregation;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.ColumnMappingTupleStream;
+import com.facebook.presto.block.ProjectionTupleStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.QuerySession;
@@ -237,8 +237,8 @@ public class StaticQueryManager implements QueryManager
                 );
                 com.facebook.presto.operator.Splitter<UncompressedBlock> splitIterator = new com.facebook.presto.operator.Splitter<>(tupleStream.getTupleInfo(), 2, 10, tupleStream);
 
-                TupleStream groupBy = new ColumnMappingTupleStream(splitIterator.getSplit(0), 0);
-                TupleStream aggregateSource = new ColumnMappingTupleStream(splitIterator.getSplit(1), 1);
+                TupleStream groupBy = new ProjectionTupleStream(splitIterator.getSplit(0), 0);
+                TupleStream aggregateSource = new ProjectionTupleStream(splitIterator.getSplit(1), 1);
                 HashAggregationOperator aggregation = new HashAggregationOperator(groupBy, aggregateSource, LongSumAggregation.PROVIDER);
 
                 Cursor cursor = aggregation.cursor(new QuerySession());
@@ -332,7 +332,7 @@ public class StaticQueryManager implements QueryManager
     private class ImportHiveTableQuery
             implements Runnable
     {
-        private static final int MAX_SIMULTANEOUS_IMPORTS = 50;
+        private static final int MAX_SIMULTANEOUS_IMPORTS = 100;
 
         private final QueryState queryState;
         private final HiveClient hiveClient;
@@ -370,7 +370,7 @@ public class StaticQueryManager implements QueryManager
                     {
                         return Ordering.natural().immutableSortedCopy(hiveClient.getPartitionNames(databaseName, tableName));
                     }
-                });
+                }, databaseName + "." + tableName + ".getPartitionNames");
 
                 for (List<String> subPartitionList : Lists.partition(partitionNames, MAX_SIMULTANEOUS_IMPORTS)) {
                     ImmutableList.Builder<QueryDriverProvider> queryDriverProviderBuilder = ImmutableList.builder();

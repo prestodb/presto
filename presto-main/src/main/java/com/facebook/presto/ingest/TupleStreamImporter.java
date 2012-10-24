@@ -1,6 +1,6 @@
 package com.facebook.presto.ingest;
 
-import com.facebook.presto.block.ColumnMappingTupleStream;
+import com.facebook.presto.block.ProjectionTupleStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.MaterializingTupleStream;
@@ -40,7 +40,7 @@ public class TupleStreamImporter
         for (int field = 0; field < tupleStream.getTupleInfo().getFieldCount(); field++) {
             TupleStream splitTupleStream = splitter.getSplit(field);
             Tap writerTupleStream = new Tap(
-                    ColumnMappingTupleStream.map(splitTupleStream, field),
+                    ProjectionTupleStream.project(splitTupleStream, field),
                     tupleValueSinks.get(field)
             );
             splits.add(writerTupleStream);
