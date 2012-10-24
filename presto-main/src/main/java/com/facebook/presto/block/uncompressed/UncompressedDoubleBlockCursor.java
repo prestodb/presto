@@ -92,7 +92,7 @@ public class UncompressedDoubleBlockCursor
         }
 
         // advance to specified position
-        position = newPosition;
+        position = Math.max(newPosition, this.range.getStart());
         offset = (int) ((position - this.range.getStart()) * SIZE_OF_DOUBLE);
         return SUCCESS;
     }
