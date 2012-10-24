@@ -1,6 +1,5 @@
 package com.facebook.presto.block;
 
-import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 public class TestTupleStreamChunker
@@ -41,19 +40,6 @@ public class TestTupleStreamChunker
         TupleStream base = Blocks.createTupleStream(0, "a", "bb", "c", "d", "e", "e", "a", "bb");
         Blocks.assertTupleStreamEquals(
                 new GenericTupleStream<>(base.getTupleInfo(), TupleStreamChunker.chunk(Integer.MAX_VALUE, base)),
-                base
-        );
-    }
-
-    @Test
-    public void testMaskedPositions() throws Exception
-    {
-        TupleStream base = new MaskedBlock(
-                Blocks.createTupleStream(0, "a", "bb", "c", "d", "e", "e", "a", "bb"),
-                ImmutableList.<Long>of(1L, 5L, 7L)
-        );
-        Blocks.assertTupleStreamEquals(
-                new GenericTupleStream<>(base.getTupleInfo(), TupleStreamChunker.chunk(3, base)),
                 base
         );
     }
