@@ -1,8 +1,8 @@
 package com.facebook.presto.sql.compiler.transforms;
 
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.compiler.NodeRewriter;
 import com.facebook.presto.sql.compiler.SchemaExtractor;
+import com.facebook.presto.sql.compiler.SessionMetadata;
 import com.facebook.presto.sql.compiler.TreeRewriter;
 import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.AliasedRelation;
@@ -64,9 +64,9 @@ import static com.google.common.base.Predicates.or;
 public class ExpandAllColumnsWildcard
         extends NodeRewriter<Void>
 {
-    private final Metadata metadata;
+    private final SessionMetadata metadata;
 
-    public ExpandAllColumnsWildcard(Metadata metadata)
+    public ExpandAllColumnsWildcard(SessionMetadata metadata)
     {
         this.metadata = metadata;
     }
