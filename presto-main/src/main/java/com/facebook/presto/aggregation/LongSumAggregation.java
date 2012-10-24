@@ -8,7 +8,7 @@ import javax.inject.Provider;
 
 import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
 
-public class SumAggregation
+public class LongSumAggregation
         implements AggregationFunction
 {
     public static final Provider<AggregationFunction> PROVIDER = provider(0);
@@ -18,9 +18,9 @@ public class SumAggregation
         return new Provider<AggregationFunction>()
         {
             @Override
-            public SumAggregation get()
+            public LongSumAggregation get()
             {
-                return new SumAggregation(field);
+                return new LongSumAggregation(field);
             }
         };
     }
@@ -28,7 +28,7 @@ public class SumAggregation
     private final int field;
     private long sum;
 
-    public SumAggregation(int field)
+    public LongSumAggregation(int field)
     {
         this.field = field;
     }

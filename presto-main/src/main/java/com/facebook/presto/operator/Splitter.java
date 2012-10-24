@@ -46,10 +46,10 @@ public class Splitter<T extends TupleStream>
     private SplitterState<T> getSplitterState(QuerySession session)
     {
         Preconditions.checkNotNull(session, "session is null");
-        SplitterState<T> splitterState = (SplitterState<T>) session.getData(SplitterState.class);
+        SplitterState<T> splitterState = (SplitterState<T>) session.getData(this);
         if (splitterState == null) {
             splitterState = new SplitterState<>(tupleInfo, splitCount, maxBufferSize, source);
-            session.putData(SplitterState.class, splitterState);
+            session.putData(this, splitterState);
         }
         return splitterState;
     }

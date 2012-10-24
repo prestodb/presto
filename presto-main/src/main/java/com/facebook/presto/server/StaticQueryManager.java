@@ -5,7 +5,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.aggregation.SumAggregation;
+import com.facebook.presto.aggregation.LongSumAggregation;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.ColumnMappingTupleStream;
 import com.facebook.presto.block.Cursor;
@@ -188,7 +188,7 @@ public class StaticQueryManager implements QueryManager
 
                 TupleStream groupBy = new ColumnMappingTupleStream(splitIterator.getSplit(0), 0);
                 TupleStream aggregateSource = new ColumnMappingTupleStream(splitIterator.getSplit(1), 1);
-                HashAggregationOperator aggregation = new HashAggregationOperator(groupBy, aggregateSource, SumAggregation.PROVIDER);
+                HashAggregationOperator aggregation = new HashAggregationOperator(groupBy, aggregateSource, LongSumAggregation.PROVIDER);
 
                 Cursor cursor = aggregation.cursor(new QuerySession());
                 long position = 0;
@@ -249,7 +249,7 @@ public class StaticQueryManager implements QueryManager
                 TupleStream aggregateSource = aggregateSerde.createDeserializer().deserialize(aggregateSlice);
 
                 GroupByOperator groupBy = new GroupByOperator(groupBySource);
-                HashAggregationOperator aggregation = new HashAggregationOperator(groupBy, aggregateSource, SumAggregation.PROVIDER);
+                HashAggregationOperator aggregation = new HashAggregationOperator(groupBy, aggregateSource, LongSumAggregation.PROVIDER);
 
                 Cursor cursor = aggregation.cursor(new QuerySession());
                 long position = 0;

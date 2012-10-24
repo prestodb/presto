@@ -184,11 +184,6 @@ public class GenericCursor implements Cursor
             return FINISHED;
         }
 
-        AdvanceResult result = blockCursor.advanceToPosition(newPosition);
-        if (result == FINISHED) {
-            // todo this is wrong, a filtered block could not contain the specified position
-            throw new IllegalStateException("Internal error: position not found");
-        }
-        return result;
+        return blockCursor.advanceToPosition(newPosition);
     }
 }

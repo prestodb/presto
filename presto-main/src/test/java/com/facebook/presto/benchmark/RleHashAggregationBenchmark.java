@@ -1,7 +1,6 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.aggregation.DoubleSumAggregation;
-import com.facebook.presto.aggregation.SumAggregation;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.operation.SubtractionOperation;

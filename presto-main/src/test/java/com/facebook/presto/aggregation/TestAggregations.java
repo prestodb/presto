@@ -28,7 +28,7 @@ public class TestAggregations
         GroupByOperator groupBy = new GroupByOperator(newGroupColumn());
         PipelinedAggregationOperator aggregation = new PipelinedAggregationOperator(groupBy,
                 newAggregateColumn(),
-                SumAggregation.PROVIDER);
+                LongSumAggregation.PROVIDER);
 
         assertTupleStreamEquals(aggregation,
                 tupleStreamBuilder(VARIABLE_BINARY, FIXED_INT_64)
@@ -45,7 +45,7 @@ public class TestAggregations
         GroupByOperator groupBy = new GroupByOperator(newGroupColumn());
         HashAggregationOperator aggregation = new HashAggregationOperator(groupBy,
                 newAggregateColumn(),
-                SumAggregation.PROVIDER);
+                LongSumAggregation.PROVIDER);
 
         assertTupleStreamEqualsIgnoreOrder(aggregation,
                 tupleStreamBuilder(VARIABLE_BINARY, FIXED_INT_64)
