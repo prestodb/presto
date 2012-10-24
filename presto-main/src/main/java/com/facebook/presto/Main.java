@@ -80,6 +80,7 @@ public class Main
                 .withDefaultCommand(Help.class)
                 .withCommand(Server.class)
                 .withCommand(ExampleSumAggregation.class)
+                .withCommand(Execute.class)
                 .withCommands(Help.class);
 
         builder.withGroup("example")
@@ -170,6 +171,7 @@ public class Main
                 QueryDriversTupleStream tupleStream = new QueryDriversTupleStream(new TupleInfo(Type.VARIABLE_BINARY, Type.FIXED_INT_64), 10,
                         new HttpQueryProvider("sum", asyncHttpClient, server)
                 );
+                // TODO: this currently leaks query resources (need to delete)
 
                 //                TuplePrinter tuplePrinter = new RecordTuplePrinter();
                 TuplePrinter tuplePrinter = new DelimitedTuplePrinter();
@@ -186,6 +188,48 @@ public class Main
                 Duration duration = Duration.nanosSince(start);
 
                 System.out.printf("%d rows in %4.2f ms %d grandTotal\n", count, duration.toMillis(), grandTotal);
+            }
+            finally {
+                executor.shutdownNow();
+            }
+        }
+    }
+
+    @Command(name = "execute", description = "Execute a query")
+    public static class Execute
+            extends BaseCommand
+    {
+        private static final Logger log = Logger.get(Execute.class);
+
+        @Option(name = "-s", title = "server", required = true)
+        public URI server;
+
+        @Option(name = "-q", title = "query", required = true)
+        public String query;
+
+        public void run()
+        {
+            initializeLogging(false);
+
+            ExecutorService executor = Executors.newCachedThreadPool();
+            try {
+                ApacheHttpClient httpClient = new ApacheHttpClient(new HttpClientConfig()
+                        .setConnectTimeout(new Duration(1, TimeUnit.MINUTES))
+                        .setReadTimeout(new Duration(30, TimeUnit.MINUTES)));
+                AsyncHttpClient asyncHttpClient = new AsyncHttpClient(httpClient, executor);
+                QueryDriversTupleStream tupleStream = new QueryDriversTupleStream(new TupleInfo(Type.FIXED_INT_64), 10,
+                        new HttpQueryProvider(query, asyncHttpClient, server)
+                );
+                // TODO: this currently leaks query resources (need to delete)
+
+                TuplePrinter tuplePrinter = new DelimitedTuplePrinter();
+
+                Cursor cursor = tupleStream.cursor(new QuerySession());
+                while (advanceNextPositionNoYield(cursor)) {
+                    Tuple tuple = cursor.getTuple();
+                    tuplePrinter.print(tuple);
+                }
+                log.info("Query complete.");
             }
             finally {
                 executor.shutdownNow();
