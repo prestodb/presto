@@ -8,13 +8,13 @@ import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.metadata.TestingMetadata;
+import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.compiler.NodeRewriter;
 import com.facebook.presto.sql.compiler.SemanticAnalyzer;
-import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.compiler.TreeRewriter;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -22,6 +22,7 @@ import org.antlr.runtime.RecognitionException;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeMethod;
 
+import java.util.List;
 import java.util.Map;
 
 public abstract class TestRewriter
@@ -34,8 +35,8 @@ public abstract class TestRewriter
     public void setup()
             throws Exception
     {
-        Map<QualifiedName, TableMetadata> tables = ImmutableMap.<QualifiedName, TableMetadata>builder()
-                .put(QualifiedName.of("ORDERS"), new TableMetadata(QualifiedName.of("ORDERS"), ImmutableList.of(
+        List<TableMetadata> tables = ImmutableList.<TableMetadata>builder()
+                .add(new TableMetadata("default", "default", "ORDERS", ImmutableList.of(
                         new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "orderkey"),
                         new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "custkey"),
                         new ColumnMetadata(TupleInfo.Type.DOUBLE, "totalprice"),
@@ -45,7 +46,7 @@ public abstract class TestRewriter
                         new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "clerk"),
                         new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "shippriority"),
                         new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "comment"))))
-                .put(QualifiedName.of("LINEITEM"), new TableMetadata(QualifiedName.of("LINEITEM"), ImmutableList.of(
+                .add(new TableMetadata("default", "default", "LINEITEM", ImmutableList.of(
                         new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "orderkey"),
                         new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "partkey"),
                         new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "suppkey"),
@@ -64,13 +65,13 @@ public abstract class TestRewriter
                         new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "comment"))))
                 .build();
 
-        Map<QualifiedName, FunctionInfo> functions = ImmutableMap.<QualifiedName, FunctionInfo>builder()
-                .put(QualifiedName.of("COUNT"), new FunctionInfo(true, CountAggregation.PROVIDER))
-                .put(QualifiedName.of("SUM"), new FunctionInfo(true, LongSumAggregation.PROVIDER))
-                .put(QualifiedName.of("AVG"), new FunctionInfo(true, AverageAggregation.PROVIDER))
+        Map<String, FunctionInfo> functions = ImmutableMap.<String, FunctionInfo>builder()
+                .put("COUNT", new FunctionInfo(true, CountAggregation.PROVIDER))
+                .put("SUM", new FunctionInfo(true, LongSumAggregation.PROVIDER))
+                .put("AVG", new FunctionInfo(true, AverageAggregation.PROVIDER))
                 .build();
 
-        metadata = new Metadata(tables, functions);
+        metadata = new TestingMetadata(tables, functions);
     }
 
     protected void assertRewrite(@Language("SQL") String actual, @Language("SQL") String expected)

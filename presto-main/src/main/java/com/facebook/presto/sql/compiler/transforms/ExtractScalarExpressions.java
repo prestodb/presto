@@ -1,6 +1,6 @@
 package com.facebook.presto.sql.compiler.transforms;
 
-import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.sql.compiler.SessionMetadata;
 import com.facebook.presto.sql.compiler.IterableUtils;
 import com.facebook.presto.sql.compiler.NameGenerator;
 import com.facebook.presto.sql.compiler.NodeRewriter;
@@ -67,10 +67,10 @@ import static com.google.common.collect.Iterables.transform;
 public class ExtractScalarExpressions
         extends NodeRewriter<Void>
 {
-    private final Metadata metadata;
+    private final SessionMetadata metadata;
     private final NameGenerator namer;
 
-    public ExtractScalarExpressions(Metadata metadata, NameGenerator namer)
+    public ExtractScalarExpressions(SessionMetadata metadata, NameGenerator namer)
     {
         this.metadata = metadata;
         this.namer = namer;

@@ -1,6 +1,5 @@
 package com.facebook.presto.sql.compiler;
 
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -26,9 +25,9 @@ import static com.google.common.base.Predicates.instanceOf;
  */
 public class SchemaExtractor
 {
-    private final Metadata metadata;
+    private final SessionMetadata metadata;
 
-    public SchemaExtractor(Metadata metadata)
+    public SchemaExtractor(SessionMetadata metadata)
     {
         this.metadata = metadata;
     }
@@ -46,7 +45,7 @@ public class SchemaExtractor
             @Override
             protected List<QualifiedName> visitTable(Table node, Void context)
             {
-                return metadata.getTable(node.getName()).getSchema();
+                return metadata.getTableSchema(node.getName());
             }
 
             @Override

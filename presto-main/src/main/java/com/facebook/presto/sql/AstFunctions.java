@@ -1,6 +1,6 @@
 package com.facebook.presto.sql;
 
-import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.sql.compiler.SessionMetadata;
 import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -8,12 +8,9 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 
-import javax.annotation.Nullable;
-import java.util.Map;
-
 public class AstFunctions
 {
-    public static Predicate<Expression> isAliasedAggregateFunction(final Metadata metadata)
+    public static Predicate<Expression> isAliasedAggregateFunction(final SessionMetadata metadata)
     {
         return new Predicate<Expression>()
         {

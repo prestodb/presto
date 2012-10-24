@@ -1,8 +1,6 @@
 package com.facebook.presto.sql.compiler;
 
-import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
@@ -34,10 +32,10 @@ import static java.lang.String.format;
 
 public class SemanticAnalyzer
 {
-    private final Metadata metadata;
+    private final SessionMetadata metadata;
     private final SymbolTable symbols;
 
-    public SemanticAnalyzer(Metadata metadata, SymbolTable symbols)
+    public SemanticAnalyzer(SessionMetadata metadata, SymbolTable symbols)
     {
         this.metadata = metadata;
         this.symbols = symbols;
@@ -45,7 +43,7 @@ public class SemanticAnalyzer
 
     public SemanticAnalyzer(Metadata metadata)
     {
-        this(metadata, new SymbolTable());
+        this(new SessionMetadata(metadata), new SymbolTable());
     }
 
     public AnalysisResult analyze(Node node)
@@ -189,15 +187,15 @@ public class SemanticAnalyzer
         @Override
         protected Void visitTable(Table table, Void context)
         {
-            TableMetadata tableMetadata = metadata.getTable(table.getName());
+            List<QualifiedName> tableSchema = metadata.getTableSchema(table.getName());
 
-            if (tableMetadata == null) {
+            if (tableSchema == null) {
                 throw new SemanticException(format("Cannot resolve table '%s'", table.getName()), table);
             }
 
             ImmutableList.Builder<Field> names = ImmutableList.builder();
-            for (ColumnMetadata column : tableMetadata.getColumns()) {
-                names.add(new Field(QualifiedName.of(tableMetadata.getName(), column.getName()), null));
+            for (QualifiedName name : tableSchema) {
+                names.add(new Field(name, null));
             }
 
             types.put(table, new Schema(names.build()));
