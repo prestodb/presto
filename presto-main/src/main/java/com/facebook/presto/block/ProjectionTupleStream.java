@@ -10,19 +10,19 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.*;
 
-public class ColumnMappingTupleStream
+public class ProjectionTupleStream
         implements TupleStream
 {
     private final TupleStream delegate;
     private final int[] selectedColumns;
     private final TupleInfo tupleInfo;
 
-    public ColumnMappingTupleStream(TupleStream delegate, int... selectedColumns)
+    public ProjectionTupleStream(TupleStream delegate, int... selectedColumns)
     {
         this(delegate, Ints.asList(selectedColumns));
     }
 
-    public ColumnMappingTupleStream(TupleStream delegate, List<Integer> selectedColumnList)
+    public ProjectionTupleStream(TupleStream delegate, List<Integer> selectedColumnList)
     {
         checkNotNull(delegate, "delegate is null");
         checkNotNull(selectedColumnList, "selectedColumns is null");
@@ -41,11 +41,11 @@ public class ColumnMappingTupleStream
         tupleInfo = new TupleInfo(types.build());
     }
 
-    public static ColumnMappingTupleStream map(TupleStream blockStream, Integer... columns)
+    public static ProjectionTupleStream project(TupleStream blockStream, Integer... columns)
     {
         checkNotNull(blockStream, "blockStream is null");
         checkNotNull(columns, "columns is null");
-        return new ColumnMappingTupleStream(blockStream, Arrays.asList(columns));
+        return new ProjectionTupleStream(blockStream, Arrays.asList(columns));
     }
 
     @Override
@@ -64,6 +64,6 @@ public class ColumnMappingTupleStream
     public Cursor cursor(QuerySession session)
     {
         checkNotNull(session, "session is null");
-        return new ColumnMappingCursor(delegate.cursor(session), selectedColumns);
+        return new ProjectionCursor(delegate.cursor(session), selectedColumns);
     }
 }

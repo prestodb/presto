@@ -10,18 +10,18 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.*;
 
-public class ColumnMappingCursor
+public class ProjectionCursor
         extends ForwardingCursor
 {
     private final int[] selectedColumns;
     private final TupleInfo tupleInfo;
 
-    public ColumnMappingCursor(Cursor delegate, int... selectedColumns)
+    public ProjectionCursor(Cursor delegate, int... selectedColumns)
     {
         this(delegate, Ints.asList(selectedColumns));
     }
 
-    public ColumnMappingCursor(Cursor delegate, List<Integer> selectedColumnList)
+    public ProjectionCursor(Cursor delegate, List<Integer> selectedColumnList)
     {
         super(checkNotNull(delegate, "delegate is null"));
 

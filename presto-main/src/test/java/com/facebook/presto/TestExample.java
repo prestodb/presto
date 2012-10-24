@@ -1,6 +1,10 @@
 package com.facebook.presto;
 
-import com.facebook.presto.block.*;
+import com.facebook.presto.block.Blocks;
+import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.GenericTupleStream;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.position.UncompressedPositionBlock;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.operator.FilterOperator;

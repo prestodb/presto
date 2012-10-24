@@ -56,6 +56,7 @@ public class StatsTupleValueSink
 
     public Stats getStats()
     {
+        // TODO: expose a way to indicate whether the unique count is EXACT or APPROXIMATE
         return new Stats(rowCount, runsCount + 1, minPosition, maxPosition, rowCount / (runsCount + 1), (set.size() == MAX_UNIQUE_COUNT) ? Integer.MAX_VALUE : set.size());
     }
 

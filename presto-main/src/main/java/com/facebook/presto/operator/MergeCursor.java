@@ -3,7 +3,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.ColumnMappingCursor;
+import com.facebook.presto.block.ProjectionCursor;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursors;
 import com.facebook.presto.slice.Slice;
@@ -39,7 +39,7 @@ public class MergeCursor
         ImmutableList.Builder<Cursor> indexBuilder = ImmutableList.builder();
         for (Cursor cursor : sources) {
             for (int field = 0; field < cursor.getTupleInfo().getFieldCount(); field++) {
-                indexBuilder.add(new ColumnMappingCursor(cursor, field));
+                indexBuilder.add(new ProjectionCursor(cursor, field));
             }
         }
         columnIndexedCursors = indexBuilder.build();

@@ -4,7 +4,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.block.ColumnMappingTupleStream;
+import com.facebook.presto.block.ProjectionTupleStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStreamSerdes;
@@ -317,7 +317,7 @@ public class Main
 
             try (InputStreamReader input = inputSupplier.getInput()) {
                 DelimitedTupleStream delimitedTupleStream = new DelimitedTupleStream(input, Splitter.on(toChar(columnSeparator)), tupleInfo);
-                ColumnMappingTupleStream projectedStream = new ColumnMappingTupleStream(delimitedTupleStream, extractionColumns);
+                ProjectionTupleStream projectedStream = new ProjectionTupleStream(delimitedTupleStream, extractionColumns);
 
                 ImmutableList.Builder<StreamWriterTupleValueSink> tupleValueSinkBuilder = ImmutableList.builder();
                 for (int index = 0; index < extractionColumns.size(); index++) {
