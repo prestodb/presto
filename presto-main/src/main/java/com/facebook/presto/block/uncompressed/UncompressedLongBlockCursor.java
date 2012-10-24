@@ -95,7 +95,7 @@ public class UncompressedLongBlockCursor
         Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
 
         // advance to specified position
-        position = newPosition;
+        position = Math.max(newPosition, this.range.getStart());
 
         // adjust offset
         offset = (int) ((position - this.range.getStart()) * SIZE_OF_LONG);
