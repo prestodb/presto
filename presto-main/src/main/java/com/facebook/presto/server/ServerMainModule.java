@@ -28,6 +28,6 @@ public class ServerMainModule implements Module
         binder.bind(StorageManager.class).to(DatabaseStorageManager.class).in(Scopes.SINGLETON);
         binder.bind(HiveImportManager.class).in(Scopes.SINGLETON);
         // TODO: use a better way to bind this (e.g. provider)
-        binder.bind(IDBI.class).toInstance(new DBI("jdbc:h2:file:presto-data/db/db"));
+        binder.bind(IDBI.class).toInstance(new DBI("jdbc:h2:file:var/presto-data/db/db"));
     }
 }

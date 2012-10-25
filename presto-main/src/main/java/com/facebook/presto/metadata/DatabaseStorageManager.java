@@ -40,8 +40,8 @@ import java.util.List;
 public class DatabaseStorageManager
         implements StorageManager
 {
-    private static final File DEFAULT_BASE_STORAGE_DIR = new File("presto-data/storage");
-    private static final File DEFAULT_BASE_STAGING_DIR = new File("presto-data/staging");
+    private static final File DEFAULT_BASE_STORAGE_DIR = new File("var/presto-data/storage");
+    private static final File DEFAULT_BASE_STAGING_DIR = new File("var/presto-data/staging");
     private static final StatsCollectingTupleStreamSerde STATS_STAGING_SERDE = new StatsCollectingTupleStreamSerde(new SelfDescriptiveSerde(new UncompressedSerde()));
     private static final int RUN_LENGTH_AVERAGE_CUTOFF = 3;
     private static final int DICTIONARY_CARDINALITY_CUTOFF = 1000;
