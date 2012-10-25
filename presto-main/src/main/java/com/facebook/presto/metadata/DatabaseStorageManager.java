@@ -59,7 +59,7 @@ public class DatabaseStorageManager
     }
 
     @Inject
-    public DatabaseStorageManager(IDBI dbi)
+    public DatabaseStorageManager(@ForStorageManager IDBI dbi)
     {
         this(dbi, DEFAULT_BASE_STORAGE_DIR, DEFAULT_BASE_STAGING_DIR);
     }
