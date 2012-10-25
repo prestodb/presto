@@ -1,11 +1,7 @@
 package com.facebook.presto.sql.compiler;
 
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.aggregation.AverageAggregation;
-import com.facebook.presto.aggregation.CountAggregation;
-import com.facebook.presto.aggregation.LongSumAggregation;
 import com.facebook.presto.metadata.ColumnMetadata;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.TestingMetadata;
@@ -14,14 +10,10 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.TreePrinter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.antlr.runtime.RecognitionException;
 import org.antlr.runtime.tree.CommonTree;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import java.util.List;
-import java.util.Map;
 
 import static com.facebook.presto.sql.parser.TreePrinter.treeToString;
 
@@ -34,29 +26,26 @@ public class TestSemanticAnalyzer
     public void setUp()
             throws Exception
     {
-        List<TableMetadata> tables = ImmutableList.<TableMetadata>builder()
-                .add(new TableMetadata("default", "default", "T", ImmutableList.of(
-                        new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "id"),
-                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "value"),
-                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "title"),
-                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "description"))))
-                .add(new TableMetadata("default", "default", "S", ImmutableList.of(
-                        new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "s_id"),
-                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "name"),
-                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "value"))))
-                .add(new TableMetadata("default", "A", "B", ImmutableList.of(
-                        new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "a_b_id"),
-                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "name"),
-                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "value"))))
-                .build();
+        TableMetadata tableT = new TableMetadata("default", "default", "T", ImmutableList.of(
+                new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "id"),
+                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "value"),
+                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "title"),
+                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "description")));
 
-        Map<String, FunctionInfo> functions = ImmutableMap.<String, FunctionInfo>builder()
-                .put("COUNT", new FunctionInfo(true, CountAggregation.PROVIDER))
-                .put("SUM", new FunctionInfo(true, LongSumAggregation.PROVIDER))
-                .put("AVG", new FunctionInfo(true, AverageAggregation.PROVIDER))
-                .build();
+        TableMetadata tableS = new TableMetadata("default", "default", "S", ImmutableList.of(
+                new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "s_id"),
+                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "name"),
+                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "value")));
 
-        metadata = new TestingMetadata(tables, functions);
+        TableMetadata tableB = new TableMetadata("default", "A", "B", ImmutableList.of(
+                new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "a_b_id"),
+                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "name"),
+                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "value")));
+
+        metadata = new TestingMetadata();
+        metadata.createTable(tableT);
+        metadata.createTable(tableS);
+        metadata.createTable(tableB);
     }
 
     @Test
