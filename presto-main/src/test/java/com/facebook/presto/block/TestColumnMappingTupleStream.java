@@ -29,17 +29,17 @@ public class TestColumnMappingTupleStream
     public void testSingleColumnExtraction() throws Exception
     {
         Blocks.assertTupleStreamEquals(
-                ColumnMappingTupleStream.map(baseTupleStream, 0),
+                ProjectionTupleStream.project(baseTupleStream, 0),
                 Blocks.createDoublesTupleStream(0, 0.1, 1.2, 100.99)
         );
 
         Blocks.assertTupleStreamEquals(
-                ColumnMappingTupleStream.map(baseTupleStream, 1),
+                ProjectionTupleStream.project(baseTupleStream, 1),
                 Blocks.createLongsTupleStream(0, 15, 0, -1)
         );
 
         Blocks.assertTupleStreamEquals(
-                ColumnMappingTupleStream.map(baseTupleStream, 2),
+                ProjectionTupleStream.project(baseTupleStream, 2),
                 Blocks.createTupleStream(0, "test", "fuu", "t")
         );
     }
@@ -48,12 +48,12 @@ public class TestColumnMappingTupleStream
     public void testRemap() throws Exception
     {
         Blocks.assertTupleStreamEquals(
-                ColumnMappingTupleStream.map(ColumnMappingTupleStream.map(baseTupleStream, 2, 1, 0), 0),
+                ProjectionTupleStream.project(ProjectionTupleStream.project(baseTupleStream, 2, 1, 0), 0),
                 Blocks.createTupleStream(0, "test", "fuu", "t")
         );
 
         Blocks.assertTupleStreamEquals(
-                ColumnMappingTupleStream.map(ColumnMappingTupleStream.map(baseTupleStream, 1, 1), 1),
+                ProjectionTupleStream.project(ProjectionTupleStream.project(baseTupleStream, 1, 1), 1),
                 Blocks.createLongsTupleStream(0, 15, 0, -1)
         );
     }
@@ -68,7 +68,7 @@ public class TestColumnMappingTupleStream
                 .append(100.99).append(-1)
                 .build());
         Blocks.assertTupleStreamEquals(
-                ColumnMappingTupleStream.map(baseTupleStream, 0, 1),
+                ProjectionTupleStream.project(baseTupleStream, 0, 1),
                 expectedTupleStream
         );
     }
