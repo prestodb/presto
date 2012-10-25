@@ -37,9 +37,7 @@ public class DatabaseMetadata
     public FunctionInfo getFunction(String name)
     {
         checkArgument(name.equals(name.toLowerCase()), "name is not lowercase");
-        FunctionInfo functionInfo = FUNCTIONS.get(name);
-        checkArgument(functionInfo != null, "Function '%s' not defined", name);
-        return functionInfo;
+        return FUNCTIONS.get(name);
     }
 
     @Override
@@ -50,7 +48,9 @@ public class DatabaseMetadata
         checkArgument(tableName.equals(tableName.toLowerCase()), "tableName is not lowercase");
 
         List<ColumnMetadata> columns = dao.getColumnMetaData(catalogName, schemaName, tableName);
-        checkArgument(!columns.isEmpty(), "Table '%s.%s.%s' not defined", catalogName, schemaName, tableName);
+        if (columns.isEmpty()) {
+            return null;
+        }
         return new TableMetadata(catalogName, schemaName, tableName, columns);
     }
 

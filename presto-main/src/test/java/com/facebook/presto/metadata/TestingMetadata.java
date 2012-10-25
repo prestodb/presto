@@ -39,9 +39,7 @@ public class TestingMetadata
     public FunctionInfo getFunction(String name)
     {
         checkArgument(name.equals(name.toLowerCase()), "name is not lowercase");
-        FunctionInfo functionInfo = functions.get(name);
-        checkArgument(functionInfo != null, "Function '%s' not defined", name);
-        return functionInfo;
+        return functions.get(name);
     }
 
     @Override
@@ -52,9 +50,7 @@ public class TestingMetadata
         checkArgument(tableName.equals(tableName.toLowerCase()), "tableName is not lowercase");
 
         List<String> key = tableKey(catalogName, schemaName, tableName);
-        TableMetadata table = tables.get(key);
-        checkArgument(table != null, "Table '%s.%s.%s' not defined", catalogName, schemaName, tableName);
-        return table;
+        return tables.get(key);
     }
 
     @Override
