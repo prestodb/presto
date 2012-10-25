@@ -1,12 +1,58 @@
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.TupleInfo;
+import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Iterables;
+
+import java.util.List;
+
 import static com.facebook.presto.TupleInfo.Type;
 
+// TODO: consider migrating to Metastore format when it gets added
 public class TpchSchema
 {
+    public static class Table
+    {
+        private final String name;
+        private final List<Column> columns;
+        private final TupleInfo tupleInfo;
+
+        public Table(String name, Iterable<Column> columnsIterable)
+        {
+            this.name = Preconditions.checkNotNull(name, "name is null");
+            this.columns = ImmutableList.copyOf(Preconditions.checkNotNull(columnsIterable, "columnsIterable is null"));
+            tupleInfo = new TupleInfo(Iterables.transform(columns, new Function<Column, Type>()
+            {
+                @Override
+                public Type apply(Column input)
+                {
+                    return input.getType();
+                }
+            }));
+        }
+
+        public String getName()
+        {
+            return name;
+        }
+
+        public List<Column> getColumns()
+        {
+            return columns;
+        }
+
+        public TupleInfo getTupleInfo()
+        {
+            return tupleInfo;
+        }
+    }
+
     public interface Column
     {
-        String getTableName();
+        Table getTable();
         int getIndex();
         Type getType();
     }
@@ -24,10 +70,10 @@ public class TpchSchema
         SHIPPRIORITY(7, Type.VARIABLE_BINARY), // 1 unique
         COMMENT(8, Type.VARIABLE_BINARY); // Arbitrary strings
 
-        private final String tableName = "orders";
+        public static final Table TABLE = TpchSchema.createTable("orders", Orders.class);
+
         private final int index;
         private final Type type;
-
 
         private Orders(int index, Type type)
         {
@@ -36,9 +82,9 @@ public class TpchSchema
         }
 
         @Override
-        public String getTableName()
+        public Table getTable()
         {
-            return tableName;
+            return TABLE;
         }
 
         @Override
@@ -72,8 +118,9 @@ public class TpchSchema
         SHIPINSTRUCT(13, Type.VARIABLE_BINARY),
         SHIPMODE(14, Type.VARIABLE_BINARY),
         COMMENT(15, Type.VARIABLE_BINARY);
+        
+        public static final Table TABLE = TpchSchema.createTable("lineitem", LineItem.class);
 
-        private final String tableName = "lineitem";
         private final int index;
         private final Type type;
 
@@ -84,9 +131,9 @@ public class TpchSchema
         }
 
         @Override
-        public String getTableName()
+        public Table getTable()
         {
-            return tableName;
+            return TABLE;
         }
 
         @Override
@@ -100,5 +147,23 @@ public class TpchSchema
         {
             return type;
         }
+    }
+    
+    private static Table createTable(String name, Class<? extends Column> clazz)
+    {
+        ImmutableSortedMap.Builder<Integer, Column> columnBuilder = ImmutableSortedMap.naturalOrder();
+        for (Column column : clazz.getEnumConstants()) {
+            columnBuilder.put(column.getIndex(), column);
+        }
+        ImmutableSortedMap<Integer, Column> sortedMap = columnBuilder.build();
+
+        // Verify that there are no gaps in the definition
+        int lastIndex = -1;
+        for (Integer index : sortedMap.keySet()) {
+            Preconditions.checkState(index == lastIndex + 1, "Table indicies has a gap");
+            lastIndex = index;
+        }
+
+        return new Table(name, sortedMap.values());
     }
 }

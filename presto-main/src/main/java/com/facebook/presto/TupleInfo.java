@@ -153,12 +153,12 @@ public class TupleInfo
         this(asList(types));
     }
 
-    public TupleInfo(List<Type> types)
+    public TupleInfo(Iterable<Type> typeIterable)
     {
-        checkNotNull(types, "types is null");
+        checkNotNull(typeIterable, "typeIterable is null");
 //        Preconditions.checkArgument(!types.isEmpty(), "types is empty");
 
-        this.types = ImmutableList.copyOf(types);
+        this.types = ImmutableList.copyOf(typeIterable);
 
         int[] offsets = new int[types.size() + 1];
 
