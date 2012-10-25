@@ -12,6 +12,7 @@ import java.util.NoSuchElementException;
 
 import static com.facebook.presto.block.Cursor.AdvanceResult.FINISHED;
 import static com.facebook.presto.block.Cursor.AdvanceResult.MUST_YIELD;
+import static com.facebook.presto.block.Cursor.AdvanceResult.SUCCESS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -63,6 +64,54 @@ public class Cursors
         }
 
         return advancedAll;
+    }
+
+    public static AdvanceResult advanceToPositionByValues(Cursor cursor, long position)
+    {
+        checkNotNull(cursor, "cursor is null");
+        checkArgument(position >= 0, "position must be at least zero");
+
+        if (cursor.isFinished()) {
+            return FINISHED;
+        }
+
+        // Initialize to the first position if necessary
+        if (isInitialized(cursor)) {
+            checkArgument(position >= cursor.getPosition(), "must advance forward");
+        }
+        else {
+            AdvanceResult advanceResult = cursor.advanceNextPosition();
+            if (advanceResult != SUCCESS) {
+                return advanceResult;
+            }
+        }
+
+        // Skip by values
+        while (cursor.getCurrentValueEndPosition() < position) {
+            AdvanceResult advanceResult = cursor.advanceNextValue();
+            if (advanceResult != SUCCESS) {
+                return advanceResult;
+            }
+        }
+
+        // Skip by positions
+        while(cursor.getPosition() < position) {
+            AdvanceResult advanceResult = cursor.advanceNextPosition();
+            if (advanceResult != SUCCESS) {
+                return advanceResult;
+            }
+        }
+
+        return SUCCESS;
+    }
+
+    /**
+     * Cursor is initialized after it has been advanced successfully at least once
+     */
+    public static boolean isInitialized(Cursor cursor)
+    {
+        checkNotNull(cursor, "cursor is null");
+        return cursor.isValid() || cursor.isFinished();
     }
 
     public static Ordering<Cursor> orderByPosition()
