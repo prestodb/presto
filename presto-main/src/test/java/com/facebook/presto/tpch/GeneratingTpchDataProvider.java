@@ -1,6 +1,7 @@
 package com.facebook.presto.tpch;
 
 import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.ProjectionTupleStream;
 import com.facebook.presto.block.TupleStreamSerializer;
 import com.facebook.presto.ingest.DelimitedTupleStream;
 import com.facebook.presto.ingest.StreamWriterTupleValueSink;
@@ -124,21 +125,24 @@ public class GeneratingTpchDataProvider
         checkNotNull(serdeName, "serdeName is null");
 
         try {
-            String hash = ByteStreams.hash(tableInputSupplierFactory.getInputSupplier(column.getTableName()), Hashing.md5()).toString();
+            String hash = ByteStreams.hash(tableInputSupplierFactory.getInputSupplier(column.getTable().getName()), Hashing.md5()).toString();
 
-            File cachedFile = new File(new File(cacheDirectory, column.getTableName() + "-" + hash), createFileName(column, serdeName));
+            File cachedFile = new File(new File(cacheDirectory, column.getTable().getName() + "-" + hash), createFileName(column, serdeName));
             if (cachedFile.exists()) {
                 return cachedFile;
             }
 
             Files.createParentDirs(cachedFile);
 
-            try (InputStream input = tableInputSupplierFactory.getInputSupplier(column.getTableName()).getInput()) {
+            try (InputStream input = tableInputSupplierFactory.getInputSupplier(column.getTable().getName()).getInput()) {
                 TupleStreamImporter.importFrom(
-                        new DelimitedTupleStream(
-                                new InputStreamReader(input, Charsets.UTF_8),
-                                Splitter.on("|"),
-                                new TupleInfo(column.getType())
+                        new ProjectionTupleStream(
+                                new DelimitedTupleStream(
+                                        new InputStreamReader(input, Charsets.UTF_8),
+                                        Splitter.on("|"),
+                                        column.getTable().getTupleInfo()
+                                ),
+                                column.getIndex()
                         ),
                         ImmutableList.of(new StreamWriterTupleValueSink(Files.newOutputStreamSupplier(cachedFile), serializer))
                 );
