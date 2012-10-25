@@ -9,6 +9,7 @@ import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.VoidTransactionCallback;
 
+import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 
@@ -26,7 +27,8 @@ public class DatabaseMetadata
     private final IDBI dbi;
     private final MetadataDao dao;
 
-    public DatabaseMetadata(IDBI dbi)
+    @Inject
+    public DatabaseMetadata(@ForMetadata IDBI dbi)
     {
         this.dbi = dbi;
         this.dao = dbi.onDemand(MetadataDao.class);
