@@ -1,11 +1,7 @@
 package com.facebook.presto.sql.compiler.transforms;
 
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.aggregation.AverageAggregation;
-import com.facebook.presto.aggregation.CountAggregation;
-import com.facebook.presto.aggregation.LongSumAggregation;
 import com.facebook.presto.metadata.ColumnMetadata;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.TestingMetadata;
@@ -17,13 +13,9 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.antlr.runtime.RecognitionException;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeMethod;
-
-import java.util.List;
-import java.util.Map;
 
 public abstract class TestRewriter
 {
@@ -35,43 +27,38 @@ public abstract class TestRewriter
     public void setup()
             throws Exception
     {
-        List<TableMetadata> tables = ImmutableList.<TableMetadata>builder()
-                .add(new TableMetadata("default", "default", "ORDERS", ImmutableList.of(
-                        new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "orderkey"),
-                        new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "custkey"),
-                        new ColumnMetadata(TupleInfo.Type.DOUBLE, "totalprice"),
-                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "orderdate"),
-                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "orderstatus"),
-                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "orderpriority"),
-                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "clerk"),
-                        new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "shippriority"),
-                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "comment"))))
-                .add(new TableMetadata("default", "default", "LINEITEM", ImmutableList.of(
-                        new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "orderkey"),
-                        new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "partkey"),
-                        new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "suppkey"),
-                        new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "linenumber"),
-                        new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "quantity"),
-                        new ColumnMetadata(TupleInfo.Type.DOUBLE, "extendedprice"),
-                        new ColumnMetadata(TupleInfo.Type.DOUBLE, "discount"),
-                        new ColumnMetadata(TupleInfo.Type.DOUBLE, "tax"),
-                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "returnflag"),
-                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "linestatus"),
-                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "shipdate"),
-                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "commitdate"),
-                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "receiptdate"),
-                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "shipinstruct"),
-                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "shipmode"),
-                        new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "comment"))))
-                .build();
+        TableMetadata ordersTable = new TableMetadata("default", "default", "ORDERS", ImmutableList.of(
+                new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "orderkey"),
+                new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "custkey"),
+                new ColumnMetadata(TupleInfo.Type.DOUBLE, "totalprice"),
+                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "orderdate"),
+                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "orderstatus"),
+                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "orderpriority"),
+                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "clerk"),
+                new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "shippriority"),
+                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "comment")));
 
-        Map<String, FunctionInfo> functions = ImmutableMap.<String, FunctionInfo>builder()
-                .put("COUNT", new FunctionInfo(true, CountAggregation.PROVIDER))
-                .put("SUM", new FunctionInfo(true, LongSumAggregation.PROVIDER))
-                .put("AVG", new FunctionInfo(true, AverageAggregation.PROVIDER))
-                .build();
+        TableMetadata lineItemTable = new TableMetadata("default", "default", "LINEITEM", ImmutableList.of(
+                new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "orderkey"),
+                new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "partkey"),
+                new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "suppkey"),
+                new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "linenumber"),
+                new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "quantity"),
+                new ColumnMetadata(TupleInfo.Type.DOUBLE, "extendedprice"),
+                new ColumnMetadata(TupleInfo.Type.DOUBLE, "discount"),
+                new ColumnMetadata(TupleInfo.Type.DOUBLE, "tax"),
+                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "returnflag"),
+                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "linestatus"),
+                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "shipdate"),
+                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "commitdate"),
+                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "receiptdate"),
+                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "shipinstruct"),
+                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "shipmode"),
+                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "comment")));
 
-        metadata = new TestingMetadata(tables, functions);
+        metadata = new TestingMetadata();
+        metadata.createTable(ordersTable);
+        metadata.createTable(lineItemTable);
     }
 
     protected void assertRewrite(@Language("SQL") String actual, @Language("SQL") String expected)
