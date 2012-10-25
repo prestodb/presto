@@ -329,7 +329,7 @@ public class StaticQueryManager implements QueryManager
         }
     }
 
-    private class ImportHiveTableQuery
+    private static class ImportHiveTableQuery
             implements Runnable
     {
         private static final int MAX_SIMULTANEOUS_IMPORTS = 100;
