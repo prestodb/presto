@@ -2,6 +2,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.GenericTupleStream;
+import com.facebook.presto.block.RepositioningTupleStream;
 import com.facebook.presto.block.SelfDescriptiveSerde;
 import com.facebook.presto.block.StatsCollectingTupleStreamSerde;
 import com.facebook.presto.block.TupleStream;
@@ -285,17 +286,27 @@ public class DatabaseStorageManager
 
     private TupleStream convertFilesToStream(List<File> files)
     {
-        final TupleStreamDeserializer deserializer = new StatsCollectingTupleStreamSerde.StatsAnnotatedTupleStreamDeserializer(SelfDescriptiveSerde.DESERIALIZER);
+        Preconditions.checkArgument(!files.isEmpty(), "no files in stream");
+        final StatsCollectingTupleStreamSerde.StatsAnnotatedTupleStreamDeserializer deserializer = new StatsCollectingTupleStreamSerde.StatsAnnotatedTupleStreamDeserializer(SelfDescriptiveSerde.DESERIALIZER);
         try {
             // Use the first file to get the schema
             TupleInfo tupleInfo = deserializer.deserialize(Slices.mapFileReadOnly(files.get(0))).getTupleInfo();
+
             return new GenericTupleStream<>(tupleInfo, Iterables.transform(files, new Function<File, TupleStream>()
             {
+                private long nextStartingPosition = 0;
+
                 @Override
                 public TupleStream apply(File file)
                 {
                     try {
-                        return deserializer.deserialize(Slices.mapFileReadOnly(file));
+                        Slice slice = Slices.mapFileReadOnly(file);
+                        RepositioningTupleStream tupleStream = new RepositioningTupleStream(
+                                deserializer.deserialize(slice),
+                                nextStartingPosition
+                        );
+                        nextStartingPosition += deserializer.deserializeStats(slice).getRowCount();
+                        return tupleStream;
                     }
                     catch (IOException e) {
                         throw Throwables.propagate(e);
