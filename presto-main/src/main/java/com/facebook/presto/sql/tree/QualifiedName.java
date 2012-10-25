@@ -1,8 +1,8 @@
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.sql.compiler.MoreFunctions;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -12,9 +12,6 @@ import com.google.common.collect.Lists;
 
 import javax.annotation.Nullable;
 import java.util.List;
-
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public class QualifiedName
 {
@@ -52,7 +49,7 @@ public class QualifiedName
         Preconditions.checkNotNull(parts, "parts");
         Preconditions.checkArgument(!Iterables.isEmpty(parts), "parts is empty");
 
-        this.parts = ImmutableList.copyOf(parts);
+        this.parts = ImmutableList.copyOf(Iterables.transform(parts, MoreFunctions.toLowerCase()));
     }
 
     public List<String> getParts()

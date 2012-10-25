@@ -77,7 +77,7 @@ public class TestMaterializeImplicitAliases
     {
         assertRewrite(
                 "SELECT SUM(orderkey) FROM ORDERS",
-                "SELECT SUM(orderkey) SUM FROM ORDERS"
+                "SELECT SUM(orderkey) sum FROM ORDERS"
         );
     }
 

@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -23,9 +24,9 @@ public class TableMetadata
         checkNotNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "columns is empty");
 
-        this.catalogName = catalogName;
-        this.schemaName = schemaName;
-        this.tableName = tableName;
+        this.catalogName = catalogName.toLowerCase();
+        this.schemaName = schemaName.toLowerCase();
+        this.tableName = tableName.toLowerCase();
         this.columns = ImmutableList.copyOf(columns);
     }
 
@@ -47,5 +48,38 @@ public class TableMetadata
     public List<ColumnMetadata> getColumns()
     {
         return columns;
+    }
+
+    @Override
+    public String toString()
+    {
+        return Objects.toStringHelper(this)
+                .add("catalogName", catalogName)
+                .add("schemaName", schemaName)
+                .add("tableName", tableName)
+                .add("columns", columns)
+                .toString();
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if ((obj == null) || (getClass() != obj.getClass())) {
+            return false;
+        }
+        TableMetadata o = (TableMetadata) obj;
+        return Objects.equal(catalogName, o.catalogName) &&
+                Objects.equal(schemaName, o.schemaName) &&
+                Objects.equal(tableName, o.tableName) &&
+                Objects.equal(columns, o.columns);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hashCode(catalogName, schemaName, tableName, columns);
     }
 }
