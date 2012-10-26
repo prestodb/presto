@@ -7,11 +7,10 @@ import com.facebook.presto.hive.SchemaField;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Charsets;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.ingest.HiveSchemaUtil.createTupleInfo;
 import static com.google.common.base.Strings.nullToEmpty;
 
 public class HiveTupleStream
@@ -82,30 +81,5 @@ public class HiveTupleStream
         // TODO: null support
         String s = record.getString(schemaFields.get(field).getFieldName());
         return Slices.wrappedBuffer(nullToEmpty(s).getBytes(Charsets.UTF_8));
-    }
-
-    private static TupleInfo createTupleInfo(List<SchemaField> schemaFields)
-    {
-        ImmutableList.Builder<TupleInfo.Type> list = ImmutableList.builder();
-        for (SchemaField field : schemaFields) {
-            checkArgument(field.getCategory() == SchemaField.Category.PRIMITIVE, "Unhandled category: %s", field.getCategory());
-            SchemaField.Type type = field.getPrimitiveType();
-            list.add(getTupleType(type));
-        }
-        return new TupleInfo(list.build());
-    }
-
-    private static TupleInfo.Type getTupleType(SchemaField.Type type)
-    {
-        switch (type) {
-            case LONG:
-                return TupleInfo.Type.FIXED_INT_64;
-            case DOUBLE:
-                return TupleInfo.Type.DOUBLE;
-            case STRING:
-                return TupleInfo.Type.VARIABLE_BINARY;
-            default:
-                throw new IllegalArgumentException("Unhandled type: " + type);
-        }
     }
 }

@@ -12,6 +12,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 
 public class TestDatabaseMetadata
 {
@@ -36,6 +37,8 @@ public class TestDatabaseMetadata
     @Test
     public void testCreateTable()
     {
+        assertNull(metadata.getTable("default", "default", "orders"));
+
         metadata.createTable(getOrdersTable());
 
         TableMetadata table = metadata.getTable("default", "default", "orders");

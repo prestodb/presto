@@ -28,7 +28,9 @@ public class SessionMetadata
     public FunctionInfo getFunction(QualifiedName name)
     {
         checkArgument(name.getParts().size() == 1, "qualified functions not supported");
-        return metadata.getFunction(name.getSuffix());
+        FunctionInfo functionInfo = metadata.getFunction(name.getSuffix());
+        checkArgument(functionInfo != null, "Function '%s' not defined", name);
+        return functionInfo;
     }
 
     public TableMetadata getTable(QualifiedName name)
@@ -40,7 +42,9 @@ public class SessionMetadata
         String schemaName = (parts.size() > 1) ? parts.get(1) : DEFAULT_SCHEMA;
         String catalogName = (parts.size() > 2) ? parts.get(2) : DEFAULT_CATALOG;
 
-        return metadata.getTable(catalogName, schemaName, tableName);
+        TableMetadata table = metadata.getTable(catalogName, schemaName, tableName);
+        checkArgument(table != null, "Table '%s.%s.%s' not defined", catalogName, schemaName, tableName);
+        return table;
     }
 
     public List<QualifiedName> getTableSchema(QualifiedName name)

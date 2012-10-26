@@ -11,7 +11,6 @@ import com.facebook.presto.hive.SchemaField;
 import com.facebook.presto.ingest.HiveTupleStream;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Charsets;
-import com.google.common.collect.Iterators;
 import com.google.inject.Inject;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -22,19 +21,22 @@ import java.util.List;
 import java.util.concurrent.Callable;
 
 import static com.facebook.presto.RetryDriver.runWithRetry;
+import static com.facebook.presto.ingest.HiveSchemaUtil.createColumnMetadata;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HiveImportManager
 {
     private final HiveClient hiveClient;
     private final StorageManager storageManager;
+    private final Metadata metadata;
     private final HiveImportRegistry hiveImportRegistry;
 
     @Inject
-    public HiveImportManager(HiveClient hiveClient, StorageManager storageManager, IDBI dbi)
+    public HiveImportManager(HiveClient hiveClient, StorageManager storageManager, Metadata metadata, @ForStorageManager IDBI dbi)
     {
         this.hiveClient = checkNotNull(hiveClient, "hiveClient is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
+        this.metadata = metadata;
         hiveImportRegistry = new HiveImportRegistry(checkNotNull(dbi, "dbi is null"));
     }
 
@@ -74,6 +76,16 @@ public class HiveImportManager
                 return hiveClient.getTableSchema(databaseName, tableName);
             }
         }, databaseName + "." + tableName + "." + partitionName + ".getTableSchema");
+
+        // TODO: do this properly in Metadata
+        synchronized (this) {
+            String catalogName = "default";
+            String schemaName = "default";
+            if (metadata.getTable(catalogName, schemaName, tableName) == null) {
+                List<ColumnMetadata> columns = createColumnMetadata(schemaFields);
+                metadata.createTable(new TableMetadata(catalogName, schemaName, tableName, columns));
+            }
+        }
 
         long rowCount = 0;
         // TODO: right now, failures can result in partial partitions to be loaded (smallest unit needs to be transactional)
