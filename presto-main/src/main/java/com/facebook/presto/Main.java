@@ -3,6 +3,7 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.cli.Console;
 import com.facebook.presto.cli.ConvertCsv;
 import com.facebook.presto.cli.ExampleSumAggregation;
 import com.facebook.presto.cli.Execute;
@@ -27,6 +28,7 @@ public class Main
                 .withDefaultCommand(Help.class)
                 .withCommand(Server.class)
                 .withCommand(Execute.class)
+                .withCommand(Console.class)
                 .withCommands(Help.class);
 
         builder.withGroup("example")
