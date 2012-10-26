@@ -381,6 +381,10 @@ public class UnsafeSlice extends AbstractSlice
             return false;
         }
 
+        if (!(slice instanceof UnsafeSlice)) {
+            return slice.equals(this);
+        }
+
         UnsafeSlice that = (UnsafeSlice) slice;
         int offset = 0;
         int length = size;
