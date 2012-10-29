@@ -44,7 +44,8 @@ public class ServerMainModule
     public IDBI createStorageManagerDBI()
     {
         // TODO: configuration
-        return new DBI("jdbc:h2:file:var/presto-data/db/StorageManager");
+        DBI dbi = new DBI("jdbc:h2:file:var/presto-data/db/StorageManager;DB_CLOSE_DELAY=-1");
+        return dbi;
     }
 
     @Provides
@@ -53,6 +54,7 @@ public class ServerMainModule
     public IDBI createMetadataDBI()
     {
         // TODO: configuration
-        return new DBI("jdbc:h2:file:var/presto-data/db/Metadata");
+        DBI dbi = new DBI("jdbc:h2:file:var/presto-data/db/Metadata;DB_CLOSE_DELAY=-1");
+        return dbi;
     }
 }
