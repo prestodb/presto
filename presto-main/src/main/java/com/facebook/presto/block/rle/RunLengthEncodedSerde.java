@@ -14,6 +14,7 @@ import com.facebook.presto.block.YieldingIterable;
 import com.facebook.presto.block.YieldingIterator;
 import com.facebook.presto.block.YieldingIterators;
 import com.facebook.presto.block.uncompressed.UncompressedTupleInfoSerde;
+import com.facebook.presto.nblock.Blocks;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
@@ -71,6 +72,12 @@ public class RunLengthEncodedSerde
                 // present entire stream as a single "block" since RLEs are currently very small
                 return new SingletonTupleStream<>(runLengthEncodedTupleStream);
 //                return runLengthEncodedTupleStream;
+            }
+
+            @Override
+            public Blocks deserializeBlocks(Range totalRange, Slice slice)
+            {
+                throw new UnsupportedOperationException();
             }
         };
     }

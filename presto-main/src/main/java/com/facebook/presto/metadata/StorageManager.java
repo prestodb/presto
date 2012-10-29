@@ -1,6 +1,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.nblock.Blocks;
 
 import java.io.IOException;
 
@@ -11,5 +12,5 @@ public interface StorageManager
 
     TupleStream getTupleStream(String databaseName, String tableName, int fieldIndex);
 
-    Iterable<TupleStream> getIterable(String databaseName, String tableName, int fieldIndex);
+    Blocks getBlocks(String databaseName, String tableName, int fieldIndex);
 }
