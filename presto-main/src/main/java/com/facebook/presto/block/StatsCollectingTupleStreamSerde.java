@@ -2,6 +2,7 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.SizeOf;
+import com.facebook.presto.nblock.Blocks;
 import com.facebook.presto.operator.tap.StatsTupleValueSink;
 import com.facebook.presto.operator.tap.Tap;
 import com.facebook.presto.slice.Slice;
@@ -65,6 +66,15 @@ public class StatsCollectingTupleStreamSerde
             int footerLength = slice.getInt(slice.length() - SizeOf.SIZE_OF_INT);
             int footerOffset = slice.length() - footerLength - SizeOf.SIZE_OF_INT;
             return StatsTupleValueSink.Stats.deserialize(slice.slice(footerOffset, footerLength));
+        }
+
+        @Override
+        public Blocks deserializeBlocks(Range totalRange, Slice slice)
+        {
+            checkNotNull(slice, "slice is null");
+            int footerLength = slice.getInt(slice.length() - SizeOf.SIZE_OF_INT);
+            int footerOffset = slice.length() - footerLength - SizeOf.SIZE_OF_INT;
+            return tupleStreamDeserializer.deserializeBlocks(totalRange, slice.slice(0, footerOffset));
         }
     }
 

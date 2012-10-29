@@ -1,6 +1,7 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.Range;
+import com.facebook.presto.nblock.Blocks;
 import com.facebook.presto.slice.Slice;
 
 public interface TupleStreamDeserializer
@@ -11,4 +12,6 @@ public interface TupleStreamDeserializer
      * that the contents of the underlying Slice will not be changing.
      */
     TupleStream deserialize(Range totalRange, Slice slice);
+
+    Blocks deserializeBlocks(Range totalRange, Slice slice);
 }

@@ -3,15 +3,16 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.GenericTupleStream;
-import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.SelfDescriptiveSerde;
 import com.facebook.presto.block.StatsCollectingTupleStreamSerde;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerdes;
-import com.facebook.presto.block.YieldingIterable;
 import com.facebook.presto.block.uncompressed.UncompressedSerde;
 import com.facebook.presto.ingest.StreamWriterTupleValueSink;
 import com.facebook.presto.ingest.TupleStreamImporter;
+import com.facebook.presto.nblock.Block;
+import com.facebook.presto.nblock.BlockUtils;
+import com.facebook.presto.nblock.Blocks;
 import com.facebook.presto.operator.MergeOperator;
 import com.facebook.presto.operator.tap.StatsTupleValueSink;
 import com.facebook.presto.slice.Slice;
@@ -26,7 +27,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 import com.google.inject.Inject;
-import io.airlift.units.Duration;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.StatementContext;
@@ -337,9 +337,8 @@ public class DatabaseStorageManager
     }
 
     @Override
-    public Iterable<TupleStream> getIterable(final String databaseName, final String tableName, final int fieldIndex)
+    public Blocks getBlocks(final String databaseName, final String tableName, final int fieldIndex)
     {
-        long start = System.nanoTime();
         List<File> files = dbi.withHandle(new HandleCallback<List<File>>()
         {
             @Override
@@ -368,11 +367,10 @@ public class DatabaseStorageManager
                         .list();
             }
         });
-        System.err.printf("h2 time: %s\n", Duration.nanosSince(start));
-        return convertFilesToIterable(files);
+        return convertFilesToBlocks(files);
     }
 
-    private Iterable<TupleStream> convertFilesToIterable(List<File> absoluteFiles)
+    private Blocks convertFilesToBlocks(List<File> absoluteFiles)
     {
         final List<File> files = Lists.transform(absoluteFiles, new Function<File, File>() {
             @Override
@@ -384,24 +382,29 @@ public class DatabaseStorageManager
         Preconditions.checkArgument(!files.isEmpty(), "no files in stream");
 
         final StatsCollectingTupleStreamSerde.StatsAnnotatedTupleStreamDeserializer deserializer = new StatsCollectingTupleStreamSerde.StatsAnnotatedTupleStreamDeserializer(SelfDescriptiveSerde.DESERIALIZER);
-        return Iterables.concat(Lists.transform(files, new Function<File, Iterable<TupleStream>>()
+
+        // Use the first file to get the schema
+        Slice slice = mappedFileCache.getUnchecked(files.get(0).getAbsolutePath());
+        TupleInfo tupleInfo = deserializer.deserialize(Range.ALL, slice).getTupleInfo();
+
+        return BlockUtils.toBlocks(tupleInfo, Iterables.concat(Lists.transform(files, new Function<File, Iterable<? extends Block>>()
         {
             private Range range;
 
             @Override
-            public Iterable<TupleStream> apply(File file)
+            public Iterable<? extends Block> apply(File file)
             {
                 Slice slice = mappedFileCache.getUnchecked(file.getAbsolutePath());
                 long rowCount = deserializer.deserializeStats(slice).getRowCount();
                 if (range == null) {
                     range = Range.create(0, rowCount - 1);
-                } else {
+                }
+                else {
                     range = Range.create(range.getEnd() + 1, range.getEnd() + rowCount);
                 }
-                YieldingIterable<TupleStream> deserialized = (YieldingIterable<TupleStream>) deserializer.deserialize(range, slice);
-                return ImmutableList.copyOf(deserialized.iterator(new QuerySession()));
+                return deserializer.deserializeBlocks(range, slice);
             }
-        }));
+        })));
     }
 
     private static class FilesAndRowCount

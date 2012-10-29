@@ -2,6 +2,7 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.SizeOf;
+import com.facebook.presto.nblock.Blocks;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceOutput;
 import com.google.common.base.Throwables;
@@ -69,6 +70,21 @@ public class SelfDescriptiveSerde
             try {
                 TupleStreamSerde tupleStreamSerde = OBJECT_MAPPER.readValue(slice.slice(headerOffset, headerLength).input(), TupleStreamSerde.class);
                 return tupleStreamSerde.createDeserializer().deserialize(totalRange, slice.slice(dataOffset, slice.length() - dataOffset));
+            } catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
+        }
+
+        @Override
+        public Blocks deserializeBlocks(Range totalRange, Slice slice)
+        {
+            checkNotNull(slice, "slice is null");
+            int headerLength = slice.getInt(0);
+            int headerOffset = SizeOf.SIZE_OF_INT;
+            int dataOffset = headerOffset + headerLength;
+            try {
+                TupleStreamSerde tupleStreamSerde = OBJECT_MAPPER.readValue(slice.slice(headerOffset, headerLength).input(), TupleStreamSerde.class);
+                return tupleStreamSerde.createDeserializer().deserializeBlocks(totalRange, slice.slice(dataOffset, slice.length() - dataOffset));
             } catch (IOException e) {
                 throw Throwables.propagate(e);
             }

@@ -5,15 +5,25 @@ package com.facebook.presto;
 
 import com.facebook.presto.cli.Console;
 import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.block.ProjectionTupleStream;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.ProjectionTupleStream;
 import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.block.TupleStreamSerializer;
+import com.facebook.presto.demo.FilterAndProject;
 import com.facebook.presto.ingest.DelimitedTupleStream;
 import com.facebook.presto.ingest.RuntimeIOException;
 import com.facebook.presto.ingest.StreamWriterTupleValueSink;
 import com.facebook.presto.ingest.TupleStreamImporter;
+import com.facebook.presto.metadata.ColumnMetadata;
+import com.facebook.presto.metadata.DatabaseMetadata;
+import com.facebook.presto.metadata.DatabaseStorageManager;
+import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.nblock.Block;
+import com.facebook.presto.nblock.BlockCursor;
+import com.facebook.presto.nblock.Blocks;
+import com.facebook.presto.noperator.AggregationOperator;
+import com.facebook.presto.noperator.aggregation.CountAggregation;
 import com.facebook.presto.operator.ConsolePrinter.DelimitedTuplePrinter;
 import com.facebook.presto.operator.ConsolePrinter.TuplePrinter;
 import com.facebook.presto.server.HttpQueryProvider;
@@ -21,6 +31,7 @@ import com.facebook.presto.server.QueryDriversTupleStream;
 import com.facebook.presto.server.ServerMainModule;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.io.Files;
@@ -53,6 +64,7 @@ import io.airlift.log.LoggingConfiguration;
 import io.airlift.node.NodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.airlift.units.Duration;
+import org.skife.jdbi.v2.DBI;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.io.File;
@@ -82,6 +94,7 @@ public class Main
                 .withCommand(Server.class)
                 .withCommand(ExampleSumAggregation.class)
                 .withCommand(Execute.class)
+                .withCommand(DemoQuery.class)
                 .withCommands(Help.class);
 
         builder.withGroup("example")
@@ -147,6 +160,76 @@ public class Main
                 log.error(e);
                 System.exit(1);
             }
+        }
+    }
+
+    @Command(name = "demo", description = "Run the demo query")
+    public static class DemoQuery
+            extends BaseCommand
+    {
+
+        private final DatabaseStorageManager storageManager;
+        private final DatabaseMetadata metadata;
+
+        public DemoQuery()
+        {
+            DBI storageManagerDbi = new DBI("jdbc:h2:file:var/presto-data/db/StorageManager;DB_CLOSE_DELAY=-1");
+            DBI metadataDbi = new DBI("jdbc:h2:file:var/presto-data/db/Metadata;DB_CLOSE_DELAY=-1");
+
+            storageManager = new DatabaseStorageManager(storageManagerDbi);
+            metadata = new DatabaseMetadata(metadataDbi);
+
+        }
+
+        public void run()
+        {
+            for (int i = 0; i < 20; i++) {
+                try {
+                    long start = System.nanoTime();
+
+                    Blocks partition = getColumn("hivedba_query_stats", "partition");
+                    Blocks startTime = getColumn("hivedba_query_stats", "start_time");
+                    Blocks endTime = getColumn("hivedba_query_stats", "end_time");
+                    Blocks cpuMsec = getColumn("hivedba_query_stats", "cpu_msec");
+
+                    FilterAndProject filterAndProject = new FilterAndProject(partition, startTime, endTime, cpuMsec);
+                    AggregationOperator aggregation = new AggregationOperator(filterAndProject, CountAggregation.PROVIDER);
+
+                    TuplePrinter tuplePrinter = new DelimitedTuplePrinter();
+
+                    int count = 0;
+                    long grandTotal = 0;
+                    for (Block block : aggregation) {
+                        BlockCursor cursor = block.cursor();
+                        while (cursor.advanceNextPosition()) {
+                            count++;
+                            Tuple tuple = cursor.getTuple();
+                            grandTotal += tuple.getLong(0);
+                            tuplePrinter.print(tuple);
+                        }
+                    }
+                    Duration duration = Duration.nanosSince(start);
+
+                    System.out.printf("%d rows in %4.2f ms %d grandTotal\n", count, duration.toMillis(), grandTotal);
+
+                }
+                catch (Exception e) {
+                    throw Throwables.propagate(e);
+                }
+            }
+        }
+
+        private Blocks getColumn(final String tableName, String columnName) {
+            TableMetadata tableMetadata = metadata.getTable("default", "default", tableName);
+            int index = 0;
+            for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
+                if (columnName.equals(columnMetadata.getName())) {
+                    break;
+                }
+                ++index;
+            }
+            final int columnIndex = index;
+            return storageManager.getBlocks("default", tableName, columnIndex);
         }
     }
 
