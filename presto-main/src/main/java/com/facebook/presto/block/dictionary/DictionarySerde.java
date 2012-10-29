@@ -7,6 +7,7 @@ import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.*;
 import com.facebook.presto.block.dictionary.Dictionary.DictionaryBuilder;
 import com.facebook.presto.block.uncompressed.UncompressedTupleInfoSerde;
+import com.facebook.presto.nblock.Blocks;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
@@ -65,6 +66,12 @@ public class DictionarySerde
                 Slice payloadSlice = slice.slice(0, slice.length() - dictionaryLength - SizeOf.SIZE_OF_INT);
 
                 return new DictionaryEncodedTupleStream(dictionary, idSerde.createDeserializer().deserialize(totalRange, payloadSlice));
+            }
+
+            @Override
+            public Blocks deserializeBlocks(Range totalRange, Slice slice)
+            {
+                throw new UnsupportedOperationException();
             }
         };
     }
