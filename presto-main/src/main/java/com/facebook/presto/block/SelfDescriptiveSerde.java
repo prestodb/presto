@@ -1,12 +1,10 @@
 package com.facebook.presto.block;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.SizeOf;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceOutput;
 import com.google.common.base.Throwables;
-import com.google.inject.Guice;
-import com.google.inject.Stage;
-import io.airlift.json.JsonModule;
 import io.airlift.json.ObjectMapperProvider;
 import org.codehaus.jackson.map.ObjectMapper;
 
@@ -62,7 +60,7 @@ public class SelfDescriptiveSerde
             implements TupleStreamDeserializer
     {
         @Override
-        public TupleStream deserialize(Slice slice)
+        public TupleStream deserialize(Range totalRange, Slice slice)
         {
             checkNotNull(slice, "slice is null");
             int headerLength = slice.getInt(0);
@@ -70,7 +68,7 @@ public class SelfDescriptiveSerde
             int dataOffset = headerOffset + headerLength;
             try {
                 TupleStreamSerde tupleStreamSerde = OBJECT_MAPPER.readValue(slice.slice(headerOffset, headerLength).input(), TupleStreamSerde.class);
-                return tupleStreamSerde.createDeserializer().deserialize(slice.slice(dataOffset, slice.length() - dataOffset));
+                return tupleStreamSerde.createDeserializer().deserialize(totalRange, slice.slice(dataOffset, slice.length() - dataOffset));
             } catch (IOException e) {
                 throw Throwables.propagate(e);
             }

@@ -1,5 +1,6 @@
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.block.*;
 import com.facebook.presto.operator.tap.StatsTupleValueSink;
 import com.facebook.presto.slice.Slice;
@@ -117,7 +118,7 @@ public abstract class AbstractTupleStreamBenchmark
             try {
                 Slice slice = Slices.mapFileReadOnly(tpchDataProvider.getColumnFile(column, serde.createSerializer(), encoding.getName()));
                 statsBuilder.add(serde.createDeserializer().deserializeStats(slice));
-                return serde.createDeserializer().deserialize(slice);
+                return serde.createDeserializer().deserialize(Range.ALL, slice);
             } catch (IOException e) {
                 throw Throwables.propagate(e);
             }

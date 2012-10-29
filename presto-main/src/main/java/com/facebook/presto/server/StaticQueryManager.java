@@ -3,13 +3,15 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
+import com.facebook.presto.aggregation.CountAggregation;
 import com.facebook.presto.aggregation.LongSumAggregation;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.ProjectionTupleStream;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.ProjectionTupleStream;
 import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerde;
@@ -19,8 +21,11 @@ import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.block.uncompressed.UncompressedSerde;
 import com.facebook.presto.hive.HiveClient;
 import com.facebook.presto.ingest.DelimitedTupleStream;
+import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.HiveImportManager;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.StorageManager;
+import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.GroupByOperator;
 import com.facebook.presto.operator.HashAggregationOperator;
@@ -65,6 +70,7 @@ public class StaticQueryManager implements QueryManager
     private final int blockBufferMax;
     private final ExecutorService executor;
     private final HiveClient hiveClient;
+    private final Metadata metadata;
     private final StorageManager storageManager;
     private final HiveImportManager hiveImportManager;
 
@@ -76,17 +82,18 @@ public class StaticQueryManager implements QueryManager
     private final Map<String, QueryState> queries = new HashMap<>();
 
     @Inject
-    public StaticQueryManager(HiveClient hiveClient, StorageManager storageManager, HiveImportManager hiveImportManager)
+    public StaticQueryManager(HiveClient hiveClient, Metadata metadata, StorageManager storageManager, HiveImportManager hiveImportManager)
     {
-        this(20, hiveClient, storageManager, hiveImportManager);
+        this(20, hiveClient, metadata, storageManager, hiveImportManager);
     }
 
-    public StaticQueryManager(int blockBufferMax, HiveClient hiveClient, StorageManager storageManager, HiveImportManager hiveImportManager)
+    public StaticQueryManager(int blockBufferMax, HiveClient hiveClient, Metadata metadata, StorageManager storageManager, HiveImportManager hiveImportManager)
     {
         Preconditions.checkArgument(blockBufferMax > 0, "blockBufferMax must be at least 1");
         this.blockBufferMax = blockBufferMax;
         executor = Executors.newCachedThreadPool(new ThreadFactoryBuilder().setNameFormat("http-query-processor-%d").build());
         this.hiveClient = hiveClient;
+        this.metadata = metadata;
         this.storageManager = storageManager;
         this.hiveImportManager = hiveImportManager;
     }
@@ -296,8 +303,8 @@ public class StaticQueryManager implements QueryManager
                 Slice groupBySlice = Slices.mapFileReadOnly(groupByFile);
                 Slice aggregateSlice = Slices.mapFileReadOnly(aggregateFile);
 
-                TupleStream groupBySource = groupBySerde.createDeserializer().deserialize(groupBySlice);
-                TupleStream aggregateSource = aggregateSerde.createDeserializer().deserialize(aggregateSlice);
+                TupleStream groupBySource = groupBySerde.createDeserializer().deserialize(Range.ALL, groupBySlice);
+                TupleStream aggregateSource = aggregateSerde.createDeserializer().deserialize(Range.ALL, aggregateSlice);
 
                 GroupByOperator groupBy = new GroupByOperator(groupBySource);
                 HashAggregationOperator aggregation = new HashAggregationOperator(groupBy, aggregateSource, LongSumAggregation.PROVIDER);

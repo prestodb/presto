@@ -17,11 +17,17 @@ public class GenericCursor implements Cursor
     private final QuerySession session;
     private final TupleInfo info;
     private final YieldingIterator<? extends TupleStream> iterator;
+    private final Range totalRange;
 
     private Cursor blockCursor;
     private boolean hasAdvanced;
 
     public GenericCursor(QuerySession session, TupleInfo info, YieldingIterator<? extends TupleStream> iterator)
+    {
+        this(session, info, iterator, Range.ALL);
+    }
+
+    public GenericCursor(QuerySession session, TupleInfo info, YieldingIterator<? extends TupleStream> iterator, Range totalRange)
     {
         Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkNotNull(info, "info is null");
@@ -34,6 +40,7 @@ public class GenericCursor implements Cursor
         if (iterator.hasNext()) {
             blockCursor = iterator.next().cursor(session);
         }
+        this.totalRange = totalRange;
     }
 
     @Override
@@ -45,7 +52,7 @@ public class GenericCursor implements Cursor
     @Override
     public Range getRange()
     {
-        return Range.ALL;
+        return totalRange;
     }
 
     @Override

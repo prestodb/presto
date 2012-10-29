@@ -1,5 +1,6 @@
 package com.facebook.presto.block;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.block.dictionary.DictionarySerde;
 import com.facebook.presto.block.rle.RunLengthEncodedSerde;
 import com.facebook.presto.block.uncompressed.UncompressedSerde;
@@ -29,7 +30,7 @@ public class TestSelfIdTupleStreamSerde
                 .finish();
         Blocks.assertTupleStreamEquals(
                 // Should be able to use generic deserializer
-                SelfDescriptiveSerde.DESERIALIZER.deserialize(sliceOutput.slice()),
+                SelfDescriptiveSerde.DESERIALIZER.deserialize(Range.ALL, sliceOutput.slice()),
                 tupleStream
         );
     }
@@ -44,7 +45,7 @@ public class TestSelfIdTupleStreamSerde
                 .finish();
         Blocks.assertTupleStreamEquals(
                 // Should be able to use generic deserializer
-                SelfDescriptiveSerde.DESERIALIZER.deserialize(sliceOutput.slice()),
+                SelfDescriptiveSerde.DESERIALIZER.deserialize(Range.ALL, sliceOutput.slice()),
                 tupleStream
         );
     }
@@ -59,7 +60,7 @@ public class TestSelfIdTupleStreamSerde
                 .finish();
         Blocks.assertTupleStreamEquals(
                 // Should be able to use generic deserializer
-                SelfDescriptiveSerde.DESERIALIZER.deserialize(sliceOutput.slice()),
+                SelfDescriptiveSerde.DESERIALIZER.deserialize(Range.ALL, sliceOutput.slice()),
                 tupleStream
         );
     }
