@@ -251,6 +251,6 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
                 new RunLengthEncodedBlock(Tuples.createTuple("cherry"), Range.create(20, 21)),
                 new RunLengthEncodedBlock(Tuples.createTuple("date"), Range.create(30, 30)));
 
-        return new RunLengthEncodedCursor(TupleInfo.SINGLE_VARBINARY, blocks.iterator());
+        return new RunLengthEncodedCursor(TupleInfo.SINGLE_VARBINARY, blocks.iterator(), Range.ALL);
     }
 }

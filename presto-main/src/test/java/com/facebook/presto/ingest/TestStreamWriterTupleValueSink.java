@@ -1,5 +1,6 @@
 package com.facebook.presto.ingest;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.Cursors;
@@ -43,7 +44,7 @@ public class TestStreamWriterTupleValueSink
         cursor.advanceNextValue();
         streamWriterTupleValueSink.finished();
 
-        TupleStream resultStream = serde.createDeserializer().deserialize(Slices.wrappedBuffer(byteArrayOutputStream.toByteArray()));
+        TupleStream resultStream = serde.createDeserializer().deserialize(Range.ALL, Slices.wrappedBuffer(byteArrayOutputStream.toByteArray()));
         Blocks.assertTupleStreamEquals(resultStream, tupleStream);
     }
 }

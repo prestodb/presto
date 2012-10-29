@@ -1,6 +1,7 @@
 package com.facebook.presto.ingest;
 
 import com.facebook.presto.Main;
+import com.facebook.presto.Range;
 import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerdes;
@@ -113,7 +114,7 @@ public class TestCsv
         Iterator<String> partsIterator = Splitter.on(':').split(dataType).iterator();
         String typeName = partsIterator.next();
         String serdeName = partsIterator.next();
-        return TupleStreamSerdes.Encoding.fromName(serdeName).createSerde().createDeserializer().deserialize(Slices.mapFileReadOnly(file));
+        return TupleStreamSerdes.Encoding.fromName(serdeName).createSerde().createDeserializer().deserialize(Range.ALL, Slices.mapFileReadOnly(file));
     }
 
     private static String resourceFile(String resourceName)

@@ -42,6 +42,12 @@ public final class YieldingIterators
         return new YieldingIterableAdapter<>(source);
     }
 
+    @SafeVarargs
+    public static <T extends TupleStream> YieldingIterator<T> yieldingIterator(T first, T... rest)
+    {
+        return yieldingIterator(Lists.asList(first, rest).iterator());
+    }
+
     public static <T extends TupleStream> YieldingIterator<T> yieldingIterator(Iterator<T> source)
     {
         return new YieldingIteratorAdapter<>(Iterators.peekingIterator(source));

@@ -1,5 +1,6 @@
 package com.facebook.presto.block;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.block.uncompressed.UncompressedSerde;
 import com.facebook.presto.operator.tap.StatsTupleValueSink;
 import com.facebook.presto.slice.DynamicSliceOutput;
@@ -27,7 +28,7 @@ public class TestStatsCollectingTupleStreamSerde
                 .createTupleStreamWriter(sliceOutput)
                 .append(tupleStream)
                 .finish();
-        TupleStream resultTupleStream = serde.createDeserializer().deserialize(sliceOutput.slice());
+        TupleStream resultTupleStream = serde.createDeserializer().deserialize(Range.ALL, sliceOutput.slice());
         StatsTupleValueSink.Stats stats = serde.createDeserializer().deserializeStats(sliceOutput.slice());
         Blocks.assertTupleStreamEquals(resultTupleStream, tupleStream);
         

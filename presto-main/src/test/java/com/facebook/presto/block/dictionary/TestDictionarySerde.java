@@ -1,5 +1,6 @@
 package com.facebook.presto.block.dictionary;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.Blocks;
@@ -36,7 +37,7 @@ public class TestDictionarySerde
     {
         TupleStream tupleStream = Blocks.createTupleStream(0, "a", "b", "cde", "fuu", "a", "fuu");
         TupleStreamSerdes.serialize(dictionarySerde, tupleStream, sliceOutput);
-        assertTupleStreamEquals(dictionarySerde.createDeserializer().deserialize(sliceOutput.slice()), tupleStream);
+        assertTupleStreamEquals(dictionarySerde.createDeserializer().deserialize(Range.ALL, sliceOutput.slice()), tupleStream);
     }
 
     @Test
@@ -45,7 +46,7 @@ public class TestDictionarySerde
     {
         TupleStream tupleStream = Blocks.createTupleStream(0, "a", "a", "a", "a", "a", "a", "a");
         TupleStreamSerdes.serialize(dictionarySerde, tupleStream, sliceOutput);
-        TupleStream deserialize = dictionarySerde.createDeserializer().deserialize(sliceOutput.slice());
+        TupleStream deserialize = dictionarySerde.createDeserializer().deserialize(Range.ALL, sliceOutput.slice());
         assertTupleStreamEquals(deserialize, tupleStream);
     }
 
@@ -55,7 +56,7 @@ public class TestDictionarySerde
     {
         TupleStream tupleStream = Blocks.createTupleStream(0, "a", "b", "c", "d", "e", "f", "g");
         TupleStreamSerdes.serialize(dictionarySerde, tupleStream, sliceOutput);
-        assertTupleStreamEquals(dictionarySerde.createDeserializer().deserialize(sliceOutput.slice()), tupleStream);
+        assertTupleStreamEquals(dictionarySerde.createDeserializer().deserialize(Range.ALL, sliceOutput.slice()), tupleStream);
     }
 
     @Test
@@ -68,7 +69,7 @@ public class TestDictionarySerde
                 Blocks.createBlock(100, "y", "y", "a", "y", "b"),
                 Blocks.createBlock(200, "b"));
         TupleStreamSerdes.serialize(dictionarySerde, tupleStream, sliceOutput);
-        Blocks.assertTupleStreamEquals(tupleStream, dictionarySerde.createDeserializer().deserialize(sliceOutput.slice()));
+        Blocks.assertTupleStreamEquals(tupleStream, dictionarySerde.createDeserializer().deserialize(Range.ALL, sliceOutput.slice()));
     }
     
     @Test
@@ -82,7 +83,7 @@ public class TestDictionarySerde
                 .append(-1L).append(Slices.wrappedBuffer("ccc".getBytes(UTF_8)))
                 .build());
         TupleStreamSerdes.serialize(dictionarySerde, tupleStream, sliceOutput);
-        Blocks.assertTupleStreamEquals(tupleStream, dictionarySerde.createDeserializer().deserialize(sliceOutput.slice()));
+        Blocks.assertTupleStreamEquals(tupleStream, dictionarySerde.createDeserializer().deserialize(Range.ALL, sliceOutput.slice()));
     }
 
     @Test
@@ -102,6 +103,6 @@ public class TestDictionarySerde
                 .append(block3)
                 .append(block4)
                 .finish();
-        Blocks.assertTupleStreamEquals(tupleStream, dictionarySerde.createDeserializer().deserialize(sliceOutput.slice()));
+        Blocks.assertTupleStreamEquals(tupleStream, dictionarySerde.createDeserializer().deserialize(Range.ALL, sliceOutput.slice()));
     }
 }

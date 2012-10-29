@@ -1,5 +1,6 @@
 package com.facebook.presto.block;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.block.dictionary.DictionarySerde;
 import com.facebook.presto.block.rle.RunLengthEncodedSerde;
 import com.facebook.presto.block.uncompressed.UncompressedSerde;
@@ -25,7 +26,7 @@ public class TupleStreamSerdes
     public static TupleStream deserialize(TupleStreamSerde serde, Slice slice)
     {
         checkNotNull(serde, "serde is null");
-        return serde.createDeserializer().deserialize(slice);
+        return serde.createDeserializer().deserialize(Range.ALL, slice);
     }
 
     public static enum Encoding

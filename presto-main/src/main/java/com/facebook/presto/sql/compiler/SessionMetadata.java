@@ -15,8 +15,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SessionMetadata
 {
-    private static final String DEFAULT_CATALOG = "default";
-    private static final String DEFAULT_SCHEMA = "default";
+    public static final String DEFAULT_CATALOG = "default";
+    public static final String DEFAULT_SCHEMA = "default";
 
     private final Metadata metadata;
 

@@ -20,10 +20,16 @@ public class RunLengthEncodedCursor
 {
     private final TupleInfo info;
     private final PeekingIterator<RunLengthEncodedBlock> iterator;
+    private final Range totalRange;
     private RunLengthEncodedBlock block;
     private long position;
 
     public RunLengthEncodedCursor(TupleInfo info, Iterator<RunLengthEncodedBlock> iterator)
+    {
+        this(info, iterator, Range.ALL);
+    }
+
+    public RunLengthEncodedCursor(TupleInfo info, Iterator<RunLengthEncodedBlock> iterator, Range totalRange)
     {
         Preconditions.checkNotNull(info, "info is null");
         Preconditions.checkArgument(iterator.hasNext(), "iterator is empty");
@@ -31,6 +37,7 @@ public class RunLengthEncodedCursor
 
         this.info = info;
         this.iterator = Iterators.peekingIterator(iterator);
+        this.totalRange = totalRange;
     }
 
     @Override
@@ -42,7 +49,7 @@ public class RunLengthEncodedCursor
     @Override
     public Range getRange()
     {
-        return Range.ALL;
+        return totalRange;
     }
 
     @Override

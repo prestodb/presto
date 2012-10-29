@@ -1,5 +1,6 @@
 package com.facebook.presto.block;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.SizeOf;
 import com.facebook.presto.operator.tap.StatsTupleValueSink;
 import com.facebook.presto.operator.tap.Tap;
@@ -49,12 +50,12 @@ public class StatsCollectingTupleStreamSerde
         }
 
         @Override
-        public TupleStream deserialize(Slice slice)
+        public TupleStream deserialize(Range totalRange, Slice slice)
         {
             checkNotNull(slice, "slice is null");
             int footerLength = slice.getInt(slice.length() - SizeOf.SIZE_OF_INT);
             int footerOffset = slice.length() - footerLength - SizeOf.SIZE_OF_INT;
-            return tupleStreamDeserializer.deserialize(slice.slice(0, footerOffset));
+            return tupleStreamDeserializer.deserialize(totalRange, slice.slice(0, footerOffset));
         }
 
         // TODO: how do we expose the stats data to other components?

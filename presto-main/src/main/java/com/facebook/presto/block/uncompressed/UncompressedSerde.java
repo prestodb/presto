@@ -5,8 +5,20 @@ package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.*;
-import com.facebook.presto.slice.*;
+import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.GenericTupleStream;
+import com.facebook.presto.block.QuerySession;
+import com.facebook.presto.block.TupleStream;
+import com.facebook.presto.block.TupleStreamDeserializer;
+import com.facebook.presto.block.TupleStreamSerde;
+import com.facebook.presto.block.TupleStreamSerializer;
+import com.facebook.presto.block.TupleStreamWriter;
+import com.facebook.presto.slice.ByteArraySlice;
+import com.facebook.presto.slice.DynamicSliceOutput;
+import com.facebook.presto.slice.Slice;
+import com.facebook.presto.slice.SliceInput;
+import com.facebook.presto.slice.SliceOutput;
+import com.facebook.presto.slice.Slices;
 import com.google.common.collect.AbstractIterator;
 import io.airlift.units.DataSize;
 
@@ -44,9 +56,9 @@ public class UncompressedSerde
     {
         return new TupleStreamDeserializer() {
             @Override
-            public TupleStream deserialize(Slice slice)
+            public TupleStream deserialize(Range totalRange, Slice slice)
             {
-                return readAsStream(slice);
+                return readAsStream(totalRange, slice);
             }
         };
     }
@@ -66,24 +78,24 @@ public class UncompressedSerde
             throws IOException
     {
         Slice mappedSlice = Slices.mapFileReadOnly(file);
-        return INSTANCE.createDeserializer().deserialize(mappedSlice);
+        return INSTANCE.createDeserializer().deserialize(Range.ALL, mappedSlice);
     }
 
     public static Iterator<UncompressedBlock> read(Slice slice)
     {
-        return new UncompressedReader(slice);
+        return new UncompressedReader(0, slice);
     }
 
-    public static TupleStream readAsStream(final Slice slice)
+    public static TupleStream readAsStream(final Range totalRange, final Slice slice)
     {
-        UncompressedReader reader = new UncompressedReader(slice);
+        TupleInfo tupleInfo = new UncompressedReader(0, slice).tupleInfo;
 
-        return new GenericTupleStream<>(reader.tupleInfo, new Iterable<UncompressedBlock>()
+        return new GenericTupleStream<>(tupleInfo, new Iterable<UncompressedBlock>()
         {
             @Override
             public Iterator<UncompressedBlock> iterator()
             {
-                return new UncompressedReader(slice);
+                return new UncompressedReader(totalRange.getStart(), slice);
             }
         });
     }
@@ -153,11 +165,13 @@ public class UncompressedSerde
     private static class UncompressedReader
             extends AbstractIterator<UncompressedBlock>
     {
+        private final long positionOffset;
         private final TupleInfo tupleInfo;
         private final SliceInput sliceInput;
 
-        private UncompressedReader(Slice slice)
+        private UncompressedReader(long positionOffset, Slice slice)
         {
+            this.positionOffset = positionOffset;
             sliceInput = slice.input();
             this.tupleInfo = UncompressedTupleInfoSerde.deserialize(sliceInput);
         }
@@ -171,7 +185,7 @@ public class UncompressedSerde
 
             int blockSize = sliceInput.readInt();
             int tupleCount = sliceInput.readInt();
-            long startPosition = sliceInput.readLong();
+            long startPosition = sliceInput.readLong() + positionOffset;
 
             Range range = Range.create(startPosition, startPosition + tupleCount - 1);
 

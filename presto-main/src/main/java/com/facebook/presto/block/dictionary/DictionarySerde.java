@@ -51,7 +51,7 @@ public class DictionarySerde
     {
         return new TupleStreamDeserializer() {
             @Override
-            public TupleStream deserialize(Slice slice)
+            public TupleStream deserialize(Range totalRange, Slice slice)
             {
                 checkNotNull(slice, "slice is null");
 
@@ -64,7 +64,7 @@ public class DictionarySerde
 
                 Slice payloadSlice = slice.slice(0, slice.length() - dictionaryLength - SizeOf.SIZE_OF_INT);
 
-                return new DictionaryEncodedTupleStream(dictionary, idSerde.createDeserializer().deserialize(payloadSlice));
+                return new DictionaryEncodedTupleStream(dictionary, idSerde.createDeserializer().deserialize(totalRange, payloadSlice));
             }
         };
     }
