@@ -10,4 +10,6 @@ public interface StorageManager
             throws IOException;
 
     TupleStream getTupleStream(String databaseName, String tableName, int fieldIndex);
+
+    Iterable<TupleStream> getIterable(String databaseName, String tableName, int fieldIndex);
 }

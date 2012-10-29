@@ -1,13 +1,14 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.GenericTupleStream;
-import com.facebook.presto.block.RepositioningTupleStream;
+import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.SelfDescriptiveSerde;
 import com.facebook.presto.block.StatsCollectingTupleStreamSerde;
 import com.facebook.presto.block.TupleStream;
-import com.facebook.presto.block.TupleStreamDeserializer;
 import com.facebook.presto.block.TupleStreamSerdes;
+import com.facebook.presto.block.YieldingIterable;
 import com.facebook.presto.block.uncompressed.UncompressedSerde;
 import com.facebook.presto.ingest.StreamWriterTupleValueSink;
 import com.facebook.presto.ingest.TupleStreamImporter;
@@ -17,11 +18,15 @@ import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 import com.google.inject.Inject;
+import io.airlift.units.Duration;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.StatementContext;
@@ -31,6 +36,7 @@ import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.tweak.HandleCallback;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
+import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.sql.ResultSet;
@@ -49,6 +55,16 @@ public class DatabaseStorageManager
     private final IDBI dbi;
     private final File baseStorageDir;
     private final File baseStagingDir;
+    private final LoadingCache<String, Slice> mappedFileCache = CacheBuilder.newBuilder().build(new CacheLoader<String, Slice>(){
+        @Override
+        public Slice load(String key)
+                throws Exception
+        {
+            File file = new File(key);
+            Slice slice = Slices.mapFileReadOnly(file);
+            return slice;
+        }
+    });
 
     public DatabaseStorageManager(IDBI dbi, File baseStorageDir, File baseStagingDir)
     {
@@ -117,7 +133,7 @@ public class DatabaseStorageManager
         ImmutableList.Builder<TupleStream> sourceStreamsBuilder = ImmutableList.builder();
         ImmutableList.Builder<File> optimizedFilesBuilder = ImmutableList.builder();
         for (int field = 0; field < fieldCount; field++) {
-            Slice slice = Slices.mapFileReadOnly(stagedFiles.get(field));
+            Slice slice = mappedFileCache.getUnchecked(stagedFiles.get(field).getAbsolutePath());
             StatsTupleValueSink.Stats stats = STATS_STAGING_SERDE.createDeserializer().deserializeStats(slice);
 
             // Compute optimal encoding from stats
@@ -147,7 +163,7 @@ public class DatabaseStorageManager
                 Files.move(stagedFiles.get(field), outputFile);
             }
             else {
-                sourceStreamsBuilder.add(STATS_STAGING_SERDE.createDeserializer().deserialize(slice));
+                sourceStreamsBuilder.add(STATS_STAGING_SERDE.createDeserializer().deserialize(Range.ALL, slice));
                 tupleValueSinkBuilder.add(
                         new StreamWriterTupleValueSink(
                                 Files.newOutputStreamSupplier(outputFile),
@@ -286,37 +302,106 @@ public class DatabaseStorageManager
 
     private TupleStream convertFilesToStream(List<File> files)
     {
+        files = Lists.transform(files, new Function<File, File>() {
+            @Override
+            public File apply(@Nullable File input)
+            {
+                return new File(input.getAbsolutePath().replace("/Users/martint/fb/presto/presto/", ""));
+            }
+        });
         Preconditions.checkArgument(!files.isEmpty(), "no files in stream");
         final StatsCollectingTupleStreamSerde.StatsAnnotatedTupleStreamDeserializer deserializer = new StatsCollectingTupleStreamSerde.StatsAnnotatedTupleStreamDeserializer(SelfDescriptiveSerde.DESERIALIZER);
-        try {
-            // Use the first file to get the schema
-            TupleInfo tupleInfo = deserializer.deserialize(Slices.mapFileReadOnly(files.get(0))).getTupleInfo();
 
-            return new GenericTupleStream<>(tupleInfo, Iterables.transform(files, new Function<File, TupleStream>()
+        // Use the first file to get the schema
+        Slice slice = mappedFileCache.getUnchecked(files.get(0).getAbsolutePath());
+        TupleInfo tupleInfo = deserializer.deserialize(Range.ALL, slice).getTupleInfo();
+
+        return new GenericTupleStream<>(tupleInfo, Iterables.transform(files, new Function<File, TupleStream>()
+        {
+            private Range range;
+
+            @Override
+            public TupleStream apply(File file)
             {
-                private long nextStartingPosition = 0;
-
-                @Override
-                public TupleStream apply(File file)
-                {
-                    try {
-                        Slice slice = Slices.mapFileReadOnly(file);
-                        RepositioningTupleStream tupleStream = new RepositioningTupleStream(
-                                deserializer.deserialize(slice),
-                                nextStartingPosition
-                        );
-                        nextStartingPosition += deserializer.deserializeStats(slice).getRowCount();
-                        return tupleStream;
-                    }
-                    catch (IOException e) {
-                        throw Throwables.propagate(e);
-                    }
+                Slice slice = mappedFileCache.getUnchecked(file.getAbsolutePath());
+                long rowCount = deserializer.deserializeStats(slice).getRowCount();
+                if (range == null) {
+                    range = Range.create(0, rowCount);
+                } else {
+                    range = Range.create(range.getEnd() + 1, range.getEnd() + rowCount);
                 }
-            }));
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
+                TupleStream deserialized = deserializer.deserialize(range, slice);
+                return deserialized;
+            }
+        }));
+    }
+
+    @Override
+    public Iterable<TupleStream> getIterable(final String databaseName, final String tableName, final int fieldIndex)
+    {
+        long start = System.nanoTime();
+        List<File> files = dbi.withHandle(new HandleCallback<List<File>>()
+        {
+            @Override
+            public List<File> withHandle(Handle handle)
+                    throws Exception
+            {
+                return handle.createQuery(
+                        "SELECT c.path as path " +
+                                "FROM shards s JOIN columns c ON s.shard_id = c.shard_id " +
+                                "WHERE s.database = :database " +
+                                "AND s.table = :table " +
+                                "AND c.field_index = :field_index " +
+                                "ORDER BY c.shard_id")
+                        .bind("database", databaseName)
+                        .bind("table", tableName)
+                        .bind("field_index", fieldIndex)
+                        .map(new ResultSetMapper<File>()
+                        {
+                            @Override
+                            public File map(int index, ResultSet r, StatementContext ctx)
+                                    throws SQLException
+                            {
+                                return new File(r.getString("path"));
+                            }
+                        })
+                        .list();
+            }
+        });
+        System.err.printf("h2 time: %s\n", Duration.nanosSince(start));
+        return convertFilesToIterable(files);
+    }
+
+    private Iterable<TupleStream> convertFilesToIterable(List<File> absoluteFiles)
+    {
+        final List<File> files = Lists.transform(absoluteFiles, new Function<File, File>() {
+            @Override
+            public File apply(@Nullable File input)
+            {
+                return new File(input.getAbsolutePath().replace("/Users/martint/fb/presto/presto/", ""));
+            }
+        });
+        Preconditions.checkArgument(!files.isEmpty(), "no files in stream");
+
+        final StatsCollectingTupleStreamSerde.StatsAnnotatedTupleStreamDeserializer deserializer = new StatsCollectingTupleStreamSerde.StatsAnnotatedTupleStreamDeserializer(SelfDescriptiveSerde.DESERIALIZER);
+        return Iterables.concat(Lists.transform(files, new Function<File, Iterable<TupleStream>>()
+        {
+            private Range range;
+
+            @Override
+            public Iterable<TupleStream> apply(File file)
+            {
+                Slice slice = mappedFileCache.getUnchecked(file.getAbsolutePath());
+                long rowCount = deserializer.deserializeStats(slice).getRowCount();
+                if (range == null) {
+                    range = Range.create(0, rowCount - 1);
+                } else {
+                    range = Range.create(range.getEnd() + 1, range.getEnd() + rowCount);
+                }
+                YieldingIterable<TupleStream> deserialized = (YieldingIterable<TupleStream>) deserializer.deserialize(range, slice);
+                return ImmutableList.copyOf(deserialized.iterator(new QuerySession()));
+            }
+        }));
     }
 
     private static class FilesAndRowCount
