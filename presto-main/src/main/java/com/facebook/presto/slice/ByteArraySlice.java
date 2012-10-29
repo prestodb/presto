@@ -444,8 +444,8 @@ public final class ByteArraySlice
         }
 
         Slice slice = (Slice) o;
-        if (length == slice.length()) {
-            return true;
+        if (length != slice.length()) {
+            return false;
         }
 
         return toByteBuffer().equals(slice.toByteBuffer());
