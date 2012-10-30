@@ -38,14 +38,9 @@ public class LongSumAggregation
     }
 
     @Override
-    public void add(BlockCursor cursor, long endPosition)
+    public void add(BlockCursor cursor)
     {
-        if (cursor.getPosition() <= endPosition) {
-            do {
-                sum += cursor.getLong(field);
-            }
-            while (cursor.getPosition() < endPosition && cursor.advanceNextPosition());
-        }
+        sum += cursor.getLong(field);
     }
 
     @Override

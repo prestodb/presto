@@ -10,7 +10,8 @@ import com.facebook.presto.block.ProjectionTupleStream;
 import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.block.TupleStreamSerializer;
-import com.facebook.presto.demo.FilterAndProject;
+import com.facebook.presto.demo.Query2FilterAndProjectOperator;
+import com.facebook.presto.demo.Query3FilterAndProjectOperator;
 import com.facebook.presto.ingest.DelimitedTupleStream;
 import com.facebook.presto.ingest.RuntimeIOException;
 import com.facebook.presto.ingest.StreamWriterTupleValueSink;
@@ -23,7 +24,11 @@ import com.facebook.presto.nblock.Block;
 import com.facebook.presto.nblock.BlockCursor;
 import com.facebook.presto.nblock.Blocks;
 import com.facebook.presto.noperator.AggregationOperator;
+import com.facebook.presto.noperator.AlignmentOperator;
+import com.facebook.presto.noperator.HashAggregationOperator;
+import com.facebook.presto.noperator.Page;
 import com.facebook.presto.noperator.aggregation.CountAggregation;
+import com.facebook.presto.noperator.aggregation.LongSumAggregation;
 import com.facebook.presto.operator.ConsolePrinter.DelimitedTuplePrinter;
 import com.facebook.presto.operator.ConsolePrinter.TuplePrinter;
 import com.facebook.presto.server.HttpQueryProvider;
@@ -94,7 +99,8 @@ public class Main
                 .withCommand(Server.class)
                 .withCommand(ExampleSumAggregation.class)
                 .withCommand(Execute.class)
-                .withCommand(DemoQuery.class)
+                .withCommand(DemoQuery2.class)
+                .withCommand(DemoQuery3.class)
                 .withCommands(Help.class);
 
         builder.withGroup("example")
@@ -163,15 +169,83 @@ public class Main
         }
     }
 
-    @Command(name = "demo", description = "Run the demo query")
-    public static class DemoQuery
+    @Command(name = "demo2", description = "Run the demo query 2")
+    public static class DemoQuery2
             extends BaseCommand
     {
 
         private final DatabaseStorageManager storageManager;
         private final DatabaseMetadata metadata;
 
-        public DemoQuery()
+        public DemoQuery2()
+        {
+            DBI storageManagerDbi = new DBI("jdbc:h2:file:var/presto-data/db/StorageManager;DB_CLOSE_DELAY=-1");
+            DBI metadataDbi = new DBI("jdbc:h2:file:var/presto-data/db/Metadata;DB_CLOSE_DELAY=-1");
+
+            storageManager = new DatabaseStorageManager(storageManagerDbi);
+            metadata = new DatabaseMetadata(metadataDbi);
+
+        }
+
+        public void run()
+        {
+            for (int i = 0; i < 30; i++) {
+                try {
+                    long start = System.nanoTime();
+
+                    Blocks partition = getColumn("hivedba_query_stats", "partition");
+                    Blocks poolName = getColumn("hivedba_query_stats", "pool_name");
+                    Blocks cpuMsec = getColumn("hivedba_query_stats", "cpu_msec");
+
+                    AlignmentOperator alignmentOperator = new AlignmentOperator(partition, poolName, cpuMsec);
+                    Query2FilterAndProjectOperator filterAndProject = new Query2FilterAndProjectOperator(alignmentOperator);
+                    HashAggregationOperator aggregation = new HashAggregationOperator(filterAndProject, LongSumAggregation.PROVIDER);
+
+                    TuplePrinter tuplePrinter = new DelimitedTuplePrinter();
+
+                    int count = 0;
+                    long grandTotal = 0;
+                    for (Page page : aggregation) {
+                        BlockCursor cursor = page.getBlock(0).cursor();
+                        while (cursor.advanceNextPosition()) {
+                            count++;
+                            Tuple tuple = cursor.getTuple();
+                            tuplePrinter.print(tuple);
+                        }
+                    }
+                    Duration duration = Duration.nanosSince(start);
+
+                    System.out.printf("%d rows in %4.2f ms %d grandTotal\n", count, duration.toMillis(), grandTotal);
+
+                }
+                catch (Exception e) {
+                    throw Throwables.propagate(e);
+                }
+            }
+        }
+
+        private Blocks getColumn(final String tableName, String columnName) {
+            TableMetadata tableMetadata = metadata.getTable("default", "default", tableName);
+            int index = 0;
+            for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
+                if (columnName.equals(columnMetadata.getName())) {
+                    break;
+                }
+                ++index;
+            }
+            final int columnIndex = index;
+            return storageManager.getBlocks("default", tableName, columnIndex);
+        }
+    }
+
+    @Command(name = "demo3", description = "Run the demo query 3")
+    public static class DemoQuery3
+            extends BaseCommand
+    {
+        private final DatabaseStorageManager storageManager;
+        private final DatabaseMetadata metadata;
+
+        public DemoQuery3()
         {
             DBI storageManagerDbi = new DBI("jdbc:h2:file:var/presto-data/db/StorageManager;DB_CLOSE_DELAY=-1");
             DBI metadataDbi = new DBI("jdbc:h2:file:var/presto-data/db/Metadata;DB_CLOSE_DELAY=-1");
@@ -192,7 +266,8 @@ public class Main
                     Blocks endTime = getColumn("hivedba_query_stats", "end_time");
                     Blocks cpuMsec = getColumn("hivedba_query_stats", "cpu_msec");
 
-                    FilterAndProject filterAndProject = new FilterAndProject(partition, startTime, endTime, cpuMsec);
+                    AlignmentOperator alignmentOperator = new AlignmentOperator(partition, startTime, endTime, cpuMsec);
+                    Query3FilterAndProjectOperator filterAndProject = new Query3FilterAndProjectOperator(alignmentOperator);
                     AggregationOperator aggregation = new AggregationOperator(filterAndProject, CountAggregation.PROVIDER);
 
                     TuplePrinter tuplePrinter = new DelimitedTuplePrinter();
