@@ -8,7 +8,7 @@ public interface AggregationFunction
 {
     TupleInfo getTupleInfo();
 
-    void add(BlockCursor cursor, long endPosition);
+    void add(BlockCursor cursor);
 
     Tuple evaluate();
 }

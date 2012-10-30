@@ -3,14 +3,13 @@
  */
 package com.facebook.presto.demo;
 
-import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.nblock.Block;
 import com.facebook.presto.nblock.BlockBuilder;
 import com.facebook.presto.nblock.BlockCursor;
-import com.facebook.presto.nblock.RangeBoundedBlock;
 import com.facebook.presto.nblock.uncompressed.UncompressedBlock;
-import com.facebook.presto.nblock.Blocks;
+import com.facebook.presto.noperator.Operator;
+import com.facebook.presto.noperator.Page;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Charsets;
@@ -21,104 +20,46 @@ import java.util.Iterator;
 
 import static com.facebook.presto.hive.shaded.com.google.common.base.Preconditions.checkState;
 
-public class FilterAndProject implements Blocks
+public class Query3FilterAndProjectOperator implements Operator
 {
-    private final Blocks partition;
-    private final Blocks startTime;
-    private final Blocks endTime;
-    private final Blocks cpuMsecBlock;
+    private final Operator operator;
 
-    public FilterAndProject(Blocks partition,
-            Blocks startTime,
-            Blocks endTime,
-            Blocks cpuMsecBlock)
+    public Query3FilterAndProjectOperator(Operator operator)
     {
-        this.partition = partition;
-        this.startTime = startTime;
-        this.endTime = endTime;
-        this.cpuMsecBlock = cpuMsecBlock;
+        this.operator = operator;
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Iterator<Page> iterator()
     {
-        return TupleInfo.SINGLE_LONG;
+        return new FilterAndProjectIterator(operator.iterator());
     }
 
-    @Override
-    public Iterator<Block> iterator()
-    {
-        return new FilterAndProjectIterator(
-                partition.iterator(),
-                startTime.iterator(),
-                endTime.iterator(),
-                cpuMsecBlock.iterator());
-    }
-
-    public static class FilterAndProjectIterator extends AbstractIterator<Block>
+    public static class FilterAndProjectIterator extends AbstractIterator<Page>
     {
         private static final Slice constant1 = Slices.copiedBuffer("ds=2012-07-01/cluster_name=silver", Charsets.UTF_8);
         private static final Slice constant2 = Slices.copiedBuffer("ds=2012-10-11/cluster_name=silver", Charsets.UTF_8);
 
-        private final Iterator<? extends Block> partitionBlocks;
-        private final Iterator<? extends Block> startTimeBlocks;
-        private final Iterator<? extends Block> endTimeBlocks;
-        private final Iterator<? extends Block> cpuMsecBlocks;
+        private final Iterator<Page> iterator;
 
-        private final Iterator<? extends Block> blocks;
-
-        private Block partitionBlock;
-        private Block startTimeBlock;
-        private Block endTimeBlock;
-        private Block cpuMsecBlock;
-
-        private Block block;
-
-        private long startPosition;
         private long outputPosition;
 
-        public FilterAndProjectIterator(
-                Iterator<? extends Block> partitionBlocks,
-                Iterator<? extends Block> startTimeBlocks,
-                Iterator<? extends Block> endTimeBlocks,
-                Iterator<? extends Block> cpuMsecBlocks)
+        public FilterAndProjectIterator(Iterator<Page> iterator)
         {
-            this.partitionBlocks = partitionBlocks;
-            this.startTimeBlocks = startTimeBlocks;
-            this.endTimeBlocks = endTimeBlocks;
-            this.cpuMsecBlocks = cpuMsecBlocks;
-
-
-            partitionBlock = partitionBlocks.next();
-            startTimeBlock = startTimeBlocks.next();
-            endTimeBlock = endTimeBlocks.next();
-            cpuMsecBlock = cpuMsecBlocks.next();
-
-            this.blocks = this.cpuMsecBlocks;
-            this.block = this.cpuMsecBlock;
+            this.iterator = iterator;
         }
 
-        protected Block computeNextX()
+        protected Page computeNextX()
         {
             BlockBuilder blockBuilder = new BlockBuilder(outputPosition, TupleInfo.SINGLE_LONG);
 
-            while (!blockBuilder.isFull()) {
+            while (!blockBuilder.isFull() && iterator.hasNext()) {
+                Page page = iterator.next();
 
-                if (block.getRange().getEnd() < startPosition) {
-                    if (!blocks.hasNext()) {
-                        break;
-                    }
-                    block = blocks.next();
-                }
-
-                long rows = block.getRange().length();
-                BlockCursor cpuMsecCursor = block.cursor();
-                for (int position = 0; position < rows; position++) {
-                    checkState(cpuMsecCursor.advanceNextPosition());
+                BlockCursor cpuMsecCursor = page.getBlock(0).cursor();
+                while (cpuMsecCursor.advanceNextPosition()) {
                     blockBuilder.append(eval(cpuMsecCursor.getLong(0), cpuMsecCursor.getLong(0), cpuMsecCursor.getLong(0)));
                 }
-
-                startPosition = block.getRange().getEnd() + 1;
            }
 
             if (blockBuilder.isEmpty()) {
@@ -126,85 +67,47 @@ public class FilterAndProject implements Blocks
             }
             UncompressedBlock block = blockBuilder.build();
             outputPosition += block.getCount();
-            return block;
+            return new Page(block);
         }
 
-        protected Block computeNext()
+        protected Page computeNext()
         {
             BlockBuilder blockBuilder = new BlockBuilder(outputPosition, TupleInfo.SINGLE_LONG);
 
-            while (!blockBuilder.isFull()) {
-                long endPosition;
-                Range partitionBlockRange = partitionBlock.getRange();
-                if (partitionBlockRange.getEnd() < startPosition) {
-                    if (!partitionBlocks.hasNext()) {
-                        checkState(!startTimeBlocks.hasNext());
-                        checkState(!endTimeBlocks.hasNext());
-                        checkState(!cpuMsecBlocks.hasNext());
-                        break;
-                    }
-                    partitionBlock = partitionBlocks.next();
-                    partitionBlockRange = partitionBlock.getRange();
-                }
-                endPosition = partitionBlockRange.getEnd();
-
-                Range startTimeBlockRange = startTimeBlock.getRange();
-                if (startTimeBlockRange.getEnd() < startPosition) {
-                    startTimeBlock = startTimeBlocks.next();
-                    startTimeBlockRange = startTimeBlock.getRange();
-                }
-                endPosition = Math.min(endPosition, startTimeBlockRange.getEnd());
-
-
-                Range endTimeBlockRange = endTimeBlock.getRange();
-                if (endTimeBlockRange.getEnd() < startPosition) {
-                    endTimeBlock = endTimeBlocks.next();
-                    endTimeBlockRange = endTimeBlock.getRange();
-                }
-                endPosition = Math.min(endPosition, endTimeBlockRange.getEnd());
-
-                Range cpuMsecBlockRange = cpuMsecBlock.getRange();
-                if (cpuMsecBlockRange.getEnd() < startPosition) {
-                    cpuMsecBlock = cpuMsecBlocks.next();
-                    cpuMsecBlockRange = cpuMsecBlock.getRange();
-                }
-                endPosition = Math.min(endPosition, cpuMsecBlockRange.getEnd());
-
-                Range range = new Range(startPosition, endPosition);
+            while (!blockBuilder.isFull() && iterator.hasNext()) {
+                Page page = iterator.next();
 
                 filterAndProjectRowOriented(
-                        new RangeBoundedBlock(range, partitionBlock.cursor()),
-                        new RangeBoundedBlock(range, startTimeBlock.cursor()),
-                        new RangeBoundedBlock(range, endTimeBlock.cursor()),
-                        new RangeBoundedBlock(range, cpuMsecBlock.cursor()),
+                        page.getBlock(0),
+                        page.getBlock(1),
+                        page.getBlock(2),
+                        page.getBlock(3),
                         blockBuilder);
 
-//                BitSet bitSet = filterRowOriented(session,
-//                        new RangeBoundedBlock(range, partitionBlock.cursor(session)),
-//                        new RangeBoundedBlock(range, startTimeBlock.cursor(session)),
-//                        new RangeBoundedBlock(range, endTimeBlock.cursor(session)));
+//                BitSet bitSet = filterRowOriented(
+//                        page.getBlock(0),
+//                        page.getBlock(1),
+//                        page.getBlock(2));
 //
-//                projectRowOriented(session,
-//                        new RangeBoundedBlock(range, startTimeBlock.cursor(session)),
-//                        new RangeBoundedBlock(range, endTimeBlock.cursor(session)),
-//                        new RangeBoundedBlock(range, cpuMsecBlock.cursor(session)),
+//                projectRowOriented(
+//                        page.getBlock(1),
+//                        page.getBlock(2),
+//                        page.getBlock(3),
 //                        bitSet,
 //                        blockBuilder);
 
-//                BitSet bitSet = filterVectorized(session,
-//                        new RangeBoundedBlock(range, partitionBlock.cursor(session)),
-//                        new RangeBoundedBlock(range, startTimeBlock.cursor(session)),
-//                        new RangeBoundedBlock(range, endTimeBlock.cursor(session)));
+//                BitSet bitSet = filterVectorized(
+//                        page.getBlock(0),
+//                        page.getBlock(1),
+//                        page.getBlock(2));
 //
-//                projectVectorized(session,
-//                        new RangeBoundedBlock(range, startTimeBlock.cursor(session)),
-//                        new RangeBoundedBlock(range, startTimeBlock.cursor(session)),
-//                        new RangeBoundedBlock(range, endTimeBlock.cursor(session)),
-//                        new RangeBoundedBlock(range, cpuMsecBlock.cursor(session)),
+//                projectVectorized(
+//                        page.getBlock(1),
+//                        page.getBlock(1),
+//                        page.getBlock(2),
+//                        page.getBlock(3),
 //                        bitSet,
 //                        blockBuilder);
-
-                startPosition = endPosition + 1;
             }
 
             if (blockBuilder.isEmpty()) {
@@ -212,7 +115,7 @@ public class FilterAndProject implements Blocks
             }
             UncompressedBlock block = blockBuilder.build();
             outputPosition += block.getCount();
-            return block;
+            return new Page(block);
         }
 
         private void filterAndProjectRowOriented(Block partitionChunk, Block startTimeChunk, Block endTimeChunk, Block cpuMsecChunk, BlockBuilder blockBuilder)
