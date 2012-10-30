@@ -14,6 +14,11 @@ public class Page
         this.blocks = blocks;
     }
 
+    public Block[] getBlocks()
+    {
+        return blocks.clone();
+    }
+
     public Block getBlock(int channel)
     {
         return blocks[channel];

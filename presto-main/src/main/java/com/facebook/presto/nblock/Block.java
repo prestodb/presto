@@ -12,6 +12,11 @@ public interface Block
     TupleInfo getTupleInfo();
 
     /**
+     * Returns the number of positions in this block.
+     */
+    long getCount();
+
+    /**
      * Gets the start and end positions of the block.
      */
     Range getRange();

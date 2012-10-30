@@ -9,26 +9,28 @@ import javax.inject.Provider;
 public class LongSumAggregation
         implements AggregationFunction
 {
-    public static final Provider<AggregationFunction> PROVIDER = provider(0);
+    public static final Provider<AggregationFunction> PROVIDER = provider(0, 0);
 
-    public static Provider<AggregationFunction> provider(final int field)
+    public static Provider<AggregationFunction> provider(final int channelIndex, final int field)
     {
         return new Provider<AggregationFunction>()
         {
             @Override
             public LongSumAggregation get()
             {
-                return new LongSumAggregation(field);
+                return new LongSumAggregation(channelIndex, field);
             }
         };
     }
 
-    private final int field;
+    private final int channelIndex;
+    private final int fieldIndex;
     private long sum;
 
-    public LongSumAggregation(int field)
+    public LongSumAggregation(int channelIndex, int fieldIndex)
     {
-        this.field = field;
+        this.channelIndex = channelIndex;
+        this.fieldIndex = fieldIndex;
     }
 
     @Override
@@ -40,7 +42,13 @@ public class LongSumAggregation
     @Override
     public void add(BlockCursor cursor)
     {
-        sum += cursor.getLong(field);
+        sum += cursor.getLong(fieldIndex);
+    }
+
+    @Override
+    public void add(BlockCursor[] cursors)
+    {
+        sum += cursors[channelIndex].getLong(fieldIndex);
     }
 
     @Override

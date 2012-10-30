@@ -32,6 +32,12 @@ public class CountAggregation
     }
 
     @Override
+    public void add(BlockCursor[] cursors)
+    {
+        count++;
+    }
+
+    @Override
     public Tuple evaluate()
     {
         return getTupleInfo().builder()

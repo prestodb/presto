@@ -1,12 +1,9 @@
 package com.facebook.presto.noperator;
 
 import com.facebook.presto.Tuple;
-import com.facebook.presto.TupleInfo;
-import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.nblock.Block;
 import com.facebook.presto.nblock.BlockBuilder;
 import com.facebook.presto.nblock.BlockCursor;
-import com.facebook.presto.nblock.uncompressed.UncompressedBlock;
 import com.facebook.presto.noperator.aggregation.AggregationFunction;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
@@ -14,8 +11,11 @@ import com.google.common.collect.AbstractIterator;
 import javax.inject.Provider;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+
+import static com.facebook.presto.hive.shaded.com.google.common.base.Preconditions.checkState;
 
 /**
  * Group input data and produce a single block for each sequence of identical values.
@@ -24,16 +24,23 @@ public class HashAggregationOperator
         implements Operator
 {
     private final Operator source;
-    private final Provider<AggregationFunction> functionProvider;
+    private final int groupByChannel;
+    private final List<Provider<AggregationFunction>> functionProviders;
+    private final List<ProjectionFunction> projections;
 
-    public HashAggregationOperator(Operator source,
-            Provider<AggregationFunction> functionProvider)
+    public HashAggregationOperator(Operator source, int groupByChannel, List<Provider<AggregationFunction>> functionProviders, List<ProjectionFunction> projections)
     {
         Preconditions.checkNotNull(source, "source is null");
-        Preconditions.checkNotNull(functionProvider, "functionProvider is null");
+        Preconditions.checkArgument(groupByChannel >= 0, "groupByChannel is negative");
+        Preconditions.checkNotNull(functionProviders, "functionProviders is null");
+        Preconditions.checkArgument(!functionProviders.isEmpty(), "functionProviders is empty");
+        Preconditions.checkNotNull(projections, "projections is null");
+        Preconditions.checkArgument(!projections.isEmpty(), "projections is empty");
 
         this.source = source;
-        this.functionProvider = functionProvider;
+        this.groupByChannel = groupByChannel;
+        this.functionProviders = functionProviders;
+        this.projections = projections;
     }
 
     @Override
@@ -41,8 +48,8 @@ public class HashAggregationOperator
     {
         return new AbstractIterator<Page>()
         {
-            private final Map<Tuple, AggregationFunction> aggregationMap = new HashMap<>();
-            private Iterator<Entry<Tuple, AggregationFunction>> aggregations;
+            private final Map<Tuple, AggregationFunction[]> aggregationMap = new HashMap<>();
+            private Iterator<Entry<Tuple, AggregationFunction[]>> aggregations;
             private long position;
 
             @Override
@@ -50,27 +57,7 @@ public class HashAggregationOperator
             {
                 // process all data ahead of time
                 if (aggregations == null) {
-                    for (Page page : source) {
-                        Block groupByBlock = page.getBlock(0);
-                        Block aggregationBlock = page.getBlock(1);
-
-                        BlockCursor groupByCursor = groupByBlock.cursor();
-                        BlockCursor aggregationCursor = aggregationBlock.cursor();
-
-                        while (groupByCursor.advanceNextPosition()) {
-                            Preconditions.checkState(aggregationCursor.advanceNextPosition());
-
-                            Tuple key = groupByCursor.getTuple();
-                            AggregationFunction aggregation = aggregationMap.get(key);
-                            if (aggregation == null) {
-                                aggregation = functionProvider.get();
-                                aggregationMap.put(key, aggregation);
-                            }
-                            aggregation.add(aggregationCursor);
-
-                        }
-                    }
-                    this.aggregations = aggregationMap.entrySet().iterator();
+                    aggregate();
                 }
 
                 // if no more data, return null
@@ -79,25 +66,91 @@ public class HashAggregationOperator
                     return null;
                 }
 
-                BlockBuilder blockBuilder = new BlockBuilder(position, new TupleInfo(Type.VARIABLE_BINARY, Type.FIXED_INT_64));
-                while (!blockBuilder.isFull() && aggregations.hasNext()) {
-                    // get next aggregation
-                    Entry<Tuple, AggregationFunction> aggregation = aggregations.next();
-
-                    // calculate final value for this group
-                    Tuple key = aggregation.getKey();
-                    Tuple value = aggregation.getValue().evaluate();
-                    blockBuilder.append(key);
-                    blockBuilder.append(value);
+                BlockBuilder[] outputs = new BlockBuilder[projections.size()];
+                for (int i = 0; i < outputs.length; i++) {
+                    outputs[i] = new BlockBuilder(position, projections.get(i).getTupleInfo());
                 }
 
-                // build output block
-                UncompressedBlock block = blockBuilder.build();
+                while (!isFull(outputs) && aggregations.hasNext()) {
+                    // get next aggregation
+                    Entry<Tuple, AggregationFunction[]> aggregation = aggregations.next();
 
-                // update position
-                position += block.getCount();
+                    // get result tuples
+                    Tuple[] results = new Tuple[functionProviders.size() + 1];
+                    results[0] = aggregation.getKey();
+                    AggregationFunction[] aggregations = aggregation.getValue();
+                    for (int i = 1; i < results.length; i++) {
+                        results[i] = aggregations[i - 1].evaluate();
+                    }
 
-                return new Page(block);
+                    // project results into output blocks
+                    for (int i = 0; i < projections.size(); i++) {
+                        projections.get(i).project(results, outputs[i]);
+                    }
+                }
+
+                if (outputs[0].isEmpty()) {
+                    return endOfData();
+                }
+
+                Block[] blocks = new Block[projections.size()];
+                for (int i = 0; i < blocks.length; i++) {
+                    blocks[i] = outputs[i].build();
+                }
+
+                Page page = new Page(blocks);
+                position += blocks[0].getCount();
+                return page;
+            }
+
+            private boolean isFull(BlockBuilder... outputs)
+            {
+                for (BlockBuilder output : outputs) {
+                    if (output.isFull()) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            private void aggregate()
+            {
+                for (Page page : source) {
+                    Block[] blocks = page.getBlocks();
+
+                    int rows = (int) blocks[0].getRange().length();
+
+                    BlockCursor[] cursors = new BlockCursor[blocks.length];
+                    for (int i = 0; i < blocks.length; i++) {
+                        cursors[i] = blocks[i].cursor();
+                    }
+
+                    for (int position = 0; position < rows; position++) {
+                        for (BlockCursor cursor : cursors) {
+                            checkState(cursor.advanceNextPosition());
+                        }
+
+                        Tuple key = cursors[groupByChannel].getTuple();
+                        AggregationFunction[] functions = aggregationMap.get(key);
+                        if (functions == null) {
+                            functions = new AggregationFunction[functionProviders.size()];
+                            for (int i = 0; i < functions.length; i++) {
+                                functions[i]= functionProviders.get(i).get();
+                            }
+                            aggregationMap.put(key, functions);
+                        }
+
+                        for (AggregationFunction function : functions) {
+                            function.add(cursors);
+                        }
+                    }
+
+                    for (BlockCursor cursor : cursors) {
+                        checkState(!cursor.advanceNextPosition());
+                    }
+                }
+
+                this.aggregations = aggregationMap.entrySet().iterator();
             }
         };
     }

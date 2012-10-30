@@ -1,55 +1,88 @@
 package com.facebook.presto.noperator;
 
-import com.facebook.presto.TupleInfo;
+import com.facebook.presto.Tuple;
 import com.facebook.presto.nblock.Block;
 import com.facebook.presto.nblock.BlockBuilder;
 import com.facebook.presto.nblock.BlockCursor;
-import com.facebook.presto.nblock.Blocks;
 import com.facebook.presto.noperator.aggregation.AggregationFunction;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterators;
 
 import javax.inject.Provider;
 import java.util.Iterator;
+import java.util.List;
+
+import static com.facebook.presto.hive.shaded.com.google.common.base.Preconditions.checkState;
 
 public class AggregationOperator
-        implements Blocks
+        implements Operator
 {
-    private final TupleInfo info;
-    private final Provider<AggregationFunction> functionProvider;
     private final Operator source;
+    private final List<Provider<AggregationFunction>> functionProviders;
+    private final List<ProjectionFunction> projections;
 
-    public AggregationOperator(Operator source, Provider<AggregationFunction> functionProvider)
+    public AggregationOperator(Operator source, List<Provider<AggregationFunction>> functionProviders, List<ProjectionFunction> projections)
     {
         Preconditions.checkNotNull(source, "source is null");
-        Preconditions.checkNotNull(functionProvider, "functionProvider is null");
+        Preconditions.checkNotNull(functionProviders, "functionProviders is null");
+        Preconditions.checkArgument(!functionProviders.isEmpty(), "functionProviders is empty");
+        Preconditions.checkNotNull(projections, "projections is null");
+        Preconditions.checkArgument(!projections.isEmpty(), "projections is empty");
 
         this.source = source;
-        this.functionProvider = functionProvider;
-        this.info = functionProvider.get().getTupleInfo();
+        this.functionProviders = functionProviders;
+        this.projections = projections;
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public Iterator<Page> iterator()
     {
-        return info;
-    }
+        // create the aggregation functions
+        AggregationFunction[] functions = new AggregationFunction[functionProviders.size()];
+        for (int i = 0; i < functions.length; i++) {
+            functions[i]= functionProviders.get(i).get();
+        }
 
-    @Override
-    public Iterator<Block> iterator()
-    {
-        AggregationFunction function = functionProvider.get();
+        // process all rows
         for (Page page : source) {
-            BlockCursor cursor = page.getBlock(0).cursor();
-            while (cursor.advanceNextPosition()) {
-                function.add(cursor);
+            Block[] blocks = page.getBlocks();
+
+            int rows = (int) blocks[0].getRange().length();
+
+            BlockCursor[] cursors = new BlockCursor[blocks.length];
+            for (int i = 0; i < blocks.length; i++) {
+                cursors[i] = blocks[i].cursor();
+            }
+
+            for (int position = 0; position < rows; position++) {
+                for (BlockCursor cursor : cursors) {
+                    checkState(cursor.advanceNextPosition());
+                }
+
+                for (AggregationFunction function : functions) {
+                    function.add(cursors);
+                }
+            }
+
+            for (BlockCursor cursor : cursors) {
+                checkState(!cursor.advanceNextPosition());
             }
         }
 
-        Block block = new BlockBuilder(0, info)
-                .append(function.evaluate())
-                .build();
+        // get result tuples
+        Tuple[] results = new Tuple[functions.length];
+        for (int i = 0; i < functions.length; i++) {
+            results[i] = functions[i].evaluate();
+        }
 
-        return Iterators.singletonIterator(block);
+        // project results into output blocks
+        Block[] blocks = new Block[projections.size()];
+        for (int i = 0; i < blocks.length; i++) {
+            BlockBuilder output = new BlockBuilder(0, projections.get(i).getTupleInfo());
+            projections.get(i).project(results, output);
+            blocks[i] = output.build();
+        }
+
+        return Iterators.singletonIterator(new Page(blocks));
     }
 }
