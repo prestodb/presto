@@ -11,4 +11,6 @@ public interface AggregationFunction
     void add(BlockCursor cursor);
 
     Tuple evaluate();
+
+    void add(BlockCursor[] cursors);
 }
