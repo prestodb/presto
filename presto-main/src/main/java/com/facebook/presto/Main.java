@@ -10,8 +10,6 @@ import com.facebook.presto.block.ProjectionTupleStream;
 import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.block.TupleStreamSerializer;
-import com.facebook.presto.demo.Query2FilterAndProjectOperator;
-import com.facebook.presto.demo.Query3FilterAndProjectOperator;
 import com.facebook.presto.ingest.DelimitedTupleStream;
 import com.facebook.presto.ingest.RuntimeIOException;
 import com.facebook.presto.ingest.StreamWriterTupleValueSink;
@@ -19,14 +17,20 @@ import com.facebook.presto.ingest.TupleStreamImporter;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.DatabaseMetadata;
 import com.facebook.presto.metadata.DatabaseStorageManager;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.nblock.Block;
+import com.facebook.presto.nblock.BlockBuilder;
 import com.facebook.presto.nblock.BlockCursor;
 import com.facebook.presto.nblock.Blocks;
 import com.facebook.presto.noperator.AggregationOperator;
 import com.facebook.presto.noperator.AlignmentOperator;
+import com.facebook.presto.noperator.FilterAndProjectOperator;
+import com.facebook.presto.noperator.FilterFunction;
 import com.facebook.presto.noperator.HashAggregationOperator;
+import com.facebook.presto.noperator.Operator;
 import com.facebook.presto.noperator.Page;
+import com.facebook.presto.noperator.ProjectionFunction;
 import com.facebook.presto.noperator.aggregation.CountAggregation;
 import com.facebook.presto.noperator.aggregation.LongSumAggregation;
 import com.facebook.presto.operator.ConsolePrinter.DelimitedTuplePrinter;
@@ -34,6 +38,8 @@ import com.facebook.presto.operator.ConsolePrinter.TuplePrinter;
 import com.facebook.presto.server.HttpQueryProvider;
 import com.facebook.presto.server.QueryDriversTupleStream;
 import com.facebook.presto.server.ServerMainModule;
+import com.facebook.presto.slice.Slice;
+import com.facebook.presto.slice.Slices;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
@@ -85,7 +91,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.block.Cursors.advanceNextPositionNoYield;
+import static com.facebook.presto.noperator.ProjectionFunctions.concat;
+import static com.facebook.presto.noperator.ProjectionFunctions.singleColumn;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -193,29 +203,20 @@ public class Main
                 try {
                     long start = System.nanoTime();
 
-                    Blocks partition = getColumn("hivedba_query_stats", "partition");
-                    Blocks poolName = getColumn("hivedba_query_stats", "pool_name");
-                    Blocks cpuMsec = getColumn("hivedba_query_stats", "cpu_msec");
+                    Blocks partition = getColumn(storageManager, metadata, "hivedba_query_stats", "partition");
+                    Blocks poolName = getColumn(storageManager, metadata, "hivedba_query_stats", "pool_name");
+                    Blocks cpuMsec = getColumn(storageManager, metadata, "hivedba_query_stats", "cpu_msec");
 
                     AlignmentOperator alignmentOperator = new AlignmentOperator(partition, poolName, cpuMsec);
-                    Query2FilterAndProjectOperator filterAndProject = new Query2FilterAndProjectOperator(alignmentOperator);
-                    HashAggregationOperator aggregation = new HashAggregationOperator(filterAndProject, LongSumAggregation.PROVIDER);
+//                    Query2FilterAndProjectOperator filterAndProject = new Query2FilterAndProjectOperator(alignmentOperator);
+                    FilterAndProjectOperator filterAndProject = new FilterAndProjectOperator(alignmentOperator, new Query2Filter(), singleColumn(VARIABLE_BINARY, 1, 0), singleColumn(FIXED_INT_64, 2, 0));
+                    HashAggregationOperator aggregation = new HashAggregationOperator(filterAndProject,
+                            0,
+                            ImmutableList.of(CountAggregation.PROVIDER, LongSumAggregation.provider(1, 0)),
+                            ImmutableList.of(concat(singleColumn(Type.VARIABLE_BINARY, 0, 0), singleColumn(Type.FIXED_INT_64, 1, 0), singleColumn(Type.FIXED_INT_64, 2, 0))));
 
-                    TuplePrinter tuplePrinter = new DelimitedTuplePrinter();
+                    printResults(start, aggregation);
 
-                    int count = 0;
-                    long grandTotal = 0;
-                    for (Page page : aggregation) {
-                        BlockCursor cursor = page.getBlock(0).cursor();
-                        while (cursor.advanceNextPosition()) {
-                            count++;
-                            Tuple tuple = cursor.getTuple();
-                            tuplePrinter.print(tuple);
-                        }
-                    }
-                    Duration duration = Duration.nanosSince(start);
-
-                    System.out.printf("%d rows in %4.2f ms %d grandTotal\n", count, duration.toMillis(), grandTotal);
 
                 }
                 catch (Exception e) {
@@ -224,17 +225,16 @@ public class Main
             }
         }
 
-        private Blocks getColumn(final String tableName, String columnName) {
-            TableMetadata tableMetadata = metadata.getTable("default", "default", tableName);
-            int index = 0;
-            for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
-                if (columnName.equals(columnMetadata.getName())) {
-                    break;
-                }
-                ++index;
+        private static class Query2Filter implements FilterFunction
+        {
+            private static final Slice constant2 = Slices.copiedBuffer("ds=2012-10-11/cluster_name=silver", Charsets.UTF_8);
+
+            @Override
+            public boolean filter(BlockCursor[] cursors)
+            {
+                Slice partition = cursors[0].getSlice(0);
+                return partition.equals(constant2);
             }
-            final int columnIndex = index;
-            return storageManager.getBlocks("default", tableName, columnIndex);
         }
     }
 
@@ -257,36 +257,23 @@ public class Main
 
         public void run()
         {
-            for (int i = 0; i < 20; i++) {
+            for (int i = 0; i < 30; i++) {
                 try {
                     long start = System.nanoTime();
 
-                    Blocks partition = getColumn("hivedba_query_stats", "partition");
-                    Blocks startTime = getColumn("hivedba_query_stats", "start_time");
-                    Blocks endTime = getColumn("hivedba_query_stats", "end_time");
-                    Blocks cpuMsec = getColumn("hivedba_query_stats", "cpu_msec");
+                    Blocks partition = getColumn(storageManager, metadata, "hivedba_query_stats", "partition");
+                    Blocks startTime = getColumn(storageManager, metadata, "hivedba_query_stats", "start_time");
+                    Blocks endTime = getColumn(storageManager, metadata, "hivedba_query_stats", "end_time");
+                    Blocks cpuMsec = getColumn(storageManager, metadata, "hivedba_query_stats", "cpu_msec");
 
                     AlignmentOperator alignmentOperator = new AlignmentOperator(partition, startTime, endTime, cpuMsec);
-                    Query3FilterAndProjectOperator filterAndProject = new Query3FilterAndProjectOperator(alignmentOperator);
-                    AggregationOperator aggregation = new AggregationOperator(filterAndProject, CountAggregation.PROVIDER);
+//                    Query3FilterAndProjectOperator filterAndProject = new Query3FilterAndProjectOperator(alignmentOperator);
+                    FilterAndProjectOperator filterAndProject = new FilterAndProjectOperator(alignmentOperator, new Query3Filter(), new Query3Projection());
+                    AggregationOperator aggregation = new AggregationOperator(filterAndProject,
+                            ImmutableList.of(CountAggregation.PROVIDER, LongSumAggregation.provider(0, 0)),
+                            ImmutableList.of(concat(singleColumn(Type.FIXED_INT_64, 0, 0), singleColumn(Type.FIXED_INT_64, 1, 0))));
 
-                    TuplePrinter tuplePrinter = new DelimitedTuplePrinter();
-
-                    int count = 0;
-                    long grandTotal = 0;
-                    for (Block block : aggregation) {
-                        BlockCursor cursor = block.cursor();
-                        while (cursor.advanceNextPosition()) {
-                            count++;
-                            Tuple tuple = cursor.getTuple();
-                            grandTotal += tuple.getLong(0);
-                            tuplePrinter.print(tuple);
-                        }
-                    }
-                    Duration duration = Duration.nanosSince(start);
-
-                    System.out.printf("%d rows in %4.2f ms %d grandTotal\n", count, duration.toMillis(), grandTotal);
-
+                    printResults(start, aggregation);
                 }
                 catch (Exception e) {
                     throw Throwables.propagate(e);
@@ -294,19 +281,85 @@ public class Main
             }
         }
 
-        private Blocks getColumn(final String tableName, String columnName) {
-            TableMetadata tableMetadata = metadata.getTable("default", "default", tableName);
-            int index = 0;
-            for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
-                if (columnName.equals(columnMetadata.getName())) {
-                    break;
-                }
-                ++index;
+        private static class Query3Filter implements FilterFunction
+        {
+            private static final Slice constant1 = Slices.copiedBuffer("ds=2012-07-01/cluster_name=silver", Charsets.UTF_8);
+            private static final Slice constant2 = Slices.copiedBuffer("ds=2012-10-11/cluster_name=silver", Charsets.UTF_8);
+
+            @Override
+            public boolean filter(BlockCursor[] cursors)
+            {
+                long startTime = cursors[1].getLong(0);
+                long endTime = cursors[2].getLong(0);
+                Slice partition = cursors[0].getSlice(0);
+                return startTime <= 1343350800 && endTime > 1343350800 && partition.compareTo(constant1) >= 0 && partition.compareTo(constant2) <= 0;
             }
-            final int columnIndex = index;
-            return storageManager.getBlocks("default", tableName, columnIndex);
+        }
+
+        private static class Query3Projection implements ProjectionFunction
+        {
+            @Override
+            public TupleInfo getTupleInfo()
+            {
+                return TupleInfo.SINGLE_LONG;
+            }
+
+            @Override
+            public void project(BlockCursor[] cursors, BlockBuilder blockBuilder)
+            {
+                long startTime = cursors[1].getLong(0);
+                long endTime = cursors[2].getLong(0);
+                long cpuMsec = cursors[3].getLong(0);
+                project(blockBuilder, startTime, endTime, cpuMsec);
+            }
+
+            @Override
+            public void project(Tuple[] tuples, BlockBuilder blockBuilder)
+            {
+                long startTime = tuples[1].getLong(0);
+                long endTime = tuples[2].getLong(0);
+                long cpuMsec = tuples[3].getLong(0);
+                project(blockBuilder, startTime, endTime, cpuMsec);
+            }
+
+            private BlockBuilder project(BlockBuilder blockBuilder, long startTime, long endTime, long cpuMsec)
+            {
+                return blockBuilder.append((cpuMsec * (1343350800 - startTime) + endTime + startTime) + (1000 * 86400));
+            }
         }
     }
+
+    private static Blocks getColumn(StorageManager storageManager, Metadata metadata, final String tableName, String columnName) {
+        TableMetadata tableMetadata = metadata.getTable("default", "default", tableName);
+        int index = 0;
+        for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
+            if (columnName.equals(columnMetadata.getName())) {
+                break;
+            }
+            ++index;
+        }
+        final int columnIndex = index;
+        return storageManager.getBlocks("default", tableName, columnIndex);
+    }
+
+    private static void printResults(long start, Operator aggregation)
+    {
+        TuplePrinter tuplePrinter = new DelimitedTuplePrinter();
+
+        int count = 0;
+        long grandTotal = 0;
+        for (Page page : aggregation) {
+            BlockCursor cursor = page.getBlock(0).cursor();
+            while (cursor.advanceNextPosition()) {
+                count++;
+                Tuple tuple = cursor.getTuple();
+                tuplePrinter.print(tuple);
+            }
+        }
+        Duration duration = Duration.nanosSince(start);
+        System.out.printf("%d rows in %4.2f ms %d grandTotal\n", count, duration.toMillis(), grandTotal);
+    }
+
 
     @Command(name = "sum", description = "Run an example sum aggregation")
     public static class ExampleSumAggregation
@@ -327,7 +380,7 @@ public class Main
                         .setConnectTimeout(new Duration(1, TimeUnit.MINUTES))
                         .setReadTimeout(new Duration(1, TimeUnit.MINUTES)));
                 AsyncHttpClient asyncHttpClient = new AsyncHttpClient(httpClient, executor);
-                QueryDriversTupleStream tupleStream = new QueryDriversTupleStream(new TupleInfo(Type.VARIABLE_BINARY, Type.FIXED_INT_64), 10,
+                QueryDriversTupleStream tupleStream = new QueryDriversTupleStream(new TupleInfo(VARIABLE_BINARY, Type.FIXED_INT_64), 10,
                         new HttpQueryProvider("sum", asyncHttpClient, server)
                 );
                 // TODO: this currently leaks query resources (need to delete)
@@ -468,7 +521,7 @@ public class Main
                 }
                 else {
                     // Default to VARIABLE_BINARY if we don't know some of the intermediate types
-                    inferredTypes.add(Type.VARIABLE_BINARY);
+                    inferredTypes.add(VARIABLE_BINARY);
                 }
             }
 
