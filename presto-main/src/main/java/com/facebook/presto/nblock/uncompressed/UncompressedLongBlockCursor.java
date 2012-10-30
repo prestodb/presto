@@ -8,33 +8,28 @@ import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public class UncompressedLongBlockCursor
         implements BlockCursor
 {
-    private final TupleInfo tupleInfo;
     private final Slice slice;
     private final Range range;
     private long position = -1;
-    private int offset = -1;
+    private int offset;
 
     public UncompressedLongBlockCursor(UncompressedBlock block)
     {
-        this(checkNotNull(block, "block is null").getTupleInfo(), block.getSlice(), block.getRange());
-    }
+        Preconditions.checkNotNull(block, "block is null");
 
-    public UncompressedLongBlockCursor(TupleInfo tupleInfo, Slice slice, Range range)
-    {
-        this.tupleInfo = tupleInfo;
-        this.slice = slice;
-        this.range = range;
+        this.slice = block.getSlice();
+        this.range = block.getRange();
+        this.offset = block.getRawOffset();
     }
 
     @Override
     public TupleInfo getTupleInfo()
     {
-        return tupleInfo;
+        return TupleInfo.SINGLE_LONG;
     }
 
     @Override
@@ -73,7 +68,6 @@ public class UncompressedLongBlockCursor
 
         if (position < 0) {
             position = range.getStart();
-            offset = 0;
         } else {
             position++;
             offset += SIZE_OF_LONG;
@@ -99,11 +93,13 @@ public class UncompressedLongBlockCursor
 
         Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
 
-        // advance to specified position
-        position = Math.max(newPosition, this.range.getStart());
+        if (position < 0) {
+            position = range.getStart();
+        }
 
-        // adjust offset
-        offset = (int) ((position - this.range.getStart()) * SIZE_OF_LONG);
+        offset += (int) ((newPosition - position) * SIZE_OF_LONG);
+        position = newPosition;
+
         return true;
     }
 

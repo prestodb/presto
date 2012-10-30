@@ -10,7 +10,6 @@ import com.google.common.base.Preconditions;
 import java.util.NoSuchElementException;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_DOUBLE;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class UncompressedDoubleBlockCursor
@@ -19,17 +18,15 @@ public class UncompressedDoubleBlockCursor
     private final Slice slice;
     private final Range range;
     private long position = -1;
-    private int offset = -1;
+    private int offset;
 
     public UncompressedDoubleBlockCursor(UncompressedBlock block)
     {
-        this(checkNotNull(block, "block is null").getSlice(), block.getRange());
-    }
+        Preconditions.checkNotNull(block, "block is null");
 
-    public UncompressedDoubleBlockCursor(Slice slice, Range range)
-    {
-        this.slice = slice;
-        this.range = range;
+        this.slice = block.getSlice();
+        this.range = block.getRange();
+        this.offset = block.getRawOffset();
     }
 
     @Override
@@ -75,7 +72,6 @@ public class UncompressedDoubleBlockCursor
 
         if (position < 0) {
             position = range.getStart();
-            offset = 0;
         } else {
             position++;
             offset += SIZE_OF_DOUBLE;
@@ -92,16 +88,21 @@ public class UncompressedDoubleBlockCursor
     @Override
     public boolean advanceToPosition(long newPosition)
     {
-        Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
-
+        // if new position is out of range, return false
         if (newPosition > range.getEnd()) {
             position = Long.MAX_VALUE;
             return false;
         }
 
-        // advance to specified position
-        position = Math.max(newPosition, this.range.getStart());
-        offset = (int) ((position - this.range.getStart()) * SIZE_OF_DOUBLE);
+        Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
+
+        if (position < 0) {
+            position = range.getStart();
+        }
+
+        offset += (int) ((newPosition - position) * SIZE_OF_DOUBLE);
+        position = newPosition;
+
         return true;
     }
 
