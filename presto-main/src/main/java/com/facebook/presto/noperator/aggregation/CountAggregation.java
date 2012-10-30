@@ -26,14 +26,9 @@ public class CountAggregation
     }
 
     @Override
-    public void add(BlockCursor cursor, long endPosition)
+    public void add(BlockCursor cursor)
     {
-        if (cursor.getPosition() <= endPosition) {
-            do {
-                count++;
-            }
-            while (cursor.getPosition() < endPosition && cursor.advanceNextPosition());
-        }
+        count++;
     }
 
     @Override

@@ -17,14 +17,14 @@ public class AggregationOperator
 {
     private final TupleInfo info;
     private final Provider<AggregationFunction> functionProvider;
-    private final Blocks blocks;
+    private final Operator source;
 
-    public AggregationOperator(Blocks blocks, Provider<AggregationFunction> functionProvider)
+    public AggregationOperator(Operator source, Provider<AggregationFunction> functionProvider)
     {
-        Preconditions.checkNotNull(blocks, "source is null");
+        Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkNotNull(functionProvider, "functionProvider is null");
 
-        this.blocks = blocks;
+        this.source = source;
         this.functionProvider = functionProvider;
         this.info = functionProvider.get().getTupleInfo();
     }
@@ -39,10 +39,10 @@ public class AggregationOperator
     public Iterator<Block> iterator()
     {
         AggregationFunction function = functionProvider.get();
-        for (Block block : blocks) {
-            BlockCursor cursor = block.cursor();
+        for (Page page : source) {
+            BlockCursor cursor = page.getBlock(0).cursor();
             while (cursor.advanceNextPosition()) {
-                function.add(cursor, Long.MAX_VALUE);
+                function.add(cursor);
             }
         }
 
