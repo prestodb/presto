@@ -8,7 +8,6 @@ import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 
 import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public class UncompressedSliceBlockCursor
         implements BlockCursor
@@ -16,19 +15,16 @@ public class UncompressedSliceBlockCursor
     private final Slice slice;
     private final Range range;
     private long position = -1;
-    private int offset = -1;
+    private int offset;
     private int size = -1;
-
 
     public UncompressedSliceBlockCursor(UncompressedBlock block)
     {
-        this(checkNotNull(block, "block is null").getSlice(), block.getRange());
-    }
+        Preconditions.checkNotNull(block, "block is null");
 
-    public UncompressedSliceBlockCursor(Slice slice, Range range)
-    {
-        this.slice = slice;
-        this.range = range;
+        this.slice = block.getSlice();
+        this.range = block.getRange();
+        this.offset = block.getRawOffset();
     }
 
     @Override
@@ -74,7 +70,6 @@ public class UncompressedSliceBlockCursor
 
         if (position < 0) {
             position = range.getStart();
-            offset = 0;
         }
         else {
             position++;
@@ -103,7 +98,6 @@ public class UncompressedSliceBlockCursor
         // move to initial position
         if (position < 0) {
             position = range.getStart();
-            offset = 0;
             size = slice.getShort(0);
         }
 

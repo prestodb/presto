@@ -6,7 +6,6 @@ package com.facebook.presto.noperator;
 import com.facebook.presto.Range;
 import com.facebook.presto.nblock.Block;
 import com.facebook.presto.nblock.Blocks;
-import com.facebook.presto.nblock.RangeBoundedBlock;
 import com.google.common.collect.AbstractIterator;
 
 import java.util.Iterator;
@@ -51,7 +50,7 @@ public class AlignmentOperator implements Operator
         protected Page computeNext()
         {
             // all iterators should end together
-            if (blocks[0].getRange().getEnd() < startPosition && !iterators[0].hasNext()) {
+            if (blocks[0].getRawRange().getEnd() < startPosition && !iterators[0].hasNext()) {
                 for (Iterator<? extends Block> iterator : iterators) {
                     checkState(!iterator.hasNext());
                 }
@@ -64,13 +63,14 @@ public class AlignmentOperator implements Operator
                 Iterator<? extends Block> iterator = iterators[i];
 
                 Block block = blocks[i];
-                Range range = block.getRange();
-                if (range.getEnd() < startPosition) {
+                long blockEndPosition = block.getRawRange().getEnd();
+                if (blockEndPosition < startPosition) {
+                    // load next block
                     block = iterator.next();
-                    range = block.getRange();
                     blocks[i] = block;
+                    blockEndPosition = block.getRawRange().getEnd();
                 }
-                endPosition = Math.min(endPosition, range.getEnd());
+                endPosition = Math.min(endPosition, blockEndPosition);
             }
             Range range = new Range(startPosition, endPosition);
 
@@ -78,11 +78,10 @@ public class AlignmentOperator implements Operator
             startPosition = endPosition + 1;
 
             // build page
-            Block[] page = new Block[blocks.length];
-            for (int i = 0; i < page.length; i++) {
-                page[i]= new RangeBoundedBlock(range, blocks[i].cursor());
+            for (int i = 0; i < blocks.length; i++) {
+                blocks[i] = blocks[i].createViewPort(range);
             }
-            return new Page(page);
+            return new Page(blocks);
         }
     }
 }

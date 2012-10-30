@@ -9,7 +9,6 @@ import com.google.common.base.Preconditions;
 
 import java.util.NoSuchElementException;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class UncompressedBlockCursor
@@ -19,19 +18,17 @@ public class UncompressedBlockCursor
     private final Slice slice;
     private final Range range;
     private long position = -1;
-    private int offset = -1;
+    private int offset;
     private int size = -1;
 
     public UncompressedBlockCursor(UncompressedBlock block)
     {
-        this(checkNotNull(block, "info is null").getTupleInfo(), checkNotNull(block, "block is null").getSlice(), block.getRange());
-    }
+        Preconditions.checkNotNull(block, "block is null");
 
-    public UncompressedBlockCursor(TupleInfo tupleInfo, Slice slice, Range range)
-    {
-        this.tupleInfo = tupleInfo;
-        this.slice = slice;
-        this.range = range;
+        this.tupleInfo = block.getTupleInfo();
+        this.slice = block.getSlice();
+        this.range = block.getRange();
+        this.offset = block.getRawOffset();
     }
 
     @Override
@@ -76,7 +73,6 @@ public class UncompressedBlockCursor
 
         if (position < 0) {
             position = range.getStart();
-            offset = 0;
         } else {
             position++;
             offset += size;
@@ -105,7 +101,6 @@ public class UncompressedBlockCursor
         // move to initial position
         if (position < 0) {
             position = range.getStart();
-            offset = 0;
             size = tupleInfo.size(slice, 0);
         }
 

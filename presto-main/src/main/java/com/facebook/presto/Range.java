@@ -53,6 +53,12 @@ public class Range
         return value >= start && value <= end;
     }
 
+    public boolean contains(Range other)
+    {
+        checkNotNull(other, "other is null");
+        return start <= other.start && other.end <= end;
+    }
+
     public boolean overlaps(Range other)
     {
         checkNotNull(other, "other is null");
