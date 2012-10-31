@@ -19,13 +19,27 @@ public class BenchmarkSuite
 
     public static final List<AbstractBenchmark> BENCHMARKS = ImmutableList.<AbstractBenchmark>of(
             new BinaryOperatorBenchmark(),
+
+            // simple count
             new CountAggregationBenchmark(),
+            new CountAggregationOperatorBenchmark(),
+
+            // group by without aggregation
             new DicRleGroupByBenchmark(),
-            new DictionaryAggregationBenchmark(),
-            new PredicateFilterBenchmark(),
-            new RawStreamingBenchmark(),
+
+            // group by with sum aggregation
+            new HashAggregationOperatorBenchmark(),
             new RleHashAggregationBenchmark(),
-            new RlePipelinedAggregationBenchmark()
+            new RlePipelinedAggregationBenchmark(),
+            new DictionaryAggregationBenchmark(),
+
+            // filter
+            new PredicateFilterBenchmark(),
+            new PredicateFilterOperatorBenchmark(),
+
+            // raw streaming
+            new RawStreamingBenchmark(),
+            new RawStreamingOperatorBenchmark()
     );
 
     private final String outputDirectory;

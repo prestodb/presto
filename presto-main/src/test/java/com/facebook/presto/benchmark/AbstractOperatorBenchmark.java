@@ -1,14 +1,14 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.Range;
-import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.Cursors;
-import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.StatsCollectingTupleStreamSerde;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.block.TupleStreamSerdes.Encoding;
+import com.facebook.presto.nblock.BlockCursor;
 import com.facebook.presto.nblock.Blocks;
+import com.facebook.presto.noperator.Operator;
+import com.facebook.presto.noperator.Page;
 import com.facebook.presto.operator.tap.StatsTupleValueSink;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
@@ -43,20 +43,20 @@ import static com.google.common.base.Preconditions.checkState;
  * The output should be the TupleStream that will be benchmarked.
  * - The first column to be requested will be used to represent the count of the number of input rows
  */
-public abstract class AbstractTupleStreamBenchmark
+public abstract class AbstractOperatorBenchmark
         extends AbstractBenchmark
 {
     private static final TpchDataProvider TPCH_DATA_PROVIDER = new CachingTpchDataProvider(new GeneratingTpchDataProvider());
 
     private final TpchDataProvider tpchDataProvider;
 
-    protected AbstractTupleStreamBenchmark(String benchmarkName, int warmupIterations, int measuredIterations, TpchDataProvider tpchDataProvider)
+    protected AbstractOperatorBenchmark(String benchmarkName, int warmupIterations, int measuredIterations, TpchDataProvider tpchDataProvider)
     {
         super(benchmarkName, warmupIterations, measuredIterations);
         this.tpchDataProvider = tpchDataProvider;
     }
 
-    protected AbstractTupleStreamBenchmark(String benchmarkName, int warmupIterations, int measuredIterations)
+    protected AbstractOperatorBenchmark(String benchmarkName, int warmupIterations, int measuredIterations)
     {
         this(benchmarkName, warmupIterations, measuredIterations, TPCH_DATA_PROVIDER);
     }
@@ -67,7 +67,7 @@ public abstract class AbstractTupleStreamBenchmark
         return "input_rows_per_second";
     }
 
-    protected abstract TupleStream createBenchmarkedTupleStream(TpchTupleStreamProvider inputStreamProvider);
+    protected abstract Operator createBenchmarkedOperator(TpchTupleStreamProvider inputStreamProvider);
 
     @Override
     protected Map<String, Long> runOnce()
@@ -77,12 +77,14 @@ public abstract class AbstractTupleStreamBenchmark
         MetricRecordingTpchDataProvider metricRecordingTpchDataProvider = new MetricRecordingTpchDataProvider(tpchDataProvider);
         StatsTpchTupleStreamProvider statsTpchTupleStreamProvider = new StatsTpchTupleStreamProvider(metricRecordingTpchDataProvider);
 
-        TupleStream tupleStream = createBenchmarkedTupleStream(statsTpchTupleStreamProvider);
+        Operator operator = createBenchmarkedOperator(statsTpchTupleStreamProvider);
 
-        Cursor cursor = tupleStream.cursor(new QuerySession());
         long outputRows = 0;
-        while (Cursors.advanceNextValueNoYield(cursor)) {
-            outputRows += cursor.getCurrentValueEndPosition() - cursor.getPosition() + 1;
+        for (Page page : operator) {
+            BlockCursor cursor = page.getBlock(0).cursor();
+            while (cursor.advanceNextPosition()) {
+                outputRows++;
+            }
         }
 
         Duration totalDuration = Duration.nanosSince(start);
