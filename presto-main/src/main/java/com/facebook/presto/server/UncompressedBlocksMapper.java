@@ -88,7 +88,7 @@ public class UncompressedBlocksMapper implements MessageBodyReader<List<Uncompre
                 throw new IOException("Unexpected end of data");
             }
 
-            SliceInput headerInput = Slices.wrappedBuffer(blockHeader).input();
+            SliceInput headerInput = Slices.wrappedBuffer(blockHeader).getInput();
 
             int blockSize = headerInput.readInt();
             int tupleCount = headerInput.readInt();

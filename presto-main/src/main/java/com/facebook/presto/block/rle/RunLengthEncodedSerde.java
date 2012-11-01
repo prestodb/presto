@@ -53,9 +53,9 @@ public class RunLengthEncodedSerde
             {
                 checkNotNull(slice, "slice is null");
 
-                SliceInput input = slice.input();
+                SliceInput input = slice.getInput();
                 final TupleInfo tupleInfo = UncompressedTupleInfoSerde.deserialize(input);
-                final Slice dataSlice = input.slice();
+                final Slice dataSlice = slice.slice(input.position(), slice.length() - input.position());
 
                 RunLengthEncodedTupleStream runLengthEncodedTupleStream = new RunLengthEncodedTupleStream(
                         tupleInfo,
@@ -64,7 +64,7 @@ public class RunLengthEncodedSerde
                             @Override
                             public Iterator<RunLengthEncodedBlock> iterator()
                             {
-                                return new RunLengthEncodedIterator(tupleInfo, dataSlice.input(), totalRange.getStart());
+                                return new RunLengthEncodedIterator(tupleInfo, dataSlice.getInput(), totalRange.getStart());
                             }
                         },
                         totalRange

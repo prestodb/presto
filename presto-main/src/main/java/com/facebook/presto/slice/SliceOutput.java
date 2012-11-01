@@ -115,23 +115,6 @@ public abstract class SliceOutput extends OutputStream implements DataOutput
     /**
      * Transfers the specified source buffer's data to this buffer starting at
      * the current {@code writerIndex} and increases the {@code writerIndex}
-     * by the number of the transferred bytes (= {@code length}).  This method
-     * is basically same with {@link #writeBytes(Slice, int, int)},
-     * except that this method increases the {@code readerIndex} of the source
-     * buffer by the number of the transferred bytes (= {@code length}) while
-     * {@link #writeBytes(Slice, int, int)} does not.
-     *
-     * @param length the number of bytes to transfer
-     *
-     * @throws IndexOutOfBoundsException
-     *         if {@code length} is greater than {@code this.writableBytes} or
-     *         if {@code length} is greater then {@code source.readableBytes}
-     */
-    public abstract void writeBytes(SliceInput source, int length);
-
-    /**
-     * Transfers the specified source buffer's data to this buffer starting at
-     * the current {@code writerIndex} and increases the {@code writerIndex}
      * by the number of the transferred bytes (= {@code length}).
      *
      * @param sourceIndex the first index of the source
