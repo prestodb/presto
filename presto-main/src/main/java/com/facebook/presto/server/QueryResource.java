@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.noperator.Page;
 import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
 
@@ -26,7 +26,7 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 @Path("/v1/presto/query")
 public class QueryResource
 {
-    private static final int DEFAULT_MAX_BLOCK_COUNT = 10;
+    private static final int DEFAULT_MAX_PAGE_COUNT = 10;
     private final QueryManager queryManager;
 
     @Inject
@@ -39,8 +39,8 @@ public class QueryResource
     public Response create(String query, @Context UriInfo uriInfo)
     {
         String operatorId = queryManager.createQuery(query);
-        URI blocksUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(operatorId).build();
-        return Response.created(blocksUri).build();
+        URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(operatorId).build();
+        return Response.created(pagesUri).build();
     }
 
     @GET
@@ -50,11 +50,11 @@ public class QueryResource
     {
         Preconditions.checkNotNull(operatorId, "operatorId is null");
 
-        List<UncompressedBlock> blocks = queryManager.getQueryResults(operatorId, DEFAULT_MAX_BLOCK_COUNT);
-        if (blocks.isEmpty()) {
+        List<Page> pages = queryManager.getQueryResults(operatorId, DEFAULT_MAX_PAGE_COUNT);
+        if (pages.isEmpty()) {
             return Response.status(Status.GONE).build();
         }
-        GenericEntity<?> entity = new GenericEntity<>(blocks, new TypeToken<List<UncompressedBlock>>() {}.getType());
+        GenericEntity<?> entity = new GenericEntity<>(pages, new TypeToken<List<Page>>() {}.getType());
         return Response.ok(entity).build();
     }
 

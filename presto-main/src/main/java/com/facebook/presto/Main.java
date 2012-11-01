@@ -5,9 +5,7 @@ package com.facebook.presto;
 
 import com.facebook.presto.cli.Console;
 import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.ProjectionTupleStream;
-import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.block.TupleStreamSerializer;
 import com.facebook.presto.ingest.DelimitedTupleStream;
@@ -36,7 +34,7 @@ import com.facebook.presto.noperator.aggregation.LongSumAggregation;
 import com.facebook.presto.operator.ConsolePrinter.DelimitedTuplePrinter;
 import com.facebook.presto.operator.ConsolePrinter.TuplePrinter;
 import com.facebook.presto.server.HttpQueryProvider;
-import com.facebook.presto.server.QueryDriversTupleStream;
+import com.facebook.presto.server.QueryDriversOperator;
 import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
@@ -93,7 +91,6 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
-import static com.facebook.presto.block.Cursors.advanceNextPositionNoYield;
 import static com.facebook.presto.noperator.ProjectionFunctions.concat;
 import static com.facebook.presto.noperator.ProjectionFunctions.singleColumn;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -216,8 +213,6 @@ public class Main
                             ImmutableList.of(concat(singleColumn(Type.VARIABLE_BINARY, 0, 0), singleColumn(Type.FIXED_INT_64, 1, 0), singleColumn(Type.FIXED_INT_64, 2, 0))));
 
                     printResults(start, aggregation);
-
-
                 }
                 catch (Exception e) {
                     throw Throwables.propagate(e);
@@ -380,26 +375,11 @@ public class Main
                         .setConnectTimeout(new Duration(1, TimeUnit.MINUTES))
                         .setReadTimeout(new Duration(1, TimeUnit.MINUTES)));
                 AsyncHttpClient asyncHttpClient = new AsyncHttpClient(httpClient, executor);
-                QueryDriversTupleStream tupleStream = new QueryDriversTupleStream(new TupleInfo(VARIABLE_BINARY, Type.FIXED_INT_64), 10,
+                QueryDriversOperator operator = new QueryDriversOperator(10,
                         new HttpQueryProvider("sum", asyncHttpClient, server)
                 );
                 // TODO: this currently leaks query resources (need to delete)
-
-                //                TuplePrinter tuplePrinter = new RecordTuplePrinter();
-                TuplePrinter tuplePrinter = new DelimitedTuplePrinter();
-
-                int count = 0;
-                long grandTotal = 0;
-                Cursor cursor = tupleStream.cursor(new QuerySession());
-                while (advanceNextPositionNoYield(cursor)) {
-                    count++;
-                    Tuple tuple = cursor.getTuple();
-                    grandTotal += tuple.getLong(1);
-                    tuplePrinter.print(tuple);
-                }
-                Duration duration = Duration.nanosSince(start);
-
-                System.out.printf("%d rows in %4.2f ms %d grandTotal\n", count, duration.toMillis(), grandTotal);
+                printResults(start, operator);
             }
             finally {
                 executor.shutdownNow();
@@ -425,23 +405,17 @@ public class Main
 
             ExecutorService executor = Executors.newCachedThreadPool();
             try {
+                long start = System.nanoTime();
+
                 ApacheHttpClient httpClient = new ApacheHttpClient(new HttpClientConfig()
                         .setConnectTimeout(new Duration(1, TimeUnit.MINUTES))
                         .setReadTimeout(new Duration(30, TimeUnit.MINUTES)));
                 AsyncHttpClient asyncHttpClient = new AsyncHttpClient(httpClient, executor);
-                QueryDriversTupleStream tupleStream = new QueryDriversTupleStream(new TupleInfo(Type.FIXED_INT_64), 10,
+                QueryDriversOperator operator = new QueryDriversOperator(10,
                         new HttpQueryProvider(query, asyncHttpClient, server)
                 );
                 // TODO: this currently leaks query resources (need to delete)
-
-                TuplePrinter tuplePrinter = new DelimitedTuplePrinter();
-
-                Cursor cursor = tupleStream.cursor(new QuerySession());
-                while (advanceNextPositionNoYield(cursor)) {
-                    Tuple tuple = cursor.getTuple();
-                    tuplePrinter.print(tuple);
-                }
-                log.info("Query complete.");
+                printResults(start, operator);
             }
             finally {
                 executor.shutdownNow();

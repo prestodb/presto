@@ -4,20 +4,21 @@
 package com.facebook.presto.nblock;
 
 import com.facebook.presto.TupleInfo;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
-import java.util.Arrays;
 import java.util.Iterator;
 
 public class BlockUtils
 {
-    public static Blocks toBlocks(TupleInfo info, Block... blocks)
+    public static Blocks toBlocks(Block firstBlock, Block... rest)
     {
-        return new BlocksAdapter(info, Arrays.asList(blocks));
+        return new BlocksAdapter(firstBlock.getTupleInfo(), ImmutableList.<Block>builder().add(firstBlock).add(rest).build());
     }
 
-    public static Blocks toBlocks(TupleInfo info, Iterable<Block> blocks)
+    public static Blocks toBlocks(Iterable<Block> blocks)
     {
-        return new BlocksAdapter(info, blocks);
+        return new BlocksAdapter(Iterables.get(blocks, 0).getTupleInfo(), blocks);
     }
 
     private static class BlocksAdapter implements Blocks
@@ -29,12 +30,6 @@ public class BlockUtils
         {
             this.info = info;
             this.blocks = blocks;
-        }
-
-        @Override
-        public TupleInfo getTupleInfo()
-        {
-            return info;
         }
 
         @Override
