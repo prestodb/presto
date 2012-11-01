@@ -57,7 +57,7 @@ public class DictionarySerde
                 checkNotNull(slice, "slice is null");
 
                 // Get dictionary byte length from tail and reset to beginning
-                int dictionaryLength = slice.slice(slice.length() - SizeOf.SIZE_OF_INT, SizeOf.SIZE_OF_INT).input().readInt();
+                int dictionaryLength = slice.slice(slice.length() - SizeOf.SIZE_OF_INT, SizeOf.SIZE_OF_INT).getInput().readInt();
 
                 // Slice out dictionary data and extract it
                 Slice dictionarySlice = slice.slice(slice.length() - dictionaryLength - SizeOf.SIZE_OF_INT, dictionaryLength);
@@ -92,7 +92,7 @@ public class DictionarySerde
 
     private static Dictionary deserializeDictionary(Slice slice)
     {
-        SliceInput sliceInput = slice.input();
+        SliceInput sliceInput = slice.getInput();
         TupleInfo tupleInfo = UncompressedTupleInfoSerde.deserialize(sliceInput);
 
         int dictionarySize = sliceInput.readInt();

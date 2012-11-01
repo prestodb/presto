@@ -106,12 +106,6 @@ public class OutputStreamSliceOutput extends SliceOutput
     }
 
     @Override
-    public void writeBytes(SliceInput source, int length)
-    {
-        writeBytes(source.readSlice(length));
-    }
-
-    @Override
     public void writeBytes(Slice source, int sourceIndex, int length)
     {
         try {

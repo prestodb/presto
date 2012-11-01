@@ -64,7 +64,7 @@ public class PackedLongSerde
         // Extract Footer and then reset slice cursor
         int totalBytes = sliceInput.available();
         sliceInput.skipBytes(totalBytes - Footer.BYTE_SIZE);
-        final Footer footer = Footer.deserialize(sliceInput.readSlice(Footer.BYTE_SIZE).input());
+        final Footer footer = Footer.deserialize(sliceInput.readSlice(Footer.BYTE_SIZE).getInput());
         sliceInput.setPosition(0);
 
         final int packCapacity = Long.SIZE / footer.getBitWidth();

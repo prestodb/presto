@@ -73,7 +73,7 @@ public class UncompressedSerde
     private static void write(SliceOutput destination, long startPosition, int tupleCount, Slice slice)
     {
         ByteArraySlice header = Slices.allocate(SIZE_OF_INT + SIZE_OF_INT + SIZE_OF_LONG);
-        header.output()
+        header.getOutput()
                 .appendInt(slice.length())
                 .appendInt(tupleCount)
                 .appendLong(startPosition);
@@ -179,7 +179,7 @@ public class UncompressedSerde
         private UncompressedReader(long positionOffset, Slice slice)
         {
             this.positionOffset = positionOffset;
-            sliceInput = slice.input();
+            sliceInput = slice.getInput();
             this.tupleInfo = UncompressedTupleInfoSerde.deserialize(sliceInput);
         }
 

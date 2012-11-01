@@ -26,7 +26,7 @@ public class TestPackedLongSerde {
         new PackedLongSerde(Long.SIZE).serialize(list, sliceOutput);
         Assert.assertTrue(
                 Iterables.elementsEqual(
-                        PackedLongSerde.deserialize(sliceOutput.slice().input()),
+                        PackedLongSerde.deserialize(sliceOutput.slice().getInput()),
                         list
                 )
         );
@@ -38,7 +38,7 @@ public class TestPackedLongSerde {
         new PackedLongSerde(Long.SIZE - 1).serialize(list, sliceOutput);
         Assert.assertTrue(
                 Iterables.elementsEqual(
-                        PackedLongSerde.deserialize(sliceOutput.slice().input()),
+                        PackedLongSerde.deserialize(sliceOutput.slice().getInput()),
                         list
                 )
         );
@@ -50,7 +50,7 @@ public class TestPackedLongSerde {
         new PackedLongSerde(Integer.SIZE).serialize(list, sliceOutput);
         Assert.assertTrue(
                 Iterables.elementsEqual(
-                        PackedLongSerde.deserialize(sliceOutput.slice().input()),
+                        PackedLongSerde.deserialize(sliceOutput.slice().getInput()),
                         list
                 )
         );
@@ -62,7 +62,7 @@ public class TestPackedLongSerde {
         new PackedLongSerde(17).serialize(list, sliceOutput);
         Assert.assertTrue(
                 Iterables.elementsEqual(
-                        PackedLongSerde.deserialize(sliceOutput.slice().input()),
+                        PackedLongSerde.deserialize(sliceOutput.slice().getInput()),
                         list
                 )
         );
@@ -74,7 +74,7 @@ public class TestPackedLongSerde {
         new PackedLongSerde(1).serialize(list, sliceOutput);
         Assert.assertTrue(
                 Iterables.elementsEqual(
-                        PackedLongSerde.deserialize(sliceOutput.slice().input()),
+                        PackedLongSerde.deserialize(sliceOutput.slice().getInput()),
                         list
                 )
         );
