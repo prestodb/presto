@@ -2,7 +2,7 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.block.uncompressed.UncompressedSerde;
-import com.facebook.presto.operator.tap.StatsTupleValueSink;
+import com.facebook.presto.serde.StatsCollectingBlocksSerde.StatsCollector.Stats;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
@@ -29,7 +29,7 @@ public class TestStatsCollectingTupleStreamSerde
                 .append(tupleStream)
                 .finish();
         TupleStream resultTupleStream = serde.createDeserializer().deserialize(Range.ALL, sliceOutput.slice());
-        StatsTupleValueSink.Stats stats = serde.createDeserializer().deserializeStats(sliceOutput.slice());
+        Stats stats = serde.createDeserializer().deserializeStats(sliceOutput.slice());
         Blocks.assertTupleStreamEquals(resultTupleStream, tupleStream);
         
         Assert.assertEquals(stats.getAvgRunLength() , 2);
