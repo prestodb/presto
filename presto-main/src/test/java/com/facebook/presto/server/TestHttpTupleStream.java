@@ -3,11 +3,9 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.Cursors;
-import com.facebook.presto.block.QuerySession;
-import com.facebook.presto.server.QueryDriversTupleStream.QueryDriversYieldingIterator;
+import com.facebook.presto.nblock.BlockCursor;
+import com.facebook.presto.noperator.Page;
+import com.facebook.presto.server.QueryDriversOperator.QueryDriversIterator;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Guice;
@@ -76,8 +74,9 @@ public class TestHttpTupleStream
                     {
                         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
                         binder.bind(QueryManager.class).to(SimpleQueryManager.class).in(Scopes.SINGLETON);
-                        binder.bind(UncompressedBlockMapper.class).in(Scopes.SINGLETON);
-                        binder.bind(UncompressedBlocksMapper.class).in(Scopes.SINGLETON);
+                        binder.bind(BlockMapper.class).in(Scopes.SINGLETON);
+                        binder.bind(BlocksMapper.class).in(Scopes.SINGLETON);
+                        binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
                     }
                 },
                 new ConfigurationModule(new ConfigurationFactory(ImmutableMap.<String, String>of())));
@@ -107,16 +106,18 @@ public class TestHttpTupleStream
     public void testQuery()
             throws Exception
     {
-        QueryDriversTupleStream tupleStream = new QueryDriversTupleStream(TupleInfo.SINGLE_VARBINARY, 10,
+        QueryDriversOperator operator = new QueryDriversOperator(10,
                 new HttpQueryProvider("query", httpClient, server1.getBaseUrl().resolve("/v1/presto/query")),
                 new HttpQueryProvider("query", httpClient, server2.getBaseUrl().resolve("/v1/presto/query")),
                 new HttpQueryProvider("query", httpClient, server3.getBaseUrl().resolve("/v1/presto/query"))
         );
 
         int count = 0;
-        Cursor cursor = tupleStream.cursor(new QuerySession());
-        while (Cursors.advanceNextPositionNoYield(cursor)) {
-            count++;
+        for (Page page : operator) {
+            BlockCursor cursor = page.getBlock(0).cursor();
+            while (cursor.advanceNextPosition()) {
+                count++;
+            }
         }
         assertEquals(count, 312 * 3);
     }
@@ -125,17 +126,20 @@ public class TestHttpTupleStream
     public void testCancel()
             throws Exception
     {
-        QueryDriversTupleStream tupleStream = new QueryDriversTupleStream(TupleInfo.SINGLE_VARBINARY, 10,
+        QueryDriversOperator operator = new QueryDriversOperator(10,
                 new HttpQueryProvider("query", httpClient, server1.getBaseUrl().resolve("/v1/presto/query")),
                 new HttpQueryProvider("query", httpClient, server2.getBaseUrl().resolve("/v1/presto/query")),
                 new HttpQueryProvider("query", httpClient, server3.getBaseUrl().resolve("/v1/presto/query"))
         );
 
         int count = 0;
-        QueryDriversYieldingIterator iterator = tupleStream.iterator(new QuerySession());
+        QueryDriversIterator iterator = operator.iterator();
         while (count < 20 && iterator.hasNext()) {
-            iterator.next();
-            count++;
+            Page page = iterator.next();
+            BlockCursor cursor = page.getBlock(0).cursor();
+            while (count < 20 && cursor.advanceNextPosition()) {
+                count++;
+            }
         }
         assertEquals(count, 20);
 

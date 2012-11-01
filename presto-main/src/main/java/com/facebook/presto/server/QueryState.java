@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.noperator.Page;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
@@ -29,66 +29,66 @@ public class QueryState
         FAILED
     }
 
-    @GuardedBy("blockBuffer")
-    private final ArrayDeque<UncompressedBlock> blockBuffer;
+    @GuardedBy("pageBuffer")
+    private final ArrayDeque<Page> pageBuffer;
 
-    @GuardedBy("blockBuffer")
+    @GuardedBy("pageBuffer")
     private State state = State.RUNNING;
 
-    @GuardedBy("blockBuffer")
+    @GuardedBy("pageBuffer")
     private final List<Throwable> causes = new ArrayList<>();
 
-    @GuardedBy("blockBuffer")
+    @GuardedBy("pageBuffer")
     private int sourceCount;
 
     private final Semaphore notFull;
     private final Semaphore notEmpty;
 
-    public QueryState(int sourceCount, int blockBufferMax)
+    public QueryState(int sourceCount, int pageBufferMax)
     {
         Preconditions.checkArgument(sourceCount > 0, "sourceCount must be at least 1");
-        Preconditions.checkArgument(blockBufferMax > 0, "blockBufferMax must be at least 1");
+        Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
 
         this.sourceCount = sourceCount;
-        this.blockBuffer = new ArrayDeque<>(blockBufferMax);
-        this.notFull = new Semaphore(blockBufferMax);
+        this.pageBuffer = new ArrayDeque<>(pageBufferMax);
+        this.notFull = new Semaphore(pageBufferMax);
         this.notEmpty = new Semaphore(0);
     }
 
     public boolean isDone()
     {
-        synchronized (blockBuffer) {
+        synchronized (pageBuffer) {
             return state != State.RUNNING;
         }
     }
 
     public boolean isFailed()
     {
-        synchronized (blockBuffer) {
+        synchronized (pageBuffer) {
             return state == State.FAILED;
         }
     }
 
     public boolean isCanceled()
     {
-        synchronized (blockBuffer) {
+        synchronized (pageBuffer) {
             return state == State.CANCELED;
         }
     }
 
     /**
-     * Marks a source as finished and drop all buffered blocks.  Once all sources are finished, no more blocks can be added to the buffer.
+     * Marks a source as finished and drop all buffered pages.  Once all sources are finished, no more pages can be added to the buffer.
      */
     public void cancel()
     {
-        synchronized (blockBuffer) {
+        synchronized (pageBuffer) {
             if (state != State.RUNNING) {
                 return;
             }
 
             state = State.CANCELED;
             sourceCount = 0;
-            blockBuffer.clear();
+            pageBuffer.clear();
             // free up threads quickly
             notEmpty.release();
             notFull.release();
@@ -96,17 +96,17 @@ public class QueryState
     }
 
     /**
-     * Marks a source as finished.  Once all sources are finished, no more blocks can be added to the buffer.
+     * Marks a source as finished.  Once all sources are finished, no more pages can be added to the buffer.
      */
     public void sourceFinished()
     {
-        synchronized (blockBuffer) {
+        synchronized (pageBuffer) {
             if (state != State.RUNNING) {
                 return;
             }
             sourceCount--;
             if (sourceCount == 0) {
-                if (blockBuffer.isEmpty()) {
+                if (pageBuffer.isEmpty()) {
                     state = State.FINISHED;
                 }
                 // free up threads quickly
@@ -117,11 +117,11 @@ public class QueryState
     }
 
     /**
-     * Marks the query as failed and finished.  Once the query if failed, no more blocks can be added to the buffer.
+     * Marks the query as failed and finished.  Once the query if failed, no more pages can be added to the buffer.
      */
     public void queryFailed(Throwable cause)
     {
-        synchronized (blockBuffer) {
+        synchronized (pageBuffer) {
             // if query is already done, nothing can be done here
             if (state == State.CANCELED || state == State.FINISHED) {
                 causes.add(cause);
@@ -130,7 +130,7 @@ public class QueryState
             state = State.FAILED;
             causes.add(cause);
             sourceCount = 0;
-            blockBuffer.clear();
+            pageBuffer.clear();
             // free up threads quickly
             notEmpty.release();
             notFull.release();
@@ -138,21 +138,21 @@ public class QueryState
     }
 
     /**
-     * Add a block to the buffer.  The buffers space is limited, so the caller will be blocked until
+     * Add a page to the buffer.  The buffers space is limited, so the caller will be blocked until
      * space is available in the buffer.
      *
-     * @return true if the block was added; false if the query has already been canceled or failed
+     * @return true if the page was added; false if the query has already been canceled or failed
      * @throws InterruptedException if the thread is interrupted while waiting for buffer space to be freed
      * @throws IllegalStateException if the query is finished
      */
-    public boolean addBlock(UncompressedBlock block)
+    public boolean addPage(Page page)
             throws InterruptedException
     {
         // acquire write permit
         while (!isDone() && !notFull.tryAcquire(1, TimeUnit.SECONDS)) {
         }
 
-        synchronized (blockBuffer) {
+        synchronized (pageBuffer) {
             // don't throw an exception if the query was canceled or failed as the caller may not be aware of this
             if (state == State.CANCELED || state == State.FAILED) {
                 // release an additional thread blocked in the code above
@@ -168,30 +168,30 @@ public class QueryState
                 notFull.release();
                 throw new IllegalStateException("All sources are finished");
             }
-            blockBuffer.addLast(block);
+            pageBuffer.addLast(page);
             notEmpty.release();
         }
         return true;
     }
 
     /**
-     * Gets the next blocks from the buffer.  The caller will block until at least one block is available, the
+     * Gets the next pages from the buffer.  The caller will page until at least one page is available, the
      * query is canceled, or the query fails.
      *
-     * @return one to masBlockCount blocks if the query is not done; no block if the query is done
+     * @return one to masPageCount pages if the query is not done; no page if the query is done
      * @throws FailedQueryException if the query failed
-     * @throws InterruptedException if the thread is interrupted while waiting for blocks to be buffered
+     * @throws InterruptedException if the thread is interrupted while waiting for pages to be buffered
      */
-    public List<UncompressedBlock> getNextBlocks(int maxBlockCount)
+    public List<Page> getNextPages(int maxPageCount)
             throws InterruptedException
     {
-        Preconditions.checkArgument(maxBlockCount > 0, "blockBufferMax must be at least 1");
+        Preconditions.checkArgument(maxPageCount > 0, "pageBufferMax must be at least 1");
 
-        // block until first block is available
+        // block until first page is available
         while (!isDone() && !notEmpty.tryAcquire(1, TimeUnit.SECONDS)) {
         }
 
-        synchronized (blockBuffer) {
+        synchronized (pageBuffer) {
             // verify state
             if (state == State.CANCELED || state == State.FINISHED) {
                 // release an additional thread blocked in the code above
@@ -209,14 +209,14 @@ public class QueryState
                 throw failedQueryException;
             }
 
-            // acquire all available blocks up to the limit
-            ImmutableList.Builder<UncompressedBlock> nextBlocks = ImmutableList.builder();
+            // acquire all available pages up to the limit
+            ImmutableList.Builder<Page> nextPages = ImmutableList.builder();
             int count = 0;
-            // use a do while because we have "reserved" a block in the above acquire call
+            // use a do while because we have "reserved" a page in the above acquire call
             do {
-                if (blockBuffer.isEmpty()) {
+                if (pageBuffer.isEmpty()) {
                     // there is one extra permit when all sources are finished
-                    Preconditions.checkState(sourceCount == 0, "A read permit was acquired but no blocks are available");
+                    Preconditions.checkState(sourceCount == 0, "A read permit was acquired but no pages are available");
 
                     // release an additional thread blocked in the code above
                     // all blocked threads will be release due to the chain reaction
@@ -224,22 +224,22 @@ public class QueryState
                     break;
                 }
                 else {
-                    nextBlocks.add(blockBuffer.removeFirst());
+                    nextPages.add(pageBuffer.removeFirst());
                 }
                 count++;
-                // tryAcquire can fail even if more blocks are available, because the blocks may have been "reserved" by the above acquire call
-            } while (count < maxBlockCount && notEmpty.tryAcquire());
+                // tryAcquire can fail even if more pages are available, because the pages may have been "reserved" by the above acquire call
+            } while (count < maxPageCount && notEmpty.tryAcquire());
 
-            // allow blocks to be replaced
+            // allow pages to be replaced
             notFull.release(count);
 
             // check for end condition
-            List<UncompressedBlock> blocks = nextBlocks.build();
-            if (sourceCount == 0 && blockBuffer.isEmpty()) {
+            List<Page> pages = nextPages.build();
+            if (sourceCount == 0 && pageBuffer.isEmpty()) {
                 state = State.FINISHED;
             }
 
-            return blocks;
+            return pages;
         }
     }
 }

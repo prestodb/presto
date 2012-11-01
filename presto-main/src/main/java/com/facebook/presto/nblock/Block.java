@@ -14,7 +14,7 @@ public interface Block
     /**
      * Returns the number of positions in this block.
      */
-    long getCount();
+    int getCount();
 
     /**
      * Gets the start and end positions of the block.
