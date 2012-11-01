@@ -8,9 +8,9 @@ import com.facebook.presto.nblock.BlockCursor;
 import com.facebook.presto.nblock.Blocks;
 import com.facebook.presto.noperator.Operator;
 import com.facebook.presto.noperator.Page;
-import com.facebook.presto.operator.tap.StatsTupleValueSink;
 import com.facebook.presto.serde.BlockSerdes.Encoding;
-import com.facebook.presto.serde.BlocksSerde;
+import com.facebook.presto.serde.StatsCollectingBlocksSerde;
+import com.facebook.presto.serde.StatsCollectingBlocksSerde.StatsCollector.Stats;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tpch.CachingTpchDataProvider;
@@ -99,10 +99,9 @@ public abstract class AbstractOperatorBenchmark
 
         DataSize totalDataSize = metricRecordingTpchDataProvider.getCumulativeDataSize();
         
-//        checkState(!statsTpchTupleStreamProvider.getStats().isEmpty(), "no columns were fetched");
+        checkState(!statsTpchTupleStreamProvider.getStats().isEmpty(), "no columns were fetched");
         // Use the first column fetched as the indicator of the number of rows
-//        long inputRows = statsTpchTupleStreamProvider.getStats().get(0).getRowCount();
-        long inputRows = 1;
+        long inputRows = statsTpchTupleStreamProvider.getStats().get(0).getRowCount();
 
         return ImmutableMap.<String, Long>builder()
                 .put("elapsed_millis", (long) executionMillis)
@@ -119,7 +118,7 @@ public abstract class AbstractOperatorBenchmark
             implements TpchTupleStreamProvider
     {
         private final TpchDataProvider tpchDataProvider;
-        private final ImmutableList.Builder<StatsTupleValueSink.Stats> statsBuilder = ImmutableList.builder();
+        private final ImmutableList.Builder<Stats> statsBuilder = ImmutableList.builder();
 
         private StatsTpchTupleStreamProvider(TpchDataProvider tpchDataProvider)
         {
@@ -147,20 +146,17 @@ public abstract class AbstractOperatorBenchmark
         {
             checkNotNull(column, "column is null");
             checkNotNull(encoding, "encoding is null");
-            // Wrap the encoding with stats collection
-//            StatsCollectingTupleStreamSerde serde = new StatsCollectingTupleStreamSerde(encoding.createSerde());
             try {
                 File columnFile = tpchDataProvider.getColumnFile(column, encoding.createSerde(), encoding.getName());
                 Slice slice = Slices.mapFileReadOnly(columnFile);
-//                statsBuilder.add(serde.createDeserializer().deserializeStats(slice));
-//                return serde.createDeserializer().deserializeBlocks(Range.ALL, slice);
-                return BlocksSerde.readBlocks(slice);
+                statsBuilder.add(StatsCollectingBlocksSerde.readStats(slice));
+                return StatsCollectingBlocksSerde.readBlocks(slice);
             } catch (IOException e) {
                 throw Throwables.propagate(e);
             }
         }
 
-        public List<StatsTupleValueSink.Stats> getStats()
+        public List<Stats> getStats()
         {
             return statsBuilder.build();
         }

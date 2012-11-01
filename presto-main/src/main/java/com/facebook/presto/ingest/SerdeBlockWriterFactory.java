@@ -4,8 +4,8 @@
 package com.facebook.presto.ingest;
 
 import com.facebook.presto.serde.BlockSerde;
-import com.facebook.presto.serde.BlocksSerde;
 import com.facebook.presto.serde.BlocksWriter;
+import com.facebook.presto.serde.StatsCollectingBlocksSerde;
 import com.facebook.presto.slice.OutputStreamSliceOutput;
 import com.facebook.presto.slice.SliceOutput;
 import com.google.common.base.Preconditions;
@@ -39,7 +39,7 @@ public class SerdeBlockWriterFactory implements BlockWriterFactory
             } else {
                 sliceOutput = new OutputStreamSliceOutput(outputStream);
             }
-            return BlocksSerde.createBlocksWriter(sliceOutput, blockSerde);
+            return StatsCollectingBlocksSerde.createBlocksWriter(sliceOutput, blockSerde);
         }
         catch (IOException e) {
             throw Throwables.propagate(e);

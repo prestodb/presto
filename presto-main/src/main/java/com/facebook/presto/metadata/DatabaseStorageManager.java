@@ -15,8 +15,9 @@ import com.facebook.presto.nblock.BlockUtils;
 import com.facebook.presto.nblock.Blocks;
 import com.facebook.presto.noperator.AlignmentOperator;
 import com.facebook.presto.noperator.Operator;
-import com.facebook.presto.operator.tap.StatsTupleValueSink;
 import com.facebook.presto.serde.BlockSerdes;
+import com.facebook.presto.serde.StatsCollectingBlocksSerde;
+import com.facebook.presto.serde.StatsCollectingBlocksSerde.StatsCollector.Stats;
 import com.facebook.presto.serde.UncompressedBlockSerde;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
@@ -141,7 +142,7 @@ public class DatabaseStorageManager
         for (int channel = 0; channel < stagedFiles.size(); channel++) {
             File stagedFile = stagedFiles.get(channel);
             Slice slice = mappedFileCache.getUnchecked(stagedFile.getAbsolutePath());
-            StatsTupleValueSink.Stats stats = STATS_STAGING_SERDE.createDeserializer().deserializeStats(slice);
+            Stats stats = STATS_STAGING_SERDE.createDeserializer().deserializeStats(slice);
 
             // Compute optimal encoding from stats
             boolean rleEncode = stats.getAvgRunLength() > RUN_LENGTH_AVERAGE_CUTOFF;
@@ -346,24 +347,17 @@ public class DatabaseStorageManager
     {
         Preconditions.checkArgument(!files.isEmpty(), "no files in stream");
 
-        final StatsCollectingTupleStreamSerde.StatsAnnotatedTupleStreamDeserializer deserializer = new StatsCollectingTupleStreamSerde.StatsAnnotatedTupleStreamDeserializer(SelfDescriptiveSerde.DESERIALIZER);
-
         return BlockUtils.toBlocks(Iterables.concat(Lists.transform(files, new Function<File, Iterable<? extends Block>>()
         {
-            private Range range;
+            private long startPosition;
 
             @Override
             public Iterable<? extends Block> apply(File file)
             {
                 Slice slice = mappedFileCache.getUnchecked(file.getAbsolutePath());
-                long rowCount = deserializer.deserializeStats(slice).getRowCount();
-                if (range == null) {
-                    range = Range.create(0, rowCount - 1);
-                }
-                else {
-                    range = Range.create(range.getEnd() + 1, range.getEnd() + rowCount);
-                }
-                return deserializer.deserializeBlocks(range, slice);
+                Blocks blocks = StatsCollectingBlocksSerde.readBlocks(slice, startPosition);
+                startPosition += StatsCollectingBlocksSerde.readStats(slice).getRowCount() + 1;
+                return blocks;
             }
         })));
     }
