@@ -29,6 +29,12 @@ public class Query2FilterAndProjectOperator implements Operator
     }
 
     @Override
+    public int getChannelCount()
+    {
+        return 2;
+    }
+
+    @Override
     public Iterator<Page> iterator()
     {
         return new FilterAndProjectIterator(operator.iterator());
@@ -68,7 +74,7 @@ public class Query2FilterAndProjectOperator implements Operator
 
             UncompressedBlock poolOutput = poolNameOutputBlock.build();
             Page page = new Page(poolOutput, cpuMsecOutputBlock.build());
-            outputPosition += poolOutput.getCount();
+            outputPosition += poolOutput.getPositionCount();
             return page;
         }
 

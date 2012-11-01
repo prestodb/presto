@@ -10,15 +10,25 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.InputSupplier;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.util.Iterator;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class BlocksSerde
+public final class BlocksSerde
 {
-    public BlocksWriter createBlocksWriter(final SliceOutput sliceOutput)
+    private BlocksSerde()
+    {
+    }
+
+    public static BlocksWriter createBlocksWriter(SliceOutput sliceOutput)
+    {
+        return createBlocksWriter(sliceOutput, null);
+    }
+
+    public static BlocksWriter createBlocksWriter(final SliceOutput sliceOutput, @Nullable final BlockSerde blockSerde)
     {
         checkNotNull(sliceOutput, "sliceOutput is null");
         return new BlocksWriter() {
@@ -30,10 +40,13 @@ public class BlocksSerde
                 Preconditions.checkNotNull(block, "block is null");
 
                 if (blocksWriter == null) {
-                    BlockSerde blockSerde = BlockSerdes.getSerdeForBlock(block);
-                    blocksWriter = blockSerde.createBlockWriter(sliceOutput);
+                    BlockSerde serde = blockSerde;
+                    if (blockSerde == null) {
+                        serde = BlockSerdes.getSerdeForBlock(block);
+                    }
+                    blocksWriter = serde.createBlockWriter(sliceOutput);
 
-                    BlockSerdeSerde.writeBlockSerde(sliceOutput, blockSerde);
+                    BlockSerdeSerde.writeBlockSerde(sliceOutput, serde);
                     TupleInfoSerde.writeTupleInfo(block.getTupleInfo(), sliceOutput);
                 }
 
@@ -49,15 +62,15 @@ public class BlocksSerde
         };
     }
 
-    public void writeBlocks(SliceOutput sliceOutput, Block... blocks) {
+    public static void writeBlocks(SliceOutput sliceOutput, Block... blocks) {
         writeBlocks(sliceOutput, ImmutableList.copyOf(blocks).iterator());
     }
 
-    public void writeBlocks(SliceOutput sliceOutput, Iterable<? extends Block> blocks) {
+    public static void writeBlocks(SliceOutput sliceOutput, Iterable<? extends Block> blocks) {
         writeBlocks(sliceOutput, blocks.iterator());
     }
 
-    public void writeBlocks(SliceOutput sliceOutput, Iterator<? extends Block> blocks) {
+    public static void writeBlocks(SliceOutput sliceOutput, Iterator<? extends Block> blocks) {
         BlocksWriter blocksWriter = createBlocksWriter(sliceOutput);
         while (blocks.hasNext()) {
             blocksWriter.append(blocks.next());
@@ -65,12 +78,12 @@ public class BlocksSerde
         blocksWriter.finish();
     }
 
-    public Blocks readBlocks(InputSupplier<SliceInput> sliceInputSupplier)
+    public static Blocks readBlocks(InputSupplier<SliceInput> sliceInputSupplier)
     {
         return readBlocks(sliceInputSupplier, 0);
     }
 
-    public Blocks readBlocks(final InputSupplier<SliceInput> sliceInputSupplier, final long startPosition)
+    public static Blocks readBlocks(final InputSupplier<SliceInput> sliceInputSupplier, final long startPosition)
     {
         Preconditions.checkNotNull(sliceInputSupplier, "sliceInputSupplier is null");
         Preconditions.checkArgument(startPosition >= 0, "startPosition is negative");
@@ -90,7 +103,7 @@ public class BlocksSerde
         };
     }
 
-    public Iterator<Block> readBlocks(SliceInput input, long startPosition)
+    public static Iterator<Block> readBlocks(SliceInput input, long startPosition)
     {
         return new BlocksReader(input, startPosition);
     }
@@ -101,7 +114,7 @@ public class BlocksSerde
         private final SliceInput sliceInput;
         private final BlockSerde blockSerde;
         private final TupleInfo tupleInfo;
-        private long positionOffset;
+        private final long positionOffset;
 
         private BlocksReader(SliceInput sliceInput, long startPosition)
         {
@@ -119,7 +132,6 @@ public class BlocksSerde
             }
 
             Block block = blockSerde.readBlock(sliceInput, tupleInfo, positionOffset);
-            positionOffset += block.getCount();
             return block;
         }
     }

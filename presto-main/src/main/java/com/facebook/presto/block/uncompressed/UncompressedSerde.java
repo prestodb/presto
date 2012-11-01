@@ -66,7 +66,7 @@ public class UncompressedSerde
             @Override
             public Blocks deserializeBlocks(Range totalRange, Slice slice)
             {
-                return new BlocksSerde().readBlocks(slice, totalRange.getStart());
+                return BlocksSerde.readBlocks(slice, totalRange.getStart());
             }
         };
     }

@@ -25,6 +25,12 @@ public class HttpQueryProvider implements QueryDriverProvider
     }
 
     @Override
+    public int getChannelCount()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public QueryDriver create(QueryState queryState)
     {
         HttpQuery httpQuery = new HttpQuery(query, queryState, httpClient, uri);

@@ -2,15 +2,16 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.StaticTupleAppendingTupleStream;
-import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.hive.HiveClient;
 import com.facebook.presto.hive.PartitionChunk;
-import com.facebook.presto.hive.RecordIterator;
 import com.facebook.presto.hive.SchemaField;
-import com.facebook.presto.ingest.HiveTupleStream;
+import com.facebook.presto.ingest.HivePartition;
+import com.facebook.presto.ingest.RecordProjectOperator;
+import com.facebook.presto.ingest.RecordProjection;
+import com.facebook.presto.ingest.RecordProjections;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Charsets;
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -22,6 +23,7 @@ import java.util.concurrent.Callable;
 
 import static com.facebook.presto.RetryDriver.runWithRetry;
 import static com.facebook.presto.ingest.HiveSchemaUtil.createColumnMetadata;
+import static com.facebook.presto.ingest.HiveSchemaUtil.getTupleType;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HiveImportManager
@@ -87,6 +89,16 @@ public class HiveImportManager
             }
         }
 
+        ImmutableList.Builder<String> fieldNamesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<RecordProjection> builder = ImmutableList.builder();
+        for (int i = 0; i < schemaFields.size(); i++) {
+            SchemaField schemaField = schemaFields.get(i);
+            fieldNamesBuilder.add(schemaField.getFieldName());
+            builder.add(RecordProjections.createProjection(i, getTupleType(schemaField.getPrimitiveType())));
+        }
+        final List<String> fieldNames = fieldNamesBuilder.build();
+        final List<RecordProjection> recordProjections = builder.build();
+
         long rowCount = 0;
         // TODO: right now, failures can result in partial partitions to be loaded (smallest unit needs to be transactional)
         for (final PartitionChunk chunk : chunks) {
@@ -96,14 +108,9 @@ public class HiveImportManager
                 public Long call()
                         throws Exception
                 {
-                    try (RecordIterator records = hiveClient.getRecords(chunk)) {
-                        TupleStream sourceTupleStream = new StaticTupleAppendingTupleStream(
-                                new HiveTupleStream(records, schemaFields),
-                                partitionTuple
-                        );
-                        // TODO: add layer to break up incoming TupleStream based on size
-                        return storageManager.importTableShard(sourceTupleStream, databaseName, tableName);
-                    }
+                    HivePartition hivePartition = new HivePartition(hiveClient, chunk, fieldNames);
+                    RecordProjectOperator source = new RecordProjectOperator(hivePartition, recordProjections);
+                    return storageManager.importTableShard(source, databaseName, tableName);
                 }
             }, databaseName + "." + tableName + "." + partitionName + "." + chunk + ".import");
         }

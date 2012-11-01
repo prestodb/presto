@@ -35,6 +35,12 @@ public class AggregationOperator
     }
 
     @Override
+    public int getChannelCount()
+    {
+        return projections.size();
+    }
+
+    @Override
     public Iterator<Page> iterator()
     {
         // create the aggregation functions

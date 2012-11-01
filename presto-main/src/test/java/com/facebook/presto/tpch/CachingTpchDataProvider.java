@@ -1,6 +1,8 @@
 package com.facebook.presto.tpch;
 
 import com.facebook.presto.block.TupleStreamSerializer;
+import com.facebook.presto.serde.BlockSerde;
+import com.facebook.presto.tpch.TpchSchema.Column;
 import com.google.common.base.Preconditions;
 
 import java.io.File;
@@ -36,7 +38,24 @@ public class CachingTpchDataProvider
         }
         return file;
     }
-    
+
+    @Override
+    public File getColumnFile(Column column, BlockSerde blockSerde, String serdeName)
+    {
+        Preconditions.checkNotNull(column, "column is null");
+        Preconditions.checkNotNull(blockSerde, "blockSerde is null");
+        Preconditions.checkNotNull(serdeName, "serdeName is null");
+
+        // Hack: Use the serdeName as the unique identifier of the serializer
+        TpchColumnRequest columnRequest = new TpchColumnRequest(column, serdeName);
+        File file = localFileCache.get(columnRequest);
+        if (file == null) {
+            file = delegate.getColumnFile(column, blockSerde, serdeName);
+            localFileCache.put(columnRequest, file);
+        }
+        return file;
+    }
+
     private static final class TpchColumnRequest
     {
         private final TpchSchema.Column column;

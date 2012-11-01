@@ -34,7 +34,7 @@ public class TestQueryDriversTupleStream
         List<Page> pages = createPages();
         int expectedCount = 0;
         for (Page page : pages) {
-            expectedCount += page.getCount();
+            expectedCount += page.getPositionCount();
         }
 
         ExecutorService executor = Executors.newCachedThreadPool();
@@ -136,6 +136,12 @@ public class TestQueryDriversTupleStream
         public List<StaticQueryDriver> getCreatedDrivers()
         {
             return ImmutableList.copyOf(createdDrivers);
+        }
+
+        @Override
+        public int getChannelCount()
+        {
+            return pages.get(0).getBlocks().length;
         }
 
         @Override

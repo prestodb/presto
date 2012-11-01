@@ -30,6 +30,12 @@ public class Query3FilterAndProjectOperator implements Operator
     }
 
     @Override
+    public int getChannelCount()
+    {
+        return 1;
+    }
+
+    @Override
     public Iterator<Page> iterator()
     {
         return new FilterAndProjectIterator(operator.iterator());
@@ -66,7 +72,7 @@ public class Query3FilterAndProjectOperator implements Operator
                 return endOfData();
             }
             UncompressedBlock block = blockBuilder.build();
-            outputPosition += block.getCount();
+            outputPosition += block.getPositionCount();
             return new Page(block);
         }
 
@@ -114,7 +120,7 @@ public class Query3FilterAndProjectOperator implements Operator
                 return endOfData();
             }
             UncompressedBlock block = blockBuilder.build();
-            outputPosition += block.getCount();
+            outputPosition += block.getPositionCount();
             return new Page(block);
         }
 

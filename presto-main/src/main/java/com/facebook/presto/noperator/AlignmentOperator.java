@@ -7,6 +7,7 @@ import com.facebook.presto.Range;
 import com.facebook.presto.nblock.Block;
 import com.facebook.presto.nblock.Blocks;
 import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.Iterables;
 
 import java.util.Iterator;
 
@@ -19,6 +20,17 @@ public class AlignmentOperator implements Operator
     public AlignmentOperator(Blocks... channels)
     {
         this.channels = channels;
+    }
+
+    public AlignmentOperator(Iterable<Blocks> channels)
+    {
+        this.channels = Iterables.toArray(channels, Blocks.class);
+    }
+
+    @Override
+    public int getChannelCount()
+    {
+        return channels.length;
     }
 
     @Override

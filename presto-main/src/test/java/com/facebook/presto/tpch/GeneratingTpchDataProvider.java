@@ -1,11 +1,16 @@
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.ProjectionTupleStream;
 import com.facebook.presto.block.TupleStreamSerializer;
+import com.facebook.presto.ingest.DelimitedRecordIterable;
 import com.facebook.presto.ingest.DelimitedTupleStream;
+import com.facebook.presto.ingest.ImportingOperator;
+import com.facebook.presto.ingest.RecordProjectOperator;
+import com.facebook.presto.ingest.SerdeBlockWriterFactory;
 import com.facebook.presto.ingest.StreamWriterTupleValueSink;
 import com.facebook.presto.ingest.TupleStreamImporter;
+import com.facebook.presto.serde.BlockSerde;
+import com.facebook.presto.tpch.TpchSchema.Column;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
@@ -22,8 +27,12 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.jar.JarFile;
 
+import static com.facebook.presto.ingest.RecordProjections.createProjection;
+import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.io.CharStreams.newReaderSupplier;
+import static com.google.common.io.Files.newOutputStreamSupplier;
 
 /**
  * Extracts TPCH data into serialized column file formats.
@@ -78,14 +87,17 @@ public class GeneratingTpchDataProvider
         public InputSupplier<InputStream> getInputSupplier(final String tableName)
         {
             checkNotNull(tableName, "tableFileName is null");
-            return new InputSupplier<InputStream>() {
+            return new InputSupplier<InputStream>()
+            {
                 @Override
-                public InputStream getInput() throws IOException
+                public InputStream getInput()
+                        throws IOException
                 {
                     try {
                         JarFile jarFile = new JarFile(jarFileName);
                         return jarFile.getInputStream(jarFile.getJarEntry(createTableFileName(tableName)));
-                    } catch (IOException e) {
+                    }
+                    catch (IOException e) {
                         throw Throwables.propagate(e);
                     }
                 }
@@ -104,7 +116,8 @@ public class GeneratingTpchDataProvider
         }
     }
 
-    private static TableInputSupplierFactory autoSelectTableInputStreamProvider() {
+    private static TableInputSupplierFactory autoSelectTableInputStreamProvider()
+    {
         // First check if a data jar file has been manually specified
         final String tpchDataJarFileOverride = System.getProperty("tpchDataJar");
         if (tpchDataJarFileOverride != null) {
@@ -149,7 +162,42 @@ public class GeneratingTpchDataProvider
             }
 
             return cachedFile;
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    @Override
+    public File getColumnFile(Column column, BlockSerde blockSerde, String serdeName)
+    {
+        checkNotNull(column, "column is null");
+        checkNotNull(blockSerde, "blockSerde is null");
+        checkNotNull(serdeName, "serdeName is null");
+
+        try {
+            String hash = ByteStreams.hash(tableInputSupplierFactory.getInputSupplier(column.getTable().getName()), Hashing.md5()).toString();
+
+            File cachedFile = new File(new File(cacheDirectory, column.getTable().getName() + "-" + hash), "new-" + createFileName(column, serdeName));
+            if (cachedFile.exists()) {
+                return cachedFile;
+            }
+
+            Files.createParentDirs(cachedFile);
+
+            InputSupplier<InputStream> inputSupplier = tableInputSupplierFactory.getInputSupplier(column.getTable().getName());
+
+            DelimitedRecordIterable records = new DelimitedRecordIterable(
+                    newReaderSupplier(inputSupplier, UTF_8),
+                    Splitter.on("|")
+            );
+            RecordProjectOperator source = new RecordProjectOperator(records, createProjection(column.getIndex(), column.getType()));
+
+            ImportingOperator.importData(source, new SerdeBlockWriterFactory(blockSerde, newOutputStreamSupplier(cachedFile)));
+
+            return cachedFile;
+        }
+        catch (IOException e) {
             throw Throwables.propagate(e);
         }
     }

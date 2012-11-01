@@ -17,9 +17,14 @@ public class Page
         this.blocks = blocks;
     }
 
-    public int getCount()
+    public int getChannelCount()
     {
-        return blocks[0].getCount();
+        return blocks.length;
+    }
+
+    public int getPositionCount()
+    {
+        return blocks[0].getPositionCount();
     }
 
     public Block[] getBlocks()

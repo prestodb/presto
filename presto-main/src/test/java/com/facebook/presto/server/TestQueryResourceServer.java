@@ -115,7 +115,7 @@ public class TestQueryResourceServer
 
         int count = 0;
         for (Page page : pages) {
-            count += page.getCount();
+            count += page.getPositionCount();
         }
         return count;
     }
