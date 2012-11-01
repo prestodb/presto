@@ -8,9 +8,9 @@ import com.facebook.presto.block.StatsCollectingTupleStreamSerde;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.nblock.Blocks;
-import com.facebook.presto.operator.tap.StatsTupleValueSink;
 import com.facebook.presto.serde.BlockSerdes;
-import com.facebook.presto.serde.BlocksSerde;
+import com.facebook.presto.serde.StatsCollectingBlocksSerde;
+import com.facebook.presto.serde.StatsCollectingBlocksSerde.StatsCollector.Stats;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tpch.CachingTpchDataProvider;
@@ -116,7 +116,7 @@ public abstract class AbstractTupleStreamBenchmark
             implements TpchTupleStreamProvider
     {
         private final TpchDataProvider tpchDataProvider;
-        private final ImmutableList.Builder<StatsTupleValueSink.Stats> statsBuilder = ImmutableList.builder();
+        private final ImmutableList.Builder<Stats> statsBuilder = ImmutableList.builder();
 
         private StatsTpchTupleStreamProvider(TpchDataProvider tpchDataProvider)
         {
@@ -147,15 +147,13 @@ public abstract class AbstractTupleStreamBenchmark
             try {
                 File columnFile = tpchDataProvider.getColumnFile(column, encoding.createSerde(), encoding.getName());
                 Slice slice = Slices.mapFileReadOnly(columnFile);
-//                statsBuilder.add(serde.createDeserializer().deserializeStats(slice));
-//                return serde.createDeserializer().deserializeBlocks(Range.ALL, slice);
-                return BlocksSerde.readBlocks(slice);
+                return StatsCollectingBlocksSerde.readBlocks(slice);
             } catch (IOException e) {
                 throw Throwables.propagate(e);
             }
         }
 
-        public List<StatsTupleValueSink.Stats> getStats()
+        public List<Stats> getStats()
         {
             return statsBuilder.build();
         }

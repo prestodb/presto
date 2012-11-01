@@ -1,7 +1,12 @@
 package com.facebook.presto.operator.tap;
 
-import com.facebook.presto.block.*;
+import com.facebook.presto.block.Blocks;
+import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.Cursors;
+import com.facebook.presto.block.QuerySession;
+import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.operator.GroupByOperator;
+import com.facebook.presto.serde.StatsCollectingBlocksSerde.StatsCollector.Stats;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -32,7 +37,7 @@ public class TestStatsTupleValueSink
     {
         cursor.advanceNextPosition();
         statsTupleValueSink.process(Cursors.asTupleStreamPosition(cursor));
-        StatsTupleValueSink.Stats stats = statsTupleValueSink.getStats();
+        Stats stats = statsTupleValueSink.getStats();
         Assert.assertEquals(stats.getRowCount(), 2);
         Assert.assertEquals(stats.getRunsCount(), 1);
         Assert.assertEquals(stats.getMinPosition(), 0);
@@ -48,7 +53,7 @@ public class TestStatsTupleValueSink
         cursor.advanceNextValue();
         statsTupleValueSink.process(Cursors.asTupleStreamPosition(cursor));
         cursor.advanceNextValue();
-        StatsTupleValueSink.Stats stats = statsTupleValueSink.getStats();
+        Stats stats = statsTupleValueSink.getStats();
         Assert.assertEquals(stats.getRowCount(), 4);
         Assert.assertEquals(stats.getRunsCount(), 2);
         Assert.assertEquals(stats.getMinPosition(), 0);

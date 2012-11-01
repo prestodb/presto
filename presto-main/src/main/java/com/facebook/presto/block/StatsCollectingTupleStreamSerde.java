@@ -5,6 +5,7 @@ import com.facebook.presto.SizeOf;
 import com.facebook.presto.nblock.Blocks;
 import com.facebook.presto.operator.tap.StatsTupleValueSink;
 import com.facebook.presto.operator.tap.Tap;
+import com.facebook.presto.serde.StatsCollectingBlocksSerde.StatsCollector.Stats;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceOutput;
 
@@ -60,12 +61,12 @@ public class StatsCollectingTupleStreamSerde
         }
 
         // TODO: how do we expose the stats data to other components?
-        public StatsTupleValueSink.Stats deserializeStats(Slice slice)
+        public Stats deserializeStats(Slice slice)
         {
             checkNotNull(slice, "slice is null");
             int footerLength = slice.getInt(slice.length() - SizeOf.SIZE_OF_INT);
             int footerOffset = slice.length() - footerLength - SizeOf.SIZE_OF_INT;
-            return StatsTupleValueSink.Stats.deserialize(slice.slice(footerOffset, footerLength));
+            return Stats.deserialize(slice.slice(footerOffset, footerLength));
         }
 
         @Override
@@ -110,7 +111,7 @@ public class StatsCollectingTupleStreamSerde
         {
             delegate.finish();
             int startingIndex = sliceOutput.size();
-            StatsTupleValueSink.Stats.serialize(statsTupleValueSink.getStats(), sliceOutput);
+            Stats.serialize(statsTupleValueSink.getStats(), sliceOutput);
             int endingIndex = sliceOutput.size();
             checkState(endingIndex > startingIndex);
             sliceOutput.writeInt(endingIndex - startingIndex);
