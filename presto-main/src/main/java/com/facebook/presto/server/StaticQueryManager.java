@@ -3,22 +3,8 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.aggregation.CountAggregation;
-import com.facebook.presto.aggregation.LongSumAggregation;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.Cursors;
-import com.facebook.presto.block.ProjectionTupleStream;
-import com.facebook.presto.block.QuerySession;
-import com.facebook.presto.block.TupleStream;
-import com.facebook.presto.block.TupleStreamSerde;
-import com.facebook.presto.block.dictionary.DictionarySerde;
-import com.facebook.presto.block.rle.RunLengthEncodedSerde;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.block.uncompressed.UncompressedSerde;
 import com.facebook.presto.hive.HiveClient;
 import com.facebook.presto.ingest.DelimitedTupleStream;
 import com.facebook.presto.metadata.ColumnMetadata;
@@ -26,11 +12,13 @@ import com.facebook.presto.metadata.HiveImportManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.operator.AggregationOperator;
-import com.facebook.presto.operator.GroupByOperator;
-import com.facebook.presto.operator.HashAggregationOperator;
-import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.Slices;
+import com.facebook.presto.nblock.BlockBuilder;
+import com.facebook.presto.nblock.Blocks;
+import com.facebook.presto.noperator.AggregationOperator;
+import com.facebook.presto.noperator.AlignmentOperator;
+import com.facebook.presto.noperator.HashAggregationOperator;
+import com.facebook.presto.noperator.Page;
+import com.facebook.presto.noperator.aggregation.LongSumAggregation;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -38,7 +26,6 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.common.io.Files;
@@ -48,7 +35,6 @@ import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.units.Duration;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 import java.io.File;
@@ -64,10 +50,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.RetryDriver.runWithRetry;
+import static com.facebook.presto.noperator.ProjectionFunctions.concat;
+import static com.facebook.presto.noperator.ProjectionFunctions.singleColumn;
 
 public class StaticQueryManager implements QueryManager
 {
-    private final int blockBufferMax;
+    private final int pageBufferMax;
     private final ExecutorService executor;
     private final HiveClient hiveClient;
     private final Metadata metadata;
@@ -87,10 +75,10 @@ public class StaticQueryManager implements QueryManager
         this(20, hiveClient, metadata, storageManager, hiveImportManager);
     }
 
-    public StaticQueryManager(int blockBufferMax, HiveClient hiveClient, Metadata metadata, StorageManager storageManager, HiveImportManager hiveImportManager)
+    public StaticQueryManager(int pageBufferMax, HiveClient hiveClient, Metadata metadata, StorageManager storageManager, HiveImportManager hiveImportManager)
     {
-        Preconditions.checkArgument(blockBufferMax > 0, "blockBufferMax must be at least 1");
-        this.blockBufferMax = blockBufferMax;
+        Preconditions.checkArgument(pageBufferMax > 0, "blockBufferMax must be at least 1");
+        this.pageBufferMax = pageBufferMax;
         executor = Executors.newCachedThreadPool(new ThreadFactoryBuilder().setNameFormat("http-query-processor-%d").build());
         this.hiveClient = hiveClient;
         this.metadata = metadata;
@@ -105,7 +93,7 @@ public class StaticQueryManager implements QueryManager
         Preconditions.checkArgument(query.length() > 0, "query must not be empty string");
 
         String queryId = String.valueOf(nextQueryId++);
-        final QueryState queryState = new QueryState(1, blockBufferMax);
+        final QueryState queryState = new QueryState(1, pageBufferMax);
 
         // TODO: fix how we get our query parameters. typically we will have a query parser/planner to drive executions, but in the meantime, just use this ghetto-ness
         ImmutableList<String> strings = ImmutableList.copyOf(Splitter.on(":").split(query));
@@ -136,7 +124,7 @@ public class StaticQueryManager implements QueryManager
                         URI.create("http://localhost:8080/v1/presto/query"));
                 break;
             case "sum-partial":
-                queryTask = new PartialSumQuery(queryState);
+                queryTask = new PartialSumQuery(metadata, storageManager, queryState);
                 break;
 
             // e.g.: import-delimited:default:hivedba_query_stats:string,long,string,long:/tmp/myfile.csv:,
@@ -174,13 +162,13 @@ public class StaticQueryManager implements QueryManager
     }
 
     @Override
-    public List<UncompressedBlock> getQueryResults(String queryId, int maxBlockCount)
+    public List<Page> getQueryResults(String queryId, int maxPageCount)
             throws InterruptedException
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
-        Preconditions.checkArgument(maxBlockCount > 0, "maxBlockCount must be at least 1");
+        Preconditions.checkArgument(maxPageCount > 0, "maxPageCount must be at least 1");
 
-        return getQuery(queryId).getNextBlocks(maxBlockCount);
+        return getQuery(queryId).getNextPages(maxPageCount);
     }
 
     @Override
@@ -232,34 +220,24 @@ public class StaticQueryManager implements QueryManager
         public void run()
         {
             try {
-                QueryDriversTupleStream tupleStream = new QueryDriversTupleStream(new TupleInfo(Type.VARIABLE_BINARY, Type.FIXED_INT_64), 10,
+                QueryDriversOperator operator = new QueryDriversOperator(10,
                         Iterables.transform(servers, new Function<URI, QueryDriverProvider>()
                         {
                             @Override
-                            public QueryDriverProvider apply(@Nullable URI uri)
+                            public QueryDriverProvider apply(URI uri)
                             {
                                 return new HttpQueryProvider("sum-partial", asyncHttpClient, uri);
                             }
                         })
                 );
-                com.facebook.presto.operator.Splitter<UncompressedBlock> splitIterator = new com.facebook.presto.operator.Splitter<>(tupleStream.getTupleInfo(), 2, 10, tupleStream);
 
-                TupleStream groupBy = new ProjectionTupleStream(splitIterator.getSplit(0), 0);
-                TupleStream aggregateSource = new ProjectionTupleStream(splitIterator.getSplit(1), 1);
-                HashAggregationOperator aggregation = new HashAggregationOperator(groupBy, aggregateSource, LongSumAggregation.PROVIDER);
+                HashAggregationOperator aggregation = new HashAggregationOperator(operator,
+                        0,
+                        ImmutableList.of(LongSumAggregation.provider(1, 0)),
+                        ImmutableList.of(concat(singleColumn(Type.VARIABLE_BINARY, 0, 0), singleColumn(Type.FIXED_INT_64, 2, 0))));
 
-                Cursor cursor = aggregation.cursor(new QuerySession());
-                long position = 0;
-                while (Cursors.advanceNextPositionNoYield(cursor)) {
-                    // build a block
-                    BlockBuilder blockBuilder = new BlockBuilder(position, cursor.getTupleInfo());
-                    do {
-                        blockBuilder.append(cursor.getTuple());
-                    } while (!blockBuilder.isFull() && Cursors.advanceNextPositionNoYield(cursor));
-                    UncompressedBlock block = blockBuilder.build();
-
-                    queryState.addBlock(block);
-                    position += block.getCount();
+                for (Page page : aggregation) {
+                    queryState.addPage(page);
                 }
                 queryState.sourceFinished();
             }
@@ -277,10 +255,14 @@ public class StaticQueryManager implements QueryManager
 
     private static class PartialSumQuery implements Runnable
     {
+        private final Metadata metadata;
+        private final StorageManager storageManager;
         private final QueryState queryState;
 
-        public PartialSumQuery(QueryState queryState)
+        public PartialSumQuery(Metadata metadata, StorageManager storageManager, QueryState queryState)
         {
+            this.metadata = metadata;
+            this.storageManager = storageManager;
             this.queryState = queryState;
         }
 
@@ -288,39 +270,17 @@ public class StaticQueryManager implements QueryManager
         public void run()
         {
             try {
-                //                // dictionary-raw not-sorted
-                //                File groupByFile = new File("data/dic-raw/column5.string_dic-raw.data");
-                //                TupleStreamSerde groupBySerde = new DictionarySerde(UncompressedSerde.INSTANCE);
-                //                File aggregateFile = new File("data/dic-raw/column3.fmillis_raw.data");
-                //                TupleStreamSerde aggregateSerde = UncompressedSerde.INSTANCE;
+                Blocks groupBySource = getColumn("hivedba_query_stats", "pool_name");
+                Blocks aggregateSource = getColumn("hivedba_query_stats", "cpu_msec");
 
-                // dictionary-rle
-                File groupByFile = new File("data/dic-rle/column5.string_dic-rle.data");
-                TupleStreamSerde groupBySerde = new DictionarySerde(new RunLengthEncodedSerde());
-                File aggregateFile = new File("data/dic-rle/column3.fmillis_raw.data");
-                TupleStreamSerde aggregateSerde = UncompressedSerde.INSTANCE;
+                AlignmentOperator alignmentOperator = new AlignmentOperator(groupBySource, aggregateSource);
+                HashAggregationOperator sumOperator = new HashAggregationOperator(alignmentOperator,
+                        0,
+                        ImmutableList.of(LongSumAggregation.provider(0, 0)),
+                        ImmutableList.of(concat(singleColumn(Type.VARIABLE_BINARY, 0, 0), singleColumn(Type.FIXED_INT_64, 1, 0))));
 
-                Slice groupBySlice = Slices.mapFileReadOnly(groupByFile);
-                Slice aggregateSlice = Slices.mapFileReadOnly(aggregateFile);
-
-                TupleStream groupBySource = groupBySerde.createDeserializer().deserialize(Range.ALL, groupBySlice);
-                TupleStream aggregateSource = aggregateSerde.createDeserializer().deserialize(Range.ALL, aggregateSlice);
-
-                GroupByOperator groupBy = new GroupByOperator(groupBySource);
-                HashAggregationOperator aggregation = new HashAggregationOperator(groupBy, aggregateSource, LongSumAggregation.PROVIDER);
-
-                Cursor cursor = aggregation.cursor(new QuerySession());
-                long position = 0;
-                while (Cursors.advanceNextPositionNoYield(cursor)) {
-                    // build a block
-                    BlockBuilder blockBuilder = new BlockBuilder(position, cursor.getTupleInfo());
-                    do {
-                        blockBuilder.append(cursor.getTuple());
-                    } while (!blockBuilder.isFull() && Cursors.advanceNextPositionNoYield(cursor));
-                    UncompressedBlock block = blockBuilder.build();
-
-                    queryState.addBlock(block);
-                    position += block.getCount();
+                for (Page page : sumOperator) {
+                    queryState.addPage(page);
                 }
                 queryState.sourceFinished();
             }
@@ -334,6 +294,20 @@ public class StaticQueryManager implements QueryManager
                 throw Throwables.propagate(e);
             }
         }
+
+        private Blocks getColumn(String tableName, String columnName) {
+            TableMetadata tableMetadata = metadata.getTable("default", "default", tableName);
+            int index = 0;
+            for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
+                if (columnName.equals(columnMetadata.getName())) {
+                    break;
+                }
+                ++index;
+            }
+            final int columnIndex = index;
+            return storageManager.getBlocks("default", tableName, columnIndex);
+        }
+
     }
 
     private static class ImportHiveTableQuery
@@ -389,9 +363,13 @@ public class StaticQueryManager implements QueryManager
                         ));
                     }
                     // TODO: this currently leaks query resources (need to delete)
-                    QueryDriversTupleStream tupleStream = new QueryDriversTupleStream(TupleInfo.SINGLE_LONG, 10, queryDriverProviderBuilder.build());
-                    AggregationOperator sumOperator = new AggregationOperator(tupleStream, LongSumAggregation.PROVIDER);
-                    queryState.addBlock(Iterators.getOnlyElement(sumOperator.iterator(new QuerySession())));
+                    QueryDriversOperator operator = new QueryDriversOperator(10, queryDriverProviderBuilder.build());
+                    AggregationOperator sumOperator = new AggregationOperator(operator,
+                            ImmutableList.of(LongSumAggregation.provider(0, 0)),
+                            ImmutableList.of(concat(singleColumn(Type.FIXED_INT_64, 0, 0))));
+                    for (Page page : sumOperator) {
+                        queryState.addPage(page);
+                    }
                 }
                 queryState.sourceFinished();
             }
@@ -435,7 +413,7 @@ public class StaticQueryManager implements QueryManager
         {
             try {
                 long rowCount = hiveImportManager.importPartition(databaseName, tableName, partitionName);
-                queryState.addBlock(new BlockBuilder(0, TupleInfo.SINGLE_LONG).append(rowCount).build());
+                queryState.addPage(new Page(new BlockBuilder(0, TupleInfo.SINGLE_LONG).append(rowCount).build()));
                 queryState.sourceFinished();
             }
             catch (InterruptedException e) {
@@ -486,7 +464,7 @@ public class StaticQueryManager implements QueryManager
                 try (InputStreamReader input = Files.newReaderSupplier(delimitedFile, Charsets.UTF_8).getInput()) {
                     DelimitedTupleStream delimitedTupleStream = new DelimitedTupleStream(input, splitter, tupleInfo);
                     long rowCount = storageManager.importTableShard(delimitedTupleStream, databaseName, tableName);
-                    queryState.addBlock(new BlockBuilder(0, TupleInfo.SINGLE_LONG).append(rowCount).build());
+                    queryState.addPage(new Page(new BlockBuilder(0, TupleInfo.SINGLE_LONG).append(rowCount).build()));
                     queryState.sourceFinished();
                 }
             }

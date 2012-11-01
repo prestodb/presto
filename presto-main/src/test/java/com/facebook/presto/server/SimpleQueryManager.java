@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.noperator.Page;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -18,13 +18,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
-import static com.facebook.presto.block.Blocks.createStringBlock;
+import static com.facebook.presto.nblock.TestBlockUtils.createStringBlock;
 
 @ThreadSafe
 public class SimpleQueryManager implements QueryManager
 {
-    private final int blockBufferMax;
-    private final int initialBlocks;
+    private final int pageBufferMax;
+    private final int initialPages;
 
     @GuardedBy("this")
     private int nextQueryId;
@@ -39,13 +39,13 @@ public class SimpleQueryManager implements QueryManager
         this(20, 12);
     }
 
-    public SimpleQueryManager(int blockBufferMax, int initialBlocks)
+    public SimpleQueryManager(int pageBufferMax, int initialPages)
     {
-        Preconditions.checkArgument(blockBufferMax > 0, "blockBufferMax must be at least 1");
-        Preconditions.checkArgument(initialBlocks >= 0, "initialBlocks is negative");
-        Preconditions.checkArgument(initialBlocks <= blockBufferMax, "initialBlocks is greater than blockBufferMax");
-        this.blockBufferMax = blockBufferMax;
-        this.initialBlocks = initialBlocks;
+        Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
+        Preconditions.checkArgument(initialPages >= 0, "initialPages is negative");
+        Preconditions.checkArgument(initialPages <= pageBufferMax, "initialPages is greater than pageBufferMax");
+        this.pageBufferMax = pageBufferMax;
+        this.initialPages = initialPages;
     }
 
     @Override
@@ -54,16 +54,15 @@ public class SimpleQueryManager implements QueryManager
         Preconditions.checkNotNull(query, "query is null");
 
         String queryId = String.valueOf(nextQueryId++);
-        QueryState queryState = new QueryState(1, blockBufferMax);
+        QueryState queryState = new QueryState(1, pageBufferMax);
         queries.put(queryId, queryState);
 
         List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");
 
-        // load initial blocks
-        for (int i = 0; i < initialBlocks; i++) {
-            UncompressedBlock block = createStringBlock(0, Iterables.concat(Collections.nCopies(i + 1, data)));
+        // load initial pages
+        for (int i = 0; i < initialPages; i++) {
             try {
-                queryState.addBlock(block);
+                queryState.addPage(new Page(createStringBlock(0, Iterables.concat(Collections.nCopies(i + 1, data)))));
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -76,13 +75,13 @@ public class SimpleQueryManager implements QueryManager
     }
 
     @Override
-    public List<UncompressedBlock> getQueryResults(String queryId, int maxBlockCount)
+    public List<Page> getQueryResults(String queryId, int maxPageCount)
             throws InterruptedException
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
-        Preconditions.checkArgument(maxBlockCount > 0, "maxBlockCount must be at least 1");
+        Preconditions.checkArgument(maxPageCount > 0, "maxPageCount must be at least 1");
 
-        return getQuery(queryId).getNextBlocks(maxBlockCount);
+        return getQuery(queryId).getNextPages(maxPageCount);
     }
 
     @Override

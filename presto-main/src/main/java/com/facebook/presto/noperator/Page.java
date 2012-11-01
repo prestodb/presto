@@ -4,6 +4,7 @@
 package com.facebook.presto.noperator;
 
 import com.facebook.presto.nblock.Block;
+import com.google.common.base.Preconditions;
 
 public class Page
 {
@@ -11,7 +12,14 @@ public class Page
 
     public Page(Block... blocks)
     {
+        Preconditions.checkNotNull(blocks, "blocks is null");
+        Preconditions.checkArgument(blocks.length > 0, "blocks is empty");
         this.blocks = blocks;
+    }
+
+    public int getCount()
+    {
+        return blocks[0].getCount();
     }
 
     public Block[] getBlocks()

@@ -3,12 +3,9 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.Cursors;
-import com.facebook.presto.block.QuerySession;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.server.QueryDriversTupleStream.QueryDriversYieldingIterator;
+import com.facebook.presto.nblock.BlockCursor;
+import com.facebook.presto.noperator.Page;
+import com.facebook.presto.server.QueryDriversOperator.QueryDriversIterator;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -23,7 +20,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.facebook.presto.block.Blocks.createStringBlock;
+import static com.facebook.presto.nblock.TestBlockUtils.createStringBlock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -34,26 +31,27 @@ public class TestQueryDriversTupleStream
     public void testNormalExecution()
             throws Exception
     {
-        List<UncompressedBlock> blocks = createBlocks();
+        List<Page> pages = createPages();
         int expectedCount = 0;
-        for (UncompressedBlock block : blocks) {
-            expectedCount += block.getCount();
+        for (Page page : pages) {
+            expectedCount += page.getCount();
         }
 
         ExecutorService executor = Executors.newCachedThreadPool();
         try {
 
-            QueryDriversTupleStream tupleStream = new QueryDriversTupleStream(TupleInfo.SINGLE_VARBINARY, 10,
-                    new StaticQueryDriverProvider(executor, blocks),
-                    new StaticQueryDriverProvider(executor, blocks),
-                    new StaticQueryDriverProvider(executor, blocks)
+            QueryDriversOperator operator = new QueryDriversOperator(10,
+                    new StaticQueryDriverProvider(executor, pages),
+                    new StaticQueryDriverProvider(executor, pages),
+                    new StaticQueryDriverProvider(executor, pages)
             );
-            assertEquals(tupleStream.getTupleInfo(), TupleInfo.SINGLE_VARBINARY);
 
             int count = 0;
-            Cursor cursor = tupleStream.cursor(new QuerySession());
-            while (Cursors.advanceNextPositionNoYield(cursor)) {
-                count++;
+            for (Page page : operator) {
+                BlockCursor cursor = page.getBlock(0).cursor();
+                while (cursor.advanceNextPosition()) {
+                    count++;
+                }
             }
             assertEquals(count, expectedCount * 3);
         }
@@ -66,18 +64,20 @@ public class TestQueryDriversTupleStream
     public void testCancel()
             throws Exception
     {
-        List<UncompressedBlock> blocks = createBlocks();
+        List<Page> pages = createPages();
         ExecutorService executor = Executors.newCachedThreadPool();
         try {
-
-            StaticQueryDriverProvider provider = new StaticQueryDriverProvider(executor, blocks);
-            QueryDriversTupleStream tupleStream = new QueryDriversTupleStream(TupleInfo.SINGLE_VARBINARY, 1, provider, provider, provider);
+            StaticQueryDriverProvider provider = new StaticQueryDriverProvider(executor, pages);
+            QueryDriversOperator operator = new QueryDriversOperator(1, provider, provider, provider);
 
             int count = 0;
-            QueryDriversYieldingIterator iterator = tupleStream.iterator(new QuerySession());
+            QueryDriversIterator iterator = operator.iterator();
             while (count < 20 && iterator.hasNext()) {
-                iterator.next();
-                count++;
+                Page page = iterator.next();
+                BlockCursor cursor = page.getBlock(0).cursor();
+                while (count < 20 && cursor.advanceNextPosition()) {
+                    count++;
+                }
             }
             assertEquals(count, 20);
 
@@ -85,22 +85,22 @@ public class TestQueryDriversTupleStream
             assertTrue(iterator.hasNext());
 
             // verify all producers are not finished
-            IdentityHashMap<StaticQueryDriver, Integer> driverBlocksAdded = new IdentityHashMap<>();
+            IdentityHashMap<StaticQueryDriver, Integer> driverPagesAdded = new IdentityHashMap<>();
             for (StaticQueryDriver driver : provider.getCreatedDrivers()) {
                 assertFalse(driver.isDone());
-                driverBlocksAdded.put(driver, driver.getBlocksAdded());
+                driverPagesAdded.put(driver, driver.getPagesAdded());
             }
 
             // cancel the iterator
             iterator.cancel();
 
-            // verify all producers are finished, and no additional blocks have been added
+            // verify all producers are finished, and no additional pages have been added
             for (StaticQueryDriver driver : provider.getCreatedDrivers()) {
                 assertTrue(driver.isDone());
-                assertEquals(driver.getBlocksAdded(), (int) driverBlocksAdded.get(driver));
+                assertEquals(driver.getPagesAdded(), (int) driverPagesAdded.get(driver));
             }
 
-            // drain any blocks buffered in the iterator implementation
+            // drain any pages buffered in the iterator implementation
             while (iterator.hasNext()) {
                 iterator.next();
             }
@@ -111,27 +111,26 @@ public class TestQueryDriversTupleStream
         }
     }
 
-    private List<UncompressedBlock> createBlocks()
+    private List<Page> createPages()
     {
-        ImmutableList.Builder<UncompressedBlock> blocks = ImmutableList.builder();
+        ImmutableList.Builder<Page> pages = ImmutableList.builder();
         List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");
         for (int i = 0; i < 12; i++) {
-            UncompressedBlock block = createStringBlock(0, Iterables.concat(Collections.nCopies(i + 1, data)));
-            blocks.add(block);
+            pages.add(new Page(createStringBlock(0, Iterables.concat(Collections.nCopies(i + 1, data)))));
         }
-        return blocks.build();
+        return pages.build();
     }
 
     private class StaticQueryDriverProvider implements QueryDriverProvider
     {
         private final ExecutorService executor;
-        private final List<UncompressedBlock> blocks;
+        private final List<Page> pages;
         private final List<StaticQueryDriver> createdDrivers = new ArrayList<>();
 
-        private StaticQueryDriverProvider(ExecutorService executor, List<UncompressedBlock> blocks)
+        private StaticQueryDriverProvider(ExecutorService executor, List<Page> pages)
         {
             this.executor = executor;
-            this.blocks = blocks;
+            this.pages = pages;
         }
 
         public List<StaticQueryDriver> getCreatedDrivers()
@@ -140,9 +139,9 @@ public class TestQueryDriversTupleStream
         }
 
         @Override
-        public QueryDriver create(QueryState queryState, TupleInfo info)
+        public QueryDriver create(QueryState queryState)
         {
-            StaticQueryDriver driver = new StaticQueryDriver(executor, queryState, blocks);
+            StaticQueryDriver driver = new StaticQueryDriver(executor, queryState, pages);
             createdDrivers.add(driver);
             return driver;
         }
@@ -152,26 +151,26 @@ public class TestQueryDriversTupleStream
     {
         private final ExecutorService executor;
         private final QueryState queryState;
-        private final List<UncompressedBlock> blocks;
+        private final List<Page> pages;
         private Future<?> jobFuture;
-        private AddBlocksJob job;
+        private AddPagesJob job;
 
-        public StaticQueryDriver(ExecutorService executor, QueryState queryState, List<UncompressedBlock> blocks)
+        public StaticQueryDriver(ExecutorService executor, QueryState queryState, List<Page> pages)
         {
             this.executor = executor;
             this.queryState = queryState;
-            this.blocks = blocks;
+            this.pages = ImmutableList.copyOf(pages);
         }
 
-        public synchronized int getBlocksAdded()
+        public synchronized int getPagesAdded()
         {
-            return job.getBlocksAdded();
+            return job.getPagesAdded();
         }
 
         @Override
         public synchronized void start()
         {
-            job = new AddBlocksJob(queryState, blocks);
+            job = new AddPagesJob(queryState, pages);
             jobFuture = executor.submit(job);
         }
 
@@ -188,30 +187,30 @@ public class TestQueryDriversTupleStream
         }
     }
 
-    private static class AddBlocksJob implements Runnable
+    private static class AddPagesJob implements Runnable
     {
         private final QueryState queryState;
-        private final List<UncompressedBlock> blocks;
-        private final AtomicInteger blocksAdded = new AtomicInteger();
+        private final List<Page> pages;
+        private final AtomicInteger pagesAdded = new AtomicInteger();
 
-        private AddBlocksJob(QueryState queryState, List<UncompressedBlock> blocks)
+        private AddPagesJob(QueryState queryState, List<Page> pages)
         {
             this.queryState = queryState;
-            this.blocks = ImmutableList.copyOf(blocks);
+            this.pages = ImmutableList.copyOf(pages);
         }
 
-        public int getBlocksAdded()
+        public int getPagesAdded()
         {
-            return blocksAdded.get();
+            return pagesAdded.get();
         }
 
         @Override
         public void run()
         {
-            for (UncompressedBlock block : blocks) {
+            for (Page page : pages) {
                 try {
-                    if (queryState.addBlock(block)) {
-                        blocksAdded.incrementAndGet();
+                    if (queryState.addPage(page)) {
+                        pagesAdded.incrementAndGet();
                     }
                 }
                 catch (InterruptedException e) {

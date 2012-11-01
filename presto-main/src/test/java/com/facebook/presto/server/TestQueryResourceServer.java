@@ -4,10 +4,16 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.noperator.Page;
+import com.facebook.presto.serde.PagesSerde;
+import com.facebook.presto.slice.ByteArraySlice;
+import com.facebook.presto.slice.InputStreamSliceInput;
+import com.facebook.presto.slice.SliceInput;
+import com.facebook.presto.slice.Slices;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterators;
+import com.google.common.io.ByteStreams;
 import com.google.inject.Binder;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
@@ -37,10 +43,9 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response.Status;
 import java.io.IOException;
 import java.net.URI;
-import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.server.PrestoMediaTypes.PRESTO_BLOCKS_TYPE;
+import static com.facebook.presto.server.PrestoMediaTypes.PRESTO_PAGES_TYPE;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
@@ -67,8 +72,9 @@ public class TestQueryResourceServer
                     {
                         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
                         binder.bind(QueryManager.class).to(SimpleQueryManager.class).in(Scopes.SINGLETON);
-                        binder.bind(UncompressedBlockMapper.class).in(Scopes.SINGLETON);
-                        binder.bind(UncompressedBlocksMapper.class).in(Scopes.SINGLETON);
+                        binder.bind(BlockMapper.class).in(Scopes.SINGLETON);
+                        binder.bind(BlocksMapper.class).in(Scopes.SINGLETON);
+                        binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
                     }
                 },
                 new ConfigurationModule(new ConfigurationFactory(ImmutableMap.<String, String>of())));
@@ -103,14 +109,13 @@ public class TestQueryResourceServer
 
     private int loadData(URI location)
     {
-        Iterator<UncompressedBlock> blockIterator = client.execute(
+        List<Page> pages = client.execute(
                 prepareGet().setUri(location).build(),
-                new BlockResponseHandler(TupleInfo.SINGLE_VARBINARY));
+                new PageResponseHandler(TupleInfo.SINGLE_VARBINARY));
 
         int count = 0;
-        while(blockIterator.hasNext()) {
-            UncompressedBlock block = blockIterator.next();
-            count += block.getCount();
+        for (Page page : pages) {
+            count += page.getCount();
         }
         return count;
     }
@@ -145,11 +150,11 @@ public class TestQueryResourceServer
         }
     }
 
-    public static class BlockResponseHandler implements ResponseHandler<Iterator<UncompressedBlock>, RuntimeException>
+    public static class PageResponseHandler implements ResponseHandler<List<Page>, RuntimeException>
     {
         private final TupleInfo info;
 
-        public BlockResponseHandler(TupleInfo info)
+        public PageResponseHandler(TupleInfo info)
         {
             this.info = info;
         }
@@ -161,11 +166,11 @@ public class TestQueryResourceServer
         }
 
         @Override
-        public Iterator<UncompressedBlock> handle(Request request, Response response)
+        public List<Page> handle(Request request, Response response)
         {
             if (response.getStatusCode() != Status.OK.getStatusCode()) {
                 if (response.getStatusCode() == Status.GONE.getStatusCode()) {
-                    return Iterators.emptyIterator();
+                    return ImmutableList.of();
                 }
                 throw new UnexpectedResponseException(
                         String.format("Expected response code to be 200, but was %d: %s", response.getStatusCode(), response.getStatusMessage()),
@@ -174,13 +179,16 @@ public class TestQueryResourceServer
             }
             String contentType = response.getHeader("Content-Type");
 
-            if (!MediaType.valueOf(contentType).isCompatible(PRESTO_BLOCKS_TYPE)) {
-                throw new UnexpectedResponseException(String.format("Expected %s response from server but got %s", PRESTO_BLOCKS_TYPE, contentType), request, response);
+            if (!MediaType.valueOf(contentType).isCompatible(PRESTO_PAGES_TYPE)) {
+                throw new UnexpectedResponseException(String.format("Expected %s response from server but got %s", PRESTO_PAGES_TYPE, contentType), request, response);
             }
 
             try {
-                List<UncompressedBlock> blocks = UncompressedBlocksMapper.readBlocks(info, response.getInputStream());
-                return blocks.iterator();
+                SliceInput sliceInput = new InputStreamSliceInput(response.getInputStream());
+                byte[] bytes = ByteStreams.toByteArray(sliceInput);
+                ByteArraySlice byteArraySlice = Slices.wrappedBuffer(bytes);
+                List<Page> pages = ImmutableList.copyOf(PagesSerde.readPages(byteArraySlice.getInput()));
+                return pages;
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);

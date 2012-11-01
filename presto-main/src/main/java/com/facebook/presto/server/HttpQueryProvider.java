@@ -3,7 +3,6 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.TupleInfo;
 import com.google.common.base.Preconditions;
 import io.airlift.http.client.AsyncHttpClient;
 
@@ -26,9 +25,9 @@ public class HttpQueryProvider implements QueryDriverProvider
     }
 
     @Override
-    public QueryDriver create(QueryState queryState, TupleInfo info)
+    public QueryDriver create(QueryState queryState)
     {
-        HttpQuery httpQuery = new HttpQuery(query, queryState, info, httpClient, uri);
+        HttpQuery httpQuery = new HttpQuery(query, queryState, httpClient, uri);
         return httpQuery;
     }
 }

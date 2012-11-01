@@ -3,14 +3,14 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.noperator.Page;
 
 import java.util.List;
 
 public interface QueryManager {
     String createQuery(String query);
 
-    List<UncompressedBlock> getQueryResults(String queryId, int maxBlockCount)
+    List<Page> getQueryResults(String queryId, int maxPageCount)
             throws InterruptedException;
 
     void destroyQuery(String queryId);

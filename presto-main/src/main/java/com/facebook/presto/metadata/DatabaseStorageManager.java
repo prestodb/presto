@@ -387,7 +387,7 @@ public class DatabaseStorageManager
         Slice slice = mappedFileCache.getUnchecked(files.get(0).getAbsolutePath());
         TupleInfo tupleInfo = deserializer.deserialize(Range.ALL, slice).getTupleInfo();
 
-        return BlockUtils.toBlocks(tupleInfo, Iterables.concat(Lists.transform(files, new Function<File, Iterable<? extends Block>>()
+        return BlockUtils.toBlocks(Iterables.concat(Lists.transform(files, new Function<File, Iterable<? extends Block>>()
         {
             private Range range;
 

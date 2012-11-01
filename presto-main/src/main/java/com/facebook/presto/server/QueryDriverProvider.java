@@ -3,8 +3,6 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.TupleInfo;
-
 public interface QueryDriverProvider {
-    QueryDriver create(QueryState queryState, TupleInfo info);
+    QueryDriver create(QueryState queryState);
 }

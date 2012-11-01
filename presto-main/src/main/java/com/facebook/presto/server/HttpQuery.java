@@ -3,8 +3,9 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.TupleInfo;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.noperator.Page;
+import com.facebook.presto.serde.PagesSerde;
+import com.facebook.presto.slice.InputStreamSliceInput;
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -19,9 +20,10 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response.Status;
 import java.net.URI;
+import java.util.Iterator;
 import java.util.concurrent.Future;
 
-import static com.facebook.presto.server.PrestoMediaTypes.PRESTO_BLOCKS_TYPE;
+import static com.facebook.presto.server.PrestoMediaTypes.PRESTO_PAGES_TYPE;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
 
@@ -29,7 +31,6 @@ public class HttpQuery implements QueryDriver
 {
     private final String query;
     private final QueryState queryState;
-    private final TupleInfo info;
     private final AsyncHttpClient httpClient;
     private final URI uri;
 
@@ -39,16 +40,15 @@ public class HttpQuery implements QueryDriver
     @GuardedBy("this")
     private Future<Void> currentRequest;
 
-    public HttpQuery(String query, QueryState queryState, TupleInfo info, AsyncHttpClient httpClient, URI uri)
+    public HttpQuery(String query, QueryState queryState, AsyncHttpClient httpClient, URI uri)
     {
         Preconditions.checkNotNull(query, "query is null");
         Preconditions.checkNotNull(queryState, "queryState is null");
-        Preconditions.checkNotNull(info, "info is null");
         Preconditions.checkNotNull(httpClient, "httpClient is null");
         Preconditions.checkNotNull(uri, "uri is null");
+
         this.query = query;
         this.queryState = queryState;
-        this.info = info;
         this.httpClient = httpClient;
         this.uri = uri;
     }
@@ -136,7 +136,7 @@ public class HttpQuery implements QueryDriver
 
                 // query for results
                 URI queryUri = URI.create(location);
-                setCurrentRequest(httpClient.execute(prepareGet().setUri(queryUri).build(), new BlockResponseHandler(queryUri)));
+                setCurrentRequest(httpClient.execute(prepareGet().setUri(queryUri).build(), new PageResponseHandler(queryUri)));
 
                 return null;
             }
@@ -147,11 +147,11 @@ public class HttpQuery implements QueryDriver
         }
     }
 
-    public class BlockResponseHandler implements ResponseHandler<Void, RuntimeException>
+    public class PageResponseHandler implements ResponseHandler<Void, RuntimeException>
     {
         private final URI queryUri;
 
-        public BlockResponseHandler(URI queryUri)
+        public PageResponseHandler(URI queryUri)
         {
             this.queryUri = queryUri;
         }
@@ -184,17 +184,16 @@ public class HttpQuery implements QueryDriver
                 }
 
                 String contentType = response.getHeader("Content-Type");
-                if (!MediaType.valueOf(contentType).isCompatible(PRESTO_BLOCKS_TYPE)) {
-                    throw new UnexpectedResponseException(String.format("Expected %s response from server but got %s", PRESTO_BLOCKS_TYPE, contentType), request, response);
+                if (!MediaType.valueOf(contentType).isCompatible(PRESTO_PAGES_TYPE)) {
+                    throw new UnexpectedResponseException(String.format("Expected %s response from server but got %s", PRESTO_PAGES_TYPE, contentType), request, response);
                 }
 
-                while (true) {
-                    UncompressedBlock block = UncompressedBlockMapper.readBlock(info, response.getInputStream());
-                    if (block == null) {
-                        break;
-                    }
+                InputStreamSliceInput sliceInput = new InputStreamSliceInput(response.getInputStream());
 
-                    queryState.addBlock(block);
+                Iterator<Page> pageIterator = PagesSerde.readPages(sliceInput);
+                while(pageIterator.hasNext()) {
+                    Page page = pageIterator.next();
+                    queryState.addPage(page);
                 }
 
                 setCurrentRequest(httpClient.execute(prepareGet().setUri(queryUri).build(), this));
