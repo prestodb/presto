@@ -4,4 +4,5 @@
 package com.facebook.presto.noperator;
 
 public interface Operator extends Iterable<Page> {
+    int getChannelCount();
 }

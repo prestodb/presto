@@ -37,6 +37,12 @@ public class QueryDriversOperator
     }
 
     @Override
+    public int getChannelCount()
+    {
+        return driverProviders.get(0).getChannelCount();
+    }
+
+    @Override
     public QueryDriversIterator iterator()
     {
         ImmutableList.Builder<QueryDriver> queries = ImmutableList.builder();
@@ -96,7 +102,7 @@ public class QueryDriversOperator
                 Block[] blocks = page.getBlocks();
                 for (int i = 0; i < blocks.length; i++) {
                     UncompressedBlock block = (UncompressedBlock) blocks[i];
-                    blocks[i] = new UncompressedBlock(new Range(position, position + block.getCount() - 1),
+                    blocks[i] = new UncompressedBlock(new Range(position, position + block.getPositionCount() - 1),
                             block.getTupleInfo(),
                             block.getSlice());
                 }

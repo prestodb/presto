@@ -3,6 +3,9 @@
  */
 package com.facebook.presto.server;
 
-public interface QueryDriverProvider {
+public interface QueryDriverProvider
+{
+    int getChannelCount();
+
     QueryDriver create(QueryState queryState);
 }

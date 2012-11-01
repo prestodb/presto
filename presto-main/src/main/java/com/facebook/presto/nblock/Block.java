@@ -2,7 +2,6 @@ package com.facebook.presto.nblock;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.nblock.uncompressed.UncompressedBlock;
 
 public interface Block
 {
@@ -14,7 +13,7 @@ public interface Block
     /**
      * Returns the number of positions in this block.
      */
-    int getCount();
+    int getPositionCount();
 
     /**
      * Gets the start and end positions of the block.
@@ -37,6 +36,6 @@ public interface Block
      * port range can be out side of this block but must be within the range
      * of the underlying storage block.
      */
-    UncompressedBlock createViewPort(Range viewPortRange);
+    Block createViewPort(Range viewPortRange);
 
 }

@@ -16,12 +16,12 @@ public class BlockSerdes
 {
     public static void writeBlock(Block block, SliceOutput sliceOutput)
     {
-        new BlocksSerde().writeBlocks(sliceOutput, block);
+        BlocksSerde.writeBlocks(sliceOutput, block);
     }
 
     public static Block readBlock(SliceInput sliceInput)
     {
-        return Iterators.getOnlyElement(new BlocksSerde().readBlocks(sliceInput, 0));
+        return Iterators.getOnlyElement(BlocksSerde.readBlocks(sliceInput, 0));
     }
 
     public static BlockSerde getSerdeForBlock(Block block)
@@ -82,7 +82,7 @@ public class BlockSerdes
                     @Override
                     public BlockSerde createSerde()
                     {
-                        return new UncompressedBlockSerde();
+                        return UncompressedBlockSerde.INSTANCE;
                     }
                 };
 
