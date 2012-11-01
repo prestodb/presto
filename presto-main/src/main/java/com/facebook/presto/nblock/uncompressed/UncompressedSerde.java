@@ -71,7 +71,7 @@ public class UncompressedSerde
         private UncompressedReader(long positionOffset, Slice slice)
         {
             this.positionOffset = positionOffset;
-            sliceInput = slice.input();
+            sliceInput = slice.getInput();
             this.tupleInfo = UncompressedTupleInfoSerde.deserialize(sliceInput);
         }
 

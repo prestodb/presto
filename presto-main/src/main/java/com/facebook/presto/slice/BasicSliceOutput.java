@@ -119,15 +119,6 @@ public class BasicSliceOutput extends SliceOutput
     }
 
     @Override
-    public void writeBytes(SliceInput source, int length)
-    {
-        if (length > source.available()) {
-            throw new IndexOutOfBoundsException();
-        }
-        writeBytes(source.readSlice(length));
-    }
-
-    @Override
     public void writeBytes(Slice source, int sourceIndex, int length)
     {
         slice.setBytes(size, source, sourceIndex, length);

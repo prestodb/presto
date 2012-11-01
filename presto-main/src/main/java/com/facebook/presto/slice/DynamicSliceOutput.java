@@ -125,15 +125,6 @@ public class DynamicSliceOutput extends SliceOutput
     }
 
     @Override
-    public void writeBytes(SliceInput source, int length)
-    {
-        if (length > source.available()) {
-            throw new IndexOutOfBoundsException();
-        }
-        writeBytes(source.slice());
-    }
-
-    @Override
     public void writeBytes(Slice source, int sourceIndex, int length)
     {
         slice = Slices.ensureSize(slice, size + length);

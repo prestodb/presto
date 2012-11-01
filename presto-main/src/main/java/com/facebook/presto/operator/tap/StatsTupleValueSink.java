@@ -92,7 +92,7 @@ public class StatsTupleValueSink
 
         public static Stats deserialize(Slice slice)
         {
-            SliceInput input = slice.input();
+            SliceInput input = slice.getInput();
             long rowCount = input.readLong();
             long runsCount = input.readLong();
             long minPosition = input.readLong();

@@ -29,13 +29,13 @@ public abstract class AbstractSlice
     }
 
     @Override
-    public SliceInput input()
+    public BasicSliceInput getInput()
     {
-        return new SliceInput(this);
+        return new BasicSliceInput(this);
     }
 
     @Override
-    public SliceOutput output()
+    public SliceOutput getOutput()
     {
         return new BasicSliceOutput(this);
     }

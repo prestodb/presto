@@ -1,5 +1,8 @@
 package com.facebook.presto.slice;
 
+import com.google.common.io.InputSupplier;
+import com.google.common.io.OutputSupplier;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -13,7 +16,7 @@ import java.nio.charset.Charset;
  * Little Endian slice
  */
 public interface Slice
-        extends Comparable<Slice>
+        extends Comparable<Slice>, InputSupplier<SliceInput>, OutputSupplier<SliceOutput>
 {
     /**
      * Length of this slice.
@@ -303,12 +306,12 @@ public interface Slice
     /**
      * Creates an input stream over this slice.
      */
-    SliceInput input();
+    SliceInput getInput();
 
     /**
      * Creates an output stream over this slice.
      */
-    SliceOutput output();
+    SliceOutput getOutput();
 
     /**
      * Converts this buffer's readable bytes into a NIO buffer.  The returned

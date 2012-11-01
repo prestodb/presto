@@ -68,7 +68,7 @@ public class SelfDescriptiveSerde
             int headerOffset = SizeOf.SIZE_OF_INT;
             int dataOffset = headerOffset + headerLength;
             try {
-                TupleStreamSerde tupleStreamSerde = OBJECT_MAPPER.readValue(slice.slice(headerOffset, headerLength).input(), TupleStreamSerde.class);
+                TupleStreamSerde tupleStreamSerde = OBJECT_MAPPER.readValue(slice.slice(headerOffset, headerLength).getInput(), TupleStreamSerde.class);
                 return tupleStreamSerde.createDeserializer().deserialize(totalRange, slice.slice(dataOffset, slice.length() - dataOffset));
             } catch (IOException e) {
                 throw Throwables.propagate(e);
@@ -83,7 +83,7 @@ public class SelfDescriptiveSerde
             int headerOffset = SizeOf.SIZE_OF_INT;
             int dataOffset = headerOffset + headerLength;
             try {
-                TupleStreamSerde tupleStreamSerde = OBJECT_MAPPER.readValue(slice.slice(headerOffset, headerLength).input(), TupleStreamSerde.class);
+                TupleStreamSerde tupleStreamSerde = OBJECT_MAPPER.readValue(slice.slice(headerOffset, headerLength).getInput(), TupleStreamSerde.class);
                 return tupleStreamSerde.createDeserializer().deserializeBlocks(totalRange, slice.slice(dataOffset, slice.length() - dataOffset));
             } catch (IOException e) {
                 throw Throwables.propagate(e);
