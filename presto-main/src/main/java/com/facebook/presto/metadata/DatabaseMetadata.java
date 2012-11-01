@@ -46,11 +46,18 @@ public class DatabaseMetadata
         checkArgument(schemaName.equals(schemaName.toLowerCase()), "schemaName is not lowercase");
         checkArgument(tableName.equals(tableName.toLowerCase()), "tableName is not lowercase");
 
-        List<ColumnMetadata> columns = dao.getColumnMetaData(catalogName, schemaName, tableName);
+        Long tableId = dao.getTableId(catalogName, schemaName, tableName);
+        if (tableId == null) {
+            return null;
+        }
+        TableHandle tableHandle = new NativeTableHandle(tableId);
+
+        List<ColumnMetadata> columns = dao.getColumnMetaData(tableId);
         if (columns.isEmpty()) {
             return null;
         }
-        return new TableMetadata(catalogName, schemaName, tableName, columns);
+
+        return new TableMetadata(catalogName, schemaName, tableName, columns, tableHandle);
     }
 
     @Override

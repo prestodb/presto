@@ -33,17 +33,20 @@ public interface MetadataDao
             ")")
     void createColumnsTable();
 
-    @SqlQuery("SELECT column_name, data_type\n" +
-            "FROM columns c\n" +
-            "JOIN tables t ON (c.table_id = t.table_id)\n" +
+    @SqlQuery("SELECT table_id FROM tables\n" +
             "WHERE catalog_name = :catalogName\n" +
             "  AND schema_name = :schemaName\n" +
-            "  AND table_name = :tableName\n" +
-            "ORDER BY ordinal_position")
-    List<ColumnMetadata> getColumnMetaData(
+            "  AND table_name = :tableName")
+    Long getTableId(
             @Bind("catalogName") String catalogName,
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
+
+    @SqlQuery("SELECT column_id, column_name, data_type\n" +
+            "FROM columns c\n" +
+            "WHERE table_id = :tableId\n" +
+            "ORDER BY ordinal_position")
+    List<ColumnMetadata> getColumnMetaData(@Bind("tableId") long tableId);
 
     @SqlQuery("SELECT COUNT(*) > 0 FROM tables\n" +
             "WHERE catalog_name = :catalogName\n" +

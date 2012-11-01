@@ -13,8 +13,9 @@ public class ColumnMetadataMapper
     public ColumnMetadata map(int index, ResultSet r, StatementContext ctx)
             throws SQLException
     {
-        TupleInfo.Type type = TupleInfo.Type.fromName(r.getString("data_type"));
+        ColumnHandle handle = new NativeColumnHandle(r.getLong("column_id"));
         String name = r.getString("column_name");
-        return new ColumnMetadata(type, name);
+        TupleInfo.Type type = TupleInfo.Type.fromName(r.getString("data_type"));
+        return new ColumnMetadata(name, type, handle);
     }
 }

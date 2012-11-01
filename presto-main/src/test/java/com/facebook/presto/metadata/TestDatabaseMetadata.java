@@ -12,6 +12,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.List;
 
+import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
@@ -44,6 +45,14 @@ public class TestDatabaseMetadata
 
         TableMetadata table = metadata.getTable("default", "default", "orders");
         assertTableEqual(table, getOrdersTable());
+
+        TableHandle tableHandle = table.getTableHandle().get();
+        assertInstanceOf(tableHandle, NativeTableHandle.class);
+        assertEquals(((NativeTableHandle) tableHandle).getTableId(), 1);
+
+        ColumnHandle columnHandle = table.getColumns().get(0).getColumnHandle().get();
+        assertInstanceOf(columnHandle, NativeColumnHandle.class);
+        assertEquals(((NativeColumnHandle) columnHandle).getColumnId(), 1);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = ".*already defined")
