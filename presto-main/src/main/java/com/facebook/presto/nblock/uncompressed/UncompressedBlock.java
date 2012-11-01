@@ -62,7 +62,7 @@ public class UncompressedBlock
         return rawRange;
     }
 
-    public int getCount()
+    public int getPositionCount()
     {
         return (int) (range.getEnd() - range.getStart() + 1);
     }

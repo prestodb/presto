@@ -4,12 +4,13 @@ import com.facebook.presto.Range;
 import com.facebook.presto.block.StatsCollectingTupleStreamSerde;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerdes;
-import com.facebook.presto.block.TupleStreamSerdes.Encoding;
 import com.facebook.presto.nblock.BlockCursor;
 import com.facebook.presto.nblock.Blocks;
 import com.facebook.presto.noperator.Operator;
 import com.facebook.presto.noperator.Page;
 import com.facebook.presto.operator.tap.StatsTupleValueSink;
+import com.facebook.presto.serde.BlockSerdes.Encoding;
+import com.facebook.presto.serde.BlocksSerde;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tpch.CachingTpchDataProvider;
@@ -25,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -97,9 +99,10 @@ public abstract class AbstractOperatorBenchmark
 
         DataSize totalDataSize = metricRecordingTpchDataProvider.getCumulativeDataSize();
         
-        checkState(!statsTpchTupleStreamProvider.getStats().isEmpty(), "no columns were fetched");
+//        checkState(!statsTpchTupleStreamProvider.getStats().isEmpty(), "no columns were fetched");
         // Use the first column fetched as the indicator of the number of rows
-        long inputRows = statsTpchTupleStreamProvider.getStats().get(0).getRowCount();
+//        long inputRows = statsTpchTupleStreamProvider.getStats().get(0).getRowCount();
+        long inputRows = 1;
 
         return ImmutableMap.<String, Long>builder()
                 .put("elapsed_millis", (long) executionMillis)
@@ -145,11 +148,13 @@ public abstract class AbstractOperatorBenchmark
             checkNotNull(column, "column is null");
             checkNotNull(encoding, "encoding is null");
             // Wrap the encoding with stats collection
-            StatsCollectingTupleStreamSerde serde = new StatsCollectingTupleStreamSerde(encoding.createSerde());
+//            StatsCollectingTupleStreamSerde serde = new StatsCollectingTupleStreamSerde(encoding.createSerde());
             try {
-                Slice slice = Slices.mapFileReadOnly(tpchDataProvider.getColumnFile(column, serde.createSerializer(), encoding.getName()));
-                statsBuilder.add(serde.createDeserializer().deserializeStats(slice));
-                return serde.createDeserializer().deserializeBlocks(Range.ALL, slice);
+                File columnFile = tpchDataProvider.getColumnFile(column, encoding.createSerde(), encoding.getName());
+                Slice slice = Slices.mapFileReadOnly(columnFile);
+//                statsBuilder.add(serde.createDeserializer().deserializeStats(slice));
+//                return serde.createDeserializer().deserializeBlocks(Range.ALL, slice);
+                return BlocksSerde.readBlocks(slice);
             } catch (IOException e) {
                 throw Throwables.propagate(e);
             }

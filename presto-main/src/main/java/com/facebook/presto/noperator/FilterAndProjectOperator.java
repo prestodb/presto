@@ -33,6 +33,12 @@ public class FilterAndProjectOperator implements Operator
     }
 
     @Override
+    public int getChannelCount()
+    {
+        return projections.size();
+    }
+
+    @Override
     public Iterator<Page> iterator()
     {
         return new FilterAndProjectIterator(source.iterator(), filter, projections);
@@ -77,7 +83,7 @@ public class FilterAndProjectOperator implements Operator
             }
 
             Page page = new Page(blocks);
-            outputPosition += blocks[0].getCount();
+            outputPosition += blocks[0].getPositionCount();
             return page;
         }
 

@@ -6,7 +6,10 @@ package com.facebook.presto.server;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.hive.HiveClient;
-import com.facebook.presto.ingest.DelimitedTupleStream;
+import com.facebook.presto.ingest.DelimitedRecordIterable;
+import com.facebook.presto.ingest.RecordProjectOperator;
+import com.facebook.presto.ingest.RecordProjection;
+import com.facebook.presto.ingest.RecordProjections;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.HiveImportManager;
 import com.facebook.presto.metadata.Metadata;
@@ -29,6 +32,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.common.io.Files;
+import com.google.common.io.InputSupplier;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.airlift.http.client.ApacheHttpClient;
 import io.airlift.http.client.AsyncHttpClient;
@@ -295,7 +299,8 @@ public class StaticQueryManager implements QueryManager
             }
         }
 
-        private Blocks getColumn(String tableName, String columnName) {
+        private Blocks getColumn(String tableName, String columnName)
+        {
             TableMetadata tableMetadata = metadata.getTable("default", "default", tableName);
             int index = 0;
             for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
@@ -435,9 +440,7 @@ public class StaticQueryManager implements QueryManager
         private final StorageManager storageManager;
         private final String databaseName;
         private final String tableName;
-        private final TupleInfo tupleInfo;
-        private final File delimitedFile;
-        private final Splitter splitter;
+        private final RecordProjectOperator source;
 
         public ImportDelimited(
                 QueryState queryState,
@@ -452,21 +455,25 @@ public class StaticQueryManager implements QueryManager
             this.storageManager = storageManager;
             this.databaseName = databaseName;
             this.tableName = tableName;
-            this.tupleInfo = tupleInfo;
-            this.delimitedFile = delimitedFile;
-            this.splitter = splitter;
+
+            ImmutableList.Builder<RecordProjection> builder = ImmutableList.builder();
+            for (int i = 0; i < tupleInfo.getFieldCount(); i++) {
+                builder.add(RecordProjections.createProjection(i, tupleInfo.getTypes().get(i)));
+            }
+            List<RecordProjection> recordProjections = builder.build();
+
+            InputSupplier<InputStreamReader> readerSupplier = Files.newReaderSupplier(delimitedFile, Charsets.UTF_8);
+            DelimitedRecordIterable records = new DelimitedRecordIterable(readerSupplier, splitter);
+            source = new RecordProjectOperator(records, recordProjections);
         }
 
         @Override
         public void run()
         {
             try {
-                try (InputStreamReader input = Files.newReaderSupplier(delimitedFile, Charsets.UTF_8).getInput()) {
-                    DelimitedTupleStream delimitedTupleStream = new DelimitedTupleStream(input, splitter, tupleInfo);
-                    long rowCount = storageManager.importTableShard(delimitedTupleStream, databaseName, tableName);
-                    queryState.addPage(new Page(new BlockBuilder(0, TupleInfo.SINGLE_LONG).append(rowCount).build()));
-                    queryState.sourceFinished();
-                }
+                long rowCount = storageManager.importTableShard(source, databaseName, tableName);
+                queryState.addPage(new Page(new BlockBuilder(0, TupleInfo.SINGLE_LONG).append(rowCount).build()));
+                queryState.sourceFinished();
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

@@ -64,7 +64,7 @@ public class BlocksMapper implements MessageBodyReader<List<Block>>, MessageBody
             throws IOException, WebApplicationException
     {
         SliceInput sliceInput = new InputStreamSliceInput(input);
-        return ImmutableList.copyOf(new BlocksSerde().readBlocks(sliceInput, 0));
+        return ImmutableList.copyOf(BlocksSerde.readBlocks(sliceInput, 0));
     }
 
     @Override
@@ -92,6 +92,6 @@ public class BlocksMapper implements MessageBodyReader<List<Block>>, MessageBody
             throws IOException, WebApplicationException
     {
         OutputStreamSliceOutput sliceOutput = new OutputStreamSliceOutput(output);
-        new BlocksSerde().writeBlocks(sliceOutput, blocks);
+        BlocksSerde.writeBlocks(sliceOutput, blocks);
     }
 }

@@ -44,6 +44,12 @@ public class HashAggregationOperator
     }
 
     @Override
+    public int getChannelCount()
+    {
+        return projections.size();
+    }
+
+    @Override
     public Iterator<Page> iterator()
     {
         return new AbstractIterator<Page>()
@@ -99,7 +105,7 @@ public class HashAggregationOperator
                 }
 
                 Page page = new Page(blocks);
-                position += blocks[0].getCount();
+                position += blocks[0].getPositionCount();
                 return page;
             }
 

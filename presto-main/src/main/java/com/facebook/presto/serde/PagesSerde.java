@@ -139,7 +139,7 @@ public class PagesSerde
                 blocks[i] = blockSerdes[i].readBlock(sliceInput, tupleInfos[i], positionOffset);
             }
             Page page = new Page(blocks);
-            positionOffset += page.getCount();
+            positionOffset += page.getPositionCount();
             return page;
         }
     }

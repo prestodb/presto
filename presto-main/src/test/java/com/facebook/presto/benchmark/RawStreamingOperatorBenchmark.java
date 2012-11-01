@@ -1,9 +1,9 @@
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.block.TupleStreamSerdes.Encoding;
 import com.facebook.presto.nblock.Blocks;
 import com.facebook.presto.noperator.AlignmentOperator;
 import com.facebook.presto.noperator.Operator;
+import com.facebook.presto.serde.BlockSerdes.Encoding;
 import com.facebook.presto.tpch.TpchSchema.Orders;
 import com.facebook.presto.tpch.TpchTupleStreamProvider;
 
