@@ -10,6 +10,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.List;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -42,7 +43,7 @@ public class TestDatabaseMetadata
         metadata.createTable(getOrdersTable());
 
         TableMetadata table = metadata.getTable("default", "default", "orders");
-        assertEquals(table, getOrdersTable());
+        assertTableEqual(table, getOrdersTable());
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = ".*already defined")
@@ -59,5 +60,22 @@ public class TestDatabaseMetadata
                 new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "custkey"),
                 new ColumnMetadata(TupleInfo.Type.DOUBLE, "totalprice"),
                 new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "orderdate")));
+    }
+
+    private static void assertTableEqual(TableMetadata actual, TableMetadata expected)
+    {
+        assertEquals(actual.getCatalogName(), expected.getCatalogName());
+        assertEquals(actual.getSchemaName(), expected.getSchemaName());
+        assertEquals(actual.getTableName(), expected.getTableName());
+
+        List<ColumnMetadata> actualColumns = actual.getColumns();
+        List<ColumnMetadata> expectedColumns = expected.getColumns();
+        assertEquals(actualColumns.size(), expectedColumns.size());
+        for (int i = 0; i < actualColumns.size(); i++) {
+            ColumnMetadata actualColumn = actualColumns.get(i);
+            ColumnMetadata expectedColumn = expectedColumns.get(i);
+            assertEquals(actualColumn.getName(), expectedColumn.getName());
+            assertEquals(actualColumn.getType(), expectedColumn.getType());
+        }
     }
 }

@@ -1,6 +1,7 @@
 package com.facebook.presto.metadata;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -15,8 +16,20 @@ public class TableMetadata
     private final String schemaName;
     private final String tableName;
     private final List<ColumnMetadata> columns;
+    private final Optional<TableHandle> tableHandle;
 
     public TableMetadata(String catalogName, String schemaName, String tableName, List<ColumnMetadata> columns)
+    {
+        this(catalogName, schemaName, tableName, columns, Optional.<TableHandle>absent());
+    }
+
+    public TableMetadata(String catalogName, String schemaName, String tableName, List<ColumnMetadata> columns, TableHandle tableHandle)
+    {
+        this(catalogName, schemaName, tableName, columns,
+                Optional.of(checkNotNull(tableHandle, "tableHandle is null")));
+    }
+
+    private TableMetadata(String catalogName, String schemaName, String tableName, List<ColumnMetadata> columns, Optional<TableHandle> tableHandle)
     {
         checkNotNull(emptyToNull(catalogName), "catalogName is null or empty");
         checkNotNull(emptyToNull(schemaName), "schemaName is null or empty");
@@ -28,6 +41,7 @@ public class TableMetadata
         this.schemaName = schemaName.toLowerCase();
         this.tableName = tableName.toLowerCase();
         this.columns = ImmutableList.copyOf(columns);
+        this.tableHandle = tableHandle;
     }
 
     public String getCatalogName()
@@ -50,6 +64,11 @@ public class TableMetadata
         return columns;
     }
 
+    public Optional<TableHandle> getTableHandle()
+    {
+        return tableHandle;
+    }
+
     @Override
     public String toString()
     {
@@ -59,27 +78,5 @@ public class TableMetadata
                 .add("tableName", tableName)
                 .add("columns", columns)
                 .toString();
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if ((obj == null) || (getClass() != obj.getClass())) {
-            return false;
-        }
-        TableMetadata o = (TableMetadata) obj;
-        return Objects.equal(catalogName, o.catalogName) &&
-                Objects.equal(schemaName, o.schemaName) &&
-                Objects.equal(tableName, o.tableName) &&
-                Objects.equal(columns, o.columns);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hashCode(catalogName, schemaName, tableName, columns);
     }
 }
