@@ -1,12 +1,10 @@
 package com.facebook.presto.ingest;
 
 import com.facebook.presto.Main;
-import com.facebook.presto.Range;
-import com.facebook.presto.block.Blocks;
-import com.facebook.presto.block.TupleStream;
-import com.facebook.presto.block.TupleStreamSerdes;
+import com.facebook.presto.nblock.BlockAssertions;
+import com.facebook.presto.nblock.BlockIterable;
+import com.facebook.presto.serde.StatsCollectingBlocksSerde;
 import com.facebook.presto.slice.Slices;
-import com.google.common.base.Splitter;
 import com.google.common.io.Resources;
 import io.airlift.testing.FileUtils;
 import org.testng.annotations.AfterMethod;
@@ -17,7 +15,6 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -54,8 +51,8 @@ public class TestCsv
                 resourceFile("action.csv")
         });
 
-        Blocks.assertTupleStreamEquals(readColumn(0, encodings.get(0)),
-                Blocks.createLongsTupleStream(0,
+        BlockAssertions.assertBlocksEquals(readColumn(0, encodings.get(0)),
+                BlockAssertions.createLongsBlockIterable(0,
                         1879196505L,
                         1879196505L,
                         1879196505L,
@@ -67,8 +64,8 @@ public class TestCsv
                         1306113840L,
                         1659333773L));
 
-        Blocks.assertTupleStreamEquals(readColumn(1, encodings.get(1)),
-                Blocks.createDoublesTupleStream(0,
+        BlockAssertions.assertBlocksEquals(readColumn(1, encodings.get(1)),
+                BlockAssertions.createDoublesBlockIterable(0,
                         1343864557153L,
                         1343864681084L,
                         1343864759296L,
@@ -80,8 +77,8 @@ public class TestCsv
                         1343940755299L,
                         1343940261345L));
 
-        Blocks.assertTupleStreamEquals(readColumn(2, encodings.get(2)),
-                Blocks.createDoublesTupleStream(0,
+        BlockAssertions.assertBlocksEquals(readColumn(2, encodings.get(2)),
+                BlockAssertions.createDoublesBlockIterable(0,
                         1343864681084L,
                         1343864759296L,
                         1343864769178L,
@@ -93,8 +90,8 @@ public class TestCsv
                         1343940755299L,
                         1343940261345L));
 
-        Blocks.assertTupleStreamEquals(readColumn(3, encodings.get(3)),
-                Blocks.createTupleStream(0,
+        BlockAssertions.assertBlocksEquals(readColumn(3, encodings.get(3)),
+                BlockAssertions.createStringsBlockIterable(0,
                         "xyz",
                         "xyz",
                         "xyz",
@@ -107,14 +104,11 @@ public class TestCsv
                         "abc"));
     }
 
-    private TupleStream readColumn(int columnNumber, String dataType)
+    private BlockIterable readColumn(int columnNumber, String dataType)
             throws IOException
     {
         File file = new File(outDir, "column" + columnNumber + "." + dataType.replace(':', '_') + ".data");
-        Iterator<String> partsIterator = Splitter.on(':').split(dataType).iterator();
-        String typeName = partsIterator.next();
-        String serdeName = partsIterator.next();
-        return TupleStreamSerdes.Encoding.fromName(serdeName).createSerde().createDeserializer().deserialize(Range.ALL, Slices.mapFileReadOnly(file));
+        return StatsCollectingBlocksSerde.readBlocks(Slices.mapFileReadOnly(file));
     }
 
     private static String resourceFile(String resourceName)
