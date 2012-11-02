@@ -7,7 +7,10 @@ import com.facebook.presto.nblock.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 
+import java.util.NoSuchElementException;
+
 import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
+import static com.google.common.base.Preconditions.checkState;
 
 public class UncompressedLongBlockCursor
         implements BlockCursor
@@ -52,10 +55,10 @@ public class UncompressedLongBlockCursor
 
     private void checkReadablePosition()
     {
-//        if (position > range.getEnd()) {
-//            throw new NoSuchElementException("already finished");
-//        }
-//        checkState(position >= range.getStart(), "cursor not yet advanced");
+        if (position > range.getEnd()) {
+            throw new NoSuchElementException("already finished");
+        }
+        checkState(position >= range.getStart(), "cursor not yet advanced");
     }
 
     @Override

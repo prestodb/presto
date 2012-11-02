@@ -7,6 +7,7 @@ import com.facebook.presto.nblock.uncompressed.UncompressedBlock;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
+import com.google.common.base.Charsets;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
@@ -74,9 +75,12 @@ public class BlockBuilder
 
     public BlockBuilder append(byte[] value)
     {
-        tupleBuilder.append(Slices.wrappedBuffer(value));
-        flushTupleIfNecessary();
-        return this;
+        return append(Slices.wrappedBuffer(value));
+    }
+
+    public BlockBuilder append(String value)
+    {
+        return append(Slices.copiedBuffer(value, Charsets.UTF_8));
     }
 
     public BlockBuilder append(Slice value)
