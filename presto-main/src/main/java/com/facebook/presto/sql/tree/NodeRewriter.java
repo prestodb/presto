@@ -1,25 +1,4 @@
-package com.facebook.presto.sql.compiler;
-
-import com.facebook.presto.sql.compiler.TreeRewriter;
-import com.facebook.presto.sql.tree.AliasedExpression;
-import com.facebook.presto.sql.tree.AliasedRelation;
-import com.facebook.presto.sql.tree.AllColumns;
-import com.facebook.presto.sql.tree.ArithmeticExpression;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.InPredicate;
-import com.facebook.presto.sql.tree.LikePredicate;
-import com.facebook.presto.sql.tree.Literal;
-import com.facebook.presto.sql.tree.LogicalBinaryExpression;
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
-import com.facebook.presto.sql.tree.Query;
-import com.facebook.presto.sql.tree.Relation;
-import com.facebook.presto.sql.tree.Select;
-import com.facebook.presto.sql.tree.Subquery;
-import com.facebook.presto.sql.tree.SubqueryExpression;
-import com.facebook.presto.sql.tree.Table;
+package com.facebook.presto.sql.tree;
 
 public class NodeRewriter<C>
 {
