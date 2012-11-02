@@ -14,7 +14,6 @@ import com.google.common.io.LineReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.List;
-import java.util.Map;
 
 public class DelimitedRecordIterable implements RecordIterable
 {
@@ -63,7 +62,7 @@ public class DelimitedRecordIterable implements RecordIterable
                     return endOfData();
                 }
                 List<String> columns = ImmutableList.copyOf(columnSplitter.split(line));
-                return new DelimitedRecord(columns);
+                return new StringRecord(columns);
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);
@@ -75,34 +74,6 @@ public class DelimitedRecordIterable implements RecordIterable
                 throws IOException
         {
             reader.close();
-        }
-    }
-
-    private static class DelimitedRecord implements Record
-    {
-        private final List<String> columns;
-
-        public DelimitedRecord(List<String> columns)
-        {
-            this.columns = columns;
-        }
-
-        @Override
-        public Long getLong(int field)
-        {
-            return Long.parseLong(getString(field));
-        }
-
-        @Override
-        public Double getDouble(int field)
-        {
-            return Double.parseDouble(getString(field));
-        }
-
-        @Override
-        public String getString(int field)
-        {
-            return columns.get(field);
         }
     }
 }
