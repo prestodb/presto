@@ -2,7 +2,7 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.SizeOf;
-import com.facebook.presto.nblock.Blocks;
+import com.facebook.presto.nblock.BlockIterable;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceOutput;
 import com.google.common.base.Throwables;
@@ -76,7 +76,7 @@ public class SelfDescriptiveSerde
         }
 
         @Override
-        public Blocks deserializeBlocks(Range totalRange, Slice slice)
+        public BlockIterable deserializeBlocks(Range totalRange, Slice slice)
         {
             checkNotNull(slice, "slice is null");
             int headerLength = slice.getInt(0);

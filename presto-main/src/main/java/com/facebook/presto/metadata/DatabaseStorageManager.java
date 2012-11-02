@@ -11,8 +11,8 @@ import com.facebook.presto.ingest.BlockWriterFactory;
 import com.facebook.presto.ingest.ImportingOperator;
 import com.facebook.presto.ingest.SerdeBlockWriterFactory;
 import com.facebook.presto.nblock.Block;
+import com.facebook.presto.nblock.BlockIterable;
 import com.facebook.presto.nblock.BlockUtils;
-import com.facebook.presto.nblock.Blocks;
 import com.facebook.presto.noperator.AlignmentOperator;
 import com.facebook.presto.noperator.Operator;
 import com.facebook.presto.serde.BlockSerdes;
@@ -135,7 +135,7 @@ public class DatabaseStorageManager
     private List<File> optimizeEncodings(List<File> stagedFiles, String databaseName, String tableName, long shardId)
             throws IOException
     {
-        ImmutableList.Builder<Blocks> sourcesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<BlockIterable> sourcesBuilder = ImmutableList.builder();
         ImmutableList.Builder<BlockWriterFactory> writersBuilder = ImmutableList.builder();
         ImmutableList.Builder<File> optimizedFilesBuilder = ImmutableList.builder();
 
@@ -176,7 +176,7 @@ public class DatabaseStorageManager
                 writersBuilder.add(new SerdeBlockWriterFactory(encoding.createSerde(), Files.newOutputStreamSupplier(outputFile)));
             }
         }
-        List<Blocks> sources = sourcesBuilder.build();
+        List<BlockIterable> sources = sourcesBuilder.build();
         List<BlockWriterFactory> writers = writersBuilder.build();
 
         if (!sources.isEmpty()) {
@@ -310,7 +310,7 @@ public class DatabaseStorageManager
     }
 
     @Override
-    public Blocks getBlocks(final String databaseName, final String tableName, final int fieldIndex)
+    public BlockIterable getBlocks(final String databaseName, final String tableName, final int fieldIndex)
     {
         List<File> files = dbi.withHandle(new HandleCallback<List<File>>()
         {
@@ -343,7 +343,7 @@ public class DatabaseStorageManager
         return convertFilesToBlocks(files);
     }
 
-    private Blocks convertFilesToBlocks(List<File> files)
+    private BlockIterable convertFilesToBlocks(List<File> files)
     {
         Preconditions.checkArgument(!files.isEmpty(), "no files in stream");
 
@@ -355,7 +355,7 @@ public class DatabaseStorageManager
             public Iterable<? extends Block> apply(File file)
             {
                 Slice slice = mappedFileCache.getUnchecked(file.getAbsolutePath());
-                Blocks blocks = StatsCollectingBlocksSerde.readBlocks(slice, startPosition);
+                BlockIterable blocks = StatsCollectingBlocksSerde.readBlocks(slice, startPosition);
                 startPosition += StatsCollectingBlocksSerde.readStats(slice).getRowCount() + 1;
                 return blocks;
             }

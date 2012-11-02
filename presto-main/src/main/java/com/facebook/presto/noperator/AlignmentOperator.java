@@ -5,7 +5,7 @@ package com.facebook.presto.noperator;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.nblock.Block;
-import com.facebook.presto.nblock.Blocks;
+import com.facebook.presto.nblock.BlockIterable;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Iterables;
 
@@ -15,16 +15,16 @@ import static com.facebook.presto.hive.shaded.com.google.common.base.Preconditio
 
 public class AlignmentOperator implements Operator
 {
-    private final Blocks[] channels;
+    private final BlockIterable[] channels;
 
-    public AlignmentOperator(Blocks... channels)
+    public AlignmentOperator(BlockIterable... channels)
     {
         this.channels = channels;
     }
 
-    public AlignmentOperator(Iterable<Blocks> channels)
+    public AlignmentOperator(Iterable<BlockIterable> channels)
     {
-        this.channels = Iterables.toArray(channels, Blocks.class);
+        this.channels = Iterables.toArray(channels, BlockIterable.class);
     }
 
     @Override

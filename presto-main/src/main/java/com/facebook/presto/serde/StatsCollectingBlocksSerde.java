@@ -4,7 +4,7 @@ import com.facebook.presto.SizeOf;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.nblock.Block;
 import com.facebook.presto.nblock.BlockCursor;
-import com.facebook.presto.nblock.Blocks;
+import com.facebook.presto.nblock.BlockIterable;
 import com.facebook.presto.serde.StatsCollectingBlocksSerde.StatsCollector.Stats;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
@@ -56,12 +56,12 @@ public final class StatsCollectingBlocksSerde
         blocksWriter.finish();
     }
 
-    public static Blocks readBlocks(Slice slice)
+    public static BlockIterable readBlocks(Slice slice)
     {
         return readBlocks(slice, 0);
     }
 
-    public static Blocks readBlocks(Slice slice, long startPosition)
+    public static BlockIterable readBlocks(Slice slice, long startPosition)
     {
         int footerLength = slice.getInt(slice.length() - SizeOf.SIZE_OF_INT);
         int footerOffset = slice.length() - footerLength - SizeOf.SIZE_OF_INT;

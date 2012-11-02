@@ -13,7 +13,7 @@ import com.facebook.presto.block.TupleStreamDeserializer;
 import com.facebook.presto.block.TupleStreamSerde;
 import com.facebook.presto.block.TupleStreamSerializer;
 import com.facebook.presto.block.TupleStreamWriter;
-import com.facebook.presto.nblock.Blocks;
+import com.facebook.presto.nblock.BlockIterable;
 import com.facebook.presto.serde.BlocksSerde;
 import com.facebook.presto.slice.ByteArraySlice;
 import com.facebook.presto.slice.DynamicSliceOutput;
@@ -64,7 +64,7 @@ public class UncompressedSerde
             }
 
             @Override
-            public Blocks deserializeBlocks(Range totalRange, Slice slice)
+            public BlockIterable deserializeBlocks(Range totalRange, Slice slice)
             {
                 return BlocksSerde.readBlocks(slice, totalRange.getStart());
             }

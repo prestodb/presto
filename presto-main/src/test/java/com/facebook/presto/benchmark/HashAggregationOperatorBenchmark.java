@@ -1,7 +1,7 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.nblock.Blocks;
+import com.facebook.presto.nblock.BlockIterable;
 import com.facebook.presto.noperator.AlignmentOperator;
 import com.facebook.presto.noperator.HashAggregationOperator;
 import com.facebook.presto.noperator.Operator;
@@ -25,8 +25,8 @@ public class HashAggregationOperatorBenchmark
     @Override
     protected Operator createBenchmarkedOperator(TpchTupleStreamProvider inputStreamProvider)
     {
-        Blocks orderStatus = inputStreamProvider.getBlocks(Orders.ORDERSTATUS, Encoding.RAW);
-        Blocks totalPrice = inputStreamProvider.getBlocks(Orders.TOTALPRICE, Encoding.RAW);
+        BlockIterable orderStatus = inputStreamProvider.getBlocks(Orders.ORDERSTATUS, Encoding.RAW);
+        BlockIterable totalPrice = inputStreamProvider.getBlocks(Orders.TOTALPRICE, Encoding.RAW);
 
         AlignmentOperator alignmentOperator = new AlignmentOperator(orderStatus, totalPrice);
         return new HashAggregationOperator(alignmentOperator,
