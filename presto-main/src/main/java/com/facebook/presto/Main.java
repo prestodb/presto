@@ -5,13 +5,14 @@ package com.facebook.presto;
 
 import com.facebook.presto.cli.Console;
 import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.block.ProjectionTupleStream;
-import com.facebook.presto.block.TupleStreamSerdes;
-import com.facebook.presto.block.TupleStreamSerializer;
-import com.facebook.presto.ingest.DelimitedTupleStream;
+import com.facebook.presto.ingest.BlockWriterFactory;
+import com.facebook.presto.ingest.DelimitedRecordIterable;
+import com.facebook.presto.ingest.ImportingOperator;
+import com.facebook.presto.ingest.RecordProjectOperator;
+import com.facebook.presto.ingest.RecordProjection;
+import com.facebook.presto.ingest.RecordProjections;
 import com.facebook.presto.ingest.RuntimeIOException;
-import com.facebook.presto.ingest.StreamWriterTupleValueSink;
-import com.facebook.presto.ingest.TupleStreamImporter;
+import com.facebook.presto.ingest.SerdeBlockWriterFactory;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.DatabaseMetadata;
 import com.facebook.presto.metadata.DatabaseStorageManager;
@@ -33,6 +34,7 @@ import com.facebook.presto.noperator.aggregation.CountAggregation;
 import com.facebook.presto.noperator.aggregation.LongSumAggregation;
 import com.facebook.presto.operator.ConsolePrinter.DelimitedTuplePrinter;
 import com.facebook.presto.operator.ConsolePrinter.TuplePrinter;
+import com.facebook.presto.serde.UncompressedBlockSerde;
 import com.facebook.presto.server.HttpQueryProvider;
 import com.facebook.presto.server.QueryDriversOperator;
 import com.facebook.presto.server.ServerMainModule;
@@ -206,7 +208,10 @@ public class Main
 
                     AlignmentOperator alignmentOperator = new AlignmentOperator(partition, poolName, cpuMsec);
 //                    Query2FilterAndProjectOperator filterAndProject = new Query2FilterAndProjectOperator(alignmentOperator);
-                    FilterAndProjectOperator filterAndProject = new FilterAndProjectOperator(alignmentOperator, new Query2Filter(), singleColumn(VARIABLE_BINARY, 1, 0), singleColumn(FIXED_INT_64, 2, 0));
+                    FilterAndProjectOperator filterAndProject = new FilterAndProjectOperator(alignmentOperator,
+                            new Query2Filter(),
+                            singleColumn(VARIABLE_BINARY, 1, 0),
+                            singleColumn(FIXED_INT_64, 2, 0));
                     HashAggregationOperator aggregation = new HashAggregationOperator(filterAndProject,
                             0,
                             ImmutableList.of(CountAggregation.PROVIDER, LongSumAggregation.provider(1, 0)),
@@ -324,7 +329,8 @@ public class Main
         }
     }
 
-    private static BlockIterable getColumn(StorageManager storageManager, Metadata metadata, final String tableName, String columnName) {
+    private static BlockIterable getColumn(StorageManager storageManager, Metadata metadata, final String tableName, String columnName)
+    {
         TableMetadata tableMetadata = metadata.getTable("default", "default", tableName);
         int index = 0;
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
@@ -446,12 +452,12 @@ public class Main
                 throws Exception
         {
             checkArgument(extractionSpecs != null && !extractionSpecs.isEmpty(), "Extraction Spec is required");
-            InputSupplier<InputStreamReader> inputSupplier;
+            InputSupplier<InputStreamReader> readerSupplier;
             if (csvFile != null) {
-                inputSupplier = Files.newReaderSupplier(new File(csvFile), Charsets.UTF_8);
+                readerSupplier = Files.newReaderSupplier(new File(csvFile), Charsets.UTF_8);
             }
             else {
-                inputSupplier = new InputSupplier<InputStreamReader>()
+                readerSupplier = new InputSupplier<InputStreamReader>()
                 {
                     public InputStreamReader getInput()
                     {
@@ -461,8 +467,6 @@ public class Main
             }
 
             ImmutableSortedMap.Builder<Integer, Type> schemaBuilder = ImmutableSortedMap.naturalOrder();
-            ImmutableList.Builder<Integer> extractionColumnsBuilder = ImmutableList.builder();
-            ImmutableList.Builder<TupleStreamSerializer> serializerBuilder = ImmutableList.builder();
             ImmutableList.Builder<OutputSupplier<? extends OutputStream>> outputSupplierBuilder = ImmutableList.builder();
             for (String extractionSpec : extractionSpecs) {
                 // Extract column index, base type, and encodingName
@@ -472,47 +476,39 @@ public class Main
                 Integer columnIndex;
                 try {
                     columnIndex = Integer.parseInt(parts.get(0));
-                } catch (NumberFormatException e) {
+                }
+                catch (NumberFormatException e) {
                     throw new IllegalArgumentException("Malformed column index: " + parts.get(0));
                 }
                 String dataTypeName = parts.get(1);
                 String encodingName = parts.get(2);
 
                 schemaBuilder.put(columnIndex, TupleInfo.Type.fromName(dataTypeName));
-                extractionColumnsBuilder.add(columnIndex);
-                serializerBuilder.add(TupleStreamSerdes.Encoding.fromName(encodingName).createSerde().createSerializer());
                 outputSupplierBuilder.add(newOutputStreamSupplier(new File(outputDir, String.format("column%d.%s_%s.data", columnIndex, dataTypeName, encodingName))));
             }
+            
             ImmutableSortedMap<Integer, Type> schema = schemaBuilder.build();
-            ImmutableList<Integer> extractionColumns = extractionColumnsBuilder.build();
-            ImmutableList<TupleStreamSerializer> serializers = serializerBuilder.build();
             ImmutableList<OutputSupplier<? extends OutputStream>> outputSuppliers = outputSupplierBuilder.build();
 
-            ImmutableList.Builder<Type> inferredTypes = ImmutableList.builder();
+            ImmutableList.Builder<RecordProjection> recordProjectionBuilder = ImmutableList.builder();
+            ImmutableList.Builder<BlockWriterFactory> writersBuilder = ImmutableList.builder();
             for (int index = 0; index <= schema.lastKey(); index++) {
+                // Default to VARIABLE_BINARY if we don't know some of the intermediate types
+                Type type = VARIABLE_BINARY;
                 if (schema.containsKey(index)) {
-                    inferredTypes.add(schema.get(index));
+                    type = schema.get(index);
                 }
-                else {
-                    // Default to VARIABLE_BINARY if we don't know some of the intermediate types
-                    inferredTypes.add(VARIABLE_BINARY);
-                }
+                recordProjectionBuilder.add(RecordProjections.createProjection(index, type));
+                writersBuilder.add(new SerdeBlockWriterFactory(UncompressedBlockSerde.INSTANCE, outputSuppliers.get(index)));
             }
+            List<RecordProjection> recordProjections = recordProjectionBuilder.build();
+            List<BlockWriterFactory> writers = writersBuilder.build();
 
-            TupleInfo tupleInfo = new TupleInfo(inferredTypes.build());
+            DelimitedRecordIterable records = new DelimitedRecordIterable(readerSupplier, Splitter.on(toChar(columnSeparator)));
+            Operator source = new RecordProjectOperator(records, recordProjections);
 
-            try (InputStreamReader input = inputSupplier.getInput()) {
-                DelimitedTupleStream delimitedTupleStream = new DelimitedTupleStream(input, Splitter.on(toChar(columnSeparator)), tupleInfo);
-                ProjectionTupleStream projectedStream = new ProjectionTupleStream(delimitedTupleStream, extractionColumns);
-
-                ImmutableList.Builder<StreamWriterTupleValueSink> tupleValueSinkBuilder = ImmutableList.builder();
-                for (int index = 0; index < extractionColumns.size(); index++) {
-                    tupleValueSinkBuilder.add(new StreamWriterTupleValueSink(outputSuppliers.get(index), serializers.get(index)));
-                }
-
-                long rowCount = TupleStreamImporter.importFrom(projectedStream, tupleValueSinkBuilder.build());
-                log.info("Imported %d rows", rowCount);
-            }
+            long rowCount = ImportingOperator.importData(source, writers);
+            log.info("Importoed %d rows", rowCount);
         }
 
         private char toChar(String string)
