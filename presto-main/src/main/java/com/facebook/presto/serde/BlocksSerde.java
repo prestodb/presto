@@ -2,7 +2,7 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.nblock.Block;
-import com.facebook.presto.nblock.Blocks;
+import com.facebook.presto.nblock.BlockIterable;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
 import com.google.common.base.Preconditions;
@@ -78,17 +78,17 @@ public final class BlocksSerde
         blocksWriter.finish();
     }
 
-    public static Blocks readBlocks(InputSupplier<SliceInput> sliceInputSupplier)
+    public static BlockIterable readBlocks(InputSupplier<SliceInput> sliceInputSupplier)
     {
         return readBlocks(sliceInputSupplier, 0);
     }
 
-    public static Blocks readBlocks(final InputSupplier<SliceInput> sliceInputSupplier, final long startPosition)
+    public static BlockIterable readBlocks(final InputSupplier<SliceInput> sliceInputSupplier, final long startPosition)
     {
         Preconditions.checkNotNull(sliceInputSupplier, "sliceInputSupplier is null");
         Preconditions.checkArgument(startPosition >= 0, "startPosition is negative");
 
-        return new Blocks()
+        return new BlockIterable()
         {
             @Override
             public Iterator<Block> iterator()

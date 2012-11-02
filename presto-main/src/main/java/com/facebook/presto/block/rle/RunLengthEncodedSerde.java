@@ -14,7 +14,7 @@ import com.facebook.presto.block.YieldingIterable;
 import com.facebook.presto.block.YieldingIterator;
 import com.facebook.presto.block.YieldingIterators;
 import com.facebook.presto.block.uncompressed.UncompressedTupleInfoSerde;
-import com.facebook.presto.nblock.Blocks;
+import com.facebook.presto.nblock.BlockIterable;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
@@ -75,7 +75,7 @@ public class RunLengthEncodedSerde
             }
 
             @Override
-            public Blocks deserializeBlocks(Range totalRange, Slice slice)
+            public BlockIterable deserializeBlocks(Range totalRange, Slice slice)
             {
                 throw new UnsupportedOperationException();
             }

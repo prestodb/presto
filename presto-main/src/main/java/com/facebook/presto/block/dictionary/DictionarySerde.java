@@ -7,7 +7,7 @@ import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.*;
 import com.facebook.presto.block.dictionary.Dictionary.DictionaryBuilder;
 import com.facebook.presto.block.uncompressed.UncompressedTupleInfoSerde;
-import com.facebook.presto.nblock.Blocks;
+import com.facebook.presto.nblock.BlockIterable;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
@@ -69,7 +69,7 @@ public class DictionarySerde
             }
 
             @Override
-            public Blocks deserializeBlocks(Range totalRange, Slice slice)
+            public BlockIterable deserializeBlocks(Range totalRange, Slice slice)
             {
                 throw new UnsupportedOperationException();
             }

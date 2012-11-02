@@ -7,7 +7,7 @@ import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.StatsCollectingTupleStreamSerde;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerdes;
-import com.facebook.presto.nblock.Blocks;
+import com.facebook.presto.nblock.BlockIterable;
 import com.facebook.presto.serde.BlockSerdes;
 import com.facebook.presto.serde.StatsCollectingBlocksSerde;
 import com.facebook.presto.serde.StatsCollectingBlocksSerde.StatsCollector.Stats;
@@ -140,7 +140,7 @@ public abstract class AbstractTupleStreamBenchmark
         }
 
         @Override
-        public Blocks getBlocks(Column column, BlockSerdes.Encoding encoding)
+        public BlockIterable getBlocks(Column column, BlockSerdes.Encoding encoding)
         {
             checkNotNull(column, "column is null");
             checkNotNull(encoding, "encoding is null");

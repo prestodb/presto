@@ -2,7 +2,7 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.SizeOf;
-import com.facebook.presto.nblock.Blocks;
+import com.facebook.presto.nblock.BlockIterable;
 import com.facebook.presto.operator.tap.StatsTupleValueSink;
 import com.facebook.presto.operator.tap.Tap;
 import com.facebook.presto.serde.StatsCollectingBlocksSerde.StatsCollector.Stats;
@@ -70,7 +70,7 @@ public class StatsCollectingTupleStreamSerde
         }
 
         @Override
-        public Blocks deserializeBlocks(Range totalRange, Slice slice)
+        public BlockIterable deserializeBlocks(Range totalRange, Slice slice)
         {
             checkNotNull(slice, "slice is null");
             int footerLength = slice.getInt(slice.length() - SizeOf.SIZE_OF_INT);

@@ -16,7 +16,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.nblock.BlockBuilder;
-import com.facebook.presto.nblock.Blocks;
+import com.facebook.presto.nblock.BlockIterable;
 import com.facebook.presto.noperator.AggregationOperator;
 import com.facebook.presto.noperator.AlignmentOperator;
 import com.facebook.presto.noperator.HashAggregationOperator;
@@ -274,8 +274,8 @@ public class StaticQueryManager implements QueryManager
         public void run()
         {
             try {
-                Blocks groupBySource = getColumn("hivedba_query_stats", "pool_name");
-                Blocks aggregateSource = getColumn("hivedba_query_stats", "cpu_msec");
+                BlockIterable groupBySource = getColumn("hivedba_query_stats", "pool_name");
+                BlockIterable aggregateSource = getColumn("hivedba_query_stats", "cpu_msec");
 
                 AlignmentOperator alignmentOperator = new AlignmentOperator(groupBySource, aggregateSource);
                 HashAggregationOperator sumOperator = new HashAggregationOperator(alignmentOperator,
@@ -299,7 +299,7 @@ public class StaticQueryManager implements QueryManager
             }
         }
 
-        private Blocks getColumn(String tableName, String columnName)
+        private BlockIterable getColumn(String tableName, String columnName)
         {
             TableMetadata tableMetadata = metadata.getTable("default", "default", tableName);
             int index = 0;

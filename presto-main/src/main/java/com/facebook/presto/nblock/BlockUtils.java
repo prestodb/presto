@@ -11,22 +11,22 @@ import java.util.Iterator;
 
 public class BlockUtils
 {
-    public static Blocks toBlocks(Block firstBlock, Block... rest)
+    public static BlockIterable toBlocks(Block firstBlock, Block... rest)
     {
-        return new BlocksAdapter(firstBlock.getTupleInfo(), ImmutableList.<Block>builder().add(firstBlock).add(rest).build());
+        return new BlockIterableAdapter(firstBlock.getTupleInfo(), ImmutableList.<Block>builder().add(firstBlock).add(rest).build());
     }
 
-    public static Blocks toBlocks(Iterable<Block> blocks)
+    public static BlockIterable toBlocks(Iterable<Block> blocks)
     {
-        return new BlocksAdapter(Iterables.get(blocks, 0).getTupleInfo(), blocks);
+        return new BlockIterableAdapter(Iterables.get(blocks, 0).getTupleInfo(), blocks);
     }
 
-    private static class BlocksAdapter implements Blocks
+    private static class BlockIterableAdapter implements BlockIterable
     {
         private final TupleInfo info;
         private final Iterable<Block> blocks;
 
-        public BlocksAdapter(TupleInfo info, Iterable<Block> blocks)
+        public BlockIterableAdapter(TupleInfo info, Iterable<Block> blocks)
         {
             this.info = info;
             this.blocks = blocks;
