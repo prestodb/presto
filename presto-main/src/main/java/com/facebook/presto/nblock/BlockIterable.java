@@ -3,6 +3,6 @@
  */
 package com.facebook.presto.nblock;
 
-public interface Blocks extends Iterable<Block>
+public interface BlockIterable extends Iterable<Block>
 {
 }

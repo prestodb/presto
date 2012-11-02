@@ -5,7 +5,7 @@ import com.facebook.presto.block.StatsCollectingTupleStreamSerde;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.nblock.BlockCursor;
-import com.facebook.presto.nblock.Blocks;
+import com.facebook.presto.nblock.BlockIterable;
 import com.facebook.presto.noperator.Operator;
 import com.facebook.presto.noperator.Page;
 import com.facebook.presto.serde.BlockSerdes.Encoding;
@@ -142,7 +142,7 @@ public abstract class AbstractOperatorBenchmark
         }
 
         @Override
-        public Blocks getBlocks(Column column, Encoding encoding)
+        public BlockIterable getBlocks(Column column, Encoding encoding)
         {
             checkNotNull(column, "column is null");
             checkNotNull(encoding, "encoding is null");

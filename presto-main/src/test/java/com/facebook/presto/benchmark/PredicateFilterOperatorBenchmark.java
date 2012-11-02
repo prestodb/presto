@@ -2,7 +2,7 @@ package com.facebook.presto.benchmark;
 
 import com.facebook.presto.TupleInfo.Type;
 import com.facebook.presto.nblock.BlockCursor;
-import com.facebook.presto.nblock.Blocks;
+import com.facebook.presto.nblock.BlockIterable;
 import com.facebook.presto.noperator.AlignmentOperator;
 import com.facebook.presto.noperator.FilterAndProjectOperator;
 import com.facebook.presto.noperator.FilterFunction;
@@ -24,7 +24,7 @@ public class PredicateFilterOperatorBenchmark
     @Override
     protected Operator createBenchmarkedOperator(TpchTupleStreamProvider inputStreamProvider)
     {
-        Blocks totalPrice = inputStreamProvider.getBlocks(Orders.TOTALPRICE, Encoding.RAW);
+        BlockIterable totalPrice = inputStreamProvider.getBlocks(Orders.TOTALPRICE, Encoding.RAW);
         AlignmentOperator alignmentOperator = new AlignmentOperator(totalPrice);
         return new FilterAndProjectOperator(alignmentOperator, new DoubleFilter(50000.00), singleColumn(Type.DOUBLE, 0, 0) );
     }

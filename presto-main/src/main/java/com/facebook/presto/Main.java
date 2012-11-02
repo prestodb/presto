@@ -20,7 +20,7 @@ import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.nblock.BlockBuilder;
 import com.facebook.presto.nblock.BlockCursor;
-import com.facebook.presto.nblock.Blocks;
+import com.facebook.presto.nblock.BlockIterable;
 import com.facebook.presto.noperator.AggregationOperator;
 import com.facebook.presto.noperator.AlignmentOperator;
 import com.facebook.presto.noperator.FilterAndProjectOperator;
@@ -200,9 +200,9 @@ public class Main
                 try {
                     long start = System.nanoTime();
 
-                    Blocks partition = getColumn(storageManager, metadata, "hivedba_query_stats", "partition");
-                    Blocks poolName = getColumn(storageManager, metadata, "hivedba_query_stats", "pool_name");
-                    Blocks cpuMsec = getColumn(storageManager, metadata, "hivedba_query_stats", "cpu_msec");
+                    BlockIterable partition = getColumn(storageManager, metadata, "hivedba_query_stats", "partition");
+                    BlockIterable poolName = getColumn(storageManager, metadata, "hivedba_query_stats", "pool_name");
+                    BlockIterable cpuMsec = getColumn(storageManager, metadata, "hivedba_query_stats", "cpu_msec");
 
                     AlignmentOperator alignmentOperator = new AlignmentOperator(partition, poolName, cpuMsec);
 //                    Query2FilterAndProjectOperator filterAndProject = new Query2FilterAndProjectOperator(alignmentOperator);
@@ -256,10 +256,10 @@ public class Main
                 try {
                     long start = System.nanoTime();
 
-                    Blocks partition = getColumn(storageManager, metadata, "hivedba_query_stats", "partition");
-                    Blocks startTime = getColumn(storageManager, metadata, "hivedba_query_stats", "start_time");
-                    Blocks endTime = getColumn(storageManager, metadata, "hivedba_query_stats", "end_time");
-                    Blocks cpuMsec = getColumn(storageManager, metadata, "hivedba_query_stats", "cpu_msec");
+                    BlockIterable partition = getColumn(storageManager, metadata, "hivedba_query_stats", "partition");
+                    BlockIterable startTime = getColumn(storageManager, metadata, "hivedba_query_stats", "start_time");
+                    BlockIterable endTime = getColumn(storageManager, metadata, "hivedba_query_stats", "end_time");
+                    BlockIterable cpuMsec = getColumn(storageManager, metadata, "hivedba_query_stats", "cpu_msec");
 
                     AlignmentOperator alignmentOperator = new AlignmentOperator(partition, startTime, endTime, cpuMsec);
 //                    Query3FilterAndProjectOperator filterAndProject = new Query3FilterAndProjectOperator(alignmentOperator);
@@ -324,7 +324,7 @@ public class Main
         }
     }
 
-    private static Blocks getColumn(StorageManager storageManager, Metadata metadata, final String tableName, String columnName) {
+    private static BlockIterable getColumn(StorageManager storageManager, Metadata metadata, final String tableName, String columnName) {
         TableMetadata tableMetadata = metadata.getTable("default", "default", tableName);
         int index = 0;
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
