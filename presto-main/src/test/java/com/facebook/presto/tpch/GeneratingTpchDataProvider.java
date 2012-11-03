@@ -1,20 +1,13 @@
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.block.ProjectionTupleStream;
-import com.facebook.presto.block.TupleStreamSerializer;
 import com.facebook.presto.ingest.DelimitedRecordIterable;
-import com.facebook.presto.ingest.DelimitedTupleStream;
 import com.facebook.presto.ingest.ImportingOperator;
 import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.ingest.SerdeBlockWriterFactory;
-import com.facebook.presto.ingest.StreamWriterTupleValueSink;
-import com.facebook.presto.ingest.TupleStreamImporter;
 import com.facebook.presto.serde.BlockSerde;
 import com.facebook.presto.tpch.TpchSchema.Column;
-import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
@@ -24,7 +17,6 @@ import com.google.common.io.Resources;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.jar.JarFile;
 
 import static com.facebook.presto.ingest.RecordProjections.createProjection;
@@ -126,45 +118,6 @@ public class GeneratingTpchDataProvider
         // Otherwise fall back to the default in resources if one is available
         else {
             return new ResourcesTableInputSupplierFactory();
-        }
-    }
-
-    // TODO: make this work for columns with more than one file
-    @Override
-    public File getColumnFile(final TpchSchema.Column column, TupleStreamSerializer serializer, String serdeName)
-    {
-        checkNotNull(column, "column is null");
-        checkNotNull(serializer, "serializer is null");
-        checkNotNull(serdeName, "serdeName is null");
-
-        try {
-            String hash = ByteStreams.hash(tableInputSupplierFactory.getInputSupplier(column.getTable().getName()), Hashing.md5()).toString();
-
-            File cachedFile = new File(new File(cacheDirectory, column.getTable().getName() + "-" + hash), createFileName(column, serdeName));
-            if (cachedFile.exists()) {
-                return cachedFile;
-            }
-
-            Files.createParentDirs(cachedFile);
-
-            try (InputStream input = tableInputSupplierFactory.getInputSupplier(column.getTable().getName()).getInput()) {
-                TupleStreamImporter.importFrom(
-                        new ProjectionTupleStream(
-                                new DelimitedTupleStream(
-                                        new InputStreamReader(input, Charsets.UTF_8),
-                                        Splitter.on("|"),
-                                        column.getTable().getTupleInfo()
-                                ),
-                                column.getIndex()
-                        ),
-                        ImmutableList.of(new StreamWriterTupleValueSink(Files.newOutputStreamSupplier(cachedFile), serializer))
-                );
-            }
-
-            return cachedFile;
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
         }
     }
 

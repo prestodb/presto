@@ -1,6 +1,5 @@
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.block.TupleStreamSerializer;
 import com.facebook.presto.serde.BlockSerde;
 import com.facebook.presto.tpch.TpchSchema.Column;
 import com.google.common.base.Preconditions;
@@ -20,22 +19,6 @@ public class MetricRecordingTpchDataProvider
     public MetricRecordingTpchDataProvider(TpchDataProvider tpchDataProvider)
     {
         this.tpchDataProvider = Preconditions.checkNotNull(tpchDataProvider, "tpchDataProvider is null");
-    }
-
-    @Override
-    public File getColumnFile(TpchSchema.Column column, TupleStreamSerializer serializer, String serdeName)
-    {
-        Preconditions.checkNotNull(column, "column is null");
-        Preconditions.checkNotNull(serializer, "serializer is null");
-        Preconditions.checkNotNull(serdeName, "serdeName is null");
-        long start = System.nanoTime();
-        try {
-            File file = tpchDataProvider.getColumnFile(column, serializer, serdeName);
-            cumulativeDataByteSize += file.length();
-            return file;
-        } finally {
-            dataFetchElapsedMillis += Duration.nanosSince(start).toMillis();
-        }
     }
 
     @Override

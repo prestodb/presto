@@ -1,9 +1,5 @@
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.Range;
-import com.facebook.presto.block.StatsCollectingTupleStreamSerde;
-import com.facebook.presto.block.TupleStream;
-import com.facebook.presto.block.TupleStreamSerdes;
 import com.facebook.presto.nblock.BlockCursor;
 import com.facebook.presto.nblock.BlockIterable;
 import com.facebook.presto.noperator.Operator;
@@ -17,7 +13,6 @@ import com.facebook.presto.tpch.CachingTpchDataProvider;
 import com.facebook.presto.tpch.GeneratingTpchDataProvider;
 import com.facebook.presto.tpch.MetricRecordingTpchDataProvider;
 import com.facebook.presto.tpch.TpchDataProvider;
-import com.facebook.presto.tpch.TpchSchema;
 import com.facebook.presto.tpch.TpchSchema.Column;
 import com.facebook.presto.tpch.TpchTupleStreamProvider;
 import com.google.common.base.Throwables;
@@ -123,22 +118,6 @@ public abstract class AbstractOperatorBenchmark
         private StatsTpchTupleStreamProvider(TpchDataProvider tpchDataProvider)
         {
             this.tpchDataProvider = checkNotNull(tpchDataProvider, "tpchDataProvider is null");
-        }
-
-        @Override
-        public TupleStream getTupleStream(TpchSchema.Column column, TupleStreamSerdes.Encoding encoding)
-        {
-            checkNotNull(column, "column is null");
-            checkNotNull(encoding, "encoding is null");
-            // Wrap the encoding with stats collection
-            StatsCollectingTupleStreamSerde serde = new StatsCollectingTupleStreamSerde(encoding.createSerde());
-            try {
-                Slice slice = Slices.mapFileReadOnly(tpchDataProvider.getColumnFile(column, serde.createSerializer(), encoding.getName()));
-                statsBuilder.add(serde.createDeserializer().deserializeStats(slice));
-                return serde.createDeserializer().deserialize(Range.ALL, slice);
-            } catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
         }
 
         @Override
