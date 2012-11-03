@@ -13,7 +13,8 @@ import static org.codehaus.jackson.annotate.JsonSubTypes.Type;
 // We should start considering doing this when the serdes start to have more member fields
 @JsonTypeInfo(use=JsonTypeInfo.Id.NAME, include=JsonTypeInfo.As.PROPERTY, property="serde")
 @JsonSubTypes({
-        @Type(value = UncompressedBlockSerde.class, name = "raw")
+        @Type(value = UncompressedBlockSerde.class, name = "raw"),
+        @Type(value = RunLengthEncodedBlockSerde.class, name = "rle")
 })
 public interface BlockSerde
 {
