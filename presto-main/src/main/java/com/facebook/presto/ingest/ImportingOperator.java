@@ -62,8 +62,10 @@ public class ImportingOperator implements Operator
             protected Page computeNext()
             {
                 if (!iterator.hasNext()) {
-                    for (BlocksWriter writer : writers) {
-                        writer.finish();
+                    if (writers != null) {
+                        for (BlocksWriter writer : writers) {
+                            writer.finish();
+                        }
                     }
                     return endOfData();
                 }

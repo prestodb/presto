@@ -57,7 +57,9 @@ public final class BlocksSerde
             @Override
             public void finish()
             {
-                blocksWriter.finish();
+                if (blocksWriter != null) {
+                    blocksWriter.finish();
+                }
             }
         };
     }
