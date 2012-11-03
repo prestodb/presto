@@ -42,12 +42,6 @@ public class CursorAssertions
         assertEquals(cursor.advanceToPosition(position), result);
     }
 
-    public static void assertNextPosition(Cursor cursor, long position)
-    {
-        assertAdvanceNextPosition(cursor);
-        assertEquals(cursor.getPosition(), position);
-    }
-
     public static void assertNextValuePosition(Cursor cursor, long position)
     {
         assertAdvanceNextValue(cursor);
@@ -65,36 +59,6 @@ public class CursorAssertions
     }
 
     public static void assertCurrentValue(Cursor cursor, long position, String value)
-    {
-        assertCurrentValue(cursor, position, Tuples.createTuple(value));
-    }
-
-    public static void assertNextValue(Cursor cursor, long position, long value)
-    {
-        assertNextValue(cursor, position, Tuples.createTuple(value));
-    }
-
-    public static void assertNextPosition(Cursor cursor, long position, long value)
-    {
-        assertNextPosition(cursor, position, Tuples.createTuple(value));
-    }
-
-    public static void assertCurrentValue(Cursor cursor, long position, long value)
-    {
-        assertCurrentValue(cursor, position, Tuples.createTuple(value));
-    }
-
-    public static void assertNextValue(Cursor cursor, long position, double value)
-    {
-        assertNextValue(cursor, position, Tuples.createTuple(value));
-    }
-
-    public static void assertNextPosition(Cursor cursor, long position, double value)
-    {
-        assertNextPosition(cursor, position, Tuples.createTuple(value));
-    }
-
-    public static void assertCurrentValue(Cursor cursor, long position, double value)
     {
         assertCurrentValue(cursor, position, Tuples.createTuple(value));
     }
@@ -178,13 +142,5 @@ public class CursorAssertions
             tuples.put(cursor.getPosition(), cursor.getTuple());
         }
         return tuples.build();
-    }
-
-    public static void assertPositions(Cursor cursor, long... positions)
-    {
-        for (long position : positions) {
-            assertAdvanceNextPosition(cursor);
-            assertEquals(cursor.getPosition(), position);
-        }
     }
 }

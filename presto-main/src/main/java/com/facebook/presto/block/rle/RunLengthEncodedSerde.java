@@ -4,6 +4,7 @@ import com.facebook.presto.Range;
 import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.block.Cursor;
+import com.facebook.presto.block.GenericTupleStream;
 import com.facebook.presto.block.QuerySession;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.block.TupleStreamDeserializer;
@@ -57,7 +58,7 @@ public class RunLengthEncodedSerde
                 final TupleInfo tupleInfo = UncompressedTupleInfoSerde.deserialize(input);
                 final Slice dataSlice = slice.slice(input.position(), slice.length() - input.position());
 
-                RunLengthEncodedTupleStream runLengthEncodedTupleStream = new RunLengthEncodedTupleStream(
+                GenericTupleStream<RunLengthEncodedBlock> runLengthEncodedTupleStream = new GenericTupleStream<>(
                         tupleInfo,
                         new Iterable<RunLengthEncodedBlock>()
                         {
@@ -66,8 +67,7 @@ public class RunLengthEncodedSerde
                             {
                                 return new RunLengthEncodedIterator(tupleInfo, dataSlice.getInput(), totalRange.getStart());
                             }
-                        },
-                        totalRange
+                        }
                 );
                 // present entire stream as a single "block" since RLEs are currently very small
                 return new SingletonTupleStream<>(runLengthEncodedTupleStream);
