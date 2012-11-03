@@ -9,6 +9,7 @@ import com.facebook.presto.nblock.BlockIterables;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 import static com.facebook.presto.nblock.BlockAssertions.assertBlocksEquals;
@@ -18,6 +19,40 @@ public final class OperatorAssertions
 {
     private OperatorAssertions()
     {
+    }
+
+    public static Operator createOperator(Page... pages)
+    {
+        return createOperator(ImmutableList.copyOf(pages));
+    }
+
+    public static Operator createOperator(Iterable<? extends Page> pages)
+    {
+        return new OperatorAdapter(pages);
+    }
+
+    private static class OperatorAdapter implements Operator
+    {
+        private final List<Page> pages;
+        private final int channelCount;
+
+        public OperatorAdapter(Iterable<? extends Page> pages)
+        {
+            this.pages = ImmutableList.copyOf(pages);
+            this.channelCount = this.pages.get(0).getChannelCount();
+        }
+
+        @Override
+        public int getChannelCount()
+        {
+            return channelCount;
+        }
+
+        @Override
+        public Iterator<Page> iterator()
+        {
+            return pages.iterator();
+        }
     }
 
     public static void assertOperatorEquals(Operator actual, Operator expected)
