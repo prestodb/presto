@@ -18,10 +18,16 @@ public class StringRecord implements Record
         this.columns = ImmutableList.copyOf(columns);
     }
 
-    public StringRecord(List<String> columns)
+    public StringRecord(Iterable<? extends String> columns)
     {
         Preconditions.checkNotNull(columns, "columns is null");
         this.columns = ImmutableList.copyOf(columns);
+    }
+
+    @Override
+    public int getFieldCount()
+    {
+        return columns.size();
     }
 
     @Override

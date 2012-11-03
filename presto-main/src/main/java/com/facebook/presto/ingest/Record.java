@@ -3,7 +3,10 @@
  */
 package com.facebook.presto.ingest;
 
-public interface Record {
+public interface Record
+{
+    int getFieldCount();
+
     Long getLong(int field);
 
     Double getDouble(int field);
