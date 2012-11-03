@@ -1,38 +1,30 @@
 package com.facebook.presto;
 
-import com.facebook.presto.aggregation.AverageAggregation;
-import com.facebook.presto.aggregation.CountAggregation;
-import com.facebook.presto.aggregation.DoubleSumAggregation;
-import com.facebook.presto.block.AbstractYieldingIterator;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.Cursor;
-import com.facebook.presto.block.Cursors;
-import com.facebook.presto.block.GenericTupleStream;
-import com.facebook.presto.block.QuerySession;
-import com.facebook.presto.block.TupleStream;
-import com.facebook.presto.block.YieldingIterable;
-import com.facebook.presto.block.YieldingIterator;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.operation.DoubleLessThanComparison;
-import com.facebook.presto.operator.AggregationOperator;
-import com.facebook.presto.operator.AndOperator;
-import com.facebook.presto.operator.ApplyPredicateOperator;
-import com.facebook.presto.operator.ComparisonOperator;
-import com.facebook.presto.operator.FilterOperator;
-import com.facebook.presto.operator.GroupByOperator;
-import com.facebook.presto.operator.HashAggregationOperator;
-import com.facebook.presto.operator.OrOperator;
+import com.facebook.presto.ingest.Record;
+import com.facebook.presto.ingest.RecordIterable;
+import com.facebook.presto.ingest.RecordIterables;
+import com.facebook.presto.ingest.RecordProjectOperator;
+import com.facebook.presto.ingest.RecordProjection;
+import com.facebook.presto.ingest.StringRecord;
+import com.facebook.presto.nblock.BlockCursor;
+import com.facebook.presto.noperator.AggregationOperator;
+import com.facebook.presto.noperator.FilterAndProjectOperator;
+import com.facebook.presto.noperator.FilterFunction;
+import com.facebook.presto.noperator.HashAggregationOperator;
+import com.facebook.presto.noperator.Operator;
+import com.facebook.presto.noperator.Page;
+import com.facebook.presto.noperator.aggregation.CountAggregation;
+import com.facebook.presto.noperator.aggregation.DoubleAverageAggregation;
+import com.facebook.presto.noperator.aggregation.DoubleSumAggregation;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tpch.TpchSchema;
+import com.facebook.presto.tpch.TpchSchema.Column;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.io.CharStreams;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.Resources;
@@ -48,29 +40,36 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.Reader;
 import java.net.URL;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
 import static com.facebook.presto.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.ingest.RecordProjections.createProjection;
+import static com.facebook.presto.noperator.ProjectionFunctions.concat;
+import static com.facebook.presto.noperator.ProjectionFunctions.singleColumn;
+import static com.facebook.presto.tpch.TpchSchema.LineItem.DISCOUNT;
+import static com.facebook.presto.tpch.TpchSchema.LineItem.TAX;
+import static com.facebook.presto.tpch.TpchSchema.Orders.ORDERKEY;
+import static com.facebook.presto.tpch.TpchSchema.Orders.ORDERSTATUS;
+import static com.facebook.presto.tpch.TpchSchema.Orders.TOTALPRICE;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Iterables.isEmpty;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
+import static org.testng.Assert.assertEquals;
 
 public class TestQueries
 {
     private Handle handle;
-    private List<List<String>> ordersData;
-    private List<List<String>> lineitemData;
+    private RecordIterable ordersRecords;
+    private RecordIterable lineItemRecords;
 
     @BeforeSuite
     public void setupDatabase()
@@ -78,7 +77,7 @@ public class TestQueries
     {
         handle = DBI.open("jdbc:h2:mem:test" + System.nanoTime());
 
-        ordersData = readTestData("tpch/orders.dat.gz", 15000);
+        ordersRecords = readRecords("tpch/orders.dat.gz", 15000);
         handle.execute("CREATE TABLE orders (\n" +
                 "  orderkey BIGINT NOT NULL,\n" +
                 "  custkey BIGINT NOT NULL,\n" +
@@ -90,9 +89,9 @@ public class TestQueries
                 "  shippriority BIGINT NOT NULL,\n" +
                 "  comment VARCHAR(79) NOT NULL\n" +
                 ")");
-        insertRows("orders", handle, ordersData);
+        insertRows("orders", handle, ordersRecords);
 
-        lineitemData = readTestData("tpch/lineitem.dat.gz", 60175);
+        lineItemRecords = readRecords("tpch/lineitem.dat.gz", 60175);
         handle.execute("CREATE TABLE lineitem (\n" +
                 "  orderkey BIGINT NOT NULL,\n" +
                 "  partkey BIGINT NOT NULL,\n" +
@@ -111,7 +110,7 @@ public class TestQueries
                 "  shipmode VARCHAR(10) NOT NULL,\n" +
                 "  comment VARCHAR(44) NOT NULL\n" +
                 ")");
-        insertRows("lineitem", handle, lineitemData);
+        insertRows("lineitem", handle, lineItemRecords);
     }
 
     @AfterSuite
@@ -125,9 +124,10 @@ public class TestQueries
     {
         List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM orders", FIXED_INT_64);
 
-        TupleStream orders = createTupleStream(ordersData, TpchSchema.Orders.ORDERKEY, FIXED_INT_64);
-        AggregationOperator aggregation = new AggregationOperator(orders, CountAggregation.PROVIDER);
-
+        Operator orders = scanTable(ordersRecords, ORDERKEY);
+        Operator aggregation = new AggregationOperator(orders,
+                ImmutableList.of(CountAggregation.PROVIDER),
+                ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0)));
         assertEqualsIgnoreOrder(tuples(aggregation), expected);
     }
 
@@ -136,8 +136,10 @@ public class TestQueries
     {
         List<Tuple> expected = computeExpected("SELECT AVG(totalprice) FROM orders", DOUBLE);
 
-        TupleStream price = createTupleStream(ordersData, TpchSchema.Orders.TOTALPRICE, DOUBLE);
-        AggregationOperator aggregation = new AggregationOperator(price, AverageAggregation.PROVIDER);
+        Operator orders = scanTable(ordersRecords, TOTALPRICE);
+        Operator aggregation = new AggregationOperator(orders,
+                ImmutableList.of(DoubleAverageAggregation.provider(0, 0)),
+                ImmutableList.of(singleColumn(DOUBLE, 0, 0)));
 
         assertEqualsIgnoreOrder(tuples(aggregation), expected);
     }
@@ -147,18 +149,20 @@ public class TestQueries
     {
         List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM orders WHERE orderstatus = 'F'", FIXED_INT_64);
 
-        TupleStream orderStatus = createTupleStream(ordersData, TpchSchema.Orders.ORDERSTATUS, VARIABLE_BINARY);
-
-        ApplyPredicateOperator filtered = new ApplyPredicateOperator(orderStatus, new Predicate<Cursor>()
-        {
-            @Override
-            public boolean apply(Cursor input)
-            {
-                return input.getSlice(0).equals(Slices.copiedBuffer("F", Charsets.UTF_8));
-            }
-        });
-
-        AggregationOperator aggregation = new AggregationOperator(filtered, CountAggregation.PROVIDER);
+        Operator orders = scanTable(ordersRecords, ORDERSTATUS);
+        Operator filter = new FilterAndProjectOperator(orders,
+                new FilterFunction()
+                {
+                    @Override
+                    public boolean filter(BlockCursor[] cursors)
+                    {
+                        return cursors[0].getSlice(0).equals(Slices.copiedBuffer("F", Charsets.UTF_8));
+                    }
+                },
+                singleColumn(VARIABLE_BINARY, 0, 0));
+        Operator aggregation = new AggregationOperator(filter,
+                ImmutableList.of(CountAggregation.PROVIDER),
+                ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0)));
 
         assertEqualsIgnoreOrder(tuples(aggregation), expected);
     }
@@ -169,11 +173,11 @@ public class TestQueries
     {
         List<Tuple> expected = computeExpected("SELECT orderstatus, CAST(COUNT(*) AS INTEGER) FROM orders GROUP BY orderstatus", VARIABLE_BINARY, FIXED_INT_64);
 
-        TupleStream groupBySource = createTupleStream(ordersData, TpchSchema.Orders.ORDERSTATUS, VARIABLE_BINARY);
-        TupleStream aggregateSource = createTupleStream(ordersData, TpchSchema.Orders.ORDERSTATUS, VARIABLE_BINARY);
-
-        GroupByOperator groupBy = new GroupByOperator(groupBySource);
-        HashAggregationOperator aggregation = new HashAggregationOperator(groupBy, aggregateSource, CountAggregation.PROVIDER);
+        Operator orders = scanTable(ordersRecords, ORDERSTATUS);
+        Operator aggregation = new HashAggregationOperator(orders,
+                0,
+                ImmutableList.of(CountAggregation.PROVIDER),
+                ImmutableList.of(concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 1, 0))));
 
         assertEqualsIgnoreOrder(tuples(aggregation), expected);
     }
@@ -185,11 +189,11 @@ public class TestQueries
                 "SELECT orderstatus, SUM(totalprice) FROM orders GROUP BY orderstatus",
                 VARIABLE_BINARY, DOUBLE);
 
-        TupleStream groupBySource = createTupleStream(ordersData, TpchSchema.Orders.ORDERSTATUS, VARIABLE_BINARY);
-        TupleStream aggregateSource = createTupleStream(ordersData, TpchSchema.Orders.TOTALPRICE, DOUBLE);
-
-        GroupByOperator groupBy = new GroupByOperator(groupBySource);
-        HashAggregationOperator aggregation = new HashAggregationOperator(groupBy, aggregateSource, DoubleSumAggregation.PROVIDER);
+        Operator orders = scanTable(ordersRecords, ORDERSTATUS, TOTALPRICE);
+        Operator aggregation = new HashAggregationOperator(orders,
+                0,
+                ImmutableList.of(DoubleSumAggregation.provider(1, 0)),
+                ImmutableList.of(concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(DOUBLE, 1, 0))));
 
         assertEqualsIgnoreOrder(tuples(aggregation), expected);
     }
@@ -199,11 +203,20 @@ public class TestQueries
     {
         List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM lineitem WHERE tax < discount", FIXED_INT_64);
 
-        TupleStream discount = createTupleStream(lineitemData, TpchSchema.LineItem.DISCOUNT, DOUBLE);
-        TupleStream tax = createTupleStream(lineitemData, TpchSchema.LineItem.TAX, DOUBLE);
-
-        ComparisonOperator comparison = new ComparisonOperator(tax, discount, new DoubleLessThanComparison());
-        AggregationOperator aggregation = new AggregationOperator(comparison, CountAggregation.PROVIDER);
+        Operator lineItems = scanTable(lineItemRecords, DISCOUNT, TAX);
+        Operator filter = new FilterAndProjectOperator(lineItems,
+                new FilterFunction()
+                {
+                    @Override
+                    public boolean filter(BlockCursor[] cursors)
+                    {
+                        return cursors[1].getDouble(0) < cursors[0].getDouble(0);
+                    }
+                },
+                singleColumn(DOUBLE, 0, 0));
+        Operator aggregation = new AggregationOperator(filter,
+                ImmutableList.of(CountAggregation.PROVIDER),
+                ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0)));
 
         assertEqualsIgnoreOrder(tuples(aggregation), expected);
     }
@@ -213,14 +226,19 @@ public class TestQueries
     {
         List<Tuple> expected = computeExpected("SELECT orderkey FROM lineitem WHERE tax < discount", FIXED_INT_64);
 
-        GenericTupleStream<UncompressedBlock> orderKey = createTupleStream(lineitemData, TpchSchema.LineItem.ORDERKEY, FIXED_INT_64);
-        TupleStream discount = createTupleStream(lineitemData, TpchSchema.LineItem.DISCOUNT, DOUBLE);
-        TupleStream tax = createTupleStream(lineitemData, TpchSchema.LineItem.TAX, DOUBLE);
+        Operator lineItems = scanTable(lineItemRecords, ORDERKEY, DISCOUNT, TAX);
+        Operator filter = new FilterAndProjectOperator(lineItems,
+                new FilterFunction()
+                {
+                    @Override
+                    public boolean filter(BlockCursor[] cursors)
+                    {
+                        return cursors[2].getDouble(0) < cursors[1].getDouble(0);
+                    }
+                },
+                singleColumn(FIXED_INT_64, 0, 0));
 
-        ComparisonOperator comparison = new ComparisonOperator(tax, discount, new DoubleLessThanComparison());
-        FilterOperator result = new FilterOperator(orderKey.getTupleInfo(), orderKey, comparison);
-
-        assertEqualsIgnoreOrder(tuples(result), expected);
+        assertEqualsIgnoreOrder(tuples(filter), expected);
     }
 
     @Test
@@ -228,35 +246,24 @@ public class TestQueries
     {
         List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM lineitem WHERE tax < discount AND tax > 0.01 AND discount < 0.05", FIXED_INT_64);
 
-        TupleStream discount = createTupleStream(lineitemData, TpchSchema.LineItem.DISCOUNT, DOUBLE);
-        TupleStream filteredDiscount = new ApplyPredicateOperator(discount, new Predicate<Cursor>()
-        {
-            @Override
-            public boolean apply(Cursor input)
-            {
-                return input.getDouble(0) < 0.05;
-            }
-        });
+        Operator lineItems = scanTable(lineItemRecords, DISCOUNT, TAX);
+        Operator filter = new FilterAndProjectOperator(lineItems,
+                new FilterFunction()
+                {
+                    @Override
+                    public boolean filter(BlockCursor[] cursors)
+                    {
+                        double discount = cursors[0].getDouble(0);
+                        double tax = cursors[1].getDouble(0);
+                        return tax < discount && tax > 0.01 && discount < 0.05;
+                    }
+                },
+                singleColumn(DOUBLE, 0, 0));
+        Operator aggregation = new AggregationOperator(filter,
+                ImmutableList.of(CountAggregation.PROVIDER),
+                ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0)));
 
-        TupleStream tax = createTupleStream(lineitemData, TpchSchema.LineItem.TAX, DOUBLE);
-        TupleStream filteredTax = new ApplyPredicateOperator(tax, new Predicate<Cursor>()
-        {
-            @Override
-            public boolean apply(Cursor input)
-            {
-                return input.getDouble(0) > 0.01;
-            }
-        });
-
-        // TODO: use tax and discount directly once RowSourceBuilder is fixed to allow multiple cursors
-        TupleStream tax2 = createTupleStream(lineitemData, TpchSchema.LineItem.TAX, DOUBLE);
-        TupleStream discount2 = createTupleStream(lineitemData, TpchSchema.LineItem.DISCOUNT, DOUBLE);
-
-        ComparisonOperator comparison = new ComparisonOperator(tax2, discount2, new DoubleLessThanComparison());
-        AndOperator and = new AndOperator(filteredDiscount, filteredTax, comparison);
-        AggregationOperator count = new AggregationOperator(and, CountAggregation.PROVIDER);
-
-        assertEqualsIgnoreOrder(tuples(count), expected);
+        assertEqualsIgnoreOrder(tuples(aggregation), expected);
     }
 
     @Test
@@ -264,32 +271,25 @@ public class TestQueries
     {
         List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM lineitem WHERE tax < 0.01 OR discount > 0.05", FIXED_INT_64);
 
-        TupleStream discount = createTupleStream(lineitemData, TpchSchema.LineItem.DISCOUNT, DOUBLE);
-        TupleStream filteredDiscount = new ApplyPredicateOperator(discount, new Predicate<Cursor>()
-        {
-            @Override
-            public boolean apply(Cursor input)
-            {
-                return input.getDouble(0) > 0.05;
-            }
-        });
+        Operator lineItems = scanTable(lineItemRecords, DISCOUNT, TAX);
+        Operator filter = new FilterAndProjectOperator(lineItems,
+                new FilterFunction()
+                {
+                    @Override
+                    public boolean filter(BlockCursor[] cursors)
+                    {
+                        double discount = cursors[0].getDouble(0);
+                        double tax = cursors[1].getDouble(0);
+                        return tax < 0.01 || discount > 0.05;
+                    }
+                },
+                singleColumn(DOUBLE, 0, 0));
+        Operator aggregation = new AggregationOperator(filter,
+                ImmutableList.of(CountAggregation.PROVIDER),
+                ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0)));
 
-        TupleStream tax = createTupleStream(lineitemData, TpchSchema.LineItem.TAX, DOUBLE);
-        TupleStream filteredTax = new ApplyPredicateOperator(tax, new Predicate<Cursor>()
-        {
-            @Override
-            public boolean apply(Cursor input)
-            {
-                return input.getDouble(0) < 0.01;
-            }
-        });
-
-        OrOperator or = new OrOperator(filteredDiscount, filteredTax);
-        AggregationOperator count = new AggregationOperator(or, CountAggregation.PROVIDER);
-
-        assertEqualsIgnoreOrder(tuples(count), expected);
+        assertEqualsIgnoreOrder(tuples(aggregation), expected);
     }
-
 
     private List<Tuple> computeExpected(final String sql, TupleInfo.Type... types)
     {
@@ -299,14 +299,17 @@ public class TestQueries
                 .list();
     }
 
-    private static List<Tuple> tuples(TupleStream tupleStream)
+    private static List<Tuple> tuples(Operator tupleStream)
     {
-        Cursor cursor = tupleStream.cursor(new QuerySession());
-        List<Tuple> list = new ArrayList<>();
-        while (Cursors.advanceNextPositionNoYield(cursor)) {
-            list.add(cursor.getTuple());
+        assertEquals(tupleStream.getChannelCount(), 1);
+        List<Tuple> tuples = new ArrayList<>();
+        for (Page page : tupleStream) {
+            BlockCursor cursor = page.getBlock(0).cursor();
+            while (cursor.advanceNextPosition()) {
+                tuples.add(cursor.getTuple());
+            }
         }
-        return list;
+        return tuples;
     }
 
     @SuppressWarnings("UnusedDeclaration")
@@ -322,68 +325,29 @@ public class TestQueries
         });
     }
 
-    private static GenericTupleStream<UncompressedBlock> createTupleStream(final List<List<String>> data, final TpchSchema.Column column, final TupleInfo.Type type)
+    private static Operator scanTable(RecordIterable records, TpchSchema.Column... columns)
     {
-        return new GenericTupleStream<>(new TupleInfo(type), new YieldingIterable<UncompressedBlock>()
-        {
-            @Override
-            public YieldingIterator<UncompressedBlock> iterator(QuerySession session)
-            {
-                Preconditions.checkNotNull(session, "session is null");
-                return new RowStringUncompressedYieldingIterator(type, column.getIndex(), data.iterator());
-            }
-        });
+        ImmutableList.Builder<RecordProjection> projections = ImmutableList.builder();
+        for (Column column : columns) {
+            projections.add(createProjection(column.getIndex(), column.getType()));
+        }
+        return new RecordProjectOperator(records, projections.build());
     }
 
-    // Given a list of string rows, extracts UncompressedBlocks for a particular column
-    private static class RowStringUncompressedYieldingIterator
-            extends AbstractYieldingIterator<UncompressedBlock>
+    private static void insertRows(String table, Handle handle, RecordIterable data)
     {
-        private final TupleInfo.Type type;
-        private final TupleInfo tupleInfo;
-        private final int extractedColumnIndex; // Can only extract one column index
-        private final Iterator<List<String>> rowStringIterator;
-        private long position = 0;
-
-        private RowStringUncompressedYieldingIterator(TupleInfo.Type type, int extractedColumnIndex, Iterator<List<String>> rowStringIterator)
-        {
-            this.type = checkNotNull(type, "type is null");
-            tupleInfo = new TupleInfo(type);
-            checkArgument(extractedColumnIndex >= 0, "extractedColumnIndex must be greater than or equal to zero");
-            this.extractedColumnIndex = extractedColumnIndex;
-            this.rowStringIterator = checkNotNull(rowStringIterator, "rowStringIterator is null");
-        }
-
-        @Override
-        protected UncompressedBlock computeNext()
-        {
-            if (!rowStringIterator.hasNext()) {
-                return endOfData();
-            }
-            BlockBuilder blockBuilder = new BlockBuilder(position, tupleInfo);
-            while (rowStringIterator.hasNext() && !blockBuilder.isFull()) {
-                type.convert(rowStringIterator.next().get(extractedColumnIndex), blockBuilder);
-            }
-            UncompressedBlock block = blockBuilder.build();
-            position += block.getCount();
-            return block;
-        }
-    }
-
-    private static void insertRows(String table, Handle handle, List<List<String>> data)
-    {
-        checkArgument(!data.isEmpty(), "no data to insert");
-        int columns = data.get(0).size();
+        checkArgument(!isEmpty(data), "no data to insert");
+        int columns = Iterables.get(data, 0).getFieldCount();
         String vars = Joiner.on(',').join(nCopies(columns, "?"));
         String sql = format("INSERT INTO %s VALUES (%s)", table, vars);
 
-        for (List<List<String>> rows : Lists.partition(data, 1000)) {
+        for (List<Record> partition : Iterables.partition(data, 1000)) {
             PreparedBatch batch = handle.prepareBatch(sql);
-            for (List<String> row : rows) {
-                checkArgument(row.size() == columns, "rows have differing column counts");
+            for (Record record : partition) {
+                checkArgument(record.getFieldCount() == columns, "rows have differing column counts");
                 PreparedBatchPart part = batch.add();
-                for (int i = 0; i < row.size(); i++) {
-                    part.bind(i, row.get(i));
+                for (int i = 0; i < record.getFieldCount(); i++) {
+                    part.bind(i, record.getString(i));
                 }
             }
             batch.execute();
@@ -443,26 +407,19 @@ public class TestQueries
         };
     }
 
-    private static List<List<String>> readTestData(String name, int expectedRows)
-            throws IOException
-    {
-        List<List<String>> data = readDelimited(readResource(name));
-        checkArgument(data.size() == expectedRows, "expected %s rows, but read %s", expectedRows, data.size());
-        return data;
-    }
-
-    private static List<List<String>> readDelimited(InputSupplier<? extends Reader> inputSupplier)
+    private static RecordIterable readRecords(String name, int expectedRows)
             throws IOException
     {
         Splitter splitter = Splitter.on('|');
-        List<List<String>> list = new ArrayList<>();
-        for (String line : CharStreams.readLines(inputSupplier)) {
+        List<Record> records = new ArrayList<>();
+        for (String line : CharStreams.readLines(readResource(name))) {
             checkArgument(!line.isEmpty(), "line is empty");
             checkArgument(line.charAt(line.length() - 1) == '|', "line does not end in delimiter");
             line = line.substring(0, line.length() - 1);
-            list.add(ImmutableList.copyOf(splitter.split(line)));
+            records.add(new StringRecord(splitter.split(line)));
         }
-        return list;
+        checkArgument(records.size() == expectedRows, "expected %s rows, but read %s", expectedRows, records.size());
+        return RecordIterables.asRecordIterable(records);
     }
 
     private static InputSupplier<InputStreamReader> readResource(final String name)
