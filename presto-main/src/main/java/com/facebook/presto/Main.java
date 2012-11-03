@@ -202,11 +202,11 @@ public class Main
                 try {
                     long start = System.nanoTime();
 
-                    BlockIterable partition = getColumn(storageManager, metadata, "hivedba_query_stats", "partition");
+                    BlockIterable ds = getColumn(storageManager, metadata, "hivedba_query_stats", "ds");
                     BlockIterable poolName = getColumn(storageManager, metadata, "hivedba_query_stats", "pool_name");
                     BlockIterable cpuMsec = getColumn(storageManager, metadata, "hivedba_query_stats", "cpu_msec");
 
-                    AlignmentOperator alignmentOperator = new AlignmentOperator(partition, poolName, cpuMsec);
+                    AlignmentOperator alignmentOperator = new AlignmentOperator(ds, poolName, cpuMsec);
 //                    Query2FilterAndProjectOperator filterAndProject = new Query2FilterAndProjectOperator(alignmentOperator);
                     FilterAndProjectOperator filterAndProject = new FilterAndProjectOperator(alignmentOperator,
                             new Query2Filter(),
@@ -227,7 +227,7 @@ public class Main
 
         private static class Query2Filter implements FilterFunction
         {
-            private static final Slice constant2 = Slices.copiedBuffer("ds=2012-10-11/cluster_name=silver", Charsets.UTF_8);
+            private static final Slice constant2 = Slices.copiedBuffer("2012-10-11", Charsets.UTF_8);
 
             @Override
             public boolean filter(BlockCursor[] cursors)
@@ -261,12 +261,12 @@ public class Main
                 try {
                     long start = System.nanoTime();
 
-                    BlockIterable partition = getColumn(storageManager, metadata, "hivedba_query_stats", "partition");
+                    BlockIterable ds = getColumn(storageManager, metadata, "hivedba_query_stats", "ds");
                     BlockIterable startTime = getColumn(storageManager, metadata, "hivedba_query_stats", "start_time");
                     BlockIterable endTime = getColumn(storageManager, metadata, "hivedba_query_stats", "end_time");
                     BlockIterable cpuMsec = getColumn(storageManager, metadata, "hivedba_query_stats", "cpu_msec");
 
-                    AlignmentOperator alignmentOperator = new AlignmentOperator(partition, startTime, endTime, cpuMsec);
+                    AlignmentOperator alignmentOperator = new AlignmentOperator(ds, startTime, endTime, cpuMsec);
 //                    Query3FilterAndProjectOperator filterAndProject = new Query3FilterAndProjectOperator(alignmentOperator);
                     FilterAndProjectOperator filterAndProject = new FilterAndProjectOperator(alignmentOperator, new Query3Filter(), new Query3Projection());
                     AggregationOperator aggregation = new AggregationOperator(filterAndProject,
@@ -283,8 +283,8 @@ public class Main
 
         private static class Query3Filter implements FilterFunction
         {
-            private static final Slice constant1 = Slices.copiedBuffer("ds=2012-07-01/cluster_name=silver", Charsets.UTF_8);
-            private static final Slice constant2 = Slices.copiedBuffer("ds=2012-10-11/cluster_name=silver", Charsets.UTF_8);
+            private static final Slice constant1 = Slices.copiedBuffer("2012-07-01", Charsets.UTF_8);
+            private static final Slice constant2 = Slices.copiedBuffer("2012-10-11", Charsets.UTF_8);
 
             @Override
             public boolean filter(BlockCursor[] cursors)
