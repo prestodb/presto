@@ -74,6 +74,12 @@ public class HivePartition implements RecordIterable
         }
 
         @Override
+        public int getFieldCount()
+        {
+            return columnNames.size() ;
+        }
+
+        @Override
         public Long getLong(int field)
         {
             return hiveRecord.getLong(columnNames.get(field));
