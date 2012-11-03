@@ -26,9 +26,14 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestBlockCursor
 {
-    private final SortedMap<Long,Tuple> expectedValues = BlockCursorAssertions.toTuplesMap(createExpectedValues().cursor());
+    private final SortedMap<Long,Tuple> expectedValues = BlockCursorAssertions.toTuplesMap(createTestCursor());
 
     protected abstract Block createExpectedValues();
+
+    protected BlockCursor createTestCursor()
+    {
+        return createExpectedValues().cursor();
+    }
 
     public final Tuple getExpectedValue(long position)
     {
@@ -49,7 +54,6 @@ public abstract class AbstractTestBlockCursor
 
     @Test
     public void testAdvanceToPosition()
-            throws Exception
     {
         //
         // Note this code will more effective if the values are laid out as follows:
@@ -57,7 +61,7 @@ public abstract class AbstractTestBlockCursor
         //   A, A, A, B, B, B, B, B, C, C, D
         //
 
-        BlockCursor cursor = createExpectedValues().cursor();
+        BlockCursor cursor = createTestCursor();
 
         // advance to first position
         assertAdvanceToPosition(cursor, 0);
@@ -101,15 +105,14 @@ public abstract class AbstractTestBlockCursor
     @Test
     public void testRange()
     {
-        BlockCursor cursor = createExpectedValues().cursor();
+        BlockCursor cursor = createTestCursor();
         Assert.assertEquals(cursor.getRange(), new Range(0, 10));
     }
 
     @Test
     public void testStates()
-            throws Exception
     {
-        BlockCursor cursor = createExpectedValues().cursor();
+        BlockCursor cursor = createTestCursor();
 
         //
         // We are before the first position, so the cursor is not valid and all get current methods should throw an IllegalStateException
@@ -155,25 +158,22 @@ public abstract class AbstractTestBlockCursor
 
     @Test
     public void testFirstValue()
-            throws Exception
     {
-        BlockCursor cursor = createExpectedValues().cursor();
+        BlockCursor cursor = createTestCursor();
         assertNextValue(cursor, 0, getExpectedValue(0));
     }
 
     @Test
     public void testFirstPosition()
-            throws Exception
     {
-        BlockCursor cursor = createExpectedValues().cursor();
+        BlockCursor cursor = createTestCursor();
         assertNextPosition(cursor, 0, getExpectedValue(0));
     }
 
     @Test
     public void testAdvanceNextValue()
-            throws Exception
     {
-        BlockCursor cursor = createExpectedValues().cursor();
+        BlockCursor cursor = createTestCursor();
 
         for (Entry<Long, Tuple> entry : getExpectedValues().entrySet()) {
             assertNextValue(cursor, entry.getKey(), entry.getValue());
@@ -185,7 +185,7 @@ public abstract class AbstractTestBlockCursor
     @Test
     public void testAdvanceNextPosition()
     {
-        BlockCursor cursor = createExpectedValues().cursor();
+        BlockCursor cursor = createTestCursor();
 
         for (Entry<Long, Tuple> entry : getExpectedValues().entrySet()) {
             assertNextPosition(cursor, entry.getKey(), entry.getValue());
@@ -196,9 +196,8 @@ public abstract class AbstractTestBlockCursor
 
     @Test
     public void testNextValuePosition()
-            throws Exception
     {
-        BlockCursor cursor = createExpectedValues().cursor();
+        BlockCursor cursor = createTestCursor();
 
         for (Long position : getExpectedValues().keySet()) {
             assertNextValuePosition(cursor, position);
@@ -210,9 +209,8 @@ public abstract class AbstractTestBlockCursor
 
     @Test
     public void testMixedValueAndPosition()
-            throws Exception
     {
-        BlockCursor cursor = createExpectedValues().cursor();
+        BlockCursor cursor = createTestCursor();
 
         for (Entry<Long, Tuple> entry : getExpectedValues().entrySet()) {
             long position = entry.getKey();
@@ -231,9 +229,8 @@ public abstract class AbstractTestBlockCursor
 
     @Test
     public void testGetCurrentValueEndPosition()
-            throws Exception
     {
-        BlockCursor cursor = createExpectedValues().cursor();
+        BlockCursor cursor = createTestCursor();
         while (cursor.advanceNextValue()) {
             assertEquals(cursor.getCurrentValueEndPosition(), cursor.getPosition());
         }
