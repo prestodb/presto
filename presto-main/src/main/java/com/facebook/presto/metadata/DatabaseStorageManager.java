@@ -123,7 +123,7 @@ public class DatabaseStorageManager
             Files.createParentDirs(outputFile);
 
             outputFilesBuilder.add(outputFile);
-            writersBuilder.add(new SerdeBlockWriterFactory(UncompressedBlockSerde.INSTANCE, Files.newOutputStreamSupplier(outputFile)));
+            writersBuilder.add(new SerdeBlockWriterFactory(UncompressedBlockSerde.UNCOMPRESSED_BLOCK_SERDE, Files.newOutputStreamSupplier(outputFile)));
         }
         List<File> outputFiles = outputFilesBuilder.build();
         List<BlockWriterFactory> writers = writersBuilder.build();

@@ -14,7 +14,11 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
-public class BlockSerdeSerde {
+public final class BlockSerdeSerde {
+    private BlockSerdeSerde()
+    {
+    }
+
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
 
     public static void writeBlockSerde(SliceOutput sliceOutput, BlockSerde blockSerde)

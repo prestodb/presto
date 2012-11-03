@@ -19,8 +19,12 @@ import java.util.Iterator;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Arrays.asList;
 
-public class PagesSerde
+public final class PagesSerde
 {
+    private PagesSerde()
+    {
+    }
+
     public static PagesWriter createPagesWriter(final SliceOutput sliceOutput)
     {
         checkNotNull(sliceOutput, "sliceOutput is null");
@@ -43,7 +47,7 @@ public class PagesSerde
                         blockSerdes[i] = blockSerde;
 
                         BlockSerdeSerde.writeBlockSerde(sliceOutput, blockSerde);
-                        TupleInfoSerde.writeTupleInfo(block.getTupleInfo(), sliceOutput);
+                        TupleInfoSerde.writeTupleInfo(sliceOutput, block.getTupleInfo());
                     }
                 }
 
