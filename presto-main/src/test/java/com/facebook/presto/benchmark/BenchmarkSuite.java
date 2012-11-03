@@ -18,27 +18,9 @@ public class BenchmarkSuite
     private static final Logger LOGGER = Logger.get(BenchmarkSuite.class);
 
     public static final List<AbstractBenchmark> BENCHMARKS = ImmutableList.<AbstractBenchmark>of(
-            new BinaryOperatorBenchmark(),
-
-            // simple count
-            new CountAggregationBenchmark(),
             new CountAggregationOperatorBenchmark(),
-
-            // group by without aggregation
-            new DicRleGroupByBenchmark(),
-
-            // group by with sum aggregation
             new HashAggregationOperatorBenchmark(),
-            new RleHashAggregationBenchmark(),
-            new RlePipelinedAggregationBenchmark(),
-            new DictionaryAggregationBenchmark(),
-
-            // filter
-            new PredicateFilterBenchmark(),
             new PredicateFilterOperatorBenchmark(),
-
-            // raw streaming
-            new RawStreamingBenchmark(),
             new RawStreamingOperatorBenchmark()
     );
 
