@@ -6,7 +6,7 @@ import com.facebook.presto.nblock.BlockCursor;
 
 import javax.inject.Provider;
 
-public class AverageAggregation
+public class LongAverageAggregation
         implements AggregationFunction
 {
     public static final Provider<AggregationFunction> PROVIDER = provider(0, 0);
@@ -16,9 +16,9 @@ public class AverageAggregation
         return new Provider<AggregationFunction>()
         {
             @Override
-            public DoubleSumAggregation get()
+            public LongAverageAggregation get()
             {
-                return new DoubleSumAggregation(channelIndex, field);
+                return new LongAverageAggregation(channelIndex, field);
             }
         };
     }
@@ -28,7 +28,7 @@ public class AverageAggregation
     private double sum;
     private long count;
 
-    public AverageAggregation(int channelIndex, int fieldIndex)
+    public LongAverageAggregation(int channelIndex, int fieldIndex)
     {
         this.channelIndex = channelIndex;
         this.fieldIndex = fieldIndex;
@@ -50,7 +50,7 @@ public class AverageAggregation
     @Override
     public void add(BlockCursor[] cursors)
     {
-        sum += cursors[channelIndex].getDouble(fieldIndex);
+        sum += cursors[channelIndex].getLong(fieldIndex);
         count++;
     }
 

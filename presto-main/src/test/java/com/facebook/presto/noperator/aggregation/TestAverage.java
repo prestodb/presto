@@ -12,9 +12,9 @@ public class TestAverage
     }
 
     @Override
-    public AverageAggregation getFunction()
+    public DoubleAverageAggregation getFunction()
     {
-        return new AverageAggregation(0, 0);
+        return new DoubleAverageAggregation(0, 0);
     }
 
     @Override
