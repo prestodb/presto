@@ -9,7 +9,7 @@ import com.facebook.presto.noperator.FilterFunction;
 import com.facebook.presto.noperator.Operator;
 import com.facebook.presto.serde.BlockSerdes.Encoding;
 import com.facebook.presto.tpch.TpchSchema.Orders;
-import com.facebook.presto.tpch.TpchTupleStreamProvider;
+import com.facebook.presto.tpch.TpchBlocksProvider;
 
 import static com.facebook.presto.noperator.ProjectionFunctions.singleColumn;
 
@@ -22,7 +22,7 @@ public class PredicateFilterOperatorBenchmark
     }
 
     @Override
-    protected Operator createBenchmarkedOperator(TpchTupleStreamProvider inputStreamProvider)
+    protected Operator createBenchmarkedOperator(TpchBlocksProvider inputStreamProvider)
     {
         BlockIterable totalPrice = inputStreamProvider.getBlocks(Orders.TOTALPRICE, Encoding.RAW);
         AlignmentOperator alignmentOperator = new AlignmentOperator(totalPrice);

@@ -14,7 +14,7 @@ import com.facebook.presto.tpch.GeneratingTpchDataProvider;
 import com.facebook.presto.tpch.MetricRecordingTpchDataProvider;
 import com.facebook.presto.tpch.TpchDataProvider;
 import com.facebook.presto.tpch.TpchSchema.Column;
-import com.facebook.presto.tpch.TpchTupleStreamProvider;
+import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -31,14 +31,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 /**
- * Abstract template for benchmarks that want to test the performance of a single TupleStream.
- *
- * How to use this:
- * - Subclasses must call loadColumnFile(...) in the setUp phase to specify the columns of interest.
- * - Subclasses must implement createBenchmarkedTupleStream(...) where the argument will be a list of
- * decoded TupleStreams that will occur in the same order as which loadColumnFile was originally called.
- * The output should be the TupleStream that will be benchmarked.
- * - The first column to be requested will be used to represent the count of the number of input rows
+ * Abstract template for benchmarks that want to test the performance of an Operator.
  */
 public abstract class AbstractOperatorBenchmark
         extends AbstractBenchmark
@@ -64,7 +57,7 @@ public abstract class AbstractOperatorBenchmark
         return "input_rows_per_second";
     }
 
-    protected abstract Operator createBenchmarkedOperator(TpchTupleStreamProvider inputStreamProvider);
+    protected abstract Operator createBenchmarkedOperator(TpchBlocksProvider inputStreamProvider);
 
     @Override
     protected Map<String, Long> runOnce()
@@ -72,9 +65,9 @@ public abstract class AbstractOperatorBenchmark
         long start = System.nanoTime();
 
         MetricRecordingTpchDataProvider metricRecordingTpchDataProvider = new MetricRecordingTpchDataProvider(tpchDataProvider);
-        StatsTpchTupleStreamProvider statsTpchTupleStreamProvider = new StatsTpchTupleStreamProvider(metricRecordingTpchDataProvider);
+        StatsTpchBlocksProvider tpchBlocksProvider = new StatsTpchBlocksProvider(metricRecordingTpchDataProvider);
 
-        Operator operator = createBenchmarkedOperator(statsTpchTupleStreamProvider);
+        Operator operator = createBenchmarkedOperator(tpchBlocksProvider);
 
         long outputRows = 0;
         for (Page page : operator) {
@@ -94,9 +87,9 @@ public abstract class AbstractOperatorBenchmark
 
         DataSize totalDataSize = metricRecordingTpchDataProvider.getCumulativeDataSize();
         
-        checkState(!statsTpchTupleStreamProvider.getStats().isEmpty(), "no columns were fetched");
+        checkState(!tpchBlocksProvider.getStats().isEmpty(), "no columns were fetched");
         // Use the first column fetched as the indicator of the number of rows
-        long inputRows = statsTpchTupleStreamProvider.getStats().get(0).getRowCount();
+        long inputRows = tpchBlocksProvider.getStats().get(0).getRowCount();
 
         return ImmutableMap.<String, Long>builder()
                 .put("elapsed_millis", (long) executionMillis)
@@ -109,13 +102,13 @@ public abstract class AbstractOperatorBenchmark
                 .build();
     }
 
-    private static class StatsTpchTupleStreamProvider
-            implements TpchTupleStreamProvider
+    private static class StatsTpchBlocksProvider
+            implements TpchBlocksProvider
     {
         private final TpchDataProvider tpchDataProvider;
         private final ImmutableList.Builder<Stats> statsBuilder = ImmutableList.builder();
 
-        private StatsTpchTupleStreamProvider(TpchDataProvider tpchDataProvider)
+        private StatsTpchBlocksProvider(TpchDataProvider tpchDataProvider)
         {
             this.tpchDataProvider = checkNotNull(tpchDataProvider, "tpchDataProvider is null");
         }
