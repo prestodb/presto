@@ -20,7 +20,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.facebook.presto.nblock.TestBlockUtils.createStringBlock;
+import static com.facebook.presto.nblock.BlockAssertions.createStringsBlock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -116,7 +116,7 @@ public class TestQueryDriversTupleStream
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");
         for (int i = 0; i < 12; i++) {
-            pages.add(new Page(createStringBlock(0, Iterables.concat(Collections.nCopies(i + 1, data)))));
+            pages.add(new Page(createStringsBlock(0, Iterables.concat(Collections.nCopies(i + 1, data)))));
         }
         return pages.build();
     }

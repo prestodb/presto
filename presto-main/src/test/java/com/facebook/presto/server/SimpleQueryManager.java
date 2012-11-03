@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
-import static com.facebook.presto.nblock.TestBlockUtils.createStringBlock;
+import static com.facebook.presto.nblock.BlockAssertions.createStringsBlock;
 
 @ThreadSafe
 public class SimpleQueryManager implements QueryManager
@@ -62,7 +62,7 @@ public class SimpleQueryManager implements QueryManager
         // load initial pages
         for (int i = 0; i < initialPages; i++) {
             try {
-                queryState.addPage(new Page(createStringBlock(0, Iterables.concat(Collections.nCopies(i + 1, data)))));
+                queryState.addPage(new Page(createStringsBlock(0, Iterables.concat(Collections.nCopies(i + 1, data)))));
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

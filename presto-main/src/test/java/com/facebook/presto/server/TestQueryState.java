@@ -4,7 +4,6 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.nblock.BlockCursor;
-import com.facebook.presto.nblock.TestBlockUtils;
 import com.facebook.presto.noperator.Page;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -23,6 +22,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.nblock.BlockAssertions.createLongsBlock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -143,7 +143,7 @@ public class TestQueryState
 
     private Page createLongPage(int position, int value)
     {
-        return new Page(TestBlockUtils.createLongsBlock(position, value));
+        return new Page(createLongsBlock(position, value));
     }
 
     @Test
