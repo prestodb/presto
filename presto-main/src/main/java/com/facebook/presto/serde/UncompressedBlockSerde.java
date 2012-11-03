@@ -26,7 +26,7 @@ public class UncompressedBlockSerde
         implements BlockSerde
 {
     private static final int MAX_BLOCK_SIZE = (int) new DataSize(64, KILOBYTE).toBytes();
-    public static UncompressedBlockSerde INSTANCE = new UncompressedBlockSerde();
+    public static UncompressedBlockSerde UNCOMPRESSED_BLOCK_SERDE = new UncompressedBlockSerde();
 
     @Override
     public BlocksWriter createBlockWriter(SliceOutput sliceOutput)

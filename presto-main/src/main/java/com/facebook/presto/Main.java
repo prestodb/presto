@@ -499,7 +499,7 @@ public class Main
                     type = schema.get(index);
                 }
                 recordProjectionBuilder.add(RecordProjections.createProjection(index, type));
-                writersBuilder.add(new SerdeBlockWriterFactory(UncompressedBlockSerde.INSTANCE, outputSuppliers.get(index)));
+                writersBuilder.add(new SerdeBlockWriterFactory(UncompressedBlockSerde.UNCOMPRESSED_BLOCK_SERDE, outputSuppliers.get(index)));
             }
             List<RecordProjection> recordProjections = recordProjectionBuilder.build();
             List<BlockWriterFactory> writers = writersBuilder.build();
