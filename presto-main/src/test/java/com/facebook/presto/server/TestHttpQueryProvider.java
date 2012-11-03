@@ -34,7 +34,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-public class TestHttpTupleStream
+public class TestHttpQueryProvider
 {
     private AsyncHttpClient httpClient ;
     private TestingHttpServer server1;
