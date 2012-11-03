@@ -83,7 +83,7 @@ public class StaticQueryManager implements QueryManager
     {
         Preconditions.checkArgument(pageBufferMax > 0, "blockBufferMax must be at least 1");
         this.pageBufferMax = pageBufferMax;
-        executor = Executors.newCachedThreadPool(new ThreadFactoryBuilder().setNameFormat("http-query-processor-%d").build());
+        executor = Executors.newFixedThreadPool(50, new ThreadFactoryBuilder().setNameFormat("http-query-processor-%d").build()) ;
         this.hiveClient = hiveClient;
         this.metadata = metadata;
         this.storageManager = storageManager;

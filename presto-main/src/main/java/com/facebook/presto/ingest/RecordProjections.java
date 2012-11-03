@@ -39,15 +39,30 @@ public final class RecordProjections {
         public void project(Record record, BlockBuilder output)
         {
             switch (type) {
-                case FIXED_INT_64:
-                    output.append(record.getLong(field));
+                case FIXED_INT_64: {
+                    Long value = record.getLong(field);
+                    if (value == null) {
+                        value = 0L;
+                    }
+                    output.append(value);
                     break;
-                case VARIABLE_BINARY:
-                    output.append(record.getString(field).getBytes(Charsets.UTF_8));
+                }
+                case VARIABLE_BINARY: {
+                    String value = record.getString(field);
+                    if (value == null) {
+                        value = "";
+                    }
+                    output.append(value.getBytes(Charsets.UTF_8));
                     break;
-                case DOUBLE:
-                    output.append(record.getDouble(field));
+                }
+                case DOUBLE: {
+                    Double value = record.getDouble(field);
+                    if (value == null) {
+                        value = 0.0;
+                    }
+                    output.append(value);
                     break;
+                }
             }
         }
     }
