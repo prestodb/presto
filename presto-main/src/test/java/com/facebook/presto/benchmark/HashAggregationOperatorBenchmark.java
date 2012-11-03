@@ -8,7 +8,7 @@ import com.facebook.presto.noperator.Operator;
 import com.facebook.presto.noperator.aggregation.DoubleSumAggregation;
 import com.facebook.presto.serde.BlockSerdes.Encoding;
 import com.facebook.presto.tpch.TpchSchema.Orders;
-import com.facebook.presto.tpch.TpchTupleStreamProvider;
+import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.google.common.collect.ImmutableList;
 
 import static com.facebook.presto.noperator.ProjectionFunctions.concat;
@@ -23,7 +23,7 @@ public class HashAggregationOperatorBenchmark
     }
 
     @Override
-    protected Operator createBenchmarkedOperator(TpchTupleStreamProvider inputStreamProvider)
+    protected Operator createBenchmarkedOperator(TpchBlocksProvider inputStreamProvider)
     {
         BlockIterable orderStatus = inputStreamProvider.getBlocks(Orders.ORDERSTATUS, Encoding.RAW);
         BlockIterable totalPrice = inputStreamProvider.getBlocks(Orders.TOTALPRICE, Encoding.RAW);

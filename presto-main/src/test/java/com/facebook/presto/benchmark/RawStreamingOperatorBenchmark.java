@@ -5,7 +5,7 @@ import com.facebook.presto.noperator.AlignmentOperator;
 import com.facebook.presto.noperator.Operator;
 import com.facebook.presto.serde.BlockSerdes.Encoding;
 import com.facebook.presto.tpch.TpchSchema.Orders;
-import com.facebook.presto.tpch.TpchTupleStreamProvider;
+import com.facebook.presto.tpch.TpchBlocksProvider;
 
 public class RawStreamingOperatorBenchmark
         extends AbstractOperatorBenchmark
@@ -16,7 +16,7 @@ public class RawStreamingOperatorBenchmark
     }
 
     @Override
-    protected Operator createBenchmarkedOperator(TpchTupleStreamProvider inputStreamProvider)
+    protected Operator createBenchmarkedOperator(TpchBlocksProvider inputStreamProvider)
     {
         BlockIterable totalPrice = inputStreamProvider.getBlocks(Orders.TOTALPRICE, Encoding.RAW);
         return new AlignmentOperator(totalPrice);
