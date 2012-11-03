@@ -8,9 +8,13 @@ import com.google.common.collect.ImmutableList;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 // TODO: give this a real implementation, this is just a hack for now
-public class TupleInfoSerde
+public final class TupleInfoSerde
 {
-    public static void writeTupleInfo(TupleInfo tupleInfo, SliceOutput sliceOutput)
+    private TupleInfoSerde()
+    {
+    }
+
+    public static void writeTupleInfo(SliceOutput sliceOutput, TupleInfo tupleInfo)
     {
         checkNotNull(tupleInfo, "tupleInfo is null");
         checkNotNull(sliceOutput, "sliceOutput is null");

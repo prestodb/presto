@@ -47,7 +47,7 @@ public final class BlocksSerde
                     blocksWriter = serde.createBlockWriter(sliceOutput);
 
                     BlockSerdeSerde.writeBlockSerde(sliceOutput, serde);
-                    TupleInfoSerde.writeTupleInfo(block.getTupleInfo(), sliceOutput);
+                    TupleInfoSerde.writeTupleInfo(sliceOutput, block.getTupleInfo());
                 }
 
                 blocksWriter.append(block);
