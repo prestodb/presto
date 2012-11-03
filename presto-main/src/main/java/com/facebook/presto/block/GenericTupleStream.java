@@ -11,7 +11,7 @@ import static com.facebook.presto.block.YieldingIterators.yieldingIterable;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class GenericTupleStream<T extends TupleStream>
-        implements TupleStream, YieldingIterable<T>
+        implements TupleStream
 {
     private final TupleInfo info;
     private final YieldingIterable<T> source;
@@ -34,13 +34,6 @@ public class GenericTupleStream<T extends TupleStream>
 
         this.info = info;
         this.source = source;
-    }
-
-    @Override
-    public YieldingIterator<T> iterator(QuerySession session)
-    {
-        Preconditions.checkNotNull(session, "session is null");
-        return source.iterator(session);
     }
 
     @Override

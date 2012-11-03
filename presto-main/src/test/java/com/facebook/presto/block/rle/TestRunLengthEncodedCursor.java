@@ -4,13 +4,11 @@ import com.facebook.presto.Range;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.Tuples;
 import com.facebook.presto.block.AbstractTestCursor;
-import com.facebook.presto.block.Blocks;
 import com.facebook.presto.block.Cursor;
 import com.facebook.presto.block.CursorAssertions;
 import com.facebook.presto.block.Cursors;
 import com.facebook.presto.block.GenericTupleStream;
 import com.facebook.presto.block.TupleStream;
-import com.facebook.presto.block.uncompressed.UncompressedCursor;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -199,13 +197,14 @@ public class TestRunLengthEncodedCursor extends AbstractTestCursor
         assertEquals(cursor.getTupleInfo(), TupleInfo.SINGLE_VARBINARY);
 
         try {
-            new UncompressedCursor(TupleInfo.SINGLE_VARBINARY, null);
+            new RunLengthEncodedCursor(TupleInfo.SINGLE_VARBINARY, null);
             fail("Expected NullPointerException");
         }
         catch (NullPointerException expected) {
         }
         try {
-            new UncompressedCursor(null, ImmutableList.of(Blocks.createBlock(0, "a")).iterator());
+            RunLengthEncodedBlock block = new RunLengthEncodedBlock(Tuples.createTuple("apple"), Range.create(0, 4));
+            new RunLengthEncodedCursor(null, ImmutableList.of(block).iterator());
             fail("Expected NullPointerException");
         }
         catch (NullPointerException expected) {
