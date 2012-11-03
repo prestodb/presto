@@ -65,15 +65,27 @@ public final class BlocksSerde
     }
 
     public static void writeBlocks(SliceOutput sliceOutput, Block... blocks) {
-        writeBlocks(sliceOutput, ImmutableList.copyOf(blocks).iterator());
+        writeBlocks(sliceOutput, null, ImmutableList.copyOf(blocks).iterator());
     }
 
     public static void writeBlocks(SliceOutput sliceOutput, Iterable<? extends Block> blocks) {
-        writeBlocks(sliceOutput, blocks.iterator());
+        writeBlocks(sliceOutput, null, blocks.iterator());
     }
 
     public static void writeBlocks(SliceOutput sliceOutput, Iterator<? extends Block> blocks) {
-        BlocksWriter blocksWriter = createBlocksWriter(sliceOutput);
+        writeBlocks(sliceOutput, null, blocks);
+    }
+
+    public static void writeBlocks(SliceOutput sliceOutput, BlockSerde blocksSerde, Block... blocks) {
+        writeBlocks(sliceOutput, blocksSerde, ImmutableList.copyOf(blocks).iterator());
+    }
+
+    public static void writeBlocks(SliceOutput sliceOutput, BlockSerde blocksSerde, Iterable<? extends Block> blocks) {
+        writeBlocks(sliceOutput, blocksSerde, blocks.iterator());
+    }
+
+    public static void writeBlocks(SliceOutput sliceOutput, @Nullable BlockSerde blocksSerde, Iterator<? extends Block> blocks) {
+        BlocksWriter blocksWriter = createBlocksWriter(sliceOutput, blocksSerde);
         while (blocks.hasNext()) {
             blocksWriter.append(blocks.next());
         }
