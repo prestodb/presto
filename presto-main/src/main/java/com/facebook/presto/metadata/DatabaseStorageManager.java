@@ -344,24 +344,26 @@ public class DatabaseStorageManager
     }
 
     private BlockIterable convertFilesToBlocks(List<File> files)
-    {
-        Preconditions.checkArgument(!files.isEmpty(), "no files in stream");
+     {
+         Preconditions.checkArgument(!files.isEmpty(), "no files in stream");
 
-        return BlockUtils.toBlocks(Iterables.concat(Lists.transform(files, new Function<File, Iterable<? extends Block>>()
-        {
-            private long startPosition;
+         List<Block> blocks = ImmutableList.copyOf(Iterables.concat(Iterables.transform(files, new Function<File, Iterable<? extends Block>>()
+         {
+             private long startPosition;
 
-            @Override
-            public Iterable<? extends Block> apply(File file)
-            {
-                Slice slice = mappedFileCache.getUnchecked(file.getAbsolutePath());
-                BlockIterable blocks = StatsCollectingBlocksSerde.readBlocks(slice, startPosition);
-                startPosition += StatsCollectingBlocksSerde.readStats(slice).getRowCount() + 1;
-                return blocks;
-            }
-        })));
-    }
+             @Override
+             public Iterable<? extends Block> apply(File file)
+             {
+                 Slice slice = mappedFileCache.getUnchecked(file.getAbsolutePath().replace("/Users/dain/work/fb/presto/", ""));
+                 BlockIterable blocks = StatsCollectingBlocksSerde.readBlocks(slice, startPosition);
+                 long rowCount = StatsCollectingBlocksSerde.readStats(slice).getRowCount();
+                 startPosition += rowCount;
+                 return blocks;
+             }
+         })));
 
+         return BlockUtils.toBlocks(blocks);
+     }
     private static class FilesAndRowCount
     {
         private final List<File> files;
