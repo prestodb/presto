@@ -1,9 +1,15 @@
 package com.facebook.presto.serde;
 
+import com.facebook.presto.Tuple;
 import com.facebook.presto.nblock.Block;
 
 public interface BlocksWriter
 {
+    /**
+     * Appends the specified tuple to this serialization
+     */
+    BlocksWriter append(Tuple tuple);
+
     /**
      * Appends the specified block to this serialization
      */

@@ -1,4 +1,4 @@
-package com.facebook.presto.block.rle;
+package com.facebook.presto.nblock.dictionary;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.SizeOf;

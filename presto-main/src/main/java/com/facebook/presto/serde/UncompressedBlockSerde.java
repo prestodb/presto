@@ -4,6 +4,7 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.Range;
+import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.nblock.Block;
 import com.facebook.presto.nblock.BlockCursor;
@@ -26,7 +27,7 @@ public class UncompressedBlockSerde
         implements BlockSerde
 {
     private static final int MAX_BLOCK_SIZE = (int) new DataSize(64, KILOBYTE).toBytes();
-    public static UncompressedBlockSerde UNCOMPRESSED_BLOCK_SERDE = new UncompressedBlockSerde();
+    public static final UncompressedBlockSerde UNCOMPRESSED_BLOCK_SERDE = new UncompressedBlockSerde();
 
     @Override
     public BlocksWriter createBlockWriter(SliceOutput sliceOutput)
@@ -70,16 +71,36 @@ public class UncompressedBlockSerde
             implements BlocksWriter
     {
         private final SliceOutput sliceOutput;
+        private final DynamicSliceOutput buffer = new DynamicSliceOutput(MAX_BLOCK_SIZE);
 
         private boolean initialized;
         private boolean finished;
-        private long currentStartPosition = -1;
-        private DynamicSliceOutput buffer = new DynamicSliceOutput(MAX_BLOCK_SIZE);
+        private long blockStartPosition = 0;
         private int tupleCount;
 
         private UncompressedBlocksWriter(SliceOutput sliceOutput)
         {
             this.sliceOutput = checkNotNull(sliceOutput, "sliceOutput is null");
+        }
+
+        @Override
+        public BlocksWriter append(Tuple tuple)
+        {
+            Preconditions.checkNotNull(tuple, "tuple is null");
+            checkState(!finished, "already finished");
+
+            if (!initialized) {
+                initialized = true;
+            }
+
+            tuple.writeTo(buffer);
+            tupleCount++;
+
+            if (buffer.size() >= MAX_BLOCK_SIZE) {
+                writeBlock();
+            }
+
+            return this;
         }
 
         @Override
@@ -94,17 +115,11 @@ public class UncompressedBlockSerde
 
             BlockCursor cursor = block.cursor();
             while (cursor.advanceNextPosition()) {
-                if (currentStartPosition == -1) {
-                    currentStartPosition = cursor.getPosition();
-                }
                 cursor.getTuple().writeTo(buffer);
                 tupleCount++;
 
                 if (buffer.size() >= MAX_BLOCK_SIZE) {
-                    writeUncompressedBlock(sliceOutput, currentStartPosition, tupleCount, buffer.slice());
-                    tupleCount = 0;
-                    buffer = new DynamicSliceOutput(MAX_BLOCK_SIZE);
-                    currentStartPosition = -1;
+                    writeBlock();
                 }
             }
 
@@ -119,8 +134,7 @@ public class UncompressedBlockSerde
             finished = true;
 
             if (buffer.size() > 0) {
-                checkState(currentStartPosition >= 0, "invariant");
-                writeUncompressedBlock(sliceOutput, currentStartPosition, tupleCount, buffer.slice());
+                writeBlock();
             }
             // todo this code did not open the stream so it shouldn't be closing it
             try {
@@ -130,6 +144,13 @@ public class UncompressedBlockSerde
                 throw Throwables.propagate(e);
             }
         }
-    }
 
+        private void writeBlock()
+        {
+            writeUncompressedBlock(sliceOutput, blockStartPosition, tupleCount, buffer.slice());
+            buffer.reset();
+            blockStartPosition += tupleCount;
+            tupleCount = 0;
+        }
+    }
 }
