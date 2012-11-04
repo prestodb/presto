@@ -89,6 +89,15 @@ public final class StatsCollectingBlocksSerde
         }
 
         @Override
+        public BlocksWriter append(Tuple tuple)
+        {
+            Preconditions.checkNotNull(tuple, "tuple is null");
+            statsCollector.process(tuple);
+            blocksWriter.append(tuple);
+            return this;
+        }
+
+        @Override
         public BlocksWriter append(Block block)
         {
             Preconditions.checkNotNull(block, "block is null");
@@ -122,6 +131,27 @@ public final class StatsCollectingBlocksSerde
         private long maxPosition = -1;
         private final Set<Tuple> set = new HashSet<>(MAX_UNIQUE_COUNT);
         private boolean finished = false;
+
+        public void process(Tuple tuple)
+        {
+            Preconditions.checkNotNull(tuple, "tuple is null");
+            Preconditions.checkState(!finished, "already finished");
+
+            if (lastTuple == null) {
+                lastTuple = tuple;
+                if (set.size() < MAX_UNIQUE_COUNT) {
+                    set.add(lastTuple);
+                }
+            }
+            else if (!tuple.equals(lastTuple)) {
+                runsCount++;
+                lastTuple = tuple;
+                if (set.size() < MAX_UNIQUE_COUNT) {
+                    set.add(lastTuple);
+                }
+            }
+            rowCount++;
+        }
 
         public void process(Block block)
         {

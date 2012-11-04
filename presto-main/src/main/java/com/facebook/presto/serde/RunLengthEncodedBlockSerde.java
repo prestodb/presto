@@ -13,14 +13,13 @@ import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class RunLengthEncodedBlockSerde
         implements BlockSerde
 {
-    public static RunLengthEncodedBlockSerde RLE_BLOCK_SERDE = new RunLengthEncodedBlockSerde();
+    public static final RunLengthEncodedBlockSerde RLE_BLOCK_SERDE = new RunLengthEncodedBlockSerde();
 
     @Override
     public BlocksWriter createBlockWriter(SliceOutput sliceOutput)
@@ -70,12 +69,44 @@ public class RunLengthEncodedBlockSerde
         private boolean finished;
 
         private long startPosition = -1;
-        private long endPosition = -1;
+        private int tupleCount = -1;
         private Tuple lastTuple;
 
         private RunLengthEncodedBlocksWriter(SliceOutput sliceOutput)
         {
             this.sliceOutput = checkNotNull(sliceOutput, "sliceOutput is null");
+        }
+
+        @Override
+        public BlocksWriter append(Tuple tuple)
+        {
+            checkNotNull(tuple, "tuple is null");
+            checkState(!finished, "already finished");
+
+            if (!initialized) {
+                initialized = true;
+            }
+
+            if (lastTuple == null) {
+                startPosition = 0;
+                tupleCount = 1;
+                lastTuple = tuple;
+            }
+            else {
+                if (!tuple.equals(lastTuple)) {
+                    writeRunLengthEncodedBlock(sliceOutput,
+                            startPosition,
+                            tupleCount,
+                            lastTuple);
+
+                    lastTuple = tuple;
+                    startPosition += tupleCount;
+                    tupleCount = 0;
+                }
+                tupleCount++;
+            }
+
+            return this;
         }
 
         @Override
@@ -91,22 +122,22 @@ public class RunLengthEncodedBlockSerde
             BlockCursor cursor = block.cursor();
             while (cursor.advanceNextPosition()) {
                 if (lastTuple == null) {
-                    startPosition = cursor.getPosition();
-                    endPosition = cursor.getCurrentValueEndPosition();
+                    startPosition = 0;
+                    tupleCount = 1;
                     lastTuple = cursor.getTuple();
                 }
                 else {
-                    checkArgument(cursor.getPosition() > endPosition, "positions are not increasing");
-                    if (cursor.getPosition() != endPosition + 1 || !cursor.currentTupleEquals(lastTuple)) {
+                    if (!cursor.currentTupleEquals(lastTuple)) {
                         writeRunLengthEncodedBlock(sliceOutput,
                                 startPosition,
-                                (int) (endPosition - startPosition + 1),
+                                tupleCount,
                                 lastTuple);
 
                         lastTuple = cursor.getTuple();
-                        startPosition = cursor.getPosition();
+                        startPosition += tupleCount;
+                        tupleCount = 0;
                     }
-                    endPosition = cursor.getCurrentValueEndPosition();
+                    tupleCount++;
                 }
             }
 
@@ -124,7 +155,7 @@ public class RunLengthEncodedBlockSerde
                 // Flush out final block if there exists one (null if they were all empty blocks)
                 writeRunLengthEncodedBlock(sliceOutput,
                         startPosition,
-                        (int) (endPosition - startPosition + 1),
+                        tupleCount,
                         lastTuple);
             }
         }
