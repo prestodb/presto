@@ -1,5 +1,6 @@
 package com.facebook.presto.serde;
 
+import com.facebook.presto.Tuple;
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.nblock.Block;
 import com.facebook.presto.nblock.BlockIterable;
@@ -15,6 +16,7 @@ import org.jetbrains.annotations.Nullable;
 import java.io.IOException;
 import java.util.Iterator;
 
+import static com.facebook.presto.serde.UncompressedBlockSerde.UNCOMPRESSED_BLOCK_SERDE;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class BlocksSerde
@@ -33,6 +35,26 @@ public final class BlocksSerde
         checkNotNull(sliceOutput, "sliceOutput is null");
         return new BlocksWriter() {
             private BlocksWriter blocksWriter;
+
+            @Override
+            public BlocksWriter append(Tuple tuple)
+            {
+                Preconditions.checkNotNull(tuple, "tuple is null");
+
+                if (blocksWriter == null) {
+                    BlockSerde serde = blockSerde;
+                    if (blockSerde == null) {
+                        serde = UNCOMPRESSED_BLOCK_SERDE;
+                    }
+                    blocksWriter = serde.createBlockWriter(sliceOutput);
+
+                    BlockSerdeSerde.writeBlockSerde(sliceOutput, serde);
+                    TupleInfoSerde.writeTupleInfo(sliceOutput, tuple.getTupleInfo());
+                }
+
+                blocksWriter.append(tuple);
+                return this;
+            }
 
             @Override
             public BlocksWriter append(Block block)

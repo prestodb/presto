@@ -1,6 +1,5 @@
-package com.facebook.presto.block.dictionary;
+package com.facebook.presto.nblock.dictionary;
 
-import com.facebook.presto.block.rle.PackedLongSerde;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.SliceOutput;
 import com.google.common.collect.Iterables;
