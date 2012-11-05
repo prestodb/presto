@@ -1,11 +1,9 @@
 package com.facebook.presto.sql.compiler;
 
-import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 import java.util.List;
@@ -45,21 +43,6 @@ public class SessionMetadata
         TableMetadata table = metadata.getTable(catalogName, schemaName, tableName);
         checkArgument(table != null, "Table '%s.%s.%s' not defined", catalogName, schemaName, tableName);
         return table;
-    }
-
-    public List<QualifiedName> getTableSchema(QualifiedName name)
-    {
-        TableMetadata table = getTable(name);
-        if (table == null) {
-            return null;
-        }
-
-        List<ColumnMetadata> columns = table.getColumns();
-        ImmutableList.Builder<QualifiedName> names = ImmutableList.builder();
-        for (ColumnMetadata column : columns) {
-            names.add(QualifiedName.of(qualifiedTableName(table), column.getName()));
-        }
-        return names.build();
     }
 
     private static QualifiedName qualifiedTableName(TableMetadata table)
