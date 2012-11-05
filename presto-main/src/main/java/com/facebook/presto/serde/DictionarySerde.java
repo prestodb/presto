@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.SizeOf;
+import com.facebook.presto.slice.SizeOf;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.dictionary.Dictionary;
 import com.facebook.presto.block.uncompressed.UncompressedTupleInfoSerde;

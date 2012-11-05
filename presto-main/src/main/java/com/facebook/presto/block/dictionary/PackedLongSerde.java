@@ -1,7 +1,7 @@
 package com.facebook.presto.block.dictionary;
 
 import com.facebook.presto.Range;
-import com.facebook.presto.SizeOf;
+import com.facebook.presto.slice.SizeOf;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
 import com.google.common.collect.AbstractIterator;

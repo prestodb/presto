@@ -8,9 +8,9 @@ import java.nio.ByteBuffer;
 import java.nio.channels.GatheringByteChannel;
 import java.nio.charset.Charset;
 
-import static com.facebook.presto.SizeOf.SIZE_OF_INT;
-import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
-import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_INT;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_SHORT;
 
 public final class BasicSliceInput extends SliceInput
 {
