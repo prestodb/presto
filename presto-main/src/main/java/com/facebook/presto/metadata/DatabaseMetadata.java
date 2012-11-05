@@ -1,8 +1,8 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.aggregation.AverageAggregation;
-import com.facebook.presto.aggregation.CountAggregation;
-import com.facebook.presto.aggregation.LongSumAggregation;
+import com.facebook.presto.noperator.aggregation.CountAggregation;
+import com.facebook.presto.noperator.aggregation.LongAverageAggregation;
+import com.facebook.presto.noperator.aggregation.LongSumAggregation;
 import com.google.common.collect.ImmutableMap;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -21,7 +21,7 @@ public class DatabaseMetadata
     private static final Map<String, FunctionInfo> FUNCTIONS = ImmutableMap.<String, FunctionInfo>builder()
             .put("COUNT", new FunctionInfo(true, CountAggregation.PROVIDER))
             .put("SUM", new FunctionInfo(true, LongSumAggregation.PROVIDER))
-            .put("AVG", new FunctionInfo(true, AverageAggregation.PROVIDER))
+            .put("AVG", new FunctionInfo(true, LongAverageAggregation.PROVIDER))
             .build();
 
     private final IDBI dbi;

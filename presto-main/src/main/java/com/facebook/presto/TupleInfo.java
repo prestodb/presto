@@ -1,6 +1,6 @@
 package com.facebook.presto;
 
-import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.nblock.BlockBuilder;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
@@ -17,9 +17,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.SizeOf.*;
-import static com.facebook.presto.TupleInfo.Type.*;
-import static com.google.common.base.Preconditions.*;
+import static com.facebook.presto.SizeOf.SIZE_OF_DOUBLE;
+import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
+import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
+import static com.facebook.presto.TupleInfo.Type.DOUBLE;
+import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Arrays.asList;
 
 /**

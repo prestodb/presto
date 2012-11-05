@@ -299,11 +299,11 @@ public class TestQueries
                 .list();
     }
 
-    private static List<Tuple> tuples(Operator tupleStream)
+    private static List<Tuple> tuples(Operator operator)
     {
-        assertEquals(tupleStream.getChannelCount(), 1);
+        assertEquals(operator.getChannelCount(), 1);
         List<Tuple> tuples = new ArrayList<>();
-        for (Page page : tupleStream) {
+        for (Page page : operator) {
             BlockCursor cursor = page.getBlock(0).cursor();
             while (cursor.advanceNextPosition()) {
                 tuples.add(cursor.getTuple());
