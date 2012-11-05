@@ -1,4 +1,4 @@
-package com.facebook.presto;
+package com.facebook.presto.util;
 
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;

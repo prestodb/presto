@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.Range;
+import com.facebook.presto.util.Range;
 import com.facebook.presto.tuple.Tuples;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;

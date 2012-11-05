@@ -1,4 +1,4 @@
-package com.facebook.presto;
+package com.facebook.presto.util;
 
 import com.google.common.collect.AbstractSequentialIterator;
 
