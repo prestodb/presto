@@ -8,6 +8,7 @@ import com.google.common.collect.Lists;
 
 import java.util.List;
 
+import static com.facebook.presto.sql.compiler.Type.toRaw;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -23,12 +24,9 @@ public class SessionMetadata
         this.metadata = checkNotNull(metadata, "metadata is null");
     }
 
-    public FunctionInfo getFunction(QualifiedName name)
+    public FunctionInfo getFunction(QualifiedName name, List<Type> parameterTypes)
     {
-        checkArgument(name.getParts().size() == 1, "qualified functions not supported");
-        FunctionInfo functionInfo = metadata.getFunction(name.getSuffix());
-        checkArgument(functionInfo != null, "Function '%s' not defined", name);
-        return functionInfo;
+        return metadata.getFunction(name, Lists.transform(parameterTypes, toRaw()));
     }
 
     public TableMetadata getTable(QualifiedName name)
