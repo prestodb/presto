@@ -12,8 +12,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.nblock.BlockAssertions.assertBlocksEquals;
 import static com.facebook.presto.nblock.BlockIterables.createBlockIterable;
-import static com.facebook.presto.serde.BlocksSerde.readBlocks;
-import static com.facebook.presto.serde.BlocksSerde.writeBlocks;
+import static com.facebook.presto.serde.UncompressedBlockSerde.UNCOMPRESSED_BLOCK_SERDE;
 
 public class TestBlocksSerde
 {
@@ -27,9 +26,11 @@ public class TestBlocksSerde
                 .append("dave")
                 .build();
 
+        SimpleBlocksSerde blocksSerde = new SimpleBlocksSerde(UNCOMPRESSED_BLOCK_SERDE);
+
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        writeBlocks(sliceOutput, expectedBlock, expectedBlock, expectedBlock);
-        BlockIterable actualBlocks = readBlocks(sliceOutput.slice(), 0);
+        blocksSerde.writeBlocks(sliceOutput, expectedBlock, expectedBlock, expectedBlock);
+        BlockIterable actualBlocks = blocksSerde.createBlocksReader(sliceOutput.slice(), 0);
         assertBlocksEquals(actualBlocks, createBlockIterable(new BlockBuilder(0, SINGLE_VARBINARY)
                 .append("alice")
                 .append("bob")

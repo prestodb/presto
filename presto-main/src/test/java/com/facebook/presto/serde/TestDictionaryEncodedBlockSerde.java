@@ -4,7 +4,6 @@ import com.facebook.presto.nblock.BlockBuilder;
 import com.facebook.presto.nblock.BlockIterable;
 import com.facebook.presto.nblock.uncompressed.UncompressedBlock;
 import com.facebook.presto.slice.DynamicSliceOutput;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.TupleInfo.SINGLE_VARBINARY;
@@ -14,17 +13,11 @@ import static com.facebook.presto.serde.UncompressedBlockSerde.UNCOMPRESSED_BLOC
 
 public class TestDictionaryEncodedBlockSerde
 {
-    private DictionaryEncodedBlocksSerde dictionarySerde;
-
-    @BeforeMethod(alwaysRun = true)
-    public void setUp()
-    {
-        dictionarySerde = new DictionaryEncodedBlocksSerde(UNCOMPRESSED_BLOCK_SERDE);
-    }
-
     @Test
     public void testRoundTrip()
     {
+        DictionaryEncodedBlocksSerde blocksSerde = new DictionaryEncodedBlocksSerde(new SimpleBlocksSerde(UNCOMPRESSED_BLOCK_SERDE));
+
         UncompressedBlock expectedBlock = new BlockBuilder(0, SINGLE_VARBINARY)
                 .append("alice")
                 .append("bob")
@@ -33,8 +26,8 @@ public class TestDictionaryEncodedBlockSerde
                 .build();
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        dictionarySerde.writeBlocks(sliceOutput, expectedBlock, expectedBlock, expectedBlock);
-        BlockIterable actualBlocks = dictionarySerde.readBlocks(sliceOutput.slice(), 0);
+        blocksSerde.writeBlocks(sliceOutput, expectedBlock, expectedBlock, expectedBlock);
+        BlockIterable actualBlocks = blocksSerde.createBlocksReader(sliceOutput.slice(), 0);
         assertBlocksEquals(actualBlocks, createBlockIterable(new BlockBuilder(0, SINGLE_VARBINARY)
                 .append("alice")
                 .append("bob")

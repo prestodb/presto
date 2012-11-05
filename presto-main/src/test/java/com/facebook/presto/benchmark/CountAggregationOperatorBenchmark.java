@@ -6,7 +6,7 @@ import com.facebook.presto.noperator.AggregationOperator;
 import com.facebook.presto.noperator.AlignmentOperator;
 import com.facebook.presto.noperator.Operator;
 import com.facebook.presto.noperator.aggregation.CountAggregation;
-import com.facebook.presto.serde.BlockSerdes.Encoding;
+import com.facebook.presto.serde.FileBlocksSerde.FileEncoding;
 import com.facebook.presto.tpch.TpchSchema.Orders;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.google.common.collect.ImmutableList;
@@ -24,7 +24,7 @@ public class CountAggregationOperatorBenchmark
     @Override
     protected Operator createBenchmarkedOperator(TpchBlocksProvider inputStreamProvider)
     {
-        BlockIterable orderKey = inputStreamProvider.getBlocks(Orders.ORDERKEY, Encoding.RAW);
+        BlockIterable orderKey = inputStreamProvider.getBlocks(Orders.ORDERKEY, FileEncoding.RAW);
         AlignmentOperator alignmentOperator = new AlignmentOperator(orderKey);
         return new AggregationOperator(alignmentOperator, ImmutableList.of(CountAggregation.PROVIDER), ImmutableList.of(singleColumn(Type.FIXED_INT_64, 0, 0)));
     }

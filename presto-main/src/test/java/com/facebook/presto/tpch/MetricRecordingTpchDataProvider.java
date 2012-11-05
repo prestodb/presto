@@ -1,6 +1,6 @@
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.serde.BlockSerde;
+import com.facebook.presto.serde.FileBlocksSerde.FileEncoding;
 import com.facebook.presto.tpch.TpchSchema.Column;
 import com.google.common.base.Preconditions;
 import io.airlift.units.DataSize;
@@ -22,14 +22,13 @@ public class MetricRecordingTpchDataProvider
     }
 
     @Override
-    public File getColumnFile(Column column, BlockSerde blockSerde, String serdeName)
+    public File getColumnFile(Column column, FileEncoding encoding)
     {
         Preconditions.checkNotNull(column, "column is null");
-        Preconditions.checkNotNull(blockSerde, "blockSerde is null");
-        Preconditions.checkNotNull(serdeName, "serdeName is null");
+        Preconditions.checkNotNull(encoding, "encoding is null");
         long start = System.nanoTime();
         try {
-            File file = tpchDataProvider.getColumnFile(column, blockSerde, serdeName);
+            File file = tpchDataProvider.getColumnFile(column, encoding);
             cumulativeDataByteSize += file.length();
             return file;
         } finally {

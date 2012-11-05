@@ -3,7 +3,7 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.nblock.BlockIterable;
 import com.facebook.presto.noperator.AlignmentOperator;
 import com.facebook.presto.noperator.Operator;
-import com.facebook.presto.serde.BlockSerdes.Encoding;
+import com.facebook.presto.serde.FileBlocksSerde.FileEncoding;
 import com.facebook.presto.tpch.TpchSchema.Orders;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 
@@ -18,7 +18,7 @@ public class RawStreamingOperatorBenchmark
     @Override
     protected Operator createBenchmarkedOperator(TpchBlocksProvider inputStreamProvider)
     {
-        BlockIterable totalPrice = inputStreamProvider.getBlocks(Orders.TOTALPRICE, Encoding.RAW);
+        BlockIterable totalPrice = inputStreamProvider.getBlocks(Orders.TOTALPRICE, FileEncoding.RAW);
         return new AlignmentOperator(totalPrice);
     }
 
