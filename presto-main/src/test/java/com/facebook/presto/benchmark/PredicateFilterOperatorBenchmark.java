@@ -1,6 +1,6 @@
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.TupleInfo.Type;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.AlignmentOperator;

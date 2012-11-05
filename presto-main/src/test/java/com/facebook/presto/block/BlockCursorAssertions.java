@@ -1,8 +1,8 @@
 package com.facebook.presto.block;
 
-import com.facebook.presto.Tuple;
-import com.facebook.presto.TupleInfo;
-import com.facebook.presto.Tuples;
+import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.Tuples;
 import com.google.common.collect.ImmutableSortedMap;
 
 import java.util.SortedMap;

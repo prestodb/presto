@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.demo;
 
-import com.facebook.presto.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;

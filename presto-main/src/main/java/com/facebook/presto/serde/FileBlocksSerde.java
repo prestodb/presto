@@ -1,7 +1,7 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.SizeOf;
-import com.facebook.presto.Tuple;
+import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;

@@ -1,13 +1,13 @@
 package com.facebook.presto.operator;
 
-import com.facebook.presto.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.operator.OperatorAssertions.assertOperatorEquals;
 import static com.facebook.presto.operator.OperatorAssertions.createOperator;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;

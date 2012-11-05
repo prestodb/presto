@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.PagesSerde;
 import com.facebook.presto.slice.ByteArraySlice;

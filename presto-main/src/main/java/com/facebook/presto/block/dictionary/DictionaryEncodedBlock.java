@@ -1,7 +1,7 @@
 package com.facebook.presto.block.dictionary;
 
 import com.facebook.presto.Range;
-import com.facebook.presto.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.Block;
 
 import static com.google.common.base.Preconditions.checkArgument;
