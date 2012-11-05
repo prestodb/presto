@@ -7,9 +7,9 @@ public class SemanticException
 {
     private final Node node;
 
-    public SemanticException(String message, Node node)
+    public SemanticException(Node node, String format, Object... args)
     {
-        super(message);
+        super(String.format(format, args));
         this.node = node;
     }
 
