@@ -9,7 +9,7 @@ import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.block.BlockAssertions.assertBlocksEquals;
 import static com.facebook.presto.block.BlockIterables.createBlockIterable;
 import static com.facebook.presto.serde.UncompressedBlockSerde.UNCOMPRESSED_BLOCK_SERDE;

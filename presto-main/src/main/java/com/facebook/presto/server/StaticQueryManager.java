@@ -3,8 +3,8 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.TupleInfo;
-import com.facebook.presto.TupleInfo.Type;
+import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.hive.HiveClient;
 import com.facebook.presto.ingest.DelimitedRecordIterable;
 import com.facebook.presto.ingest.RecordProjectOperator;

@@ -1,6 +1,6 @@
-package com.facebook.presto;
+package com.facebook.presto.tuple;
 
-import com.facebook.presto.TupleInfo.Type;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceOutput;
 import com.google.common.base.Objects;

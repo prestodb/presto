@@ -1,6 +1,6 @@
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -9,7 +9,7 @@ import com.google.common.collect.Iterables;
 
 import java.util.List;
 
-import static com.facebook.presto.TupleInfo.Type;
+import static com.facebook.presto.tuple.TupleInfo.Type;
 
 // TODO: consider migrating to Metastore format when it gets added
 public class TpchSchema

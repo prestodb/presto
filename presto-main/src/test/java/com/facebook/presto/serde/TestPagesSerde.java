@@ -11,7 +11,7 @@ import org.testng.annotations.Test;
 
 import java.util.Iterator;
 
-import static com.facebook.presto.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.serde.PagesSerde.readPages;
 import static com.facebook.presto.serde.PagesSerde.writePages;

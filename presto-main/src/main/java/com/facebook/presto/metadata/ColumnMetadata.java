@@ -1,6 +1,6 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Objects;
 
 import static com.google.common.base.Preconditions.checkNotNull;

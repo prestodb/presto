@@ -1,7 +1,7 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.Range;
-import com.facebook.presto.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo;
 
 public interface Block
 {

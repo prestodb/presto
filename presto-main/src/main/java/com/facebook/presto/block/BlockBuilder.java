@@ -1,8 +1,8 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.Range;
-import com.facebook.presto.Tuple;
-import com.facebook.presto.TupleInfo;
+import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.Slice;

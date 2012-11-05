@@ -4,8 +4,8 @@ import com.facebook.presto.operator.AlignmentOperator;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.ingest.RecordIterables.asRecordIterable;
 import static com.facebook.presto.ingest.RecordProjections.createProjection;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlockIterable;

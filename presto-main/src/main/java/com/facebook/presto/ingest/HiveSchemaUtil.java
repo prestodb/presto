@@ -1,6 +1,6 @@
 package com.facebook.presto.ingest;
 
-import com.facebook.presto.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.hive.SchemaField;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.google.common.collect.ImmutableList;

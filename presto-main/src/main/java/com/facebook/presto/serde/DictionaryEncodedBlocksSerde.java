@@ -1,8 +1,8 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.SizeOf;
-import com.facebook.presto.Tuple;
-import com.facebook.presto.TupleInfo;
+import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.Iterator;
 
-import static com.facebook.presto.Tuples.createTuple;
+import static com.facebook.presto.tuple.Tuples.createTuple;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 

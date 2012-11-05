@@ -1,4 +1,4 @@
-package com.facebook.presto;
+package com.facebook.presto.tuple;
 
 import com.facebook.presto.slice.Slices;
 

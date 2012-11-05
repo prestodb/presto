@@ -15,7 +15,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.block.BlockAssertions.toValues;
 import static com.facebook.presto.serde.FileBlocksSerde.readBlocks;
 import static com.facebook.presto.serde.FileBlocksSerde.writeBlocks;

@@ -1,6 +1,6 @@
 package com.facebook.presto.sql.compiler;
 
-import com.facebook.presto.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Function;
 

@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
