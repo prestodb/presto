@@ -1,6 +1,6 @@
 package com.facebook.presto.block.rle;
 
-import com.facebook.presto.Range;
+import com.facebook.presto.util.Range;
 import com.facebook.presto.block.AbstractTestBlockCursor;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
