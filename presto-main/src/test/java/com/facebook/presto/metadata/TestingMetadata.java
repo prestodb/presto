@@ -1,8 +1,8 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.aggregation.AverageAggregation;
-import com.facebook.presto.aggregation.CountAggregation;
-import com.facebook.presto.aggregation.LongSumAggregation;
+import com.facebook.presto.noperator.aggregation.CountAggregation;
+import com.facebook.presto.noperator.aggregation.LongAverageAggregation;
+import com.facebook.presto.noperator.aggregation.LongSumAggregation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -19,7 +19,7 @@ public class TestingMetadata
     public static final Map<String, FunctionInfo> STANDARD_FUNCTIONS = ImmutableMap.<String, FunctionInfo>builder()
             .put("count", new FunctionInfo(true, CountAggregation.PROVIDER))
             .put("sum", new FunctionInfo(true, LongSumAggregation.PROVIDER))
-            .put("avg", new FunctionInfo(true, AverageAggregation.PROVIDER))
+            .put("avg", new FunctionInfo(true, LongAverageAggregation.PROVIDER))
             .build();
 
     private final Map<List<String>, TableMetadata> tables = new HashMap<>();
