@@ -1,7 +1,7 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.nblock.BlockIterable;
-import com.facebook.presto.noperator.Operator;
+import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.operator.Operator;
 
 import java.io.IOException;
 

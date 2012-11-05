@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.noperator.Page;
+import com.facebook.presto.operator.Page;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 

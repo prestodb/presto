@@ -1,6 +1,6 @@
 package com.facebook.presto;
 
-import com.facebook.presto.nblock.BlockBuilder;
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;

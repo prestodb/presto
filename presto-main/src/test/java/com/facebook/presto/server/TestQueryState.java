@@ -3,8 +3,8 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.nblock.BlockCursor;
-import com.facebook.presto.noperator.Page;
+import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.operator.Page;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -22,7 +22,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.nblock.BlockAssertions.createLongsBlock;
+import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;

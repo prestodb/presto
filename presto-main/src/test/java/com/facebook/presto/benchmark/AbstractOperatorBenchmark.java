@@ -1,9 +1,9 @@
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.nblock.BlockCursor;
-import com.facebook.presto.nblock.BlockIterable;
-import com.facebook.presto.noperator.Operator;
-import com.facebook.presto.noperator.Page;
+import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.FileBlocksSerde.FileEncoding;
 import com.facebook.presto.serde.FileBlocksSerde;
 import com.facebook.presto.serde.FileBlocksSerde.FileBlockIterable;

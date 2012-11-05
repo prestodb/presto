@@ -3,8 +3,8 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.nblock.BlockBuilder;
-import com.facebook.presto.nblock.uncompressed.UncompressedBlock;
+import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.serde.FileBlocksSerde.FileBlockIterable;
 import com.facebook.presto.serde.FileBlocksSerde.FileEncoding;
 import com.facebook.presto.serde.FileBlocksSerde.StatsCollector.Stats;
@@ -16,7 +16,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.nblock.BlockAssertions.toValues;
+import static com.facebook.presto.block.BlockAssertions.toValues;
 import static com.facebook.presto.serde.FileBlocksSerde.readBlocks;
 import static com.facebook.presto.serde.FileBlocksSerde.writeBlocks;
 import static org.testng.Assert.assertEquals;

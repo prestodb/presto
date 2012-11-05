@@ -4,12 +4,12 @@
 package com.facebook.presto.demo;
 
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.nblock.Block;
-import com.facebook.presto.nblock.BlockBuilder;
-import com.facebook.presto.nblock.BlockCursor;
-import com.facebook.presto.nblock.uncompressed.UncompressedBlock;
-import com.facebook.presto.noperator.Operator;
-import com.facebook.presto.noperator.Page;
+import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.Page;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Charsets;

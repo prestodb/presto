@@ -3,8 +3,8 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.nblock.BlockCursor;
-import com.facebook.presto.noperator.Page;
+import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.operator.Page;
 import com.facebook.presto.server.QueryDriversOperator.QueryDriversIterator;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
