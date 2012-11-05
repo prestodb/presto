@@ -3,8 +3,7 @@ package com.facebook.presto.sql.tree;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 
-import static com.facebook.presto.sql.compiler.IterableUtils.sameElements;
-
+import static com.facebook.presto.util.IterableUtils.sameElements;
 
 public final class TreeRewriter<C>
 {

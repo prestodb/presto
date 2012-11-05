@@ -1,6 +1,6 @@
 package com.facebook.presto.sql.tree;
 
-import com.facebook.presto.sql.compiler.MoreFunctions;
+import com.facebook.presto.util.MoreFunctions;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
