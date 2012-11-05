@@ -1,6 +1,6 @@
 package com.facebook.presto.tuple;
 
-import com.facebook.presto.SizeOf;
+import com.facebook.presto.slice.SizeOf;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.Slice;
@@ -18,9 +18,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.SizeOf.SIZE_OF_DOUBLE;
-import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
-import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_DOUBLE;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_SHORT;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;

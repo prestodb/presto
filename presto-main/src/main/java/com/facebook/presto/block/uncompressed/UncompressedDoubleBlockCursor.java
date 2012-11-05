@@ -9,7 +9,7 @@ import com.google.common.base.Preconditions;
 
 import java.util.NoSuchElementException;
 
-import static com.facebook.presto.SizeOf.SIZE_OF_DOUBLE;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_DOUBLE;
 import static com.google.common.base.Preconditions.checkState;
 
 public class UncompressedDoubleBlockCursor
