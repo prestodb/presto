@@ -1,5 +1,7 @@
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.sql.compiler.SlotReference;
+
 public class NodeRewriter<C>
 {
     public Node rewriteNode(Node node, C context, TreeRewriter<C> treeRewriter)
@@ -98,6 +100,11 @@ public class NodeRewriter<C>
     }
 
     public Node rewriteQualifiedNameReference(QualifiedNameReference node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
+    public Node rewriteSlotReference(SlotReference node, C context, TreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);
     }

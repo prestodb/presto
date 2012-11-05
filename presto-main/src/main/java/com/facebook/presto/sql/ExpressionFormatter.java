@@ -1,5 +1,6 @@
 package com.facebook.presto.sql;
 
+import com.facebook.presto.sql.compiler.SlotReference;
 import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
@@ -74,6 +75,12 @@ public class ExpressionFormatter
         protected String visitQualifiedNameReference(QualifiedNameReference node, Void context)
         {
             return node.getName().toString();
+        }
+
+        @Override
+        public String visitSlotReference(SlotReference node, Void context)
+        {
+            return node.getSlot().toString();
         }
 
         @Override
