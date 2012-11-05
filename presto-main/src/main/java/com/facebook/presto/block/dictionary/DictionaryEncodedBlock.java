@@ -11,16 +11,16 @@ public class DictionaryEncodedBlock
         implements Block
 {
     private final Dictionary dictionary;
-    private final Block block;
+    private final Block idBlock;
 
-    public DictionaryEncodedBlock(Dictionary dictionary, Block block)
+    public DictionaryEncodedBlock(Dictionary dictionary, Block idBlock)
     {
         checkNotNull(dictionary, "dictionary is null");
-        checkNotNull(block, "block is null");
-        checkArgument(block.getTupleInfo().equals(TupleInfo.SINGLE_LONG), "block must contain tuples with a single long value");
+        checkNotNull(idBlock, "block is null");
+        checkArgument(idBlock.getTupleInfo().equals(TupleInfo.SINGLE_LONG), "block must contain tuples with a single long value");
 
         this.dictionary = dictionary;
-        this.block = block;
+        this.idBlock = idBlock;
     }
 
     @Override
@@ -34,33 +34,38 @@ public class DictionaryEncodedBlock
         return dictionary;
     }
 
+    public Block getIdBlock()
+    {
+        return idBlock;
+    }
+
     @Override
     public int getPositionCount()
     {
-        return block.getPositionCount();
+        return idBlock.getPositionCount();
     }
 
     @Override
     public Range getRange()
     {
-        return block.getRange();
+        return idBlock.getRange();
     }
 
     @Override
     public Range getRawRange()
     {
-        return block.getRawRange();
+        return idBlock.getRawRange();
     }
 
     @Override
     public Block createViewPort(Range viewPortRange)
     {
-        return new DictionaryEncodedBlock(dictionary, block.createViewPort(viewPortRange));
+        return new DictionaryEncodedBlock(dictionary, idBlock.createViewPort(viewPortRange));
     }
 
     @Override
     public DictionaryEncodedBlockCursor cursor()
     {
-        return new DictionaryEncodedBlockCursor(dictionary, block.cursor());
+        return new DictionaryEncodedBlockCursor(dictionary, idBlock.cursor());
     }
 }

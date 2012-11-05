@@ -66,8 +66,6 @@ public class TestFileBlocksSerde
 
         Stats stats = actualBlocks.getStats();
         assertEquals(stats.getAvgRunLength(), 1);
-        assertEquals(stats.getMinPosition(), 0);
-        assertEquals(stats.getMaxPosition(), 3);
         assertEquals(stats.getRowCount(), 12);
         assertEquals(stats.getRunsCount(), 12);
         assertEquals(stats.getUniqueCount(), 4);

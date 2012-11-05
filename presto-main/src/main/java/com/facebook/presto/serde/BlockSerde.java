@@ -18,7 +18,7 @@ import static org.codehaus.jackson.annotate.JsonSubTypes.Type;
 })
 public interface BlockSerde
 {
-    BlocksWriter createBlockWriter(SliceOutput sliceOutput);
+    BlocksWriter createBlocksWriter(SliceOutput sliceOutput);
     void writeBlock(SliceOutput sliceOutput, Block block);
     Block readBlock(SliceInput sliceInput, TupleInfo tupleInfo, long positionOffset);
 }
