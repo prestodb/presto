@@ -108,6 +108,7 @@ public class Main
                 .withCommand(Execute.class)
                 .withCommand(DemoQuery2.class)
                 .withCommand(DemoQuery3.class)
+                .withCommand(LocalQueryCommand.class)
                 .withCommands(Help.class);
 
         builder.withGroup("example")
