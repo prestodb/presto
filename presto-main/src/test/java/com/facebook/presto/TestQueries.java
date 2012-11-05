@@ -1,35 +1,50 @@
 package com.facebook.presto;
 
+import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.ingest.Record;
 import com.facebook.presto.ingest.RecordIterable;
 import com.facebook.presto.ingest.RecordIterables;
-import com.facebook.presto.ingest.RecordProjectOperator;
+import com.facebook.presto.ingest.RecordIterator;
 import com.facebook.presto.ingest.RecordProjection;
+import com.facebook.presto.ingest.RecordProjections;
 import com.facebook.presto.ingest.StringRecord;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.operator.AggregationOperator;
-import com.facebook.presto.operator.FilterAndProjectOperator;
-import com.facebook.presto.operator.FilterFunction;
-import com.facebook.presto.operator.HashAggregationOperator;
+import com.facebook.presto.metadata.ColumnMetadata;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.StorageManager;
+import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.operator.aggregation.CountAggregation;
-import com.facebook.presto.operator.aggregation.DoubleAverageAggregation;
-import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
 import com.facebook.presto.slice.Slices;
+import com.facebook.presto.sql.compiler.AnalysisResult;
+import com.facebook.presto.sql.compiler.Analyzer;
+import com.facebook.presto.sql.compiler.SessionMetadata;
+import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.ExecutionPlanner;
+import com.facebook.presto.sql.planner.PlanNode;
+import com.facebook.presto.sql.planner.PlanPrinter;
+import com.facebook.presto.sql.planner.Planner;
+import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tpch.TpchSchema;
-import com.facebook.presto.tpch.TpchSchema.Column;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
+import com.google.common.base.Throwables;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.io.CharStreams;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.Resources;
+import org.antlr.runtime.RecognitionException;
+import org.intellij.lang.annotations.Language;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.PreparedBatch;
@@ -46,32 +61,26 @@ import java.net.URL;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
-import static com.facebook.presto.ingest.RecordProjections.createProjection;
-import static com.facebook.presto.operator.ProjectionFunctions.concat;
-import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
-import static com.facebook.presto.tpch.TpchSchema.LineItem.DISCOUNT;
-import static com.facebook.presto.tpch.TpchSchema.LineItem.TAX;
-import static com.facebook.presto.tpch.TpchSchema.Orders.ORDERKEY;
-import static com.facebook.presto.tpch.TpchSchema.Orders.ORDERSTATUS;
-import static com.facebook.presto.tpch.TpchSchema.Orders.TOTALPRICE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.isEmpty;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
-import static org.testng.Assert.assertEquals;
 
 public class TestQueries
 {
     private Handle handle;
     private RecordIterable ordersRecords;
     private RecordIterable lineItemRecords;
+    private Metadata metadata;
+    private StorageManager storage;
 
     @BeforeSuite
     public void setupDatabase()
@@ -113,6 +122,121 @@ public class TestQueries
                 "  comment VARCHAR(44) NOT NULL\n" +
                 ")");
         insertRows("lineitem", handle, lineItemRecords);
+
+        List<TableMetadata> tables = ImmutableList.of(
+                new TableMetadata(SessionMetadata.DEFAULT_CATALOG, SessionMetadata.DEFAULT_SCHEMA, "ORDERS",
+                        ImmutableList.of(
+                                new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "orderkey"),
+                                new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "custkey"),
+                                new ColumnMetadata(TupleInfo.Type.DOUBLE, "totalprice"),
+                                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "orderdate"),
+                                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "orderstatus"),
+                                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "orderpriority"),
+                                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "clerk"),
+                                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "shippriority"),
+                                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "comment"))),
+                new TableMetadata(SessionMetadata.DEFAULT_CATALOG, SessionMetadata.DEFAULT_SCHEMA, "LINEITEM",
+                        ImmutableList.of(
+                                new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "orderkey"),
+                                new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "partkey"),
+                                new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "suppkey"),
+                                new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "linenumber"),
+                                new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "quantity"),
+                                new ColumnMetadata(TupleInfo.Type.DOUBLE, "extendedprice"),
+                                new ColumnMetadata(TupleInfo.Type.DOUBLE, "discount"),
+                                new ColumnMetadata(TupleInfo.Type.DOUBLE, "tax"),
+                                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "returnflag"),
+                                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "linestatus"),
+                                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "shipdate"),
+                                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "commitdate"),
+                                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "receiptdate"),
+                                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "shipinstruct"),
+                                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "shipmode"),
+                                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "comment")))
+        );
+
+        metadata = new TestingMetadata();
+        for (TableMetadata table : tables) {
+            metadata.createTable(table);
+        }
+
+        storage = new StorageManager()
+        {
+            @Override
+            public BlockIterable getBlocks(String databaseName, String tableName, int fieldIndex)
+            {
+                if (tableName.equalsIgnoreCase("ORDERS")) {
+                    switch (fieldIndex) {
+                        case 0:
+                            return createBlocks(ordersRecords, TpchSchema.Orders.ORDERKEY, FIXED_INT_64);
+                        case 1:
+                            return createBlocks(ordersRecords, TpchSchema.Orders.CUSTKEY, FIXED_INT_64);
+                        case 2:
+                            return createBlocks(ordersRecords, TpchSchema.Orders.TOTALPRICE, DOUBLE);
+                        case 3:
+                            return createBlocks(ordersRecords, TpchSchema.Orders.ORDERDATE, VARIABLE_BINARY);
+                        case 4:
+                            return createBlocks(ordersRecords, TpchSchema.Orders.ORDERSTATUS, VARIABLE_BINARY);
+                        case 5:
+                            return createBlocks(ordersRecords, TpchSchema.Orders.ORDERPRIORITY, VARIABLE_BINARY);
+                        case 6:
+                            return createBlocks(ordersRecords, TpchSchema.Orders.CLERK, VARIABLE_BINARY);
+                        case 7:
+                            return createBlocks(ordersRecords, TpchSchema.Orders.SHIPPRIORITY, VARIABLE_BINARY);
+                        case 8:
+                            return createBlocks(ordersRecords, TpchSchema.Orders.COMMENT, VARIABLE_BINARY);
+                        default:
+                            throw new UnsupportedOperationException("not yet implemented: " + fieldIndex);
+                    }
+                }
+                else if (tableName.equalsIgnoreCase("LINEITEM")) {
+                    switch (fieldIndex) {
+                        case 0:
+                            return createBlocks(lineItemRecords, TpchSchema.LineItem.ORDERKEY, FIXED_INT_64);
+                        case 1:
+                            return createBlocks(lineItemRecords, TpchSchema.LineItem.PARTKEY, FIXED_INT_64);
+                        case 2:
+                            return createBlocks(lineItemRecords, TpchSchema.LineItem.SUPPKEY, FIXED_INT_64);
+                        case 3:
+                            return createBlocks(lineItemRecords, TpchSchema.LineItem.LINENUMBER, FIXED_INT_64);
+                        case 4:
+                            return createBlocks(lineItemRecords, TpchSchema.LineItem.QUANTITY, FIXED_INT_64);
+                        case 5:
+                            return createBlocks(lineItemRecords, TpchSchema.LineItem.EXTENDEDPRICE, DOUBLE);
+                        case 6:
+                            return createBlocks(lineItemRecords, TpchSchema.LineItem.DISCOUNT, DOUBLE);
+                        case 7:
+                            return createBlocks(lineItemRecords, TpchSchema.LineItem.TAX, DOUBLE);
+                        case 8:
+                            return createBlocks(lineItemRecords, TpchSchema.LineItem.RETURNFLAG, VARIABLE_BINARY);
+                        case 9:
+                            return createBlocks(lineItemRecords, TpchSchema.LineItem.LINESTATUS, VARIABLE_BINARY);
+                        case 10:
+                            return createBlocks(lineItemRecords, TpchSchema.LineItem.SHIPDATE, VARIABLE_BINARY);
+                        case 11:
+                            return createBlocks(lineItemRecords, TpchSchema.LineItem.COMMITDATE, VARIABLE_BINARY);
+                        case 12:
+                            return createBlocks(lineItemRecords, TpchSchema.LineItem.RECEIPTDATE, VARIABLE_BINARY);
+                        case 13:
+                            return createBlocks(lineItemRecords, TpchSchema.LineItem.SHIPINSTRUCT, VARIABLE_BINARY);
+                        case 14:
+                            return createBlocks(lineItemRecords, TpchSchema.LineItem.SHIPMODE, VARIABLE_BINARY);
+                        case 15:
+                            return createBlocks(lineItemRecords, TpchSchema.LineItem.COMMENT, VARIABLE_BINARY);
+                        default:
+                            throw new UnsupportedOperationException("not yet implemented: " + fieldIndex);
+                    }
+                }
+                throw new UnsupportedOperationException("not yet implemented: " + tableName);
+            }
+
+            @Override
+            public long importTableShard(Operator source, String databaseName, String tableName)
+                    throws IOException
+            {
+                throw new UnsupportedOperationException("not yet implemented");
+            }
+        };
     }
 
     @AfterSuite
@@ -124,49 +248,58 @@ public class TestQueries
     @Test
     public void testCountAll()
     {
-        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM orders", FIXED_INT_64);
+        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM ORDERS", FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM ORDERS");
 
-        Operator orders = scanTable(ordersRecords, ORDERKEY);
-        Operator aggregation = new AggregationOperator(orders,
-                ImmutableList.of(CountAggregation.PROVIDER),
-                ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0)));
-        assertEqualsIgnoreOrder(tuples(aggregation), expected);
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
+    public void testWildcard()
+    {
+        List<Tuple> expected = computeExpected("SELECT orderkey, custkey, totalprice, orderdate, orderstatus, orderpriority, clerk, shippriority, comment FROM ORDERS",
+                FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY);
+        List<Tuple> actual = computeActual("SELECT * FROM ORDERS");
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
+    public void testQualifiedWildcardFromAlias()
+    {
+        List<Tuple> expected = computeExpected("SELECT orderkey, custkey, totalprice, orderdate, orderstatus, orderpriority, clerk, shippriority, comment FROM ORDERS",
+                FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY);
+        List<Tuple> actual = computeActual("SELECT T.* FROM ORDERS T");
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
+    public void testQualifiedWildcard()
+    {
+        List<Tuple> expected = computeExpected("SELECT orderkey, custkey, totalprice, orderdate, orderstatus, orderpriority, clerk, shippriority, comment FROM ORDERS",
+                FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY);
+        List<Tuple> actual = computeActual("SELECT ORDERS.* FROM ORDERS");
+
+        assertEqualsIgnoreOrder(actual, expected);
     }
 
     @Test
     public void testAverageAll()
     {
-        List<Tuple> expected = computeExpected("SELECT AVG(totalprice) FROM orders", DOUBLE);
+        List<Tuple> expected = computeExpected("SELECT AVG(totalprice) FROM ORDERS", DOUBLE);
+        List<Tuple> actual = computeActual("SELECT AVG(totalprice) FROM ORDERS");
 
-        Operator orders = scanTable(ordersRecords, TOTALPRICE);
-        Operator aggregation = new AggregationOperator(orders,
-                ImmutableList.of(DoubleAverageAggregation.provider(0, 0)),
-                ImmutableList.of(singleColumn(DOUBLE, 0, 0)));
-
-        assertEqualsIgnoreOrder(tuples(aggregation), expected);
+        assertEqualsIgnoreOrder(actual, expected);
     }
 
     @Test
     public void testCountAllWithPredicate()
     {
-        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM orders WHERE orderstatus = 'F'", FIXED_INT_64);
+        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM ORDERS WHERE orderstatus = 'F'", FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM ORDERS WHERE orderstatus = 'F'");
 
-        Operator orders = scanTable(ordersRecords, ORDERSTATUS);
-        Operator filter = new FilterAndProjectOperator(orders,
-                new FilterFunction()
-                {
-                    @Override
-                    public boolean filter(BlockCursor[] cursors)
-                    {
-                        return cursors[0].getSlice(0).equals(Slices.copiedBuffer("F", Charsets.UTF_8));
-                    }
-                },
-                singleColumn(VARIABLE_BINARY, 0, 0));
-        Operator aggregation = new AggregationOperator(filter,
-                ImmutableList.of(CountAggregation.PROVIDER),
-                ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0)));
-
-        assertEqualsIgnoreOrder(tuples(aggregation), expected);
+        assertEqualsIgnoreOrder(actual, expected);
     }
 
 
@@ -174,126 +307,109 @@ public class TestQueries
     public void testGroupByCount()
     {
         List<Tuple> expected = computeExpected("SELECT orderstatus, CAST(COUNT(*) AS INTEGER) FROM orders GROUP BY orderstatus", VARIABLE_BINARY, FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT orderstatus, COUNT(*) FROM ORDERS GROUP BY orderstatus");
 
-        Operator orders = scanTable(ordersRecords, ORDERSTATUS);
-        Operator aggregation = new HashAggregationOperator(orders,
-                0,
-                ImmutableList.of(CountAggregation.PROVIDER),
-                ImmutableList.of(concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 1, 0))));
-
-        assertEqualsIgnoreOrder(tuples(aggregation), expected);
+        assertEqualsIgnoreOrder(actual, expected);
     }
 
     @Test
     public void testGroupBySum()
     {
-        List<Tuple> expected = computeExpected(
-                "SELECT orderstatus, SUM(totalprice) FROM orders GROUP BY orderstatus",
-                VARIABLE_BINARY, DOUBLE);
+        List<Tuple> expected = computeExpected("SELECT orderstatus, SUM(totalprice) FROM orders GROUP BY orderstatus", VARIABLE_BINARY, DOUBLE);
+        List<Tuple> actual = computeActual("SELECT orderstatus, SUM(totalprice) FROM ORDERS GROUP BY orderstatus");
 
-        Operator orders = scanTable(ordersRecords, ORDERSTATUS, TOTALPRICE);
-        Operator aggregation = new HashAggregationOperator(orders,
-                0,
-                ImmutableList.of(DoubleSumAggregation.provider(1, 0)),
-                ImmutableList.of(concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(DOUBLE, 1, 0))));
-
-        assertEqualsIgnoreOrder(tuples(aggregation), expected);
+        assertEqualsIgnoreOrder(actual, expected);
     }
 
     @Test
     public void testCountAllWithComparison()
     {
         List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM lineitem WHERE tax < discount", FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM lineitem WHERE tax < discount");
 
-        Operator lineItems = scanTable(lineItemRecords, DISCOUNT, TAX);
-        Operator filter = new FilterAndProjectOperator(lineItems,
-                new FilterFunction()
-                {
-                    @Override
-                    public boolean filter(BlockCursor[] cursors)
-                    {
-                        return cursors[1].getDouble(0) < cursors[0].getDouble(0);
-                    }
-                },
-                singleColumn(DOUBLE, 0, 0));
-        Operator aggregation = new AggregationOperator(filter,
-                ImmutableList.of(CountAggregation.PROVIDER),
-                ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0)));
-
-        assertEqualsIgnoreOrder(tuples(aggregation), expected);
+        assertEqualsIgnoreOrder(actual, expected);
     }
 
     @Test
     public void testSelectWithComparison()
     {
         List<Tuple> expected = computeExpected("SELECT orderkey FROM lineitem WHERE tax < discount", FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT orderkey FROM lineitem WHERE tax < discount");
 
-        Operator lineItems = scanTable(lineItemRecords, ORDERKEY, DISCOUNT, TAX);
-        Operator filter = new FilterAndProjectOperator(lineItems,
-                new FilterFunction()
-                {
-                    @Override
-                    public boolean filter(BlockCursor[] cursors)
-                    {
-                        return cursors[2].getDouble(0) < cursors[1].getDouble(0);
-                    }
-                },
-                singleColumn(FIXED_INT_64, 0, 0));
-
-        assertEqualsIgnoreOrder(tuples(filter), expected);
+        assertEqualsIgnoreOrder(actual, expected);
     }
 
     @Test
     public void testCountWithAndPredicate()
     {
         List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM lineitem WHERE tax < discount AND tax > 0.01 AND discount < 0.05", FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM lineitem WHERE tax < discount AND tax > 0.01 AND discount < 0.05");
 
-        Operator lineItems = scanTable(lineItemRecords, DISCOUNT, TAX);
-        Operator filter = new FilterAndProjectOperator(lineItems,
-                new FilterFunction()
-                {
-                    @Override
-                    public boolean filter(BlockCursor[] cursors)
-                    {
-                        double discount = cursors[0].getDouble(0);
-                        double tax = cursors[1].getDouble(0);
-                        return tax < discount && tax > 0.01 && discount < 0.05;
-                    }
-                },
-                singleColumn(DOUBLE, 0, 0));
-        Operator aggregation = new AggregationOperator(filter,
-                ImmutableList.of(CountAggregation.PROVIDER),
-                ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0)));
-
-        assertEqualsIgnoreOrder(tuples(aggregation), expected);
+        assertEqualsIgnoreOrder(actual, expected);
     }
 
     @Test
     public void testCountWithOrPredicate()
     {
         List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM lineitem WHERE tax < 0.01 OR discount > 0.05", FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM lineitem WHERE tax < 0.01 OR discount > 0.05");
 
-        Operator lineItems = scanTable(lineItemRecords, DISCOUNT, TAX);
-        Operator filter = new FilterAndProjectOperator(lineItems,
-                new FilterFunction()
-                {
-                    @Override
-                    public boolean filter(BlockCursor[] cursors)
-                    {
-                        double discount = cursors[0].getDouble(0);
-                        double tax = cursors[1].getDouble(0);
-                        return tax < 0.01 || discount > 0.05;
-                    }
-                },
-                singleColumn(DOUBLE, 0, 0));
-        Operator aggregation = new AggregationOperator(filter,
-                ImmutableList.of(CountAggregation.PROVIDER),
-                ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0)));
-
-        assertEqualsIgnoreOrder(tuples(aggregation), expected);
+        assertEqualsIgnoreOrder(actual, expected);
     }
 
-    private List<Tuple> computeExpected(final String sql, TupleInfo.Type... types)
+    @Test
+    public void testAggregationWithProjection()
+            throws Exception
+    {
+        List<Tuple> expected = computeExpected("SELECT sum(totalprice * 2) - sum(totalprice) FROM orders", DOUBLE);
+        List<Tuple> actual = computeActual("SELECT sum(totalprice * 2) - sum(totalprice) FROM orders");
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+
+    @Test
+    public void testAggregationWithProjection2()
+            throws Exception
+    {
+        List<Tuple> expected = computeExpected("SELECT sum(totalprice * 2) + sum(totalprice * 2) FROM orders", DOUBLE);
+        List<Tuple> actual = computeActual("SELECT sum(totalprice * 2) + sum(totalprice * 2) FROM orders");
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
+    public void testInlineView()
+    {
+        List<Tuple> expected = computeExpected("SELECT orderkey, custkey FROM (SELECT orderkey, custkey FROM ORDERS) U", FIXED_INT_64, FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT orderkey, custkey FROM (SELECT orderkey, custkey FROM ORDERS) U");
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
+    public void testAliasedInInlineView()
+            throws Exception
+    {
+        List<Tuple> expected = computeExpected("SELECT x, y FROM (SELECT orderkey x, custkey y FROM ORDERS) U", FIXED_INT_64, FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT x, y FROM (SELECT orderkey x, custkey y FROM ORDERS) U");
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+
+    @Test
+    public void testHistogram()
+            throws Exception
+    {
+        List<Tuple> expected = computeExpected("SELECT lines, COUNT(*) FROM (SELECT orderkey, COUNT(*) lines FROM lineitem GROUP BY orderkey) U GROUP BY lines", FIXED_INT_64, FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT lines, COUNT(*) FROM (SELECT orderkey, COUNT(*) lines FROM lineitem GROUP BY orderkey) U GROUP BY lines");
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+
+    private List<Tuple> computeExpected(@Language("SQL") final String sql, TupleInfo.Type... types)
     {
         TupleInfo tupleInfo = new TupleInfo(types);
         return handle.createQuery(sql)
@@ -301,17 +417,61 @@ public class TestQueries
                 .list();
     }
 
-    private static List<Tuple> tuples(Operator operator)
+    private List<Tuple> computeActual(@Language("SQL") String sql)
     {
-        assertEquals(operator.getChannelCount(), 1);
-        List<Tuple> tuples = new ArrayList<>();
+        Statement statement;
+        try {
+            statement = SqlParser.createStatement(sql);
+        }
+        catch (RecognitionException e) {
+            throw Throwables.propagate(e);
+        }
+
+        SessionMetadata sessionMetadata = new SessionMetadata(metadata);
+
+        Analyzer analyzer = new Analyzer(sessionMetadata);
+        AnalysisResult analysis = analyzer.analyze(statement);
+
+        Planner planner = new Planner();
+        PlanNode plan = planner.plan((Query) statement, analysis);
+
+        new PlanPrinter().print(plan);
+
+        ExecutionPlanner executionPlanner = new ExecutionPlanner(sessionMetadata, storage);
+        Operator operator = executionPlanner.plan(plan);
+
+        TupleInfo outputTupleInfo = ExecutionPlanner.toTupleInfo(plan.getOutputs());
+
+        ImmutableList.Builder<Tuple> output = ImmutableList.builder();
+
         for (Page page : operator) {
-            BlockCursor cursor = page.getBlock(0).cursor();
-            while (cursor.advanceNextPosition()) {
-                tuples.add(cursor.getTuple());
+            ImmutableList.Builder<BlockCursor> cursorBuilder = ImmutableList.builder();
+            for (Block block : page.getBlocks()) {
+                cursorBuilder.add(block.cursor());
+            }
+
+            List<BlockCursor> cursors = cursorBuilder.build();
+
+            boolean done = false;
+            while (!done) {
+                TupleInfo.Builder outputBuilder = outputTupleInfo.builder();
+                done = true;
+                for (BlockCursor cursor : cursors) {
+                    if (!cursor.advanceNextPosition()) {
+                        break;
+                    }
+                    done = false;
+
+                    outputBuilder.append(cursor.getTuple());
+                }
+
+                if (!done) {
+                    output.add(outputBuilder.build());
+                }
             }
         }
-        return tuples;
+
+        return output.build();
     }
 
     @SuppressWarnings("UnusedDeclaration")
@@ -325,15 +485,6 @@ public class TestQueries
                 return input.toValues();
             }
         });
-    }
-
-    private static Operator scanTable(RecordIterable records, TpchSchema.Column... columns)
-    {
-        ImmutableList.Builder<RecordProjection> projections = ImmutableList.builder();
-        for (Column column : columns) {
-            projections.add(createProjection(column.getIndex(), column.getType()));
-        }
-        return new RecordProjectOperator(records, projections.build());
     }
 
     private static void insertRows(String table, Handle handle, RecordIterable data)
@@ -435,6 +586,41 @@ public class TestQueries
                 URL url = Resources.getResource(name);
                 GZIPInputStream gzip = new GZIPInputStream(url.openStream());
                 return new InputStreamReader(gzip, Charsets.UTF_8);
+            }
+        };
+    }
+
+    private BlockIterable createBlocks(final RecordIterable data, final TpchSchema.Column column, final TupleInfo.Type type)
+    {
+        final RecordProjection projection = RecordProjections.createProjection(column.getIndex(), type);
+
+        return new BlockIterable()
+        {
+            @Override
+            public Iterator<Block> iterator()
+            {
+                return new AbstractIterator<Block>() {
+                    long position = 0;
+                    RecordIterator iterator = data.iterator();
+
+                    @Override
+                    protected Block computeNext()
+                    {
+                        BlockBuilder builder = new BlockBuilder(position, new TupleInfo(type));
+
+                        while (iterator.hasNext() && !builder.isFull()) {
+                            Record record = iterator.next();
+                            projection.project(record, builder);
+                            ++position;
+                        }
+
+                        if (builder.isEmpty()) {
+                            return endOfData();
+                        }
+
+                        return builder.build();
+                    }
+                };
             }
         };
     }
