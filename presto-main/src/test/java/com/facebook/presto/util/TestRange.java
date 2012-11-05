@@ -1,5 +1,6 @@
-package com.facebook.presto;
+package com.facebook.presto.util;
 
+import com.facebook.presto.util.Range;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 

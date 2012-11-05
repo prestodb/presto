@@ -1,6 +1,6 @@
 package com.facebook.presto.block;
 
-import com.facebook.presto.Range;
+import com.facebook.presto.util.Range;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;

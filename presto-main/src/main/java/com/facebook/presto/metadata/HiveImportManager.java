@@ -21,7 +21,7 @@ import org.skife.jdbi.v2.util.LongMapper;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-import static com.facebook.presto.RetryDriver.runWithRetry;
+import static com.facebook.presto.util.RetryDriver.runWithRetry;
 import static com.facebook.presto.ingest.HiveSchemaUtil.createColumnMetadata;
 import static com.facebook.presto.ingest.HiveSchemaUtil.getTupleType;
 import static com.google.common.base.Preconditions.checkNotNull;

@@ -53,7 +53,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.RetryDriver.runWithRetry;
+import static com.facebook.presto.util.RetryDriver.runWithRetry;
 import static com.facebook.presto.operator.ProjectionFunctions.concat;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 
