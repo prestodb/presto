@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.Tuple;
+import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.block.BlockCursor;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;

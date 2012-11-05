@@ -4,7 +4,7 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.Range;
-import com.facebook.presto.Tuples;
+import com.facebook.presto.tuple.Tuples;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockIterable;
@@ -14,8 +14,8 @@ import org.testng.annotations.Test;
 
 import java.util.Iterator;
 
-import static com.facebook.presto.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.Tuples.createTuple;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.tuple.Tuples.createTuple;
 import static com.facebook.presto.block.BlockAssertions.blockIterableBuilder;
 import static com.facebook.presto.serde.RunLengthEncodedBlockSerde.RLE_BLOCK_SERDE;
 import static io.airlift.testing.Assertions.assertInstanceOf;

@@ -1,6 +1,6 @@
 package com.facebook.presto.serde;
 
-import com.facebook.presto.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
 import com.google.common.collect.ImmutableList;

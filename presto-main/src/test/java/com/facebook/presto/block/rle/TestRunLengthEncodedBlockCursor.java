@@ -6,7 +6,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.Tuples.createTuple;
+import static com.facebook.presto.tuple.Tuples.createTuple;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static org.testng.Assert.assertFalse;
 

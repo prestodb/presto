@@ -2,8 +2,8 @@ package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.Range;
 import com.facebook.presto.SizeOf;
-import com.facebook.presto.TupleInfo;
-import com.facebook.presto.TupleInfo.Type;
+import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;

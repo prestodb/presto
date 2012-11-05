@@ -1,6 +1,6 @@
 package com.facebook.presto.operator;
 
-import com.facebook.presto.Tuple;
+import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;

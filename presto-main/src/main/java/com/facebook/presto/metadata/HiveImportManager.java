@@ -1,7 +1,7 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.Tuple;
-import com.facebook.presto.TupleInfo;
+import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.hive.HiveClient;
 import com.facebook.presto.hive.PartitionChunk;
 import com.facebook.presto.hive.SchemaField;

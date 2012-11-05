@@ -3,13 +3,13 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
+import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.serde.TupleInfoSerde.readTupleInfo;
 import static com.facebook.presto.serde.TupleInfoSerde.writeTupleInfo;
 import static org.testng.Assert.assertEquals;

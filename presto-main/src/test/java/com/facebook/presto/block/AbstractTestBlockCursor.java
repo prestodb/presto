@@ -4,8 +4,8 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.Range;
-import com.facebook.presto.Tuple;
-import com.facebook.presto.Tuples;
+import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.tuple.Tuples;
 import com.google.common.collect.ImmutableList;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;

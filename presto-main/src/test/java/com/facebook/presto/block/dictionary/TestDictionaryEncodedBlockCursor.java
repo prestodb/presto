@@ -3,13 +3,13 @@
  */
 package com.facebook.presto.block.dictionary;
 
-import com.facebook.presto.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.AbstractTestBlockCursor;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.Tuples.createTuple;
+import static com.facebook.presto.tuple.Tuples.createTuple;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static io.airlift.testing.Assertions.assertInstanceOf;
