@@ -28,12 +28,10 @@ import com.facebook.presto.noperator.FilterAndProjectOperator;
 import com.facebook.presto.noperator.FilterFunction;
 import com.facebook.presto.noperator.HashAggregationOperator;
 import com.facebook.presto.noperator.Operator;
-import com.facebook.presto.noperator.Page;
 import com.facebook.presto.noperator.ProjectionFunction;
 import com.facebook.presto.noperator.aggregation.CountAggregation;
 import com.facebook.presto.noperator.aggregation.LongSumAggregation;
-import com.facebook.presto.operator.ConsolePrinter.DelimitedTuplePrinter;
-import com.facebook.presto.operator.ConsolePrinter.TuplePrinter;
+import com.facebook.presto.noperator.ConsolePrinter;
 import com.facebook.presto.serde.FileBlocksSerde.FileEncoding;
 import com.facebook.presto.server.HttpQueryProvider;
 import com.facebook.presto.server.QueryDriversOperator;
@@ -345,20 +343,9 @@ public class Main
 
     private static void printResults(long start, Operator aggregation)
     {
-        TuplePrinter tuplePrinter = new DelimitedTuplePrinter();
-
-        int count = 0;
-        long grandTotal = 0;
-        for (Page page : aggregation) {
-            BlockCursor cursor = page.getBlock(0).cursor();
-            while (cursor.advanceNextPosition()) {
-                count++;
-                Tuple tuple = cursor.getTuple();
-                tuplePrinter.print(tuple);
-            }
-        }
+        long rows = ConsolePrinter.print(aggregation);
         Duration duration = Duration.nanosSince(start);
-        System.out.printf("%d rows in %4.2f ms %d grandTotal\n", count, duration.toMillis(), grandTotal);
+        System.out.printf("%d rows in %4.2f ms\n", rows, duration.toMillis());
     }
 
 
