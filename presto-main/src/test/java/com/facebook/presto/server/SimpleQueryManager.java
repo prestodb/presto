@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.noperator.Page;
+import com.facebook.presto.operator.Page;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
-import static com.facebook.presto.nblock.BlockAssertions.createStringsBlock;
+import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 
 @ThreadSafe
 public class SimpleQueryManager implements QueryManager

@@ -1,8 +1,8 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.noperator.aggregation.CountAggregation;
-import com.facebook.presto.noperator.aggregation.LongAverageAggregation;
-import com.facebook.presto.noperator.aggregation.LongSumAggregation;
+import com.facebook.presto.operator.aggregation.CountAggregation;
+import com.facebook.presto.operator.aggregation.LongAverageAggregation;
+import com.facebook.presto.operator.aggregation.LongSumAggregation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
