@@ -1,9 +1,12 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.operator.aggregation.CountAggregation;
-import com.facebook.presto.operator.aggregation.LongAverageAggregation;
-import com.facebook.presto.operator.aggregation.LongSumAggregation;
-import com.google.common.collect.ImmutableMap;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionStatus;
@@ -11,21 +14,16 @@ import org.skife.jdbi.v2.VoidTransactionCallback;
 
 import javax.inject.Inject;
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 
 public class DatabaseMetadata
         implements Metadata
 {
-    private static final Map<String, FunctionInfo> FUNCTIONS = ImmutableMap.<String, FunctionInfo>builder()
-            .put("COUNT", new FunctionInfo(true, CountAggregation.PROVIDER))
-            .put("SUM", new FunctionInfo(true, LongSumAggregation.PROVIDER))
-            .put("AVG", new FunctionInfo(true, LongAverageAggregation.PROVIDER))
-            .build();
-
     private final IDBI dbi;
     private final MetadataDao dao;
+    private final Multimap<QualifiedName, FunctionInfo> functions;
 
     @Inject
     public DatabaseMetadata(@ForMetadata IDBI dbi)
@@ -33,13 +31,38 @@ public class DatabaseMetadata
         this.dbi = dbi;
         this.dao = dbi.onDemand(MetadataDao.class);
         createTables();
+
+        functions = buildFunctions(
+                new FunctionInfo(QualifiedName.of("count"), true, TupleInfo.Type.FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(), null, null),
+                new FunctionInfo(QualifiedName.of("sum"), true, TupleInfo.Type.FIXED_INT_64, ImmutableList.of(TupleInfo.Type.FIXED_INT_64), null, null),
+                new FunctionInfo(QualifiedName.of("sum"), true, TupleInfo.Type.DOUBLE, ImmutableList.of(TupleInfo.Type.DOUBLE), null, null),
+                new FunctionInfo(QualifiedName.of("avg"), true, TupleInfo.Type.DOUBLE, ImmutableList.of(TupleInfo.Type.DOUBLE), null, null),
+                new FunctionInfo(QualifiedName.of("avg"), true, TupleInfo.Type.DOUBLE, ImmutableList.of(TupleInfo.Type.FIXED_INT_64), null, null)
+        );
+    }
+
+    private Multimap<QualifiedName, FunctionInfo> buildFunctions(FunctionInfo... infos)
+    {
+        return Multimaps.index(ImmutableList.copyOf(infos), new Function<FunctionInfo, QualifiedName>()
+        {
+            @Override
+            public QualifiedName apply(FunctionInfo input)
+            {
+                return input.getName();
+            }
+        });
     }
 
     @Override
-    public FunctionInfo getFunction(String name)
+    public FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes)
     {
-        checkArgument(name.equals(name.toLowerCase()), "name is not lowercase");
-        return FUNCTIONS.get(name);
+        for (FunctionInfo functionInfo : functions.get(name)) {
+            if (functionInfo.getArgumentTypes().equals(parameterTypes)) {
+                return functionInfo;
+            }
+        }
+
+        throw new IllegalArgumentException(format("Function %s(%s) not registered", name, Joiner.on(", ").join(parameterTypes)));
     }
 
     @Override
