@@ -1,15 +1,17 @@
 package com.facebook.presto.serde;
 
-import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.block.BlockUtils;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
+import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import java.util.Iterator;
 
@@ -42,7 +44,7 @@ public class SimpleBlocksSerde implements BlocksSerde
         BlocksWriter blocksWriter = createBlocksWriter(sliceOutput);
         while (blocks.hasNext()) {
             Block block = blocks.next();
-            blocksWriter.append(block);
+            blocksWriter.append(BlockUtils.toTupleIterable(block));
         }
         blocksWriter.finish();
     }
@@ -69,30 +71,21 @@ public class SimpleBlocksSerde implements BlocksSerde
         }
 
         @Override
-        public BlocksWriter append(Tuple tuple)
+        public BlocksWriter append(Iterable<Tuple> tuples)
         {
-            checkNotNull(tuple, "tuple is null");
+            checkNotNull(tuples, "tuples is null");
 
-            if (blocksWriter == null) {
-                blocksWriter = blockSerde.createBlockWriter(sliceOutput);
-                writeTupleInfo(sliceOutput, tuple.getTupleInfo());
+            if (Iterables.isEmpty(tuples)) {
+                return this;
             }
 
-            blocksWriter.append(tuple);
-            return this;
-        }
-
-        @Override
-        public BlocksWriter append(Block block)
-        {
-            checkNotNull(block, "block is null");
-
             if (blocksWriter == null) {
-                blocksWriter = blockSerde.createBlockWriter(sliceOutput);
-                writeTupleInfo(sliceOutput, block.getTupleInfo());
+                blocksWriter = blockSerde.createBlocksWriter(sliceOutput);
+                Tuple firstTuple = Iterables.get(tuples, 0);
+                writeTupleInfo(sliceOutput, firstTuple.getTupleInfo());
             }
 
-            blocksWriter.append(block);
+            blocksWriter.append(tuples);
             return this;
         }
 
