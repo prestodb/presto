@@ -1,5 +1,6 @@
 package com.facebook.presto.block;
 
+import com.facebook.presto.tuple.TupleReadable;
 import com.facebook.presto.util.Range;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
@@ -18,10 +19,12 @@ import com.facebook.presto.slice.Slice;
  * }</pre>
  */
 public interface BlockCursor
+    extends TupleReadable
 {
     /**
      * Gets the type of all tuples in this cursor
      */
+    @Override
     TupleInfo getTupleInfo();
 
     /**
@@ -66,6 +69,7 @@ public interface BlockCursor
      * @throws IllegalStateException if this cursor has not been advanced yet
      * @throws java.util.NoSuchElementException if this cursor has advanced past its last position
      */
+    @Override
     Tuple getTuple();
 
     /**
@@ -74,6 +78,7 @@ public interface BlockCursor
      * @throws IllegalStateException if this cursor has not been advanced yet
      * @throws java.util.NoSuchElementException if this cursor has advanced past its last position
      */
+    @Override
     long getLong(int field);
 
     /**
@@ -82,6 +87,7 @@ public interface BlockCursor
      * @throws IllegalStateException if this cursor has not been advanced yet
      * @throws java.util.NoSuchElementException if this cursor has advanced past its last position
      */
+    @Override
     double getDouble(int field);
 
     /**
@@ -90,6 +96,7 @@ public interface BlockCursor
      * @throws IllegalStateException if this cursor has not been advanced yet
      * @throws java.util.NoSuchElementException if this cursor has advanced past its last position
      */
+    @Override
     Slice getSlice(int field);
 
     /**
