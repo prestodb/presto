@@ -1,6 +1,5 @@
 package com.facebook.presto.sql.tree;
 
-import com.facebook.presto.sql.compiler.Schema;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 
@@ -12,15 +11,11 @@ public class TreePrinter
     private static final String INDENT = "   ";
 
     private final IdentityHashMap<QualifiedNameReference, QualifiedName> resolvedNameReferences;
-    private final IdentityHashMap<Node, Schema> outputSchemas;
     private final PrintStream out;
 
-    public TreePrinter(IdentityHashMap<QualifiedNameReference, QualifiedName> resolvedNameReferences,
-            IdentityHashMap<Node, Schema> outputSchemas,
-            PrintStream out)
+    public TreePrinter(IdentityHashMap<QualifiedNameReference, QualifiedName> resolvedNameReferences, PrintStream out)
     {
         this.resolvedNameReferences = new IdentityHashMap<>(resolvedNameReferences);
-        this.outputSchemas = new IdentityHashMap<>(outputSchemas);
         this.out = out;
     }
 
@@ -37,7 +32,7 @@ public class TreePrinter
             @Override
             protected Void visitQuery(Query node, Integer indentLevel)
             {
-                print(indentLevel, "Query " + outputSchemas.get(node));
+                print(indentLevel, "Query ");
 
                 indentLevel++;
                 process(node.getSelect(), indentLevel);
@@ -186,7 +181,7 @@ public class TreePrinter
             protected Void visitTable(Table node, Integer indentLevel)
             {
                 String name = Joiner.on('.').join(node.getName().getParts());
-                print(indentLevel, "Table[" + name + "] " + outputSchemas.get(node));
+                print(indentLevel, "Table[" + name + "]");
 
                 return null;
             }
@@ -194,7 +189,7 @@ public class TreePrinter
             @Override
             protected Void visitAliasedRelation(AliasedRelation node, Integer indentLevel)
             {
-                print(indentLevel, "Alias[" + node.getAlias() + "] " + outputSchemas.get(node));
+                print(indentLevel, "Alias[" + node.getAlias() + "]");
 
                 super.visitAliasedRelation(node, indentLevel + 1);
 
@@ -214,7 +209,7 @@ public class TreePrinter
             @Override
             protected Void visitSubquery(Subquery node, Integer indentLevel)
             {
-                print(indentLevel, "SubQuery " + outputSchemas.get(node));
+                print(indentLevel, "SubQuery");
 
                 super.visitSubquery(node, indentLevel + 1);
 
@@ -234,7 +229,7 @@ public class TreePrinter
             @Override
             protected Void visitSubqueryExpression(SubqueryExpression node, Integer indentLevel)
             {
-                print(indentLevel, "SubQuery " + outputSchemas.get(node));
+                print(indentLevel, "SubQuery");
 
                 super.visitSubqueryExpression(node, indentLevel + 1);
 
