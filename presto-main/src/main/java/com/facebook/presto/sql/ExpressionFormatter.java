@@ -50,7 +50,7 @@ public class ExpressionFormatter
         @Override
         protected String visitExpression(Expression node, Void context)
         {
-            throw new UnsupportedOperationException("not yet implemented");
+            throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
 
         @Override
