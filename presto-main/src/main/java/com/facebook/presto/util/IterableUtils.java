@@ -1,4 +1,4 @@
-package com.facebook.presto.sql.compiler;
+package com.facebook.presto.util;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
