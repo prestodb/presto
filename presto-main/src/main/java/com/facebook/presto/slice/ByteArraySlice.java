@@ -27,10 +27,10 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.util.Arrays;
 
-import static com.facebook.presto.SizeOf.SIZE_OF_BYTE;
-import static com.facebook.presto.SizeOf.SIZE_OF_INT;
-import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
-import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_BYTE;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_INT;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_SHORT;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static java.lang.Math.min;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;

@@ -24,11 +24,11 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.ScatteringByteChannel;
 import java.nio.charset.Charset;
 
-import static com.facebook.presto.SizeOf.SIZE_OF_BYTE;
-import static com.facebook.presto.SizeOf.SIZE_OF_DOUBLE;
-import static com.facebook.presto.SizeOf.SIZE_OF_INT;
-import static com.facebook.presto.SizeOf.SIZE_OF_LONG;
-import static com.facebook.presto.SizeOf.SIZE_OF_SHORT;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_BYTE;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_DOUBLE;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_INT;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_SHORT;
 
 public class DynamicSliceOutput extends SliceOutput
 {
