@@ -3,16 +3,15 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.util.Range;
-import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
+import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.util.Range;
 import com.google.common.base.Preconditions;
 import io.airlift.units.DataSize;
 
@@ -27,7 +26,7 @@ public class UncompressedBlockSerde
     public static final UncompressedBlockSerde UNCOMPRESSED_BLOCK_SERDE = new UncompressedBlockSerde();
 
     @Override
-    public BlocksWriter createBlockWriter(SliceOutput sliceOutput)
+    public BlocksWriter createBlocksWriter(SliceOutput sliceOutput)
     {
         return new UncompressedBlocksWriter(sliceOutput);
     }
@@ -81,38 +80,17 @@ public class UncompressedBlockSerde
         }
 
         @Override
-        public BlocksWriter append(Tuple tuple)
+        public BlocksWriter append(Iterable<Tuple> tuples)
         {
-            Preconditions.checkNotNull(tuple, "tuple is null");
+            Preconditions.checkNotNull(tuples, "tuples is null");
             checkState(!finished, "already finished");
 
             if (!initialized) {
                 initialized = true;
             }
 
-            tuple.writeTo(buffer);
-            tupleCount++;
-
-            if (buffer.size() >= MAX_BLOCK_SIZE) {
-                writeBlock();
-            }
-
-            return this;
-        }
-
-        @Override
-        public BlocksWriter append(Block block)
-        {
-            Preconditions.checkNotNull(block, "block is null");
-            checkState(!finished, "already finished");
-
-            if (!initialized) {
-                initialized = true;
-            }
-
-            BlockCursor cursor = block.cursor();
-            while (cursor.advanceNextPosition()) {
-                cursor.getTuple().writeTo(buffer);
+            for (Tuple tuple : tuples) {
+                tuple.writeTo(buffer);
                 tupleCount++;
 
                 if (buffer.size() >= MAX_BLOCK_SIZE) {

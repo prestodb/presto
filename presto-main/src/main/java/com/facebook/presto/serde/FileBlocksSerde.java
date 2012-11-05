@@ -1,23 +1,24 @@
 package com.facebook.presto.serde;
 
-import com.facebook.presto.slice.SizeOf;
-import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.serde.FileBlocksSerde.StatsCollector.Stats;
+import com.facebook.presto.slice.SizeOf;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
+import com.facebook.presto.tuple.Tuple;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.block.BlockUtils.toTupleIterable;
 import static com.facebook.presto.serde.RunLengthEncodedBlockSerde.RLE_BLOCK_SERDE;
 import static com.facebook.presto.serde.UncompressedBlockSerde.UNCOMPRESSED_BLOCK_SERDE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -96,7 +97,7 @@ public final class FileBlocksSerde
         checkNotNull(sliceOutput, "sliceOutput is null");
         BlocksWriter blocksWriter = createBlocksWriter(encoding, sliceOutput);
         while (blocks.hasNext()) {
-            blocksWriter.append(blocks.next());
+            blocksWriter.append(toTupleIterable(blocks.next()));
         }
         blocksWriter.finish();
     }
@@ -123,30 +124,18 @@ public final class FileBlocksSerde
         }
 
         @Override
-        public BlocksWriter append(Tuple tuple)
+        public BlocksWriter append(Iterable<Tuple> tuples)
         {
-            Preconditions.checkNotNull(tuple, "tuple is null");
-            if (blocksWriter == null) {
-                // write header
-                sliceOutput.writeByte(encoding.getId());
-                blocksWriter = encoding.createBlocksWriter(sliceOutput);
+            Preconditions.checkNotNull(tuples, "tuples is null");
+            if (!Iterables.isEmpty(tuples)) {
+                if (blocksWriter == null) {
+                    // write header
+                    sliceOutput.writeByte(encoding.getId());
+                    blocksWriter = encoding.createBlocksWriter(sliceOutput);
+                }
+                statsCollector.process(tuples);
+                blocksWriter.append(tuples);
             }
-            statsCollector.process(tuple);
-            blocksWriter.append(tuple);
-            return this;
-        }
-
-        @Override
-        public BlocksWriter append(Block block)
-        {
-            Preconditions.checkNotNull(block, "block is null");
-            if (blocksWriter == null) {
-                // write header
-                sliceOutput.writeByte(encoding.getId());
-                blocksWriter = encoding.createBlocksWriter(sliceOutput);
-            }
-            statsCollector.process(block);
-            blocksWriter.append(block);
             return this;
         }
 
@@ -278,57 +267,30 @@ public final class FileBlocksSerde
         private long rowCount;
         private long runsCount;
         private Tuple lastTuple;
-        private long minPosition = Long.MAX_VALUE;
-        private long maxPosition = -1;
         private final Set<Tuple> set = new HashSet<>(MAX_UNIQUE_COUNT);
         private boolean finished = false;
 
-        public void process(Tuple tuple)
+        public void process(Iterable<Tuple> tuples)
         {
-            Preconditions.checkNotNull(tuple, "tuple is null");
+            Preconditions.checkNotNull(tuples, "tuples is null");
             Preconditions.checkState(!finished, "already finished");
 
-            if (lastTuple == null) {
-                lastTuple = tuple;
-                if (set.size() < MAX_UNIQUE_COUNT) {
-                    set.add(lastTuple);
-                }
-            }
-            else if (!tuple.equals(lastTuple)) {
-                runsCount++;
-                lastTuple = tuple;
-                if (set.size() < MAX_UNIQUE_COUNT) {
-                    set.add(lastTuple);
-                }
-            }
-            rowCount++;
-        }
-
-        public void process(Block block)
-        {
-            Preconditions.checkNotNull(block, "block is null");
-            Preconditions.checkState(!finished, "already finished");
-
-            BlockCursor cursor = block.cursor();
-            while (cursor.advanceNextPosition()) {
+            for (Tuple tuple : tuples) {
                 if (lastTuple == null) {
-                    lastTuple = cursor.getTuple();
+                    lastTuple = tuple;
                     if (set.size() < MAX_UNIQUE_COUNT) {
                         set.add(lastTuple);
                     }
                 }
-                else if (!cursor.currentTupleEquals(lastTuple)) {
+                else if (!tuple.equals(lastTuple)) {
                     runsCount++;
-                    lastTuple = cursor.getTuple();
+                    lastTuple = tuple;
                     if (set.size() < MAX_UNIQUE_COUNT) {
                         set.add(lastTuple);
                     }
                 }
+                rowCount++;
             }
-
-            minPosition = Math.min(minPosition, block.getRange().getStart());
-            maxPosition = Math.max(maxPosition, block.getRange().getEnd());
-            rowCount += block.getPositionCount();
         }
 
         public void finished()
@@ -339,24 +301,20 @@ public final class FileBlocksSerde
         public Stats getStats()
         {
             // TODO: expose a way to indicate whether the unique count is EXACT or APPROXIMATE
-            return new Stats(rowCount, runsCount + 1, minPosition, maxPosition, rowCount / (runsCount + 1), (set.size() == MAX_UNIQUE_COUNT) ? Integer.MAX_VALUE : set.size());
+            return new Stats(rowCount, runsCount + 1, rowCount / (runsCount + 1), (set.size() == MAX_UNIQUE_COUNT) ? Integer.MAX_VALUE : set.size());
         }
 
         public static class Stats
         {
             private final long rowCount;
             private final long runsCount;
-            private final long minPosition;
-            private final long maxPosition;
             private final long avgRunLength;
             private final int uniqueCount;
 
-            public Stats(long rowCount, long runsCount, long minPosition, long maxPosition, long avgRunLength, int uniqueCount)
+            public Stats(long rowCount, long runsCount, long avgRunLength, int uniqueCount)
             {
                 this.rowCount = rowCount;
                 this.runsCount = runsCount;
-                this.minPosition = minPosition;
-                this.maxPosition = maxPosition;
                 this.avgRunLength = avgRunLength;
                 this.uniqueCount = uniqueCount;
             }
@@ -366,8 +324,6 @@ public final class FileBlocksSerde
                 // TODO: add a better way of serializing the stats that is less fragile
                 sliceOutput.appendLong(stats.getRowCount())
                         .appendLong(stats.getRunsCount())
-                        .appendLong(stats.getMinPosition())
-                        .appendLong(stats.getMaxPosition())
                         .appendLong(stats.getAvgRunLength())
                         .appendInt(stats.getUniqueCount());
             }
@@ -377,11 +333,9 @@ public final class FileBlocksSerde
                 SliceInput input = slice.getInput();
                 long rowCount = input.readLong();
                 long runsCount = input.readLong();
-                long minPosition = input.readLong();
-                long maxPosition = input.readLong();
                 long avgRunLength = input.readLong();
                 int uniqueCount = input.readInt();
-                return new Stats(rowCount, runsCount, minPosition, maxPosition, avgRunLength, uniqueCount);
+                return new Stats(rowCount, runsCount,  avgRunLength, uniqueCount);
             }
 
             public long getRowCount()
@@ -392,16 +346,6 @@ public final class FileBlocksSerde
             public long getRunsCount()
             {
                 return runsCount;
-            }
-
-            public long getMinPosition()
-            {
-                return minPosition;
-            }
-
-            public long getMaxPosition()
-            {
-                return maxPosition;
             }
 
             public long getAvgRunLength()

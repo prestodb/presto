@@ -3,15 +3,14 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.util.Range;
-import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
+import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.util.Range;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -22,7 +21,7 @@ public class RunLengthEncodedBlockSerde
     public static final RunLengthEncodedBlockSerde RLE_BLOCK_SERDE = new RunLengthEncodedBlockSerde();
 
     @Override
-    public BlocksWriter createBlockWriter(SliceOutput sliceOutput)
+    public BlocksWriter createBlocksWriter(SliceOutput sliceOutput)
     {
         return new RunLengthEncodedBlocksWriter(sliceOutput);
     }
@@ -78,62 +77,29 @@ public class RunLengthEncodedBlockSerde
         }
 
         @Override
-        public BlocksWriter append(Tuple tuple)
+        public BlocksWriter append(Iterable<Tuple> tuples)
         {
-            checkNotNull(tuple, "tuple is null");
+            checkNotNull(tuples, "tuples is null");
             checkState(!finished, "already finished");
 
             if (!initialized) {
                 initialized = true;
             }
 
-            if (lastTuple == null) {
-                startPosition = 0;
-                tupleCount = 1;
-                lastTuple = tuple;
-            }
-            else {
-                if (!tuple.equals(lastTuple)) {
-                    writeRunLengthEncodedBlock(sliceOutput,
-                            startPosition,
-                            tupleCount,
-                            lastTuple);
-
-                    lastTuple = tuple;
-                    startPosition += tupleCount;
-                    tupleCount = 0;
-                }
-                tupleCount++;
-            }
-
-            return this;
-        }
-
-        @Override
-        public BlocksWriter append(Block block)
-        {
-            checkNotNull(block, "block is null");
-            checkState(!finished, "already finished");
-
-            if (!initialized) {
-                initialized = true;
-            }
-
-            BlockCursor cursor = block.cursor();
-            while (cursor.advanceNextPosition()) {
+            for (Tuple tuple : tuples) {
                 if (lastTuple == null) {
                     startPosition = 0;
                     tupleCount = 1;
-                    lastTuple = cursor.getTuple();
+                    lastTuple = tuple;
                 }
                 else {
-                    if (!cursor.currentTupleEquals(lastTuple)) {
+                    if (!tuple.equals(lastTuple)) {
                         writeRunLengthEncodedBlock(sliceOutput,
                                 startPosition,
                                 tupleCount,
                                 lastTuple);
 
-                        lastTuple = cursor.getTuple();
+                        lastTuple = tuple;
                         startPosition += tupleCount;
                         tupleCount = 0;
                     }

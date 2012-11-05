@@ -13,6 +13,8 @@ import com.google.common.collect.ImmutableList;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.facebook.presto.block.BlockUtils.toTupleIterable;
+
 public class ImportingOperator implements Operator
 {
     public static long importData(Operator source, BlockWriterFactory... blockWriterFactories)
@@ -82,7 +84,7 @@ public class ImportingOperator implements Operator
                 Block[] blocks = page.getBlocks();
                 for (int i = 0; i < blocks.length; i++) {
                     Block block = blocks[i];
-                    writers.get(i).append(block);
+                    writers.get(i).append(toTupleIterable(block));
                 }
 
                 return page;
