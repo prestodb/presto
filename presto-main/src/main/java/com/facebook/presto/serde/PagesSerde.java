@@ -5,6 +5,7 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.TupleInfo;
 import com.facebook.presto.nblock.Block;
+import com.facebook.presto.nblock.uncompressed.UncompressedBlock;
 import com.facebook.presto.noperator.Page;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
@@ -43,7 +44,7 @@ public final class PagesSerde
                     sliceOutput.writeInt(blocks.length);
                     for (int i = 0; i < blocks.length; i++) {
                         Block block = blocks[i];
-                        BlockSerde blockSerde = BlockSerdes.getSerdeForBlock(block);
+                        BlockSerde blockSerde = getSerdeForBlock(block);
                         blockSerdes[i] = blockSerde;
 
                         BlockSerdeSerde.writeBlockSerde(sliceOutput, blockSerde);
@@ -64,6 +65,17 @@ public final class PagesSerde
             {
             }
         };
+    }
+
+    private static BlockSerde getSerdeForBlock(Block block)
+    {
+        BlockSerde blockSerde;
+        if (block instanceof UncompressedBlock) {
+            blockSerde = new UncompressedBlockSerde();
+        } else {
+            throw new IllegalArgumentException("Unsupported block type " + block.getClass().getSimpleName());
+        }
+        return blockSerde;
     }
 
     public static void writePages(SliceOutput sliceOutput, Page... pages)

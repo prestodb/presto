@@ -8,10 +8,10 @@ import com.facebook.presto.nblock.BlockIterable;
 import com.facebook.presto.nblock.BlockUtils;
 import com.facebook.presto.noperator.AlignmentOperator;
 import com.facebook.presto.noperator.Operator;
-import com.facebook.presto.serde.BlockSerdes;
-import com.facebook.presto.serde.StatsCollectingBlocksSerde;
-import com.facebook.presto.serde.StatsCollectingBlocksSerde.StatsCollector.Stats;
-import com.facebook.presto.serde.UncompressedBlockSerde;
+import com.facebook.presto.serde.FileBlocksSerde;
+import com.facebook.presto.serde.FileBlocksSerde.FileBlockIterable;
+import com.facebook.presto.serde.FileBlocksSerde.FileEncoding;
+import com.facebook.presto.serde.FileBlocksSerde.StatsCollector;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Function;
@@ -109,11 +109,11 @@ public class DatabaseStorageManager
         ImmutableList.Builder<File> outputFilesBuilder = ImmutableList.builder();
         ImmutableList.Builder<BlockWriterFactory> writersBuilder = ImmutableList.builder();
         for (int channel = 0; channel < source.getChannelCount(); channel++) {
-            File outputFile = new File(createNewFileName(baseStagingDir, databaseName, tableName, shardId, channel, BlockSerdes.Encoding.RAW));
+            File outputFile = new File(createNewFileName(baseStagingDir, databaseName, tableName, shardId, channel, FileEncoding.RAW));
             Files.createParentDirs(outputFile);
 
             outputFilesBuilder.add(outputFile);
-            writersBuilder.add(new SerdeBlockWriterFactory(UncompressedBlockSerde.UNCOMPRESSED_BLOCK_SERDE, Files.newOutputStreamSupplier(outputFile)));
+            writersBuilder.add(new SerdeBlockWriterFactory(FileEncoding.RAW, Files.newOutputStreamSupplier(outputFile)));
         }
         List<File> outputFiles = outputFilesBuilder.build();
         List<BlockWriterFactory> writers = writersBuilder.build();
@@ -134,12 +134,13 @@ public class DatabaseStorageManager
             Slice slice = mappedFileCache.getUnchecked(stagedFile.getAbsolutePath());
 
             // Compute optimal encoding from stats
-            Stats stats = StatsCollectingBlocksSerde.readStats(slice);
+            FileBlockIterable blocks = FileBlocksSerde.readBlocks(slice);
+            StatsCollector.Stats stats = blocks.getStats();
             boolean rleEncode = stats.getAvgRunLength() > RUN_LENGTH_AVERAGE_CUTOFF;
             boolean dicEncode = stats.getUniqueCount() < DICTIONARY_CARDINALITY_CUTOFF;
 
             // TODO: only need to operate with encodings because want to see names, later we can be smarter when there is a metastore
-            BlockSerdes.Encoding encoding = BlockSerdes.Encoding.RAW;
+            FileEncoding encoding = FileEncoding.RAW;
 //            if (dicEncode && rleEncode) {
 //                encoding = BlockSerdes.Encoding.DICTIONARY_RLE;
 //            }
@@ -157,13 +158,13 @@ public class DatabaseStorageManager
             Files.createParentDirs(outputFile);
             optimizedFilesBuilder.add(outputFile);
 
-            if (encoding == BlockSerdes.Encoding.RAW) {
+            if (encoding == FileEncoding.RAW) {
                 // Should already be raw, so just move
                 Files.move(stagedFiles.get(channel), outputFile);
             }
             else {
-                sourcesBuilder.add(StatsCollectingBlocksSerde.readBlocks(slice));
-                writersBuilder.add(new SerdeBlockWriterFactory(encoding.createSerde(), Files.newOutputStreamSupplier(outputFile)));
+                sourcesBuilder.add(blocks);
+                writersBuilder.add(new SerdeBlockWriterFactory(encoding, Files.newOutputStreamSupplier(outputFile)));
             }
         }
         List<BlockIterable> sources = sourcesBuilder.build();
@@ -176,7 +177,7 @@ public class DatabaseStorageManager
         return optimizedFilesBuilder.build();
     }
 
-    private String createNewFileName(File baseDir, String databaseName, String tableName, long shardId, int fieldIndex, BlockSerdes.Encoding encoding)
+    private String createNewFileName(File baseDir, String databaseName, String tableName, long shardId, int fieldIndex, FileEncoding encoding)
     {
         return baseDir.getAbsolutePath() + "/" + databaseName + "/" + tableName + "/" + fieldIndex + "/" + shardId + "." + encoding.getName() + ".shard";
     }
@@ -309,8 +310,8 @@ public class DatabaseStorageManager
              public Iterable<? extends Block> apply(File file)
              {
                  Slice slice = mappedFileCache.getUnchecked(file.getAbsolutePath().replace("/Users/dain/work/fb/presto/", ""));
-                 BlockIterable blocks = StatsCollectingBlocksSerde.readBlocks(slice, startPosition);
-                 long rowCount = StatsCollectingBlocksSerde.readStats(slice).getRowCount();
+                 FileBlockIterable blocks = FileBlocksSerde.readBlocks(slice, startPosition);
+                 long rowCount = blocks.getStats().getRowCount();
                  startPosition += rowCount;
                  return blocks;
              }

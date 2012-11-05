@@ -4,7 +4,7 @@ import com.facebook.presto.ingest.DelimitedRecordIterable;
 import com.facebook.presto.ingest.ImportingOperator;
 import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.ingest.SerdeBlockWriterFactory;
-import com.facebook.presto.serde.BlockSerde;
+import com.facebook.presto.serde.FileBlocksSerde.FileEncoding;
 import com.facebook.presto.tpch.TpchSchema.Column;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
@@ -122,16 +122,15 @@ public class GeneratingTpchDataProvider
     }
 
     @Override
-    public File getColumnFile(Column column, BlockSerde blockSerde, String serdeName)
+    public File getColumnFile(Column column, FileEncoding encoding)
     {
         checkNotNull(column, "column is null");
-        checkNotNull(blockSerde, "blockSerde is null");
-        checkNotNull(serdeName, "serdeName is null");
+        checkNotNull(encoding, "encoding is null");
 
         try {
             String hash = ByteStreams.hash(tableInputSupplierFactory.getInputSupplier(column.getTable().getName()), Hashing.md5()).toString();
 
-            File cachedFile = new File(new File(cacheDirectory, column.getTable().getName() + "-" + hash), "new-" + createFileName(column, serdeName));
+            File cachedFile = new File(new File(cacheDirectory, column.getTable().getName() + "-" + hash), "new-" + createFileName(column, encoding.getName()));
             if (cachedFile.exists()) {
                 return cachedFile;
             }
@@ -146,7 +145,7 @@ public class GeneratingTpchDataProvider
             );
             RecordProjectOperator source = new RecordProjectOperator(records, createProjection(column.getIndex(), column.getType()));
 
-            ImportingOperator.importData(source, new SerdeBlockWriterFactory(blockSerde, newOutputStreamSupplier(cachedFile)));
+            ImportingOperator.importData(source, new SerdeBlockWriterFactory(encoding, newOutputStreamSupplier(cachedFile)));
 
             return cachedFile;
         }

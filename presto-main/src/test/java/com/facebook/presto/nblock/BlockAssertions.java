@@ -31,6 +31,28 @@ public class BlockAssertions
         assertFalse(expectedIterator.hasNext());
     }
 
+    public static List<List<Object>> toValues(BlockIterable blocks)
+    {
+        ImmutableList.Builder<List<Object>> values = ImmutableList.builder();
+        for (Block block : blocks) {
+            BlockCursor cursor = block.cursor();
+            while (cursor.advanceNextPosition()) {
+                values.add(cursor.getTuple().toValues());
+            }
+        }
+        return values.build();
+    }
+
+    public static List<List<Object>> toValues(Block block)
+    {
+        ImmutableList.Builder<List<Object>> values = ImmutableList.builder();
+        BlockCursor cursor = block.cursor();
+        while (cursor.advanceNextPosition()) {
+            values.add(cursor.getTuple().toValues());
+        }
+        return values.build();
+    }
+
     public static void assertBlockEquals(Block actual, Block expected)
     {
         Assert.assertEquals(actual.getTupleInfo(), expected.getTupleInfo());
@@ -60,7 +82,7 @@ public class BlockAssertions
     {
         ImmutableList.Builder<Tuple> tuples = ImmutableList.builder();
         BlockCursor actualCursor = Block.cursor();
-        while(actualCursor.advanceNextPosition()) {
+        while (actualCursor.advanceNextPosition()) {
             tuples.add(actualCursor.getTuple());
         }
         return tuples.build();
@@ -161,15 +183,18 @@ public class BlockAssertions
         return builder.build();
     }
 
-    public static BlockIterableBuilder blockIterableBuilder(Type... types) {
+    public static BlockIterableBuilder blockIterableBuilder(Type... types)
+    {
         return new BlockIterableBuilder(0, new TupleInfo(types));
     }
 
-    public static BlockIterableBuilder blockIterableBuilder(TupleInfo tupleInfo) {
+    public static BlockIterableBuilder blockIterableBuilder(TupleInfo tupleInfo)
+    {
         return new BlockIterableBuilder(0, tupleInfo);
     }
 
-    public static BlockIterableBuilder blockIterableBuilder(int startPosition, TupleInfo tupleInfo) {
+    public static BlockIterableBuilder blockIterableBuilder(int startPosition, TupleInfo tupleInfo)
+    {
         return new BlockIterableBuilder(startPosition, tupleInfo);
     }
 
@@ -229,7 +254,8 @@ public class BlockAssertions
             return this;
         }
 
-        public BlockIterable build() {
+        public BlockIterable build()
+        {
             newBlock();
             return createBlockIterable(blocks);
         }

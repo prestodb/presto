@@ -72,8 +72,6 @@ public class TestQueryResourceServer
                     {
                         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
                         binder.bind(QueryManager.class).to(SimpleQueryManager.class).in(Scopes.SINGLETON);
-                        binder.bind(BlockMapper.class).in(Scopes.SINGLETON);
-                        binder.bind(BlocksMapper.class).in(Scopes.SINGLETON);
                         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
                     }
                 },

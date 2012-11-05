@@ -34,7 +34,7 @@ import com.facebook.presto.noperator.aggregation.CountAggregation;
 import com.facebook.presto.noperator.aggregation.LongSumAggregation;
 import com.facebook.presto.operator.ConsolePrinter.DelimitedTuplePrinter;
 import com.facebook.presto.operator.ConsolePrinter.TuplePrinter;
-import com.facebook.presto.serde.UncompressedBlockSerde;
+import com.facebook.presto.serde.FileBlocksSerde.FileEncoding;
 import com.facebook.presto.server.HttpQueryProvider;
 import com.facebook.presto.server.QueryDriversOperator;
 import com.facebook.presto.server.ServerMainModule;
@@ -499,7 +499,7 @@ public class Main
                     type = schema.get(index);
                 }
                 recordProjectionBuilder.add(RecordProjections.createProjection(index, type));
-                writersBuilder.add(new SerdeBlockWriterFactory(UncompressedBlockSerde.UNCOMPRESSED_BLOCK_SERDE, outputSuppliers.get(index)));
+                writersBuilder.add(new SerdeBlockWriterFactory(FileEncoding.RAW, outputSuppliers.get(index)));
             }
             List<RecordProjection> recordProjections = recordProjectionBuilder.build();
             List<BlockWriterFactory> writers = writersBuilder.build();

@@ -58,9 +58,10 @@ public class TestRunLengthEncodedBlockSerde
                 .append("charlie")
                 .build();
 
+        SimpleBlocksSerde blocksSerde = new SimpleBlocksSerde(RLE_BLOCK_SERDE);
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        BlocksSerde.writeBlocks(sliceOutput, RLE_BLOCK_SERDE, blocks);
-        BlockIterable actualBlocks = BlocksSerde.readBlocks(sliceOutput.slice());
+        blocksSerde.writeBlocks(sliceOutput, blocks);
+        BlockIterable actualBlocks = blocksSerde.createBlocksReader(sliceOutput.slice(), 0);
         Iterator<Block> blockIterator = actualBlocks.iterator();
 
         assertTrue(blockIterator.hasNext());
