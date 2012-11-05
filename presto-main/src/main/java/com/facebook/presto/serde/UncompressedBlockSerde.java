@@ -14,10 +14,7 @@ import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import io.airlift.units.DataSize;
-
-import java.io.IOException;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -135,13 +132,6 @@ public class UncompressedBlockSerde
 
             if (buffer.size() > 0) {
                 writeBlock();
-            }
-            // todo this code did not open the stream so it shouldn't be closing it
-            try {
-                sliceOutput.close();
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
             }
         }
 

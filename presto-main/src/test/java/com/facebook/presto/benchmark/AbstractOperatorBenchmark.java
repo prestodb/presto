@@ -4,17 +4,18 @@ import com.facebook.presto.nblock.BlockCursor;
 import com.facebook.presto.nblock.BlockIterable;
 import com.facebook.presto.noperator.Operator;
 import com.facebook.presto.noperator.Page;
-import com.facebook.presto.serde.BlockSerdes.Encoding;
-import com.facebook.presto.serde.StatsCollectingBlocksSerde;
-import com.facebook.presto.serde.StatsCollectingBlocksSerde.StatsCollector.Stats;
+import com.facebook.presto.serde.FileBlocksSerde.FileEncoding;
+import com.facebook.presto.serde.FileBlocksSerde;
+import com.facebook.presto.serde.FileBlocksSerde.FileBlockIterable;
+import com.facebook.presto.serde.FileBlocksSerde.StatsCollector.Stats;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tpch.CachingTpchDataProvider;
 import com.facebook.presto.tpch.GeneratingTpchDataProvider;
 import com.facebook.presto.tpch.MetricRecordingTpchDataProvider;
+import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchDataProvider;
 import com.facebook.presto.tpch.TpchSchema.Column;
-import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -114,15 +115,16 @@ public abstract class AbstractOperatorBenchmark
         }
 
         @Override
-        public BlockIterable getBlocks(Column column, Encoding encoding)
+        public BlockIterable getBlocks(Column column, FileEncoding encoding)
         {
             checkNotNull(column, "column is null");
             checkNotNull(encoding, "encoding is null");
             try {
-                File columnFile = tpchDataProvider.getColumnFile(column, encoding.createSerde(), encoding.getName());
+                File columnFile = tpchDataProvider.getColumnFile(column, encoding);
                 Slice slice = Slices.mapFileReadOnly(columnFile);
-                statsBuilder.add(StatsCollectingBlocksSerde.readStats(slice));
-                return StatsCollectingBlocksSerde.readBlocks(slice);
+                FileBlockIterable blocks = FileBlocksSerde.readBlocks(slice);
+                statsBuilder.add(blocks.getStats());
+                return blocks;
             } catch (IOException e) {
                 throw Throwables.propagate(e);
             }

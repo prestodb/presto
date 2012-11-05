@@ -3,7 +3,7 @@ package com.facebook.presto.ingest;
 import com.facebook.presto.Main;
 import com.facebook.presto.nblock.BlockAssertions;
 import com.facebook.presto.nblock.BlockIterable;
-import com.facebook.presto.serde.StatsCollectingBlocksSerde;
+import com.facebook.presto.serde.FileBlocksSerde;
 import com.facebook.presto.slice.Slices;
 import com.google.common.io.Resources;
 import io.airlift.testing.FileUtils;
@@ -108,7 +108,7 @@ public class TestCsv
             throws IOException
     {
         File file = new File(outDir, "column" + columnNumber + "." + dataType.replace(':', '_') + ".data");
-        return StatsCollectingBlocksSerde.readBlocks(Slices.mapFileReadOnly(file));
+        return FileBlocksSerde.readBlocks(Slices.mapFileReadOnly(file));
     }
 
     private static String resourceFile(String resourceName)

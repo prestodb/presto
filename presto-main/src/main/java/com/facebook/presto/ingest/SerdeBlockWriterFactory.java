@@ -3,9 +3,9 @@
  */
 package com.facebook.presto.ingest;
 
-import com.facebook.presto.serde.BlockSerde;
 import com.facebook.presto.serde.BlocksWriter;
-import com.facebook.presto.serde.StatsCollectingBlocksSerde;
+import com.facebook.presto.serde.FileBlocksSerde;
+import com.facebook.presto.serde.FileBlocksSerde.FileEncoding;
 import com.facebook.presto.slice.OutputStreamSliceOutput;
 import com.facebook.presto.slice.SliceOutput;
 import com.google.common.base.Preconditions;
@@ -17,15 +17,15 @@ import java.io.OutputStream;
 
 public class SerdeBlockWriterFactory implements BlockWriterFactory
 {
-    private final BlockSerde blockSerde;
+    private final FileEncoding fileEncoding;
     private final OutputSupplier<? extends OutputStream> outputSupplier;
 
-    public SerdeBlockWriterFactory(BlockSerde blockSerde, OutputSupplier<? extends OutputStream> outputSupplier)
+    public SerdeBlockWriterFactory(FileEncoding encoding, OutputSupplier<? extends OutputStream> outputSupplier)
     {
-        Preconditions.checkNotNull(blockSerde, "blockSerde is null");
+        Preconditions.checkNotNull(encoding, "encoding is null");
         Preconditions.checkNotNull(outputSupplier, "outputSupplier is null");
 
-        this.blockSerde = blockSerde;
+        this.fileEncoding = encoding;
         this.outputSupplier = outputSupplier;
     }
 
@@ -39,7 +39,7 @@ public class SerdeBlockWriterFactory implements BlockWriterFactory
             } else {
                 sliceOutput = new OutputStreamSliceOutput(outputStream);
             }
-            return StatsCollectingBlocksSerde.createBlocksWriter(sliceOutput, blockSerde);
+            return FileBlocksSerde.createBlocksWriter(fileEncoding, sliceOutput);
         }
         catch (IOException e) {
             throw Throwables.propagate(e);

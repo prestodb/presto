@@ -1,6 +1,6 @@
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.serde.BlockSerde;
+import com.facebook.presto.serde.FileBlocksSerde.FileEncoding;
 import com.facebook.presto.tpch.TpchSchema.Column;
 import com.google.common.base.Preconditions;
 
@@ -22,17 +22,16 @@ public class CachingTpchDataProvider
     }
 
     @Override
-    public File getColumnFile(Column column, BlockSerde blockSerde, String serdeName)
+    public File getColumnFile(Column column, FileEncoding encoding)
     {
         Preconditions.checkNotNull(column, "column is null");
-        Preconditions.checkNotNull(blockSerde, "blockSerde is null");
-        Preconditions.checkNotNull(serdeName, "serdeName is null");
+        Preconditions.checkNotNull(encoding, "encoding is null");
 
         // Hack: Use the serdeName as the unique identifier of the serializer
-        TpchColumnRequest columnRequest = new TpchColumnRequest(column, serdeName);
+        TpchColumnRequest columnRequest = new TpchColumnRequest(column, encoding.getName());
         File file = localFileCache.get(columnRequest);
         if (file == null) {
-            file = delegate.getColumnFile(column, blockSerde, serdeName);
+            file = delegate.getColumnFile(column, encoding);
             localFileCache.put(columnRequest, file);
         }
         return file;
