@@ -4,10 +4,10 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.Range;
-import com.facebook.presto.nblock.Block;
-import com.facebook.presto.nblock.uncompressed.UncompressedBlock;
-import com.facebook.presto.noperator.Operator;
-import com.facebook.presto.noperator.Page;
+import com.facebook.presto.block.Block;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.Page;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;

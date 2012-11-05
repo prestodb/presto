@@ -2,9 +2,9 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.SizeOf;
 import com.facebook.presto.Tuple;
-import com.facebook.presto.nblock.Block;
-import com.facebook.presto.nblock.BlockCursor;
-import com.facebook.presto.nblock.BlockIterable;
+import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.serde.FileBlocksSerde.StatsCollector.Stats;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;

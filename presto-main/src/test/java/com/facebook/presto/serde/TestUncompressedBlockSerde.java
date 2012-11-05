@@ -3,10 +3,10 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.nblock.Block;
-import com.facebook.presto.nblock.BlockAssertions;
-import com.facebook.presto.nblock.BlockBuilder;
-import com.facebook.presto.nblock.uncompressed.UncompressedBlock;
+import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 

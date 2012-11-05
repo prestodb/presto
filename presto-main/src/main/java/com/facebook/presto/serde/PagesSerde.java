@@ -4,9 +4,9 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.nblock.Block;
-import com.facebook.presto.nblock.uncompressed.UncompressedBlock;
-import com.facebook.presto.noperator.Page;
+import com.facebook.presto.block.Block;
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.operator.Page;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
 import com.google.common.base.Preconditions;

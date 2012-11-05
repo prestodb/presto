@@ -15,13 +15,13 @@ import com.facebook.presto.metadata.HiveImportManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.nblock.BlockBuilder;
-import com.facebook.presto.nblock.BlockIterable;
-import com.facebook.presto.noperator.AggregationOperator;
-import com.facebook.presto.noperator.AlignmentOperator;
-import com.facebook.presto.noperator.HashAggregationOperator;
-import com.facebook.presto.noperator.Page;
-import com.facebook.presto.noperator.aggregation.LongSumAggregation;
+import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.operator.AggregationOperator;
+import com.facebook.presto.operator.AlignmentOperator;
+import com.facebook.presto.operator.HashAggregationOperator;
+import com.facebook.presto.operator.Page;
+import com.facebook.presto.operator.aggregation.LongSumAggregation;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -54,8 +54,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.RetryDriver.runWithRetry;
-import static com.facebook.presto.noperator.ProjectionFunctions.concat;
-import static com.facebook.presto.noperator.ProjectionFunctions.singleColumn;
+import static com.facebook.presto.operator.ProjectionFunctions.concat;
+import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 
 public class StaticQueryManager implements QueryManager
 {

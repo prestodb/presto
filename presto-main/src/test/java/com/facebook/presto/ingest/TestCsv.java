@@ -1,8 +1,8 @@
 package com.facebook.presto.ingest;
 
 import com.facebook.presto.Main;
-import com.facebook.presto.nblock.BlockAssertions;
-import com.facebook.presto.nblock.BlockIterable;
+import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.serde.FileBlocksSerde;
 import com.facebook.presto.slice.Slices;
 import com.google.common.io.Resources;

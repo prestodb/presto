@@ -1,0 +1,131 @@
+/*
+ * Copyright 2004-present Facebook. All Rights Reserved.
+ */
+package com.facebook.presto.operator;
+
+import com.facebook.presto.Tuple;
+import com.facebook.presto.TupleInfo;
+import com.facebook.presto.TupleInfo.Type;
+import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockCursor;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+
+public class ProjectionFunctions
+{
+    public static ProjectionFunction singleColumn(Type columnType, int channelIndex, int fieldIndex)
+    {
+        return new SingleColumnProjection(columnType, channelIndex, fieldIndex);
+    }
+
+    private static class SingleColumnProjection implements ProjectionFunction
+    {
+        private final Type columnType;
+        private final int channelIndex;
+        private final int fieldIndex;
+        private final TupleInfo info;
+
+        public SingleColumnProjection(Type columnType, int channelIndex, int fieldIndex)
+        {
+            Preconditions.checkNotNull(columnType, "columnType is null");
+            Preconditions.checkArgument(channelIndex >= 0, "channelIndex is negative");
+            Preconditions.checkArgument(fieldIndex >= 0, "fieldIndex is negative");
+
+            this.columnType = columnType;
+            this.channelIndex = channelIndex;
+            this.fieldIndex = fieldIndex;
+            this.info = new TupleInfo(columnType);
+        }
+
+        @Override
+        public TupleInfo getTupleInfo()
+        {
+            return info;
+        }
+
+        @Override
+        public void project(BlockCursor[] cursors, BlockBuilder output)
+        {
+            switch (columnType) {
+                case FIXED_INT_64:
+                    output.append(cursors[channelIndex].getLong(fieldIndex));
+                    return;
+                case VARIABLE_BINARY:
+                    output.append(cursors[channelIndex].getSlice(fieldIndex));
+                    return;
+                case DOUBLE:
+                    output.append(cursors[channelIndex].getDouble(fieldIndex));
+                    return;
+            }
+            throw new IllegalStateException("Unsupported type info " + info);
+        }
+
+        @Override
+        public void project(Tuple[] tuples, BlockBuilder output)
+        {
+            switch (columnType) {
+                case FIXED_INT_64:
+                    output.append(tuples[channelIndex].getLong(fieldIndex));
+                    return;
+                case VARIABLE_BINARY:
+                    output.append(tuples[channelIndex].getSlice(fieldIndex));
+                    return;
+                case DOUBLE:
+                    output.append(tuples[channelIndex].getDouble(fieldIndex));
+                    return;
+            }
+            throw new IllegalStateException("Unsupported type info " + info);
+        }
+    }
+
+    public static ProjectionFunction concat(ProjectionFunction... projectionFunctions)
+    {
+        return concat(ImmutableList.copyOf(projectionFunctions));
+    }
+
+    public static ProjectionFunction concat(List<ProjectionFunction> projections)
+    {
+        return new ConcatProjection(projections);
+    }
+
+    private static class ConcatProjection implements ProjectionFunction
+    {
+        private final List<ProjectionFunction> projections;
+        private final TupleInfo tupleInfo;
+
+        private ConcatProjection(List<ProjectionFunction> projections)
+        {
+            this.projections = projections;
+
+            ImmutableList.Builder<Type> builder = ImmutableList.builder();
+            for (ProjectionFunction projection : projections) {
+                builder.addAll(projection.getTupleInfo().getTypes());
+            }
+            this.tupleInfo = new TupleInfo(builder.build());
+        }
+
+        @Override
+        public TupleInfo getTupleInfo()
+        {
+            return tupleInfo;
+        }
+
+        @Override
+        public void project(BlockCursor[] cursors, BlockBuilder output)
+        {
+            for (ProjectionFunction projection : projections) {
+                projection.project(cursors, output);
+            }
+        }
+
+        @Override
+        public void project(Tuple[] tuples, BlockBuilder output)
+        {
+            for (ProjectionFunction projection : projections) {
+                projection.project(tuples, output);
+            }
+        }
+    }
+}

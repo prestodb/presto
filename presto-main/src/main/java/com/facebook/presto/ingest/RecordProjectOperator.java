@@ -3,10 +3,10 @@
  */
 package com.facebook.presto.ingest;
 
-import com.facebook.presto.nblock.Block;
-import com.facebook.presto.nblock.BlockBuilder;
-import com.facebook.presto.noperator.Operator;
-import com.facebook.presto.noperator.Page;
+import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.Page;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 

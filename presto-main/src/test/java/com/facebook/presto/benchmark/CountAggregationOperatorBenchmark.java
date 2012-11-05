@@ -1,17 +1,17 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.TupleInfo.Type;
-import com.facebook.presto.nblock.BlockIterable;
-import com.facebook.presto.noperator.AggregationOperator;
-import com.facebook.presto.noperator.AlignmentOperator;
-import com.facebook.presto.noperator.Operator;
-import com.facebook.presto.noperator.aggregation.CountAggregation;
+import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.operator.AggregationOperator;
+import com.facebook.presto.operator.AlignmentOperator;
+import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.aggregation.CountAggregation;
 import com.facebook.presto.serde.FileBlocksSerde.FileEncoding;
 import com.facebook.presto.tpch.TpchSchema.Orders;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.google.common.collect.ImmutableList;
 
-import static com.facebook.presto.noperator.ProjectionFunctions.singleColumn;
+import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 
 public class CountAggregationOperatorBenchmark
         extends AbstractOperatorBenchmark

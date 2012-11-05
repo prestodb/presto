@@ -1,6 +1,6 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.noperator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.aggregation.AggregationFunction;
 
 import javax.inject.Provider;
 

@@ -5,8 +5,8 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.SizeOf;
 import com.facebook.presto.TupleInfo;
-import com.facebook.presto.nblock.dictionary.Dictionary;
-import com.facebook.presto.nblock.uncompressed.UncompressedTupleInfoSerde;
+import com.facebook.presto.block.dictionary.Dictionary;
+import com.facebook.presto.block.uncompressed.UncompressedTupleInfoSerde;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;

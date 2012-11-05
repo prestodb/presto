@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.nblock.BlockIterable;
+import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceOutput;
 

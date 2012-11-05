@@ -1,6 +1,6 @@
 package com.facebook.presto.serde;
 
-import com.facebook.presto.noperator.Page;
+import com.facebook.presto.operator.Page;
 
 public interface PagesWriter
 {

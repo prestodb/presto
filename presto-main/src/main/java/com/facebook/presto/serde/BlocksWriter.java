@@ -1,7 +1,7 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.Tuple;
-import com.facebook.presto.nblock.Block;
+import com.facebook.presto.block.Block;
 
 public interface BlocksWriter
 {
