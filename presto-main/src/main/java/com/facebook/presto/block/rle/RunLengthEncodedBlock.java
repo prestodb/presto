@@ -1,9 +1,10 @@
 package com.facebook.presto.block.rle;
 
-import com.facebook.presto.util.Range;
+import com.facebook.presto.block.Block;
+import com.facebook.presto.serde.RunLengthBlockEncoding;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.block.Block;
+import com.facebook.presto.util.Range;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
@@ -54,6 +55,12 @@ public class RunLengthEncodedBlock
     public Range getRawRange()
     {
         return rawRange;
+    }
+
+    @Override
+    public RunLengthBlockEncoding getEncoding()
+    {
+        return new RunLengthBlockEncoding(value.getTupleInfo());
     }
 
     @Override

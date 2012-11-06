@@ -8,9 +8,4 @@ public interface PagesWriter
      * Appends the specified page to this serialization
      */
     PagesWriter append(Page page);
-
-    /**
-     * Must be called after all blocks have been appended to complete the serialization
-     */
-    void finish();
 }

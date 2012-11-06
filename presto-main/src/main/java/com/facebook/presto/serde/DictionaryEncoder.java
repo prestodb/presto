@@ -4,7 +4,6 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.block.dictionary.Dictionary.DictionaryBuilder;
-import com.facebook.presto.slice.SliceOutput;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
@@ -14,22 +13,20 @@ import static com.facebook.presto.tuple.Tuples.createTuple;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-public class DictionaryEncodedBlocksWriter implements BlocksWriter
+public class DictionaryEncoder implements Encoder
 {
-    private final BlocksWriter idWriter;
-    private final SliceOutput sliceOutput;
+    private final Encoder idWriter;
     private TupleInfo tupleInfo;
     private DictionaryBuilder dictionaryBuilder;
     private boolean finished;
 
-    public DictionaryEncodedBlocksWriter(BlocksWriter idWriter, SliceOutput sliceOutput)
+    public DictionaryEncoder(Encoder idWriter)
     {
         this.idWriter = checkNotNull(idWriter, "idWriter is null");
-        this.sliceOutput = checkNotNull(sliceOutput, "sliceOutput is null");
     }
 
     @Override
-    public BlocksWriter append(Iterable<Tuple> tuples)
+    public Encoder append(Iterable<Tuple> tuples)
     {
         checkNotNull(tuples, "tuples is null");
         checkState(!finished, "already finished");
@@ -54,18 +51,12 @@ public class DictionaryEncodedBlocksWriter implements BlocksWriter
     }
 
     @Override
-    public void finish()
+    public BlockEncoding finish()
     {
         checkState(tupleInfo != null, "nothing appended");
         checkState(!finished, "already finished");
         finished = true;
 
-        idWriter.finish();
-
-        // Serialize dictionary
-        int dictionaryBytes = DictionarySerde.writeDictionary(sliceOutput, dictionaryBuilder.build());
-
-        // Write length of dictionary
-        sliceOutput.writeInt(dictionaryBytes);
+        return new DictionaryBlockEncoding(dictionaryBuilder.build(), idWriter.finish());
     }
 }

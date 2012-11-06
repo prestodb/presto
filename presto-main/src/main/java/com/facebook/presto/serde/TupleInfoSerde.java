@@ -7,7 +7,6 @@ import com.google.common.collect.ImmutableList;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-// TODO: give this a real implementation, this is just a hack for now
 public final class TupleInfoSerde
 {
     private TupleInfoSerde()

@@ -6,7 +6,8 @@ package com.facebook.presto.ingest;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.serde.BlocksWriter;
+import com.facebook.presto.serde.BlocksFileWriter;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
@@ -17,14 +18,14 @@ import static com.facebook.presto.block.BlockUtils.toTupleIterable;
 
 public class ImportingOperator implements Operator
 {
-    public static long importData(Operator source, BlockWriterFactory... blockWriterFactories)
+    public static long importData(Operator source, BlocksFileWriter... fileWriters)
     {
-        return importData(source, ImmutableList.copyOf(blockWriterFactories));
+        return importData(source, ImmutableList.copyOf(fileWriters));
     }
 
-    public static long importData(Operator source, Iterable<? extends BlockWriterFactory> blockWriterFactories)
+    public static long importData(Operator source, Iterable<? extends BlocksFileWriter> fileWriters)
     {
-        ImportingOperator importingOperator = new ImportingOperator(source, blockWriterFactories);
+        ImportingOperator importingOperator = new ImportingOperator(source, fileWriters);
         long rowCount = 0;
         for (Page page : importingOperator) {
             rowCount += page.getPositionCount();
@@ -33,17 +34,18 @@ public class ImportingOperator implements Operator
     }
 
     private final Operator source;
-    private final List<? extends BlockWriterFactory> blockWriterFactories;
+    private final List<? extends BlocksFileWriter> fileWriters;
+    private boolean used;
 
-    public ImportingOperator(Operator source, BlockWriterFactory... blockWriterFactories)
+    public ImportingOperator(Operator source, BlocksFileWriter... fileWriters)
     {
-        this(source, ImmutableList.copyOf(blockWriterFactories));
+        this(source, ImmutableList.copyOf(fileWriters));
     }
 
-    public ImportingOperator(Operator source, Iterable<? extends BlockWriterFactory> blockWriterFactories)
+    public ImportingOperator(Operator source, Iterable<? extends BlocksFileWriter> fileWriters)
     {
         this.source = source;
-        this.blockWriterFactories = ImmutableList.copyOf(blockWriterFactories);
+        this.fileWriters = ImmutableList.copyOf(fileWriters);
     }
 
     @Override
@@ -55,36 +57,28 @@ public class ImportingOperator implements Operator
     @Override
     public Iterator<Page> iterator()
     {
+        Preconditions.checkState(!used, "Import operator can only be used once");
+        used = true;
+
         return new AbstractIterator<Page>()
         {
             private final Iterator<Page> iterator = source.iterator();
-            private List<BlocksWriter> writers;
 
             @Override
             protected Page computeNext()
             {
                 if (!iterator.hasNext()) {
-                    if (writers != null) {
-                        for (BlocksWriter writer : writers) {
-                            writer.finish();
-                        }
+                    for (BlocksFileWriter fileWriter : fileWriters) {
+                        fileWriter.close();
                     }
                     return endOfData();
-                }
-
-                if (writers == null) {
-                    ImmutableList.Builder<BlocksWriter> builder = ImmutableList.builder();
-                    for (BlockWriterFactory blockWriterFactory : blockWriterFactories) {
-                        builder.add(blockWriterFactory.create());
-                    }
-                    writers = builder.build();
                 }
 
                 Page page = iterator.next();
                 Block[] blocks = page.getBlocks();
                 for (int i = 0; i < blocks.length; i++) {
                     Block block = blocks[i];
-                    writers.get(i).append(toTupleIterable(block));
+                    fileWriters.get(i).append(toTupleIterable(block));
                 }
 
                 return page;

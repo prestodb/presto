@@ -1,12 +1,13 @@
 package com.facebook.presto.block.uncompressed;
 
-import com.facebook.presto.util.Range;
-import com.facebook.presto.slice.SizeOf;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.serde.UncompressedBlockEncoding;
+import com.facebook.presto.slice.SizeOf;
 import com.facebook.presto.slice.Slice;
+import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.util.Range;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
@@ -89,6 +90,12 @@ public class UncompressedBlock
             }
         }
         return new UncompressedBlockCursor(this);
+    }
+
+    @Override
+    public UncompressedBlockEncoding getEncoding()
+    {
+        return new UncompressedBlockEncoding(tupleInfo);
     }
 
     @Override

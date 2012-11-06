@@ -36,6 +36,11 @@ public final class DictionarySerde
     public static Dictionary readDictionary(Slice slice)
     {
         SliceInput sliceInput = slice.getInput();
+        return readDictionary(sliceInput);
+    }
+
+    public static Dictionary readDictionary(SliceInput sliceInput)
+    {
         TupleInfo tupleInfo = UncompressedTupleInfoSerde.deserialize(sliceInput);
 
         int dictionarySize = sliceInput.readInt();
