@@ -58,7 +58,7 @@ public class RetryDriver
                 return callable.call();
             }
             catch (Exception e) {
-                if (attempt == maxRetryAttempts) {
+                if (attempt >= maxRetryAttempts) {
                     throw e;
                 }
                 else {
