@@ -25,10 +25,23 @@ public class OutputStreamSliceOutput extends SliceOutput
     }
 
     @Override
+    public void flush()
+            throws IOException
+    {
+        countingOutputStream.flush();
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        countingOutputStream.close();
+    }
+
+    @Override
     public void reset()
     {
-        // Reset the size counter
-        countOffset = countingOutputStream.getCount();
+        throw new UnsupportedOperationException("OutputStream can not be reset");
     }
 
     @Override

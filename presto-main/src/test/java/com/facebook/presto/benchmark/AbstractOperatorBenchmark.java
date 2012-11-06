@@ -4,10 +4,9 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.serde.FileBlocksSerde.FileEncoding;
-import com.facebook.presto.serde.FileBlocksSerde;
-import com.facebook.presto.serde.FileBlocksSerde.FileBlockIterable;
-import com.facebook.presto.serde.FileBlocksSerde.StatsCollector.Stats;
+import com.facebook.presto.serde.BlocksFileReader;
+import com.facebook.presto.serde.BlocksFileEncoding;
+import com.facebook.presto.serde.BlocksFileStats;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tpch.CachingTpchDataProvider;
@@ -107,7 +106,7 @@ public abstract class AbstractOperatorBenchmark
             implements TpchBlocksProvider
     {
         private final TpchDataProvider tpchDataProvider;
-        private final ImmutableList.Builder<Stats> statsBuilder = ImmutableList.builder();
+        private final ImmutableList.Builder<BlocksFileStats> statsBuilder = ImmutableList.builder();
 
         private StatsTpchBlocksProvider(TpchDataProvider tpchDataProvider)
         {
@@ -115,14 +114,14 @@ public abstract class AbstractOperatorBenchmark
         }
 
         @Override
-        public BlockIterable getBlocks(Column column, FileEncoding encoding)
+        public BlockIterable getBlocks(Column column, BlocksFileEncoding encoding)
         {
             checkNotNull(column, "column is null");
             checkNotNull(encoding, "encoding is null");
             try {
                 File columnFile = tpchDataProvider.getColumnFile(column, encoding);
                 Slice slice = Slices.mapFileReadOnly(columnFile);
-                FileBlockIterable blocks = FileBlocksSerde.readBlocks(slice);
+                BlocksFileReader blocks = BlocksFileReader.readBlocks(slice);
                 statsBuilder.add(blocks.getStats());
                 return blocks;
             } catch (IOException e) {
@@ -130,7 +129,7 @@ public abstract class AbstractOperatorBenchmark
             }
         }
 
-        public List<Stats> getStats()
+        public List<BlocksFileStats> getStats()
         {
             return statsBuilder.build();
         }

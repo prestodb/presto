@@ -1,5 +1,7 @@
 package com.facebook.presto.block.dictionary;
 
+import com.facebook.presto.serde.BlockEncoding;
+import com.facebook.presto.serde.DictionaryBlockEncoding;
 import com.facebook.presto.util.Range;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.Block;
@@ -55,6 +57,12 @@ public class DictionaryEncodedBlock
     public Range getRawRange()
     {
         return idBlock.getRawRange();
+    }
+
+    @Override
+    public BlockEncoding getEncoding()
+    {
+        return new DictionaryBlockEncoding(dictionary, idBlock.getEncoding());
     }
 
     @Override

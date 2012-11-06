@@ -1,17 +1,15 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.ingest.BlockWriterFactory;
-import com.facebook.presto.ingest.ImportingOperator;
-import com.facebook.presto.ingest.SerdeBlockWriterFactory;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.block.BlockUtils;
+import com.facebook.presto.ingest.ImportingOperator;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
-import com.facebook.presto.serde.FileBlocksSerde;
-import com.facebook.presto.serde.FileBlocksSerde.FileBlockIterable;
-import com.facebook.presto.serde.FileBlocksSerde.FileEncoding;
-import com.facebook.presto.serde.FileBlocksSerde.StatsCollector;
+import com.facebook.presto.serde.BlocksFileWriter;
+import com.facebook.presto.serde.BlocksFileReader;
+import com.facebook.presto.serde.BlocksFileEncoding;
+import com.facebook.presto.serde.BlocksFileStats;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Function;
@@ -107,16 +105,16 @@ public class DatabaseStorageManager
         // todo assure source is closed
         // todo assure source is closed
         ImmutableList.Builder<File> outputFilesBuilder = ImmutableList.builder();
-        ImmutableList.Builder<BlockWriterFactory> writersBuilder = ImmutableList.builder();
+        ImmutableList.Builder<BlocksFileWriter> writersBuilder = ImmutableList.builder();
         for (int channel = 0; channel < source.getChannelCount(); channel++) {
-            File outputFile = new File(createNewFileName(baseStagingDir, databaseName, tableName, shardId, channel, FileEncoding.RAW));
+            File outputFile = new File(createNewFileName(baseStagingDir, databaseName, tableName, shardId, channel, BlocksFileEncoding.RAW));
             Files.createParentDirs(outputFile);
 
             outputFilesBuilder.add(outputFile);
-            writersBuilder.add(new SerdeBlockWriterFactory(FileEncoding.RAW, Files.newOutputStreamSupplier(outputFile)));
+            writersBuilder.add(new BlocksFileWriter(BlocksFileEncoding.RAW, Files.newOutputStreamSupplier(outputFile)));
         }
         List<File> outputFiles = outputFilesBuilder.build();
-        List<BlockWriterFactory> writers = writersBuilder.build();
+        List<BlocksFileWriter> writers = writersBuilder.build();
 
         long rowCount = ImportingOperator.importData(source, writers);
         return new FilesAndRowCount(outputFiles, rowCount);
@@ -126,7 +124,7 @@ public class DatabaseStorageManager
             throws IOException
     {
         ImmutableList.Builder<BlockIterable> sourcesBuilder = ImmutableList.builder();
-        ImmutableList.Builder<BlockWriterFactory> writersBuilder = ImmutableList.builder();
+        ImmutableList.Builder<BlocksFileWriter> writersBuilder = ImmutableList.builder();
         ImmutableList.Builder<File> optimizedFilesBuilder = ImmutableList.builder();
 
         for (int channel = 0; channel < stagedFiles.size(); channel++) {
@@ -134,13 +132,13 @@ public class DatabaseStorageManager
             Slice slice = mappedFileCache.getUnchecked(stagedFile.getAbsolutePath());
 
             // Compute optimal encoding from stats
-            FileBlockIterable blocks = FileBlocksSerde.readBlocks(slice);
-            StatsCollector.Stats stats = blocks.getStats();
+            BlocksFileReader blocks = BlocksFileReader.readBlocks(slice);
+            BlocksFileStats stats = blocks.getStats();
             boolean rleEncode = stats.getAvgRunLength() > RUN_LENGTH_AVERAGE_CUTOFF;
             boolean dicEncode = stats.getUniqueCount() < DICTIONARY_CARDINALITY_CUTOFF;
 
             // TODO: only need to operate with encodings because want to see names, later we can be smarter when there is a metastore
-            FileEncoding encoding = FileEncoding.RAW;
+            BlocksFileEncoding encoding = BlocksFileEncoding.RAW;
 //            if (dicEncode && rleEncode) {
 //                encoding = BlockSerdes.Encoding.DICTIONARY_RLE;
 //            }
@@ -158,17 +156,17 @@ public class DatabaseStorageManager
             Files.createParentDirs(outputFile);
             optimizedFilesBuilder.add(outputFile);
 
-            if (encoding == FileEncoding.RAW) {
+            if (encoding == BlocksFileEncoding.RAW) {
                 // Should already be raw, so just move
                 Files.move(stagedFiles.get(channel), outputFile);
             }
             else {
                 sourcesBuilder.add(blocks);
-                writersBuilder.add(new SerdeBlockWriterFactory(encoding, Files.newOutputStreamSupplier(outputFile)));
+                writersBuilder.add(new BlocksFileWriter(encoding, Files.newOutputStreamSupplier(outputFile)));
             }
         }
         List<BlockIterable> sources = sourcesBuilder.build();
-        List<BlockWriterFactory> writers = writersBuilder.build();
+        List<BlocksFileWriter> writers = writersBuilder.build();
 
         if (!sources.isEmpty()) {
             AlignmentOperator source = new AlignmentOperator(sources);
@@ -177,7 +175,7 @@ public class DatabaseStorageManager
         return optimizedFilesBuilder.build();
     }
 
-    private String createNewFileName(File baseDir, String databaseName, String tableName, long shardId, int fieldIndex, FileEncoding encoding)
+    private String createNewFileName(File baseDir, String databaseName, String tableName, long shardId, int fieldIndex, BlocksFileEncoding encoding)
     {
         return baseDir.getAbsolutePath() + "/" + databaseName + "/" + tableName + "/" + fieldIndex + "/" + shardId + "." + encoding.getName() + ".shard";
     }
@@ -310,7 +308,7 @@ public class DatabaseStorageManager
              public Iterable<? extends Block> apply(File file)
              {
                  Slice slice = mappedFileCache.getUnchecked(file.getAbsolutePath().replace("/Users/dain/work/fb/presto/", ""));
-                 FileBlockIterable blocks = FileBlocksSerde.readBlocks(slice, startPosition);
+                 BlocksFileReader blocks = BlocksFileReader.readBlocks(slice, startPosition);
                  long rowCount = blocks.getStats().getRowCount();
                  startPosition += rowCount;
                  return blocks;
