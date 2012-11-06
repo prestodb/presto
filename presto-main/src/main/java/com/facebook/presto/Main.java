@@ -369,7 +369,7 @@ public class Main
                         .setReadTimeout(new Duration(1, TimeUnit.MINUTES)));
                 AsyncHttpClient asyncHttpClient = new AsyncHttpClient(httpClient, executor);
                 QueryDriversOperator operator = new QueryDriversOperator(10,
-                        new HttpQueryProvider("sum", asyncHttpClient, server)
+                        new HttpQueryProvider("sum", asyncHttpClient, server, 1)
                 );
                 // TODO: this currently leaks query resources (need to delete)
                 printResults(start, operator);
@@ -405,7 +405,7 @@ public class Main
                         .setReadTimeout(new Duration(30, TimeUnit.MINUTES)));
                 AsyncHttpClient asyncHttpClient = new AsyncHttpClient(httpClient, executor);
                 QueryDriversOperator operator = new QueryDriversOperator(10,
-                        new HttpQueryProvider(query, asyncHttpClient, server)
+                        new HttpQueryProvider(query, asyncHttpClient, server, 1)
                 );
                 // TODO: this currently leaks query resources (need to delete)
                 printResults(start, operator);

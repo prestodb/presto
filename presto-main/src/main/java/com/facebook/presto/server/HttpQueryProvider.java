@@ -13,9 +13,11 @@ public class HttpQueryProvider implements QueryDriverProvider
     private final String query;
     private final AsyncHttpClient httpClient;
     private final URI uri;
+    private final int channelCount;
 
-    public HttpQueryProvider(String query, AsyncHttpClient httpClient, URI uri)
+    public HttpQueryProvider(String query, AsyncHttpClient httpClient, URI uri, int channelCount)
     {
+        this.channelCount = channelCount;
         Preconditions.checkNotNull(query, "query is null");
         Preconditions.checkNotNull(httpClient, "httpClient is null");
         Preconditions.checkNotNull(uri, "uri is null");
@@ -27,7 +29,7 @@ public class HttpQueryProvider implements QueryDriverProvider
     @Override
     public int getChannelCount()
     {
-        throw new UnsupportedOperationException();
+        return channelCount;
     }
 
     @Override

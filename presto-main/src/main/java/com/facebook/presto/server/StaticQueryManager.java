@@ -230,7 +230,7 @@ public class StaticQueryManager implements QueryManager
                             @Override
                             public QueryDriverProvider apply(URI uri)
                             {
-                                return new HttpQueryProvider("sum-partial", asyncHttpClient, uri);
+                                return new HttpQueryProvider("sum-partial", asyncHttpClient, uri, 1);
                             }
                         })
                 );
@@ -365,7 +365,8 @@ public class StaticQueryManager implements QueryManager
                                 "import-hive-table-partition:" + databaseName + ":" + tableName + ":" + subPartitionName,
                                 asyncHttpClient,
                                 URI.create("http://localhost:8080/v1/presto/query") // TODO: HACK to distribute the queries locally
-                        ));
+                                ,
+                                1));
                     }
                     // TODO: this currently leaks query resources (need to delete)
                     QueryDriversOperator operator = new QueryDriversOperator(10, queryDriverProviderBuilder.build());
