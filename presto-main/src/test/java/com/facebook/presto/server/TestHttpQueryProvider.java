@@ -105,9 +105,9 @@ public class TestHttpQueryProvider
             throws Exception
     {
         QueryDriversOperator operator = new QueryDriversOperator(10,
-                new HttpQueryProvider("query", httpClient, server1.getBaseUrl().resolve("/v1/presto/query")),
-                new HttpQueryProvider("query", httpClient, server2.getBaseUrl().resolve("/v1/presto/query")),
-                new HttpQueryProvider("query", httpClient, server3.getBaseUrl().resolve("/v1/presto/query"))
+                new HttpQueryProvider("query", httpClient, server1.getBaseUrl().resolve("/v1/presto/query"), 1),
+                new HttpQueryProvider("query", httpClient, server2.getBaseUrl().resolve("/v1/presto/query"), 1),
+                new HttpQueryProvider("query", httpClient, server3.getBaseUrl().resolve("/v1/presto/query"), 1)
         );
 
         int count = 0;
@@ -125,9 +125,9 @@ public class TestHttpQueryProvider
             throws Exception
     {
         QueryDriversOperator operator = new QueryDriversOperator(10,
-                new HttpQueryProvider("query", httpClient, server1.getBaseUrl().resolve("/v1/presto/query")),
-                new HttpQueryProvider("query", httpClient, server2.getBaseUrl().resolve("/v1/presto/query")),
-                new HttpQueryProvider("query", httpClient, server3.getBaseUrl().resolve("/v1/presto/query"))
+                new HttpQueryProvider("query", httpClient, server1.getBaseUrl().resolve("/v1/presto/query"), 1),
+                new HttpQueryProvider("query", httpClient, server2.getBaseUrl().resolve("/v1/presto/query"), 1),
+                new HttpQueryProvider("query", httpClient, server3.getBaseUrl().resolve("/v1/presto/query"), 1)
         );
 
         int count = 0;
