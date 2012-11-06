@@ -14,12 +14,12 @@ import com.google.common.collect.ImmutableList;
 import static com.facebook.presto.operator.ProjectionFunctions.concat;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 
-public class HashAggregationOperatorBenchmark
+public class HashAggregationBenchmark
         extends AbstractOperatorBenchmark
 {
-    public HashAggregationOperatorBenchmark()
+    public HashAggregationBenchmark()
     {
-        super("op_hash_agg", 5, 25);
+        super("hash_agg", 5, 25);
     }
 
     @Override
@@ -38,7 +38,7 @@ public class HashAggregationOperatorBenchmark
 
     public static void main(String[] args)
     {
-        new HashAggregationOperatorBenchmark().runBenchmark(
+        new HashAggregationBenchmark().runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }
