@@ -18,10 +18,10 @@ public class BenchmarkSuite
     private static final Logger LOGGER = Logger.get(BenchmarkSuite.class);
 
     public static final List<AbstractBenchmark> BENCHMARKS = ImmutableList.<AbstractBenchmark>of(
-            new CountAggregationOperatorBenchmark(),
-            new HashAggregationOperatorBenchmark(),
-            new PredicateFilterOperatorBenchmark(),
-            new RawStreamingOperatorBenchmark()
+            new CountAggregationBenchmark(),
+            new HashAggregationBenchmark(),
+            new PredicateFilterBenchmark(),
+            new RawStreamingBenchmark()
     );
 
     private final String outputDirectory;

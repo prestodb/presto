@@ -7,12 +7,12 @@ import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchSchema.Orders;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 
-public class RawStreamingOperatorBenchmark
+public class RawStreamingBenchmark
         extends AbstractOperatorBenchmark
 {
-    public RawStreamingOperatorBenchmark()
+    public RawStreamingBenchmark()
     {
-        super("op_raw_stream", 10, 100);
+        super("raw_stream", 10, 100);
     }
 
     @Override
@@ -24,7 +24,7 @@ public class RawStreamingOperatorBenchmark
 
     public static void main(String[] args)
     {
-        new RawStreamingOperatorBenchmark().runBenchmark(
+        new RawStreamingBenchmark().runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

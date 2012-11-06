@@ -13,12 +13,12 @@ import com.google.common.collect.ImmutableList;
 
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 
-public class CountAggregationOperatorBenchmark
+public class CountAggregationBenchmark
         extends AbstractOperatorBenchmark
 {
-    public CountAggregationOperatorBenchmark()
+    public CountAggregationBenchmark()
     {
-        super("op_count_agg", 10, 100);
+        super("count_agg", 10, 100);
     }
 
     @Override
@@ -31,7 +31,7 @@ public class CountAggregationOperatorBenchmark
 
     public static void main(String[] args)
     {
-        new CountAggregationOperatorBenchmark().runBenchmark(
+        new CountAggregationBenchmark().runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }
