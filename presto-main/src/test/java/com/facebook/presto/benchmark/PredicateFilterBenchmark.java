@@ -13,12 +13,12 @@ import com.facebook.presto.tpch.TpchBlocksProvider;
 
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 
-public class PredicateFilterOperatorBenchmark
+public class PredicateFilterBenchmark
         extends AbstractOperatorBenchmark
 {
-    public PredicateFilterOperatorBenchmark()
+    public PredicateFilterBenchmark()
     {
-        super("op_predicate_filter", 5, 50);
+        super("predicate_filter", 5, 50);
     }
 
     @Override
@@ -47,7 +47,7 @@ public class PredicateFilterOperatorBenchmark
 
     public static void main(String[] args)
     {
-        new PredicateFilterOperatorBenchmark().runBenchmark(
+        new PredicateFilterBenchmark().runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }
