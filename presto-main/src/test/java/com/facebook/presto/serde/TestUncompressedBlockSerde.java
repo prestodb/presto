@@ -12,7 +12,6 @@ import com.facebook.presto.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.serde.UncompressedBlockSerde.UNCOMPRESSED_BLOCK_SERDE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.tuple.Tuples.createTuple;
 
@@ -29,8 +28,9 @@ public class TestUncompressedBlockSerde
                 .build();
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        UNCOMPRESSED_BLOCK_SERDE.writeBlock(sliceOutput, expectedBlock);
-        Block actualBlock = UNCOMPRESSED_BLOCK_SERDE.readBlock(sliceOutput.slice().getInput(), SINGLE_VARBINARY, 0);
+        BlockEncoding blockEncoding = new UncompressedBlockEncoding(SINGLE_VARBINARY);
+        blockEncoding.writeBlock(sliceOutput, expectedBlock);
+        Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput(), 0);
         BlockAssertions.assertBlockEquals(actualBlock, expectedBlock);
     }
 
@@ -43,8 +43,8 @@ public class TestUncompressedBlockSerde
                 createTuple("dave"));
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        UNCOMPRESSED_BLOCK_SERDE.createBlocksWriter(sliceOutput).append(tuples).append(tuples).finish();
-        Block actualBlock = UNCOMPRESSED_BLOCK_SERDE.readBlock(sliceOutput.slice().getInput(), SINGLE_VARBINARY, 0);
+        BlockEncoding blockEncoding = new UncompressedEncoder(sliceOutput).append(tuples).append(tuples).finish();
+        Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput(), 0);
         BlockAssertions.assertBlockEquals(actualBlock, new BlockBuilder(0, SINGLE_VARBINARY)
                 .append("alice")
                 .append("bob")

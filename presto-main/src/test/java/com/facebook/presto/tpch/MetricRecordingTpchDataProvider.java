@@ -1,6 +1,6 @@
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.serde.FileBlocksSerde.FileEncoding;
+import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchSchema.Column;
 import com.google.common.base.Preconditions;
 import io.airlift.units.DataSize;
@@ -22,7 +22,7 @@ public class MetricRecordingTpchDataProvider
     }
 
     @Override
-    public File getColumnFile(Column column, FileEncoding encoding)
+    public File getColumnFile(Column column, BlocksFileEncoding encoding)
     {
         Preconditions.checkNotNull(column, "column is null");
         Preconditions.checkNotNull(encoding, "encoding is null");

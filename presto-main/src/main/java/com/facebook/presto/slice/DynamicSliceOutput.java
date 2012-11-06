@@ -16,9 +16,11 @@
 package com.facebook.presto.slice;
 
 import com.google.common.base.Objects;
+import com.google.common.io.OutputSupplier;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ScatteringByteChannel;

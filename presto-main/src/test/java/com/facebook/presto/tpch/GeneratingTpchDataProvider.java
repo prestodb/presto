@@ -3,8 +3,8 @@ package com.facebook.presto.tpch;
 import com.facebook.presto.ingest.DelimitedRecordIterable;
 import com.facebook.presto.ingest.ImportingOperator;
 import com.facebook.presto.ingest.RecordProjectOperator;
-import com.facebook.presto.ingest.SerdeBlockWriterFactory;
-import com.facebook.presto.serde.FileBlocksSerde.FileEncoding;
+import com.facebook.presto.serde.BlocksFileWriter;
+import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchSchema.Column;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
@@ -122,7 +122,7 @@ public class GeneratingTpchDataProvider
     }
 
     @Override
-    public File getColumnFile(Column column, FileEncoding encoding)
+    public File getColumnFile(Column column, BlocksFileEncoding encoding)
     {
         checkNotNull(column, "column is null");
         checkNotNull(encoding, "encoding is null");
@@ -145,7 +145,7 @@ public class GeneratingTpchDataProvider
             );
             RecordProjectOperator source = new RecordProjectOperator(records, createProjection(column.getIndex(), column.getType()));
 
-            ImportingOperator.importData(source, new SerdeBlockWriterFactory(encoding, newOutputStreamSupplier(cachedFile)));
+            ImportingOperator.importData(source, new BlocksFileWriter(encoding, newOutputStreamSupplier(cachedFile)));
 
             return cachedFile;
         }

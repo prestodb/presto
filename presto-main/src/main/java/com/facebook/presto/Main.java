@@ -3,27 +3,24 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
-import com.facebook.presto.ingest.BlockWriterFactory;
+import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.ingest.DelimitedRecordIterable;
 import com.facebook.presto.ingest.ImportingOperator;
 import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.ingest.RecordProjection;
 import com.facebook.presto.ingest.RecordProjections;
 import com.facebook.presto.ingest.RuntimeIOException;
-import com.facebook.presto.ingest.SerdeBlockWriterFactory;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.DatabaseMetadata;
 import com.facebook.presto.metadata.DatabaseStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.AlignmentOperator;
+import com.facebook.presto.operator.ConsolePrinter;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.HashAggregationOperator;
@@ -31,14 +28,16 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.aggregation.CountAggregation;
 import com.facebook.presto.operator.aggregation.LongSumAggregation;
-import com.facebook.presto.operator.ConsolePrinter;
-import com.facebook.presto.serde.FileBlocksSerde.FileEncoding;
+import com.facebook.presto.serde.BlocksFileWriter;
+import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.server.HttpQueryProvider;
 import com.facebook.presto.server.QueryDriversOperator;
 import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
@@ -90,10 +89,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.operator.ProjectionFunctions.concat;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
+import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -479,7 +478,7 @@ public class Main
             ImmutableList<OutputSupplier<? extends OutputStream>> outputSuppliers = outputSupplierBuilder.build();
 
             ImmutableList.Builder<RecordProjection> recordProjectionBuilder = ImmutableList.builder();
-            ImmutableList.Builder<BlockWriterFactory> writersBuilder = ImmutableList.builder();
+            ImmutableList.Builder<BlocksFileWriter> writersBuilder = ImmutableList.builder();
             for (int index = 0; index <= schema.lastKey(); index++) {
                 // Default to VARIABLE_BINARY if we don't know some of the intermediate types
                 Type type = VARIABLE_BINARY;
@@ -487,10 +486,10 @@ public class Main
                     type = schema.get(index);
                 }
                 recordProjectionBuilder.add(RecordProjections.createProjection(index, type));
-                writersBuilder.add(new SerdeBlockWriterFactory(FileEncoding.RAW, outputSuppliers.get(index)));
+                writersBuilder.add(new BlocksFileWriter(BlocksFileEncoding.RAW, outputSuppliers.get(index)));
             }
             List<RecordProjection> recordProjections = recordProjectionBuilder.build();
-            List<BlockWriterFactory> writers = writersBuilder.build();
+            List<BlocksFileWriter> writers = writersBuilder.build();
 
             DelimitedRecordIterable records = new DelimitedRecordIterable(readerSupplier, Splitter.on(toChar(columnSeparator)));
             Operator source = new RecordProjectOperator(records, recordProjections);

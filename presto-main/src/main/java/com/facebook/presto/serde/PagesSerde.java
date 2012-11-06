@@ -3,9 +3,7 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
@@ -31,51 +29,33 @@ public final class PagesSerde
         checkNotNull(sliceOutput, "sliceOutput is null");
         return new PagesWriter()
         {
-            private BlockSerde[] blockSerdes;
+            private BlockEncoding[] blockEncodings;
 
             @Override
             public PagesWriter append(Page page)
             {
                 Preconditions.checkNotNull(page, "page is null");
 
-                if (blockSerdes == null) {
+                if (blockEncodings == null) {
                     Block[] blocks = page.getBlocks();
-                    blockSerdes = new BlockSerde[blocks.length];
+                    blockEncodings = new BlockEncoding[blocks.length];
                     sliceOutput.writeInt(blocks.length);
                     for (int i = 0; i < blocks.length; i++) {
                         Block block = blocks[i];
-                        BlockSerde blockSerde = getSerdeForBlock(block);
-                        blockSerdes[i] = blockSerde;
-
-                        BlockSerdeSerde.writeBlockSerde(sliceOutput, blockSerde);
-                        TupleInfoSerde.writeTupleInfo(sliceOutput, block.getTupleInfo());
+                        BlockEncoding blockEncoding = block.getEncoding();
+                        blockEncodings[i] = blockEncoding;
+                        BlockEncodings.writeBlockEncoding(sliceOutput, blockEncoding);
                     }
                 }
 
                 Block[] blocks = page.getBlocks();
                 for (int i = 0; i < blocks.length; i++) {
-                    blockSerdes[i].writeBlock(sliceOutput, blocks[i]);
+                    blockEncodings[i].writeBlock(sliceOutput, blocks[i]);
                 }
 
                 return this;
             }
-
-            @Override
-            public void finish()
-            {
-            }
         };
-    }
-
-    private static BlockSerde getSerdeForBlock(Block block)
-    {
-        BlockSerde blockSerde;
-        if (block instanceof UncompressedBlock) {
-            blockSerde = new UncompressedBlockSerde();
-        } else {
-            throw new IllegalArgumentException("Unsupported block type " + block.getClass().getSimpleName());
-        }
-        return blockSerde;
     }
 
     public static void writePages(SliceOutput sliceOutput, Page... pages)
@@ -94,7 +74,6 @@ public final class PagesSerde
         while (pages.hasNext()) {
             pagesWriter.append(pages.next());
         }
-        pagesWriter.finish();
     }
 
     public Iterable<Page> readPages(final InputSupplier<SliceInput> sliceInputSupplier)
@@ -124,8 +103,7 @@ public final class PagesSerde
 
     private static class PagesReader extends AbstractIterator<Page>
     {
-        private final BlockSerde[] blockSerdes;
-        private final TupleInfo[] tupleInfos;
+        private final BlockEncoding[] blockEncodings;
         private final SliceInput sliceInput;
         private long positionOffset;
 
@@ -135,11 +113,10 @@ public final class PagesSerde
             this.positionOffset = startPosition;
 
             int channelCount = sliceInput.readInt();
-            blockSerdes = new BlockSerde[channelCount];
-            tupleInfos = new TupleInfo[channelCount];
-            for (int i = 0; i < blockSerdes.length; i++) {
-                blockSerdes[i] = BlockSerdeSerde.readBlockSerde(sliceInput);
-                tupleInfos[i] = TupleInfoSerde.readTupleInfo(sliceInput);
+
+            blockEncodings = new BlockEncoding[channelCount];
+            for (int i = 0; i < blockEncodings.length; i++) {
+                blockEncodings[i] = BlockEncodings.readBlockEncoding(sliceInput);
             }
         }
 
@@ -150,9 +127,9 @@ public final class PagesSerde
                 return endOfData();
             }
 
-            Block[] blocks = new Block[tupleInfos.length];
+            Block[] blocks = new Block[blockEncodings.length];
             for (int i = 0; i < blocks.length; i++) {
-                blocks[i] = blockSerdes[i].readBlock(sliceInput, tupleInfos[i], positionOffset);
+                blocks[i] = blockEncodings[i].readBlock(sliceInput, positionOffset);
             }
             Page page = new Page(blocks);
             positionOffset += page.getPositionCount();
