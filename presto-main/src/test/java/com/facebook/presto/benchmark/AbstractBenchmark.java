@@ -1,5 +1,6 @@
 package com.facebook.presto.benchmark;
 
+import com.google.common.base.Throwables;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 

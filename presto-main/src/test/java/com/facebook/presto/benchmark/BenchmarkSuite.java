@@ -21,7 +21,15 @@ public class BenchmarkSuite
             new CountAggregationBenchmark(),
             new HashAggregationBenchmark(),
             new PredicateFilterBenchmark(),
-            new RawStreamingBenchmark()
+            new RawStreamingBenchmark(),
+
+            // sql benchmarks
+            new GroupBySumWithArithmeticSqlBenchmark(),
+            new CountAggregationSqlBenchmark(),
+            new CountWithFilterSqlBenchmark(),
+            new GroupByAggregationSqlBenchmark(),
+            new PredicateFilterSqlBenchmark(),
+            new RawStreamingSqlBenchmark()
     );
 
     private final String outputDirectory;
@@ -31,7 +39,8 @@ public class BenchmarkSuite
         this.outputDirectory = checkNotNull(outputDirectory, "outputDirectory is null");
     }
 
-    private File createOutputFile(String fileName) throws IOException
+    private File createOutputFile(String fileName)
+            throws IOException
     {
         File outputFile = new File(fileName);
         Files.createParentDirs(outputFile);
@@ -96,7 +105,8 @@ public class BenchmarkSuite
         }
     }
 
-    public static void main(String[] args) throws IOException
+    public static void main(String[] args)
+            throws IOException
     {
         String outputDirectory = checkNotNull(System.getProperty("outputDirectory"), "Must specify -DoutputDirectory=...");
         new BenchmarkSuite(outputDirectory).runAllBenchmarks();
