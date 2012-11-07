@@ -13,12 +13,14 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import io.airlift.log.Logger;
 
 import java.util.List;
 
 public class QueryDriversOperator
         implements Operator
 {
+    private static final Logger log = Logger.get(QueryDriversOperator.class);
     private final List<QueryDriverProvider> driverProviders;
     private final int pageBufferMax;
 
@@ -31,6 +33,7 @@ public class QueryDriversOperator
     {
         Preconditions.checkArgument(pageBufferMax > 0, "blockBufferMax must be at least 1");
         Preconditions.checkNotNull(driverProviders, "driverProviders is null");
+        Preconditions.checkArgument(!Iterables.isEmpty(driverProviders), "driverProviders is empty");
 
         this.pageBufferMax = pageBufferMax;
         this.driverProviders = ImmutableList.copyOf(driverProviders);
@@ -80,7 +83,12 @@ public class QueryDriversOperator
         {
             queryState.cancel();
             for (QueryDriver queryDriver : queryDrivers) {
-                queryDriver.cancel();
+                try {
+                    queryDriver.cancel();
+                }
+                catch (Exception e) {
+                    log.warn("Error canceling query driver", e);
+                }
             }
         }
 
@@ -107,7 +115,7 @@ public class QueryDriversOperator
                             block.getSlice());
                 }
                 page = new Page(blocks);
-                position = page.getBlock(0).getRange().getEnd();
+                position += page.getPositionCount();
 
                 return page;
             }

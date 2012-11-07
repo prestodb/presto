@@ -15,6 +15,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.facebook.presto.block.BlockUtils.toTupleIterable;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ImportingOperator implements Operator
 {
@@ -39,11 +40,13 @@ public class ImportingOperator implements Operator
 
     public ImportingOperator(Operator source, BlocksFileWriter... fileWriters)
     {
-        this(source, ImmutableList.copyOf(fileWriters));
+        this(source, ImmutableList.copyOf(checkNotNull(fileWriters, "fileWriters is null")));
     }
 
     public ImportingOperator(Operator source, Iterable<? extends BlocksFileWriter> fileWriters)
     {
+        checkNotNull(source, "source is null");
+        checkNotNull(fileWriters, "fileWriters is null");
         this.source = source;
         this.fileWriters = ImmutableList.copyOf(fileWriters);
     }
@@ -68,9 +71,7 @@ public class ImportingOperator implements Operator
             protected Page computeNext()
             {
                 if (!iterator.hasNext()) {
-                    for (BlocksFileWriter fileWriter : fileWriters) {
-                        fileWriter.close();
-                    }
+                    close();
                     return endOfData();
                 }
 
@@ -82,6 +83,14 @@ public class ImportingOperator implements Operator
                 }
 
                 return page;
+            }
+
+            public void close()
+            {
+                for (BlocksFileWriter fileWriter : fileWriters) {
+                    fileWriter.close();
+                }
+                endOfData();
             }
         };
     }

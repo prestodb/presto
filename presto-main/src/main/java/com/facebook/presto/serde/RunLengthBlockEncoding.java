@@ -20,6 +20,7 @@ public class RunLengthBlockEncoding
 
     public RunLengthBlockEncoding(TupleInfo tupleInfo)
     {
+        Preconditions.checkNotNull(tupleInfo, "tupleInfo is null");
         this.tupleInfo = tupleInfo;
     }
 

@@ -62,7 +62,7 @@ public class AlignmentOperator implements Operator
         protected Page computeNext()
         {
             // all iterators should end together
-            if (blocks[0].getRawRange().getEnd() < startPosition && !iterators[0].hasNext()) {
+            if (startPosition > blocks[0].getRawRange().getEnd()  && !iterators[0].hasNext()) {
                 for (Iterator<? extends Block> iterator : iterators) {
                     checkState(!iterator.hasNext());
                 }
