@@ -1,25 +1,25 @@
 package com.facebook.presto.block.uncompressed;
 
-import com.facebook.presto.util.Range;
-import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
+import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.util.Range;
 import com.google.common.base.Preconditions;
 
-import java.util.NoSuchElementException;
-
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_SHORT;
-import static com.google.common.base.Preconditions.checkState;
 
 public class UncompressedSliceBlockCursor
         implements BlockCursor
 {
     private final Slice slice;
     private final Range range;
-    private long position = -1;
+    private final long endPosition;
+    private final long startPosition;
+
+    private long position;
     private int offset;
-    private int size = -1;
+    private int size;
 
     public UncompressedSliceBlockCursor(UncompressedBlock block)
     {
@@ -27,7 +27,14 @@ public class UncompressedSliceBlockCursor
 
         this.slice = block.getSlice();
         this.range = block.getRange();
-        this.offset = block.getRawOffset();
+
+        endPosition = range.getEnd();
+        startPosition = range.getStart();
+
+        // start one position before the start
+        position = startPosition - 1;
+        offset = block.getRawOffset();
+        size = 0;
     }
 
     @Override
@@ -45,64 +52,50 @@ public class UncompressedSliceBlockCursor
     @Override
     public boolean isValid()
     {
-        return range.contains(position);
+        return startPosition <= position && position <= endPosition;
     }
 
     @Override
     public boolean isFinished()
     {
-        return position > range.getEnd();
+        return position > endPosition;
     }
 
     private void checkReadablePosition()
     {
-        if (position > range.getEnd()) {
-            throw new NoSuchElementException("already finished");
-        }
-        checkState(position >= range.getStart(), "cursor not yet advanced");
+        Preconditions.checkState(isValid(), "cursor is not valid");
     }
 
     @Override
     public boolean advanceNextValue()
     {
-        // every position is a new value
-        if (position >= range.getEnd()) {
-            position = Long.MAX_VALUE;
-            return false;
-        }
-
-        if (position < 0) {
-            position = range.getStart();
-        }
-        else {
-            position++;
-            offset += size;
-        }
-        size = slice.getShort(offset);
-        return true;
+        // every value is a new position
+        return advanceNextPosition();
     }
 
     @Override
     public boolean advanceNextPosition()
     {
-        return advanceNextValue();
+        if (position >= endPosition) {
+            position = Long.MAX_VALUE;
+            return false;
+        }
+
+        position++;
+        offset += size;
+        size = slice.getShort(offset);
+        return true;
     }
 
     @Override
     public boolean advanceToPosition(long newPosition)
     {
-        if (newPosition > range.getEnd()) {
+        if (newPosition > endPosition) {
             position = newPosition;
             return false;
         }
 
         Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
-
-        // move to initial position
-        if (position < 0) {
-            position = range.getStart();
-            size = slice.getShort(0);
-        }
 
         // advance to specified position
         while (position < newPosition) {
