@@ -6,7 +6,7 @@ import com.facebook.presto.sql.tree.Table;
 
 import java.util.IdentityHashMap;
 
-public class AnalysisContext
+class AnalysisContext
 {
     private final SlotAllocator slotAllocator;
 
@@ -23,7 +23,11 @@ public class AnalysisContext
         this.slotAllocator = slotAllocator;
     }
 
-    public IdentityHashMap<Subquery, AnalysisResult> getInlineViews()
+    /**
+     * We really want to expose an unmodifiable identity map here. Unfortunately there's no such a thing, so we expose the raw reference.
+     * Callers should *not* modify its contents.
+     */
+    IdentityHashMap<Subquery, AnalysisResult> getInlineViews()
     {
         return inlineViews;
     }
@@ -38,7 +42,11 @@ public class AnalysisContext
         tableDescriptors.put(table, descriptor);
     }
 
-    public IdentityHashMap<Relation, TupleDescriptor> getTableDescriptors()
+    /**
+     * We really want to expose an unmodifiable identity map here. Unfortunately there's no such a thing, so we expose the raw reference.
+     * Callers should *not* modify its contents.
+     */
+    IdentityHashMap<Relation, TupleDescriptor> getTableDescriptors()
     {
         return tableDescriptors;
     }
