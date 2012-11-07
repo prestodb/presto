@@ -275,6 +275,16 @@ public class TestQueries
     }
 
     @Test
+    public void testQualifiedWildcardFromInlineView()
+            throws Exception
+    {
+        List<Tuple> expected = computeExpected("SELECT T.* FROM (SELECT orderkey + custkey FROM ORDERS) T", FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT T.* FROM (SELECT orderkey + custkey FROM ORDERS) T");
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
     public void testQualifiedWildcard()
     {
         List<Tuple> expected = computeExpected("SELECT orderkey, custkey, totalprice, orderdate, orderstatus, orderpriority, clerk, shippriority, comment FROM ORDERS",
