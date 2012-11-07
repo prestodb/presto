@@ -104,9 +104,6 @@ public class Tuple
 
         Tuple tuple = (Tuple) o;
 
-        if (!tupleInfo.equals(tuple.tupleInfo)) {
-            return false;
-        }
         if (!slice.equals(tuple.slice)) {
             return false;
         }
@@ -118,7 +115,6 @@ public class Tuple
     public int hashCode()
     {
         int result = slice.hashCode();
-        result = 31 * result + tupleInfo.hashCode();
         return result;
     }
 
