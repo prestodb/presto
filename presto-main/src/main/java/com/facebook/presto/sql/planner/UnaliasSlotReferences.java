@@ -20,6 +20,14 @@ import java.util.Map;
 
 /**
  * Re-maps slot references that are just aliases of each other (e.g., due to projects like $0 := $1)
+ *
+ * E.g.,
+ *
+ * Output[$0, $1] -> Project[$0 := $2, $1 := $3 * 100] -> Aggregate[$2, $3 := sum($4)] -> ...
+ *
+ * gets rewritten as
+ *
+ * Output[$2, $1] -> Project[$2, $1 := $3 * 100] -> Aggregate[$2, $3 := sum($4)] -> ...
  */
 public class UnaliasSlotReferences
         extends PlanOptimizer
@@ -44,7 +52,7 @@ public class UnaliasSlotReferences
         @Override
         public PlanNode visitAggregation(AggregationNode node, Void context)
         {
-            PlanNode source = Iterables.getOnlyElement(node.getSources()).accept(this, context);
+            PlanNode source = node.getSource().accept(this, context);
 
             ImmutableMap.Builder<Slot, FunctionInfo> functionInfos = ImmutableMap.builder();
             ImmutableMap.Builder<Slot, FunctionCall> functionCalls = ImmutableMap.builder();
@@ -82,7 +90,7 @@ public class UnaliasSlotReferences
         @Override
         public PlanNode visitFilter(FilterNode node, Void context)
         {
-            PlanNode source = Iterables.getOnlyElement(node.getSources()).accept(this, context);
+            PlanNode source = node.getSource().accept(this, context);
 
             return new FilterNode(source, canonicalize(node.getPredicate()), canonicalize(node.getOutputs()));
         }
@@ -90,7 +98,7 @@ public class UnaliasSlotReferences
         @Override
         public PlanNode visitProject(ProjectNode node, Void context)
         {
-            PlanNode source = Iterables.getOnlyElement(node.getSources()).accept(this, context);
+            PlanNode source = node.getSource().accept(this, context);
 
             ImmutableMap.Builder<Slot, Expression> builder = ImmutableMap.builder();
             for (Map.Entry<Slot, Expression> entry : node.getOutputMap().entrySet()) {
@@ -112,7 +120,7 @@ public class UnaliasSlotReferences
         @Override
         public PlanNode visitOutput(OutputPlan node, Void context)
         {
-            PlanNode source = Iterables.getOnlyElement(node.getSources()).accept(this, context);
+            PlanNode source = node.getSource().accept(this, context);
 
             return new OutputPlan(source, node.getColumnNames());
         }

@@ -54,6 +54,11 @@ public class AggregationNode
         return groupByKeys;
     }
 
+    public PlanNode getSource()
+    {
+        return source;
+    }
+
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitAggregation(this, context);
