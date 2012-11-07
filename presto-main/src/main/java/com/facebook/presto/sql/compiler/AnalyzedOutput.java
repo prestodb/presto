@@ -1,5 +1,7 @@
 package com.facebook.presto.sql.compiler;
 
+import com.google.common.base.Preconditions;
+
 import java.util.Map;
 
 public class AnalyzedOutput
@@ -9,6 +11,9 @@ public class AnalyzedOutput
 
     public AnalyzedOutput(TupleDescriptor descriptor, Map<Slot, AnalyzedExpression> expressions)
     {
+        Preconditions.checkNotNull(descriptor, "descriptor is null");
+        Preconditions.checkNotNull(expressions, "expressions is null");
+
         this.descriptor = descriptor;
         this.expressions = expressions;
     }

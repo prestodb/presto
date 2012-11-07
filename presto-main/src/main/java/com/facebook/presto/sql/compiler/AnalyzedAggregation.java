@@ -3,6 +3,8 @@ package com.facebook.presto.sql.compiler;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
@@ -14,8 +16,12 @@ public class AnalyzedAggregation
 
     public AnalyzedAggregation(FunctionInfo info, List<AnalyzedExpression> arguments, FunctionCall rewrittenCall)
     {
+        Preconditions.checkNotNull(info, "info is null");
+        Preconditions.checkNotNull(arguments, "arguments is null");
+        Preconditions.checkNotNull(rewrittenCall, "rewrittenCall is null");
+
         this.info = info;
-        this.arguments = arguments;
+        this.arguments = ImmutableList.copyOf(arguments);
         this.rewrittenCall = rewrittenCall;
     }
 

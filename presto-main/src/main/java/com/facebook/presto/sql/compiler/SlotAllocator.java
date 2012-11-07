@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.compiler;
 
 import com.facebook.presto.sql.tree.Expression;
+import com.google.common.base.Preconditions;
 
 public class SlotAllocator
 {
@@ -8,6 +9,8 @@ public class SlotAllocator
 
     public Slot newSlot(Type type)
     {
+        Preconditions.checkNotNull(type, "type is null");
+
         return new Slot(slotId++, type);
     }
 
