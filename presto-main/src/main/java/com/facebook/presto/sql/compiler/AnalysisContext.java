@@ -9,21 +9,18 @@ import java.util.IdentityHashMap;
 public class AnalysisContext
 {
     private final SlotAllocator slotAllocator;
-    private final AnalysisContext parent;
 
     private final IdentityHashMap<Subquery, AnalysisResult> inlineViews = new IdentityHashMap<>();
     private final IdentityHashMap<Relation, TupleDescriptor> tableDescriptors = new IdentityHashMap<>();
 
     public AnalysisContext()
     {
-        this.parent = null;
-        this.slotAllocator = new SlotAllocator();
+        this(new SlotAllocator());
     }
 
-    public AnalysisContext(AnalysisContext parent)
+    public AnalysisContext(SlotAllocator slotAllocator)
     {
-        this.parent = parent;
-        this.slotAllocator = null;
+        this.slotAllocator = slotAllocator;
     }
 
     public IdentityHashMap<Subquery, AnalysisResult> getInlineViews()
@@ -48,10 +45,6 @@ public class AnalysisContext
 
     public SlotAllocator getSlotAllocator()
     {
-        if (parent != null) {
-            return parent.getSlotAllocator();
-        }
-
         return slotAllocator;
     }
 }
