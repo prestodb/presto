@@ -1,18 +1,28 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.tuple.TupleInfo;
 
-import javax.inject.Provider;
+import java.util.List;
 
 public class FunctionInfo
 {
+    private final QualifiedName name;
     private final boolean isAggregate;
-    private final Provider<AggregationFunction> provider;
+    private final TupleInfo.Type returnType;
+    private final List<TupleInfo.Type> argumentTypes;
 
-    public FunctionInfo(boolean aggregate, Provider<AggregationFunction> provider)
+    public FunctionInfo(QualifiedName name, boolean aggregate, TupleInfo.Type returnType, List<TupleInfo.Type> argumentTypes)
     {
+        this.name = name;
         isAggregate = aggregate;
-        this.provider = provider;
+        this.returnType = returnType;
+        this.argumentTypes = argumentTypes;
+    }
+
+    public QualifiedName getName()
+    {
+        return name;
     }
 
     public boolean isAggregate()
@@ -20,8 +30,13 @@ public class FunctionInfo
         return isAggregate;
     }
 
-    public Provider<AggregationFunction> getProvider()
+    public TupleInfo.Type getReturnType()
     {
-        return provider;
+        return returnType;
+    }
+
+    public List<TupleInfo.Type> getArgumentTypes()
+    {
+        return argumentTypes;
     }
 }

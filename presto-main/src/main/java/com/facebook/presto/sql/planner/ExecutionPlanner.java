@@ -1,0 +1,217 @@
+package com.facebook.presto.sql.planner;
+
+import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.metadata.ColumnMetadata;
+import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.StorageManager;
+import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.operator.AggregationOperator;
+import com.facebook.presto.operator.AlignmentOperator;
+import com.facebook.presto.operator.FilterAndProjectOperator;
+import com.facebook.presto.operator.FilterFunction;
+import com.facebook.presto.operator.HashAggregationOperator;
+import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.ProjectionFunction;
+import com.facebook.presto.operator.ProjectionFunctions;
+import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.aggregation.CountAggregation;
+import com.facebook.presto.operator.aggregation.DoubleAverageAggregation;
+import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
+import com.facebook.presto.operator.aggregation.LongAverageAggregation;
+import com.facebook.presto.operator.aggregation.LongSumAggregation;
+import com.facebook.presto.sql.compiler.SessionMetadata;
+import com.facebook.presto.sql.compiler.Slot;
+import com.facebook.presto.sql.compiler.SlotReference;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+
+import javax.inject.Provider;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static java.lang.String.format;
+
+public class ExecutionPlanner
+{
+    private final SessionMetadata metadata;
+    private final StorageManager storage;
+
+    public ExecutionPlanner(SessionMetadata metadata, StorageManager storage)
+    {
+        this.metadata = metadata;
+        this.storage = storage;
+    }
+
+    public Operator plan(PlanNode plan)
+    {
+        if (plan instanceof AlignNode) {
+            return createAlignmentNode((AlignNode) plan);
+        }
+        else if (plan instanceof ProjectNode) {
+            return createProjectNode((ProjectNode) plan);
+        }
+        else if (plan instanceof FilterNode) {
+            return createFilterNode((FilterNode) plan);
+        }
+        else if (plan instanceof OutputPlan) {
+            return plan(Iterables.getOnlyElement(plan.getSources()));
+        }
+        else if (plan instanceof AggregationNode) {
+            return createAggregationNode((AggregationNode) plan);
+        }
+
+        throw new UnsupportedOperationException("not yet implemented: " + plan.getClass().getName());
+    }
+
+    private Operator createAggregationNode(AggregationNode node)
+    {
+        PlanNode source = Iterables.getOnlyElement(node.getSources());
+        Operator sourceOperator = plan(source);
+
+        Map<Slot, Integer> slotToChannelMappings = mapSlotsToChannels(source.getOutputs());
+
+        List<Provider<AggregationFunction>> aggregationFunctions = new ArrayList<>();
+        for (Map.Entry<Slot, FunctionCall> entry : node.getAggregations().entrySet()) {
+            aggregationFunctions.add(getProvider(node.getFunctionInfos().get(entry.getKey()), entry.getValue(), slotToChannelMappings));
+        }
+
+        List<ProjectionFunction> projections = new ArrayList<>();
+        for (int i = 0; i < node.getOutputs().size(); ++i) {
+            Slot slot = node.getOutputs().get(i);
+            projections.add(ProjectionFunctions.singleColumn(slot.getType().getRawType(), i, 0));
+        }
+
+        if (node.getGroupBy().isEmpty()) {
+            return new AggregationOperator(sourceOperator, aggregationFunctions, projections);
+        }
+
+        Preconditions.checkArgument(node.getGroupBy().size() <= 1, "Only single GROUP BY key supported at this time");
+        Slot groupBySlot = Iterables.getOnlyElement(node.getGroupBy());
+        return new HashAggregationOperator(sourceOperator, slotToChannelMappings.get(groupBySlot), aggregationFunctions, projections);
+    }
+
+    private Provider<AggregationFunction> getProvider(FunctionInfo info, FunctionCall call, Map<Slot, Integer> slotToChannelMappings)
+    {
+        if (info.getName().equals(QualifiedName.of("count"))) {
+            return CountAggregation.PROVIDER;
+        }
+
+        if (info.getName().equals(QualifiedName.of("sum"))) {
+            Slot input = ((SlotReference) call.getArguments().get(0)).getSlot();
+            if (info.getArgumentTypes().get(0) == TupleInfo.Type.FIXED_INT_64) {
+                return LongSumAggregation.provider(slotToChannelMappings.get(input), 0);
+            }
+            else if (info.getArgumentTypes().get(0) == TupleInfo.Type.DOUBLE) {
+                return DoubleSumAggregation.provider(slotToChannelMappings.get(input), 0);
+            }
+        }
+        else if (info.getName().equals(QualifiedName.of("avg"))) {
+            Slot input = ((SlotReference) call.getArguments().get(0)).getSlot();
+            if (info.getArgumentTypes().get(0) == TupleInfo.Type.FIXED_INT_64) {
+                return LongAverageAggregation.provider(slotToChannelMappings.get(input), 0);
+            }
+            else if (info.getArgumentTypes().get(0) == TupleInfo.Type.DOUBLE) {
+                return DoubleAverageAggregation.provider(slotToChannelMappings.get(input), 0);
+            }
+        }
+
+        throw new UnsupportedOperationException(format("not yet implemented: %s(%s)", info.getName(), Joiner.on(", ").join(info.getArgumentTypes())));
+    }
+
+    private Operator createFilterNode(FilterNode node)
+    {
+        PlanNode source = Iterables.getOnlyElement(node.getSources());
+        Operator sourceOperator = plan(source);
+
+        Map<Slot, Integer> slotToChannelMappings = mapSlotsToChannels(source.getOutputs());
+
+        FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), slotToChannelMappings);
+
+        List<ProjectionFunction> projections = new ArrayList<>();
+        for (int i = 0; i < node.getOutputs().size(); i++) {
+            Slot slot = node.getOutputs().get(i);
+            ProjectionFunction function = ProjectionFunctions.singleColumn(slot.getType().getRawType(), slotToChannelMappings.get(slot), 0);
+            projections.add(function);
+        }
+
+        return new FilterAndProjectOperator(sourceOperator, filter, projections);
+    }
+
+    private Operator createProjectNode(final ProjectNode node)
+    {
+        PlanNode source = Iterables.getOnlyElement(node.getSources());
+        Operator sourceOperator = plan(Iterables.getOnlyElement(node.getSources()));
+
+        FilterFunction trueFunction = new FilterFunction()
+        {
+            @Override
+            public boolean filter(BlockCursor[] cursors)
+            {
+                return true;
+            }
+        };
+
+        Map<Slot, Integer> slotToChannelMappings = mapSlotsToChannels(source.getOutputs());
+
+        List<ProjectionFunction> projections = new ArrayList<>();
+        for (int i = 0; i < node.getExpressions().size(); i++) {
+            Slot slot = node.getOutputs().get(i);
+            Expression expression = node.getExpressions().get(i);
+            ProjectionFunction function = new InterpretedProjectionFunction(slot.getType(), expression, slotToChannelMappings);
+            projections.add(function);
+        }
+
+        return new FilterAndProjectOperator(sourceOperator, trueFunction, projections);
+    }
+
+    private Operator createAlignmentNode(AlignNode node)
+    {
+        BlockIterable[] blocks = new BlockIterable[node.getSources().size()];
+
+        for (int i = 0; i < node.getSources().size(); i++) {
+            PlanNode source = node.getSources().get(i);
+
+            ColumnScan scan = (ColumnScan) source;
+
+            TableMetadata tableMetadata = metadata.getTable(QualifiedName.of(scan.getCatalogName(), scan.getSchemaName(), scan.getTableName()));
+            int index = 0;
+            for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
+                if (columnMetadata.getName().equals(scan.getAttributeName())) {
+                    break;
+                }
+                ++index;
+            }
+
+            blocks[i] = storage.getBlocks(scan.getSchemaName(), scan.getTableName(), index);
+        }
+
+        return new AlignmentOperator(blocks);
+    }
+
+    public static TupleInfo toTupleInfo(Iterable<Slot> slots)
+    {
+        ImmutableList.Builder<TupleInfo.Type> types = ImmutableList.builder();
+        for (Slot slot : slots) {
+            types.add(slot.getType().getRawType());
+        }
+        return new TupleInfo(types.build());
+    }
+
+    private Map<Slot, Integer> mapSlotsToChannels(List<Slot> outputs)
+    {
+        Map<Slot, Integer> slotToChannelMappings = new HashMap<>();
+        for (int i = 0; i < outputs.size(); i++) {
+            slotToChannelMappings.put(outputs.get(i), i);
+        }
+        return slotToChannelMappings;
+    }
+}

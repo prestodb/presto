@@ -1,45 +1,30 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.operator.aggregation.CountAggregation;
-import com.facebook.presto.operator.aggregation.LongAverageAggregation;
-import com.facebook.presto.operator.aggregation.LongSumAggregation;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
 
 public class TestingMetadata
         implements Metadata
 {
-    public static final Map<String, FunctionInfo> STANDARD_FUNCTIONS = ImmutableMap.<String, FunctionInfo>builder()
-            .put("count", new FunctionInfo(true, CountAggregation.PROVIDER))
-            .put("sum", new FunctionInfo(true, LongSumAggregation.PROVIDER))
-            .put("avg", new FunctionInfo(true, LongAverageAggregation.PROVIDER))
-            .build();
-
     private final Map<List<String>, TableMetadata> tables = new HashMap<>();
-    private final Map<String, FunctionInfo> functions;
-
-    public TestingMetadata()
-    {
-        this(STANDARD_FUNCTIONS);
-    }
-
-    public TestingMetadata(Map<String, FunctionInfo> functions)
-    {
-        this.functions = ImmutableMap.copyOf(checkNotNull(functions, "functions is null"));
-    }
+    private final FunctionRegistry functions = new FunctionRegistry();
 
     @Override
-    public FunctionInfo getFunction(String name)
+    public FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes)
     {
-        checkArgument(name.equals(name.toLowerCase()), "name is not lowercase");
-        return functions.get(name);
+        return functions.get(name, parameterTypes);
     }
 
     @Override

@@ -1,9 +1,12 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.operator.aggregation.CountAggregation;
-import com.facebook.presto.operator.aggregation.LongAverageAggregation;
-import com.facebook.presto.operator.aggregation.LongSumAggregation;
-import com.google.common.collect.ImmutableMap;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionStatus;
@@ -11,21 +14,16 @@ import org.skife.jdbi.v2.VoidTransactionCallback;
 
 import javax.inject.Inject;
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 
 public class DatabaseMetadata
         implements Metadata
 {
-    private static final Map<String, FunctionInfo> FUNCTIONS = ImmutableMap.<String, FunctionInfo>builder()
-            .put("COUNT", new FunctionInfo(true, CountAggregation.PROVIDER))
-            .put("SUM", new FunctionInfo(true, LongSumAggregation.PROVIDER))
-            .put("AVG", new FunctionInfo(true, LongAverageAggregation.PROVIDER))
-            .build();
-
     private final IDBI dbi;
     private final MetadataDao dao;
+    private final FunctionRegistry functions = new FunctionRegistry();
 
     @Inject
     public DatabaseMetadata(@ForMetadata IDBI dbi)
@@ -36,10 +34,9 @@ public class DatabaseMetadata
     }
 
     @Override
-    public FunctionInfo getFunction(String name)
+    public FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes)
     {
-        checkArgument(name.equals(name.toLowerCase()), "name is not lowercase");
-        return FUNCTIONS.get(name);
+        return functions.get(name, parameterTypes);
     }
 
     @Override

@@ -40,7 +40,7 @@ public final class BasicSliceInput extends SliceInput
     @Override
     public final boolean isReadable()
     {
-        return slice.length() > position;
+        return position < slice.length();
     }
 
     @Override
@@ -78,7 +78,7 @@ public final class BasicSliceInput extends SliceInput
     @Override
     public int readUnsignedByte()
     {
-        return (short) (readByte() & 0xFF);
+        return readByte() & 0xFF;
     }
 
     @Override
@@ -93,7 +93,7 @@ public final class BasicSliceInput extends SliceInput
     public int readUnsignedShort()
             throws IOException
     {
-        return readShort() & 0xff;
+        return readShort() & 0xFFFF;
     }
 
     @Override

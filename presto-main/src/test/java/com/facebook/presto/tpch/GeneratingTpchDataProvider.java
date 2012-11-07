@@ -128,7 +128,7 @@ public class GeneratingTpchDataProvider
         checkNotNull(encoding, "encoding is null");
 
         try {
-            String hash = ByteStreams.hash(tableInputSupplierFactory.getInputSupplier(column.getTable().getName()), Hashing.md5()).toString();
+            String hash = ByteStreams.hash(ByteStreams.slice(tableInputSupplierFactory.getInputSupplier(column.getTable().getName()), 0, 1024 * 1024), Hashing.murmur3_32()).toString();
 
             File cachedFile = new File(new File(cacheDirectory, column.getTable().getName() + "-" + hash), "new-" + createFileName(column, encoding.getName()));
             if (cachedFile.exists()) {

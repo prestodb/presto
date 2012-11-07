@@ -7,7 +7,7 @@ import com.facebook.presto.util.Range;
 public interface Block
 {
     /**
-     * Gets the type of all tuples in this cursor
+     * Gets the type of all tuples in this block
      */
     TupleInfo getTupleInfo();
 

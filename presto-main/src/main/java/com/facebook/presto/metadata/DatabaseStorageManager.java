@@ -99,11 +99,6 @@ public class DatabaseStorageManager
     private FilesAndRowCount stagingImport(Operator source, String databaseName, String tableName, long shardId)
             throws IOException
     {
-
-        // todo assure source is closed
-        // todo assure source is closed
-        // todo assure source is closed
-        // todo assure source is closed
         ImmutableList.Builder<File> outputFilesBuilder = ImmutableList.builder();
         ImmutableList.Builder<BlocksFileWriter> writersBuilder = ImmutableList.builder();
         for (int channel = 0; channel < source.getChannelCount(); channel++) {
