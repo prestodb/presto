@@ -52,7 +52,7 @@ public class TupleDescriptor
     @Override
     public String toString()
     {
-        return Joiner.on(",").join(slots);
+        return slots.toString();
     }
 
     public List<NamedSlot> resolve(final QualifiedName name)
