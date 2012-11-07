@@ -55,9 +55,11 @@ public class Planner
     {
         PlanNode result = createQueryPlan(query, analysis);
 
+        int i = 0;
         ImmutableList.Builder<String> names = ImmutableList.builder();
-        for (Optional<QualifiedName> name : analysis.getOutputDescriptor().getNames()) {
-            names.add(name.or(QualifiedName.of("col")).getSuffix());
+        for (Optional<String> name : analysis.getOutputDescriptor().getAttributes()) {
+            names.add(name.or("_col" + i));
+            i++;
         }
 
         return new OutputPlan(result, names.build());
@@ -203,9 +205,10 @@ public class Planner
 
         for (NamedSlot namedSlot : slots) {
             Slot slot = namedSlot.getSlot();
-            QualifiedName name = namedSlot.getName().get();
+            QualifiedName tableName = namedSlot.getPrefix().get();
+            String attribute = namedSlot.getAttribute().get();
 
-            ColumnScan scan = new ColumnScan(name.getParts().get(0), name.getParts().get(1), name.getParts().get(2), name.getParts().get(3), slot);
+            ColumnScan scan = new ColumnScan(tableName.getParts().get(0), tableName.getParts().get(1), tableName.getParts().get(2), attribute, slot);
             sources.add(scan);
             outputs.add(slot);
         }

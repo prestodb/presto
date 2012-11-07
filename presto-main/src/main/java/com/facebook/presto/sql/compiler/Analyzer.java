@@ -100,32 +100,31 @@ public class Analyzer
         private AnalyzedOutput analyzeOutput(Select select, SlotAllocator allocator, TupleDescriptor descriptor)
         {
             ImmutableList.Builder<Expression> expressions = ImmutableList.builder();
-            ImmutableList.Builder<Optional<QualifiedName>> names = ImmutableList.builder();
+            ImmutableList.Builder<Optional<String>> names = ImmutableList.builder();
             for (Expression expression : select.getSelectItems()) {
                 if (expression instanceof AllColumns) {
-                    // TODO: this code doesn't currently handle SELECT U.* FROM (SELECT a + b FROM T) U because the expression doesn't get a name
                     // expand * and T.*
                     Optional<QualifiedName> starPrefix = ((AllColumns) expression).getPrefix();
                     for (NamedSlot slot : descriptor.getSlots()) {
-                        Optional<QualifiedName> slotName = slot.getName();
+                        Optional<QualifiedName> prefix = slot.getPrefix();
                         // Check if the prefix of the slot name (i.e., the table name or relation alias) have a suffix matching the prefix of the wildcard
                         // e.g., SELECT T.* FROM S.T should resolve correctly
-                        if (!starPrefix.isPresent() || slotName.isPresent() && slotName.get().getPrefix().get().hasSuffix(starPrefix.get())) {
-                            names.add(slotName);
+                        if (!starPrefix.isPresent() || prefix.isPresent() && prefix.get().hasSuffix(starPrefix.get())) {
+                            names.add(slot.getAttribute());
                             expressions.add(new SlotReference(slot.getSlot()));
                         }
                     }
                 }
                 else {
-                    Optional<QualifiedName> alias = Optional.absent();
+                    Optional<String> alias = Optional.absent();
                     if (expression instanceof AliasedExpression) {
                         AliasedExpression aliased = (AliasedExpression) expression;
 
-                        alias = Optional.of(QualifiedName.of(aliased.getAlias()));
+                        alias = Optional.of(aliased.getAlias());
                         expression = aliased.getExpression();
                     }
                     else if (expression instanceof QualifiedNameReference) {
-                        alias = Optional.of(((QualifiedNameReference) expression).getSuffix());
+                        alias = Optional.of(((QualifiedNameReference) expression).getName().getSuffix());
                     }
 
                     names.add(alias);
@@ -270,9 +269,9 @@ public class Analyzer
             ImmutableList.Builder<NamedSlot> slots = ImmutableList.builder();
             for (ColumnMetadata column : tableMetadata.getColumns()) {
                 Slot slot = context.getSlotAllocator().newSlot(Type.fromRaw(column.getType()));
-                QualifiedName name = QualifiedName.of(tableMetadata.getCatalogName(), tableMetadata.getSchemaName(), tableMetadata.getTableName(), column.getName());
+                QualifiedName prefix = QualifiedName.of(tableMetadata.getCatalogName(), tableMetadata.getSchemaName(), tableMetadata.getTableName());
 
-                slots.add(new NamedSlot(Optional.of(name), slot));
+                slots.add(new NamedSlot(Optional.of(prefix), Optional.of(column.getName()), slot));
             }
 
             TupleDescriptor descriptor = new TupleDescriptor(slots.build());
@@ -291,12 +290,7 @@ public class Analyzer
 
             ImmutableList.Builder<NamedSlot> builder = ImmutableList.builder();
             for (NamedSlot slot : child.getSlots()) {
-                Optional<QualifiedName> name = slot.getName();
-                if (name.isPresent()) {
-                    name = Optional.of(QualifiedName.of(relation.getAlias(), name.get().getSuffix()));
-                }
-
-                builder.add(new NamedSlot(name, slot.getSlot()));
+                builder.add(new NamedSlot(Optional.of(QualifiedName.of(relation.getAlias())), slot.getAttribute(), slot.getSlot()));
             }
 
             return new TupleDescriptor(builder.build());

@@ -9,21 +9,29 @@ import javax.annotation.Nullable;
 
 public class NamedSlot
 {
-    private final Optional<QualifiedName> name;
+    private final Optional<QualifiedName> prefix;
+    private final Optional<String> attribute;
     private final Slot slot;
 
-    public NamedSlot(Optional<QualifiedName> name, Slot slot)
+    public NamedSlot(Optional<QualifiedName> prefix, Optional<String> attribute, Slot slot)
     {
-        Preconditions.checkNotNull(name, "name is null");
+        Preconditions.checkNotNull(prefix, "prefix is null");
+        Preconditions.checkNotNull(attribute, "attribute is null");
         Preconditions.checkNotNull(slot, "slot is null");
 
-        this.name = name;
+        this.prefix = prefix;
+        this.attribute = attribute;
         this.slot = slot;
     }
 
-    public Optional<QualifiedName> getName()
+    public Optional<QualifiedName> getPrefix()
     {
-        return name;
+        return prefix;
+    }
+
+    public Optional<String> getAttribute()
+    {
+        return attribute;
     }
 
     public Slot getSlot()
@@ -33,9 +41,9 @@ public class NamedSlot
 
     public String toString()
     {
-        return String.format("%s:%s", name.or(QualifiedName.of("<anonymous>")), slot.getType());
+        return String.format("%s.%s:%s", prefix, attribute.or("<anonymous>"), slot.getType());
     }
-    
+
     public static Function<NamedSlot, QualifiedName> nameGetter()
     {
         return new Function<NamedSlot, QualifiedName>()
@@ -43,21 +51,20 @@ public class NamedSlot
             @Override
             public QualifiedName apply(NamedSlot input)
             {
-                return input.getName().get();
+                return QualifiedName.of(input.getPrefix().get(), input.getAttribute().get());
             }
         };
     }
 
-    public static Function<NamedSlot, Optional<QualifiedName>> optionalNameGetter()
+    public static Function<NamedSlot, Optional<String>> attributeGetter()
     {
-        return new Function<NamedSlot, Optional<QualifiedName>>()
+        return new Function<NamedSlot, Optional<String>>()
         {
             @Override
-            public Optional<QualifiedName> apply(NamedSlot input)
+            public Optional<String> apply(NamedSlot input)
             {
-                return input.getName();
+               return input.getAttribute();
             }
         };
     }
-
 }
