@@ -3,9 +3,10 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.slice.Slice;
+import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.slice.SliceOutput;
 import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.util.Range;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -19,6 +20,7 @@ public class RunLengthEncoder
     private long startPosition = -1;
     private int tupleCount = -1;
     private Tuple lastTuple;
+    private RunLengthBlockEncoding encoding;
 
     public RunLengthEncoder(SliceOutput sliceOutput)
     {
@@ -32,21 +34,16 @@ public class RunLengthEncoder
         checkState(!finished, "already finished");
 
         for (Tuple tuple : tuples) {
-            if (lastTuple == null) {
+            if (encoding == null) {
+                encoding = new RunLengthBlockEncoding(tuple.getTupleInfo());
                 startPosition = 0;
                 tupleCount = 1;
                 lastTuple = tuple;
             }
             else {
                 if (!tuple.equals(lastTuple)) {
-                    writeRunLengthEncodedBlock(sliceOutput,
-                            startPosition,
-                            tupleCount,
-                            lastTuple);
-
+                    writeBlock();
                     lastTuple = tuple;
-                    startPosition += tupleCount;
-                    tupleCount = 0;
                 }
                 tupleCount++;
             }
@@ -55,29 +52,26 @@ public class RunLengthEncoder
         return this;
     }
 
+    private void writeBlock()
+    {
+        Range range = new Range(startPosition, startPosition + tupleCount - 1);
+        RunLengthEncodedBlock block = new RunLengthEncodedBlock(lastTuple, range);
+
+        encoding.writeBlock(sliceOutput, block);
+        startPosition += tupleCount;
+        tupleCount = 0;
+    }
+
     @Override
     public BlockEncoding finish()
     {
-        checkState(lastTuple != null, "nothing appended");
+        checkState(encoding != null, "nothing appended");
         checkState(!finished, "already finished");
         finished = true;
 
         // Flush out final block if there exists one (null if they were all empty blocks)
-        writeRunLengthEncodedBlock(sliceOutput,
-                startPosition,
-                tupleCount,
-                lastTuple);
+        writeBlock();
 
-        return new RunLengthBlockEncoding(lastTuple.getTupleInfo());
-    }
-
-    private static void writeRunLengthEncodedBlock(SliceOutput destination, long startPosition, int tupleCount, Tuple value)
-    {
-        Slice tupleSlice = value.getTupleSlice();
-        destination
-                .appendInt(tupleSlice.length())
-                .appendInt(tupleCount)
-                .appendLong(startPosition)
-                .writeBytes(tupleSlice);
+        return encoding;
     }
 }

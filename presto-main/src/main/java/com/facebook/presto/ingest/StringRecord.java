@@ -18,7 +18,7 @@ public class StringRecord implements Record
         this.columns = ImmutableList.copyOf(columns);
     }
 
-    public StringRecord(Iterable<? extends String> columns)
+    public StringRecord(Iterable<String> columns)
     {
         Preconditions.checkNotNull(columns, "columns is null");
         this.columns = ImmutableList.copyOf(columns);

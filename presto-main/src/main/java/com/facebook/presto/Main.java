@@ -495,7 +495,7 @@ public class Main
             Operator source = new RecordProjectOperator(records, recordProjections);
 
             long rowCount = ImportingOperator.importData(source, writers);
-            log.info("Importoed %d rows", rowCount);
+            log.info("Imported %d rows", rowCount);
         }
 
         private char toChar(String string)
