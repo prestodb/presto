@@ -1,11 +1,16 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.Tuple;
+import com.facebook.presto.TupleInfo;
+import com.facebook.presto.block.StaticTupleAppendingTupleStream;
 import com.facebook.presto.block.TupleStream;
 import com.facebook.presto.hive.HiveClient;
 import com.facebook.presto.hive.PartitionChunk;
 import com.facebook.presto.hive.RecordIterator;
 import com.facebook.presto.hive.SchemaField;
 import com.facebook.presto.ingest.HiveTupleStream;
+import com.facebook.presto.slice.Slices;
+import com.google.common.base.Charsets;
 import com.google.inject.Inject;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -48,6 +53,10 @@ public class HiveImportManager
             return 0;
         }
 
+        final Tuple partitionTuple = TupleInfo.SINGLE_VARBINARY.builder()
+                .append(Slices.wrappedBuffer(partitionName.getBytes(Charsets.UTF_8)))
+                .build();
+
         List<PartitionChunk> chunks = runWithRetry(new Callable<List<PartitionChunk>>()
         {
             @Override
@@ -88,7 +97,10 @@ public class HiveImportManager
                         throws Exception
                 {
                     try (RecordIterator records = hiveClient.getRecords(chunk)) {
-                        TupleStream sourceTupleStream = new HiveTupleStream(records, schemaFields);
+                        TupleStream sourceTupleStream = new StaticTupleAppendingTupleStream(
+                                new HiveTupleStream(records, schemaFields),
+                                partitionTuple
+                        );
                         // TODO: add layer to break up incoming TupleStream based on size
                         return storageManager.importTableShard(sourceTupleStream, databaseName, tableName);
                     }
