@@ -61,13 +61,13 @@ public class TupleInfo
                     @Override
                     public void convert(String value, BlockBuilder blockBuilder)
                     {
-                        blockBuilder.append(Long.valueOf(value));
+                        blockBuilder.append(Long.parseLong(value));
                     }
 
                     @Override
                     public void convert(String value, TupleInfo.Builder tupleBuilder)
                     {
-                        tupleBuilder.append(Long.valueOf(value));
+                        tupleBuilder.append(Long.parseLong(value));
                     }
                 },
         VARIABLE_BINARY(-1, "string")
@@ -89,13 +89,13 @@ public class TupleInfo
                     @Override
                     public void convert(String value, BlockBuilder blockBuilder)
                     {
-                        blockBuilder.append(Double.valueOf(value));
+                        blockBuilder.append(Double.parseDouble(value));
                     }
 
                     @Override
                     public void convert(String value, TupleInfo.Builder tupleBuilder)
                     {
-                        tupleBuilder.append(Double.valueOf(value));
+                        tupleBuilder.append(Double.parseDouble(value));
                     }
                 };
 
