@@ -4,8 +4,6 @@
 package com.facebook.presto;
 
 import com.facebook.presto.cli.ConvertCsv;
-import com.facebook.presto.cli.DemoQuery2;
-import com.facebook.presto.cli.DemoQuery3;
 import com.facebook.presto.cli.ExampleSumAggregation;
 import com.facebook.presto.cli.Execute;
 import com.facebook.presto.cli.LocalQueryCommand;
@@ -32,8 +30,6 @@ public class Main
                 .withCommand(Server.class)
                 .withCommand(ExampleSumAggregation.class)
                 .withCommand(Execute.class)
-                .withCommand(DemoQuery2.class)
-                .withCommand(DemoQuery3.class)
                 .withCommand(LocalQueryCommand.class)
                 .withCommands(Help.class);
 
