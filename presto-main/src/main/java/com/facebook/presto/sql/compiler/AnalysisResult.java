@@ -4,6 +4,7 @@ import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Subquery;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -45,12 +46,12 @@ public class AnalysisResult
             List<AnalyzedExpression> groupBy)
     {
         this.slotAllocator = slotAllocator;
-        this.tableDescriptors = tableDescriptors;
-        this.inlineViews = inlineViews;
-        this.aggregations = aggregations;
+        this.tableDescriptors = new IdentityHashMap<>(tableDescriptors);
+        this.inlineViews = new IdentityHashMap<>(inlineViews);
+        this.aggregations = ImmutableList.copyOf(aggregations);
         this.predicate = predicate;
         this.output = output;
-        this.groupBy = groupBy;
+        this.groupBy = ImmutableList.copyOf(groupBy);
     }
 
     public TupleDescriptor getOutputDescriptor()
