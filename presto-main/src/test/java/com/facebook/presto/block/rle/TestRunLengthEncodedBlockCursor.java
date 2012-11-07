@@ -20,16 +20,19 @@ public class TestRunLengthEncodedBlockCursor extends AbstractTestBlockCursor
     }
 
     @Override
+    @Test(enabled=false)
     public void testAdvanceNextValue()
     {
     }
 
     @Override
+    @Test(enabled=false)
     public void testMixedValueAndPosition()
     {
     }
 
     @Override
+    @Test(enabled=false)
     public void testNextValuePosition()
     {
     }

@@ -3,11 +3,12 @@
  */
 package com.facebook.presto.serde;
 
+import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceOutput;
 import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.util.Range;
 import com.google.common.base.Preconditions;
 import io.airlift.units.DataSize;
 
@@ -23,7 +24,7 @@ public class UncompressedEncoder
     private final SliceOutput sliceOutput;
     private final DynamicSliceOutput buffer = new DynamicSliceOutput(MAX_BLOCK_SIZE);
 
-    private TupleInfo tupleInfo;
+    private UncompressedBlockEncoding encoding;
     private boolean finished;
     private long blockStartPosition = 0;
     private int tupleCount;
@@ -40,8 +41,8 @@ public class UncompressedEncoder
         checkState(!finished, "already finished");
 
         for (Tuple tuple : tuples) {
-            if (tupleInfo == null) {
-                tupleInfo = tuple.getTupleInfo();
+            if (encoding == null) {
+                encoding = new UncompressedBlockEncoding(tuple.getTupleInfo());
             }
             tuple.writeTo(buffer);
             tupleCount++;
@@ -57,25 +58,22 @@ public class UncompressedEncoder
     @Override
     public BlockEncoding finish()
     {
-        checkState(tupleInfo != null, "nothing appended");
+        checkState(encoding != null, "nothing appended");
         checkState(!finished, "already finished");
         finished = true;
 
         if (buffer.size() > 0) {
             writeBlock();
         }
-        return new UncompressedBlockEncoding(tupleInfo);
+        return encoding;
     }
 
     private void writeBlock()
     {
         Slice slice = buffer.slice();
-        sliceOutput
-                .appendInt(slice.length())
-                .appendInt(tupleCount)
-                .appendLong(blockStartPosition)
-                .writeBytes(slice);
-
+        Range range = new Range(blockStartPosition, blockStartPosition + tupleCount - 1);
+        UncompressedBlock block = new UncompressedBlock(range, encoding.getTupleInfo(), slice);
+        encoding.writeBlock(sliceOutput, block);
         buffer.reset();
         blockStartPosition += tupleCount;
         tupleCount = 0;

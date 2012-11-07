@@ -15,7 +15,8 @@ import java.io.IOException;
 import java.io.Reader;
 import java.util.List;
 
-public class DelimitedRecordIterable implements RecordIterable
+public class DelimitedRecordIterable
+        implements RecordIterable
 {
     private final InputSupplier<? extends Reader> readerSupplier;
     private final Splitter columnSplitter;
@@ -35,7 +36,9 @@ public class DelimitedRecordIterable implements RecordIterable
         return new DelimitedRecordIterator(readerSupplier, columnSplitter);
     }
 
-    private static class DelimitedRecordIterator extends AbstractIterator<Record> implements RecordIterator
+    private static class DelimitedRecordIterator
+            extends AbstractIterator<Record>
+            implements RecordIterator
     {
         private final Reader reader;
         private final LineReader lineReader;

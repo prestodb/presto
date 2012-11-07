@@ -13,6 +13,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.io.OutputSupplier;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.HashSet;
@@ -23,7 +24,7 @@ import static com.facebook.presto.block.BlockUtils.toTupleIterable;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-public class BlocksFileWriter implements Cloneable
+public class BlocksFileWriter implements Closeable
 {
     public static void writeBlocks(BlocksFileEncoding encoding, OutputSupplier<? extends OutputStream> sliceOutput, Block... blocks)
     {
@@ -47,7 +48,7 @@ public class BlocksFileWriter implements Cloneable
 
     private final BlocksFileEncoding encoding;
     private final OutputSupplier<? extends OutputStream> outputSupplier;
-    private final StatsCollector statsCollector = new StatsCollector();
+    private final StatsBuilder statsBuilder = new StatsBuilder();
     private Encoder encoder;
     private SliceOutput sliceOutput;
 
@@ -67,7 +68,7 @@ public class BlocksFileWriter implements Cloneable
             if (encoder == null) {
                 open();
             }
-            statsCollector.process(tuples);
+            statsBuilder.process(tuples);
             encoder.append(tuples);
         }
         return this;
@@ -100,7 +101,7 @@ public class BlocksFileWriter implements Cloneable
             BlockEncodings.writeBlockEncoding(sliceOutput, blockEncoding);
 
             // write stats
-            BlocksFileStats.serialize(statsCollector.getStats(), sliceOutput);
+            BlocksFileStats.serialize(statsBuilder.build(), sliceOutput);
 
             // write footer size
             int footerSize = sliceOutput.size() - startingIndex;
@@ -116,7 +117,7 @@ public class BlocksFileWriter implements Cloneable
         }
     }
 
-    public static class StatsCollector
+    private static class StatsBuilder
     {
         private static final int MAX_UNIQUE_COUNT = 1000;
 
@@ -124,12 +125,10 @@ public class BlocksFileWriter implements Cloneable
         private long runsCount;
         private Tuple lastTuple;
         private final Set<Tuple> set = new HashSet<>(MAX_UNIQUE_COUNT);
-        private boolean finished = false;
 
         public void process(Iterable<Tuple> tuples)
         {
             Preconditions.checkNotNull(tuples, "tuples is null");
-            Preconditions.checkState(!finished, "already finished");
 
             for (Tuple tuple : tuples) {
                 if (lastTuple == null) {
@@ -149,16 +148,10 @@ public class BlocksFileWriter implements Cloneable
             }
         }
 
-        public void finished()
-        {
-            finished = true;
-        }
-
-        public BlocksFileStats getStats()
+        public BlocksFileStats build()
         {
             // TODO: expose a way to indicate whether the unique count is EXACT or APPROXIMATE
             return new BlocksFileStats(rowCount, runsCount + 1, rowCount / (runsCount + 1), (set.size() == MAX_UNIQUE_COUNT) ? Integer.MAX_VALUE : set.size());
         }
-
     }
 }
