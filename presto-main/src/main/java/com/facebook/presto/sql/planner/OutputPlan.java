@@ -34,6 +34,11 @@ public class OutputPlan
         return columnNames;
     }
 
+    public PlanNode getSource()
+    {
+        return source;
+    }
+
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitOutput(this, context);

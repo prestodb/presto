@@ -90,9 +90,9 @@ public class Planner
         /**
          * Turns SELECT k1, k2, sum(v1 * v2) - sum(v3 * v4) GROUP BY k1, k2 into
          *
-         * Project $0, $1, $7 = $5 + $6
-         *   Aggregate by ($0, $1): $5 = sum($3), $6 = sum($4)
-         *     Project $0 = k1, $1 = k2, $3 = v1 * v2, $4 = v3 * v4
+         * 3. Project $0, $1, $7 = $5 + $6
+         *   2. Aggregate by ($0, $1): $5 = sum($3), $6 = sum($4)
+         *     1. Project $0 = k1, $1 = k2, $3 = v1 * v2, $4 = v3 * v4
          */
         final Map<Expression, Slot> outputRewriteMap = new HashMap<>();
 
