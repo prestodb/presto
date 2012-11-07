@@ -23,7 +23,7 @@ public class DatabaseMetadata
 {
     private final IDBI dbi;
     private final MetadataDao dao;
-    private final Multimap<QualifiedName, FunctionInfo> functions;
+    private final FunctionRegistry functions = new FunctionRegistry();
 
     @Inject
     public DatabaseMetadata(@ForMetadata IDBI dbi)
@@ -31,38 +31,12 @@ public class DatabaseMetadata
         this.dbi = dbi;
         this.dao = dbi.onDemand(MetadataDao.class);
         createTables();
-
-        functions = buildFunctions(
-                new FunctionInfo(QualifiedName.of("count"), true, TupleInfo.Type.FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(), null, null),
-                new FunctionInfo(QualifiedName.of("sum"), true, TupleInfo.Type.FIXED_INT_64, ImmutableList.of(TupleInfo.Type.FIXED_INT_64), null, null),
-                new FunctionInfo(QualifiedName.of("sum"), true, TupleInfo.Type.DOUBLE, ImmutableList.of(TupleInfo.Type.DOUBLE), null, null),
-                new FunctionInfo(QualifiedName.of("avg"), true, TupleInfo.Type.DOUBLE, ImmutableList.of(TupleInfo.Type.DOUBLE), null, null),
-                new FunctionInfo(QualifiedName.of("avg"), true, TupleInfo.Type.DOUBLE, ImmutableList.of(TupleInfo.Type.FIXED_INT_64), null, null)
-        );
-    }
-
-    private Multimap<QualifiedName, FunctionInfo> buildFunctions(FunctionInfo... infos)
-    {
-        return Multimaps.index(ImmutableList.copyOf(infos), new Function<FunctionInfo, QualifiedName>()
-        {
-            @Override
-            public QualifiedName apply(FunctionInfo input)
-            {
-                return input.getName();
-            }
-        });
     }
 
     @Override
     public FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes)
     {
-        for (FunctionInfo functionInfo : functions.get(name)) {
-            if (functionInfo.getArgumentTypes().equals(parameterTypes)) {
-                return functionInfo;
-            }
-        }
-
-        throw new IllegalArgumentException(format("Function %s(%s) not registered", name, Joiner.on(", ").join(parameterTypes)));
+        return functions.get(name, parameterTypes);
     }
 
     @Override
