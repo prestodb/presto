@@ -46,4 +46,9 @@ public enum Type
             }
         };
     }
+
+    public static boolean isNumeric(Type type)
+    {
+        return type == LONG || type == DOUBLE;
+    }
 }
