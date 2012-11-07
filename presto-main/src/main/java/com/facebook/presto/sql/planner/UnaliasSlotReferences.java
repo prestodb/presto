@@ -126,6 +126,13 @@ public class UnaliasSlotReferences
         }
 
         @Override
+        public PlanNode visitLimit(LimitNode node, Void context)
+        {
+            PlanNode source = node.getSource().accept(this, context);
+            return new LimitNode(source, node.getCount());
+        }
+
+        @Override
         protected PlanNode visitPlan(PlanNode node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented");

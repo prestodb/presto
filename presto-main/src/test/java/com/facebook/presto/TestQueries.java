@@ -73,6 +73,8 @@ import static com.google.common.collect.Iterables.isEmpty;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestQueries
 {
@@ -243,6 +245,39 @@ public class TestQueries
     public void cleanupDatabase()
     {
         handle.close();
+    }
+
+    @Test
+    public void testLimit()
+            throws Exception
+    {
+        List<Tuple> all = computeExpected("SELECT orderkey FROM ORDERS", FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT orderkey FROM ORDERS LIMIT 10");
+
+        assertEquals(actual.size(), 10);
+        assertTrue(all.containsAll(actual));
+    }
+
+    @Test
+    public void testAggregationWithLimit()
+            throws Exception
+    {
+        List<Tuple> all = computeExpected("SELECT custkey, sum(totalprice) FROM ORDERS GROUP BY custkey", FIXED_INT_64, DOUBLE);
+        List<Tuple> actual = computeActual("SELECT custkey, sum(totalprice) FROM ORDERS GROUP BY custkey LIMIT 10");
+
+        assertEquals(actual.size(), 10);
+        assertTrue(all.containsAll(actual));
+    }
+
+    @Test
+    public void testLimitInInlineView()
+            throws Exception
+    {
+        List<Tuple> all = computeExpected("SELECT orderkey FROM ORDERS", FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT orderkey FROM (SELECT orderkey FROM ORDERS LIMIT 100) T LIMIT 10");
+
+        assertEquals(actual.size(), 10);
+        assertTrue(all.containsAll(actual));
     }
 
     @Test

@@ -36,4 +36,9 @@ public class PlanVisitor<C, R>
     {
         return visitPlan(node, context);
     }
+
+    public R visitLimit(LimitNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
 }

@@ -11,6 +11,7 @@ import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.HashAggregationOperator;
+import com.facebook.presto.operator.LimitOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
@@ -68,8 +69,17 @@ public class ExecutionPlanner
         else if (plan instanceof AggregationNode) {
             return createAggregationNode((AggregationNode) plan);
         }
+        else if (plan instanceof LimitNode) {
+            return createLimitNode((LimitNode) plan);
+        }
 
         throw new UnsupportedOperationException("not yet implemented: " + plan.getClass().getName());
+    }
+
+    private Operator createLimitNode(LimitNode node)
+    {
+        PlanNode source = Iterables.getOnlyElement(node.getSources());
+        return new LimitOperator(plan(source), node.getCount());
     }
 
     private Operator createAggregationNode(AggregationNode node)
