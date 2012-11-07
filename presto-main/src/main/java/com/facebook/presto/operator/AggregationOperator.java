@@ -50,16 +50,15 @@ public class AggregationOperator
         }
 
         // process all rows
+        BlockCursor[] cursors = new BlockCursor[source.getChannelCount()];
         for (Page page : source) {
             Block[] blocks = page.getBlocks();
 
-            int rows = (int) blocks[0].getRange().length();
-
-            BlockCursor[] cursors = new BlockCursor[blocks.length];
             for (int i = 0; i < blocks.length; i++) {
                 cursors[i] = blocks[i].cursor();
             }
 
+            int rows = (int) page.getPositionCount();
             for (int position = 0; position < rows; position++) {
                 for (BlockCursor cursor : cursors) {
                     checkState(cursor.advanceNextPosition());
