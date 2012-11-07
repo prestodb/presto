@@ -3,6 +3,7 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.cli.Console;
 import com.facebook.presto.cli.ConvertCsv;
 import com.facebook.presto.cli.ExampleSumAggregation;
 import com.facebook.presto.cli.Execute;
@@ -18,19 +19,19 @@ import io.airlift.log.LoggingConfiguration;
 
 import java.io.IOException;
 import java.io.PrintStream;
-import java.util.concurrent.Callable;
 
 public class Main
 {
     public static void main(String[] args)
             throws Exception
     {
-        CliBuilder<Callable<Void>> builder = (CliBuilder<Callable<Void>>) (Object) Cli.buildCli("presto", Callable.class)
+        CliBuilder<Runnable> builder = Cli.buildCli("presto", Runnable.class)
                 .withDefaultCommand(Help.class)
                 .withCommand(Server.class)
                 .withCommand(ExampleSumAggregation.class)
                 .withCommand(Execute.class)
                 .withCommand(LocalQueryCommand.class)
+                .withCommand(Console.class)
                 .withCommands(Help.class);
 
         builder.withGroup("example")
@@ -43,29 +44,9 @@ public class Main
                 .withDefaultCommand(Help.class)
                 .withCommand(ConvertCsv.class);
 
-        Cli<Callable<Void>> cli = builder.build();
-
-        cli.parse(args).call();
+        Cli<Runnable> cli = builder.build();
+        cli.parse(args).run();
     }
-
-    public static class BaseCommand
-            implements Callable<Void>
-    {
-        @Override
-        public Void call()
-                throws Exception
-        {
-            run();
-            return null;
-        }
-
-        public void run()
-                throws Exception
-        {
-            System.out.println(getClass().getSimpleName());
-        }
-    }
-
 
     public static void initializeLogging(boolean debug)
     {

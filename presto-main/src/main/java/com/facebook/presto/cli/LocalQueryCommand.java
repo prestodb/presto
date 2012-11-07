@@ -30,7 +30,7 @@ import static com.google.common.base.Charsets.UTF_8;
 
 @Command(name = "localquery", description = "Run a local query")
 public class LocalQueryCommand
-        extends Main.BaseCommand
+        implements Runnable
 {
     private final DatabaseStorageManager storageManager;
     private final DatabaseMetadata metadata;
