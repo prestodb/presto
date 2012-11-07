@@ -293,7 +293,7 @@ public class Analyzer
         @Override
         protected TupleDescriptor visitSubquery(Subquery node, AnalysisContext context)
         {
-            AnalysisResult analysis = new Analyzer(metadata).analyze(node.getQuery(), new AnalysisContext(context));
+            AnalysisResult analysis = new Analyzer(metadata).analyze(node.getQuery(), new AnalysisContext(context.getSlotAllocator()));
 
             context.registerInlineView(node, analysis);
             return analysis.getOutputDescriptor();
