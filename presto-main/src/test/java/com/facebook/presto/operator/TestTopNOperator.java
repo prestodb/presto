@@ -8,7 +8,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.operator.OperatorAssertions.assertOperatorEqualsUnordered;
+import static com.facebook.presto.operator.OperatorAssertions.assertOperatorEquals;
 import static com.facebook.presto.operator.OperatorAssertions.createOperator;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
@@ -42,11 +42,11 @@ public class TestTopNOperator
 
         Operator expected = createOperator(
                 new Page(
-                        BlockAssertions.createLongsBlock(0, 5, 6),
-                        BlockAssertions.createDoublesBlock(0, 0.5, 0.6)
+                        BlockAssertions.createLongsBlock(0, 6, 5),
+                        BlockAssertions.createDoublesBlock(0, 0.6, 0.5)
                 )
         );
-        assertOperatorEqualsUnordered(actual, expected);
+        assertOperatorEquals(actual, expected);
     }
 
     @Test
@@ -84,13 +84,13 @@ public class TestTopNOperator
         Operator expected = createOperator(
                 new Page(
                         new BlockBuilder(0, tupleInfo)
-                                .append("d").append(7)
-                                .append("e").append(6)
                                 .append("f").append(3)
+                                .append("e").append(6)
+                                .append("d").append(7)
                                 .build()
                 )
         );
-        assertOperatorEqualsUnordered(actual, expected);
+        assertOperatorEquals(actual, expected);
     }
 
     @Test
@@ -123,6 +123,6 @@ public class TestTopNOperator
                         BlockAssertions.createDoublesBlock(0, -0.1, 0.1)
                 )
         );
-        assertOperatorEqualsUnordered(actual, expected);
+        assertOperatorEquals(actual, expected);
     }
 }

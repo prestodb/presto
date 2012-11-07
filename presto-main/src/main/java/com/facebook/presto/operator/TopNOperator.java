@@ -67,28 +67,32 @@ public class TopNOperator
             extends AbstractIterator<Page>
     {
         private final Iterator<Page> pageIterator;
-        private final PriorityQueue<KeyAndTuples> globalCandidates;
-        private Iterator<KeyAndTuples> globalCandidateIterator;
+        private Iterator<KeyAndTuples> outputIterator;
         private long position;
 
         private TopNIterator(Iterator<Page> pageIterator)
         {
             this.pageIterator = pageIterator;
-            globalCandidates = new PriorityQueue<>(n, KeyAndTuples.keyComparator(ordering));
         }
 
         @Override
         protected Page computeNext()
         {
-            if (globalCandidateIterator == null) {
+            if (outputIterator == null) {
+                PriorityQueue<KeyAndTuples> globalCandidates = new PriorityQueue<>(n, KeyAndTuples.keyComparator(ordering));
                 while(pageIterator.hasNext()) {
                     Page page = pageIterator.next();
-                    mergeWithGlobalCandidates(page, computePageCandidatePositions(page));
+                    Iterable<KeyAndPosition> keyAndPositions = computePageCandidatePositions(globalCandidates, page);
+                    mergeWithGlobalCandidates(globalCandidates, page, keyAndPositions);
                 }
-                globalCandidateIterator = globalCandidates.iterator();
+                ImmutableList.Builder<KeyAndTuples> minSortedGlobalCandidates = ImmutableList.builder();
+                while (!globalCandidates.isEmpty()) {
+                    minSortedGlobalCandidates.add(globalCandidates.remove());
+                }
+                outputIterator = minSortedGlobalCandidates.build().reverse().iterator();
             }
 
-            if (!globalCandidateIterator.hasNext()) {
+            if (!outputIterator.hasNext()) {
                 return endOfData();
             }
 
@@ -97,8 +101,8 @@ public class TopNOperator
                 outputs[i] = new BlockBuilder(position, projections.get(i).getTupleInfo());
             }
 
-            while (!isFull(outputs) && globalCandidateIterator.hasNext()) {
-                KeyAndTuples next = globalCandidateIterator.next();
+            while (!isFull(outputs) && outputIterator.hasNext()) {
+                KeyAndTuples next = outputIterator.next();
                 for (int i = 0; i < projections.size(); i++) {
                     projections.get(i).project(next.getTuples(), outputs[i]);
                 }
@@ -114,13 +118,14 @@ public class TopNOperator
             return page;
         }
 
-        private Iterable<KeyAndPosition> computePageCandidatePositions(Page page)
+        private Iterable<KeyAndPosition> computePageCandidatePositions(PriorityQueue<KeyAndTuples> globalCandidates, Page page)
         {
             PriorityQueue<KeyAndPosition> pageCandidates = new PriorityQueue<>(n, KeyAndPosition.keyComparator(ordering));
+            KeyAndTuples smallestGlobalCandidate = globalCandidates.peek(); // This can be null if globalCandidates is empty
             BlockCursor cursor = page.getBlock(keyChannelIndex).cursor();
             while (cursor.advanceNextPosition()) {
                 // Only consider value if it would be a candidate when compared against the current global candidates
-                if (globalCandidates.size() < n || ordering.compare(cursor, globalCandidates.peek().getKey()) > 0) {
+                if (globalCandidates.size() < n || ordering.compare(cursor, smallestGlobalCandidate.getKey()) > 0) {
                     if (pageCandidates.size() < n) {
                         pageCandidates.add(new KeyAndPosition(cursor.getTuple(), cursor.getPosition()));
                     }
@@ -133,7 +138,7 @@ public class TopNOperator
             return pageCandidates;
         }
 
-        private void mergeWithGlobalCandidates(Page page, Iterable<KeyAndPosition> pageValueAndPositions)
+        private void mergeWithGlobalCandidates(PriorityQueue<KeyAndTuples> globalCandidates, Page page, Iterable<KeyAndPosition> pageValueAndPositions)
         {
             // Sort by positions so that we can advance through the values via cursors
             List<KeyAndPosition> positionSorted = Ordering.from(KeyAndPosition.positionComparator()).sortedCopy(pageValueAndPositions);
