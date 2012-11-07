@@ -21,7 +21,7 @@ import org.weakref.jmx.guice.MBeanModule;
 
 @Command(name = "server", description = "Run the server")
 public class Server
-        extends Main.BaseCommand
+        implements Runnable
 {
 
     public void run()

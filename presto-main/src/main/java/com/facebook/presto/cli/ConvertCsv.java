@@ -35,7 +35,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 @Command(name = "csv", description = "Convert CSV to columns")
 public class ConvertCsv
-        extends Main.BaseCommand
+        implements Runnable
 {
     private static final Logger log = Logger.get(ConvertCsv.class);
 
@@ -53,7 +53,6 @@ public class ConvertCsv
 
     @Override
     public void run()
-            throws Exception
     {
         checkArgument(extractionSpecs != null && !extractionSpecs.isEmpty(), "Extraction Spec is required");
         InputSupplier<InputStreamReader> readerSupplier;

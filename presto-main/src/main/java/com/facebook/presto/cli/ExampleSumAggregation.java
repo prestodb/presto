@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 
 @Command(name = "sum", description = "Run an example sum aggregation")
 public class ExampleSumAggregation
-        extends Main.BaseCommand
+        implements Runnable
 {
     @Arguments(required = true)
     public URI server;

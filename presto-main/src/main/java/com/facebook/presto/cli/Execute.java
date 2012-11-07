@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
 
 @Command(name = "execute", description = "Execute a query")
 public class Execute
-        extends Main.BaseCommand
+        implements Runnable
 {
     private static final Logger log = Logger.get(Execute.class);
 
