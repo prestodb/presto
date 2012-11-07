@@ -82,9 +82,9 @@ public class Analyzer
                 predicate = analyzePredicate(query.getWhere(), sourceDescriptor);
             }
 
-            AnalyzedOutput output = analyzeSelect(query.getSelect(), context.getSlotAllocator(), sourceDescriptor);
             List<AnalyzedExpression> groupBy = analyzeGroupBy(query.getGroupBy(), sourceDescriptor);
             List<AnalyzedAggregation> aggregations = analyzeAggregations(query.getGroupBy(), query.getSelect(), sourceDescriptor);
+            AnalyzedOutput output = analyzeOutput(query.getSelect(), context.getSlotAllocator(), sourceDescriptor);
 
             return AnalysisResult.newInstance(context, output, predicate, groupBy, aggregations);
         }
@@ -94,16 +94,22 @@ public class Analyzer
             return new ExpressionAnalyzer(metadata).analyze(predicate, sourceDescriptor);
         }
 
-        private AnalyzedOutput analyzeSelect(Select select, SlotAllocator allocator, TupleDescriptor descriptor)
+        /**
+         * Analyzes output expressions from select clause and expands wildcard selectors (e.g., SELECT * or SELECT T.*)
+         */
+        private AnalyzedOutput analyzeOutput(Select select, SlotAllocator allocator, TupleDescriptor descriptor)
         {
             ImmutableList.Builder<Expression> expressions = ImmutableList.builder();
             ImmutableList.Builder<Optional<QualifiedName>> names = ImmutableList.builder();
             for (Expression expression : select.getSelectItems()) {
                 if (expression instanceof AllColumns) {
+                    // TODO: this code doesn't currently handle SELECT U.* FROM (SELECT a + b FROM T) U because the expression doesn't get a name
                     // expand * and T.*
                     Optional<QualifiedName> starPrefix = ((AllColumns) expression).getPrefix();
                     for (NamedSlot slot : descriptor.getSlots()) {
                         Optional<QualifiedName> slotName = slot.getName();
+                        // Check if the prefix of the slot name (i.e., the table name or relation alias) have a suffix matching the prefix of the wildcard
+                        // e.g., SELECT T.* FROM S.T should resolve correctly
                         if (!starPrefix.isPresent() || slotName.isPresent() && slotName.get().getPrefix().get().hasSuffix(starPrefix.get())) {
                             names.add(slotName);
                             expressions.add(new SlotReference(slot.getSlot()));
@@ -113,8 +119,10 @@ public class Analyzer
                 else {
                     Optional<QualifiedName> alias = Optional.absent();
                     if (expression instanceof AliasedExpression) {
-                        alias = Optional.of(QualifiedName.of(((AliasedExpression) expression).getAlias()));
-                        expression = ((AliasedExpression) expression).getExpression();
+                        AliasedExpression aliased = (AliasedExpression) expression;
+
+                        alias = Optional.of(QualifiedName.of(aliased.getAlias()));
+                        expression = aliased.getExpression();
                     }
                     else if (expression instanceof QualifiedNameReference) {
                         alias = Optional.of(((QualifiedNameReference) expression).getSuffix());
@@ -157,6 +165,7 @@ public class Analyzer
             List<Expression> scalarTerms = new ArrayList<>();
             ImmutableList.Builder<AnalyzedAggregation> aggregateTermsBuilder = ImmutableList.builder();
             for (Expression term : select.getSelectItems()) {
+                // TODO: this doesn't currently handle queries like 'SELECT k + sum(v) FROM T GROUP BY k' correctly
                 AggregateAnalyzer analyzer = new AggregateAnalyzer(metadata, descriptor);
 
                 List<AnalyzedAggregation> aggregations = analyzer.analyze(term);
@@ -179,7 +188,7 @@ public class Analyzer
             else {
                 // if we this is an aggregation query and some terms are not aggregates and there's no group by clause...
                 if (!scalarTerms.isEmpty() && !aggregateTerms.isEmpty()) {
-                    throw new SemanticException(select, "Mixing of GROUP columns with no GROUP columns is illegal if there is no GROUP BY clause: %s", Iterables.transform(scalarTerms, ExpressionFormatter.expressionFormatterFunction()));
+                    throw new SemanticException(select, "Mixing of aggregate and non-aggregate columns is illegal if there is no GROUP BY clause: %s", Iterables.transform(scalarTerms, ExpressionFormatter.expressionFormatterFunction()));
                 }
             }
 
@@ -187,6 +196,9 @@ public class Analyzer
         }
     }
 
+    /**
+     * Resolves and extracts aggregate functions from an expression and analyzes them (infer types and replace QualifiedNames with SlotReferences)
+     */
     private static class AggregateAnalyzer
             extends DefaultTraversalVisitor<Void, FunctionCall>
     {
@@ -293,9 +305,11 @@ public class Analyzer
         @Override
         protected TupleDescriptor visitSubquery(Subquery node, AnalysisContext context)
         {
+            // Analyze the subquery recursively
             AnalysisResult analysis = new Analyzer(metadata).analyze(node.getQuery(), new AnalysisContext(context.getSlotAllocator()));
 
             context.registerInlineView(node, analysis);
+
             return analysis.getOutputDescriptor();
         }
 
