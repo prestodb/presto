@@ -313,6 +313,15 @@ public class TestQueries
     }
 
 
+    @Test(enabled = false)
+    public void testGroupByNoAggregations()
+    {
+        List<Tuple> expected = computeExpected("SELECT custkey FROM ORDERS group by custkey", FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT custkey FROM ORDERS group by custkey");
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
     @Test
     public void testGroupByCount()
     {
