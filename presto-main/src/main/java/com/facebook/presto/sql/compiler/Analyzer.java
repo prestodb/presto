@@ -70,7 +70,6 @@ public class Analyzer
             Preconditions.checkArgument(!query.getSelect().isDistinct(), "not yet implemented: DISTINCT");
             Preconditions.checkArgument(query.getHaving() == null, "not yet implemented: HAVING");
             Preconditions.checkArgument(query.getOrderBy().isEmpty(), "not yet implemented: ORDER BY");
-            Preconditions.checkArgument(query.getLimit() == null, "not yet implemented: LIMIT");
             Preconditions.checkArgument(query.getFrom().size() == 1, "not yet implemented: multiple FROM relations");
 
             // analyze FROM clause
@@ -86,7 +85,12 @@ public class Analyzer
             List<AnalyzedAggregation> aggregations = analyzeAggregations(query.getGroupBy(), query.getSelect(), sourceDescriptor);
             AnalyzedOutput output = analyzeOutput(query.getSelect(), context.getSlotAllocator(), sourceDescriptor);
 
-            return AnalysisResult.newInstance(context, output, predicate, groupBy, aggregations);
+            Long limit = null;
+            if (query.getLimit() != null) {
+                limit = Long.parseLong(query.getLimit());
+            }
+
+            return AnalysisResult.newInstance(context, output, predicate, groupBy, aggregations, limit);
         }
 
         private AnalyzedExpression analyzePredicate(Expression predicate, TupleDescriptor sourceDescriptor)

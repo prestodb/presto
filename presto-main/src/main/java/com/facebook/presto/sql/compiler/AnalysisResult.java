@@ -21,12 +21,14 @@ public class AnalysisResult
     private final AnalyzedOutput output;
     private final List<AnalyzedExpression> groupBy;
     private final List<AnalyzedAggregation> aggregations;
+    private final Long limit;
 
     public static AnalysisResult newInstance(AnalysisContext context,
             AnalyzedOutput output,
             AnalyzedExpression predicate,
             List<AnalyzedExpression> groupBy,
-            List<AnalyzedAggregation> aggregations)
+            List<AnalyzedAggregation> aggregations,
+            @Nullable Long limit)
     {
         return new AnalysisResult(
                 context.getSlotAllocator(),
@@ -35,7 +37,8 @@ public class AnalysisResult
                 aggregations,
                 predicate,
                 output,
-                groupBy);
+                groupBy,
+                limit);
     }
 
     private AnalysisResult(SlotAllocator slotAllocator,
@@ -44,7 +47,8 @@ public class AnalysisResult
             List<AnalyzedAggregation> aggregations,
             @Nullable AnalyzedExpression predicate,
             AnalyzedOutput output,
-            List<AnalyzedExpression> groupBy)
+            List<AnalyzedExpression> groupBy,
+            @Nullable Long limit)
     {
         Preconditions.checkNotNull(slotAllocator, "slotAllocator is null");
         Preconditions.checkNotNull(tableDescriptors, "tableDescriptors is null");
@@ -60,6 +64,7 @@ public class AnalysisResult
         this.predicate = predicate;
         this.output = output;
         this.groupBy = ImmutableList.copyOf(groupBy);
+        this.limit = limit;
     }
 
     public TupleDescriptor getOutputDescriptor()
@@ -102,5 +107,10 @@ public class AnalysisResult
     public List<AnalyzedExpression> getGroupByExpressions()
     {
         return groupBy;
+    }
+
+    public Long getLimit()
+    {
+        return limit;
     }
 }

@@ -158,5 +158,12 @@ public class PruneUnreferencedOutputs
 
             return new OutputPlan(source, node.getColumnNames());
         }
+
+        @Override
+        public PlanNode visitLimit(LimitNode node, Set<Slot> expectedOutputs)
+        {
+            PlanNode source = node.getSource().accept(this, expectedOutputs);
+            return new LimitNode(source, node.getCount());
+        }
     }
 }

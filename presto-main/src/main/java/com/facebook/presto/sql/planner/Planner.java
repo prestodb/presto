@@ -37,7 +37,8 @@ public class Planner
     private final static List<PlanOptimizer> OPTIMIZATIONS = ImmutableList.of(
             new PruneUnreferencedOutputs(),
             new UnaliasSlotReferences(),
-            new PruneRedundantProjections()
+            new PruneRedundantProjections(),
+            new CoalesceLimits()
     );
 
     public PlanNode plan(Query query, AnalysisResult analysis)
@@ -78,6 +79,10 @@ public class Planner
         }
         else {
             root = createProjectPlan(root, analysis.getOutputExpressions());
+        }
+
+        if (analysis.getLimit() != null) {
+            root = new LimitNode(root, analysis.getLimit());
         }
 
         return root;
