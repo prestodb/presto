@@ -1,33 +1,21 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.serde.BlocksFileReader;
-import com.facebook.presto.serde.BlocksFileEncoding;
-import com.facebook.presto.serde.BlocksFileStats;
-import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tpch.CachingTpchDataProvider;
 import com.facebook.presto.tpch.GeneratingTpchDataProvider;
-import com.facebook.presto.tpch.MetricRecordingTpchDataProvider;
+import com.facebook.presto.tpch.MetricRecordingTpchBlocksProvider;
+import com.facebook.presto.tpch.StatsTpchBlocksProvider;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchDataProvider;
-import com.facebook.presto.tpch.TpchSchema.Column;
-import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 /**
@@ -64,10 +52,10 @@ public abstract class AbstractOperatorBenchmark
     {
         long start = System.nanoTime();
 
-        MetricRecordingTpchDataProvider metricRecordingTpchDataProvider = new MetricRecordingTpchDataProvider(tpchDataProvider);
-        StatsTpchBlocksProvider tpchBlocksProvider = new StatsTpchBlocksProvider(metricRecordingTpchDataProvider);
+        StatsTpchBlocksProvider statsTpchBlocksProvider = new StatsTpchBlocksProvider(tpchDataProvider);
+        MetricRecordingTpchBlocksProvider metricRecordingTpchBlocksProvider = new MetricRecordingTpchBlocksProvider(statsTpchBlocksProvider);
 
-        Operator operator = createBenchmarkedOperator(tpchBlocksProvider);
+        Operator operator = createBenchmarkedOperator(metricRecordingTpchBlocksProvider);
 
         long outputRows = 0;
         for (Page page : operator) {
@@ -78,18 +66,20 @@ public abstract class AbstractOperatorBenchmark
         }
 
         Duration totalDuration = Duration.nanosSince(start);
-        Duration dataGenerationDuration = metricRecordingTpchDataProvider.getDataFetchElapsedTime();
+        Duration dataGenerationDuration = metricRecordingTpchBlocksProvider.getDataFetchElapsedTime();
         checkState(totalDuration.compareTo(dataGenerationDuration) >= 0, "total time should be at least as large as data generation time");
 
         // Compute the benchmark execution time without factoring in the time to generate the data source
-        double executionMillis = totalDuration.convertTo(TimeUnit.MILLISECONDS) - dataGenerationDuration.toMillis();
+        double totalElapsedMillis = totalDuration.convertTo(TimeUnit.MILLISECONDS);
+        double dataGenerationElapsedMillis = dataGenerationDuration.toMillis();
+        double executionMillis = totalElapsedMillis - dataGenerationElapsedMillis;
         double executionSeconds = executionMillis / TimeUnit.SECONDS.toMillis(1);
 
-        DataSize totalDataSize = metricRecordingTpchDataProvider.getCumulativeDataSize();
+        DataSize totalDataSize = metricRecordingTpchBlocksProvider.getCumulativeDataSize();
         
-        checkState(!tpchBlocksProvider.getStats().isEmpty(), "no columns were fetched");
+        checkState(!statsTpchBlocksProvider.getStats().isEmpty(), "no columns were fetched");
         // Use the first column fetched as the indicator of the number of rows
-        long inputRows = tpchBlocksProvider.getStats().get(0).getRowCount();
+        long inputRows = statsTpchBlocksProvider.getStats().get(0).getRowCount();
 
         return ImmutableMap.<String, Long>builder()
                 .put("elapsed_millis", (long) executionMillis)
@@ -102,36 +92,4 @@ public abstract class AbstractOperatorBenchmark
                 .build();
     }
 
-    private static class StatsTpchBlocksProvider
-            implements TpchBlocksProvider
-    {
-        private final TpchDataProvider tpchDataProvider;
-        private final ImmutableList.Builder<BlocksFileStats> statsBuilder = ImmutableList.builder();
-
-        private StatsTpchBlocksProvider(TpchDataProvider tpchDataProvider)
-        {
-            this.tpchDataProvider = checkNotNull(tpchDataProvider, "tpchDataProvider is null");
-        }
-
-        @Override
-        public BlockIterable getBlocks(Column column, BlocksFileEncoding encoding)
-        {
-            checkNotNull(column, "column is null");
-            checkNotNull(encoding, "encoding is null");
-            try {
-                File columnFile = tpchDataProvider.getColumnFile(column, encoding);
-                Slice slice = Slices.mapFileReadOnly(columnFile);
-                BlocksFileReader blocks = BlocksFileReader.readBlocks(slice);
-                statsBuilder.add(blocks.getStats());
-                return blocks;
-            } catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
-        }
-
-        public List<BlocksFileStats> getStats()
-        {
-            return statsBuilder.build();
-        }
-    }
 }
