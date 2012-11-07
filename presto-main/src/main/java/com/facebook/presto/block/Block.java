@@ -18,6 +18,7 @@ public interface Block
 
     /**
      * Gets the start and end positions of the block.
+     * INVARIANT: getRange() will always contained within getRawRange()
      */
     Range getRange();
 
@@ -26,9 +27,9 @@ public interface Block
      */
     BlockCursor cursor();
 
-
     /**
      * Gets the start and end positions of the underlying storage block.
+     * NOTE: This should only be used by the alignment operator.
      */
     Range getRawRange();
 

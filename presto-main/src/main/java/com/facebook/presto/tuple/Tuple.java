@@ -11,6 +11,7 @@ import java.util.List;
 import static com.google.common.base.Charsets.UTF_8;
 
 public class Tuple
+        implements TupleReadable
 {
     private final Slice slice;
     private final TupleInfo tupleInfo;
@@ -21,9 +22,16 @@ public class Tuple
         this.tupleInfo = tupleInfo;
     }
 
+    @Override
     public TupleInfo getTupleInfo()
     {
         return tupleInfo;
+    }
+
+    @Override
+    public Tuple getTuple()
+    {
+        return this;
     }
 
     public Slice getTupleSlice()
@@ -31,16 +39,19 @@ public class Tuple
         return slice;
     }
 
+    @Override
     public long getLong(int index)
     {
         return tupleInfo.getLong(slice, index);
     }
 
+    @Override
     public double getDouble(int index)
     {
         return tupleInfo.getDouble(slice, index);
     }
 
+    @Override
     public Slice getSlice(int index)
     {
         return tupleInfo.getSlice(slice, index);
