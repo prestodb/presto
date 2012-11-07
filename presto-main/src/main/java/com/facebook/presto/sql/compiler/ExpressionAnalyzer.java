@@ -92,16 +92,11 @@ public class ExpressionAnalyzer
             Type left = process(node.getLeft(), context);
             Type right = process(node.getRight(), context);
 
-            if (left != right && !(isNumeric(left) && isNumeric(right))) {
+            if (left != right && !(Type.isNumeric(left) && Type.isNumeric(right))) {
                 throw new SemanticException(node, "Types are not comparable with '%s': %s vs %s", node.getType().getValue(), left, right);
             }
 
             return Type.BOOLEAN;
-        }
-
-        private boolean isNumeric(Type type)
-        {
-            return type == Type.LONG || type == Type.DOUBLE;
         }
 
         @Override
@@ -110,10 +105,10 @@ public class ExpressionAnalyzer
             Type left = process(node.getLeft(), context);
             Type right = process(node.getRight(), context);
 
-            if (left != Type.DOUBLE && left != Type.LONG) {
+            if (!Type.isNumeric(left)) {
                 throw new SemanticException(node.getLeft(), "Left side of '%s' must be numeric (actual: %s)", node.getType().getValue(), left);
             }
-            if (right != Type.DOUBLE && right != Type.LONG) {
+            if (!Type.isNumeric(right)) {
                 throw new SemanticException(node.getRight(), "Right side of '%s' must be numeric (actual: %s)", node.getType().getValue(), right);
             }
 
