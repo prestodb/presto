@@ -17,6 +17,17 @@ import java.util.Set;
 
 import static com.google.common.base.Predicates.in;
 
+/**
+ * Removes all computation that does is not referenced transitively from the root of the plan
+ *
+ * E.g.,
+ *
+ * Output[$0] -> Project[$0 := $1 + $2, $3 = $4 / $5] -> ...
+ *
+ * gets rewritten as
+ *
+ * Output[$0] -> Project[$0 := $1 + $2] -> ...
+ */
 public class PruneUnreferencedOutputs
         extends PlanOptimizer
 {
@@ -55,7 +66,7 @@ public class PruneUnreferencedOutputs
                 }
             }
 
-            PlanNode source = Iterables.getOnlyElement(node.getSources()).accept(this, expectedInputs.build());
+            PlanNode source = node.getSource().accept(this, expectedInputs.build());
 
             return new AggregationNode(source, node.getGroupBy(), functionCalls.build(), functionInfos.build());
         }
@@ -105,7 +116,7 @@ public class PruneUnreferencedOutputs
                     .addAll(expectedOutputs)
                     .build();
 
-            PlanNode source = Iterables.getOnlyElement(node.getSources()).accept(this, expectedInputs);
+            PlanNode source = node.getSource().accept(this, expectedInputs);
 
             List<Slot> outputs = ImmutableList.copyOf(Iterables.filter(source.getOutputs(), in(expectedOutputs)));
 
@@ -133,7 +144,7 @@ public class PruneUnreferencedOutputs
                 }
             }
 
-            PlanNode source = Iterables.getOnlyElement(node.getSources()).accept(this, expectedInputs.build());
+            PlanNode source = node.getSource().accept(this, expectedInputs.build());
 
             return new ProjectNode(source, builder.build());
         }
@@ -143,7 +154,7 @@ public class PruneUnreferencedOutputs
         {
             Preconditions.checkArgument(ImmutableSet.copyOf(node.getOutputs()).equals(expectedOutputs), "Expected outputs should match node output for OutputPlan node");
 
-            PlanNode source = Iterables.getOnlyElement(node.getSources()).accept(this, expectedOutputs);
+            PlanNode source = node.getSource().accept(this, expectedOutputs);
 
             return new OutputPlan(source, node.getColumnNames());
         }

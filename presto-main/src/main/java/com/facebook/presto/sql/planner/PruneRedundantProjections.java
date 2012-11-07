@@ -7,6 +7,9 @@ import com.google.common.collect.Iterables;
 
 import java.util.Map;
 
+/**
+ * Removes pure identity projections (e.g., Project $0 := $0, $1 := $1, ...)
+ */
 public class PruneRedundantProjections
         extends PlanOptimizer
 {
@@ -22,11 +25,7 @@ public class PruneRedundantProjections
         @Override
         public PlanNode visitProject(ProjectNode node, Void context)
         {
-            PlanNode source = Iterables.getOnlyElement(node.getSources()).accept(this, context);
-
-            if (source instanceof ProjectNode && node.getOutputs().equals(source.getOutputs())) {
-                return source;
-            }
+            PlanNode source = node.getSource().accept(this, context);
 
             boolean canElide = true;
             for (Map.Entry<Slot, Expression> entry : node.getOutputMap().entrySet()) {
@@ -42,15 +41,13 @@ public class PruneRedundantProjections
                 return source;
             }
 
-            // TODO: remove projections that just rename outputs. For this, we need to rewrite downstream operators in terms of the underlying output names
-
             return new ProjectNode(source, node.getOutputMap());
         }
 
         @Override
         public PlanNode visitAggregation(AggregationNode node, Void context)
         {
-            PlanNode source = Iterables.getOnlyElement(node.getSources()).accept(this, context);
+            PlanNode source = node.getSource().accept(this, context);
             return new AggregationNode(source, node.getGroupBy(), node.getAggregations(), node.getFunctionInfos());
         }
 
@@ -69,14 +66,14 @@ public class PruneRedundantProjections
         @Override
         public PlanNode visitFilter(FilterNode node, Void context)
         {
-            PlanNode source = Iterables.getOnlyElement(node.getSources()).accept(this, context);
+            PlanNode source = node.getSource().accept(this, context);
             return new FilterNode(source, node.getPredicate(), node.getOutputs());
         }
 
         @Override
         public PlanNode visitOutput(OutputPlan node, Void context)
         {
-            PlanNode source = Iterables.getOnlyElement(node.getSources()).accept(this, context);
+            PlanNode source = node.getSource().accept(this, context);
             return new OutputPlan(source, node.getColumnNames());
         }
 

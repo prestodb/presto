@@ -37,6 +37,11 @@ public class FilterNode
         return ImmutableList.of(source);
     }
 
+    public PlanNode getSource()
+    {
+        return source;
+    }
+
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitFilter(this, context);
