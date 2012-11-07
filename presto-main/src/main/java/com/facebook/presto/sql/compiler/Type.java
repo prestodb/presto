@@ -3,6 +3,8 @@ package com.facebook.presto.sql.compiler;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 
+import javax.annotation.Nullable;
+
 public enum Type
 {
     LONG(TupleInfo.Type.FIXED_INT_64),
@@ -12,7 +14,7 @@ public enum Type
 
     private final TupleInfo.Type rawType;
 
-    Type(TupleInfo.Type rawType)
+    Type(@Nullable TupleInfo.Type rawType)
     {
         this.rawType = rawType;
     }

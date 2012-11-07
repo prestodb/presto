@@ -6,6 +6,7 @@ import com.facebook.presto.sql.tree.Table;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
+import javax.annotation.Nullable;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,10 +42,17 @@ public class AnalysisResult
             IdentityHashMap<Relation, TupleDescriptor> tableDescriptors,
             IdentityHashMap<Subquery, AnalysisResult> inlineViews,
             List<AnalyzedAggregation> aggregations,
-            AnalyzedExpression predicate,
+            @Nullable AnalyzedExpression predicate,
             AnalyzedOutput output,
             List<AnalyzedExpression> groupBy)
     {
+        Preconditions.checkNotNull(slotAllocator, "slotAllocator is null");
+        Preconditions.checkNotNull(tableDescriptors, "tableDescriptors is null");
+        Preconditions.checkNotNull(inlineViews, "inlineViews is null");
+        Preconditions.checkNotNull(aggregations, "aggregations is null");
+        Preconditions.checkNotNull(output, "output is null");
+        Preconditions.checkNotNull(groupBy, "groupBy is null");
+
         this.slotAllocator = slotAllocator;
         this.tableDescriptors = new IdentityHashMap<>(tableDescriptors);
         this.inlineViews = new IdentityHashMap<>(inlineViews);
@@ -71,6 +79,7 @@ public class AnalysisResult
 
     public TupleDescriptor getTableDescriptor(Table table)
     {
+        Preconditions.checkArgument(tableDescriptors.containsKey(table), "Analysis for table is missing. Broken analysis?");
         return tableDescriptors.get(table);
     }
 

@@ -21,7 +21,7 @@ public class TupleDescriptor
 
     public TupleDescriptor(List<NamedSlot> slots)
     {
-        Preconditions.checkNotNull(slots, "slopts is null");
+        Preconditions.checkNotNull(slots, "slots is null");
         this.slots = ImmutableList.copyOf(slots);
     }
 
