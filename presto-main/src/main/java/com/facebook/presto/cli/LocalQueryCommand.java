@@ -1,5 +1,6 @@
-package com.facebook.presto;
+package com.facebook.presto.cli;
 
+import com.facebook.presto.Main;
 import com.facebook.presto.metadata.DatabaseMetadata;
 import com.facebook.presto.metadata.DatabaseStorageManager;
 import com.facebook.presto.operator.ConsolePrinter;
