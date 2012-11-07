@@ -5,7 +5,7 @@ public class CountWithFilterSqlBenchmark
 {
     public CountWithFilterSqlBenchmark()
     {
-        super("sql_count_with_filter", 10, 100, "SELECT count(*) from orders");
+        super("sql_count_with_filter", 10, 100, "SELECT count(*) from orders where orderstatus = 'F'");
     }
 
     public static void main(String[] args)
