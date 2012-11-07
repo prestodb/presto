@@ -1,6 +1,5 @@
 package com.facebook.presto.cli;
 
-import com.facebook.presto.Main;
 import io.airlift.command.Command;
 import io.airlift.command.Option;
 import jline.console.ConsoleReader;
@@ -64,7 +63,7 @@ public class Console
             line = "sql:" + line;
         }
 
-        Main.Execute query = new Main.Execute();
+        Execute query = new Execute();
         query.server = server;
         query.query = line;
         query.run();
