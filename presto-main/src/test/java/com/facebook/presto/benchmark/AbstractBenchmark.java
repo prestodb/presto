@@ -1,8 +1,7 @@
 package com.facebook.presto.benchmark;
 
-import com.google.common.base.Throwables;
+import com.google.common.base.Joiner;
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import java.util.Map;
@@ -69,7 +68,8 @@ public abstract class AbstractBenchmark
     public void runBenchmark(@Nullable BenchmarkResultHook benchmarkResultHook)
     {
         LOGGER.info("Running benchmark: %s", getBenchmarkName());
-        long start = System.nanoTime();
+
+        AverageBenchmarkResults averageBenchmarkResults = new AverageBenchmarkResults();
         setUp();
         try {
             for (int i = 0; i < warmupIterations; i++) {
@@ -80,6 +80,7 @@ public abstract class AbstractBenchmark
                 if (benchmarkResultHook != null) {
                     benchmarkResultHook.addResults(results);
                 }
+                averageBenchmarkResults.addResults(results);
             }
         } finally {
             tearDown();
@@ -87,7 +88,10 @@ public abstract class AbstractBenchmark
         if (benchmarkResultHook != null) {
             benchmarkResultHook.finished();
         }
-        Duration duration = Duration.nanosSince(start);
-        LOGGER.info("Finished benchmark: %s, Elapsed: %s", getBenchmarkName(), duration);
+
+        Map<String, String> resultsAvg = averageBenchmarkResults.getAverageResultsStrings();
+        String avg = Joiner.on(", ").withKeyValueSeparator(": ").join(resultsAvg);
+
+        LOGGER.info("Finished benchmark: %s avg results :: %s", getBenchmarkName(), avg);
     }
 }
