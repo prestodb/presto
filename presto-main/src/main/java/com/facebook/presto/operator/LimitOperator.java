@@ -51,7 +51,7 @@ public class LimitOperator
         @Override
         protected Page computeNext()
         {
-            if (!sourceIterator.hasNext() || remainingLimit == 0) {
+            if (!sourceIterator.hasNext() || remainingLimit <= 0) {
                 return endOfData();
             }
 

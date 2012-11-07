@@ -73,40 +73,6 @@ public final class OperatorAssertions
         }
     }
 
-    public static void assertOperatorEqualsUnordered(Operator actual, Operator expected)
-    {
-        assertEquals(actual.getChannelCount(), expected.getChannelCount(), "Channel count");
-
-        Set<List<Tuple>> actualValues = new HashSet<>(unrollChannelTuples(actual));
-        Set<List<Tuple>> expectedValues = new HashSet<>(unrollChannelTuples(expected));
-        assertEquals(actualValues, expectedValues, "unmatched tuples");
-    }
-
-    /**
-     * Converts each position in an operator to a List<Tuple> and returns the entire set of
-     * List<Tuple> as an ordered list of values.
-     */
-    public static List<List<Tuple>> unrollChannelTuples(Operator operator)
-    {
-        ImmutableList.Builder<List<Tuple>> builder = ImmutableList.builder();
-        for (Page page : operator) {
-            Block[] blocks = page.getBlocks();
-            BlockCursor[] cursors = new BlockCursor[blocks.length];
-            for (int i = 0; i < blocks.length; i++) {
-                cursors[i] = blocks[i].cursor();
-            }
-            for (int i = 0; i < page.getPositionCount(); i++) {
-                ImmutableList.Builder<Tuple> tupleBuilder = ImmutableList.builder();
-                for (BlockCursor cursor : cursors) {
-                    Preconditions.checkState(cursor.advanceNextPosition());
-                    tupleBuilder.add(cursor.getTuple());
-                }
-                builder.add(tupleBuilder.build());
-            }
-        }
-        return builder.build();
-    }
-
     public static List<BlockIterable> loadColumns(Operator operator)
     {
         List<ImmutableList.Builder<Block>> blockBuilders = new ArrayList<>();
