@@ -4,6 +4,7 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.AnalyzedAggregation;
 import com.facebook.presto.sql.compiler.AnalyzedExpression;
+import com.facebook.presto.sql.compiler.AnalyzedOrdering;
 import com.facebook.presto.sql.compiler.NamedSlot;
 import com.facebook.presto.sql.compiler.Slot;
 import com.facebook.presto.sql.compiler.SlotAllocator;
@@ -29,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 import java.util.ArrayList;
@@ -36,6 +38,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import static com.facebook.presto.sql.compiler.AnalyzedOrdering.expressionGetter;
 
 import static com.facebook.presto.sql.compiler.AnalyzedAggregation.argumentGetter;
 import static com.google.common.collect.Iterables.concat;
@@ -90,15 +93,20 @@ public class Planner
         if (!analysis.getAggregations().isEmpty()) {
             root = createAggregatePlan(root,
                     ImmutableList.copyOf(analysis.getOutputExpressions().values()),
+                    Lists.transform(analysis.getOrderBy(), expressionGetter()),
                     analysis.getAggregations(),
                     analysis.getGroupByExpressions(),
                     analysis.getSlotAllocator(),
                     substitutions);
         }
 
+        if (analysis.getLimit() != null && !analysis.getOrderBy().isEmpty()) {
+            root = createTopNPlan(root, analysis.getLimit(), analysis.getOrderBy(), analysis.getSlotAllocator(), substitutions);
+        }
+
         root = createProjectPlan(root, analysis.getOutputExpressions(), substitutions); // project query outputs
 
-        if (analysis.getLimit() != null) {
+        if (analysis.getLimit() != null && analysis.getOrderBy().isEmpty()) {
             root = createLimitPlan(root, analysis.getLimit());
         }
 
@@ -110,8 +118,41 @@ public class Planner
         return new LimitNode(source, limit);
     }
 
+    private PlanNode createTopNPlan(PlanNode source, long limit, List<AnalyzedOrdering> orderBy, SlotAllocator allocator, Map<Expression, Slot> substitutions)
+    {
+        /**
+         * Turns SELECT $10, $11 ORDER BY expr($0, $1,...), expr($2, $3, ...) LIMIT c into
+         *
+         * - TopN [c] order by $4, $5
+         *     - Project $4 = expr($0, $1, ...), $5 = expr($2, $3, ...), $10, $11
+         */
+
+        Map<Slot, Expression> preProjectSlots = new HashMap<>();
+        for (Slot slot : source.getOutputs()) {
+            // propagate all output slots from underlying operator
+            SlotReference expression = new SlotReference(slot);
+            preProjectSlots.put(slot, expression);
+        }
+
+        List<Slot> orderBySlots = new ArrayList<>();
+        Map<Slot, SortItem.Ordering> orderings = new HashMap<>();
+        for (AnalyzedOrdering item : orderBy) {
+            Expression rewritten = TreeRewriter.rewriteWith(substitution(substitutions), item.getExpression().getRewrittenExpression());
+
+            Slot slot = allocator.newSlot(item.getExpression().getType(), rewritten);
+
+            orderBySlots.add(slot);
+            preProjectSlots.put(slot, rewritten);
+            orderings.put(slot, item.getOrdering());
+        }
+
+        ProjectNode preProject = new ProjectNode(source, preProjectSlots);
+        return new TopNNode(preProject, limit, orderBySlots, orderings);
+    }
+
     private PlanNode createAggregatePlan(PlanNode source,
             List<AnalyzedExpression> outputs,
+            List<AnalyzedExpression> orderBy,
             Set<AnalyzedAggregation> aggregations,
             List<AnalyzedExpression> groupBys,
             SlotAllocator allocator,
@@ -172,7 +213,7 @@ public class Planner
 
         // 3. Post-project scalar expressions based on aggregations
         BiMap<Slot, Expression> postProjectScalarAssignments = HashBiMap.create();
-        for (AnalyzedExpression expression : ImmutableSet.copyOf(concat(outputs, groupBys))) {
+        for (AnalyzedExpression expression : ImmutableSet.copyOf(concat(outputs, groupBys, orderBy))) {
             Expression rewritten = TreeRewriter.rewriteWith(substitution(substitutions), expression.getRewrittenExpression());
             Slot slot = allocator.newSlot(expression.getType(), rewritten);
 
