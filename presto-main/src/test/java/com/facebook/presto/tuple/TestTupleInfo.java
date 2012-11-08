@@ -4,7 +4,7 @@ import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.slice.SizeOf.SIZE_OF_SHORT;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_INT;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static org.testng.Assert.assertEquals;
@@ -36,7 +36,7 @@ public class TestTupleInfo
                 .build();
 
         assertEquals(tuple.getSlice(0), binary);
-        assertEquals(tuple.size(), binary.length() + SIZE_OF_SHORT);
+        assertEquals(tuple.size(), binary.length() + SIZE_OF_INT);
     }
 
     @Test
@@ -54,7 +54,7 @@ public class TestTupleInfo
 
         assertEquals(tuple.getSlice(0), binary1);
         assertEquals(tuple.getSlice(1), binary2);
-        assertEquals(tuple.size(), binary1.length() + binary2.length() + SIZE_OF_SHORT + SIZE_OF_SHORT);
+        assertEquals(tuple.size(), binary1.length() + binary2.length() + SIZE_OF_INT + SIZE_OF_INT);
     }
 
 

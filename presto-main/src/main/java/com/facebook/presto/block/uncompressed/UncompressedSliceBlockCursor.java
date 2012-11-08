@@ -7,7 +7,7 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.Range;
 import com.google.common.base.Preconditions;
 
-import static com.facebook.presto.slice.SizeOf.SIZE_OF_SHORT;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_INT;
 
 public class UncompressedSliceBlockCursor
         implements BlockCursor
@@ -83,7 +83,7 @@ public class UncompressedSliceBlockCursor
 
         position++;
         offset += size;
-        size = slice.getShort(offset);
+        size = slice.getInt(offset);
         return true;
     }
 
@@ -101,7 +101,7 @@ public class UncompressedSliceBlockCursor
         while (position < newPosition) {
             position++;
             offset += size;
-            size = slice.getShort(offset);
+            size = slice.getInt(offset);
         }
         return true;
     }
@@ -144,7 +144,7 @@ public class UncompressedSliceBlockCursor
     {
         checkReadablePosition();
         Preconditions.checkElementIndex(0, 1, "field");
-        return slice.slice(offset + SIZE_OF_SHORT, size - SIZE_OF_SHORT);
+        return slice.slice(offset + SIZE_OF_INT, size - SIZE_OF_INT);
     }
 
     @Override
