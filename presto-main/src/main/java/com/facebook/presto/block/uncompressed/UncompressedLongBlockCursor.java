@@ -143,6 +143,12 @@ public class UncompressedLongBlockCursor
     }
 
     @Override
+    public boolean isNull(int field)
+    {
+        return false;
+    }
+
+    @Override
     public boolean currentTupleEquals(Tuple value)
     {
         checkReadablePosition();

@@ -126,11 +126,11 @@ public class UncompressedBlock
                     offset = 0;
                 }
 
-                int size = slice.getInt(offset);
+                int size = slice.getInt(offset) & 0x7F_FF_FF_FF;
                 while (position < start) {
                     position++;
                     offset += size;
-                    size = slice.getInt(offset);
+                    size = slice.getInt(offset) & 0x7F_FF_FF_FF;
                 }
                 return offset;
             }

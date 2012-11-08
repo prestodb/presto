@@ -80,13 +80,13 @@ public class HivePartition implements RecordIterable
         }
 
         @Override
-        public Long getLong(int field)
+        public long getLong(int field)
         {
             return hiveRecord.getLong(columnNames.get(field));
         }
 
         @Override
-        public Double getDouble(int field)
+        public double getDouble(int field)
         {
             return hiveRecord.getDouble(columnNames.get(field));
         }
@@ -95,6 +95,12 @@ public class HivePartition implements RecordIterable
         public String getString(int field)
         {
             return hiveRecord.getString(columnNames.get(field));
+        }
+
+        @Override
+        public boolean isNull(int field)
+        {
+            return hiveRecord.getString(columnNames.get(field)) == null;
         }
     }
 }

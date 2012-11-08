@@ -7,9 +7,11 @@ public interface Record
 {
     int getFieldCount();
 
-    Long getLong(int field);
+    long getLong(int field);
 
-    Double getDouble(int field);
+    double getDouble(int field);
 
     String getString(int field);
+
+    boolean isNull(int field);
 }
