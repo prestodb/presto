@@ -1,6 +1,9 @@
 package com.facebook.presto.sql.tree;
 
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
+
+import javax.annotation.Nullable;
 
 public class SortItem
     extends Node
@@ -89,5 +92,17 @@ public class SortItem
         result = 31 * result + (ordering != null ? ordering.hashCode() : 0);
         result = 31 * result + (nullOrdering != null ? nullOrdering.hashCode() : 0);
         return result;
+    }
+
+    public static Function<SortItem, Expression> sortKeyGetter()
+    {
+        return new Function<SortItem, Expression>()
+        {
+            @Override
+            public Expression apply(SortItem input)
+            {
+                return input.getSortKey();
+            }
+        };
     }
 }

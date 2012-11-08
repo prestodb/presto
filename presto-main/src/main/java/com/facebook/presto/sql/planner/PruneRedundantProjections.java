@@ -89,6 +89,13 @@ public class PruneRedundantProjections
         }
 
         @Override
+        public PlanNode visitTopN(TopNNode node, Void context)
+        {
+            PlanNode source = node.getSource().accept(this, context);
+            return new TopNNode(source, node.getCount(), node.getOrderBy(), node.getOrderings());
+        }
+
+        @Override
         protected PlanNode visitPlan(PlanNode node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented: " + getClass().getName());

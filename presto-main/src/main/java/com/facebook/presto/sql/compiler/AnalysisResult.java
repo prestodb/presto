@@ -24,13 +24,15 @@ public class AnalysisResult
     private final List<AnalyzedExpression> groupBy;
     private final Set<AnalyzedAggregation> aggregations;
     private final Long limit;
+    private final List<AnalyzedOrdering> orderBy;
 
     public static AnalysisResult newInstance(AnalysisContext context,
             AnalyzedOutput output,
             AnalyzedExpression predicate,
             List<AnalyzedExpression> groupBy,
             Set<AnalyzedAggregation> aggregations,
-            @Nullable Long limit)
+            @Nullable Long limit,
+            List<AnalyzedOrdering> orderBy)
     {
         return new AnalysisResult(
                 context.getSlotAllocator(),
@@ -40,7 +42,9 @@ public class AnalysisResult
                 predicate,
                 output,
                 groupBy,
-                limit);
+                orderBy,
+                limit
+        );
     }
 
     private AnalysisResult(SlotAllocator slotAllocator,
@@ -50,6 +54,7 @@ public class AnalysisResult
             @Nullable AnalyzedExpression predicate,
             AnalyzedOutput output,
             List<AnalyzedExpression> groupBy,
+            List<AnalyzedOrdering> orderBy,
             @Nullable Long limit)
     {
         Preconditions.checkNotNull(slotAllocator, "slotAllocator is null");
@@ -58,6 +63,7 @@ public class AnalysisResult
         Preconditions.checkNotNull(aggregations, "aggregations is null");
         Preconditions.checkNotNull(output, "output is null");
         Preconditions.checkNotNull(groupBy, "groupBy is null");
+        Preconditions.checkNotNull(orderBy, "orderBy is null");
 
         this.slotAllocator = slotAllocator;
         this.tableDescriptors = new IdentityHashMap<>(tableDescriptors);
@@ -67,6 +73,7 @@ public class AnalysisResult
         this.output = output;
         this.groupBy = ImmutableList.copyOf(groupBy);
         this.limit = limit;
+        this.orderBy = ImmutableList.copyOf(orderBy);
     }
 
     public TupleDescriptor getOutputDescriptor()
@@ -114,5 +121,10 @@ public class AnalysisResult
     public Long getLimit()
     {
         return limit;
+    }
+
+    public List<AnalyzedOrdering> getOrderBy()
+    {
+        return orderBy;
     }
 }

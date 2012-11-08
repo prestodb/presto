@@ -248,6 +248,35 @@ public class TestQueries
     }
 
     @Test
+    public void testOrderByLimit()
+    {
+        List<Tuple> expected = computeExpected("SELECT custkey, orderstatus FROM ORDERS ORDER BY orderkey desc LIMIT 10", FIXED_INT_64, VARIABLE_BINARY);
+        List<Tuple> actual = computeActual("SELECT custkey, orderstatus FROM ORDERS ORDER BY orderkey desc LIMIT 10");
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testOrderByExpressionWithLimit()
+            throws Exception
+    {
+        List<Tuple> expected = computeExpected("SELECT custkey, orderstatus FROM ORDERS ORDER BY orderkey + 1 desc LIMIT 10", FIXED_INT_64, VARIABLE_BINARY);
+        List<Tuple> actual = computeActual("SELECT custkey, orderstatus FROM ORDERS ORDER BY orderkey + 1 desc LIMIT 10");
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testGroupByOrderByLimit()
+            throws Exception
+    {
+        List<Tuple> expected = computeExpected("SELECT custkey, sum(totalprice) FROM ORDERS GROUP BY custkey ORDER BY sum(totalprice) desc LIMIT 10", FIXED_INT_64, DOUBLE);
+        List<Tuple> actual = computeActual("SELECT custkey, sum(totalprice) FROM ORDERS GROUP BY custkey ORDER BY sum(totalprice) desc LIMIT 10");
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
     public void testRepeatedAggregations()
             throws Exception
     {

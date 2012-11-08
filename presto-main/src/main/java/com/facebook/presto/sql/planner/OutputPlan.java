@@ -1,7 +1,6 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.compiler.Slot;
-import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
