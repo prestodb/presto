@@ -31,7 +31,8 @@ public class BenchmarkSuite
             new CountWithFilterSqlBenchmark(),
             new GroupByAggregationSqlBenchmark(),
             new PredicateFilterSqlBenchmark(),
-            new RawStreamingSqlBenchmark()
+            new RawStreamingSqlBenchmark(),
+            new Top100SqlBenchmark()
     );
 
     private final String outputDirectory;
