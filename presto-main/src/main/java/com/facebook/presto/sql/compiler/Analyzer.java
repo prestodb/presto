@@ -23,6 +23,8 @@ import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TreeRewriter;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -136,18 +138,26 @@ public class Analyzer
                 }
             }
 
+
+            BiMap<Slot, AnalyzedExpression> assignments = HashBiMap.create();
+
             ImmutableList.Builder<Slot> slots = ImmutableList.builder();
-            ImmutableMap.Builder<Slot, AnalyzedExpression> outputExpressions = ImmutableMap.builder();
             for (Expression expression : expressions.build()) {
                 AnalyzedExpression analysis = new ExpressionAnalyzer(metadata).analyze(expression, descriptor);
 
-                Slot slot = allocator.newSlot(analysis);
+                Slot slot;
+                if (assignments.containsValue(analysis)) {
+                    slot = assignments.inverse().get(analysis);
+                }
+                else {
+                    slot = allocator.newSlot(analysis);
+                    assignments.put(slot, analysis);
+                }
 
                 slots.add(slot);
-                outputExpressions.put(slot, analysis);
             }
 
-            return new AnalyzedOutput(new TupleDescriptor(names.build(), slots.build()), outputExpressions.build());
+            return new AnalyzedOutput(new TupleDescriptor(names.build(), slots.build()), assignments);
         }
 
         private List<AnalyzedExpression> analyzeGroupBy(List<Expression> groupBy, TupleDescriptor descriptor)

@@ -3,7 +3,6 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.sql.compiler.Slot;
 import com.facebook.presto.sql.compiler.SlotReference;
 import com.facebook.presto.sql.tree.Expression;
-import com.google.common.collect.Iterables;
 
 import java.util.Map;
 
@@ -74,7 +73,7 @@ public class PruneRedundantProjections
         public PlanNode visitOutput(OutputPlan node, Void context)
         {
             PlanNode source = node.getSource().accept(this, context);
-            return new OutputPlan(source, node.getColumnNames());
+            return new OutputPlan(source, node.getColumnNames(), node.getAssignments());
         }
 
         @Override

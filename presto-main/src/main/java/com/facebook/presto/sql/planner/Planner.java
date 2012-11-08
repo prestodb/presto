@@ -58,12 +58,15 @@ public class Planner
 
         int i = 0;
         ImmutableList.Builder<String> names = ImmutableList.builder();
-        for (Optional<String> name : analysis.getOutputDescriptor().getAttributes()) {
-            names.add(name.or("_col" + i));
+        ImmutableMap.Builder<String, Slot> assignments = ImmutableMap.builder();
+        for (NamedSlot namedSlot : analysis.getOutputDescriptor().getSlots()) {
+            String name = namedSlot.getAttribute().or("_col" + i);
+            names.add(name);
+            assignments.put(name, namedSlot.getSlot());
             i++;
         }
 
-        return new OutputPlan(result, names.build());
+        return new OutputPlan(result, names.build(), assignments.build());
     }
 
     private PlanNode createQueryPlan(Query query, AnalysisResult analysis)

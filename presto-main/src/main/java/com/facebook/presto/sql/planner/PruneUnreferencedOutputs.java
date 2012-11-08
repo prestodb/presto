@@ -34,7 +34,7 @@ public class PruneUnreferencedOutputs
     @Override
     public PlanNode optimize(PlanNode plan)
     {
-        return plan.accept(new Visitor(), ImmutableSet.copyOf(plan.getOutputs()));
+        return plan.accept(new Visitor(), ImmutableSet.<Slot>of());
     }
 
     private static class Visitor
@@ -152,11 +152,9 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitOutput(OutputPlan node, Set<Slot> expectedOutputs)
         {
-            Preconditions.checkArgument(ImmutableSet.copyOf(node.getOutputs()).equals(expectedOutputs), "Expected outputs should match node output for OutputPlan node");
-
-            PlanNode source = node.getSource().accept(this, expectedOutputs);
-
-            return new OutputPlan(source, node.getColumnNames());
+            ImmutableSet<Slot> expectedInputs = ImmutableSet.copyOf(node.getAssignments().values());
+            PlanNode source = node.getSource().accept(this, expectedInputs);
+            return new OutputPlan(source, node.getColumnNames(), node.getAssignments());
         }
 
         @Override
