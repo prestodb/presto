@@ -2,6 +2,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.emptyToNull;
@@ -10,14 +11,26 @@ public class ColumnMetadata
 {
     private final String name;
     private final TupleInfo.Type type;
+    private final Optional<ColumnHandle> columnHandle;
 
     public ColumnMetadata(TupleInfo.Type type, String name)
     {
-        checkNotNull(type, "type is null");
-        checkNotNull(emptyToNull(name), "name is null or empty");
+        this(name, type, Optional.<ColumnHandle>absent());
+    }
 
-        this.type = type;
+    public ColumnMetadata(String name, TupleInfo.Type type, ColumnHandle columnHandle)
+    {
+        this(name, type, Optional.of(checkNotNull(columnHandle, "columnHandle is null")));
+    }
+
+    private ColumnMetadata(String name, TupleInfo.Type type, Optional<ColumnHandle> columnHandle)
+    {
+        checkNotNull(emptyToNull(name), "name is null or empty");
+        checkNotNull(type, "type is null");
+
         this.name = name.toLowerCase();
+        this.type = type;
+        this.columnHandle = columnHandle;
     }
 
     public String getName()
@@ -30,6 +43,11 @@ public class ColumnMetadata
         return type;
     }
 
+    public Optional<ColumnHandle> getColumnHandle()
+    {
+        return columnHandle;
+    }
+
     @Override
     public String toString()
     {
@@ -37,25 +55,5 @@ public class ColumnMetadata
                 .add("name", name)
                 .add("type", type)
                 .toString();
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if ((obj == null) || (getClass() != obj.getClass())) {
-            return false;
-        }
-        ColumnMetadata o = (ColumnMetadata) obj;
-        return Objects.equal(name, o.name) &&
-                Objects.equal(type, o.type);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hashCode(name, type);
     }
 }
