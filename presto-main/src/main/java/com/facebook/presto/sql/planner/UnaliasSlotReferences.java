@@ -7,9 +7,11 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRewriter;
+import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.TreeRewriter;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -137,6 +139,22 @@ public class UnaliasSlotReferences
         {
             PlanNode source = node.getSource().accept(this, context);
             return new LimitNode(source, node.getCount());
+        }
+
+        @Override
+        public PlanNode visitTopN(TopNNode node, Void context)
+        {
+            PlanNode source = node.getSource().accept(this, context);
+
+            ImmutableList.Builder<Slot> slots = ImmutableList.<Slot>builder();
+            ImmutableMap.Builder<Slot, SortItem.Ordering> orderings = ImmutableMap.<Slot, SortItem.Ordering>builder();
+            for (Slot slot : node.getOrderBy()) {
+                Slot canonical = canonicalize(slot);
+                slots.add(canonical);
+                orderings.put(canonical, node.getOrderings().get(slot));
+            }
+
+            return new TopNNode(source, node.getCount(), slots.build(), orderings.build());
         }
 
         @Override

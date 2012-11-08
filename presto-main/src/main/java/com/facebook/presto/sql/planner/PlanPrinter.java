@@ -125,6 +125,17 @@ public class PlanPrinter
         }
 
         @Override
+        public Void visitTopN(TopNNode node, Integer indent)
+        {
+            print(indent, "- TopN => [%s]", formatOutputs(node.getOutputs()));
+            print(indent + 2, "key = %s", node.getOrderBy());
+            print(indent + 2, "order = %s", node.getOrderings());
+            print(indent + 2, "count = %s", node.getCount());
+
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
         protected Void visitPlan(PlanNode node, Integer context)
         {
             throw new UnsupportedOperationException("not yet implemented");

@@ -15,6 +15,7 @@ import com.facebook.presto.operator.LimitOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
+import com.facebook.presto.operator.TopNOperator;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.CountAggregation;
 import com.facebook.presto.operator.aggregation.DoubleAverageAggregation;
@@ -27,12 +28,16 @@ import com.facebook.presto.sql.compiler.SlotReference;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Ordering;
 
 import javax.inject.Provider;
 import java.util.ArrayList;
@@ -74,6 +79,9 @@ public class ExecutionPlanner
         else if (plan instanceof LimitNode) {
             return createLimitNode((LimitNode) plan);
         }
+        else if (plan instanceof TopNNode) {
+            return createTopNNode((TopNNode) plan);
+        }
 
         throw new UnsupportedOperationException("not yet implemented: " + plan.getClass().getName());
     }
@@ -98,6 +106,30 @@ public class ExecutionPlanner
         }
 
         return new FilterAndProjectOperator(sourceOperator, FilterFunctions.TRUE_FUNCTION, projections);
+    }
+
+    private Operator createTopNNode(TopNNode node)
+    {
+        Preconditions.checkArgument(node.getOrderBy().size() == 1, "Order by multiple fields not yet supported");
+        Slot orderBySlot = Iterables.getOnlyElement(node.getOrderBy());
+
+        PlanNode source = Iterables.getOnlyElement(node.getSources());
+
+        Map<Slot, Integer> slotToChannelMappings = mapSlotsToChannels(source.getOutputs());
+
+        List<ProjectionFunction> projections = new ArrayList<>();
+        for (int i = 0; i < node.getOutputs().size(); i++) {
+            Slot slot = node.getOutputs().get(i);
+            ProjectionFunction function = ProjectionFunctions.singleColumn(slot.getType().getRawType(), slotToChannelMappings.get(slot), 0);
+            projections.add(function);
+        }
+
+        Ordering<TupleReadable> ordering = Ordering.from(FieldOrderedTupleComparator.INSTANCE);
+        if (node.getOrderings().get(orderBySlot) == SortItem.Ordering.ASCENDING) {
+            ordering = ordering.reverse();
+        }
+
+        return new TopNOperator(plan(source), (int) node.getCount(), slotToChannelMappings.get(orderBySlot), projections, ordering);
     }
 
     private Operator createLimitNode(LimitNode node)
