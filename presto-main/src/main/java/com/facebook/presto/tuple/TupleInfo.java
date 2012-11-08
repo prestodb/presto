@@ -32,6 +32,9 @@ import static java.util.Arrays.asList;
 /**
  * Tuple layout is:
  * <pre>
+ *     is_null_0_to_7
+ *     is_null_8_to_15
+ *     ...
  *     fixed_0
  *     fixed_1
  *     ...
@@ -168,9 +171,11 @@ public class TupleInfo
 
         int[] offsets = new int[types.size() + 1];
 
-        int currentOffset = 0;
+        // calculate number of null bytes
+        int nullBytes = ((types.size() - 1) >> 3) + 1;
 
         // process fixed-length fields first
+        int currentOffset = nullBytes;
         for (int i = 0; i < types.size(); i++) {
             Type type = types.get(i);
 
@@ -228,7 +233,7 @@ public class TupleInfo
         this.offsets = ImmutableList.copyOf(Ints.asList(offsets));
 
         // compute offset of variable sized part
-        int variablePartOffset = 0;
+        int variablePartOffset = nullBytes;
         boolean isFirst = true;
         for (TupleInfo.Type type : getTypes()) {
             if (!type.isFixedSize()) {
@@ -348,22 +353,17 @@ public class TupleInfo
 
     public boolean isNull(Slice slice, int offset, int field)
     {
-        if (types.get(field) != VARIABLE_BINARY) {
-            return false;
-        }
-
-        if (field == firstVariableLengthField) {
-            return (slice.getInt(offset + getTupleSizeOffset()) & 0x80_00_00_00) != 0;
-        }
-        else {
-            return (slice.getInt(offset + getOffset(field)) & 0x80_00_00_00) != 0;
-        }
+        int index = field >> 3;
+        int bit = field & 0b111;
+        int bitMask = 1 << bit;
+        return (slice.getByte(index) & bitMask) != 0;
     }
 
     /**
      * Extracts the Slice representation of a Tuple with this TupleInfo format from the head of a larger Slice.
      */
-    public Slice extractTupleSlice(SliceInput sliceInput) {
+    public Slice extractTupleSlice(SliceInput sliceInput)
+    {
         int tupleSliceSize = size(sliceInput);
         return sliceInput.readSlice(tupleSliceSize);
     }
@@ -371,7 +371,8 @@ public class TupleInfo
     /**
      * Extracts a Tuple with this TupleInfo format from the head of a Slice.
      */
-    public Tuple extractTuple(SliceInput sliceInput) {
+    public Tuple extractTuple(SliceInput sliceInput)
+    {
         return new Tuple(extractTupleSlice(sliceInput), this);
     }
 
@@ -455,6 +456,7 @@ public class TupleInfo
     {
         private final SliceOutput sliceOutput;
         private final List<Slice> variableLengthFields;
+        private final Slice fixedBuffer;
 
         private int currentField;
 
@@ -462,13 +464,14 @@ public class TupleInfo
         {
             this.sliceOutput = sliceOutput;
             this.variableLengthFields = new ArrayList<>(variableLengthFieldCount);
+            fixedBuffer = Slices.allocate(size < 0 ? getOffset(secondVariableLengthField) : size);
         }
 
         public Builder append(long value)
         {
             checkState(TupleInfo.this.getTypes().get(currentField) == FIXED_INT_64, "Cannot append long. Current field (%s) is of type %s", currentField, TupleInfo.this.getTypes().get(currentField));
 
-            sliceOutput.writeLong(value);
+            fixedBuffer.setLong(getOffset(currentField), value);
             currentField++;
 
             return this;
@@ -478,7 +481,7 @@ public class TupleInfo
         {
             checkState(TupleInfo.this.getTypes().get(currentField) == DOUBLE, "Cannot append double. Current field (%s) is of type %s", currentField, TupleInfo.this.getTypes().get(currentField));
 
-            sliceOutput.writeDouble(value);
+            fixedBuffer.setDouble(getOffset(currentField), value);
             currentField++;
 
             return this;
@@ -496,9 +499,14 @@ public class TupleInfo
 
         public Builder appendNull()
         {
-            checkState(TupleInfo.this.getTypes().get(currentField) == VARIABLE_BINARY, "Cannot append null. Current field (%s) is of type %s", currentField, TupleInfo.this.getTypes().get(currentField));
+            int index = currentField >> 3;
+            int bit = currentField & 0b111;
+            int bitMask = 1 << bit;
+            fixedBuffer.setByte(index, fixedBuffer.getByte(index) | bitMask);
 
-            variableLengthFields.add(null);
+            if (TupleInfo.this.getTypes().get(currentField) == VARIABLE_BINARY) {
+                variableLengthFields.add(null);
+            }
             currentField++;
 
             return this;
@@ -542,17 +550,15 @@ public class TupleInfo
         {
             checkState(isComplete(), "Tuple is incomplete");
 
+            // write fixed part
+            sliceOutput.writeBytes(fixedBuffer);
+
             // write offsets
             boolean isFirst = true;
             int offset = variablePartOffset;
             for (Slice field : variableLengthFields) {
                 if (!isFirst) {
-                    int fieldOffset = offset;
-                    // if field is null, set the high bit
-                    if (field == null) {
-                        fieldOffset |= 0x80_00_00_00;
-                    }
-                    sliceOutput.writeInt(fieldOffset);
+                    sliceOutput.writeInt(offset);
                 }
                 if (field != null) {
                     offset += field.length();
@@ -561,12 +567,7 @@ public class TupleInfo
             }
 
             if (!variableLengthFields.isEmpty()) {
-                int size = offset;
-                // if first field is null, set the high bit
-                if (variableLengthFields.get(0) == null) {
-                    size |= 0x80_00_00_00;
-                }
-                sliceOutput.writeInt(size); // total tuple length
+                sliceOutput.writeInt(offset); // total tuple length
             }
 
             // write values

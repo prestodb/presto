@@ -7,6 +7,7 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.Range;
 import com.google.common.base.Preconditions;
 
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_BYTE;
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_INT;
 
 public class UncompressedSliceBlockCursor
@@ -83,7 +84,7 @@ public class UncompressedSliceBlockCursor
 
         position++;
         offset += size;
-        size = slice.getInt(offset) & 0x7F_FF_FF_FF;
+        size = slice.getInt(offset + SIZE_OF_BYTE);
         return true;
     }
 
@@ -101,7 +102,7 @@ public class UncompressedSliceBlockCursor
         while (position < newPosition) {
             position++;
             offset += size;
-            size = slice.getInt(offset) & 0x7F_FF_FF_FF;
+            size = slice.getInt(offset + SIZE_OF_BYTE);
         }
         return true;
     }
@@ -144,7 +145,7 @@ public class UncompressedSliceBlockCursor
     {
         checkReadablePosition();
         Preconditions.checkElementIndex(0, 1, "field");
-        return slice.slice(offset + SIZE_OF_INT, size - SIZE_OF_INT);
+        return slice.slice(offset + SIZE_OF_INT + SIZE_OF_BYTE, size - SIZE_OF_INT - SIZE_OF_BYTE);
     }
 
     @Override
@@ -152,7 +153,7 @@ public class UncompressedSliceBlockCursor
     {
         checkReadablePosition();
         Preconditions.checkElementIndex(0, 1, "field");
-        return (slice.getInt(offset) & 0x80_00_00_00) != 0;
+        return slice.getByte(offset) != 0;
     }
 
     @Override

@@ -5,9 +5,11 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.slice.Slice;
 import com.google.common.collect.ImmutableList;
+import org.jetbrains.annotations.Nullable;
 import org.testng.Assert;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
@@ -97,9 +99,9 @@ public class BlockAssertions
         return allAdvanced;
     }
 
-    public static Block createStringsBlock(long position, String... values)
+    public static Block createStringsBlock(long position, @Nullable String... values)
     {
-        return createStringsBlock(position, ImmutableList.copyOf(values));
+        return createStringsBlock(position, Arrays.asList(values));
     }
 
     public static Block createStringsBlock(long position, Iterable<String> values)
@@ -107,13 +109,17 @@ public class BlockAssertions
         BlockBuilder builder = new BlockBuilder(position, TupleInfo.SINGLE_VARBINARY);
 
         for (String value : values) {
-            builder.append(value.getBytes(UTF_8));
+            if (value == null) {
+                builder.appendNull();
+            } else {
+                builder.append(value.getBytes(UTF_8));
+            }
         }
 
         return builder.build();
     }
 
-    public static BlockIterable createStringsBlockIterable(long position, String... values)
+    public static BlockIterable createStringsBlockIterable(long position, @Nullable String... values)
     {
         return BlockIterables.createBlockIterable(createStringsBlock(position, values));
     }
@@ -129,18 +135,39 @@ public class BlockAssertions
         return builder.build();
     }
 
-    public static Block createLongsBlock(long position, long... values)
+    // This method makes it easy to create blocks without having to add an L to every value
+    public static Block createLongsBlock(long position, int... values)
     {
         BlockBuilder builder = new BlockBuilder(position, TupleInfo.SINGLE_LONG);
 
-        for (long value : values) {
-            builder.append(value);
+        for (int value : values) {
+            builder.append((long) value);
         }
 
         return builder.build();
     }
 
-    public static BlockIterable createLongsBlockIterable(long position, long... values)
+    public static Block createLongsBlock(long position, @Nullable Long... values)
+    {
+        BlockBuilder builder = new BlockBuilder(position, TupleInfo.SINGLE_LONG);
+
+        for (Long value : values) {
+            if (value == null) {
+                builder.appendNull();
+            } else {
+                builder.append(value);
+            }
+        }
+
+        return builder.build();
+    }
+
+    public static BlockIterable createLongsBlockIterable(long position, int... values)
+    {
+        return BlockIterables.createBlockIterable(createLongsBlock(position, values));
+    }
+
+    public static BlockIterable createLongsBlockIterable(long position, @Nullable Long... values)
     {
         return BlockIterables.createBlockIterable(createLongsBlock(position, values));
     }
@@ -156,18 +183,23 @@ public class BlockAssertions
         return builder.build();
     }
 
-    public static Block createDoublesBlock(long position, double... values)
+    public static Block createDoublesBlock(long position, @Nullable Double... values)
     {
         BlockBuilder builder = new BlockBuilder(position, TupleInfo.SINGLE_DOUBLE);
 
-        for (double value : values) {
-            builder.append(value);
+        for (Double value : values) {
+            if (value == null) {
+                builder.appendNull();
+            }
+            else {
+                builder.append(value);
+            }
         }
 
         return builder.build();
     }
 
-    public static BlockIterable createDoublesBlockIterable(long position, double... values)
+    public static BlockIterable createDoublesBlockIterable(long position, @Nullable Double... values)
     {
         return BlockIterables.createBlockIterable(createDoublesBlock(position, values));
     }
@@ -241,6 +273,12 @@ public class BlockAssertions
         public BlockIterableBuilder append(byte[] value)
         {
             blockBuilder.append(value);
+            return this;
+        }
+
+        public BlockIterableBuilder appendNull()
+        {
+            blockBuilder.appendNull();
             return this;
         }
 
