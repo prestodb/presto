@@ -1,7 +1,6 @@
 package com.facebook.presto.benchmark;
 
 import com.google.common.base.Joiner;
-import io.airlift.log.Logger;
 
 import javax.annotation.Nullable;
 import java.util.Map;
@@ -11,8 +10,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public abstract class AbstractBenchmark
 {
-    private static final Logger LOGGER = Logger.get(AbstractBenchmark.class);
-
     private final String benchmarkName;
     private final int warmupIterations;
     private final int measuredIterations;
@@ -67,8 +64,6 @@ public abstract class AbstractBenchmark
 
     public void runBenchmark(@Nullable BenchmarkResultHook benchmarkResultHook)
     {
-        LOGGER.info("Running benchmark: %s", getBenchmarkName());
-
         AverageBenchmarkResults averageBenchmarkResults = new AverageBenchmarkResults();
         setUp();
         try {
@@ -92,6 +87,6 @@ public abstract class AbstractBenchmark
         Map<String, String> resultsAvg = averageBenchmarkResults.getAverageResultsStrings();
         String avg = Joiner.on(", ").withKeyValueSeparator(": ").join(resultsAvg);
 
-        LOGGER.info("Finished benchmark: %s avg results :: %s", getBenchmarkName(), avg);
+        System.out.printf("%35s avg results :: %s%n", getBenchmarkName(), avg);
     }
 }
