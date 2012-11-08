@@ -50,6 +50,15 @@ public class PlanPrinter
             extends PlanVisitor<Integer, Void>
     {
         @Override
+        public Void visitLimit(LimitNode node, Integer indent)
+        {
+            print(indent, "- Limit => [%s]", formatOutputs(node.getOutputs()));
+            print(indent + 2, "count = %s", node.getCount());
+
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
         public Void visitAggregation(AggregationNode node, Integer indent)
         {
             print(indent, "- Aggregate => [%s]", formatOutputs(node.getOutputs()));
