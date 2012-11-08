@@ -40,13 +40,7 @@ public class LongSumAggregation
     }
 
     @Override
-    public void add(BlockCursor cursor)
-    {
-        sum += cursor.getLong(fieldIndex);
-    }
-
-    @Override
-    public void add(BlockCursor[] cursors)
+    public void add(BlockCursor... cursors)
     {
         sum += cursors[channelIndex].getLong(fieldIndex);
     }

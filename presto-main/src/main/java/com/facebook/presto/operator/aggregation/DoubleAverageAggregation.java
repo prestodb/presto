@@ -41,14 +41,7 @@ public class DoubleAverageAggregation
     }
 
     @Override
-    public void add(BlockCursor cursor)
-    {
-        sum += cursor.getDouble(fieldIndex);
-        count++;
-    }
-
-    @Override
-    public void add(BlockCursor[] cursors)
+    public void add(BlockCursor... cursors)
     {
         sum += cursors[channelIndex].getDouble(fieldIndex);
         count++;

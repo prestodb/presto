@@ -26,13 +26,7 @@ public class CountAggregation
     }
 
     @Override
-    public void add(BlockCursor cursor)
-    {
-        count++;
-    }
-
-    @Override
-    public void add(BlockCursor[] cursors)
+    public void add(BlockCursor... cursors)
     {
         count++;
     }
