@@ -3,27 +3,32 @@
  */
 package com.facebook.presto.block.rle;
 
-import com.facebook.presto.util.Range;
-import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
+import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.util.Range;
 import com.google.common.base.Preconditions;
-
-import java.util.NoSuchElementException;
-
-import static com.google.common.base.Preconditions.checkState;
 
 public final class RunLengthEncodedBlockCursor implements BlockCursor
 {
     private final Tuple value;
     private final Range range;
+    private final long endPosition;
+    private final long startPosition;
+
     private long position = -1;
 
     public RunLengthEncodedBlockCursor(Tuple value, Range range)
     {
         this.value = value;
         this.range = range;
+
+        endPosition = range.getEnd();
+        startPosition = range.getStart();
+
+        // start one position before the start
+        position = startPosition - 1;
     }
 
     @Override
@@ -41,21 +46,18 @@ public final class RunLengthEncodedBlockCursor implements BlockCursor
     @Override
     public boolean isValid()
     {
-        return range.contains(position);
+        return startPosition <= position && position <= endPosition;
     }
 
     @Override
     public boolean isFinished()
     {
-        return position > range.getEnd();
+        return position > endPosition;
     }
 
     private void checkReadablePosition()
     {
-        if (position > range.getEnd()) {
-            throw new NoSuchElementException("already finished");
-        }
-        checkState(position >= range.getStart(), "cursor not yet advanced");
+        Preconditions.checkState(isValid(), "cursor is not valid");
     }
 
     @Override
@@ -68,16 +70,12 @@ public final class RunLengthEncodedBlockCursor implements BlockCursor
     @Override
     public boolean advanceNextPosition()
     {
-        if (position >= range.getEnd()) {
+        if (position >= endPosition) {
             position = Long.MAX_VALUE;
             return false;
         }
 
-        if (position < 0) {
-            position = range.getStart();
-        } else {
-            position++;
-        }
+        position++;
         return true;
     }
 

@@ -37,14 +37,14 @@ public interface BlockCursor
      * the cursor has not been advanced yet, or if the cursor has advanced
      * beyond the last position.
      * INVARIANT 1: isValid is false if isFinished is true
-     * INVARIANT 2: all get* and data access methods will throw java.util.NoSuchElementException while isValid is false
+     * INVARIANT 2: all get* and data access methods will throw java.util.IllegalStateException while isValid is false
      */
     boolean isValid();
 
     /**
      * Returns true if the cursor has advanced beyond its last position.
      * INVARIANT 1: isFinished will only return true once advance* has returned false.
-     * INVARIANT 2: all get* and data access methods will throw java.util.NoSuchElementException once isFinished is true
+     * INVARIANT 2: all get* and data access methods will throw java.util.IllegalStateException once isFinished is true
      */
     boolean isFinished();
 
@@ -66,8 +66,7 @@ public interface BlockCursor
     /**
      * Gets the current tuple.
      *
-     * @throws IllegalStateException if this cursor has not been advanced yet
-     * @throws java.util.NoSuchElementException if this cursor has advanced past its last position
+     * @throws IllegalStateException if this cursor is not at a valid position
      */
     @Override
     Tuple getTuple();
@@ -75,8 +74,7 @@ public interface BlockCursor
     /**
      * Gets a field from the current tuple.
      *
-     * @throws IllegalStateException if this cursor has not been advanced yet
-     * @throws java.util.NoSuchElementException if this cursor has advanced past its last position
+     * @throws IllegalStateException if this cursor is not at a valid position
      */
     @Override
     long getLong(int field);
@@ -84,8 +82,7 @@ public interface BlockCursor
     /**
      * Gets a field from the current tuple.
      *
-     * @throws IllegalStateException if this cursor has not been advanced yet
-     * @throws java.util.NoSuchElementException if this cursor has advanced past its last position
+     * @throws IllegalStateException if this cursor is not at a valid position
      */
     @Override
     double getDouble(int field);
@@ -93,8 +90,7 @@ public interface BlockCursor
     /**
      * Gets a field from the current tuple.
      *
-     * @throws IllegalStateException if this cursor has not been advanced yet
-     * @throws java.util.NoSuchElementException if this cursor has advanced past its last position
+     * @throws IllegalStateException if this cursor is not at a valid position
      */
     @Override
     Slice getSlice(int field);
@@ -102,24 +98,21 @@ public interface BlockCursor
     /**
      * Returns the current position of this cursor
      *
-     * @throws IllegalStateException if this cursor has not been advanced yet
-     * @throws java.util.NoSuchElementException if this cursor has advanced past its last position
+     * @throws IllegalStateException if this cursor is not at a valid position
      */
     long getPosition();
 
     /**
      * Returns the last position of the current value
      *
-     * @throws IllegalStateException if this cursor has not been advanced yet
-     * @throws java.util.NoSuchElementException if this cursor has advanced past its last position
+     * @throws IllegalStateException if this cursor is not at a valid position
      */
     long getCurrentValueEndPosition();
 
     /**
      * True if the next tuple equals the specified tuple.
      *
-     * @throws IllegalStateException if this cursor has not been advanced yet
-     * @throws java.util.NoSuchElementException if this cursor has advanced past its last position
+     * @throws IllegalStateException if this cursor is not at a valid position
      */
     boolean currentTupleEquals(Tuple value);
 }
