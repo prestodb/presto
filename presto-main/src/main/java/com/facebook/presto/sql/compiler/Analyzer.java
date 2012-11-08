@@ -18,6 +18,7 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Select;
+import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Subquery;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TreeRewriter;
@@ -37,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Predicates.not;
@@ -78,8 +80,8 @@ public class Analyzer
         {
             Preconditions.checkArgument(!query.getSelect().isDistinct(), "not yet implemented: DISTINCT");
             Preconditions.checkArgument(query.getHaving() == null, "not yet implemented: HAVING");
-            Preconditions.checkArgument(query.getOrderBy().isEmpty(), "not yet implemented: ORDER BY");
             Preconditions.checkArgument(query.getFrom().size() == 1, "not yet implemented: multiple FROM relations");
+            Preconditions.checkArgument(query.getLimit() != null && !query.getOrderBy().isEmpty() || query.getOrderBy().isEmpty(), "not yet implemented: ORDER BY without LIMIT");
 
             // analyze FROM clause
             Relation relation = Iterables.getOnlyElement(query.getFrom());
@@ -91,7 +93,8 @@ public class Analyzer
             }
 
             List<AnalyzedExpression> groupBy = analyzeGroupBy(query.getGroupBy(), sourceDescriptor);
-            Set<AnalyzedAggregation> aggregations = analyzeAggregations(query.getGroupBy(), query.getSelect(), sourceDescriptor);
+            Set<AnalyzedAggregation> aggregations = analyzeAggregations(query.getGroupBy(), query.getSelect(), query.getOrderBy(), sourceDescriptor);
+            List<AnalyzedOrdering> orderBy = analyzeOrderBy(query.getOrderBy(), sourceDescriptor);
             AnalyzedOutput output = analyzeOutput(query.getSelect(), context.getSlotAllocator(), sourceDescriptor);
 
             Long limit = null;
@@ -99,7 +102,22 @@ public class Analyzer
                 limit = Long.parseLong(query.getLimit());
             }
 
-            return AnalysisResult.newInstance(context, output, predicate, groupBy, aggregations, limit);
+            return AnalysisResult.newInstance(context, output, predicate, groupBy, aggregations, limit, orderBy);
+        }
+
+        private List<AnalyzedOrdering> analyzeOrderBy(List<SortItem> orderBy, TupleDescriptor descriptor)
+        {
+            ImmutableList.Builder<AnalyzedOrdering> builder = ImmutableList.builder();
+            for (SortItem sortItem : orderBy) {
+                if (sortItem.getNullOrdering() != SortItem.NullOrdering.UNDEFINED) {
+                    throw new SemanticException(sortItem, "Custom null ordering not yet supported");
+                }
+
+                AnalyzedExpression expression = new ExpressionAnalyzer(metadata).analyze(sortItem.getSortKey(), descriptor);
+                builder.add(new AnalyzedOrdering(expression, sortItem.getOrdering()));
+            }
+
+            return builder.build();
         }
 
         private AnalyzedExpression analyzePredicate(Expression predicate, TupleDescriptor sourceDescriptor)
@@ -176,7 +194,7 @@ public class Analyzer
             return builder.build();
         }
 
-        private Set<AnalyzedAggregation> analyzeAggregations(List<Expression> groupBy, Select select, TupleDescriptor descriptor)
+        private Set<AnalyzedAggregation> analyzeAggregations(List<Expression> groupBy, Select select, List<SortItem> orderBy, TupleDescriptor descriptor)
         {
             if (!groupBy.isEmpty() && Iterables.any(select.getSelectItems(), instanceOf(AllColumns.class))) {
                 throw new SemanticException(select, "Wildcard selector not supported when GROUP BY is present"); // TODO: add support for SELECT T.*, count() ... GROUP BY T.* (maybe?)
@@ -184,7 +202,8 @@ public class Analyzer
 
             List<Expression> scalarTerms = new ArrayList<>();
             ImmutableSet.Builder<AnalyzedAggregation> aggregateTermsBuilder = ImmutableSet.builder();
-            for (Expression term : select.getSelectItems()) {
+            // analyze select and order by terms
+            for (Expression term : concat(select.getSelectItems(), transform(orderBy, sortKeyGetter()))) {
                 // TODO: this doesn't currently handle queries like 'SELECT k + sum(v) FROM T GROUP BY k' correctly
                 AggregateAnalyzer analyzer = new AggregateAnalyzer(metadata, descriptor);
 
@@ -211,7 +230,7 @@ public class Analyzer
                 }
             }
             else {
-                // if we this is an aggregation query and some terms are not aggregates and there's no group by clause...
+                // if this is an aggregation query and some terms are not aggregates and there's no group by clause...
                 if (!scalarTerms.isEmpty() && !aggregateTerms.isEmpty()) {
                     throw new SemanticException(select, "Mixing of aggregate and non-aggregate columns is illegal if there is no GROUP BY clause: %s", Iterables.transform(scalarTerms, ExpressionFormatter.expressionFormatterFunction()));
                 }

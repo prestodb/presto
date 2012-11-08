@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Predicates.in;
+import static com.google.common.collect.Iterables.concat;
 
 /**
  * Removes all computation that does is not referenced transitively from the root of the plan
@@ -162,6 +163,16 @@ public class PruneUnreferencedOutputs
         {
             PlanNode source = node.getSource().accept(this, expectedOutputs);
             return new LimitNode(source, node.getCount());
+        }
+
+        @Override
+        public PlanNode visitTopN(TopNNode node, Set<Slot> expectedOutputs)
+        {
+            Set<Slot> expectedInputs = ImmutableSet.copyOf(concat(expectedOutputs, node.getOrderBy()));
+
+            PlanNode source = node.getSource().accept(this, expectedInputs);
+
+            return new TopNNode(source, node.getCount(), node.getOrderBy(), node.getOrderings());
         }
     }
 }

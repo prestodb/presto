@@ -32,6 +32,11 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
+    public R visitTopN(TopNNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitOutput(OutputPlan node, C context)
     {
         return visitPlan(node, context);
