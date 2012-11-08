@@ -26,6 +26,11 @@ public class PruneRedundantProjections
         {
             PlanNode source = node.getSource().accept(this, context);
 
+            if (node.getOutputs().size() != source.getOutputs().size()) {
+                // Can't get rid of this projection. It constrains the output tuple from the underlying operator
+                return new ProjectNode(source, node.getOutputMap());
+            }
+
             boolean canElide = true;
             for (Map.Entry<Slot, Expression> entry : node.getOutputMap().entrySet()) {
                 Expression expression = entry.getValue();
