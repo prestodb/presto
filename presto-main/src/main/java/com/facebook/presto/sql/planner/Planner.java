@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class Planner
 {
@@ -93,7 +94,7 @@ public class Planner
 
     private PlanNode createAggregatePlan(PlanNode source,
             Map<Slot, AnalyzedExpression> outputs,
-            List<AnalyzedAggregation> aggregations,
+            Set<AnalyzedAggregation> aggregations,
             List<AnalyzedExpression> groupBys,
             SlotAllocator allocator)
     {
