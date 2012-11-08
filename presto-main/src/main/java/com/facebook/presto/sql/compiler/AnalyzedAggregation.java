@@ -49,4 +49,38 @@ public class AnalyzedAggregation
     {
         return rewrittenCall;
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        AnalyzedAggregation that = (AnalyzedAggregation) o;
+
+        if (!arguments.equals(that.arguments)) {
+            return false;
+        }
+        if (!info.equals(that.info)) {
+            return false;
+        }
+        if (!rewrittenCall.equals(that.rewrittenCall)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = info.hashCode();
+        result = 31 * result + arguments.hashCode();
+        result = 31 * result + rewrittenCall.hashCode();
+        return result;
+    }
 }

@@ -5,11 +5,13 @@ import com.facebook.presto.sql.tree.Subquery;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nullable;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class AnalysisResult
 {
@@ -20,14 +22,14 @@ public class AnalysisResult
     private final AnalyzedExpression predicate;
     private final AnalyzedOutput output;
     private final List<AnalyzedExpression> groupBy;
-    private final List<AnalyzedAggregation> aggregations;
+    private final Set<AnalyzedAggregation> aggregations;
     private final Long limit;
 
     public static AnalysisResult newInstance(AnalysisContext context,
             AnalyzedOutput output,
             AnalyzedExpression predicate,
             List<AnalyzedExpression> groupBy,
-            List<AnalyzedAggregation> aggregations,
+            Set<AnalyzedAggregation> aggregations,
             @Nullable Long limit)
     {
         return new AnalysisResult(
@@ -44,7 +46,7 @@ public class AnalysisResult
     private AnalysisResult(SlotAllocator slotAllocator,
             IdentityHashMap<Relation, TupleDescriptor> tableDescriptors,
             IdentityHashMap<Subquery, AnalysisResult> inlineViews,
-            List<AnalyzedAggregation> aggregations,
+            Set<AnalyzedAggregation> aggregations,
             @Nullable AnalyzedExpression predicate,
             AnalyzedOutput output,
             List<AnalyzedExpression> groupBy,
@@ -60,7 +62,7 @@ public class AnalysisResult
         this.slotAllocator = slotAllocator;
         this.tableDescriptors = new IdentityHashMap<>(tableDescriptors);
         this.inlineViews = new IdentityHashMap<>(inlineViews);
-        this.aggregations = ImmutableList.copyOf(aggregations);
+        this.aggregations = ImmutableSet.copyOf(aggregations);
         this.predicate = predicate;
         this.output = output;
         this.groupBy = ImmutableList.copyOf(groupBy);
@@ -94,7 +96,7 @@ public class AnalysisResult
         return inlineViews.get(inlineView);
     }
 
-    public List<AnalyzedAggregation> getAggregations()
+    public Set<AnalyzedAggregation> getAggregations()
     {
         return aggregations;
     }
