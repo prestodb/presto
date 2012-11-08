@@ -93,7 +93,7 @@ public class DictionaryEncodedBlockCursor implements BlockCursor
     @Override
     public boolean isNull(int field)
     {
-        return false;
+        return dictionary.isNull(getDictionaryKey(), field);
     }
 
     @Override

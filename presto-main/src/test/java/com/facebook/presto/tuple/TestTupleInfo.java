@@ -4,8 +4,11 @@ import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_BYTE;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_DOUBLE;
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_INT;
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static org.testng.Assert.assertEquals;
@@ -14,18 +17,16 @@ import static org.testng.Assert.assertTrue;
 public class TestTupleInfo
 {
     @Test
-    public void testOnlyFixedLength()
+    public void testSingleLongLength()
     {
-        TupleInfo info = new TupleInfo(FIXED_INT_64, FIXED_INT_64);
+        TupleInfo info = new TupleInfo(FIXED_INT_64);
 
         Tuple tuple = info.builder()
                 .append(42)
-                .append(67)
                 .build();
 
         assertEquals(tuple.getLong(0), 42L);
-        assertEquals(tuple.getLong(1), 67L);
-        assertEquals(tuple.size(), 16);
+        assertEquals(tuple.size(), SIZE_OF_LONG + SIZE_OF_BYTE);
     }
 
     /**
@@ -34,19 +35,119 @@ public class TestTupleInfo
      * @see com.facebook.presto.block.uncompressed.UncompressedBlock
      */
     @Test
-    public void testOnlyFixedLengthMemoryLayout()
+    public void testOnlySingleLongMemoryLayout()
     {
-        TupleInfo info = new TupleInfo(FIXED_INT_64, FIXED_INT_64);
+        TupleInfo info = new TupleInfo(FIXED_INT_64);
 
         Tuple tuple = info.builder()
                 .append(42)
-                .append(67)
                 .build();
 
         Slice tupleSlice = tuple.getTupleSlice();
-        assertEquals(tupleSlice.length(), 16);
-        assertEquals(tupleSlice.getLong(0), 42L);
-        assertEquals(tupleSlice.getLong(SIZE_OF_LONG), 67L);
+        assertEquals(tupleSlice.length(), SIZE_OF_LONG + SIZE_OF_BYTE);
+        // null bit set is in first byte
+        assertEquals(tupleSlice.getByte(0), 0);
+        assertEquals(tupleSlice.getLong(SIZE_OF_BYTE), 42L);
+    }
+
+    @Test
+    public void testSingleLongLengthNull()
+    {
+        Tuple tuple = TupleInfo.SINGLE_LONG.builder()
+                .appendNull()
+                .build();
+
+        assertTrue(tuple.isNull(0));
+        // value of a null long is 0
+        assertEquals(tuple.getLong(0), 0L);
+        assertEquals(tuple.size(), SIZE_OF_LONG + SIZE_OF_BYTE);
+    }
+
+    /**
+     * The following classes depend on this exact memory layout
+     * @see com.facebook.presto.block.uncompressed.UncompressedSliceBlockCursor
+     * @see com.facebook.presto.block.uncompressed.UncompressedBlock
+     */
+    @Test
+    public void testSingleLongLengthNullMemoryLayout()
+    {
+        Tuple tuple = TupleInfo.SINGLE_LONG.builder()
+                .appendNull()
+                .build();
+
+        Slice tupleSlice = tuple.getTupleSlice();
+        assertEquals(tupleSlice.length(), SIZE_OF_LONG + SIZE_OF_BYTE);
+        // null bit set is in first byte
+        assertEquals(tupleSlice.getByte(0), 0b0000_0001);
+        // value of a null long is 0
+        assertEquals(tupleSlice.getLong(SIZE_OF_BYTE), 0L);
+    }
+
+    @Test
+    public void testSingleDoubleLength()
+    {
+        TupleInfo info = new TupleInfo(DOUBLE);
+
+        Tuple tuple = info.builder()
+                .append(42.42)
+                .build();
+
+        assertEquals(tuple.getDouble(0), 42.42);
+        assertEquals(tuple.size(), SIZE_OF_DOUBLE + SIZE_OF_BYTE);
+    }
+
+    /**
+     * The following classes depend on this exact memory layout
+     * @see com.facebook.presto.block.uncompressed.UncompressedDoubleBlockCursor
+     * @see com.facebook.presto.block.uncompressed.UncompressedBlock
+     */
+    @Test
+    public void testOnlySingleDoubleMemoryLayout()
+    {
+        TupleInfo info = new TupleInfo(DOUBLE);
+
+        Tuple tuple = info.builder()
+                .append(42.42)
+                .build();
+
+        Slice tupleSlice = tuple.getTupleSlice();
+        assertEquals(tupleSlice.length(), SIZE_OF_LONG + SIZE_OF_BYTE);
+        // null bit set is in first byte
+        assertEquals(tupleSlice.getByte(0), 0);
+        assertEquals(tupleSlice.getDouble(SIZE_OF_BYTE), 42.42);
+    }
+
+    @Test
+    public void testSingleDoubleLengthNull()
+    {
+        Tuple tuple = TupleInfo.SINGLE_DOUBLE.builder()
+                .appendNull()
+                .build();
+
+        assertTrue(tuple.isNull(0));
+        // value of a null double is 0
+        assertEquals(tuple.getDouble(0), 0.0);
+        assertEquals(tuple.size(), SIZE_OF_DOUBLE + SIZE_OF_BYTE);
+    }
+
+    /**
+     * The following classes depend on this exact memory layout
+     * @see com.facebook.presto.block.uncompressed.UncompressedDoubleBlockCursor
+     * @see com.facebook.presto.block.uncompressed.UncompressedBlock
+     */
+    @Test
+    public void testSingleDoubleLengthNullMemoryLayout()
+    {
+        Tuple tuple = TupleInfo.SINGLE_DOUBLE.builder()
+                .appendNull()
+                .build();
+
+        Slice tupleSlice = tuple.getTupleSlice();
+        assertEquals(tupleSlice.length(), SIZE_OF_DOUBLE + SIZE_OF_BYTE);
+        // null bit set is in first byte
+        assertEquals(tupleSlice.getByte(0), 0b0000_0001);
+        // value of a null double is 0
+        assertEquals(tupleSlice.getDouble(SIZE_OF_BYTE), 0,0);
     }
 
     @Test
@@ -58,8 +159,8 @@ public class TestTupleInfo
                 .append(binary)
                 .build();
 
+        assertEquals(tuple.size(), binary.length() + SIZE_OF_INT + SIZE_OF_BYTE);
         assertEquals(tuple.getSlice(0), binary);
-        assertEquals(tuple.size(), binary.length() + SIZE_OF_INT);
     }
 
     /**
@@ -77,9 +178,11 @@ public class TestTupleInfo
                 .build();
 
         Slice tupleSlice = tuple.getTupleSlice();
-        assertEquals(tupleSlice.length(), binary.length() + SIZE_OF_INT);
-        assertEquals(tupleSlice.getInt(0), binary.length() + SIZE_OF_INT);
-        assertEquals(tupleSlice.slice(SIZE_OF_INT, binary.length()), binary);
+        assertEquals(tupleSlice.length(), binary.length() + SIZE_OF_INT + SIZE_OF_BYTE);
+        // null bit set is in first byte
+        assertEquals(tupleSlice.getByte(0), 0);
+        assertEquals(tupleSlice.getInt(SIZE_OF_BYTE), binary.length() + SIZE_OF_INT + SIZE_OF_BYTE);
+        assertEquals(tupleSlice.slice(SIZE_OF_INT + SIZE_OF_BYTE, binary.length()), binary);
     }
 
     @Test
@@ -91,7 +194,7 @@ public class TestTupleInfo
 
         assertTrue(tuple.isNull(0));
         assertEquals(tuple.getSlice(0), Slices.EMPTY_SLICE);
-        assertEquals(tuple.size(), SIZE_OF_INT);
+        assertEquals(tuple.size(), SIZE_OF_INT + SIZE_OF_BYTE);
     }
 
     /**
@@ -107,11 +210,16 @@ public class TestTupleInfo
                 .build();
 
         Slice tupleSlice = tuple.getTupleSlice();
-        assertEquals(tupleSlice.length(), SIZE_OF_INT);
-        // the size of the tuple is stored in the first int
-        // value should SIZE_OF_INT with the high bit set
-        assertEquals(tupleSlice.getInt(0), SIZE_OF_INT | 0x80_00_00_00);
+        assertEquals(tupleSlice.length(), SIZE_OF_INT + SIZE_OF_BYTE);
+        // null bit set is in first byte
+        assertEquals(tupleSlice.getByte(0), 0b0000_0001);
+        // the size of the tuple is stored as an int starting at the second byte
+        assertEquals(tupleSlice.getInt(SIZE_OF_BYTE), SIZE_OF_INT + SIZE_OF_BYTE);
     }
+
+    //
+    // Tuples with multiple tuples with multiple types do not have a declared memory layout.
+    //
 
     @Test
     public void testMultipleVariableLength()
@@ -128,9 +236,23 @@ public class TestTupleInfo
 
         assertEquals(tuple.getSlice(0), binary1);
         assertEquals(tuple.getSlice(1), binary2);
-        assertEquals(tuple.size(), binary1.length() + binary2.length() + SIZE_OF_INT + SIZE_OF_INT);
+        assertEquals(tuple.size(), binary1.length() + binary2.length() + SIZE_OF_INT + SIZE_OF_INT + SIZE_OF_BYTE);
     }
 
+    @Test
+    public void testMultipleFixedLength()
+    {
+        TupleInfo info = new TupleInfo(FIXED_INT_64, FIXED_INT_64);
+
+        Tuple tuple = info.builder()
+                .append(42)
+                .append(67)
+                .build();
+
+        assertEquals(tuple.getLong(0), 42L);
+        assertEquals(tuple.getLong(1), 67L);
+        assertEquals(tuple.size(), SIZE_OF_LONG + SIZE_OF_LONG + SIZE_OF_BYTE);
+    }
 
     @Test
     public void testMixed()

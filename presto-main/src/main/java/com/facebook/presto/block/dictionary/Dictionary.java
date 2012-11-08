@@ -64,6 +64,11 @@ public class Dictionary
         return tupleInfo.getSlice(getTupleSlice(dictionaryKey), field);
     }
 
+    public boolean isNull(int dictionaryKey, int field)
+    {
+        return tupleInfo.isNull(getTupleSlice(dictionaryKey), field);
+    }
+
     public boolean tupleEquals(int dictionaryKey, Tuple value)
     {
         checkNotNull(value, "value is null");

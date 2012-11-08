@@ -105,6 +105,7 @@ public class BlockCursorAssertions
         assertTrue(cursor.currentTupleEquals(tuple));
 
         for (int index = 0; index < tupleInfo.getFieldCount(); index++) {
+            assertEquals(cursor.isNull(index), tuple.isNull(index));
             switch (tupleInfo.getTypes().get(index)) {
                 case FIXED_INT_64:
                     assertEquals(cursor.getLong(index), tuple.getLong(index));

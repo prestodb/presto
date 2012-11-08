@@ -3,13 +3,15 @@ package com.facebook.presto.block.uncompressed;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.serde.UncompressedBlockEncoding;
-import com.facebook.presto.slice.SizeOf;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.Range;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_BYTE;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
 
 public class UncompressedBlock
         implements Block
@@ -112,7 +114,7 @@ public class UncompressedBlock
         if (tupleInfo.getFieldCount() == 1) {
             Type type = tupleInfo.getTypes().get(0);
             if (type == Type.FIXED_INT_64 || type == Type.DOUBLE) {
-                return (int) (SizeOf.SIZE_OF_LONG * (start - rawRange.getStart()));
+                return (int) ((SIZE_OF_LONG + SIZE_OF_BYTE) * (start - rawRange.getStart()));
             }
             if (type == Type.VARIABLE_BINARY) {
                 long position;
@@ -126,11 +128,11 @@ public class UncompressedBlock
                     offset = 0;
                 }
 
-                int size = slice.getInt(offset) & 0x7F_FF_FF_FF;
+                int size = slice.getInt(offset + SIZE_OF_BYTE);
                 while (position < start) {
                     position++;
                     offset += size;
-                    size = slice.getInt(offset) & 0x7F_FF_FF_FF;
+                    size = slice.getInt(offset + SIZE_OF_BYTE);
                 }
                 return offset;
             }
