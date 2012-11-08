@@ -13,7 +13,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
+import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -100,7 +102,7 @@ public class UnaliasSlotReferences
         {
             PlanNode source = node.getSource().accept(this, context);
 
-            ImmutableMap.Builder<Slot, Expression> builder = ImmutableMap.builder();
+            Map<Slot, Expression> assignments = new HashMap<>();
             for (Map.Entry<Slot, Expression> entry : node.getOutputMap().entrySet()) {
                 Expression expression = canonicalize(entry.getValue());
 
@@ -111,10 +113,14 @@ public class UnaliasSlotReferences
                     }
                 }
 
-                builder.put(canonicalize(entry.getKey()), expression);
+                Slot canonical = canonicalize(entry.getKey());
+
+                if (!assignments.containsKey(canonical)) {
+                    assignments.put(canonical, expression);
+                }
             }
 
-            return new ProjectNode(source, builder.build());
+            return new ProjectNode(source, assignments);
         }
 
         @Override
@@ -122,7 +128,8 @@ public class UnaliasSlotReferences
         {
             PlanNode source = node.getSource().accept(this, context);
 
-            return new OutputPlan(source, node.getColumnNames());
+            Map<String, Slot> canonicalized = Maps.transformValues(node.getAssignments(), canonicalizeFunction());
+            return new OutputPlan(source, node.getColumnNames(), canonicalized);
         }
 
         @Override
@@ -167,14 +174,19 @@ public class UnaliasSlotReferences
 
         private List<Slot> canonicalize(List<Slot> outputs)
         {
-            return Lists.transform(outputs, new Function<Slot, Slot>()
+            return Lists.transform(outputs, canonicalizeFunction());
+        }
+
+        private Function<Slot, Slot> canonicalizeFunction()
+        {
+            return new Function<Slot, Slot>()
             {
                 @Override
                 public Slot apply(Slot input)
                 {
                     return canonicalize(input);
                 }
-            });
+            };
         }
     }
 }

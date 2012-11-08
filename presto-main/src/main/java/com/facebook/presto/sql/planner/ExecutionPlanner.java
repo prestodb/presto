@@ -64,7 +64,7 @@ public class ExecutionPlanner
             return createFilterNode((FilterNode) plan);
         }
         else if (plan instanceof OutputPlan) {
-            return plan(Iterables.getOnlyElement(plan.getSources()));
+            return createOutputPlan((OutputPlan) plan);
         }
         else if (plan instanceof AggregationNode) {
             return createAggregationNode((AggregationNode) plan);
@@ -74,6 +74,32 @@ public class ExecutionPlanner
         }
 
         throw new UnsupportedOperationException("not yet implemented: " + plan.getClass().getName());
+    }
+
+    private Operator createOutputPlan(OutputPlan node)
+    {
+        PlanNode source = Iterables.getOnlyElement(node.getSources());
+        Operator sourceOperator = plan(Iterables.getOnlyElement(node.getSources()));
+
+        FilterFunction trueFunction = new FilterFunction()
+        {
+            @Override
+            public boolean filter(BlockCursor[] cursors)
+            {
+                return true;
+            }
+        };
+
+        Map<Slot, Integer> slotToChannelMappings = mapSlotsToChannels(source.getOutputs());
+
+        List<ProjectionFunction> projections = new ArrayList<>();
+        for (String name : node.getColumnNames()) {
+            Slot slot = node.getAssignments().get(name);
+            ProjectionFunction function = new InterpretedProjectionFunction(slot.getType(), new SlotReference(slot), slotToChannelMappings);
+            projections.add(function);
+        }
+
+        return new FilterAndProjectOperator(sourceOperator, trueFunction, projections);
     }
 
     private Operator createLimitNode(LimitNode node)
