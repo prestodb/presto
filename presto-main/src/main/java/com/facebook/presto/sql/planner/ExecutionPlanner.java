@@ -1,6 +1,5 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.FunctionInfo;
@@ -10,6 +9,7 @@ import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
+import com.facebook.presto.operator.FilterFunctions;
 import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.operator.LimitOperator;
 import com.facebook.presto.operator.Operator;
@@ -64,7 +64,7 @@ public class ExecutionPlanner
             return createFilterNode((FilterNode) plan);
         }
         else if (plan instanceof OutputPlan) {
-            return plan(Iterables.getOnlyElement(plan.getSources()));
+            return createOutputPlan((OutputPlan) plan);
         }
         else if (plan instanceof AggregationNode) {
             return createAggregationNode((AggregationNode) plan);
@@ -74,6 +74,23 @@ public class ExecutionPlanner
         }
 
         throw new UnsupportedOperationException("not yet implemented: " + plan.getClass().getName());
+    }
+
+    private Operator createOutputPlan(OutputPlan node)
+    {
+        PlanNode source = Iterables.getOnlyElement(node.getSources());
+        Operator sourceOperator = plan(Iterables.getOnlyElement(node.getSources()));
+
+        Map<Slot, Integer> slotToChannelMappings = mapSlotsToChannels(source.getOutputs());
+
+        List<ProjectionFunction> projections = new ArrayList<>();
+        for (String name : node.getColumnNames()) {
+            Slot slot = node.getAssignments().get(name);
+            ProjectionFunction function = new InterpretedProjectionFunction(slot.getType(), new SlotReference(slot), slotToChannelMappings);
+            projections.add(function);
+        }
+
+        return new FilterAndProjectOperator(sourceOperator, FilterFunctions.TRUE_FUNCTION, projections);
     }
 
     private Operator createLimitNode(LimitNode node)
@@ -161,15 +178,6 @@ public class ExecutionPlanner
         PlanNode source = Iterables.getOnlyElement(node.getSources());
         Operator sourceOperator = plan(Iterables.getOnlyElement(node.getSources()));
 
-        FilterFunction trueFunction = new FilterFunction()
-        {
-            @Override
-            public boolean filter(BlockCursor[] cursors)
-            {
-                return true;
-            }
-        };
-
         Map<Slot, Integer> slotToChannelMappings = mapSlotsToChannels(source.getOutputs());
 
         List<ProjectionFunction> projections = new ArrayList<>();
@@ -180,7 +188,7 @@ public class ExecutionPlanner
             projections.add(function);
         }
 
-        return new FilterAndProjectOperator(sourceOperator, trueFunction, projections);
+        return new FilterAndProjectOperator(sourceOperator, FilterFunctions.TRUE_FUNCTION, projections);
     }
 
     private Operator createAlignmentNode(AlignNode node)

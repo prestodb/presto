@@ -70,7 +70,7 @@ public class CoalesceLimits
         public PlanNode visitOutput(OutputPlan node, Void context)
         {
             PlanNode source = node.getSource().accept(this, context);
-            return new OutputPlan(source, node.getColumnNames());
+            return new OutputPlan(source, node.getColumnNames(), node.getAssignments());
         }
     }
 }
