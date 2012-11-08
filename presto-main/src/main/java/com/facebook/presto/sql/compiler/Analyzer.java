@@ -31,12 +31,17 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Predicates.not;
+import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Iterables.transform;
 
 public class Analyzer
 {

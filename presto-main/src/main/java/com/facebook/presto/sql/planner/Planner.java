@@ -17,13 +17,17 @@ import com.facebook.presto.sql.tree.NodeRewriter;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Subquery;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TreeRewriter;
+import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
-import com.google.common.base.Optional;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
@@ -32,6 +36,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import static com.facebook.presto.sql.compiler.AnalyzedAggregation.argumentGetter;
+import static com.google.common.collect.Iterables.concat;
 
 public class Planner
 {
@@ -78,103 +85,114 @@ public class Planner
             root = createFilterPlan(root, analysis.getPredicate());
         }
 
+        Map<Expression, Slot> substitutions = new HashMap<>();
+
         if (!analysis.getAggregations().isEmpty()) {
-            root = createAggregatePlan(root, analysis.getOutputExpressions(), analysis.getAggregations(), analysis.getGroupByExpressions(), analysis.getSlotAllocator());
-        }
-        else {
-            root = createProjectPlan(root, analysis.getOutputExpressions());
+            root = createAggregatePlan(root,
+                    ImmutableList.copyOf(analysis.getOutputExpressions().values()),
+                    analysis.getAggregations(),
+                    analysis.getGroupByExpressions(),
+                    analysis.getSlotAllocator(),
+                    substitutions);
         }
 
+        root = createProjectPlan(root, analysis.getOutputExpressions(), substitutions); // project query outputs
+
         if (analysis.getLimit() != null) {
-            root = new LimitNode(root, analysis.getLimit());
+            root = createLimitPlan(root, analysis.getLimit());
         }
 
         return root;
     }
 
-    private PlanNode createAggregatePlan(PlanNode source,
-            Map<Slot, AnalyzedExpression> outputs,
-            Set<AnalyzedAggregation> aggregations,
-            List<AnalyzedExpression> groupBys,
-            SlotAllocator allocator)
+    private PlanNode createLimitPlan(PlanNode source, long limit)
     {
-        /**
-         * Turns SELECT k1, k2, sum(v1 * v2) - sum(v3 * v4) GROUP BY k1, k2 into
-         *
-         * 3. Project $0, $1, $7 = $5 + $6
-         *   2. Aggregate by ($0, $1): $5 = sum($3), $6 = sum($4)
-         *     1. Project $0 = k1, $1 = k2, $3 = v1 * v2, $4 = v3 * v4
-         */
-        final Map<Expression, Slot> outputRewriteMap = new HashMap<>();
-
-        // 1. pre-project group by expressions
-        Map<Slot, Expression> slotsForGroupBy = new HashMap<>();
-        for (AnalyzedExpression groupBy : groupBys) {
-            Slot slot = allocator.newSlot(groupBy);
-            slotsForGroupBy.put(slot, groupBy.getRewrittenExpression());
-            outputRewriteMap.put(groupBy.getRewrittenExpression(), slot);
-        }
-
-        Map<Slot, FunctionCall> functionCalls = new HashMap<>();
-        Map<Slot, FunctionInfo> functionInfos = new HashMap<>();
-        Map<Slot, Expression> slotsForAggregationArgs = new HashMap<>();
-        for (AnalyzedAggregation aggregation : aggregations) {
-            List<Expression> argumentExpressions = new ArrayList<>();
-            for (AnalyzedExpression argument : aggregation.getArguments()) {
-                Slot argumentSlot = allocator.newSlot(argument);
-                slotsForAggregationArgs.put(argumentSlot, argument.getRewrittenExpression());
-                argumentExpressions.add(new SlotReference(argumentSlot));
-            }
-
-            Slot slot = allocator.newSlot(aggregation.getType());
-            functionCalls.put(slot, new FunctionCall(aggregation.getFunctionName(), argumentExpressions));
-            functionInfos.put(slot, aggregation.getFunctionInfo());
-            outputRewriteMap.put(aggregation.getRewrittenCall(), slot);
-        }
-
-        Map<Slot, Expression> preProjectOutputs = new HashMap<>();
-        preProjectOutputs.putAll(slotsForGroupBy);
-        preProjectOutputs.putAll(slotsForAggregationArgs);
-
-        PlanNode preProjectNode = source;
-        if (!preProjectOutputs.isEmpty()) { // workaround to deal with COUNT's lack of inputs
-            preProjectNode = new ProjectNode(source, preProjectOutputs);
-        }
-
-        // 2. aggregation node in terms of pre-project outputs
-        PlanNode aggregationNode = new AggregationNode(preProjectNode, ImmutableList.copyOf(slotsForGroupBy.keySet()), functionCalls, functionInfos);
-
-        // 3. post project to compute scalar expressions on aggregation results
-        ImmutableMap.Builder<Slot, Expression> outputBuilder = ImmutableMap.builder();
-        for (Map.Entry<Slot, AnalyzedExpression> entry : outputs.entrySet()) {
-            Expression rewrittenOutput = TreeRewriter.rewriteWith(new NodeRewriter<Void>()
-            {
-                @Override
-                public Node rewriteExpression(Expression node, Void context, TreeRewriter<Void> treeRewriter)
-                {
-                    Slot slot = outputRewriteMap.get(node);
-                    if (slot != null) {
-                        return new SlotReference(slot);
-                    }
-
-                    return treeRewriter.defaultRewrite(node, context);
-                }
-            }, entry.getValue().getRewrittenExpression());
-
-            outputBuilder.put(entry.getKey(), rewrittenOutput);
-        }
-
-        return new ProjectNode(aggregationNode, outputBuilder.build());
+        return new LimitNode(source, limit);
     }
 
-    private PlanNode createProjectPlan(PlanNode root, Map<Slot, AnalyzedExpression> outputAnalysis)
+    private PlanNode createAggregatePlan(PlanNode source,
+            List<AnalyzedExpression> outputs,
+            Set<AnalyzedAggregation> aggregations,
+            List<AnalyzedExpression> groupBys,
+            SlotAllocator allocator,
+            Map<Expression, Slot> outputSubstitutions)
+    {
+        /**
+         * Turns SELECT k1 + 1, sum(v1 * v2) - sum(v3 * v4) GROUP BY k1 + 1, k2 into
+         *
+         * 3. Project $0, $1, $7 = $5 - $6
+         *   2. Aggregate by ($0, $1): $5 = sum($3), $6 = sum($4)
+         *     1. Project $0 = k1 + 1, $1 = k2, $3 = v1 * v2, $4 = v3 * v4
+         */
+
+        // 1. Pre-project all scalar inputs
+        Set<AnalyzedExpression> scalarExpressions = ImmutableSet.copyOf(concat(
+                IterableTransformer.on(aggregations)
+                        .transformAndFlatten(argumentGetter())
+                        .list(),
+                groupBys));
+
+        BiMap<Slot, Expression> scalarAssignments = HashBiMap.create();
+        for (AnalyzedExpression expression : scalarExpressions) {
+            Slot slot = allocator.newSlot(expression);
+            scalarAssignments.put(slot, expression.getRewrittenExpression());
+        }
+
+        PlanNode preProjectNode = source;
+        if (!scalarAssignments.isEmpty()) { // workaround to deal with COUNT's lack of inputs
+            preProjectNode = new ProjectNode(source, scalarAssignments);
+        }
+
+        // 2. Aggregate
+        Map<Expression, Slot> substitutions = new HashMap<>();
+
+        BiMap<Slot, FunctionCall> aggregationAssignments = HashBiMap.create();
+        Map<Slot, FunctionInfo> functionInfos = new HashMap<>();
+        for (AnalyzedAggregation aggregation : aggregations) {
+            // rewrite function calls in terms of scalar inputs
+            FunctionCall rewrittenFunction = TreeRewriter.rewriteWith(substitution(scalarAssignments.inverse()), aggregation.getRewrittenCall());
+            Slot slot = allocator.newSlot(aggregation.getType());
+            aggregationAssignments.put(slot, rewrittenFunction);
+            functionInfos.put(slot, aggregation.getFunctionInfo());
+
+            // build substitution map to rewrite assignments in post-project
+            substitutions.put(aggregation.getRewrittenCall(), slot);
+        }
+
+        List<Slot> groupBySlots = new ArrayList<>();
+        for (AnalyzedExpression groupBy : groupBys) {
+            Expression rewritten = TreeRewriter.rewriteWith(substitution(scalarAssignments.inverse()), groupBy.getRewrittenExpression());
+            Slot slot = allocator.newSlot(groupBy.getType(), rewritten);
+            groupBySlots.add(slot);
+
+            substitutions.put(groupBy.getRewrittenExpression(), slot);
+        }
+
+        PlanNode aggregationNode = new AggregationNode(preProjectNode, groupBySlots, aggregationAssignments, functionInfos);
+
+        // 3. Post-project scalar expressions based on aggregations
+        BiMap<Slot, Expression> postProjectScalarAssignments = HashBiMap.create();
+        for (AnalyzedExpression expression : ImmutableSet.copyOf(concat(outputs, groupBys))) {
+            Expression rewritten = TreeRewriter.rewriteWith(substitution(substitutions), expression.getRewrittenExpression());
+            Slot slot = allocator.newSlot(expression.getType(), rewritten);
+
+            postProjectScalarAssignments.put(slot, rewritten);
+
+            // build substitution map to return to caller
+            outputSubstitutions.put(expression.getRewrittenExpression(), slot);
+        }
+
+        return new ProjectNode(aggregationNode, postProjectScalarAssignments);
+    }
+
+    private PlanNode createProjectPlan(PlanNode root, Map<Slot, AnalyzedExpression> outputAnalysis, final Map<Expression, Slot> substitutions)
     {
         Map<Slot, Expression> outputs = Maps.transformValues(outputAnalysis, new Function<AnalyzedExpression, Expression>()
         {
             @Override
             public Expression apply(AnalyzedExpression input)
             {
-                return input.getRewrittenExpression();
+                return TreeRewriter.rewriteWith(substitution(substitutions), input.getRewrittenExpression());
             }
         });
 
@@ -223,5 +241,22 @@ public class Planner
         }
 
         return new AlignNode(sources.build(), outputs.build());
+    }
+
+    private NodeRewriter<Void> substitution(final Map<Expression, Slot> substitutions)
+    {
+        return new NodeRewriter<Void>()
+        {
+            @Override
+            public Node rewriteExpression(Expression node, Void context, TreeRewriter<Void> treeRewriter)
+            {
+                Slot slot = substitutions.get(node);
+                if (slot != null) {
+                    return new SlotReference(slot);
+                }
+
+                return treeRewriter.defaultRewrite(node, context);
+            }
+        };
     }
 }
