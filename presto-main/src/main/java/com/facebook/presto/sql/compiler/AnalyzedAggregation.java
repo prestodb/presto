@@ -3,9 +3,11 @@ package com.facebook.presto.sql.compiler;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
+import javax.annotation.Nullable;
 import java.util.List;
 
 public class AnalyzedAggregation
@@ -82,5 +84,17 @@ public class AnalyzedAggregation
         result = 31 * result + arguments.hashCode();
         result = 31 * result + rewrittenCall.hashCode();
         return result;
+    }
+
+    public static Function<AnalyzedAggregation, List<AnalyzedExpression>> argumentGetter()
+    {
+        return new Function<AnalyzedAggregation, List<AnalyzedExpression>>()
+        {
+            @Override
+            public List<AnalyzedExpression> apply(AnalyzedAggregation input)
+            {
+                return input.getArguments();
+            }
+        };
     }
 }
