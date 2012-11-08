@@ -27,10 +27,12 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.instanceOf;
@@ -84,7 +86,7 @@ public class Analyzer
             }
 
             List<AnalyzedExpression> groupBy = analyzeGroupBy(query.getGroupBy(), sourceDescriptor);
-            List<AnalyzedAggregation> aggregations = analyzeAggregations(query.getGroupBy(), query.getSelect(), sourceDescriptor);
+            Set<AnalyzedAggregation> aggregations = analyzeAggregations(query.getGroupBy(), query.getSelect(), sourceDescriptor);
             AnalyzedOutput output = analyzeOutput(query.getSelect(), context.getSlotAllocator(), sourceDescriptor);
 
             Long limit = null;
@@ -169,14 +171,14 @@ public class Analyzer
             return builder.build();
         }
 
-        private List<AnalyzedAggregation> analyzeAggregations(List<Expression> groupBy, Select select, TupleDescriptor descriptor)
+        private Set<AnalyzedAggregation> analyzeAggregations(List<Expression> groupBy, Select select, TupleDescriptor descriptor)
         {
             if (!groupBy.isEmpty() && Iterables.any(select.getSelectItems(), instanceOf(AllColumns.class))) {
                 throw new SemanticException(select, "Wildcard selector not supported when GROUP BY is present"); // TODO: add support for SELECT T.*, count() ... GROUP BY T.* (maybe?)
             }
 
             List<Expression> scalarTerms = new ArrayList<>();
-            ImmutableList.Builder<AnalyzedAggregation> aggregateTermsBuilder = ImmutableList.builder();
+            ImmutableSet.Builder<AnalyzedAggregation> aggregateTermsBuilder = ImmutableSet.builder();
             for (Expression term : select.getSelectItems()) {
                 // TODO: this doesn't currently handle queries like 'SELECT k + sum(v) FROM T GROUP BY k' correctly
                 AggregateAnalyzer analyzer = new AggregateAnalyzer(metadata, descriptor);
@@ -190,7 +192,7 @@ public class Analyzer
                 }
             }
 
-            List<AnalyzedAggregation> aggregateTerms = aggregateTermsBuilder.build();
+            Set<AnalyzedAggregation> aggregateTerms = aggregateTermsBuilder.build();
 
             if (!groupBy.isEmpty()) {
                 if (aggregateTerms.isEmpty()) {

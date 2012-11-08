@@ -39,4 +39,42 @@ public class FunctionInfo
     {
         return argumentTypes;
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        FunctionInfo that = (FunctionInfo) o;
+
+        if (isAggregate != that.isAggregate) {
+            return false;
+        }
+        if (!argumentTypes.equals(that.argumentTypes)) {
+            return false;
+        }
+        if (!name.equals(that.name)) {
+            return false;
+        }
+        if (returnType != that.returnType) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = name.hashCode();
+        result = 31 * result + (isAggregate ? 1 : 0);
+        result = 31 * result + returnType.hashCode();
+        result = 31 * result + argumentTypes.hashCode();
+        return result;
+    }
 }

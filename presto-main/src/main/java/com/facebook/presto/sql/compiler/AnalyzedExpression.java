@@ -28,4 +28,34 @@ public class AnalyzedExpression
     {
         return type;
     }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        AnalyzedExpression that = (AnalyzedExpression) o;
+
+        if (!rewritten.equals(that.rewritten)) {
+            return false;
+        }
+        if (type != that.type) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = type.hashCode();
+        result = 31 * result + rewritten.hashCode();
+        return result;
+    }
 }
