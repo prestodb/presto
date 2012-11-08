@@ -32,6 +32,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 
 import javax.inject.Provider;
 import java.util.ArrayList;
@@ -39,6 +40,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.Functions.forMap;
 import static java.lang.String.format;
 
 public class ExecutionPlanner
@@ -83,9 +85,14 @@ public class ExecutionPlanner
 
         Map<Slot, Integer> slotToChannelMappings = mapSlotsToChannels(source.getOutputs());
 
+        List<Slot> resultSlots = Lists.transform(node.getColumnNames(), forMap(node.getAssignments()));
+        if (resultSlots.equals(source.getOutputs())) {
+            // no need for a projection -- the output matches the result of the underlying operator
+            return sourceOperator;
+        }
+
         List<ProjectionFunction> projections = new ArrayList<>();
-        for (String name : node.getColumnNames()) {
-            Slot slot = node.getAssignments().get(name);
+        for (Slot slot : resultSlots) {
             ProjectionFunction function = new InterpretedProjectionFunction(slot.getType(), new SlotReference(slot), slotToChannelMappings);
             projections.add(function);
         }
