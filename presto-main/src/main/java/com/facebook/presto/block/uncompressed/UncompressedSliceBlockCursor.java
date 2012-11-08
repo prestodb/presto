@@ -83,7 +83,7 @@ public class UncompressedSliceBlockCursor
 
         position++;
         offset += size;
-        size = slice.getInt(offset);
+        size = slice.getInt(offset) & 0x7F_FF_FF_FF;
         return true;
     }
 
@@ -101,7 +101,7 @@ public class UncompressedSliceBlockCursor
         while (position < newPosition) {
             position++;
             offset += size;
-            size = slice.getInt(offset);
+            size = slice.getInt(offset) & 0x7F_FF_FF_FF;
         }
         return true;
     }
@@ -145,6 +145,14 @@ public class UncompressedSliceBlockCursor
         checkReadablePosition();
         Preconditions.checkElementIndex(0, 1, "field");
         return slice.slice(offset + SIZE_OF_INT, size - SIZE_OF_INT);
+    }
+
+    @Override
+    public boolean isNull(int field)
+    {
+        checkReadablePosition();
+        Preconditions.checkElementIndex(0, 1, "field");
+        return (slice.getInt(offset) & 0x80_00_00_00) != 0;
     }
 
     @Override

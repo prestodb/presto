@@ -96,6 +96,14 @@ public interface BlockCursor
     Slice getSlice(int field);
 
     /**
+     * Is the specified field null.
+     *
+     * @throws IllegalStateException if this cursor is not at a valid position
+     */
+    @Override
+    boolean isNull(int field);
+
+    /**
      * Returns the current position of this cursor
      *
      * @throws IllegalStateException if this cursor is not at a valid position

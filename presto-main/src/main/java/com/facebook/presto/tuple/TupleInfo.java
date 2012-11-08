@@ -271,7 +271,7 @@ public class TupleInfo
 
         // length of the tuple is located in the "last" fixed-width slot
         // this makes variable length column size easy to calculate
-        return slice.getInt(offset + getTupleSizeOffset());
+        return slice.getInt(offset + getTupleSizeOffset()) & 0x7F_FF_FF_FF;
     }
 
     /**
@@ -330,15 +330,34 @@ public class TupleInfo
         int end;
         if (field == firstVariableLengthField) {
             start = variablePartOffset;
-            end = slice.getInt(offset + getOffset(secondVariableLengthField));
+            end = slice.getInt(offset + getOffset(secondVariableLengthField)) & 0x7F_FF_FF_FF;
         }
         else {
-            start = slice.getInt(offset + getOffset(field));
-            end = slice.getInt(offset + getOffset(field) + SIZE_OF_INT);
+            start = slice.getInt(offset + getOffset(field)) & 0x7F_FF_FF_FF;
+            end = slice.getInt(offset + getOffset(field) + SIZE_OF_INT) & 0x7F_FF_FF_FF;
         }
 
         // this works because positions of variable length fields are laid out in the same order as the actual data
         return slice.slice(offset + start, end - start);
+    }
+
+    public boolean isNull(Slice slice, int field)
+    {
+        return isNull(slice, 0, field);
+    }
+
+    public boolean isNull(Slice slice, int offset, int field)
+    {
+        if (types.get(field) != VARIABLE_BINARY) {
+            return false;
+        }
+
+        if (field == firstVariableLengthField) {
+            return (slice.getInt(offset + getTupleSizeOffset()) & 0x80_00_00_00) != 0;
+        }
+        else {
+            return (slice.getInt(offset + getOffset(field)) & 0x80_00_00_00) != 0;
+        }
     }
 
     /**
@@ -362,11 +381,11 @@ public class TupleInfo
         int end;
         if (field == firstVariableLengthField) {
             start = variablePartOffset;
-            end = block.getInt(tupleOffset + getOffset(secondVariableLengthField));
+            end = block.getInt(tupleOffset + getOffset(secondVariableLengthField)) & 0x7F_FF_FF_FF;
         }
         else {
-            start = block.getInt(tupleOffset + getOffset(field));
-            end = block.getInt(tupleOffset + getOffset(field) + SIZE_OF_INT);
+            start = block.getInt(tupleOffset + getOffset(field)) & 0x7F_FF_FF_FF;
+            end = block.getInt(tupleOffset + getOffset(field) + SIZE_OF_INT) & 0x7F_FF_FF_FF;
         }
 
         return value.equals(0, value.length(), block, tupleOffset + start, end - start);
@@ -475,6 +494,16 @@ public class TupleInfo
             return this;
         }
 
+        public Builder appendNull()
+        {
+            checkState(TupleInfo.this.getTypes().get(currentField) == VARIABLE_BINARY, "Cannot append null. Current field (%s) is of type %s", currentField, TupleInfo.this.getTypes().get(currentField));
+
+            variableLengthFields.add(null);
+            currentField++;
+
+            return this;
+        }
+
         public void append(Tuple tuple)
         {
             // TODO: optimization - single copy of block of fixed length fields
@@ -518,19 +547,33 @@ public class TupleInfo
             int offset = variablePartOffset;
             for (Slice field : variableLengthFields) {
                 if (!isFirst) {
-                    sliceOutput.writeInt(offset);
+                    int fieldOffset = offset;
+                    // if field is null, set the high bit
+                    if (field == null) {
+                        fieldOffset |= 0x80_00_00_00;
+                    }
+                    sliceOutput.writeInt(fieldOffset);
                 }
-                offset += field.length();
+                if (field != null) {
+                    offset += field.length();
+                }
                 isFirst = false;
             }
 
             if (!variableLengthFields.isEmpty()) {
-                sliceOutput.writeInt(offset); // total tuple length
+                int size = offset;
+                // if first field is null, set the high bit
+                if (variableLengthFields.get(0) == null) {
+                    size |= 0x80_00_00_00;
+                }
+                sliceOutput.writeInt(size); // total tuple length
             }
 
             // write values
             for (Slice field : variableLengthFields) {
-                sliceOutput.writeBytes(field);
+                if (field != null) {
+                    sliceOutput.writeBytes(field);
+                }
             }
 
             currentField = 0;

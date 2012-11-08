@@ -57,6 +57,12 @@ public class Tuple
         return tupleInfo.getSlice(slice, index);
     }
 
+    @Override
+    public boolean isNull(int index)
+    {
+        return tupleInfo.isNull(slice, index);
+    }
+
     public int size()
     {
         return tupleInfo.size(slice);
