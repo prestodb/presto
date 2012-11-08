@@ -117,7 +117,8 @@ public class PlanPrinter
         {
             print(indent, "- Output[%s]", Joiner.on(", ").join(node.getColumnNames()));
             for (int i = 0; i < node.getColumnNames().size(); i++) {
-                print(indent + 2, "%s := %s", node.getColumnNames().get(i), node.getOutputs().get(i));
+                String name = node.getColumnNames().get(i);
+                print(indent + 2, "%s := %s", name, node.getAssignments().get(name));
             }
 
             return processChildren(node, indent + 1);

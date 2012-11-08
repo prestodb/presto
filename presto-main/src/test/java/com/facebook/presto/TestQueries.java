@@ -248,6 +248,16 @@ public class TestQueries
     }
 
     @Test
+    public void testRepeatedOutputs()
+            throws Exception
+    {
+        List<Tuple> expected = computeExpected("SELECT orderkey a, orderkey b FROM ORDERS WHERE orderstatus = 'F'", FIXED_INT_64, FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT orderkey a, orderkey b FROM ORDERS WHERE orderstatus = 'F'");
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
     public void testLimit()
             throws Exception
     {
