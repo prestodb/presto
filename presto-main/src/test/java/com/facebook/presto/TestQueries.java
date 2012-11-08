@@ -248,6 +248,16 @@ public class TestQueries
     }
 
     @Test
+    public void testRepeatedAggregations()
+            throws Exception
+    {
+        List<Tuple> expected = computeExpected("SELECT sum(orderkey), sum(orderkey) FROM ORDERS", FIXED_INT_64, FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT sum(orderkey), sum(orderkey) FROM ORDERS");
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
     public void testRepeatedOutputs()
             throws Exception
     {

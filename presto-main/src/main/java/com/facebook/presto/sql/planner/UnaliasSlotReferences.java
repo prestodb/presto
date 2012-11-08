@@ -102,7 +102,7 @@ public class UnaliasSlotReferences
         {
             PlanNode source = node.getSource().accept(this, context);
 
-            ImmutableMap.Builder<Slot, Expression> builder = ImmutableMap.builder();
+            Map<Slot, Expression> assignments = new HashMap<>();
             for (Map.Entry<Slot, Expression> entry : node.getOutputMap().entrySet()) {
                 Expression expression = canonicalize(entry.getValue());
 
@@ -113,10 +113,14 @@ public class UnaliasSlotReferences
                     }
                 }
 
-                builder.put(canonicalize(entry.getKey()), expression);
+                Slot canonical = canonicalize(entry.getKey());
+
+                if (!assignments.containsKey(canonical)) {
+                    assignments.put(canonical, expression);
+                }
             }
 
-            return new ProjectNode(source, builder.build());
+            return new ProjectNode(source, assignments);
         }
 
         @Override
