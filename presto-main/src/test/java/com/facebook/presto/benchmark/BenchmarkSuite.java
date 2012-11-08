@@ -23,6 +23,7 @@ public class BenchmarkSuite
             new PredicateFilterBenchmark(),
             new RawStreamingBenchmark(),
             new Top100Benchmark(),
+            new InMemoryOrderByBenchmark(),
 
             // sql benchmarks
             new GroupBySumWithArithmeticSqlBenchmark(),
