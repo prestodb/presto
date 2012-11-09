@@ -3,9 +3,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.tuple.TupleReadable;
 
 public interface FilterFunction
 {
-    boolean filter(BlockCursor[] cursors);
+    boolean filter(TupleReadable... cursors);
 }

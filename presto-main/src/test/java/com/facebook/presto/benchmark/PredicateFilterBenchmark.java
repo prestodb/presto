@@ -1,15 +1,15 @@
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.tuple.TupleInfo.Type;
-import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.serde.BlocksFileEncoding;
-import com.facebook.presto.tpch.TpchSchema.Orders;
 import com.facebook.presto.tpch.TpchBlocksProvider;
+import com.facebook.presto.tpch.TpchSchema.Orders;
+import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.tuple.TupleReadable;
 
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 
@@ -39,7 +39,7 @@ public class PredicateFilterBenchmark
         }
 
         @Override
-        public boolean filter(BlockCursor[] cursors)
+        public boolean filter(TupleReadable... cursors)
         {
             return cursors[0].getDouble(0) >= minValue;
         }
