@@ -11,6 +11,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -73,17 +74,14 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitAlign(AlignNode node, Set<Slot> expectedOutputs)
+        public PlanNode visitTableScan(TableScan node, Set<Slot> expectedOutputs)
         {
-            ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
-            ImmutableList.Builder<Slot> outputs = ImmutableList.builder();
-            for (int i = 0; i < node.getSources().size(); i++) {
-                PlanNode source = node.getSources().get(i);
-                Slot slot = node.getOutputs().get(i);
+            Map<String, Slot> assignments = new HashMap<>();
+            for (Map.Entry<String, Slot> entry : node.getAttributes().entrySet()) {
+                Slot slot = entry.getValue();
 
                 if (expectedOutputs.contains(slot) || expectedOutputs.isEmpty() && (slot.getType() == Type.LONG || slot.getType() == Type.DOUBLE)) {
-                    sources.add(source);
-                    outputs.add(slot);
+                    assignments.put(entry.getKey(), slot);
 
                     if (expectedOutputs.isEmpty()) {
                         break;
@@ -91,22 +89,12 @@ public class PruneUnreferencedOutputs
                 }
             }
 
-            List<PlanNode> sourceNodes = sources.build();
-            List<Slot> outputSlots = outputs.build();
-
-            if (sourceNodes.isEmpty()) {
-                sourceNodes = ImmutableList.of(node.getSources().get(0));
-                outputSlots = ImmutableList.of(node.getOutputs().get(0));
+            if (assignments.isEmpty()) {
+                Map.Entry<String, Slot> first = Iterables.getFirst(node.getAttributes().entrySet(), null);
+                assignments.put(first.getKey(), first.getValue());
             }
 
-            return new AlignNode(sourceNodes, outputSlots);
-        }
-
-        @Override
-        public PlanNode visitColumnScan(ColumnScan node, Set<Slot> expectedOutputs)
-        {
-            Preconditions.checkArgument(expectedOutputs.equals(expectedOutputs), "ColumnScan outputs should match expected outputs");
-            return node;
+            return new TableScan(node.getCatalogName(), node.getSchemaName(), node.getTableName(), assignments);
         }
 
         @Override

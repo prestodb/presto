@@ -17,7 +17,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
-import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -71,24 +70,9 @@ public class UnaliasSlotReferences
         }
 
         @Override
-        public PlanNode visitAlign(final AlignNode node, final Void context)
+        public PlanNode visitTableScan(TableScan node, Void context)
         {
-            List<PlanNode> sources = Lists.transform(node.getSources(), new Function<PlanNode, PlanNode>()
-            {
-                @Override
-                public PlanNode apply(PlanNode input)
-                {
-                    return input.accept(Visitor.this, context);
-                }
-            });
-
-            return new AlignNode(sources, canonicalize(node.getOutputs()));
-        }
-
-        @Override
-        public PlanNode visitColumnScan(ColumnScan node, Void context)
-        {
-            return new ColumnScan(node.getCatalogName(), node.getSchemaName(), node.getTableName(), node.getAttributeName(), canonicalize(Iterables.getOnlyElement(node.getOutputs())));
+            return new TableScan(node.getCatalogName(), node.getSchemaName(), node.getTableName(), Maps.transformValues(node.getAttributes(), canonicalizeFunction()));
         }
 
         @Override

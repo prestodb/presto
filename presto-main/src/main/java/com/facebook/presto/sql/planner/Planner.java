@@ -266,22 +266,22 @@ public class Planner
     {
         TupleDescriptor descriptor = analysis.getTableDescriptor(table);
 
-        ImmutableList.Builder<Slot> outputs = ImmutableList.builder();
-        ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
+        ImmutableMap.Builder<String, Slot> attributes = ImmutableMap.builder();
 
         List<NamedSlot> slots = descriptor.getSlots();
-
         for (NamedSlot namedSlot : slots) {
             Slot slot = namedSlot.getSlot();
-            QualifiedName tableName = namedSlot.getPrefix().get();
             String attribute = namedSlot.getAttribute().get();
-
-            ColumnScan scan = new ColumnScan(tableName.getParts().get(0), tableName.getParts().get(1), tableName.getParts().get(2), attribute, slot);
-            sources.add(scan);
-            outputs.add(slot);
+            attributes.put(attribute, slot);
         }
 
-        return new AlignNode(sources.build(), outputs.build());
+        QualifiedName tableFullName = Iterables.getFirst(slots, null).getPrefix().get();
+
+        String catalogName = tableFullName.getParts().get(0);
+        String schemaName = tableFullName.getParts().get(1);
+        String tableName = tableFullName.getParts().get(2);
+
+        return new TableScan(catalogName, schemaName, tableName, attributes.build());
     }
 
     private NodeRewriter<Void> substitution(final Map<Expression, Slot> substitutions)
