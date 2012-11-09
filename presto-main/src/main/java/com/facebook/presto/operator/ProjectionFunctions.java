@@ -3,11 +3,10 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
@@ -46,7 +45,7 @@ public class ProjectionFunctions
         }
 
         @Override
-        public void project(BlockCursor[] cursors, BlockBuilder output)
+        public void project(TupleReadable[] cursors, BlockBuilder output)
         {
             switch (columnType) {
                 case FIXED_INT_64:
@@ -57,23 +56,6 @@ public class ProjectionFunctions
                     return;
                 case DOUBLE:
                     output.append(cursors[channelIndex].getDouble(fieldIndex));
-                    return;
-            }
-            throw new IllegalStateException("Unsupported type info " + info);
-        }
-
-        @Override
-        public void project(Tuple[] tuples, BlockBuilder output)
-        {
-            switch (columnType) {
-                case FIXED_INT_64:
-                    output.append(tuples[channelIndex].getLong(fieldIndex));
-                    return;
-                case VARIABLE_BINARY:
-                    output.append(tuples[channelIndex].getSlice(fieldIndex));
-                    return;
-                case DOUBLE:
-                    output.append(tuples[channelIndex].getDouble(fieldIndex));
                     return;
             }
             throw new IllegalStateException("Unsupported type info " + info);
@@ -113,18 +95,10 @@ public class ProjectionFunctions
         }
 
         @Override
-        public void project(BlockCursor[] cursors, BlockBuilder output)
+        public void project(TupleReadable[] cursors, BlockBuilder output)
         {
             for (ProjectionFunction projection : projections) {
                 projection.project(cursors, output);
-            }
-        }
-
-        @Override
-        public void project(Tuple[] tuples, BlockBuilder output)
-        {
-            for (ProjectionFunction projection : projections) {
-                projection.project(tuples, output);
             }
         }
     }
