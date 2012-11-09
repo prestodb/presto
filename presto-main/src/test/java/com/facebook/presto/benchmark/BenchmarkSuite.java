@@ -19,6 +19,7 @@ public class BenchmarkSuite
 
     public static final List<AbstractBenchmark> BENCHMARKS = ImmutableList.<AbstractBenchmark>of(
             new CountAggregationBenchmark(),
+            new DoubleSumAggregationBenchmark(),
             new HashAggregationBenchmark(),
             new PredicateFilterBenchmark(),
             new RawStreamingBenchmark(),
@@ -28,6 +29,7 @@ public class BenchmarkSuite
             // sql benchmarks
             new GroupBySumWithArithmeticSqlBenchmark(),
             new CountAggregationSqlBenchmark(),
+            new SqlDoubleSumAggregationBenchmark(),
             new CountWithFilterSqlBenchmark(),
             new GroupByAggregationSqlBenchmark(),
             new PredicateFilterSqlBenchmark(),
