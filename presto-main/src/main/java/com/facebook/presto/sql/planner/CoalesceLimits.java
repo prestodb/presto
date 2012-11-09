@@ -41,13 +41,7 @@ public class CoalesceLimits
         }
 
         @Override
-        public PlanNode visitAlign(AlignNode node, Void context)
-        {
-            return node;
-        }
-
-        @Override
-        public PlanNode visitColumnScan(ColumnScan node, Void context)
+        public PlanNode visitTableScan(TableScan node, Void context)
         {
             return node;
         }
