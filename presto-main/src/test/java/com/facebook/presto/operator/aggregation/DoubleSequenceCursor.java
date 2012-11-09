@@ -85,7 +85,7 @@ public class DoubleSequenceCursor
     {
         checkReadablePosition();
         return getTupleInfo().builder()
-                .append(current)
+                .append((double) current)
                 .build();
     }
 

@@ -1,10 +1,12 @@
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.block.BlockCursor;
 
 import javax.inject.Provider;
+
+import static com.facebook.presto.tuple.Tuples.NULL_DOUBLE_TUPLE;
 
 public class LongAverageAggregation
         implements AggregationFunction
@@ -43,13 +45,19 @@ public class LongAverageAggregation
     @Override
     public void add(BlockCursor... cursors)
     {
-        sum += cursors[channelIndex].getLong(fieldIndex);
-        count++;
+        BlockCursor cursor = cursors[channelIndex];
+        if (!cursor.isNull(fieldIndex)) {
+            sum += cursor.getLong(fieldIndex);
+            count++;
+        }
     }
 
     @Override
     public Tuple evaluate()
     {
+        if (count == 0) {
+            return NULL_DOUBLE_TUPLE;
+        }
         double value = sum / count;
         return getTupleInfo().builder()
                 .append(value)
