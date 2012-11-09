@@ -1,6 +1,7 @@
 package com.facebook.presto.tuple;
 
 import com.facebook.presto.slice.Slices;
+import com.facebook.presto.tuple.TupleInfo.Builder;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
@@ -20,6 +21,15 @@ public class Tuples
     public static final Tuple NULL_DOUBLE_TUPLE = SINGLE_DOUBLE.builder()
             .appendNull()
             .build();
+
+    public static Tuple nullTuple(TupleInfo tupleInfo)
+    {
+        Builder builder = tupleInfo.builder();
+        for (int i = 0; i < tupleInfo.getFieldCount(); i++) {
+            builder.appendNull();
+        }
+        return builder.build();
+    }
 
     public static Tuple createTuple(long value)
     {

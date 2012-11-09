@@ -47,8 +47,13 @@ public class BlockAssertions
 
     public static List<List<Object>> toValues(Block block)
     {
-        ImmutableList.Builder<List<Object>> values = ImmutableList.builder();
         BlockCursor cursor = block.cursor();
+        return toValues(cursor);
+    }
+
+    public static List<List<Object>> toValues(BlockCursor cursor)
+    {
+        ImmutableList.Builder<List<Object>> values = ImmutableList.builder();
         while (cursor.advanceNextPosition()) {
             values.add(cursor.getTuple().toValues());
         }

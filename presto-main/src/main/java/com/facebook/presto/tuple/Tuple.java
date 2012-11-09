@@ -1,11 +1,12 @@
 package com.facebook.presto.tuple;
 
-import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceOutput;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static com.google.common.base.Charsets.UTF_8;
@@ -79,23 +80,28 @@ public class Tuple
      */
     public List<Object> toValues()
     {
-        ImmutableList.Builder<Object> values = ImmutableList.builder();
+        ArrayList<Object> values = new ArrayList<>();
         int index = 0;
         for (Type type : tupleInfo.getTypes()) {
-            switch (type) {
-                case FIXED_INT_64:
-                    values.add(getLong(index));
-                    break;
-                case DOUBLE:
-                    values.add(getDouble(index));
-                    break;
-                case VARIABLE_BINARY:
-                    values.add(getSlice(index).toString(UTF_8));
-                    break;
+            if (isNull(index)) {
+                values.add(null);
+            }
+            else {
+                switch (type) {
+                    case FIXED_INT_64:
+                        values.add(getLong(index));
+                        break;
+                    case DOUBLE:
+                        values.add(getDouble(index));
+                        break;
+                    case VARIABLE_BINARY:
+                        values.add(getSlice(index).toString(UTF_8));
+                        break;
+                }
             }
             index++;
         }
-        return values.build();
+        return Collections.unmodifiableList(values);
     }
 
     @Override
