@@ -4,21 +4,28 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
+import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.IsNotNullPredicate;
+import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.NotExpression;
+import com.facebook.presto.sql.tree.NullIfExpression;
+import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TreeRewriter;
-import com.facebook.presto.util.IterableTransformer;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.sql.compiler.NamedSlot.nameGetter;
@@ -72,6 +79,16 @@ public class ExpressionAnalyzer
         }
 
         @Override
+        protected Type visitNotExpression(NotExpression node, TupleDescriptor context)
+        {
+            Type value = process(node.getValue(), context);
+            if (value != Type.BOOLEAN) {
+                throw new SemanticException(node.getValue(), "Value of logical NOT expression must evaluate to a BOOLEAN (actual: %s)", value);
+            }
+            return Type.BOOLEAN;
+        }
+
+        @Override
         protected Type visitLogicalBinaryExpression(LogicalBinaryExpression node, TupleDescriptor context)
         {
             Type left = process(node.getLeft(), context);
@@ -97,6 +114,45 @@ public class ExpressionAnalyzer
             }
 
             return Type.BOOLEAN;
+        }
+
+        @Override
+        protected Type visitIsNullPredicate(IsNullPredicate node, TupleDescriptor context)
+        {
+            return Type.BOOLEAN;
+        }
+
+        @Override
+        protected Type visitIsNotNullPredicate(IsNotNullPredicate node, TupleDescriptor context)
+        {
+            return Type.BOOLEAN;
+        }
+
+        @Override
+        protected Type visitNullIfExpression(NullIfExpression node, TupleDescriptor context)
+        {
+            Type first = process(node.getFirst(), context);
+            Type second = process(node.getSecond(), context);
+
+            if (first != second && !(Type.isNumeric(first) && Type.isNumeric(second))) {
+                throw new SemanticException(node, "Types are not comparable with nullif: %s vs %s", first, second);
+            }
+
+            return first;
+        }
+
+        @Override
+        protected Type visitCoalesceExpression(CoalesceExpression node, TupleDescriptor context)
+        {
+            List<Type> operandTypes = new ArrayList<>();
+            for (Expression expression : node.getOperands()) {
+                operandTypes.add(process(expression, context));
+            }
+            Type firstOperand = Iterables.get(operandTypes, 0);
+            if (!Iterables.all(operandTypes, Predicates.equalTo(firstOperand))) {
+                throw new SemanticException(node, "All operands of coalesce must be the same type: %s", operandTypes);
+            }
+            return firstOperand;
         }
 
         @Override
@@ -155,6 +211,12 @@ public class ExpressionAnalyzer
         protected Type visitDoubleLiteral(DoubleLiteral node, TupleDescriptor context)
         {
             return Type.DOUBLE;
+        }
+
+        @Override
+        protected Type visitNullLiteral(NullLiteral node, TupleDescriptor context)
+        {
+            return Type.NULL;
         }
 
         @Override

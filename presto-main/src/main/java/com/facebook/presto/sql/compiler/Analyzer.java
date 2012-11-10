@@ -27,15 +27,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
@@ -122,7 +118,12 @@ public class Analyzer
 
         private AnalyzedExpression analyzePredicate(Expression predicate, TupleDescriptor sourceDescriptor)
         {
-            return new ExpressionAnalyzer(metadata).analyze(predicate, sourceDescriptor);
+            AnalyzedExpression analyzedExpression = new ExpressionAnalyzer(metadata).analyze(predicate, sourceDescriptor);
+            Type expressionType = analyzedExpression.getType();
+            if (expressionType != Type.BOOLEAN && expressionType != Type.NULL) {
+                throw new SemanticException(predicate, "WHERE clause must evaluate to a boolean: actual type %s", expressionType);
+            }
+            return analyzedExpression;
         }
 
         /**
