@@ -443,6 +443,60 @@ public class TestQueries
     }
 
     @Test
+    public void testCountWithNotPredicate()
+    {
+        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM lineitem WHERE NOT tax < discount", FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM lineitem WHERE NOT tax < discount");
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
+    public void testCountWithNullPredicate()
+    {
+        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM lineitem WHERE NULL", FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM lineitem WHERE NULL");
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
+    public void testCountWithIsNullPredicate()
+    {
+        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM orders WHERE orderstatus = 'F' ", FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM orders WHERE NULLIF(orderstatus, 'F') IS NULL");
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
+    public void testCountWithIsNotNullPredicate()
+    {
+        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM orders WHERE orderstatus <> 'F' ", FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM orders WHERE NULLIF(orderstatus, 'F') IS NOT NULL");
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
+    public void testCountWithNullIfPredicate()
+    {
+        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM orders WHERE NULLIF(orderstatus, 'F') = orderstatus", FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM orders WHERE NULLIF(orderstatus, 'F') = orderstatus ");
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
+    public void testCountWithCoalescePredicate()
+    {
+        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM orders WHERE orderstatus = 'F'", FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM orders WHERE COALESCE(NULLIF(orderstatus, 'F'), 'bar') = 'bar'");
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
     public void testCountWithAndPredicate()
     {
         List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM lineitem WHERE tax < discount AND tax > 0.01 AND discount < 0.05", FIXED_INT_64);

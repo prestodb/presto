@@ -5,14 +5,20 @@ import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.IsNotNullPredicate;
+import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NotExpression;
+import com.facebook.presto.sql.tree.NullIfExpression;
+import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.google.common.base.Function;
@@ -72,6 +78,12 @@ public class ExpressionFormatter
         }
 
         @Override
+        protected String visitNullLiteral(NullLiteral node, Void context)
+        {
+            return "null";
+        }
+
+        @Override
         protected String visitQualifiedNameReference(QualifiedNameReference node, Void context)
         {
             return node.getName().toString();
@@ -109,9 +121,46 @@ public class ExpressionFormatter
         }
 
         @Override
+        protected String visitNotExpression(NotExpression node, Void context)
+        {
+            return "(NOT " + process(node.getValue(), null) + ")";
+        }
+
+        @Override
         protected String visitComparisonExpression(ComparisonExpression node, Void context)
         {
             return formatBinaryExpression(node.getType().getValue(), node.getLeft(), node.getRight());
+        }
+
+        @Override
+        protected String visitIsNullPredicate(IsNullPredicate node, Void context)
+        {
+            return "(IS NULL " + process(node.getValue(), null) + ")";
+        }
+
+        @Override
+        protected String visitIsNotNullPredicate(IsNotNullPredicate node, Void context)
+        {
+            return "(IS NOT NULL " + process(node.getValue(), null) + ")";
+        }
+
+        @Override
+        protected String visitNullIfExpression(NullIfExpression node, Void context)
+        {
+            return formatBinaryExpression("NULLIF", node.getFirst(), node.getSecond());
+        }
+
+        @Override
+        protected String visitCoalesceExpression(CoalesceExpression node, Void context)
+        {
+            return "(COALESCE " + Joiner.on(", ").join(Iterables.transform(node.getOperands(), new Function<Expression, Object>()
+            {
+                @Override
+                public Object apply(Expression input)
+                {
+                    return process(input, null);
+                }
+            })) + ")";
         }
 
         @Override
