@@ -8,6 +8,7 @@ import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Charsets;
+import com.google.common.base.Preconditions;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
@@ -108,6 +109,20 @@ public class BlockBuilder
         return this;
     }
 
+    public BlockBuilder appendTuple(Slice slice, int offset)
+    {
+        Preconditions.checkState(!tupleBuilder.isPartial());
+
+        // read the tuple length
+        int length = tupleInfo.size(slice, offset);
+
+        // copy tuple to output
+        sliceOutput.writeBytes(slice, offset, length);
+        count++;
+
+        return this;
+    }
+
     private void flushTupleIfNecessary()
     {
         if (tupleBuilder.isComplete()) {
@@ -122,5 +137,18 @@ public class BlockBuilder
         checkState(!isEmpty(), "Cannot build an empty block");
 
         return new UncompressedBlock(count, tupleInfo, sliceOutput.slice());
+    }
+
+    @Override
+    public String toString()
+    {
+        final StringBuilder sb = new StringBuilder();
+        sb.append("BlockBuilder");
+        sb.append("{count=").append(count);
+        sb.append(", size=").append(sliceOutput.size());
+        sb.append(", maxSize=").append(maxBlockSize);
+        sb.append(", tupleInfo=").append(tupleInfo);
+        sb.append('}');
+        return sb.toString();
     }
 }

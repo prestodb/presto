@@ -372,4 +372,6 @@ public interface Slice
 
 
     boolean equals(int offset, int length, Slice other, int otherOffset, int otherLength);
+
+    int hashCode(int offset, int length);
 }

@@ -442,6 +442,20 @@ public class UnsafeSlice extends AbstractSlice
     }
 
     @Override
+    public int hashCode(int offset, int length)
+    {
+        int result = 1;
+        for (int i = 0; i < length; i++) {
+            result = (31 * result) + unsafe.getByte(this.address + offset + i);
+        }
+        if (result == 0) {
+            result = 1;
+        }
+
+        return result;
+    }
+
+    @Override
     public boolean equals(int offset, int length, Slice other, int otherOffset, int otherLength)
     {
         if (length != otherLength) {
