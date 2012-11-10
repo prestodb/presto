@@ -12,16 +12,6 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
-    public R visitAlign(AlignNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
-    public R visitColumnScan(ColumnScan node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
     public R visitFilter(FilterNode node, C context)
     {
         return visitPlan(node, context);
@@ -43,6 +33,11 @@ public class PlanVisitor<C, R>
     }
 
     public R visitLimit(LimitNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitTableScan(TableScan node, C context)
     {
         return visitPlan(node, context);
     }

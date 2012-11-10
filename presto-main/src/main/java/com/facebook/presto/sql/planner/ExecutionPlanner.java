@@ -61,8 +61,8 @@ public class ExecutionPlanner
 
     public Operator plan(PlanNode plan)
     {
-        if (plan instanceof AlignNode) {
-            return createAlignmentNode((AlignNode) plan);
+        if (plan instanceof TableScan) {
+            return createTableScan((TableScan) plan);
         }
         else if (plan instanceof ProjectNode) {
             return createProjectNode((ProjectNode) plan);
@@ -230,25 +230,27 @@ public class ExecutionPlanner
         return new FilterAndProjectOperator(sourceOperator, FilterFunctions.TRUE_FUNCTION, projections);
     }
 
-    private Operator createAlignmentNode(AlignNode node)
+    private Operator createTableScan(TableScan node)
     {
-        BlockIterable[] blocks = new BlockIterable[node.getSources().size()];
+        TableMetadata tableMetadata = metadata.getTable(QualifiedName.of(node.getCatalogName(), node.getSchemaName(), node.getTableName()));
 
-        for (int i = 0; i < node.getSources().size(); i++) {
-            PlanNode source = node.getSources().get(i);
+        BlockIterable[] blocks = new BlockIterable[node.getAttributes().size()];
 
-            ColumnScan scan = (ColumnScan) source;
+        Map<Slot, Integer> slotToChannelMappings = mapSlotsToChannels(node.getOutputs());
 
-            TableMetadata tableMetadata = metadata.getTable(QualifiedName.of(scan.getCatalogName(), scan.getSchemaName(), scan.getTableName()));
+        for (Map.Entry<String, Slot> entry : node.getAttributes().entrySet()) {
+
             int index = 0;
             for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
-                if (columnMetadata.getName().equals(scan.getAttributeName())) {
+                String attribute = entry.getKey();
+                if (columnMetadata.getName().equals(attribute)) {
                     break;
                 }
                 ++index;
             }
 
-            blocks[i] = storage.getBlocks(scan.getSchemaName(), scan.getTableName(), index);
+            int channel = slotToChannelMappings.get(entry.getValue());
+            blocks[channel] = storage.getBlocks(node.getSchemaName(), node.getTableName(), index);
         }
 
         return new AlignmentOperator(blocks);

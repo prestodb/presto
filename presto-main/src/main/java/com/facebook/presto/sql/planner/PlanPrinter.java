@@ -76,20 +76,14 @@ public class PlanPrinter
         }
 
         @Override
-        public Void visitAlign(AlignNode node, Integer indent)
+        public Void visitTableScan(TableScan node, Integer indent)
         {
-            print(indent, "- Align => [%s]", formatOutputs(node.getOutputs()));
+            print(indent, "- TableScan[%s.%s.%s] => [%s]", node.getCatalogName(), node.getSchemaName(), node.getTableName(), formatOutputs(node.getOutputs()));
+            for (Map.Entry<String, Slot> entry : node.getAttributes().entrySet()) {
+                print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
+            }
 
-            return processChildren(node, indent + 1);
-        }
-
-        @Override
-        public Void visitColumnScan(ColumnScan node, Integer indent)
-        {
-            print(indent, "- ColumnScan => [%s]", formatOutputs(node.getOutputs()));
-            print(indent + 2, "%s := %s.%s.%s.%s", Iterables.getOnlyElement(node.getOutputs()), node.getCatalogName(), node.getSchemaName(), node.getTableName(), node.getAttributeName());
-
-            return processChildren(node, indent + 1);
+            return null;
         }
 
         @Override
