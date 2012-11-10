@@ -32,7 +32,7 @@
         <dependency>
             <groupId>it.unimi.dsi</groupId>
             <artifactId>fastutil</artifactId>
-            <version>6.4.6</version>
+            <version>6.5.0</version>
         </dependency>
 
         <dependency>
