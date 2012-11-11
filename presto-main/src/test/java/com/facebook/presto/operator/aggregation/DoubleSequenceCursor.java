@@ -123,4 +123,10 @@ public class DoubleSequenceCursor
         checkReadablePosition();
         return current == value.getDouble(0);
     }
+
+    @Override
+    public int getRawOffset()
+    {
+        throw new UnsupportedOperationException();
+    }
 }

@@ -164,4 +164,10 @@ public class UncompressedBlockCursor
         Slice tupleSlice = value.getTupleSlice();
         return slice.equals(offset, size, tupleSlice, 0, tupleSlice.length());
     }
+
+    @Override
+    public int getRawOffset()
+    {
+        return offset;
+    }
 }

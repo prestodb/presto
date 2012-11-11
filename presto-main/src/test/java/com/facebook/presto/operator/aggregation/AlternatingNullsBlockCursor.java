@@ -128,4 +128,10 @@ public class AlternatingNullsBlockCursor
         }
         return delegate.currentTupleEquals(value);
     }
+
+    @Override
+    public int getRawOffset()
+    {
+        throw new UnsupportedOperationException();
+    }
 }
