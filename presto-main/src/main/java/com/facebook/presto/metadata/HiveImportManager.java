@@ -1,15 +1,15 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.hive.HiveClient;
 import com.facebook.presto.hive.PartitionChunk;
 import com.facebook.presto.hive.SchemaField;
-import com.facebook.presto.ingest.HivePartition;
+import com.facebook.presto.ingest.ImportPartition;
 import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.ingest.RecordProjection;
 import com.facebook.presto.ingest.RecordProjections;
 import com.facebook.presto.slice.Slices;
+import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
@@ -21,9 +21,9 @@ import org.skife.jdbi.v2.util.LongMapper;
 import java.util.List;
 import java.util.concurrent.Callable;
 
+import static com.facebook.presto.ingest.ImportSchemaUtil.createColumnMetadata;
+import static com.facebook.presto.ingest.ImportSchemaUtil.getTupleType;
 import static com.facebook.presto.util.RetryDriver.runWithRetry;
-import static com.facebook.presto.ingest.HiveSchemaUtil.createColumnMetadata;
-import static com.facebook.presto.ingest.HiveSchemaUtil.getTupleType;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class HiveImportManager
@@ -108,7 +108,7 @@ public class HiveImportManager
                 public Long call()
                         throws Exception
                 {
-                    HivePartition hivePartition = new HivePartition(hiveClient, chunk, fieldNames);
+                    ImportPartition hivePartition = new ImportPartition(hiveClient, chunk, fieldNames);
                     RecordProjectOperator source = new RecordProjectOperator(hivePartition, recordProjections);
                     return storageManager.importTableShard(source, databaseName, tableName);
                 }
