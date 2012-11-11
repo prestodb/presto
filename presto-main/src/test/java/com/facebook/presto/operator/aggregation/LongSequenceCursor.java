@@ -123,4 +123,10 @@ public class LongSequenceCursor
         checkReadablePosition();
         return current == value.getLong(0);
     }
+
+    @Override
+    public int getRawOffset()
+    {
+        throw new UnsupportedOperationException();
+    }
 }
