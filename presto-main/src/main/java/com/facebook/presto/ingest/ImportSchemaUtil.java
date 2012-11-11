@@ -9,7 +9,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class HiveSchemaUtil
+public class ImportSchemaUtil
 {
     public static List<ColumnMetadata> createColumnMetadata(List<SchemaField> schemaFields)
     {
@@ -20,16 +20,6 @@ public class HiveSchemaUtil
             list.add(new ColumnMetadata(type, field.getFieldName()));
         }
         return list.build();
-    }
-
-    public static TupleInfo createTupleInfo(List<SchemaField> schemaFields)
-    {
-        ImmutableList.Builder<TupleInfo.Type> list = ImmutableList.builder();
-        for (SchemaField field : schemaFields) {
-            checkArgument(field.getCategory() == SchemaField.Category.PRIMITIVE, "Unhandled category: %s", field.getCategory());
-            list.add(getTupleType(field.getPrimitiveType()));
-        }
-        return new TupleInfo(list.build());
     }
 
     public static TupleInfo.Type getTupleType(SchemaField.Type type)
