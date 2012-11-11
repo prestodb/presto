@@ -5,7 +5,6 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -73,12 +72,7 @@ public final class BlockIterables
         private ConcatBlockIterable(Iterable<? extends BlockIterable> blockIterables)
         {
             this.blockIterables = blockIterables;
-
-            ImmutableList.Builder<Type> types = ImmutableList.builder();
-            for (BlockIterable blocks : blockIterables) {
-                types.addAll(blocks.getTupleInfo().getTypes());
-            }
-            tupleInfo = new TupleInfo(types.build());
+            tupleInfo = blockIterables.iterator().next().getTupleInfo();
         }
 
         @Override
