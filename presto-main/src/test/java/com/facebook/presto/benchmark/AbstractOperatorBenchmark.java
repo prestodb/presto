@@ -1,14 +1,18 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.CachingTpchDataProvider;
 import com.facebook.presto.tpch.GeneratingTpchDataProvider;
 import com.facebook.presto.tpch.MetricRecordingTpchBlocksProvider;
 import com.facebook.presto.tpch.StatsTpchBlocksProvider;
 import com.facebook.presto.tpch.TpchBlocksProvider;
+import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchDataProvider;
+import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -16,6 +20,8 @@ import io.airlift.units.Duration;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.tpch.TpchSchema.columnHandle;
+import static com.facebook.presto.tpch.TpchSchema.tableHandle;
 import static com.google.common.base.Preconditions.checkState;
 
 /**
@@ -24,6 +30,13 @@ import static com.google.common.base.Preconditions.checkState;
 public abstract class AbstractOperatorBenchmark
         extends AbstractBenchmark
 {
+    public static BlockIterable getBlockIterable(TpchBlocksProvider blocksProvider, String tableName, String columnName, BlocksFileEncoding columnEncoding)
+    {
+        TpchTableHandle tableHandle = tableHandle(tableName);
+        TpchColumnHandle columnHandle = columnHandle(tableHandle, columnName);
+        return blocksProvider.getBlocks(tableHandle, columnHandle, columnEncoding);
+    }
+
     private static final TpchDataProvider TPCH_DATA_PROVIDER = new CachingTpchDataProvider(new GeneratingTpchDataProvider());
 
     protected AbstractOperatorBenchmark(String benchmarkName, int warmupIterations, int measuredIterations)

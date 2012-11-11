@@ -138,4 +138,10 @@ public final class RunLengthEncodedBlockCursor implements BlockCursor
         checkReadablePosition();
         return this.value.equals(value);
     }
+
+    @Override
+    public int getRawOffset()
+    {
+        return 0;
+    }
 }

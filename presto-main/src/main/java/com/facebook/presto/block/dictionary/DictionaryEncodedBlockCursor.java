@@ -108,6 +108,12 @@ public class DictionaryEncodedBlockCursor implements BlockCursor
         return dictionary.tupleEquals(getDictionaryKey(), value);
     }
 
+    @Override
+    public int getRawOffset()
+    {
+        throw new UnsupportedOperationException();
+    }
+
     public int getDictionaryKey()
     {
         int dictionaryKey = Ints.checkedCast(sourceCursor.getLong(0));
