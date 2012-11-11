@@ -158,4 +158,10 @@ public class UncompressedLongBlockCursor
         Slice tupleSlice = value.getTupleSlice();
         return tupleSlice.length() == SIZE_OF_LONG + SIZE_OF_BYTE && slice.getLong(offset + SIZE_OF_BYTE) == tupleSlice.getLong(SIZE_OF_BYTE);
     }
+
+    @Override
+    public int getRawOffset()
+    {
+        return offset;
+    }
 }

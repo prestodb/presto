@@ -158,4 +158,10 @@ public class UncompressedDoubleBlockCursor
         Slice tupleSlice = value.getTupleSlice();
         return tupleSlice.length() == ENTRY_SIZE && slice.getDouble(offset + SIZE_OF_BYTE) == tupleSlice.getDouble(SIZE_OF_BYTE);
     }
+
+    @Override
+    public int getRawOffset()
+    {
+        return offset;
+    }
 }

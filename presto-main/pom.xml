@@ -30,6 +30,12 @@
 
     <dependencies>
         <dependency>
+            <groupId>it.unimi.dsi</groupId>
+            <artifactId>fastutil</artifactId>
+            <version>6.4.6</version>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hive</artifactId>
             <version>0.1-SNAPSHOT</version>
