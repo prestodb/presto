@@ -1,12 +1,14 @@
 package com.facebook.presto.operator;
 
-import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.ImmutableList;
 
 import javax.inject.Provider;
 import java.util.HashMap;
@@ -27,6 +29,7 @@ public class HashAggregationOperator
     private final int groupByChannel;
     private final List<Provider<AggregationFunction>> functionProviders;
     private final List<ProjectionFunction> projections;
+    private final List<TupleInfo> tupleInfos;
 
     public HashAggregationOperator(Operator source, int groupByChannel, List<Provider<AggregationFunction>> functionProviders, List<ProjectionFunction> projections)
     {
@@ -41,12 +44,24 @@ public class HashAggregationOperator
         this.groupByChannel = groupByChannel;
         this.functionProviders = functionProviders;
         this.projections = projections;
+
+        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
+        for (ProjectionFunction projection : projections) {
+            tupleInfos.add(projection.getTupleInfo());
+        }
+        this.tupleInfos = tupleInfos.build();
     }
 
     @Override
     public int getChannelCount()
     {
         return projections.size();
+    }
+
+    @Override
+    public List<TupleInfo> getTupleInfos()
+    {
+        return tupleInfos;
     }
 
     @Override

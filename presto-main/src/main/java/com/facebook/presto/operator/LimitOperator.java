@@ -2,9 +2,11 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.hive.shaded.com.google.common.collect.AbstractIterator;
+import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.Range;
 
 import java.util.Iterator;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -28,6 +30,12 @@ public class LimitOperator
     public int getChannelCount()
     {
         return source.getChannelCount();
+    }
+
+    @Override
+    public List<TupleInfo> getTupleInfos()
+    {
+        return source.getTupleInfos();
     }
 
     @Override

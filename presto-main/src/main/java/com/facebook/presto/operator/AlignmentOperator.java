@@ -3,34 +3,54 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.Range;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockIterable;
 import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import java.util.Iterator;
+import java.util.List;
 
 import static com.facebook.presto.hive.shaded.com.google.common.base.Preconditions.checkState;
 
 public class AlignmentOperator implements Operator
 {
     private final BlockIterable[] channels;
+    private final List<TupleInfo> tupleInfos;
 
     public AlignmentOperator(BlockIterable... channels)
     {
         this.channels = channels;
+        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
+        for (BlockIterable channel : channels) {
+            tupleInfos.add(channel.getTupleInfo());
+        }
+        this.tupleInfos = tupleInfos.build();
     }
 
     public AlignmentOperator(Iterable<BlockIterable> channels)
     {
         this.channels = Iterables.toArray(channels, BlockIterable.class);
+        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
+        for (BlockIterable channel : channels) {
+            tupleInfos.add(channel.getTupleInfo());
+        }
+        this.tupleInfos = tupleInfos.build();
     }
 
     @Override
     public int getChannelCount()
     {
         return channels.length;
+    }
+
+    @Override
+    public List<TupleInfo> getTupleInfos()
+    {
+        return tupleInfos;
     }
 
     @Override

@@ -8,6 +8,7 @@ import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.slice.SizeOf;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 
 import java.util.Iterator;
@@ -49,6 +50,12 @@ public class BlocksFileReader
 
         blocksSlice = slice.slice(0, footerOffset);
         blockIterable = new EncodedBlockIterable(blockEncoding, blocksSlice, positionOffset);
+    }
+
+    @Override
+    public TupleInfo getTupleInfo()
+    {
+        return blockEncoding.getTupleInfo();
     }
 
     public BlockEncoding getEncoding()

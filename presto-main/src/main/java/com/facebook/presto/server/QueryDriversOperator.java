@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.Range;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
@@ -43,6 +44,12 @@ public class QueryDriversOperator
     public int getChannelCount()
     {
         return driverProviders.get(0).getChannelCount();
+    }
+
+    @Override
+    public List<TupleInfo> getTupleInfos()
+    {
+        return driverProviders.get(0).getTupleInfos();
     }
 
     @Override

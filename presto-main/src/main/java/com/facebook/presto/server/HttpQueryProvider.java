@@ -3,33 +3,43 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import io.airlift.http.client.AsyncHttpClient;
 
 import java.net.URI;
+import java.util.List;
 
 public class HttpQueryProvider implements QueryDriverProvider
 {
     private final String query;
     private final AsyncHttpClient httpClient;
     private final URI uri;
-    private final int channelCount;
+    private final List<TupleInfo> tupleInfos;
 
-    public HttpQueryProvider(String query, AsyncHttpClient httpClient, URI uri, int channelCount)
+    public HttpQueryProvider(String query, AsyncHttpClient httpClient, URI uri, List<TupleInfo> tupleInfos)
     {
-        this.channelCount = channelCount;
         Preconditions.checkNotNull(query, "query is null");
         Preconditions.checkNotNull(httpClient, "httpClient is null");
         Preconditions.checkNotNull(uri, "uri is null");
+        Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
+
         this.query = query;
         this.httpClient = httpClient;
         this.uri = uri;
+        this.tupleInfos = tupleInfos;
     }
 
     @Override
     public int getChannelCount()
     {
-        return channelCount;
+        return tupleInfos.size();
+    }
+
+    @Override
+    public List<TupleInfo> getTupleInfos()
+    {
+        return tupleInfos;
     }
 
     @Override

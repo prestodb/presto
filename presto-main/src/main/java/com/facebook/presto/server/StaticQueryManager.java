@@ -53,6 +53,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.util.RetryDriver.runWithRetry;
 import static com.facebook.presto.operator.ProjectionFunctions.concat;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
@@ -91,7 +94,7 @@ public class StaticQueryManager implements QueryManager
     }
 
     @Override
-    public synchronized String createQuery(String query)
+    public synchronized QueryInfo createQuery(String query)
     {
         Preconditions.checkNotNull(query, "query is null");
         Preconditions.checkArgument(query.length() > 0, "query must not be empty string");
@@ -103,7 +106,7 @@ public class StaticQueryManager implements QueryManager
         ImmutableList<String> strings = ImmutableList.copyOf(Splitter.on(":").split(query));
         String queryBase = strings.get(0);
 
-        Runnable queryTask;
+        QueryTask queryTask;
         switch (queryBase) {
             case "sum":
                 queryTask = new SumQuery(queryState, executor,
@@ -141,8 +144,13 @@ public class StaticQueryManager implements QueryManager
                         return Type.fromName(input);
                     }
                 }));
-                TupleInfo tupleInfo = new TupleInfo(types);
-                queryTask = new ImportDelimited(queryState, storageManager, strings.get(1), strings.get(2), tupleInfo, new File(strings.get(3)), Splitter.on(strings.get(4)));
+                queryTask = new ImportDelimited(queryState,
+                        storageManager,
+                        strings.get(1),
+                        strings.get(2),
+                        new TupleInfo(types),
+                        new File(strings.get(3)),
+                        Splitter.on(strings.get(4)));
                 break;
 
             // e.g.: import-hive-table:default:hivedba_query_stats
@@ -162,7 +170,7 @@ public class StaticQueryManager implements QueryManager
         queries.put(queryId, queryState);
         executor.submit(queryTask);
 
-        return queryId;
+        return new QueryInfo(queryId, queryTask.getTupleInfos());
     }
 
     @Override
@@ -199,8 +207,16 @@ public class StaticQueryManager implements QueryManager
         return queryState;
     }
 
-    private static class SumQuery implements Runnable
+    private static interface QueryTask
+            extends Runnable
     {
+        List<TupleInfo> getTupleInfos();
+    }
+
+    private static class SumQuery implements QueryTask
+    {
+        private static final List<TupleInfo> TUPLE_INFOS = ImmutableList.of(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64));
+
         private final QueryState queryState;
         private final List<URI> servers;
         private final AsyncHttpClient asyncHttpClient;
@@ -221,6 +237,12 @@ public class StaticQueryManager implements QueryManager
         }
 
         @Override
+        public List<TupleInfo> getTupleInfos()
+        {
+            return TUPLE_INFOS;
+        }
+
+        @Override
         public void run()
         {
             try {
@@ -230,7 +252,7 @@ public class StaticQueryManager implements QueryManager
                             @Override
                             public QueryDriverProvider apply(URI uri)
                             {
-                                return new HttpQueryProvider("sum-partial", asyncHttpClient, uri, 1);
+                                return new HttpQueryProvider("sum-partial", asyncHttpClient, uri, ImmutableList.of(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64)));
                             }
                         })
                 );
@@ -238,7 +260,7 @@ public class StaticQueryManager implements QueryManager
                 HashAggregationOperator aggregation = new HashAggregationOperator(operator,
                         0,
                         ImmutableList.of(LongSumAggregation.provider(1, 0)),
-                        ImmutableList.of(concat(singleColumn(Type.VARIABLE_BINARY, 0, 0), singleColumn(Type.FIXED_INT_64, 2, 0))));
+                        ImmutableList.of(concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 2, 0))));
 
                 for (Page page : aggregation) {
                     queryState.addPage(page);
@@ -257,8 +279,10 @@ public class StaticQueryManager implements QueryManager
         }
     }
 
-    private static class PartialSumQuery implements Runnable
+    private static class PartialSumQuery implements QueryTask
     {
+        private static final List<TupleInfo> TUPLE_INFOS = ImmutableList.of(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64));
+
         private final Metadata metadata;
         private final StorageManager storageManager;
         private final QueryState queryState;
@@ -268,6 +292,12 @@ public class StaticQueryManager implements QueryManager
             this.metadata = metadata;
             this.storageManager = storageManager;
             this.queryState = queryState;
+        }
+
+        @Override
+        public List<TupleInfo> getTupleInfos()
+        {
+            return TUPLE_INFOS;
         }
 
         @Override
@@ -281,7 +311,7 @@ public class StaticQueryManager implements QueryManager
                 HashAggregationOperator sumOperator = new HashAggregationOperator(alignmentOperator,
                         0,
                         ImmutableList.of(LongSumAggregation.provider(0, 0)),
-                        ImmutableList.of(concat(singleColumn(Type.VARIABLE_BINARY, 0, 0), singleColumn(Type.FIXED_INT_64, 1, 0))));
+                        ImmutableList.of(concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 1, 0))));
 
                 for (Page page : sumOperator) {
                     queryState.addPage(page);
@@ -316,8 +346,9 @@ public class StaticQueryManager implements QueryManager
     }
 
     private static class ImportHiveTableQuery
-            implements Runnable
+            implements QueryTask
     {
+        private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_LONG);
         private static final int MAX_SIMULTANEOUS_IMPORTS = 100;
 
         private final QueryState queryState;
@@ -345,6 +376,12 @@ public class StaticQueryManager implements QueryManager
         }
 
         @Override
+        public List<TupleInfo> getTupleInfos()
+        {
+            return TUPLE_INFOS;
+        }
+
+        @Override
         public void run()
         {
             try {
@@ -366,13 +403,14 @@ public class StaticQueryManager implements QueryManager
                                 asyncHttpClient,
                                 URI.create("http://localhost:8080/v1/presto/query") // TODO: HACK to distribute the queries locally
                                 ,
-                                1));
+                                ImmutableList.of(SINGLE_LONG)));
                     }
+
                     // TODO: this currently leaks query resources (need to delete)
                     QueryDriversOperator operator = new QueryDriversOperator(10, queryDriverProviderBuilder.build());
                     AggregationOperator sumOperator = new AggregationOperator(operator,
                             ImmutableList.of(LongSumAggregation.provider(0, 0)),
-                            ImmutableList.of(concat(singleColumn(Type.FIXED_INT_64, 0, 0))));
+                            ImmutableList.of(concat(singleColumn(FIXED_INT_64, 0, 0))));
                     for (Page page : sumOperator) {
                         queryState.addPage(page);
                     }
@@ -392,8 +430,10 @@ public class StaticQueryManager implements QueryManager
     }
 
     private static class ImportHiveTablePartitionQuery
-            implements Runnable
+            implements QueryTask
     {
+        private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_LONG);
+
         private final QueryState queryState;
         private final HiveImportManager hiveImportManager;
         private final String databaseName;
@@ -415,11 +455,17 @@ public class StaticQueryManager implements QueryManager
         }
 
         @Override
+        public List<TupleInfo> getTupleInfos()
+        {
+            return TUPLE_INFOS;
+        }
+
+        @Override
         public void run()
         {
             try {
                 long rowCount = hiveImportManager.importPartition(databaseName, tableName, partitionName);
-                queryState.addPage(new Page(new BlockBuilder(0, TupleInfo.SINGLE_LONG).append(rowCount).build()));
+                queryState.addPage(new Page(new BlockBuilder(0, SINGLE_LONG).append(rowCount).build()));
                 queryState.sourceFinished();
             }
             catch (InterruptedException e) {
@@ -435,8 +481,10 @@ public class StaticQueryManager implements QueryManager
     }
 
     private static class ImportDelimited
-            implements Runnable
+            implements QueryTask
     {
+        private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_LONG);
+
         private final QueryState queryState;
         private final StorageManager storageManager;
         private final String databaseName;
@@ -469,11 +517,17 @@ public class StaticQueryManager implements QueryManager
         }
 
         @Override
+        public List<TupleInfo> getTupleInfos()
+        {
+            return TUPLE_INFOS;
+        }
+
+        @Override
         public void run()
         {
             try {
                 long rowCount = storageManager.importTableShard(source, databaseName, tableName);
-                queryState.addPage(new Page(new BlockBuilder(0, TupleInfo.SINGLE_LONG).append(rowCount).build()));
+                queryState.addPage(new Page(new BlockBuilder(0, SINGLE_LONG).append(rowCount).build()));
                 queryState.sourceFinished();
             }
             catch (InterruptedException e) {
