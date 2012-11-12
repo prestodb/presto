@@ -6,6 +6,7 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.hive.shaded.com.google.common.collect.AbstractIterator;
 import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
@@ -30,6 +31,7 @@ public class TopNOperator
     private final int keyChannelIndex;
     private final List<ProjectionFunction> projections;
     private final Ordering<TupleReadable> ordering;
+    private final List<TupleInfo> tupleInfos;
 
     public TopNOperator(Operator source, int n, int keyChannelIndex, List<ProjectionFunction> projections, Ordering<TupleReadable> ordering)
     {
@@ -44,6 +46,12 @@ public class TopNOperator
         this.keyChannelIndex = keyChannelIndex;
         this.projections = ImmutableList.copyOf(projections);
         this.ordering = ordering;
+
+        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
+        for (ProjectionFunction projection : projections) {
+            tupleInfos.add(projection.getTupleInfo());
+        }
+        this.tupleInfos = tupleInfos.build();
     }
 
     public TopNOperator(Operator source, int n, int keyChannelIndex, List<ProjectionFunction> projections)
@@ -55,6 +63,12 @@ public class TopNOperator
     public int getChannelCount()
     {
         return projections.size();
+    }
+
+    @Override
+    public List<TupleInfo> getTupleInfos()
+    {
+        return tupleInfos;
     }
 
     @Override

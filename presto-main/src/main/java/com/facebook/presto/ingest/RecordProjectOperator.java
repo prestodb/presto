@@ -7,6 +7,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
@@ -17,6 +18,7 @@ public class RecordProjectOperator implements Operator
 {
     private final RecordIterable source;
     private final List<? extends RecordProjection> projections;
+    private final List<TupleInfo> tupleInfos;
 
     public RecordProjectOperator(RecordIterable source, RecordProjection... projections)
     {
@@ -27,12 +29,24 @@ public class RecordProjectOperator implements Operator
     {
         this.source = source;
         this.projections = ImmutableList.copyOf(projections);
+
+        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
+        for (RecordProjection projection : projections) {
+            tupleInfos.add(projection.getTupleInfo());
+        }
+        this.tupleInfos = tupleInfos.build();
     }
 
     @Override
     public int getChannelCount()
     {
         return projections.size();
+    }
+
+    @Override
+    public List<TupleInfo> getTupleInfos()
+    {
+        return tupleInfos;
     }
 
     @Override

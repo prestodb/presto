@@ -31,6 +31,12 @@ public class RunLengthBlockEncoding
     }
 
     @Override
+    public TupleInfo getTupleInfo()
+    {
+        return tupleInfo;
+    }
+
+    @Override
     public void writeBlock(SliceOutput sliceOutput, Block block)
     {
         RunLengthEncodedBlock rleBlock = (RunLengthEncodedBlock) block;

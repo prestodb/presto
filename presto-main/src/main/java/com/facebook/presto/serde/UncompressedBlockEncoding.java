@@ -29,6 +29,7 @@ public class UncompressedBlockEncoding
         tupleInfo = TupleInfoSerde.readTupleInfo(input);
     }
 
+    @Override
     public TupleInfo getTupleInfo()
     {
         return tupleInfo;

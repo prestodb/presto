@@ -26,13 +26,19 @@ public class BlockUtils
 
     private static class BlocksIterableAdapter implements BlockIterable
     {
-        private final TupleInfo info;
+        private final TupleInfo tupleInfo;
         private final Iterable<Block> blocks;
 
-        public BlocksIterableAdapter(TupleInfo info, Iterable<Block> blocks)
+        public BlocksIterableAdapter(TupleInfo tupleInfo, Iterable<Block> blocks)
         {
-            this.info = info;
+            this.tupleInfo = tupleInfo;
             this.blocks = blocks;
+        }
+
+        @Override
+        public TupleInfo getTupleInfo()
+        {
+            return tupleInfo;
         }
 
         @Override

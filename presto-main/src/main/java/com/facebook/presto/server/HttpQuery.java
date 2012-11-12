@@ -29,6 +29,12 @@ import static io.airlift.http.client.Request.Builder.preparePost;
 
 public class HttpQuery implements QueryDriver
 {
+    public static HttpQuery fetchResults(String query, QueryState queryState, AsyncHttpClient httpClient, URI location) {
+        HttpQuery httpQuery = new HttpQuery(query, queryState, httpClient, location);
+        httpQuery.startReadingResults(location);
+        return httpQuery;
+    }
+
     private final String query;
     private final QueryState queryState;
     private final AsyncHttpClient httpClient;
@@ -64,6 +70,11 @@ public class HttpQuery implements QueryDriver
                 .setBodyGenerator(StaticBodyGenerator.createStaticBodyGenerator(query, Charsets.UTF_8))
                 .build();
         currentRequest = httpClient.execute(request, new CreateQueryResponseHandler());
+    }
+
+    private synchronized void startReadingResults(URI location)
+    {
+        currentRequest = httpClient.execute(prepareGet().setUri(location).build(), new PageResponseHandler(location));
     }
 
     @Override

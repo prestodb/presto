@@ -7,6 +7,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.BlocksFileWriter;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -55,6 +56,12 @@ public class ImportingOperator implements Operator
     public int getChannelCount()
     {
         return source.getChannelCount();
+    }
+
+    @Override
+    public List<TupleInfo> getTupleInfos()
+    {
+        return source.getTupleInfos();
     }
 
     @Override

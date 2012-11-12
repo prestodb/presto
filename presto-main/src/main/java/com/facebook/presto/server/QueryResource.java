@@ -13,8 +13,10 @@ import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.GenericEntity;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
@@ -36,11 +38,12 @@ public class QueryResource
     }
 
     @POST
+    @Produces(MediaType.APPLICATION_JSON)
     public Response create(String query, @Context UriInfo uriInfo)
     {
-        String operatorId = queryManager.createQuery(query);
-        URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(operatorId).build();
-        return Response.created(pagesUri).build();
+        QueryInfo queryInfo = queryManager.createQuery(query);
+        URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryInfo.getQueryId()).build();
+        return Response.created(pagesUri).entity(queryInfo).build();
     }
 
     @GET

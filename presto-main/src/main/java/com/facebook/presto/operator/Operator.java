@@ -3,6 +3,14 @@
  */
 package com.facebook.presto.operator;
 
-public interface Operator extends Iterable<Page> {
+import com.facebook.presto.tuple.TupleInfo;
+
+import java.util.List;
+
+public interface Operator
+        extends Iterable<Page>
+{
     int getChannelCount();
+
+    List<TupleInfo> getTupleInfos();
 }

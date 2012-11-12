@@ -6,6 +6,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
@@ -19,6 +20,7 @@ public class FilterAndProjectOperator implements Operator
     private final Operator source;
     private final FilterFunction filter;
     private final List<ProjectionFunction> projections;
+    private final List<TupleInfo> tupleInfos;
 
     public FilterAndProjectOperator(Operator source, FilterFunction filter, ProjectionFunction... projections)
     {
@@ -30,12 +32,24 @@ public class FilterAndProjectOperator implements Operator
         this.source = source;
         this.filter = filter;
         this.projections = ImmutableList.copyOf(projections);
+
+        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
+        for (ProjectionFunction projection : projections) {
+            tupleInfos.add(projection.getTupleInfo());
+        }
+        this.tupleInfos = tupleInfos.build();
     }
 
     @Override
     public int getChannelCount()
     {
         return projections.size();
+    }
+
+    @Override
+    public List<TupleInfo> getTupleInfos()
+    {
+        return tupleInfos;
     }
 
     @Override
