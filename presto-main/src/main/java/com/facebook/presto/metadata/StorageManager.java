@@ -4,11 +4,14 @@ import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.Operator;
 
 import java.io.IOException;
+import java.util.List;
 
 public interface StorageManager
 {
-    long importTableShard(Operator source, String databaseName, String tableName)
+    void importShard(long shardId, List<Long> columnIds, Operator source)
             throws IOException;
 
-    BlockIterable getBlocks(String databaseName, String tableName, int fieldIndex);
+    BlockIterable getBlocks(long shardId, long columnId);
+
+    boolean shardExists(long shardId);
 }

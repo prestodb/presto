@@ -3,25 +3,29 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
-import com.facebook.presto.hive.HiveClient;
+import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.hive.ImportClient;
+import com.facebook.presto.hive.SchemaField;
+import com.facebook.presto.importer.ImportField;
+import com.facebook.presto.importer.ImportManager;
 import com.facebook.presto.ingest.DelimitedRecordIterable;
+import com.facebook.presto.ingest.ImportSchemaUtil;
 import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.ingest.RecordProjection;
 import com.facebook.presto.ingest.RecordProjections;
 import com.facebook.presto.metadata.ColumnMetadata;
-import com.facebook.presto.metadata.HiveImportManager;
+import com.facebook.presto.metadata.LegacyStorageManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.StorageManager;
+import com.facebook.presto.metadata.NativeColumnHandle;
+import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.aggregation.LongSumAggregation;
+import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -29,8 +33,6 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Ordering;
 import com.google.common.io.Files;
 import com.google.common.io.InputSupplier;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -48,26 +50,25 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.operator.ProjectionFunctions.concat;
+import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
-import static com.facebook.presto.util.RetryDriver.runWithRetry;
-import static com.facebook.presto.operator.ProjectionFunctions.concat;
-import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 
-public class StaticQueryManager implements QueryManager
+public class StaticQueryManager
+        implements QueryManager
 {
     private final int pageBufferMax;
     private final ExecutorService executor;
-    private final HiveClient hiveClient;
+    private final ImportClient importClient;
+    private final ImportManager importManager;
     private final Metadata metadata;
-    private final StorageManager storageManager;
-    private final HiveImportManager hiveImportManager;
+    private final LegacyStorageManager storageManager;
 
     @GuardedBy("this")
     private int nextQueryId;
@@ -77,20 +78,20 @@ public class StaticQueryManager implements QueryManager
     private final Map<String, QueryState> queries = new HashMap<>();
 
     @Inject
-    public StaticQueryManager(HiveClient hiveClient, Metadata metadata, StorageManager storageManager, HiveImportManager hiveImportManager)
+    public StaticQueryManager(ImportClient importClient, ImportManager importManager, Metadata metadata, LegacyStorageManager storageManager)
     {
-        this(20, hiveClient, metadata, storageManager, hiveImportManager);
+        this(20, importClient, importManager, metadata, storageManager);
     }
 
-    public StaticQueryManager(int pageBufferMax, HiveClient hiveClient, Metadata metadata, StorageManager storageManager, HiveImportManager hiveImportManager)
+    public StaticQueryManager(int pageBufferMax, ImportClient importClient, ImportManager importManager, Metadata metadata, LegacyStorageManager storageManager)
     {
         Preconditions.checkArgument(pageBufferMax > 0, "blockBufferMax must be at least 1");
         this.pageBufferMax = pageBufferMax;
-        executor = Executors.newFixedThreadPool(50, new ThreadFactoryBuilder().setNameFormat("http-query-processor-%d").build()) ;
-        this.hiveClient = hiveClient;
+        executor = Executors.newFixedThreadPool(50, new ThreadFactoryBuilder().setNameFormat("http-query-processor-%d").build());
+        this.importClient = importClient;
+        this.importManager = importManager;
         this.metadata = metadata;
         this.storageManager = storageManager;
-        this.hiveImportManager = hiveImportManager;
     }
 
     @Override
@@ -153,14 +154,9 @@ public class StaticQueryManager implements QueryManager
                         Splitter.on(strings.get(4)));
                 break;
 
-            // e.g.: import-hive-table:default:hivedba_query_stats
-            case "import-hive-table":
-                queryTask = new ImportHiveTableQuery(queryState, hiveClient, executor, strings.get(1), strings.get(2));
-                break;
-
-            // e.g.: import-hive-table-partition:default:hivedba_query_stats:ds=2012-07-11/cluster_name=silver
-            case "import-hive-table-partition":
-                queryTask = new ImportHiveTablePartitionQuery(queryState, hiveImportManager, strings.get(1), strings.get(2), strings.get(3));
+            // e.g.: import-table:hive:default:hivedba_query_stats
+            case "import-table":
+                queryTask = new ImportTableQuery(queryState, importClient, importManager, metadata, strings.get(1), strings.get(2), strings.get(3));
                 break;
 
             default:
@@ -213,7 +209,8 @@ public class StaticQueryManager implements QueryManager
         List<TupleInfo> getTupleInfos();
     }
 
-    private static class SumQuery implements QueryTask
+    private static class SumQuery
+            implements QueryTask
     {
         private static final List<TupleInfo> TUPLE_INFOS = ImmutableList.of(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64));
 
@@ -279,15 +276,16 @@ public class StaticQueryManager implements QueryManager
         }
     }
 
-    private static class PartialSumQuery implements QueryTask
+    private static class PartialSumQuery
+            implements QueryTask
     {
         private static final List<TupleInfo> TUPLE_INFOS = ImmutableList.of(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64));
 
         private final Metadata metadata;
-        private final StorageManager storageManager;
+        private final LegacyStorageManager storageManager;
         private final QueryState queryState;
 
-        public PartialSumQuery(Metadata metadata, StorageManager storageManager, QueryState queryState)
+        public PartialSumQuery(Metadata metadata, LegacyStorageManager storageManager, QueryState queryState)
         {
             this.metadata = metadata;
             this.storageManager = storageManager;
@@ -342,37 +340,37 @@ public class StaticQueryManager implements QueryManager
             final int columnIndex = index;
             return storageManager.getBlocks("default", tableName, columnIndex);
         }
-
     }
 
-    private static class ImportHiveTableQuery
+    private static class ImportTableQuery
             implements QueryTask
     {
         private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_LONG);
-        private static final int MAX_SIMULTANEOUS_IMPORTS = 100;
 
         private final QueryState queryState;
-        private final HiveClient hiveClient;
+        private final ImportClient importClient;
+        private final ImportManager importManager;
+        private final Metadata metadata;
+        private final String sourceName;
         private final String databaseName;
         private final String tableName;
-        private final AsyncHttpClient asyncHttpClient;
 
-        private ImportHiveTableQuery(
+        private ImportTableQuery(
                 QueryState queryState,
-                HiveClient hiveClient,
-                ExecutorService executorService,
+                ImportClient importClient,
+                ImportManager importManager,
+                Metadata metadata,
+                String sourceName,
                 String databaseName,
                 String tableName)
         {
             this.queryState = queryState;
-            this.hiveClient = hiveClient;
+            this.importClient = importClient;
+            this.importManager = importManager;
+            this.metadata = metadata;
+            this.sourceName = sourceName;
             this.databaseName = databaseName;
             this.tableName = tableName;
-
-            ApacheHttpClient httpClient = new ApacheHttpClient(new HttpClientConfig()
-                    .setConnectTimeout(new Duration(15, TimeUnit.MINUTES))
-                    .setReadTimeout(new Duration(30, TimeUnit.MINUTES)));
-            asyncHttpClient = new AsyncHttpClient(httpClient, executorService);
         }
 
         @Override
@@ -385,36 +383,21 @@ public class StaticQueryManager implements QueryManager
         public void run()
         {
             try {
-                List<String> partitionNames = runWithRetry(new Callable<List<String>>()
-                {
-                    @Override
-                    public List<String> call()
-                            throws Exception
-                    {
-                        return Ordering.natural().immutableSortedCopy(hiveClient.getPartitionNames(databaseName, tableName));
-                    }
-                }, databaseName + "." + tableName + ".getPartitionNames");
+                String catalogName = "default";
+                String schemaName = "default";
 
-                for (List<String> subPartitionList : Lists.partition(partitionNames, MAX_SIMULTANEOUS_IMPORTS)) {
-                    ImmutableList.Builder<QueryDriverProvider> queryDriverProviderBuilder = ImmutableList.builder();
-                    for (String subPartitionName : subPartitionList) {
-                        queryDriverProviderBuilder.add(new HttpQueryProvider(
-                                "import-hive-table-partition:" + databaseName + ":" + tableName + ":" + subPartitionName,
-                                asyncHttpClient,
-                                URI.create("http://localhost:8080/v1/presto/query") // TODO: HACK to distribute the queries locally
-                                ,
-                                ImmutableList.of(SINGLE_LONG)));
-                    }
+                List<SchemaField> schema = importClient.getTableSchema(databaseName, tableName);
+                List<ColumnMetadata> columns = ImportSchemaUtil.createColumnMetadata(schema);
+                TableMetadata table = new TableMetadata(catalogName, schemaName, tableName, columns);
+                metadata.createTable(table);
 
-                    // TODO: this currently leaks query resources (need to delete)
-                    QueryDriversOperator operator = new QueryDriversOperator(10, queryDriverProviderBuilder.build());
-                    AggregationOperator sumOperator = new AggregationOperator(operator,
-                            ImmutableList.of(LongSumAggregation.provider(0, 0)),
-                            ImmutableList.of(concat(singleColumn(FIXED_INT_64, 0, 0))));
-                    for (Page page : sumOperator) {
-                        queryState.addPage(page);
-                    }
-                }
+                table = metadata.getTable(catalogName, schemaName, tableName);
+                long tableId = ((NativeTableHandle) table.getTableHandle().get()).getTableId();
+                List<ImportField> fields = getImportFields(table.getColumns());
+
+                importManager.importTable(tableId, sourceName, databaseName, tableName, fields);
+
+                queryState.addPage(new Page(new BlockBuilder(TupleInfo.SINGLE_LONG).append(0).build()));
                 queryState.sourceFinished();
             }
             catch (InterruptedException e) {
@@ -427,56 +410,15 @@ public class StaticQueryManager implements QueryManager
                 throw Throwables.propagate(e);
             }
         }
-    }
 
-    private static class ImportHiveTablePartitionQuery
-            implements QueryTask
-    {
-        private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_LONG);
-
-        private final QueryState queryState;
-        private final HiveImportManager hiveImportManager;
-        private final String databaseName;
-        private final String tableName;
-        private final String partitionName;
-
-        private ImportHiveTablePartitionQuery(
-                QueryState queryState,
-                HiveImportManager hiveImportManager,
-                String databaseName,
-                String tableName,
-                String partitionName)
+        private static List<ImportField> getImportFields(List<ColumnMetadata> columns)
         {
-            this.queryState = queryState;
-            this.hiveImportManager = hiveImportManager;
-            this.databaseName = databaseName;
-            this.tableName = tableName;
-            this.partitionName = partitionName;
-        }
-
-        @Override
-        public List<TupleInfo> getTupleInfos()
-        {
-            return TUPLE_INFOS;
-        }
-
-        @Override
-        public void run()
-        {
-            try {
-                long rowCount = hiveImportManager.importPartition(databaseName, tableName, partitionName);
-                queryState.addPage(new Page(new BlockBuilder(SINGLE_LONG).append(rowCount).build()));
-                queryState.sourceFinished();
+            ImmutableList.Builder<ImportField> fields = ImmutableList.builder();
+            for (ColumnMetadata column : columns) {
+                long columnId = ((NativeColumnHandle) column.getColumnHandle().get()).getColumnId();
+                fields.add(new ImportField(columnId, column.getType(), column.getName()));
             }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                queryState.queryFailed(e);
-                throw Throwables.propagate(e);
-            }
-            catch (Exception e) {
-                queryState.queryFailed(e);
-                throw Throwables.propagate(e);
-            }
+            return fields.build();
         }
     }
 
@@ -486,14 +428,14 @@ public class StaticQueryManager implements QueryManager
         private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_LONG);
 
         private final QueryState queryState;
-        private final StorageManager storageManager;
+        private final LegacyStorageManager storageManager;
         private final String databaseName;
         private final String tableName;
         private final RecordProjectOperator source;
 
         public ImportDelimited(
                 QueryState queryState,
-                StorageManager storageManager,
+                LegacyStorageManager storageManager,
                 String databaseName,
                 String tableName,
                 TupleInfo tupleInfo,
@@ -526,9 +468,12 @@ public class StaticQueryManager implements QueryManager
         public void run()
         {
             try {
-                long rowCount = storageManager.importTableShard(source, databaseName, tableName);
+                // TODO: fix this
+//                long rowCount = storageManager.importShard(source, databaseName, tableName);
+                long rowCount = 0;
                 queryState.addPage(new Page(new BlockBuilder(SINGLE_LONG).append(rowCount).build()));
                 queryState.sourceFinished();
+                throw new UnsupportedOperationException();
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
