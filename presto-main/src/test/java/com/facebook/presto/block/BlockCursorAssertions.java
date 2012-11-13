@@ -2,7 +2,6 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.Tuples;
 import com.google.common.collect.ImmutableSortedMap;
 
 import java.util.SortedMap;
@@ -18,75 +17,8 @@ public class BlockCursorAssertions
         assertTrue(cursor.advanceNextPosition());
     }
 
-    public static void assertAdvanceNextValue(BlockCursor cursor) {
-        assertTrue(cursor.advanceNextValue());
-    }
-
     public static void assertAdvanceToPosition(BlockCursor cursor, int position) {
         assertTrue(cursor.advanceToPosition(position));
-    }
-
-    public static void assertNextPosition(BlockCursor cursor, int position)
-    {
-        assertAdvanceNextPosition(cursor);
-        assertEquals(cursor.getPosition(), position);
-    }
-
-    public static void assertNextValuePosition(BlockCursor cursor, int position)
-    {
-        assertAdvanceNextValue(cursor);
-        assertEquals(cursor.getPosition(), position);
-    }
-
-    public static void assertNextValue(BlockCursor cursor, int position, String value)
-    {
-        assertNextValue(cursor, position, Tuples.createTuple(value));
-    }
-
-    public static void assertNextPosition(BlockCursor cursor, int position, String value)
-    {
-        assertNextPosition(cursor, position, Tuples.createTuple(value));
-    }
-
-    public static void assertCurrentValue(BlockCursor cursor, int position, String value)
-    {
-        assertCurrentValue(cursor, position, Tuples.createTuple(value));
-    }
-
-    public static void assertNextValue(BlockCursor cursor, int position, long value)
-    {
-        assertNextValue(cursor, position, Tuples.createTuple(value));
-    }
-
-    public static void assertNextPosition(BlockCursor cursor, int position, long value)
-    {
-        assertNextPosition(cursor, position, Tuples.createTuple(value));
-    }
-
-    public static void assertCurrentValue(BlockCursor cursor, int position, long value)
-    {
-        assertCurrentValue(cursor, position, Tuples.createTuple(value));
-    }
-
-    public static void assertNextValue(BlockCursor cursor, int position, double value)
-    {
-        assertNextValue(cursor, position, Tuples.createTuple(value));
-    }
-
-    public static void assertNextPosition(BlockCursor cursor, int position, double value)
-    {
-        assertNextPosition(cursor, position, Tuples.createTuple(value));
-    }
-
-    public static void assertCurrentValue(BlockCursor cursor, int position, double value)
-    {
-        assertCurrentValue(cursor, position, Tuples.createTuple(value));
-    }
-
-    public static void assertNextValue(BlockCursor cursor, int position, Tuple tuple)
-    {
-        assertAdvanceNextValue(cursor);
-        assertCurrentValue(cursor, position, tuple);
     }
 
     public static void assertNextPosition(BlockCursor cursor, int position, Tuple tuple)
@@ -163,13 +95,5 @@ public class BlockCursorAssertions
             tuples.put(cursor.getPosition(), cursor.getTuple());
         }
         return tuples.build();
-    }
-
-    public static void assertPositions(BlockCursor cursor, int... positions)
-    {
-        for (int position : positions) {
-            assertAdvanceNextPosition(cursor);
-            assertEquals(cursor.getPosition(), position);
-        }
     }
 }

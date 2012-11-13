@@ -49,12 +49,6 @@ public class DictionaryEncodedBlockCursor implements BlockCursor
     }
 
     @Override
-    public boolean advanceNextValue()
-    {
-        return sourceCursor.advanceNextValue();
-    }
-
-    @Override
     public boolean advanceNextPosition()
     {
         return sourceCursor.advanceNextPosition();
@@ -112,12 +106,6 @@ public class DictionaryEncodedBlockCursor implements BlockCursor
     public boolean currentTupleEquals(Tuple value)
     {
         return dictionary.tupleEquals(getDictionaryKey(), value);
-    }
-
-    @Override
-    public int getCurrentValueEndPosition()
-    {
-        return sourceCursor.getCurrentValueEndPosition();
     }
 
     public int getDictionaryKey()

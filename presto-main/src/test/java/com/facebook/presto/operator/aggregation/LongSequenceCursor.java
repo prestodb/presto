@@ -54,12 +54,6 @@ public class LongSequenceCursor
     }
 
     @Override
-    public boolean advanceNextValue()
-    {
-        return advanceNextPosition();
-    }
-
-    @Override
     public boolean advanceNextPosition()
     {
         current++;
@@ -118,13 +112,6 @@ public class LongSequenceCursor
 
     @Override
     public int getPosition()
-    {
-        checkReadablePosition();
-        return current;
-    }
-
-    @Override
-    public int getCurrentValueEndPosition()
     {
         checkReadablePosition();
         return current;
