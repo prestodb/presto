@@ -1,8 +1,11 @@
 package com.facebook.presto.cli;
 
-import com.facebook.presto.Main;
 import com.facebook.presto.metadata.DatabaseMetadata;
+import com.facebook.presto.metadata.DatabaseShardManager;
 import com.facebook.presto.metadata.DatabaseStorageManager;
+import com.facebook.presto.metadata.LegacyStorageManager;
+import com.facebook.presto.metadata.LegacyStorageManagerFacade;
+import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.operator.ConsolePrinter;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.sql.compiler.AnalysisResult;
@@ -17,8 +20,8 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Throwables;
 import com.google.common.io.Files;
-import io.airlift.command.Arguments;
 import io.airlift.command.Command;
+import io.airlift.command.Option;
 import io.airlift.units.Duration;
 import org.antlr.runtime.RecognitionException;
 import org.skife.jdbi.v2.DBI;
@@ -32,31 +35,44 @@ import static com.google.common.base.Charsets.UTF_8;
 public class LocalQueryCommand
         implements Runnable
 {
-    private final DatabaseStorageManager storageManager;
+    private final LegacyStorageManager storageManager;
     private final DatabaseMetadata metadata;
 
-    @Arguments(required = true)
+    @Option(name = "-f", title = "file")
     public String file;
+
+    @Option(name = "-q", title = "query")
+    public String query;
 
     public LocalQueryCommand()
     {
+        DBI shardManagerDbi = new DBI("jdbc:h2:file:var/presto-data/db/ShardManager;DB_CLOSE_DELAY=-1");
         DBI storageManagerDbi = new DBI("jdbc:h2:file:var/presto-data/db/StorageManager;DB_CLOSE_DELAY=-1");
         DBI metadataDbi = new DBI("jdbc:h2:file:var/presto-data/db/Metadata;DB_CLOSE_DELAY=-1");
 
-        storageManager = new DatabaseStorageManager(storageManagerDbi);
+        DatabaseStorageManager newStorageManager = new DatabaseStorageManager(storageManagerDbi);
+        ShardManager shardManager = new DatabaseShardManager(shardManagerDbi);
+
         metadata = new DatabaseMetadata(metadataDbi);
+        storageManager = new LegacyStorageManagerFacade(newStorageManager, metadata, shardManager);
     }
 
     public void run()
     {
+        if (file != null) {
+            try {
+                query = Files.toString(new File(file), UTF_8);
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
+        }
+
         Statement statement;
         try {
-            statement = SqlParser.createStatement(Files.toString(new File(file), UTF_8));
+            statement = SqlParser.createStatement(query);
         }
         catch (RecognitionException e) {
-            throw Throwables.propagate(e);
-        }
-        catch (IOException e) {
             throw Throwables.propagate(e);
         }
 

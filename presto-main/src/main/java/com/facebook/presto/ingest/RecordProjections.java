@@ -3,10 +3,13 @@
  */
 package com.facebook.presto.ingest;
 
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
-import com.facebook.presto.block.BlockBuilder;
 import com.google.common.base.Charsets;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 
 public final class RecordProjections {
     private RecordProjections()
@@ -16,6 +19,22 @@ public final class RecordProjections {
     public static RecordProjection createProjection(int field, Type type)
     {
         return new SimpleRecordProjection(type, field);
+    }
+
+    public static List<RecordProjection> createProjections(Type... types)
+    {
+        return createProjections(ImmutableList.copyOf(types));
+    }
+
+    public static List<RecordProjection> createProjections(Iterable<Type> types)
+    {
+        ImmutableList.Builder<RecordProjection> list = ImmutableList.builder();
+        int field = 0;
+        for (Type type : types) {
+            list.add(createProjection(field, type));
+            field++;
+        }
+        return list.build();
     }
 
     private static class SimpleRecordProjection implements RecordProjection

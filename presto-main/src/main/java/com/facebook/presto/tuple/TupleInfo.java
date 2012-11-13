@@ -15,6 +15,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
+import org.codehaus.jackson.annotate.JsonValue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -132,6 +133,7 @@ public class TupleInfo
             return size != -1;
         }
 
+        @JsonValue
         public String getName()
         {
             return name;
@@ -141,6 +143,7 @@ public class TupleInfo
 
         public abstract void convert(String value, Builder tupleBuilder);
 
+        @JsonCreator
         public static Type fromName(String name)
         {
             checkNotNull(name, "name is null");
