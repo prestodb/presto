@@ -15,7 +15,7 @@ public class TestUncompressedSliceBlockCursor extends AbstractTestBlockCursor
     @Override
     protected Block createExpectedValues()
     {
-        return createStringsBlock(0, "apple", "apple", "apple", "banana", "banana", "banana", "banana", "banana", "cherry", "cherry", "date");
+        return createStringsBlock("apple", "apple", "apple", "banana", "banana", "banana", "banana", "banana", "cherry", "cherry", "date");
     }
 
     @Test

@@ -15,7 +15,7 @@ public class TestUncompressedLongBlockCursorWithNulls
     @Override
     protected Block createExpectedValues()
     {
-        return createLongsBlock(0, null, 1111L, null, 2222L, null, 2222L, null, 2222L, null, 3333L, null);
+        return createLongsBlock(null, 1111L, null, 2222L, null, 2222L, null, 2222L, null, 3333L, null);
     }
 
     @Test

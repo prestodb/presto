@@ -1,13 +1,12 @@
 package com.facebook.presto.block.rle;
 
-import com.facebook.presto.util.Range;
 import com.facebook.presto.block.AbstractTestBlockCursor;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tuple.Tuples.createTuple;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
+import static com.facebook.presto.tuple.Tuples.createTuple;
 import static org.testng.Assert.assertFalse;
 
 public class TestRunLengthEncodedBlockCursor extends AbstractTestBlockCursor
@@ -40,13 +39,13 @@ public class TestRunLengthEncodedBlockCursor extends AbstractTestBlockCursor
     @Override
     protected RunLengthEncodedBlockCursor createTestCursor()
     {
-        return new RunLengthEncodedBlock(createTuple("cherry"), Range.create(0, 10)).cursor();
+        return new RunLengthEncodedBlock(createTuple("cherry"), 11).cursor();
     }
 
     @Override
     protected Block createExpectedValues()
     {
-        return createStringsBlock(0,
+        return createStringsBlock(
                 "cherry",
                 "cherry",
                 "cherry",

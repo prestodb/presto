@@ -4,7 +4,6 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.serde.RunLengthBlockEncoding;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.util.Range;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
@@ -12,21 +11,21 @@ public class RunLengthEncodedBlock
         implements Block
 {
     private final Tuple value;
-    private final Range range;
-    private final Range rawRange;
+    private final int positionCount;
+    private final int rawPositionCount;
 
-    public RunLengthEncodedBlock(Tuple value, Range range)
+    public RunLengthEncodedBlock(Tuple value, int positionCount)
     {
         this.value = value;
-        this.range = range;
-        this.rawRange = range;
+        this.positionCount = positionCount;
+        this.rawPositionCount = positionCount;
     }
 
-    private RunLengthEncodedBlock(Tuple value, Range range, Range rawRange)
+    public RunLengthEncodedBlock(Tuple value, int positionCount, int rawPositionCount)
     {
         this.value = value;
-        this.range = range;
-        this.rawRange = rawRange;
+        this.positionCount = positionCount;
+        this.rawPositionCount = rawPositionCount;
     }
 
     public Tuple getValue()
@@ -42,19 +41,7 @@ public class RunLengthEncodedBlock
     @Override
     public int getPositionCount()
     {
-        return (int) (range.getEnd() - range.getStart() + 1);
-    }
-
-    @Override
-    public Range getRange()
-    {
-        return range;
-    }
-
-    @Override
-    public Range getRawRange()
-    {
-        return rawRange;
+        return positionCount;
     }
 
     @Override
@@ -64,10 +51,16 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public Block createViewPort(Range viewPortRange)
+    public int getRawPositionCount()
     {
-        Preconditions.checkArgument(rawRange.contains(viewPortRange), "view port range is must be within the range range of this block");
-        return new RunLengthEncodedBlock(value, viewPortRange, rawRange);
+        return rawPositionCount;
+    }
+
+    @Override
+    public Block createViewPort(int rawPosition, int length)
+    {
+        Preconditions.checkPositionIndexes(rawPosition, rawPosition + length, rawPositionCount);
+        return new RunLengthEncodedBlock(value, length, rawPositionCount);
     }
 
     @Override
@@ -81,14 +74,14 @@ public class RunLengthEncodedBlock
     {
         return Objects.toStringHelper(this)
                 .add("value", value)
-                .add("range", range)
+                .add("positionCount", positionCount)
                 .toString();
     }
 
     @Override
     public RunLengthEncodedBlockCursor cursor()
     {
-        return new RunLengthEncodedBlockCursor(value, range);
+        return new RunLengthEncodedBlockCursor(value, positionCount);
     }
 
 }

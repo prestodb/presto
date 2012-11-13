@@ -24,7 +24,7 @@ public class TestConsolePrinter
 
     public TestConsolePrinter()
     {
-        BlockBuilder builder = new BlockBuilder(0, new TupleInfo(FIXED_INT_64, VARIABLE_BINARY));
+        BlockBuilder builder = new BlockBuilder(new TupleInfo(FIXED_INT_64, VARIABLE_BINARY));
         builder.append(0);
         builder.append("zero".getBytes(UTF_8));
         builder.append(1);

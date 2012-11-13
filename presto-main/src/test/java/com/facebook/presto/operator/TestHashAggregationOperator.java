@@ -27,7 +27,7 @@ public class TestHashAggregationOperator
     public void testAlignment()
             throws Exception
     {
-        Block expectedBlock = new BlockBuilder(0, new TupleInfo(VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64, DOUBLE))
+        Block expectedBlock = new BlockBuilder(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64, FIXED_INT_64, DOUBLE))
                 .append("0").append(3).append(0).append(0.0)
                 .append("1").append(3).append(3).append(1.0)
                 .append("2").append(3).append(6).append(2.0)

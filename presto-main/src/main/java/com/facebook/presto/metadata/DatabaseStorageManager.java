@@ -297,15 +297,11 @@ public class DatabaseStorageManager
 
          List<Block> blocks = ImmutableList.copyOf(Iterables.concat(Iterables.transform(files, new Function<File, Iterable<? extends Block>>()
          {
-             private long startPosition;
-
              @Override
              public Iterable<? extends Block> apply(File file)
              {
                  Slice slice = mappedFileCache.getUnchecked(file.getAbsolutePath().replace("/Users/dain/work/fb/presto/", ""));
-                 BlocksFileReader blocks = BlocksFileReader.readBlocks(slice, startPosition);
-                 long rowCount = blocks.getStats().getRowCount();
-                 startPosition += rowCount;
+                 BlocksFileReader blocks = BlocksFileReader.readBlocks(slice);
                  return blocks;
              }
          })));

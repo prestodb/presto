@@ -19,7 +19,7 @@ public interface BlockEncoding
      * Read a block from the specified input.  The returned
      * block should begin at the specified position.
      */
-    Block readBlock(SliceInput input, long positionOffset);
+    Block readBlock(SliceInput input);
 
     /**
      * Write the specified block to the specified output

@@ -3,12 +3,9 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.util.Range;
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
@@ -78,7 +75,6 @@ public class QueryDriversOperator
     {
         private final QueryState queryState;
         private final List<QueryDriver> queryDrivers;
-        private long position;
 
         private QueryDriversIterator(QueryState queryState, Iterable<QueryDriver> queries)
         {
@@ -112,18 +108,6 @@ public class QueryDriversOperator
                 }
 
                 Page page = Iterables.getOnlyElement(nextPages);
-
-                // rewrite the block positions
-                Block[] blocks = page.getBlocks();
-                for (int i = 0; i < blocks.length; i++) {
-                    UncompressedBlock block = (UncompressedBlock) blocks[i];
-                    blocks[i] = new UncompressedBlock(new Range(position, position + block.getPositionCount() - 1),
-                            block.getTupleInfo(),
-                            block.getSlice());
-                }
-                page = new Page(blocks);
-                position += page.getPositionCount();
-
                 return page;
             }
             catch (InterruptedException e) {

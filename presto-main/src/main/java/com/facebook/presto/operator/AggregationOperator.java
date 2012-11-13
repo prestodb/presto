@@ -98,7 +98,7 @@ public class AggregationOperator
         // project results into output blocks
         Block[] blocks = new Block[projections.size()];
         for (int i = 0; i < blocks.length; i++) {
-            BlockBuilder output = new BlockBuilder(0, projections.get(i).getTupleInfo());
+            BlockBuilder output = new BlockBuilder(projections.get(i).getTupleInfo());
             projections.get(i).project(results, output);
             blocks[i] = output.build();
         }

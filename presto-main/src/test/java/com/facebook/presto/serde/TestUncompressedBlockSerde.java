@@ -20,7 +20,7 @@ public class TestUncompressedBlockSerde
     @Test
     public void testRoundTrip()
     {
-        UncompressedBlock expectedBlock = new BlockBuilder(0, SINGLE_VARBINARY)
+        UncompressedBlock expectedBlock = new BlockBuilder(SINGLE_VARBINARY)
                 .append("alice")
                 .append("bob")
                 .append("charlie")
@@ -30,7 +30,7 @@ public class TestUncompressedBlockSerde
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         BlockEncoding blockEncoding = new UncompressedBlockEncoding(SINGLE_VARBINARY);
         blockEncoding.writeBlock(sliceOutput, expectedBlock);
-        Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput(), 0);
+        Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
         BlockAssertions.assertBlockEquals(actualBlock, expectedBlock);
     }
 
@@ -44,8 +44,8 @@ public class TestUncompressedBlockSerde
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         BlockEncoding blockEncoding = new UncompressedEncoder(sliceOutput).append(tuples).append(tuples).finish();
-        Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput(), 0);
-        BlockAssertions.assertBlockEquals(actualBlock, new BlockBuilder(0, SINGLE_VARBINARY)
+        Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
+        BlockAssertions.assertBlockEquals(actualBlock, new BlockBuilder(SINGLE_VARBINARY)
                 .append("alice")
                 .append("bob")
                 .append("charlie")

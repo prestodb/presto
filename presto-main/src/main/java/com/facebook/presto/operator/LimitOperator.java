@@ -3,7 +3,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.hive.shaded.com.google.common.collect.AbstractIterator;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.util.Range;
 
 import java.util.Iterator;
 import java.util.List;
@@ -72,12 +71,7 @@ public class LimitOperator
                 Block[] blocks = new Block[page.getChannelCount()];
                 for (int channel = 0; channel < page.getChannelCount(); channel++) {
                     Block block = page.getBlock(channel);
-                    blocks[channel] = block.createViewPort(
-                            Range.create(
-                                    block.getRange().getStart(),
-                                    block.getRange().getStart() + remainingLimit - 1
-                            )
-                    );
+                    blocks[channel] = block.createViewPort(0, (int) remainingLimit);
                 }
                 remainingLimit = 0;
                 return new Page(blocks);

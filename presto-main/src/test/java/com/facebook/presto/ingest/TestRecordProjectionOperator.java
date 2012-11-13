@@ -25,7 +25,7 @@ public class TestRecordProjectionOperator
         );
 
         RecordProjectOperator recordProjectOperator = new RecordProjectOperator(records, createProjection(0, VARIABLE_BINARY));
-        assertOperatorEquals(recordProjectOperator, new AlignmentOperator(createStringsBlockIterable(0, "abc", "def", "g")));
+        assertOperatorEquals(recordProjectOperator, new AlignmentOperator(createStringsBlockIterable("abc", "def", "g")));
     }
 
     @Test
@@ -40,8 +40,8 @@ public class TestRecordProjectionOperator
 
         RecordProjectOperator recordProjectOperator = new RecordProjectOperator(records, createProjection(0, VARIABLE_BINARY), createProjection(1, FIXED_INT_64));
         assertOperatorEquals(recordProjectOperator, new AlignmentOperator(
-                createStringsBlockIterable(0, "abc", "def", "g"),
-                createLongsBlockIterable(0, 1, 2, 0)
+                createStringsBlockIterable("abc", "def", "g"),
+                createLongsBlockIterable(1, 2, 0)
         ));
     }
 }

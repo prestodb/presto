@@ -8,7 +8,6 @@ import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceOutput;
 import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.util.Range;
 import com.google.common.base.Preconditions;
 import io.airlift.units.DataSize;
 
@@ -26,7 +25,6 @@ public class UncompressedEncoder
 
     private UncompressedBlockEncoding encoding;
     private boolean finished;
-    private long blockStartPosition = 0;
     private int tupleCount;
 
     public UncompressedEncoder(SliceOutput sliceOutput)
@@ -71,11 +69,9 @@ public class UncompressedEncoder
     private void writeBlock()
     {
         Slice slice = buffer.slice();
-        Range range = new Range(blockStartPosition, blockStartPosition + tupleCount - 1);
-        UncompressedBlock block = new UncompressedBlock(range, encoding.getTupleInfo(), slice);
+        UncompressedBlock block = new UncompressedBlock(tupleCount, encoding.getTupleInfo(), slice);
         encoding.writeBlock(sliceOutput, block);
         buffer.reset();
-        blockStartPosition += tupleCount;
         tupleCount = 0;
     }
 }

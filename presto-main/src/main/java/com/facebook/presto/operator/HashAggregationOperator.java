@@ -89,7 +89,7 @@ public class HashAggregationOperator
 
                 BlockBuilder[] outputs = new BlockBuilder[projections.size()];
                 for (int i = 0; i < outputs.length; i++) {
-                    outputs[i] = new BlockBuilder(position, projections.get(i).getTupleInfo());
+                    outputs[i] = new BlockBuilder(projections.get(i).getTupleInfo());
                 }
 
                 while (!isFull(outputs) && aggregations.hasNext()) {

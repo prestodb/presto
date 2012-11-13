@@ -98,19 +98,17 @@ public final class PagesSerde
     public static Iterator<Page> readPages(SliceInput sliceInput)
     {
         Preconditions.checkNotNull(sliceInput, "sliceInput is null");
-        return new PagesReader(sliceInput, 0);
+        return new PagesReader(sliceInput);
     }
 
     private static class PagesReader extends AbstractIterator<Page>
     {
         private final BlockEncoding[] blockEncodings;
         private final SliceInput sliceInput;
-        private long positionOffset;
 
-        public PagesReader(SliceInput sliceInput, long startPosition)
+        public PagesReader(SliceInput sliceInput)
         {
             this.sliceInput = sliceInput;
-            this.positionOffset = startPosition;
 
             int channelCount = sliceInput.readInt();
 
@@ -129,10 +127,9 @@ public final class PagesSerde
 
             Block[] blocks = new Block[blockEncodings.length];
             for (int i = 0; i < blocks.length; i++) {
-                blocks[i] = blockEncodings[i].readBlock(sliceInput, positionOffset);
+                blocks[i] = blockEncodings[i].readBlock(sliceInput);
             }
             Page page = new Page(blocks);
-            positionOffset += page.getPositionCount();
             return page;
         }
     }

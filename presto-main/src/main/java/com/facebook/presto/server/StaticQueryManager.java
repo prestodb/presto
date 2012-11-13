@@ -465,7 +465,7 @@ public class StaticQueryManager implements QueryManager
         {
             try {
                 long rowCount = hiveImportManager.importPartition(databaseName, tableName, partitionName);
-                queryState.addPage(new Page(new BlockBuilder(0, SINGLE_LONG).append(rowCount).build()));
+                queryState.addPage(new Page(new BlockBuilder(SINGLE_LONG).append(rowCount).build()));
                 queryState.sourceFinished();
             }
             catch (InterruptedException e) {
@@ -527,7 +527,7 @@ public class StaticQueryManager implements QueryManager
         {
             try {
                 long rowCount = storageManager.importTableShard(source, databaseName, tableName);
-                queryState.addPage(new Page(new BlockBuilder(0, SINGLE_LONG).append(rowCount).build()));
+                queryState.addPage(new Page(new BlockBuilder(SINGLE_LONG).append(rowCount).build()));
                 queryState.sourceFinished();
             }
             catch (InterruptedException e) {

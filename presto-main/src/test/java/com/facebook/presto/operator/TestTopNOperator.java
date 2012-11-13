@@ -23,16 +23,16 @@ public class TestTopNOperator
     {
         Operator source = createOperator(
                 new Page(
-                        BlockAssertions.createLongsBlock(0, 1, 2),
-                        BlockAssertions.createDoublesBlock(0, 0.1, 0.2)
+                        BlockAssertions.createLongsBlock(1, 2),
+                        BlockAssertions.createDoublesBlock(0.1, 0.2)
                 ),
                 new Page(
-                        BlockAssertions.createLongsBlock(2, -1, 4),
-                        BlockAssertions.createDoublesBlock(2, -0.1, 0.4)
+                        BlockAssertions.createLongsBlock(-1, 4),
+                        BlockAssertions.createDoublesBlock(-0.1, 0.4)
                 ),
                 new Page(
-                        BlockAssertions.createLongsBlock(4, 5, 4, 6),
-                        BlockAssertions.createDoublesBlock(4, 0.5, 0.41, 0.6)
+                        BlockAssertions.createLongsBlock(5, 4, 6),
+                        BlockAssertions.createDoublesBlock(0.5, 0.41, 0.6)
                 )
         );
 
@@ -42,8 +42,8 @@ public class TestTopNOperator
 
         Operator expected = createOperator(
                 new Page(
-                        BlockAssertions.createLongsBlock(0, 6, 5),
-                        BlockAssertions.createDoublesBlock(0, 0.6, 0.5)
+                        BlockAssertions.createLongsBlock(6, 5),
+                        BlockAssertions.createDoublesBlock(0.6, 0.5)
                 )
         );
         assertOperatorEquals(actual, expected);
@@ -56,19 +56,19 @@ public class TestTopNOperator
         TupleInfo tupleInfo = new TupleInfo(VARIABLE_BINARY, FIXED_INT_64);
         Operator source = createOperator(
                 new Page(
-                        new BlockBuilder(0, tupleInfo)
+                        new BlockBuilder(tupleInfo)
                                 .append("a").append(1)
                                 .append("b").append(2)
                                 .build()
                 ),
                 new Page(
-                        new BlockBuilder(2, tupleInfo)
+                        new BlockBuilder(tupleInfo)
                                 .append("f").append(3)
                                 .append("a").append(4)
                                 .build()
                 ),
                 new Page(
-                        new BlockBuilder(4, tupleInfo)
+                        new BlockBuilder(tupleInfo)
                                 .append("d").append(5)
                                 .append("d").append(7)
                                 .append("e").append(6)
@@ -83,7 +83,7 @@ public class TestTopNOperator
 
         Operator expected = createOperator(
                 new Page(
-                        new BlockBuilder(0, tupleInfo)
+                        new BlockBuilder(tupleInfo)
                                 .append("f").append(3)
                                 .append("e").append(6)
                                 .append("d").append(7)
@@ -99,16 +99,16 @@ public class TestTopNOperator
     {
         Operator source = createOperator(
                 new Page(
-                        BlockAssertions.createLongsBlock(0, 1, 2),
-                        BlockAssertions.createDoublesBlock(0, 0.1, 0.2)
+                        BlockAssertions.createLongsBlock(1, 2),
+                        BlockAssertions.createDoublesBlock(0.1, 0.2)
                 ),
                 new Page(
-                        BlockAssertions.createLongsBlock(2, -1, 4),
-                        BlockAssertions.createDoublesBlock(2, -0.1, 0.4)
+                        BlockAssertions.createLongsBlock(-1, 4),
+                        BlockAssertions.createDoublesBlock(-0.1, 0.4)
                 ),
                 new Page(
-                        BlockAssertions.createLongsBlock(4, 5, 4, 6),
-                        BlockAssertions.createDoublesBlock(4, 0.5, 0.41, 0.6)
+                        BlockAssertions.createLongsBlock(5, 4, 6),
+                        BlockAssertions.createDoublesBlock(0.5, 0.41, 0.6)
                 )
         );
 
@@ -119,8 +119,8 @@ public class TestTopNOperator
 
         Operator expected = createOperator(
                 new Page(
-                        BlockAssertions.createLongsBlock(0, -1, 1),
-                        BlockAssertions.createDoublesBlock(0, -0.1, 0.1)
+                        BlockAssertions.createLongsBlock(-1, 1),
+                        BlockAssertions.createDoublesBlock(-0.1, 0.1)
                 )
         );
         assertOperatorEquals(actual, expected);

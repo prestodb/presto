@@ -4,7 +4,6 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.util.Range;
 import com.google.common.base.Preconditions;
 
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_BYTE;
@@ -15,9 +14,7 @@ public class UncompressedLongBlockCursor
 {
     private static final int ENTRY_SIZE = SIZE_OF_LONG + SIZE_OF_BYTE;
     private final Slice slice;
-    private final Range range;
-    private final long startPosition;
-    private final long endPosition;
+    private final int positionCount;
 
     private long position;
     private int offset;
@@ -27,13 +24,10 @@ public class UncompressedLongBlockCursor
         Preconditions.checkNotNull(block, "block is null");
 
         this.slice = block.getSlice();
-        this.range = block.getRange();
-
-        startPosition = range.getStart();
-        endPosition = range.getEnd();
+        this.positionCount = block.getPositionCount();
 
         // start one position before the start
-        position = startPosition - 1;
+        position = -1;
         offset = block.getRawOffset() - ENTRY_SIZE;
     }
 
@@ -44,21 +38,15 @@ public class UncompressedLongBlockCursor
     }
 
     @Override
-    public Range getRange()
-    {
-        return range;
-    }
-
-    @Override
     public boolean isValid()
     {
-        return startPosition <= position && position <= endPosition;
+        return 0 <= position && position < positionCount;
     }
 
     @Override
     public boolean isFinished()
     {
-        return position > endPosition;
+        return position >= positionCount;
     }
 
     private void checkReadablePosition()
@@ -76,8 +64,8 @@ public class UncompressedLongBlockCursor
     @Override
     public boolean advanceNextPosition()
     {
-        if (position >= endPosition) {
-            position = Long.MAX_VALUE;
+        if (position >= positionCount -1) {
+            position = positionCount;
             return false;
         }
 
@@ -90,8 +78,8 @@ public class UncompressedLongBlockCursor
     public boolean advanceToPosition(long newPosition)
     {
         // if new position is out of range, return false
-        if (newPosition > endPosition) {
-            position = Long.MAX_VALUE;
+        if (newPosition >= positionCount) {
+            position = positionCount;
             return false;
         }
 

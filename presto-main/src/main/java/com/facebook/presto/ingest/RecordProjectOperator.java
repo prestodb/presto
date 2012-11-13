@@ -72,7 +72,7 @@ public class RecordProjectOperator implements Operator
         {
             BlockBuilder[] outputs = new BlockBuilder[projections.size()];
             for (int i = 0; i < outputs.length; i++) {
-                outputs[i] = new BlockBuilder(outputPosition, projections.get(i).getTupleInfo());
+                outputs[i] = new BlockBuilder(projections.get(i).getTupleInfo());
 
             }
 

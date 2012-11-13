@@ -15,7 +15,7 @@ public class TestUncompressedDoubleBlockCursorWithNulls
     @Override
     protected Block createExpectedValues()
     {
-        return createDoublesBlock(0, null, 11.11, null, 22.22, null, 22.22, null, 22.22, null, 33.33, null);
+        return createDoublesBlock(null, 11.11, null, 22.22, null, 22.22, null, 22.22, null, 33.33, null);
     }
 
     @Test

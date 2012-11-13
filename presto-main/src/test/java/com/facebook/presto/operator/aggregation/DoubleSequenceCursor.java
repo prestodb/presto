@@ -4,7 +4,6 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.util.Range;
 import com.google.common.base.Preconditions;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -33,12 +32,6 @@ public class DoubleSequenceCursor
     public TupleInfo getTupleInfo()
     {
         return TupleInfo.SINGLE_DOUBLE;
-    }
-
-    @Override
-    public Range getRange()
-    {
-        return new Range(0, max);
     }
 
     @Override

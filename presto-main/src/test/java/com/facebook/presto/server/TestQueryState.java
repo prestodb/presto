@@ -143,7 +143,7 @@ public class TestQueryState
 
     private Page createLongPage(int position, int value)
     {
-        return new Page(createLongsBlock(position, value));
+        return new Page(createLongsBlock(value));
     }
 
     @Test

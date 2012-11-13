@@ -1,10 +1,9 @@
 package com.facebook.presto.block;
 
-import com.facebook.presto.tuple.TupleReadable;
-import com.facebook.presto.util.Range;
+import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.slice.Slice;
+import com.facebook.presto.tuple.TupleReadable;
 
 /**
  * Iterate as:
@@ -26,11 +25,6 @@ public interface BlockCursor
      */
     @Override
     TupleInfo getTupleInfo();
-
-    /**
-     * Gets the upper bound on the range of this cursor
-     */
-    Range getRange();
 
     /**
      * Returns true if the current position of the cursor is valid; false if

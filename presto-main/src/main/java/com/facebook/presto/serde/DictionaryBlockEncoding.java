@@ -53,9 +53,9 @@ public class DictionaryBlockEncoding
     }
 
     @Override
-    public Block readBlock(SliceInput sliceInput, long positionOffset)
+    public Block readBlock(SliceInput sliceInput)
     {
-        Block idBlock = idBlockEncoding.readBlock(sliceInput, positionOffset);
+        Block idBlock = idBlockEncoding.readBlock(sliceInput);
         return new DictionaryEncodedBlock(dictionary, idBlock);
     }
 

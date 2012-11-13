@@ -15,7 +15,7 @@ public class TestUncompressedSliceBlockCursorWithNulls
     @Override
     protected Block createExpectedValues()
     {
-        return createStringsBlock(0, null, "apple", null, "banana", null, "banana", null, "banana", null, "cherry", null);
+        return createStringsBlock(null, "apple", null, "banana", null, "banana", null, "banana", null, "cherry", null);
     }
 
     @Test

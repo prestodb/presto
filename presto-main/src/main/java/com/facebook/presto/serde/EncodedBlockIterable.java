@@ -17,17 +17,14 @@ public class EncodedBlockIterable implements BlockIterable
 {
     private final BlockEncoding blockEncoding;
     private final Slice blocksSlice;
-    private final long positionOffset;
 
-    public EncodedBlockIterable(BlockEncoding blockEncoding, Slice blocksSlice, long positionOffset)
+    public EncodedBlockIterable(BlockEncoding blockEncoding, Slice blocksSlice)
     {
         Preconditions.checkNotNull(blockEncoding, "blockEncoding is null");
         Preconditions.checkNotNull(blocksSlice, "blocksSlice is null");
-        Preconditions.checkArgument(positionOffset >= 0, "positionOffset is negative");
 
         this.blockEncoding = blockEncoding;
         this.blocksSlice = blocksSlice;
-        this.positionOffset = positionOffset;
     }
 
     @Override
@@ -39,7 +36,7 @@ public class EncodedBlockIterable implements BlockIterable
     @Override
     public Iterator<Block> iterator()
     {
-        return new EncodedBlockIterator(blockEncoding, blocksSlice.getInput(), positionOffset);
+        return new EncodedBlockIterator(blockEncoding, blocksSlice.getInput());
     }
 
     private static class EncodedBlockIterator
@@ -47,13 +44,11 @@ public class EncodedBlockIterable implements BlockIterable
     {
         private final BlockEncoding blockEncoding;
         private final SliceInput sliceInput;
-        private final long positionOffset;
 
-        private EncodedBlockIterator(BlockEncoding blockEncoding, SliceInput sliceInput, long positionOffset)
+        private EncodedBlockIterator(BlockEncoding blockEncoding, SliceInput sliceInput)
         {
             this.blockEncoding = blockEncoding;
             this.sliceInput = sliceInput;
-            this.positionOffset = positionOffset;
         }
 
         protected Block computeNext()
@@ -62,7 +57,7 @@ public class EncodedBlockIterable implements BlockIterable
                 return endOfData();
             }
 
-            Block block = blockEncoding.readBlock(sliceInput, positionOffset);
+            Block block = blockEncoding.readBlock(sliceInput);
             return block;
         }
     }

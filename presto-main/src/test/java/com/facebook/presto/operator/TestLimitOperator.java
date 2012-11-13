@@ -13,15 +13,15 @@ public class TestLimitOperator
             throws Exception
     {
         Operator source = createOperator(
-                new Page(BlockAssertions.createLongsBlock(0, 1, 2, 3)),
-                new Page(BlockAssertions.createLongsBlock(3, 4, 5)),
-                new Page(BlockAssertions.createLongsBlock(5, 6, 7))
+                new Page(BlockAssertions.createLongsBlock(1, 2, 3)),
+                new Page(BlockAssertions.createLongsBlock(4, 5)),
+                new Page(BlockAssertions.createLongsBlock(6, 7))
         );
         LimitOperator actual = new LimitOperator(source, 5);
 
         Operator expected = createOperator(
-                        new Page(BlockAssertions.createLongsBlock(0, 1, 2, 3)),
-                        new Page(BlockAssertions.createLongsBlock(3, 4, 5))
+                        new Page(BlockAssertions.createLongsBlock(1, 2, 3)),
+                        new Page(BlockAssertions.createLongsBlock(4, 5))
                 );
         assertOperatorEquals(actual, expected);
     }
@@ -31,15 +31,15 @@ public class TestLimitOperator
             throws Exception
     {
         Operator source = createOperator(
-                new Page(BlockAssertions.createLongsBlock(0, 1, 2, 3)),
-                new Page(BlockAssertions.createLongsBlock(3, 4, 5)),
-                new Page(BlockAssertions.createLongsBlock(5, 6, 7))
+                new Page(BlockAssertions.createLongsBlock(1, 2, 3)),
+                new Page(BlockAssertions.createLongsBlock(4, 5)),
+                new Page(BlockAssertions.createLongsBlock(6, 7))
         );
         LimitOperator actual = new LimitOperator(source, 4);
 
         Operator expected = createOperator(
-                        new Page(BlockAssertions.createLongsBlock(0, 1, 2, 3)),
-                        new Page(BlockAssertions.createLongsBlock(3, 4))
+                        new Page(BlockAssertions.createLongsBlock(1, 2, 3)),
+                        new Page(BlockAssertions.createLongsBlock(4))
                 );
         assertOperatorEquals(actual, expected);
     }
