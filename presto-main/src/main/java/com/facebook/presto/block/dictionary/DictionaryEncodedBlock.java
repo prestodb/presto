@@ -53,9 +53,9 @@ public class DictionaryEncodedBlock
     }
 
     @Override
-    public Block createViewPort(int positionOffset, int length)
+    public Block getRegion(int positionOffset, int length)
     {
-        return new DictionaryEncodedBlock(dictionary, idBlock.createViewPort(positionOffset, length));
+        return new DictionaryEncodedBlock(dictionary, idBlock.getRegion(positionOffset, length));
     }
 
     @Override

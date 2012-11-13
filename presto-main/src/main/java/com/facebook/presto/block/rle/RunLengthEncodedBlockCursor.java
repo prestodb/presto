@@ -80,7 +80,7 @@ public final class RunLengthEncodedBlockCursor implements BlockCursor
     }
 
     @Override
-    public Block createBlockViewPort(int length)
+    public Block getRegionAndAdvance(int length)
     {
         length = Math.min(length, getRemainingPositions());
 

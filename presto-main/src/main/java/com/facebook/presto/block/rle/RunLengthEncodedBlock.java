@@ -42,7 +42,7 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public Block createViewPort(int positionOffset, int length)
+    public Block getRegion(int positionOffset, int length)
     {
         Preconditions.checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
         return new RunLengthEncodedBlock(value, length);

@@ -27,8 +27,8 @@ public interface Block
 
     /**
      * Returns a block starting at the specified position and extends for the
-     * specified length.  The specified view port must be entirely contained
+     * specified length.  The specified region must be entirely contained
      * within this block.
      */
-    Block createViewPort(int positionOffset, int length);
+    Block getRegion(int positionOffset, int length);
 }
