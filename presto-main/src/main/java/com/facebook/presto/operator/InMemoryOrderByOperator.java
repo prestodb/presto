@@ -5,6 +5,7 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -29,6 +30,7 @@ public class InMemoryOrderByOperator
     private final int keyChannelIndex;
     private final List<ProjectionFunction> projections;
     private final Ordering<TupleReadable> ordering;
+    private final ImmutableList<TupleInfo> tupleInfos;
 
     public InMemoryOrderByOperator(Operator source, int keyChannelIndex, List<ProjectionFunction> projections, Ordering<TupleReadable> ordering)
     {
@@ -41,6 +43,12 @@ public class InMemoryOrderByOperator
         this.keyChannelIndex = keyChannelIndex;
         this.projections = ImmutableList.copyOf(projections);
         this.ordering = ordering;
+
+        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
+        for (ProjectionFunction projection : projections) {
+            tupleInfos.add(projection.getTupleInfo());
+        }
+        this.tupleInfos = tupleInfos.build();
     }
 
     public InMemoryOrderByOperator(Operator source, int keyChannelIndex, List<ProjectionFunction> projections)
@@ -52,6 +60,12 @@ public class InMemoryOrderByOperator
     public int getChannelCount()
     {
         return projections.size();
+    }
+
+    @Override
+    public ImmutableList<TupleInfo> getTupleInfos()
+    {
+        return tupleInfos;
     }
 
     @Override

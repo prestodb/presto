@@ -754,6 +754,12 @@ public class TestQueries
         return new BlockIterable()
         {
             @Override
+            public TupleInfo getTupleInfo()
+            {
+                return new TupleInfo(type);
+            }
+
+            @Override
             public Iterator<Block> iterator()
             {
                 return new AbstractIterator<Block>() {

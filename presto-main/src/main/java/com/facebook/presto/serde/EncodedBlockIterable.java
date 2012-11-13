@@ -7,6 +7,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 
@@ -27,6 +28,12 @@ public class EncodedBlockIterable implements BlockIterable
         this.blockEncoding = blockEncoding;
         this.blocksSlice = blocksSlice;
         this.positionOffset = positionOffset;
+    }
+
+    @Override
+    public TupleInfo getTupleInfo()
+    {
+        return blockEncoding.getTupleInfo();
     }
 
     @Override

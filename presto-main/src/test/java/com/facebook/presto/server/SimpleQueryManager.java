@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 
 @ThreadSafe
 public class SimpleQueryManager implements QueryManager
@@ -49,7 +50,7 @@ public class SimpleQueryManager implements QueryManager
     }
 
     @Override
-    public synchronized String createQuery(String query)
+    public synchronized QueryInfo createQuery(String query)
     {
         Preconditions.checkNotNull(query, "query is null");
 
@@ -71,7 +72,7 @@ public class SimpleQueryManager implements QueryManager
         }
         queryState.sourceFinished();
 
-        return queryId;
+        return new QueryInfo(queryId, ImmutableList.of(SINGLE_VARBINARY));
     }
 
     @Override

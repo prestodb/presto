@@ -4,18 +4,14 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.block.BlockIterables;
-import com.facebook.presto.tuple.Tuple;
-import com.google.common.base.Preconditions;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 
 import static com.facebook.presto.block.BlockAssertions.assertBlocksEquals;
 import static org.testng.Assert.assertEquals;
@@ -40,17 +36,30 @@ public final class OperatorAssertions
     {
         private final List<Page> pages;
         private final int channelCount;
+        private final List<TupleInfo> tupleInfos;
 
         public OperatorAdapter(Iterable<? extends Page> pages)
         {
             this.pages = ImmutableList.copyOf(pages);
             this.channelCount = this.pages.get(0).getChannelCount();
+
+            ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
+            for (Block block : this.pages.get(0).getBlocks()) {
+                tupleInfos.add(block.getTupleInfo()) ;
+            }
+            this.tupleInfos = tupleInfos.build();
         }
 
         @Override
         public int getChannelCount()
         {
             return channelCount;
+        }
+
+        @Override
+        public List<TupleInfo> getTupleInfos()
+        {
+            return tupleInfos;
         }
 
         @Override

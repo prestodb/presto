@@ -6,6 +6,7 @@ package com.facebook.presto.server;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.server.QueryDriversOperator.QueryDriversIterator;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Guice;
@@ -29,6 +30,7 @@ import org.testng.annotations.Test;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -105,9 +107,9 @@ public class TestHttpQueryProvider
             throws Exception
     {
         QueryDriversOperator operator = new QueryDriversOperator(10,
-                new HttpQueryProvider("query", httpClient, server1.getBaseUrl().resolve("/v1/presto/query"), 1),
-                new HttpQueryProvider("query", httpClient, server2.getBaseUrl().resolve("/v1/presto/query"), 1),
-                new HttpQueryProvider("query", httpClient, server3.getBaseUrl().resolve("/v1/presto/query"), 1)
+                new HttpQueryProvider("query", httpClient, server1.getBaseUrl().resolve("/v1/presto/query"), ImmutableList.of(SINGLE_VARBINARY)),
+                new HttpQueryProvider("query", httpClient, server2.getBaseUrl().resolve("/v1/presto/query"), ImmutableList.of(SINGLE_VARBINARY)),
+                new HttpQueryProvider("query", httpClient, server3.getBaseUrl().resolve("/v1/presto/query"), ImmutableList.of(SINGLE_VARBINARY))
         );
 
         int count = 0;
@@ -125,9 +127,9 @@ public class TestHttpQueryProvider
             throws Exception
     {
         QueryDriversOperator operator = new QueryDriversOperator(10,
-                new HttpQueryProvider("query", httpClient, server1.getBaseUrl().resolve("/v1/presto/query"), 1),
-                new HttpQueryProvider("query", httpClient, server2.getBaseUrl().resolve("/v1/presto/query"), 1),
-                new HttpQueryProvider("query", httpClient, server3.getBaseUrl().resolve("/v1/presto/query"), 1)
+                new HttpQueryProvider("query", httpClient, server1.getBaseUrl().resolve("/v1/presto/query"), ImmutableList.of(SINGLE_VARBINARY)),
+                new HttpQueryProvider("query", httpClient, server2.getBaseUrl().resolve("/v1/presto/query"), ImmutableList.of(SINGLE_VARBINARY)),
+                new HttpQueryProvider("query", httpClient, server3.getBaseUrl().resolve("/v1/presto/query"), ImmutableList.of(SINGLE_VARBINARY))
         );
 
         int count = 0;

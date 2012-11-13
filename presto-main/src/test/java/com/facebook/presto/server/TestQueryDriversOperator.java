@@ -3,9 +3,11 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.server.QueryDriversOperator.QueryDriversIterator;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -126,11 +128,18 @@ public class TestQueryDriversOperator
         private final ExecutorService executor;
         private final List<Page> pages;
         private final List<StaticQueryDriver> createdDrivers = new ArrayList<>();
+        private final List<TupleInfo> tupleInfos;
 
         private StaticQueryDriverProvider(ExecutorService executor, List<Page> pages)
         {
             this.executor = executor;
             this.pages = pages;
+
+            ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
+            for (Block block : pages.get(0).getBlocks()) {
+                tupleInfos.add(block.getTupleInfo()) ;
+            }
+            this.tupleInfos = tupleInfos.build();
         }
 
         public List<StaticQueryDriver> getCreatedDrivers()
@@ -142,6 +151,12 @@ public class TestQueryDriversOperator
         public int getChannelCount()
         {
             return pages.get(0).getBlocks().length;
+        }
+
+        @Override
+        public List<TupleInfo> getTupleInfos()
+        {
+            return tupleInfos;
         }
 
         @Override

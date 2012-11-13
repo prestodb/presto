@@ -8,7 +8,7 @@ import com.facebook.presto.operator.Page;
 import java.util.List;
 
 public interface QueryManager {
-    String createQuery(String query);
+    QueryInfo createQuery(String query);
 
     List<Page> getQueryResults(String queryId, int maxPageCount)
             throws InterruptedException;

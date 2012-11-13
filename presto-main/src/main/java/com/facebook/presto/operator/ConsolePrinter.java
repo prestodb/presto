@@ -5,6 +5,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -14,6 +15,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.Iterator;
+import java.util.List;
 
 import static com.facebook.presto.hive.shaded.com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Charsets.UTF_8;
@@ -53,6 +55,12 @@ public class ConsolePrinter
     public int getChannelCount()
     {
         return source.getChannelCount();
+    }
+
+    @Override
+    public List<TupleInfo> getTupleInfos()
+    {
+        return source.getTupleInfos();
     }
 
     @Override
