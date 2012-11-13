@@ -10,6 +10,7 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 
 import java.util.Iterator;
 import java.util.List;
@@ -60,6 +61,15 @@ public class AlignmentOperator implements Operator
         for (int i = 0; i < iterators.length; i++) {
             iterators[i] = channels[i].iterator();
         }
+
+        // TODO: remove this hack after empty blocks are supported
+        if (!iterators[0].hasNext()) {
+            for (Iterator<? extends Block> iterator : iterators) {
+                checkState(!iterator.hasNext(), "iterators are not aligned");
+            }
+            return Iterators.emptyIterator();
+        }
+
         return new AlignmentIterator(iterators);
     }
 
