@@ -11,7 +11,7 @@ import com.facebook.presto.tuple.TupleReadable;
  * <pre>{@code
  *  Cursor cursor = ...;
  * <p/>
- *  while (cursor.advanceNextValue()) {
+ *  while (cursor.advanceNextPosition()) {
  *     long value = cursor.getLong(...);
  *     ...
  *  }
@@ -46,11 +46,6 @@ public interface BlockCursor
      * INVARIANT 2: all get* and data access methods will throw java.util.IllegalStateException once isFinished is true
      */
     boolean isFinished();
-
-    /**
-     * Attempts to advance to the first position of the next value
-     */
-    boolean advanceNextValue();
 
     /**
      * Attempts to advance to the next position in this stream and possibly to the next value if the current position if the last one for the current value
@@ -117,13 +112,6 @@ public interface BlockCursor
      * @throws IllegalStateException if this cursor is not at a valid position
      */
     int getPosition();
-
-    /**
-     * Returns the last position of the current value
-     *
-     * @throws IllegalStateException if this cursor is not at a valid position
-     */
-    int getCurrentValueEndPosition();
 
     /**
      * True if the next tuple equals the specified tuple.

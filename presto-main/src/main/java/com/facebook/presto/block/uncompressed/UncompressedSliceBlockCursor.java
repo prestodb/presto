@@ -67,13 +67,6 @@ public class UncompressedSliceBlockCursor
     }
 
     @Override
-    public boolean advanceNextValue()
-    {
-        // every value is a new position
-        return advanceNextPosition();
-    }
-
-    @Override
     public boolean advanceNextPosition()
     {
         if (position >= positionCount -1) {
@@ -125,13 +118,6 @@ public class UncompressedSliceBlockCursor
 
     @Override
     public int getPosition()
-    {
-        checkReadablePosition();
-        return position;
-    }
-
-    @Override
-    public int getCurrentValueEndPosition()
     {
         checkReadablePosition();
         return position;

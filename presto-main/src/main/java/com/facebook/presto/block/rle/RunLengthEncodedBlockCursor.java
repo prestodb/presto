@@ -54,13 +54,6 @@ public final class RunLengthEncodedBlockCursor implements BlockCursor
     }
 
     @Override
-    public boolean advanceNextValue()
-    {
-        position = positionCount;
-        return false;
-    }
-
-    @Override
     public boolean advanceNextPosition()
     {
         if (position >= positionCount - 1) {
@@ -137,13 +130,6 @@ public final class RunLengthEncodedBlockCursor implements BlockCursor
     {
         checkReadablePosition();
         return position;
-    }
-
-    @Override
-    public int getCurrentValueEndPosition()
-    {
-        checkReadablePosition();
-        return positionCount - 1;
     }
 
     @Override

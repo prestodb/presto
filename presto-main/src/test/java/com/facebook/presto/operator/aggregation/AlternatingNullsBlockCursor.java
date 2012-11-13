@@ -49,12 +49,6 @@ public class AlternatingNullsBlockCursor
     }
 
     @Override
-    public boolean advanceNextValue()
-    {
-        return advanceNextPosition();
-    }
-
-    @Override
     public boolean advanceNextPosition()
     {
         index++;
@@ -124,12 +118,6 @@ public class AlternatingNullsBlockCursor
     public int getPosition()
     {
         return index;
-    }
-
-    @Override
-    public int getCurrentValueEndPosition()
-    {
-        return getPosition();
     }
 
     @Override

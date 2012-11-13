@@ -15,8 +15,6 @@ import java.util.SortedMap;
 import static com.facebook.presto.block.BlockCursorAssertions.assertAdvanceToPosition;
 import static com.facebook.presto.block.BlockCursorAssertions.assertCurrentValue;
 import static com.facebook.presto.block.BlockCursorAssertions.assertNextPosition;
-import static com.facebook.presto.block.BlockCursorAssertions.assertNextValue;
-import static com.facebook.presto.block.BlockCursorAssertions.assertNextValuePosition;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -140,7 +138,6 @@ public abstract class AbstractTestBlockCursor
         assertFalse(cursor.isValid());
         assertTrue(cursor.isFinished());
 
-        assertFalse(cursor.advanceNextValue());
         assertFalse(cursor.advanceNextPosition());
 
         assertFalse(cursor.isValid());
@@ -148,29 +145,10 @@ public abstract class AbstractTestBlockCursor
     }
 
     @Test
-    public void testFirstValue()
-    {
-        BlockCursor cursor = createTestCursor();
-        assertNextValue(cursor, 0, getExpectedValue(0));
-    }
-
-    @Test
     public void testFirstPosition()
     {
         BlockCursor cursor = createTestCursor();
         assertNextPosition(cursor, 0, getExpectedValue(0));
-    }
-
-    @Test
-    public void testAdvanceNextValue()
-    {
-        BlockCursor cursor = createTestCursor();
-
-        for (Entry<Integer, Tuple> entry : getExpectedValues().entrySet()) {
-            assertNextValue(cursor, entry.getKey(), entry.getValue());
-        }
-
-        assertFalse(cursor.advanceNextValue());
     }
 
     @Test
@@ -183,47 +161,5 @@ public abstract class AbstractTestBlockCursor
         }
 
         assertFalse(cursor.advanceNextPosition());
-    }
-
-    @Test
-    public void testNextValuePosition()
-    {
-        BlockCursor cursor = createTestCursor();
-
-        for (Integer position : getExpectedValues().keySet()) {
-            assertNextValuePosition(cursor, position);
-        }
-
-        assertFalse(cursor.advanceNextValue());
-        assertTrue(cursor.isFinished());
-    }
-
-    @Test
-    public void testMixedValueAndPosition()
-    {
-        BlockCursor cursor = createTestCursor();
-
-        for (Entry<Integer, Tuple> entry : getExpectedValues().entrySet()) {
-            int position = entry.getKey();
-            Tuple tuple = entry.getValue();
-            if (position % 2 != 0) {
-                assertNextValue(cursor, position, tuple);
-            }
-            else {
-                assertNextPosition(cursor, position, tuple);
-            }
-        }
-
-        assertFalse(cursor.advanceNextPosition());
-        assertFalse(cursor.advanceNextValue());
-    }
-
-    @Test
-    public void testGetCurrentValueEndPosition()
-    {
-        BlockCursor cursor = createTestCursor();
-        while (cursor.advanceNextValue()) {
-            assertEquals(cursor.getCurrentValueEndPosition(), cursor.getPosition());
-        }
     }
 }
