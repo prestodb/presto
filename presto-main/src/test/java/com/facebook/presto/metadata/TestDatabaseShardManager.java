@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
@@ -48,7 +49,7 @@ public class TestDatabaseShardManager
             shardManager.createImportTable(tableId, "hive", "default", "orders");
         }
 
-        List<byte[]> partitionChunks = createRandomChunks(5);
+        List<SerializedPartitionChunk> partitionChunks = createRandomChunks(5);
         List<Long> shardIds = shardManager.createImportPartition(tableId, "ds=2012-10-15", partitionChunks);
 
         ImmutableList<String> nodes = ImmutableList.of("foo", "bar", "baz");
@@ -63,11 +64,11 @@ public class TestDatabaseShardManager
                 1L, "foo", 2L, "bar", 3L, "baz", 4L, "foo", 5L, "bar"));
     }
 
-    public List<byte[]> createRandomChunks(int n)
+    public List<SerializedPartitionChunk> createRandomChunks(int n)
     {
-        ImmutableList.Builder<byte[]> list = ImmutableList.builder();
+        ImmutableList.Builder<SerializedPartitionChunk> list = ImmutableList.builder();
         for (int i = 0; i < n; i++) {
-            list.add(randomBytes());
+            list.add(new SerializedPartitionChunk(randomBytes()));
         }
         return list.build();
     }

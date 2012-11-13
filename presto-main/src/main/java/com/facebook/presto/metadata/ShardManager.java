@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.google.common.collect.Multimap;
 
 import java.util.List;
@@ -16,7 +17,7 @@ public interface ShardManager
      *
      * @return list of shard IDs corresponding to partition chunks
      */
-    List<Long> createImportPartition(long tableId, String partitionName, List<byte[]> partitionChunks);
+    List<Long> createImportPartition(long tableId, String partitionName, List<SerializedPartitionChunk> partitionChunks);
 
     /**
      * Mark shard as complete with data residing on given node
