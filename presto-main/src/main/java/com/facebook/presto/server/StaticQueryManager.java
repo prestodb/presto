@@ -23,7 +23,6 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.operator.aggregation.LongSumAggregation;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Charsets;
@@ -56,6 +55,9 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.operator.ProjectionFunctions.concat;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
+import static com.facebook.presto.operator.aggregation.AggregationFunctions.finalAggregation;
+import static com.facebook.presto.operator.aggregation.AggregationFunctions.partialAggregation;
+import static com.facebook.presto.operator.aggregation.LongSumAggregation.longSumAggregation;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
@@ -256,7 +258,7 @@ public class StaticQueryManager
 
                 HashAggregationOperator aggregation = new HashAggregationOperator(operator,
                         0,
-                        ImmutableList.of(LongSumAggregation.provider(1, 0)),
+                        ImmutableList.of(finalAggregation(longSumAggregation(1, 0))),
                         ImmutableList.of(concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 2, 0))));
 
                 for (Page page : aggregation) {
@@ -308,7 +310,7 @@ public class StaticQueryManager
                 AlignmentOperator alignmentOperator = new AlignmentOperator(groupBySource, aggregateSource);
                 HashAggregationOperator sumOperator = new HashAggregationOperator(alignmentOperator,
                         0,
-                        ImmutableList.of(LongSumAggregation.provider(0, 0)),
+                        ImmutableList.of(partialAggregation(longSumAggregation(0, 0))),
                         ImmutableList.of(concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 1, 0))));
 
                 for (Page page : sumOperator) {

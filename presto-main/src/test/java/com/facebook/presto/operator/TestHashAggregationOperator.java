@@ -1,23 +1,24 @@
 package com.facebook.presto.operator;
 
-import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.operator.aggregation.CountAggregation;
-import com.facebook.presto.operator.aggregation.LongAverageAggregation;
-import com.facebook.presto.operator.aggregation.LongSumAggregation;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.Iterator;
 
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.operator.OperatorAssertions.createOperator;
 import static com.facebook.presto.operator.ProjectionFunctions.concat;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
+import static com.facebook.presto.operator.aggregation.AggregationFunctions.singleNodeAggregation;
+import static com.facebook.presto.operator.aggregation.CountAggregation.countAggregation;
+import static com.facebook.presto.operator.aggregation.LongAverageAggregation.longAverageAggregation;
+import static com.facebook.presto.operator.aggregation.LongSumAggregation.longSumAggregation;
+import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
+import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -56,8 +57,14 @@ public class TestHashAggregationOperator
 
         HashAggregationOperator actual = new HashAggregationOperator(source,
                 2,
-                ImmutableList.of(CountAggregation.PROVIDER, LongSumAggregation.provider(1, 0), LongAverageAggregation.provider(1, 0)),
-                ImmutableList.of(concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 1, 0), singleColumn(FIXED_INT_64, 2, 0), singleColumn(DOUBLE, 3, 0))));
+                ImmutableList.of(singleNodeAggregation(countAggregation(0,0)),
+                        singleNodeAggregation(longSumAggregation(1, 0)),
+                        singleNodeAggregation(longAverageAggregation(1, 0))),
+                ImmutableList.of(concat(singleColumn(VARIABLE_BINARY, 0, 0),
+                        singleColumn(FIXED_INT_64, 1, 0),
+                        singleColumn(FIXED_INT_64, 2, 0),
+                        singleColumn(DOUBLE, 3, 0))));
+
         Iterator<Page> pages = actual.iterator();
 
         Page page = pages.next();

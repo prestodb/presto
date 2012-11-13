@@ -14,7 +14,7 @@ public class TestLongSumAggregation
     }
 
     @Override
-    public LongSumAggregation getFunction()
+    public LongSumAggregation getFullFunction()
     {
         return new LongSumAggregation(0, 0);
     }

@@ -7,15 +7,14 @@ import com.facebook.presto.tuple.TupleInfo;
 import javax.inject.Provider;
 
 import static com.facebook.presto.tuple.Tuples.NULL_DOUBLE_TUPLE;
+import static com.facebook.presto.tuple.Tuples.createTuple;
 
 public class DoubleSumAggregation
-        implements AggregationFunction
+        implements FullAggregationFunction
 {
-    public static final Provider<AggregationFunction> PROVIDER = provider(0, 0);
-
-    public static Provider<AggregationFunction> provider(final int channelIndex, final int field)
+    public static Provider<DoubleSumAggregation> doubleSumAggregation(final int channelIndex, final int field)
     {
-        return new Provider<AggregationFunction>()
+        return new Provider<DoubleSumAggregation>()
         {
             @Override
             public DoubleSumAggregation get()
@@ -37,13 +36,19 @@ public class DoubleSumAggregation
     }
 
     @Override
-    public TupleInfo getTupleInfo()
+    public TupleInfo getFinalTupleInfo()
     {
         return TupleInfo.SINGLE_DOUBLE;
     }
 
     @Override
-    public void add(BlockCursor... cursors)
+    public TupleInfo getIntermediateTupleInfo()
+    {
+        return TupleInfo.SINGLE_DOUBLE;
+    }
+
+    @Override
+    public void addInput(BlockCursor... cursors)
     {
         BlockCursor cursor = cursors[channelIndex];
         if (!cursor.isNull(fieldIndex)) {
@@ -53,13 +58,30 @@ public class DoubleSumAggregation
     }
 
     @Override
-    public Tuple evaluate()
+    public void addIntermediate(BlockCursor... cursors)
+    {
+        BlockCursor cursor = cursors[channelIndex];
+        if (!cursor.isNull(fieldIndex)) {
+            hasNonNullValue = true;
+            sum += cursor.getDouble(fieldIndex);
+        }
+    }
+
+    @Override
+    public Tuple evaluateIntermediate()
     {
         if (!hasNonNullValue) {
             return NULL_DOUBLE_TUPLE;
         }
-        return getTupleInfo().builder()
-                .append(sum)
-                .build();
+        return createTuple(sum);
+    }
+
+    @Override
+    public Tuple evaluateFinal()
+    {
+        if (!hasNonNullValue) {
+            return NULL_DOUBLE_TUPLE;
+        }
+        return createTuple(sum);
     }
 }

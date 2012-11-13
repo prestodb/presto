@@ -13,7 +13,7 @@ public class TestLongAverageAggregation
     }
 
     @Override
-    public LongAverageAggregation getFunction()
+    public LongAverageAggregation getFullFunction()
     {
         return new LongAverageAggregation(0, 0);
     }

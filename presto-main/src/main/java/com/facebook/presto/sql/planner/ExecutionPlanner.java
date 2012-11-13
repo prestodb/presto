@@ -17,11 +17,8 @@ import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.TopNOperator;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
-import com.facebook.presto.operator.aggregation.CountAggregation;
-import com.facebook.presto.operator.aggregation.DoubleAverageAggregation;
-import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
-import com.facebook.presto.operator.aggregation.LongAverageAggregation;
-import com.facebook.presto.operator.aggregation.LongSumAggregation;
+import com.facebook.presto.operator.aggregation.AggregationFunctions;
+import com.facebook.presto.operator.aggregation.FullAggregationFunction;
 import com.facebook.presto.sql.compiler.SessionMetadata;
 import com.facebook.presto.sql.compiler.Slot;
 import com.facebook.presto.sql.compiler.SlotReference;
@@ -45,6 +42,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.operator.aggregation.CountAggregation.countAggregation;
+import static com.facebook.presto.operator.aggregation.DoubleAverageAggregation.doubleAverageAggregation;
+import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.doubleSumAggregation;
+import static com.facebook.presto.operator.aggregation.LongAverageAggregation.longAverageAggregation;
+import static com.facebook.presto.operator.aggregation.LongSumAggregation.longSumAggregation;
 import static com.google.common.base.Functions.forMap;
 import static java.lang.String.format;
 
@@ -167,26 +169,53 @@ public class ExecutionPlanner
 
     private Provider<AggregationFunction> getProvider(FunctionInfo info, FunctionCall call, Map<Slot, Integer> slotToChannelMappings)
     {
+        return getProvider(info, call, slotToChannelMappings, false, false);
+    }
+
+    private Provider<AggregationFunction> getProvider(FunctionInfo info, FunctionCall call, Map<Slot, Integer> slotToChannelMappings, boolean intermediateInput, boolean intermediateOutput)
+    {
+        Provider<? extends FullAggregationFunction> functionProvider = getFullAggregationProvider(info, call, slotToChannelMappings);
+        if (!intermediateInput) {
+            if (!intermediateOutput) {
+                return AggregationFunctions.singleNodeAggregation(functionProvider);
+            }
+            else {
+                return AggregationFunctions.partialAggregation(functionProvider);
+            }
+        }
+        else {
+            if (!intermediateOutput) {
+                return AggregationFunctions.finalAggregation(functionProvider);
+            }
+            else {
+                return AggregationFunctions.combinerAggregation(functionProvider);
+            }
+        }
+    }
+
+    private Provider<? extends FullAggregationFunction> getFullAggregationProvider(FunctionInfo info, FunctionCall call, Map<Slot, Integer> slotToChannelMappings)
+    {
         if (info.getName().equals(QualifiedName.of("count"))) {
-            return CountAggregation.PROVIDER;
+            // todo this is not correct
+            return countAggregation(-1, -1);
         }
 
         if (info.getName().equals(QualifiedName.of("sum"))) {
             Slot input = ((SlotReference) call.getArguments().get(0)).getSlot();
             if (info.getArgumentTypes().get(0) == TupleInfo.Type.FIXED_INT_64) {
-                return LongSumAggregation.provider(slotToChannelMappings.get(input), 0);
+                return longSumAggregation(slotToChannelMappings.get(input), 0);
             }
             else if (info.getArgumentTypes().get(0) == TupleInfo.Type.DOUBLE) {
-                return DoubleSumAggregation.provider(slotToChannelMappings.get(input), 0);
+                return doubleSumAggregation(slotToChannelMappings.get(input), 0);
             }
         }
         else if (info.getName().equals(QualifiedName.of("avg"))) {
             Slot input = ((SlotReference) call.getArguments().get(0)).getSlot();
             if (info.getArgumentTypes().get(0) == TupleInfo.Type.FIXED_INT_64) {
-                return LongAverageAggregation.provider(slotToChannelMappings.get(input), 0);
+                return longAverageAggregation(slotToChannelMappings.get(input), 0);
             }
             else if (info.getArgumentTypes().get(0) == TupleInfo.Type.DOUBLE) {
-                return DoubleAverageAggregation.provider(slotToChannelMappings.get(input), 0);
+                return doubleAverageAggregation(slotToChannelMappings.get(input), 0);
             }
         }
 
