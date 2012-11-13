@@ -24,6 +24,11 @@ public interface Slice
     int length();
 
     /**
+     * Fill the slice with the specified value;
+     */
+    void clear();
+
+    /**
      * Gets a byte at the specified absolute {@code index} in this buffer.
      *
      * @throws IndexOutOfBoundsException if the specified {@code index} is less than {@code 0} or

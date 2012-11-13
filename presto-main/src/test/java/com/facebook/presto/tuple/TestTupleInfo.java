@@ -2,6 +2,7 @@ package com.facebook.presto.tuple;
 
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
+import com.facebook.presto.tuple.TupleInfo.Builder;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_BYTE;
@@ -11,6 +12,7 @@ import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.tuple.Tuples.NULL_LONG_TUPLE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -61,6 +63,13 @@ public class TestTupleInfo
         // value of a null long is 0
         assertEquals(tuple.getLong(0), 0L);
         assertEquals(tuple.size(), SIZE_OF_LONG + SIZE_OF_BYTE);
+    }
+
+    @Test
+    public void testAppendWithNull()
+    {
+        Builder builder = TupleInfo.SINGLE_LONG.builder();
+        assertTrue(builder.append(NULL_LONG_TUPLE).build().isNull(0));
     }
 
     /**

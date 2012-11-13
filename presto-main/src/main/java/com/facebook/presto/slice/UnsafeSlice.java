@@ -99,6 +99,12 @@ public class UnsafeSlice extends AbstractSlice
     }
 
     @Override
+    public void clear()
+    {
+        unsafe.setMemory(address, size, (byte) 0);
+    }
+
+    @Override
     public byte getByte(int index)
     {
         checkIndexLength(index, SIZE_OF_BYTE);
