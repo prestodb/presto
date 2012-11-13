@@ -3,32 +3,25 @@
  */
 package com.facebook.presto.block.rle;
 
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.util.Range;
 import com.google.common.base.Preconditions;
 
 public final class RunLengthEncodedBlockCursor implements BlockCursor
 {
     private final Tuple value;
-    private final Range range;
-    private final long endPosition;
-    private final long startPosition;
+    private final int positionCount;
 
-    private long position = -1;
+    private int position = -1;
 
-    public RunLengthEncodedBlockCursor(Tuple value, Range range)
+    public RunLengthEncodedBlockCursor(Tuple value, int positionCount)
     {
         this.value = value;
-        this.range = range;
-
-        endPosition = range.getEnd();
-        startPosition = range.getStart();
-
-        // start one position before the start
-        position = startPosition - 1;
+        this.positionCount = positionCount;
+        position = -1;
     }
 
     @Override
@@ -38,21 +31,21 @@ public final class RunLengthEncodedBlockCursor implements BlockCursor
     }
 
     @Override
-    public Range getRange()
+    public int getRemainingPositions()
     {
-        return range;
+        return positionCount - (position + 1);
     }
 
     @Override
     public boolean isValid()
     {
-        return startPosition <= position && position <= endPosition;
+        return 0 <= position && position < positionCount;
     }
 
     @Override
     public boolean isFinished()
     {
-        return position > endPosition;
+        return position >= positionCount;
     }
 
     private void checkReadablePosition()
@@ -61,17 +54,10 @@ public final class RunLengthEncodedBlockCursor implements BlockCursor
     }
 
     @Override
-    public boolean advanceNextValue()
-    {
-        position = Long.MAX_VALUE;
-        return false;
-    }
-
-    @Override
     public boolean advanceNextPosition()
     {
-        if (position >= endPosition) {
-            position = Long.MAX_VALUE;
+        if (position >= positionCount - 1) {
+            position = positionCount;
             return false;
         }
 
@@ -80,10 +66,10 @@ public final class RunLengthEncodedBlockCursor implements BlockCursor
     }
 
     @Override
-    public boolean advanceToPosition(long newPosition)
+    public boolean advanceToPosition(int newPosition)
     {
-        if (newPosition > range.getEnd()) {
-            position = Long.MAX_VALUE;
+        if (newPosition >= positionCount) {
+            position = positionCount;
             return false;
         }
 
@@ -91,6 +77,17 @@ public final class RunLengthEncodedBlockCursor implements BlockCursor
 
         this.position = newPosition;
         return true;
+    }
+
+    @Override
+    public Block getRegionAndAdvance(int length)
+    {
+        length = Math.min(length, getRemainingPositions());
+
+        // advance to end of view port
+        position += length;
+
+        return new RunLengthEncodedBlock(value, length);
     }
 
     @Override
@@ -129,17 +126,10 @@ public final class RunLengthEncodedBlockCursor implements BlockCursor
     }
 
     @Override
-    public long getPosition()
+    public int getPosition()
     {
         checkReadablePosition();
         return position;
-    }
-
-    @Override
-    public long getCurrentValueEndPosition()
-    {
-        checkReadablePosition();
-        return range.getEnd();
     }
 
     @Override

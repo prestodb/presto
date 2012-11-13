@@ -35,7 +35,7 @@ public class TestFileBlocksSerde
             ImmutableList.of("charlie"),
             ImmutableList.of("dave"));
 
-    private final UncompressedBlock expectedBlock = new BlockBuilder(0, SINGLE_VARBINARY)
+    private final UncompressedBlock expectedBlock = new BlockBuilder(SINGLE_VARBINARY)
             .append("alice")
             .append("bob")
             .append("charlie")
@@ -55,7 +55,7 @@ public class TestFileBlocksSerde
         DynamicSliceOutputSupplier sliceOutput = new DynamicSliceOutputSupplier(1024);
         writeBlocks(encoding, sliceOutput, expectedBlock, expectedBlock, expectedBlock);
         Slice slice = sliceOutput.getLastSlice();
-        BlocksFileReader actualBlocks = readBlocks(slice, 0);
+        BlocksFileReader actualBlocks = readBlocks(slice);
 
         List<List<Object>> actualValues = toValues(actualBlocks);
 

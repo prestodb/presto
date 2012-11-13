@@ -79,7 +79,6 @@ public class InMemoryOrderByOperator
     {
         private final Iterator<Page> pageIterator;
         private Iterator<KeyAndTuples> outputIterator;
-        private long position;
 
         private InMemoryOrderByIterator(Iterator<Page> pageIterator)
         {
@@ -99,7 +98,7 @@ public class InMemoryOrderByOperator
 
             BlockBuilder[] outputs = new BlockBuilder[projections.size()];
             for (int i = 0; i < outputs.length; i++) {
-                outputs[i] = new BlockBuilder(position, projections.get(i).getTupleInfo());
+                outputs[i] = new BlockBuilder(projections.get(i).getTupleInfo());
             }
 
             while (!isFull(outputs) && outputIterator.hasNext()) {
@@ -115,7 +114,6 @@ public class InMemoryOrderByOperator
             }
 
             Page page = new Page(blocks);
-            position += page.getPositionCount();
             return page;
         }
 

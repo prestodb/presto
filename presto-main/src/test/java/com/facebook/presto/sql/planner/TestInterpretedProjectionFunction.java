@@ -152,7 +152,7 @@ public class TestInterpretedProjectionFunction
         InterpretedProjectionFunction projectionFunction = new InterpretedProjectionFunction(outputType, expression, slotToChannelMappings);
 
         // create output
-        BlockBuilder builder = new BlockBuilder(0, new TupleInfo(outputType.getRawType()));
+        BlockBuilder builder = new BlockBuilder(new TupleInfo(outputType.getRawType()));
 
         // project
         projectionFunction.project(channels, builder);

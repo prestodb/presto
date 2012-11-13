@@ -3,10 +3,10 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.util.Range;
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -66,53 +66,47 @@ public class AlignmentOperator implements Operator
     public static class AlignmentIterator extends AbstractIterator<Page>
     {
         private final Iterator<? extends Block>[] iterators;
-        private Block[] blocks;
-
-        private long startPosition;
+        private final BlockCursor[] cursors;
 
         public AlignmentIterator(Iterator<? extends Block>[] iterators)
         {
             this.iterators = iterators;
-            blocks = new Block[iterators.length];
+            cursors = new BlockCursor[iterators.length];
             for (int i = 0; i < iterators.length; i++) {
-                blocks[i] = iterators[i].next();
+                cursors[i] = iterators[i].next().cursor();
             }
         }
 
         protected Page computeNext()
         {
             // all iterators should end together
-            if (startPosition > blocks[0].getRawRange().getEnd()  && !iterators[0].hasNext()) {
+            if (cursors[0].getRemainingPositions() <= 0 && !iterators[0].hasNext()) {
                 for (Iterator<? extends Block> iterator : iterators) {
                     checkState(!iterator.hasNext());
                 }
                 return endOfData();
             }
 
-            // determine shared range
-            long endPosition = Long.MAX_VALUE;
+            // determine maximum shared length
+            int length = Integer.MAX_VALUE;
             for (int i = 0; i < iterators.length; i++) {
                 Iterator<? extends Block> iterator = iterators[i];
 
-                Block block = blocks[i];
-                long blockEndPosition = block.getRawRange().getEnd();
-                if (blockEndPosition < startPosition) {
+                BlockCursor cursor = cursors[i];
+                if (cursor.getRemainingPositions() <= 0) {
                     // load next block
-                    block = iterator.next();
-                    blocks[i] = block;
-                    blockEndPosition = block.getRawRange().getEnd();
+                    cursor = iterator.next().cursor();
+                    cursors[i] = cursor;
                 }
-                endPosition = Math.min(endPosition, blockEndPosition);
+                length = Math.min(length, cursor.getRemainingPositions());
             }
-            Range range = new Range(startPosition, endPosition);
-
-            // update start position for next loop
-            startPosition = endPosition + 1;
 
             // build page
-            for (int i = 0; i < blocks.length; i++) {
-                blocks[i] = blocks[i].createViewPort(range);
+            Block[] blocks = new Block[iterators.length];
+            for (int i = 0; i < cursors.length; i++) {
+                 blocks[i] = cursors[i].getRegionAndAdvance(length);
             }
+
             return new Page(blocks);
         }
     }

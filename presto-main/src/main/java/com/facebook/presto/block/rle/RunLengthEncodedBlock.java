@@ -4,7 +4,6 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.serde.RunLengthBlockEncoding;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.util.Range;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
@@ -12,21 +11,12 @@ public class RunLengthEncodedBlock
         implements Block
 {
     private final Tuple value;
-    private final Range range;
-    private final Range rawRange;
+    private final int positionCount;
 
-    public RunLengthEncodedBlock(Tuple value, Range range)
+    public RunLengthEncodedBlock(Tuple value, int positionCount)
     {
         this.value = value;
-        this.range = range;
-        this.rawRange = range;
-    }
-
-    private RunLengthEncodedBlock(Tuple value, Range range, Range rawRange)
-    {
-        this.value = value;
-        this.range = range;
-        this.rawRange = rawRange;
+        this.positionCount = positionCount;
     }
 
     public Tuple getValue()
@@ -42,19 +32,7 @@ public class RunLengthEncodedBlock
     @Override
     public int getPositionCount()
     {
-        return (int) (range.getEnd() - range.getStart() + 1);
-    }
-
-    @Override
-    public Range getRange()
-    {
-        return range;
-    }
-
-    @Override
-    public Range getRawRange()
-    {
-        return rawRange;
+        return positionCount;
     }
 
     @Override
@@ -64,10 +42,10 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public Block createViewPort(Range viewPortRange)
+    public Block getRegion(int positionOffset, int length)
     {
-        Preconditions.checkArgument(rawRange.contains(viewPortRange), "view port range is must be within the range range of this block");
-        return new RunLengthEncodedBlock(value, viewPortRange, rawRange);
+        Preconditions.checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
+        return new RunLengthEncodedBlock(value, length);
     }
 
     @Override
@@ -81,14 +59,14 @@ public class RunLengthEncodedBlock
     {
         return Objects.toStringHelper(this)
                 .add("value", value)
-                .add("range", range)
+                .add("positionCount", positionCount)
                 .toString();
     }
 
     @Override
     public RunLengthEncodedBlockCursor cursor()
     {
-        return new RunLengthEncodedBlockCursor(value, range);
+        return new RunLengthEncodedBlockCursor(value, positionCount);
     }
 
 }

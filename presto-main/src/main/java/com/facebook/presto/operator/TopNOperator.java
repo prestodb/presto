@@ -82,7 +82,6 @@ public class TopNOperator
     {
         private final Iterator<Page> pageIterator;
         private Iterator<KeyAndTuples> outputIterator;
-        private long position;
 
         private TopNIterator(Iterator<Page> pageIterator)
         {
@@ -112,7 +111,7 @@ public class TopNOperator
 
             BlockBuilder[] outputs = new BlockBuilder[projections.size()];
             for (int i = 0; i < outputs.length; i++) {
-                outputs[i] = new BlockBuilder(position, projections.get(i).getTupleInfo());
+                outputs[i] = new BlockBuilder(projections.get(i).getTupleInfo());
             }
 
             while (!isFull(outputs) && outputIterator.hasNext()) {
@@ -128,7 +127,6 @@ public class TopNOperator
             }
 
             Page page = new Page(blocks);
-            position += page.getPositionCount();
             return page;
         }
 
@@ -201,9 +199,9 @@ public class TopNOperator
     private static class KeyAndPosition
     {
         private final Tuple key;
-        private final long position;
+        private final int position;
 
-        private KeyAndPosition(Tuple key, long position)
+        private KeyAndPosition(Tuple key, int position)
         {
             this.key = key;
             this.position = position;
@@ -214,7 +212,7 @@ public class TopNOperator
             return key;
         }
 
-        public long getPosition()
+        public int getPosition()
         {
             return position;
         }

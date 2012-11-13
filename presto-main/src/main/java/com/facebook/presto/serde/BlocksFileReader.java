@@ -18,12 +18,7 @@ public class BlocksFileReader
 {
     public static BlocksFileReader readBlocks(Slice slice)
     {
-        return readBlocks(slice, 0);
-    }
-
-    public static BlocksFileReader readBlocks(Slice slice, long startPosition)
-    {
-        return new BlocksFileReader(slice, startPosition);
+        return new BlocksFileReader(slice);
     }
 
     private final BlockEncoding blockEncoding;
@@ -31,10 +26,9 @@ public class BlocksFileReader
     private final BlockIterable blockIterable;
     private final BlocksFileStats stats;
 
-    public BlocksFileReader(Slice slice, long positionOffset)
+    public BlocksFileReader(Slice slice)
     {
         Preconditions.checkNotNull(slice, "slice is null");
-        Preconditions.checkArgument(positionOffset >= 0, "positionOffset is negative");
 
         // read file footer
         int footerLength = slice.getInt(slice.length() - SizeOf.SIZE_OF_INT);
@@ -49,7 +43,7 @@ public class BlocksFileReader
         stats = BlocksFileStats.deserialize(input);
 
         blocksSlice = slice.slice(0, footerOffset);
-        blockIterable = new EncodedBlockIterable(blockEncoding, blocksSlice, positionOffset);
+        blockIterable = new EncodedBlockIterable(blockEncoding, blocksSlice);
     }
 
     @Override

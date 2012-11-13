@@ -104,14 +104,14 @@ public class BlockAssertions
         return allAdvanced;
     }
 
-    public static Block createStringsBlock(long position, @Nullable String... values)
+    public static Block createStringsBlock(@Nullable String... values)
     {
-        return createStringsBlock(position, Arrays.asList(values));
+        return createStringsBlock(Arrays.asList(values));
     }
 
-    public static Block createStringsBlock(long position, Iterable<String> values)
+    public static Block createStringsBlock(Iterable<String> values)
     {
-        BlockBuilder builder = new BlockBuilder(position, TupleInfo.SINGLE_VARBINARY);
+        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_VARBINARY);
 
         for (String value : values) {
             if (value == null) {
@@ -124,14 +124,14 @@ public class BlockAssertions
         return builder.build();
     }
 
-    public static BlockIterable createStringsBlockIterable(long position, @Nullable String... values)
+    public static BlockIterable createStringsBlockIterable(@Nullable String... values)
     {
-        return BlockIterables.createBlockIterable(createStringsBlock(position, values));
+        return BlockIterables.createBlockIterable(createStringsBlock(values));
     }
 
     public static Block createStringSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = new BlockBuilder(start, TupleInfo.SINGLE_VARBINARY);
+        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_VARBINARY);
 
         for (int i = start; i < end; i++) {
             builder.append(String.valueOf(i));
@@ -141,9 +141,9 @@ public class BlockAssertions
     }
 
     // This method makes it easy to create blocks without having to add an L to every value
-    public static Block createLongsBlock(long position, int... values)
+    public static Block createLongsBlock(int... values)
     {
-        BlockBuilder builder = new BlockBuilder(position, TupleInfo.SINGLE_LONG);
+        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_LONG);
 
         for (int value : values) {
             builder.append((long) value);
@@ -152,9 +152,9 @@ public class BlockAssertions
         return builder.build();
     }
 
-    public static Block createLongsBlock(long position, @Nullable Long... values)
+    public static Block createLongsBlock(@Nullable Long... values)
     {
-        BlockBuilder builder = new BlockBuilder(position, TupleInfo.SINGLE_LONG);
+        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_LONG);
 
         for (Long value : values) {
             if (value == null) {
@@ -167,19 +167,19 @@ public class BlockAssertions
         return builder.build();
     }
 
-    public static BlockIterable createLongsBlockIterable(long position, int... values)
+    public static BlockIterable createLongsBlockIterable(int... values)
     {
-        return BlockIterables.createBlockIterable(createLongsBlock(position, values));
+        return BlockIterables.createBlockIterable(createLongsBlock(values));
     }
 
-    public static BlockIterable createLongsBlockIterable(long position, @Nullable Long... values)
+    public static BlockIterable createLongsBlockIterable(@Nullable Long... values)
     {
-        return BlockIterables.createBlockIterable(createLongsBlock(position, values));
+        return BlockIterables.createBlockIterable(createLongsBlock(values));
     }
 
     public static Block createLongSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = new BlockBuilder(start, TupleInfo.SINGLE_LONG);
+        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_LONG);
 
         for (int i = start; i < end; i++) {
             builder.append(i);
@@ -188,9 +188,9 @@ public class BlockAssertions
         return builder.build();
     }
 
-    public static Block createDoublesBlock(long position, @Nullable Double... values)
+    public static Block createDoublesBlock(@Nullable Double... values)
     {
-        BlockBuilder builder = new BlockBuilder(position, TupleInfo.SINGLE_DOUBLE);
+        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_DOUBLE);
 
         for (Double value : values) {
             if (value == null) {
@@ -204,14 +204,14 @@ public class BlockAssertions
         return builder.build();
     }
 
-    public static BlockIterable createDoublesBlockIterable(long position, @Nullable Double... values)
+    public static BlockIterable createDoublesBlockIterable(@Nullable Double... values)
     {
-        return BlockIterables.createBlockIterable(createDoublesBlock(position, values));
+        return BlockIterables.createBlockIterable(createDoublesBlock(values));
     }
 
     public static Block createDoubleSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = new BlockBuilder(start, TupleInfo.SINGLE_DOUBLE);
+        BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_DOUBLE);
 
         for (int i = start; i < end; i++) {
             builder.append((double) i);
@@ -222,17 +222,12 @@ public class BlockAssertions
 
     public static BlockIterableBuilder blockIterableBuilder(Type... types)
     {
-        return new BlockIterableBuilder(0, new TupleInfo(types));
+        return new BlockIterableBuilder(new TupleInfo(types));
     }
 
     public static BlockIterableBuilder blockIterableBuilder(TupleInfo tupleInfo)
     {
-        return new BlockIterableBuilder(0, tupleInfo);
-    }
-
-    public static BlockIterableBuilder blockIterableBuilder(int startPosition, TupleInfo tupleInfo)
-    {
-        return new BlockIterableBuilder(startPosition, tupleInfo);
+        return new BlockIterableBuilder(tupleInfo);
     }
 
     public static class BlockIterableBuilder
@@ -240,9 +235,9 @@ public class BlockAssertions
         private final List<Block> blocks = new ArrayList<>();
         private BlockBuilder blockBuilder;
 
-        private BlockIterableBuilder(int startPosition, TupleInfo tupleInfo)
+        private BlockIterableBuilder(TupleInfo tupleInfo)
         {
-            blockBuilder = new BlockBuilder(startPosition, tupleInfo);
+            blockBuilder = new BlockBuilder(tupleInfo);
         }
 
         public BlockIterableBuilder append(Tuple tuple)
@@ -292,7 +287,7 @@ public class BlockAssertions
             if (!blockBuilder.isEmpty()) {
                 Block block = blockBuilder.build();
                 blocks.add(block);
-                blockBuilder = new BlockBuilder(block.getRange().getEnd() + 1, block.getTupleInfo());
+                blockBuilder = new BlockBuilder(block.getTupleInfo());
             }
             return this;
         }

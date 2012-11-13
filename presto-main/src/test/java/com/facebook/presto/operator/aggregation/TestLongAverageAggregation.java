@@ -7,7 +7,7 @@ public class TestLongAverageAggregation
     extends AbstractTestAggregationFunction
 {
     @Override
-    public BlockCursor getSequenceCursor(long max)
+    public BlockCursor getSequenceCursor(int max)
     {
         return new LongSequenceCursor(max);
     }
@@ -19,14 +19,14 @@ public class TestLongAverageAggregation
     }
 
     @Override
-    public Double getExpectedValue(long positions)
+    public Double getExpectedValue(int positions)
     {
         if (positions == 0) {
             return null;
         }
 
         double sum = 0;
-        for (long i = 0; i < positions; i++) {
+        for (int i = 0; i < positions; i++) {
             sum += i;
         }
         return sum / positions;

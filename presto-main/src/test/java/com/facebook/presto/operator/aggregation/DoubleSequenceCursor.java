@@ -1,10 +1,10 @@
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.util.Range;
 import com.google.common.base.Preconditions;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -15,18 +15,13 @@ import static com.google.common.base.Preconditions.checkState;
 public class DoubleSequenceCursor
     implements BlockCursor
 {
-    private final long max;
+    private final int max;
 
-    private long current = -1;
+    private int current = -1;
 
-    public DoubleSequenceCursor(long max)
+    public DoubleSequenceCursor(int max)
     {
         this.max = max;
-    }
-
-    public long getMax()
-    {
-        return max;
     }
 
     @Override
@@ -36,9 +31,9 @@ public class DoubleSequenceCursor
     }
 
     @Override
-    public Range getRange()
+    public int getRemainingPositions()
     {
-        return new Range(0, max);
+        return max - (current + 1);
     }
 
     @Override
@@ -59,12 +54,6 @@ public class DoubleSequenceCursor
     }
 
     @Override
-    public boolean advanceNextValue()
-    {
-        return advanceNextPosition();
-    }
-
-    @Override
     public boolean advanceNextPosition()
     {
         current++;
@@ -72,12 +61,18 @@ public class DoubleSequenceCursor
     }
 
     @Override
-    public boolean advanceToPosition(long position)
+    public boolean advanceToPosition(int position)
     {
         Preconditions.checkArgument(position >= current, "Can't advance backwards");
         current = position;
 
         return !isFinished();
+    }
+
+    @Override
+    public Block getRegionAndAdvance(int length)
+    {
+        throw new UnsupportedOperationException("No block form for " + getClass().getSimpleName());
     }
 
     @Override
@@ -116,14 +111,7 @@ public class DoubleSequenceCursor
     }
 
     @Override
-    public long getPosition()
-    {
-        checkReadablePosition();
-        return current;
-    }
-
-    @Override
-    public long getCurrentValueEndPosition()
+    public int getPosition()
     {
         checkReadablePosition();
         return current;

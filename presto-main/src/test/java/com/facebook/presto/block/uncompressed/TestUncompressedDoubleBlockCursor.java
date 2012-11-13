@@ -15,7 +15,7 @@ public class TestUncompressedDoubleBlockCursor extends AbstractTestBlockCursor
     @Override
     protected Block createExpectedValues()
     {
-        return createDoublesBlock(0, 11.11, 11.11, 11.11, 22.22, 22.22, 22.22, 22.22, 22.22, 33.33, 33.33, 44.44);
+        return createDoublesBlock(11.11, 11.11, 11.11, 22.22, 22.22, 22.22, 22.22, 22.22, 33.33, 33.33, 44.44);
     }
 
     @Test

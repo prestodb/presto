@@ -23,8 +23,8 @@ public class TestDictionaryEncodedBlockSerde
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         BlockEncoding blockEncoding = new DictionaryEncoder(new UncompressedEncoder(sliceOutput)).append(tuples).append(tuples).append(tuples).finish();
-        Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput(), 0);
-        assertBlockEquals(actualBlock, new BlockBuilder(0, SINGLE_VARBINARY)
+        Block actualBlock = blockEncoding.readBlock(sliceOutput.slice().getInput());
+        assertBlockEquals(actualBlock, new BlockBuilder(SINGLE_VARBINARY)
                 .append("alice")
                 .append("bob")
                 .append("charlie")

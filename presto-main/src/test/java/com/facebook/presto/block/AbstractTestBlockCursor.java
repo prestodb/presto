@@ -3,11 +3,9 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.util.Range;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.Tuples;
 import com.google.common.collect.ImmutableList;
-import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -17,8 +15,6 @@ import java.util.SortedMap;
 import static com.facebook.presto.block.BlockCursorAssertions.assertAdvanceToPosition;
 import static com.facebook.presto.block.BlockCursorAssertions.assertCurrentValue;
 import static com.facebook.presto.block.BlockCursorAssertions.assertNextPosition;
-import static com.facebook.presto.block.BlockCursorAssertions.assertNextValue;
-import static com.facebook.presto.block.BlockCursorAssertions.assertNextValuePosition;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -26,7 +22,7 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestBlockCursor
 {
-    private final SortedMap<Long,Tuple> expectedValues = BlockCursorAssertions.toTuplesMap(createTestCursor());
+    private final SortedMap<Integer,Tuple> expectedValues = BlockCursorAssertions.toTuplesMap(createTestCursor());
 
     protected abstract Block createExpectedValues();
 
@@ -35,12 +31,12 @@ public abstract class AbstractTestBlockCursor
         return createExpectedValues().cursor();
     }
 
-    public final Tuple getExpectedValue(long position)
+    public final Tuple getExpectedValue(int position)
     {
         return getExpectedValues().get(position);
     }
 
-    public final SortedMap<Long, Tuple> getExpectedValues()
+    public final SortedMap<Integer, Tuple> getExpectedValues()
     {
         return expectedValues;
     }
@@ -49,7 +45,7 @@ public abstract class AbstractTestBlockCursor
     public void setUp()
     {
         // verify expected values
-        assertEquals(ImmutableList.copyOf(getExpectedValues().keySet()), ImmutableList.of(0L, 1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L));
+        assertEquals(ImmutableList.copyOf(getExpectedValues().keySet()), ImmutableList.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
     }
 
     @Test
@@ -97,16 +93,9 @@ public abstract class AbstractTestBlockCursor
         }
 
         // skip past end
-        assertFalse(cursor.advanceToPosition((long) 100));
+        assertFalse(cursor.advanceToPosition(100));
         assertTrue(cursor.isFinished());
         assertFalse(cursor.isValid());
-    }
-
-    @Test
-    public void testRange()
-    {
-        BlockCursor cursor = createTestCursor();
-        Assert.assertEquals(cursor.getRange(), new Range(0, 10));
     }
 
     @Test
@@ -149,18 +138,10 @@ public abstract class AbstractTestBlockCursor
         assertFalse(cursor.isValid());
         assertTrue(cursor.isFinished());
 
-        assertFalse(cursor.advanceNextValue());
         assertFalse(cursor.advanceNextPosition());
 
         assertFalse(cursor.isValid());
         assertTrue(cursor.isFinished());
-    }
-
-    @Test
-    public void testFirstValue()
-    {
-        BlockCursor cursor = createTestCursor();
-        assertNextValue(cursor, 0, getExpectedValue(0));
     }
 
     @Test
@@ -171,68 +152,14 @@ public abstract class AbstractTestBlockCursor
     }
 
     @Test
-    public void testAdvanceNextValue()
-    {
-        BlockCursor cursor = createTestCursor();
-
-        for (Entry<Long, Tuple> entry : getExpectedValues().entrySet()) {
-            assertNextValue(cursor, entry.getKey(), entry.getValue());
-        }
-
-        assertFalse(cursor.advanceNextValue());
-    }
-
-    @Test
     public void testAdvanceNextPosition()
     {
         BlockCursor cursor = createTestCursor();
 
-        for (Entry<Long, Tuple> entry : getExpectedValues().entrySet()) {
+        for (Entry<Integer, Tuple> entry : getExpectedValues().entrySet()) {
             assertNextPosition(cursor, entry.getKey(), entry.getValue());
         }
 
         assertFalse(cursor.advanceNextPosition());
-    }
-
-    @Test
-    public void testNextValuePosition()
-    {
-        BlockCursor cursor = createTestCursor();
-
-        for (Long position : getExpectedValues().keySet()) {
-            assertNextValuePosition(cursor, position);
-        }
-
-        assertFalse(cursor.advanceNextValue());
-        assertTrue(cursor.isFinished());
-    }
-
-    @Test
-    public void testMixedValueAndPosition()
-    {
-        BlockCursor cursor = createTestCursor();
-
-        for (Entry<Long, Tuple> entry : getExpectedValues().entrySet()) {
-            long position = entry.getKey();
-            Tuple tuple = entry.getValue();
-            if (position % 2 != 0) {
-                assertNextValue(cursor, position, tuple);
-            }
-            else {
-                assertNextPosition(cursor, position, tuple);
-            }
-        }
-
-        assertFalse(cursor.advanceNextPosition());
-        assertFalse(cursor.advanceNextValue());
-    }
-
-    @Test
-    public void testGetCurrentValueEndPosition()
-    {
-        BlockCursor cursor = createTestCursor();
-        while (cursor.advanceNextValue()) {
-            assertEquals(cursor.getCurrentValueEndPosition(), cursor.getPosition());
-        }
     }
 }

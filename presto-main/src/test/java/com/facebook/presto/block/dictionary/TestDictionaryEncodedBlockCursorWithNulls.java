@@ -21,7 +21,7 @@ public class TestDictionaryEncodedBlockCursorWithNulls
     @Override
     protected Block createExpectedValues()
     {
-        return createStringsBlock(0, null, "apple", null, "banana", null, "banana", null, "banana", null, "cherry", null);
+        return createStringsBlock(null, "apple", null, "banana", null, "banana", null, "banana", null, "cherry", null);
     }
 
     @Override
@@ -34,7 +34,7 @@ public class TestDictionaryEncodedBlockCursorWithNulls
                 createTuple("cherry").getTupleSlice(),
                 createTuple("date").getTupleSlice());
 
-        return new DictionaryEncodedBlock(dictionary, createLongsBlock(0, 0, 1, 0, 2, 0, 2, 0, 2, 0, 3, 0)).cursor();
+        return new DictionaryEncodedBlock(dictionary, createLongsBlock(0, 1, 0, 2, 0, 2, 0, 2, 0, 3, 0)).cursor();
     }
 
     @Test

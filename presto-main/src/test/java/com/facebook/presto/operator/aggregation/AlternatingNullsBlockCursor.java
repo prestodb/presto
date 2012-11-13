@@ -1,12 +1,12 @@
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.Tuples;
-import com.facebook.presto.util.Range;
 
 /**
  * A wrapper that inserts a null in every other position
@@ -15,14 +15,12 @@ public class AlternatingNullsBlockCursor
         implements BlockCursor
 {
     private final BlockCursor delegate;
-    private final Range range;
     private final Tuple nullTuple;
     private int index = -1;
 
     public AlternatingNullsBlockCursor(BlockCursor delegate)
     {
         this.delegate = delegate;
-        range = new Range(delegate.getRange().getStart(), delegate.getRange().length() * 2);
         nullTuple = Tuples.nullTuple(this.delegate.getTupleInfo());
     }
 
@@ -33,9 +31,9 @@ public class AlternatingNullsBlockCursor
     }
 
     @Override
-    public Range getRange()
+    public int getRemainingPositions()
     {
-        return range;
+        return delegate.getRemainingPositions() * 2 + (isNullPosition() ? 1 : 0);
     }
 
     @Override
@@ -51,12 +49,6 @@ public class AlternatingNullsBlockCursor
     }
 
     @Override
-    public boolean advanceNextValue()
-    {
-        return advanceNextPosition();
-    }
-
-    @Override
     public boolean advanceNextPosition()
     {
         index++;
@@ -69,9 +61,15 @@ public class AlternatingNullsBlockCursor
     }
 
     @Override
-    public boolean advanceToPosition(long position)
+    public boolean advanceToPosition(int position)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Block getRegionAndAdvance(int length)
+    {
+        throw new UnsupportedOperationException("No block form for " + getClass().getSimpleName());
     }
 
     @Override
@@ -117,15 +115,9 @@ public class AlternatingNullsBlockCursor
     }
 
     @Override
-    public long getPosition()
+    public int getPosition()
     {
-        return delegate.getRange().getStart() + index;
-    }
-
-    @Override
-    public long getCurrentValueEndPosition()
-    {
-        return getPosition();
+        return index;
     }
 
     @Override

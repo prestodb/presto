@@ -3,7 +3,6 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.rle.RunLengthEncodedBlockCursor;
 import com.facebook.presto.tuple.Tuples;
-import com.facebook.presto.util.Range;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
@@ -11,9 +10,9 @@ import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestAggregationFunction
 {
-    public abstract BlockCursor getSequenceCursor(long max);
+    public abstract BlockCursor getSequenceCursor(int max);
     public abstract AggregationFunction getFunction();
-    public abstract Number getExpectedValue(long positions);
+    public abstract Number getExpectedValue(int positions);
     public abstract Number getActualValue(AggregationFunction function);
 
     @Test
@@ -27,7 +26,7 @@ public abstract class AbstractTestAggregationFunction
     public void testAllPositionsNull()
             throws Exception
     {
-        BlockCursor nullsCursor = new RunLengthEncodedBlockCursor(Tuples.nullTuple(getSequenceCursor(0).getTupleInfo()), new Range(0, 10));
+        BlockCursor nullsCursor = new RunLengthEncodedBlockCursor(Tuples.nullTuple(getSequenceCursor(0).getTupleInfo()), 11);
         testMultiplePositions(nullsCursor, getExpectedValue(0), 10);
     }
 

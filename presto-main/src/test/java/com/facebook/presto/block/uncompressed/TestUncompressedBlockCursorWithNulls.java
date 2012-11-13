@@ -19,7 +19,7 @@ public class TestUncompressedBlockCursorWithNulls
     @Override
     protected Block createExpectedValues()
     {
-        return new BlockBuilder(0, new TupleInfo(VARIABLE_BINARY, FIXED_INT_64))
+        return new BlockBuilder(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64))
                 .appendNull()
                 .appendNull()
                 .append("apple")

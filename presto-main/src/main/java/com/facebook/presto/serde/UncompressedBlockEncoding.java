@@ -9,7 +9,6 @@ import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.util.Range;
 import com.google.common.base.Preconditions;
 
 public class UncompressedBlockEncoding
@@ -41,30 +40,25 @@ public class UncompressedBlockEncoding
         UncompressedBlock uncompressedBlock = (UncompressedBlock) block;
         Preconditions.checkArgument(block.getTupleInfo().equals(tupleInfo), "Invalid tuple info");
         writeUncompressedBlock(sliceOutput,
-                uncompressedBlock.getRange().getStart(),
-                (int) uncompressedBlock.getRange().length(),
+                uncompressedBlock.getPositionCount(),
                 uncompressedBlock.getSlice());
     }
 
     @Override
-    public Block readBlock(SliceInput sliceInput, long positionOffset)
+    public Block readBlock(SliceInput sliceInput)
     {
         int blockSize = sliceInput.readInt();
         int tupleCount = sliceInput.readInt();
-        long startPosition = sliceInput.readLong() + positionOffset;
-
-        Range range = Range.create(startPosition, startPosition + tupleCount - 1);
 
         Slice block = sliceInput.readSlice(blockSize);
-        return new UncompressedBlock(range, tupleInfo, block);
+        return new UncompressedBlock(tupleCount, tupleInfo, block);
     }
 
-    private static void writeUncompressedBlock(SliceOutput destination, long startPosition, int tupleCount, Slice slice)
+    private static void writeUncompressedBlock(SliceOutput destination, int tupleCount, Slice slice)
     {
         destination
                 .appendInt(slice.length())
                 .appendInt(tupleCount)
-                .appendLong(startPosition)
                 .writeBytes(slice);
     }
 

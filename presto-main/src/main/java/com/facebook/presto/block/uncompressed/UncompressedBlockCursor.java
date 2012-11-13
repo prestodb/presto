@@ -1,10 +1,10 @@
 package com.facebook.presto.block.uncompressed;
 
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.util.Range;
 import com.google.common.base.Preconditions;
 
 public class UncompressedBlockCursor
@@ -12,29 +12,28 @@ public class UncompressedBlockCursor
 {
     private final TupleInfo tupleInfo;
     private final Slice slice;
-    private final Range range;
-    private final long endPosition;
-    private final long startPosition;
+    private final int positionCount;
 
-    private long position;
+    private int position;
     private int offset;
     private int size;
 
-    public UncompressedBlockCursor(UncompressedBlock block)
+    public UncompressedBlockCursor(TupleInfo tupleInfo, int positionCount, Slice slice, int sliceOffset)
     {
-        Preconditions.checkNotNull(block, "block is null");
+        Preconditions.checkNotNull(tupleInfo, "tupleInfo is null");
+        Preconditions.checkArgument(positionCount >= 0, "positionCount is negative");
+        Preconditions.checkNotNull(positionCount, "positionCount is null");
+        Preconditions.checkPositionIndex(sliceOffset, slice.length(), "sliceOffset");
 
-        this.tupleInfo = block.getTupleInfo();
-        this.slice = block.getSlice();
-        this.range = block.getRange();
+        this.tupleInfo = tupleInfo;
+        this.positionCount = positionCount;
 
-        endPosition = range.getEnd();
-        startPosition = range.getStart();
+        this.slice = slice;
+        offset = sliceOffset;
+        size = 0;
 
         // start one position before the start
-        position = startPosition - 1;
-        offset = block.getRawOffset();
-        size = 0;
+        position = -1;
     }
 
     @Override
@@ -44,21 +43,21 @@ public class UncompressedBlockCursor
     }
 
     @Override
-    public Range getRange()
+    public int getRemainingPositions()
     {
-        return range;
+        return positionCount - (position + 1);
     }
 
     @Override
     public boolean isValid()
     {
-        return startPosition <= position && position <= endPosition;
+        return 0 <= position && position < positionCount;
     }
 
     @Override
     public boolean isFinished()
     {
-        return position > endPosition;
+        return position >= positionCount;
     }
 
     private void checkReadablePosition()
@@ -67,17 +66,10 @@ public class UncompressedBlockCursor
     }
 
     @Override
-    public boolean advanceNextValue()
-    {
-        // every value is a new position
-        return advanceNextPosition();
-    }
-
-    @Override
     public boolean advanceNextPosition()
     {
-        if (position >= endPosition) {
-            position = Long.MAX_VALUE;
+        if (position >= positionCount -1) {
+            position = positionCount;
             return false;
         }
 
@@ -88,10 +80,10 @@ public class UncompressedBlockCursor
     }
 
     @Override
-    public boolean advanceToPosition(long newPosition)
+    public boolean advanceToPosition(int newPosition)
     {
-        if (newPosition > endPosition) {
-            position = Long.MAX_VALUE;
+        if (newPosition >= positionCount) {
+            position = positionCount;
             return false;
         }
 
@@ -107,14 +99,24 @@ public class UncompressedBlockCursor
     }
 
     @Override
-    public long getPosition()
+    public Block getRegionAndAdvance(int length)
     {
-        checkReadablePosition();
-        return position;
+        // view port starts at next position
+        int startOffset = offset + size;
+        length = Math.min(length, getRemainingPositions());
+
+        // advance to end of view port
+        for (int i = 0; i < length; i++) {
+            position++;
+            offset += size;
+            size = tupleInfo.size(slice, offset);
+        }
+
+        return new UncompressedBlock(length, tupleInfo, slice, startOffset);
     }
 
     @Override
-    public long getCurrentValueEndPosition()
+    public int getPosition()
     {
         checkReadablePosition();
         return position;

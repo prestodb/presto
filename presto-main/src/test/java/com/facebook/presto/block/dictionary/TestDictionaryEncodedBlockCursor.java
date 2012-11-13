@@ -19,7 +19,7 @@ public class TestDictionaryEncodedBlockCursor extends AbstractTestBlockCursor
     @Override
     protected Block createExpectedValues()
     {
-        return createStringsBlock(0, "apple", "apple", "apple", "banana", "banana", "banana", "banana", "banana", "cherry", "cherry", "date");
+        return createStringsBlock("apple", "apple", "apple", "banana", "banana", "banana", "banana", "banana", "cherry", "cherry", "date");
     }
 
     @Override
@@ -31,7 +31,7 @@ public class TestDictionaryEncodedBlockCursor extends AbstractTestBlockCursor
                 createTuple("cherry").getTupleSlice(),
                 createTuple("date").getTupleSlice());
 
-        return new DictionaryEncodedBlock(dictionary, createLongsBlock(0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 3)).cursor();
+        return new DictionaryEncodedBlock(dictionary, createLongsBlock(0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 3)).cursor();
     }
 
     @Test

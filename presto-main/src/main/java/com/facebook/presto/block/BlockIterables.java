@@ -6,7 +6,6 @@ package com.facebook.presto.block;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
-import com.facebook.presto.util.Range;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -95,7 +94,6 @@ public final class BlockIterables
             {
                 private final Iterator<? extends BlockIterable> blockIterables = ConcatBlockIterable.this.blockIterables.iterator();
                 private Iterator<Block> blocks;
-                private long position;
 
                 @Override
                 protected Block computeNext()
@@ -106,12 +104,7 @@ public final class BlockIterables
                     if (blocks == null || !blocks.hasNext()) {
                         return endOfData();
                     }
-                    // rewrite block position so positions are contiguous
                     UncompressedBlock block = (UncompressedBlock) blocks.next();
-                    block = new UncompressedBlock(new Range(position, position + block.getPositionCount() - 1),
-                            block.getTupleInfo(),
-                            block.getSlice());
-                    position += block.getPositionCount();
                     return block;
                 }
             };

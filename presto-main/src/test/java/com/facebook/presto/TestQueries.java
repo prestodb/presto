@@ -763,18 +763,16 @@ public class TestQueries
             public Iterator<Block> iterator()
             {
                 return new AbstractIterator<Block>() {
-                    long position = 0;
                     RecordIterator iterator = data.iterator();
 
                     @Override
                     protected Block computeNext()
                     {
-                        BlockBuilder builder = new BlockBuilder(position, new TupleInfo(type));
+                        BlockBuilder builder = new BlockBuilder(new TupleInfo(type));
 
                         while (iterator.hasNext() && !builder.isFull()) {
                             Record record = iterator.next();
                             projection.project(record, builder);
-                            ++position;
                         }
 
                         if (builder.isEmpty()) {

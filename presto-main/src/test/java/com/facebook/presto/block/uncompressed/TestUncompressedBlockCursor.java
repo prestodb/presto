@@ -18,7 +18,7 @@ public class TestUncompressedBlockCursor extends AbstractTestBlockCursor
     @Override
     protected Block createExpectedValues()
     {
-        return new BlockBuilder(0, new TupleInfo(VARIABLE_BINARY, FIXED_INT_64))
+        return new BlockBuilder(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64))
                 .append("apple")
                 .append(11)
                 .append("apple")

@@ -118,7 +118,7 @@ public class TestQueryDriversOperator
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");
         for (int i = 0; i < 12; i++) {
-            pages.add(new Page(createStringsBlock(0, Iterables.concat(Collections.nCopies(i + 1, data)))));
+            pages.add(new Page(createStringsBlock(Iterables.concat(Collections.nCopies(i + 1, data)))));
         }
         return pages.build();
     }

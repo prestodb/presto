@@ -1,6 +1,5 @@
 package com.facebook.presto.block.dictionary;
 
-import com.facebook.presto.util.Range;
 import com.facebook.presto.slice.SizeOf;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
@@ -13,14 +12,16 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class PackedLongSerde
 {
     private final byte bitWidth;
-    private final Range allowedRange;
+    private final long min;
+    private final long max;
 
     public PackedLongSerde(int bitWidth)
     {
         checkArgument(bitWidth > 0 && bitWidth <= Long.SIZE);
         this.bitWidth = (byte) bitWidth;
         // Compute min/max two's complement range given bit space
-        this.allowedRange = Range.create(-1L << (bitWidth - 1), ~(-1L << (bitWidth - 1)));
+        min = -1L << (bitWidth - 1);
+        max = ~(-1L << (bitWidth - 1));
     }
 
     public void serialize(Iterable<Long> items, SliceOutput sliceOutput)
@@ -40,7 +41,7 @@ public class PackedLongSerde
                 }
 
                 long rawValue = iter.next();
-                checkArgument(allowedRange.contains(rawValue), "Provided value does not fit into bitspace");
+                checkArgument(min <= rawValue && rawValue <= max, "Provided value does not fit into bitspace");
                 long maskedValue = rawValue & mask;
                 itemCount++;
 

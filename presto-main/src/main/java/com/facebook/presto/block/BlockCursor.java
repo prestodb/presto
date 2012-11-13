@@ -1,10 +1,9 @@
 package com.facebook.presto.block;
 
-import com.facebook.presto.tuple.TupleReadable;
-import com.facebook.presto.util.Range;
+import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.slice.Slice;
+import com.facebook.presto.tuple.TupleReadable;
 
 /**
  * Iterate as:
@@ -12,7 +11,7 @@ import com.facebook.presto.slice.Slice;
  * <pre>{@code
  *  Cursor cursor = ...;
  * <p/>
- *  while (cursor.advanceNextValue()) {
+ *  while (cursor.advanceNextPosition()) {
  *     long value = cursor.getLong(...);
  *     ...
  *  }
@@ -28,9 +27,9 @@ public interface BlockCursor
     TupleInfo getTupleInfo();
 
     /**
-     * Gets the upper bound on the range of this cursor
+     * Gets the number of positions remaining in this cursor.
      */
-    Range getRange();
+    int getRemainingPositions();
 
     /**
      * Returns true if the current position of the cursor is valid; false if
@@ -49,19 +48,35 @@ public interface BlockCursor
     boolean isFinished();
 
     /**
-     * Attempts to advance to the first position of the next value
-     */
-    boolean advanceNextValue();
-
-    /**
-     * Attempts to advance to the next position in this stream and possibly to the next value if the current position if the last one for the current value
+     * Attempts to advance to the next position in this stream.
      */
     boolean advanceNextPosition();
 
     /**
-     * Attempts to advance to the requested position or the next immediately available if that position does not exist in this stream (e.g., there's a gap in the sequence)
+     * Attempts to advance to the requested position.
      */
-    boolean advanceToPosition(long position);
+    boolean advanceToPosition(int position);
+
+    /**
+     * Creates a block view port starting at the next position and extending
+     * the specified length. If the length is greater than the remaining
+     * positions, the length wil be reduced.  This method advances the cursor
+     * to the last position in the view port, so repeated calls to this method
+     * will result in distinct chunks covering all positions of the cursor.
+     *
+     * For example, to get a sequence of regions with 1024 positions, use the
+     * following code:
+     * <p/>
+     * <pre>{@code
+     *  Cursor cursor = ...;
+     * <p/>
+     *  while (cursor.getRemainingPositions() > 0) {
+     *     Block block = cursor.getRegionAndAdvance(1024);
+     *     ...
+     *  }
+     * }</pre>
+     */
+    Block getRegionAndAdvance(int length);
 
     /**
      * Gets the current tuple.
@@ -108,14 +123,7 @@ public interface BlockCursor
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
-    long getPosition();
-
-    /**
-     * Returns the last position of the current value
-     *
-     * @throws IllegalStateException if this cursor is not at a valid position
-     */
-    long getCurrentValueEndPosition();
+    int getPosition();
 
     /**
      * True if the next tuple equals the specified tuple.

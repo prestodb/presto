@@ -1,6 +1,6 @@
 package com.facebook.presto.block.dictionary;
 
-import com.facebook.presto.util.Range;
+import com.facebook.presto.block.Block;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.BlockCursor;
@@ -31,9 +31,9 @@ public class DictionaryEncodedBlockCursor implements BlockCursor
     }
 
     @Override
-    public Range getRange()
+    public int getRemainingPositions()
     {
-        return sourceCursor.getRange();
+        return sourceCursor.getRemainingPositions();
     }
 
     @Override
@@ -49,21 +49,21 @@ public class DictionaryEncodedBlockCursor implements BlockCursor
     }
 
     @Override
-    public boolean advanceNextValue()
-    {
-        return sourceCursor.advanceNextValue();
-    }
-
-    @Override
     public boolean advanceNextPosition()
     {
         return sourceCursor.advanceNextPosition();
     }
 
     @Override
-    public boolean advanceToPosition(long position)
+    public boolean advanceToPosition(int position)
     {
         return sourceCursor.advanceToPosition(position);
+    }
+
+    @Override
+    public Block getRegionAndAdvance(int length)
+    {
+        return new DictionaryEncodedBlock(dictionary, sourceCursor.getRegionAndAdvance(length));
     }
 
     @Override
@@ -97,7 +97,7 @@ public class DictionaryEncodedBlockCursor implements BlockCursor
     }
 
     @Override
-    public long getPosition()
+    public int getPosition()
     {
         return sourceCursor.getPosition();
     }
@@ -106,12 +106,6 @@ public class DictionaryEncodedBlockCursor implements BlockCursor
     public boolean currentTupleEquals(Tuple value)
     {
         return dictionary.tupleEquals(getDictionaryKey(), value);
-    }
-
-    @Override
-    public long getCurrentValueEndPosition()
-    {
-        return sourceCursor.getCurrentValueEndPosition();
     }
 
     public int getDictionaryKey()
