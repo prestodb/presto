@@ -25,7 +25,6 @@ import com.facebook.presto.tuple.TupleReadable;
 import java.util.Map;
 
 import static com.google.common.base.Charsets.UTF_8;
-import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
 
@@ -255,35 +254,36 @@ class ExpressionInterpreter
         switch (node.getType()) {
             case AND: {
                 // if either left or right is false, result is always false regardless of nulls
+
+                // if left is not actually true, we are done
                 Boolean left = (Boolean) process(node.getLeft(), context);
-                if (left == FALSE) {
-                    return FALSE;
+                if (left == null || !left) {
+                    return left;
                 }
+
+                // left was true, so result is what ever right evaluates to
                 Boolean right = (Boolean) process(node.getRight(), context);
-                if (right == FALSE) {
-                    return FALSE;
-                }
-                // otherwise, if either is null, result is null
-                if (left == null || right == null) {
-                    return null;
-                }
-                return TRUE;
+                return right;
             }
             case OR: {
                 // if either left or right is true, result is always true regardless of nulls
+
                 Boolean left = (Boolean) process(node.getLeft(), context);
-                if (left == TRUE) {
+                // if left is actually true, we are done
+                if (left != null && left) {
                     return TRUE;
                 }
+
                 Boolean right = (Boolean) process(node.getRight(), context);
-                if (right == TRUE) {
-                    return TRUE;
-                }
-                // otherwise, if either is null, result is null
-                if (left == null || right == null) {
+                if (right == null) {
                     return null;
                 }
-                return false;
+                if (right) {
+                    return TRUE;
+                }
+
+                // if left was null, result is null otherwise result is false
+                return (left == null) ? null : false;
             }
         }
 

@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.sql.compiler.NamedSlot.nameGetter;
+import static com.google.common.base.Predicates.equalTo;
 
 public class ExpressionAnalyzer
 {
@@ -149,7 +150,12 @@ public class ExpressionAnalyzer
                 operandTypes.add(process(expression, context));
             }
             Type firstOperand = Iterables.get(operandTypes, 0);
-            if (!Iterables.all(operandTypes, Predicates.equalTo(firstOperand))) {
+            if (!Iterables.all(operandTypes, equalTo(firstOperand))) {
+                // if they are all numeric return DOUBLE
+                // todo rewrite this when we add proper type hierarchy
+                if (Iterables.all(operandTypes, Predicates.or(equalTo(Type.DOUBLE), equalTo(Type.LONG)))){
+                    return Type.DOUBLE;
+                }
                 throw new SemanticException(node, "All operands of coalesce must be the same type: %s", operandTypes);
             }
             return firstOperand;
