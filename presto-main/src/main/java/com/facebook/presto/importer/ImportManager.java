@@ -1,6 +1,7 @@
 package com.facebook.presto.importer;
 
 import com.facebook.presto.hive.ImportClient;
+import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.server.ShardImport;
@@ -111,12 +112,12 @@ public class ImportManager
         @Override
         public void run()
         {
-            List<byte[]> chunks = supplier.get();
+            List<SerializedPartitionChunk> chunks = supplier.get();
             List<Long> shardIds = shardManager.createImportPartition(tableId, partitionName, chunks);
             log.debug("retrieved partition chunks: %s: %s: %s", partitionName, chunks.size(), shardIds);
 
             for (int i = 0; i < chunks.size(); i++) {
-                byte[] chunk = chunks.get(i);
+                SerializedPartitionChunk chunk = chunks.get(i);
                 long shardId = shardIds.get(i);
                 chunkExecutor.execute(new ChunkJob(sourceName, shardId, chunk, fields));
             }
@@ -129,7 +130,7 @@ public class ImportManager
         private final long shardId;
         private final ShardImport shardImport;
 
-        public ChunkJob(String sourceName, long shardId, byte[] chunk, List<ImportField> fields)
+        public ChunkJob(String sourceName, long shardId, SerializedPartitionChunk chunk, List<ImportField> fields)
         {
             this.shardId = shardId;
             this.shardImport = new ShardImport(sourceName, chunk, fields);

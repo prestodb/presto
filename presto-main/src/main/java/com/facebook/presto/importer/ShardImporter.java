@@ -101,7 +101,7 @@ public class ShardImporter
         private void importShard()
                 throws IOException
         {
-            PartitionChunk chunk = importClient.deserializePartitionChunk(shardImport.getPartitionChunk());
+            PartitionChunk chunk = shardImport.getPartitionChunk().deserialize(importClient);
             List<String> fieldNames = getFieldNames(shardImport.getFields());
             List<Long> columnIds = getColumnIds(shardImport.getFields());
             List<RecordProjection> projections = getRecordProjections(shardImport.getFields());

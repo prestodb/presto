@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
@@ -45,7 +46,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public List<Long> createImportPartition(final long tableId, final String partitionName, final List<byte[]> partitionChunks)
+    public List<Long> createImportPartition(final long tableId, final String partitionName, final List<SerializedPartitionChunk> partitionChunks)
     {
         return dbi.inTransaction(new TransactionCallback<List<Long>>()
         {
@@ -55,9 +56,9 @@ public class DatabaseShardManager
                 ShardManagerDao dao = handle.attach(ShardManagerDao.class);
                 ImmutableList.Builder<Long> shardIds = ImmutableList.builder();
                 long importPartitionId = dao.insertImportPartition(tableId, partitionName);
-                for (byte[] chunk : partitionChunks) {
+                for (SerializedPartitionChunk chunk : partitionChunks) {
                     long shardId = dao.insertShard(tableId, false);
-                    dao.insertImportPartitionChunk(importPartitionId, shardId, chunk);
+                    dao.insertImportPartitionChunk(importPartitionId, shardId, chunk.getBytes());
                     dao.insertImportPartitionShard(importPartitionId, shardId);
                     shardIds.add(shardId);
                 }

@@ -2,6 +2,7 @@ package com.facebook.presto.importer;
 
 import com.facebook.presto.hive.ImportClient;
 import com.facebook.presto.hive.PartitionChunk;
+import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 
@@ -10,7 +11,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 class PartitionChunkSupplier
-        implements Supplier<List<byte[]>>
+        implements Supplier<List<SerializedPartitionChunk>>
 {
     private final ImportClient importClient;
     private final String databaseName;
@@ -26,12 +27,12 @@ class PartitionChunkSupplier
     }
 
     @Override
-    public List<byte[]> get()
+    public List<SerializedPartitionChunk> get()
     {
         List<PartitionChunk> chunks = importClient.getPartitionChunks(databaseName, tableName, partitionName);
-        ImmutableList.Builder<byte[]> serialized = ImmutableList.builder();
+        ImmutableList.Builder<SerializedPartitionChunk> serialized = ImmutableList.builder();
         for (PartitionChunk chunk : chunks) {
-            serialized.add(importClient.serializePartitionChunk(chunk));
+            serialized.add(SerializedPartitionChunk.create(importClient, chunk));
         }
         return serialized.build();
     }
