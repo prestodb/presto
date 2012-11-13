@@ -31,13 +31,13 @@ public class StringRecord implements Record
     }
 
     @Override
-    public Long getLong(int field)
+    public long getLong(int field)
     {
         return Long.parseLong(getString(field));
     }
 
     @Override
-    public Double getDouble(int field)
+    public double getDouble(int field)
     {
         return Double.parseDouble(getString(field));
     }
@@ -46,5 +46,11 @@ public class StringRecord implements Record
     public String getString(int field)
     {
         return columns.get(field);
+    }
+
+    @Override
+    public boolean isNull(int field)
+    {
+        return columns.get(field).isEmpty();
     }
 }

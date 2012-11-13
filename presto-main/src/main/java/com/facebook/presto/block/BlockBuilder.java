@@ -90,6 +90,13 @@ public class BlockBuilder
         return this;
     }
 
+    public BlockBuilder appendNull()
+    {
+        tupleBuilder.appendNull();
+        flushTupleIfNecessary();
+        return this;
+    }
+
     public BlockBuilder append(Tuple tuple)
     {
         tupleBuilder.append(tuple);

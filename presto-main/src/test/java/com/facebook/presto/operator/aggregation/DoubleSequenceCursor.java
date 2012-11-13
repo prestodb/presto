@@ -85,7 +85,7 @@ public class DoubleSequenceCursor
     {
         checkReadablePosition();
         return getTupleInfo().builder()
-                .append(current)
+                .append((double) current)
                 .build();
     }
 
@@ -107,6 +107,12 @@ public class DoubleSequenceCursor
     public Slice getSlice(int field)
     {
         throw new UnsupportedOperationException("Cursor can only produce LONG");
+    }
+
+    @Override
+    public boolean isNull(int field)
+    {
+        return false;
     }
 
     @Override

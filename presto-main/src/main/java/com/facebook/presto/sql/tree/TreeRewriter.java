@@ -249,6 +249,105 @@ public final class TreeRewriter<C>
         }
 
         @Override
+        public Node visitNotExpression(NotExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteNotExpression(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression value = rewrite(node.getValue(), context.get());
+
+            if (value != node.getValue()) {
+                return new NotExpression(value);
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Node visitIsNullPredicate(IsNullPredicate node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteIsNullPredicate(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression value = rewrite(node.getValue(), context.get());
+
+            if (value != node.getValue()) {
+                return new IsNullPredicate(value);
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Node visitIsNotNullPredicate(IsNotNullPredicate node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteIsNotNullPredicate(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression value = rewrite(node.getValue(), context.get());
+
+            if (value != node.getValue()) {
+                return new IsNotNullPredicate(value);
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Node visitNullIfExpression(NullIfExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteNullIfExpression(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression first = rewrite(node.getFirst(), context.get());
+            Expression second = rewrite(node.getSecond(), context.get());
+
+            if (first != node.getFirst() || second != node.getSecond()) {
+                return new NullIfExpression(first, second);
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Node visitCoalesceExpression(CoalesceExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteCoalesceExpression(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            ImmutableList.Builder<Expression> builder = ImmutableList.builder();
+            for (Expression expression : node.getOperands()) {
+                builder.add(rewrite(expression, context.get()));
+            }
+
+            if (!sameElements(node.getOperands(), builder.build())) {
+                return new CoalesceExpression(builder.build());
+            }
+
+            return node;
+        }
+
+        @Override
         public Node visitFunctionCall(FunctionCall node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

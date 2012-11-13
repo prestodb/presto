@@ -11,9 +11,15 @@ public class CoalesceExpression
 {
     private final List<Expression> operands;
 
+    public CoalesceExpression(Expression... operands)
+    {
+        this(ImmutableList.copyOf(operands));
+    }
+
     public CoalesceExpression(List<Expression> operands)
     {
         Preconditions.checkNotNull(operands, "operands is null");
+        Preconditions.checkArgument(!operands.isEmpty(), "operands is empty");
 
         this.operands = ImmutableList.copyOf(operands);
     }

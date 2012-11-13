@@ -110,6 +110,12 @@ public class LongSequenceCursor
     }
 
     @Override
+    public boolean isNull(int field)
+    {
+        return false;
+    }
+
+    @Override
     public long getPosition()
     {
         checkReadablePosition();

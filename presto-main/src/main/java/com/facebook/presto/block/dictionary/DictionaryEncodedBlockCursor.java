@@ -91,6 +91,12 @@ public class DictionaryEncodedBlockCursor implements BlockCursor
     }
 
     @Override
+    public boolean isNull(int field)
+    {
+        return dictionary.isNull(getDictionaryKey(), field);
+    }
+
+    @Override
     public long getPosition()
     {
         return sourceCursor.getPosition();

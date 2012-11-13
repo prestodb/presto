@@ -69,6 +69,31 @@ public class NodeRewriter<C>
         return rewriteExpression(node, context, treeRewriter);
     }
 
+    public Node rewriteNotExpression(NotExpression node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
+    public Node rewriteIsNullPredicate(IsNullPredicate node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
+    public Node rewriteIsNotNullPredicate(IsNotNullPredicate node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
+    public Node rewriteNullIfExpression(NullIfExpression node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
+    public Node rewriteCoalesceExpression(CoalesceExpression node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
     public Node rewriteFunctionCall(FunctionCall node, C context, TreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);

@@ -23,7 +23,7 @@ public class TestDelimitedRecordIterable
         assertEquals(record.getString(0), "apple");
         assertEquals(record.getString(1), "fuu");
         assertEquals(record.getString(2), "123");
-        assertEquals(record.getLong(2), Long.valueOf(123));
+        assertEquals(record.getLong(2), 123L);
         assertEquals(record.getDouble(2), 123.0);
 
         assertTrue(iterator.hasNext());
@@ -31,7 +31,7 @@ public class TestDelimitedRecordIterable
         assertEquals(record.getString(0), "banana");
         assertEquals(record.getString(1), "bar");
         assertEquals(record.getString(2), "456");
-        assertEquals(record.getLong(2), Long.valueOf(456));
+        assertEquals(record.getLong(2), 456L);
         assertEquals(record.getDouble(2), 456.0);
 
         assertFalse(iterator.hasNext());

@@ -13,4 +13,6 @@ public interface TupleReadable
     double getDouble(int index);
 
     Slice getSlice(int index);
+
+    boolean isNull(int field);
 }

@@ -149,6 +149,13 @@ public class UncompressedBlockCursor
     }
 
     @Override
+    public boolean isNull(int field)
+    {
+        checkReadablePosition();
+        return tupleInfo.isNull(slice, offset, field);
+    }
+
+    @Override
     public boolean currentTupleEquals(Tuple value)
     {
         checkReadablePosition();

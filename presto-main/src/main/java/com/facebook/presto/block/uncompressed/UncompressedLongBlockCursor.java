@@ -7,11 +7,13 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.Range;
 import com.google.common.base.Preconditions;
 
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_BYTE;
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
 
 public class UncompressedLongBlockCursor
         implements BlockCursor
 {
+    private static final int ENTRY_SIZE = SIZE_OF_LONG + SIZE_OF_BYTE;
     private final Slice slice;
     private final Range range;
     private final long startPosition;
@@ -32,7 +34,7 @@ public class UncompressedLongBlockCursor
 
         // start one position before the start
         position = startPosition - 1;
-        offset = block.getRawOffset() - SIZE_OF_LONG;
+        offset = block.getRawOffset() - ENTRY_SIZE;
     }
 
     @Override
@@ -80,7 +82,7 @@ public class UncompressedLongBlockCursor
         }
 
         position++;
-        offset += SIZE_OF_LONG;
+        offset += ENTRY_SIZE;
         return true;
     }
 
@@ -95,7 +97,7 @@ public class UncompressedLongBlockCursor
 
         Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
 
-        offset += (int) ((newPosition - position) * SIZE_OF_LONG);
+        offset += (int) ((newPosition - position) * ENTRY_SIZE);
         position = newPosition;
 
         return true;
@@ -119,7 +121,7 @@ public class UncompressedLongBlockCursor
     public Tuple getTuple()
     {
         checkReadablePosition();
-        return new Tuple(slice.slice(offset, SIZE_OF_LONG), TupleInfo.SINGLE_LONG);
+        return new Tuple(slice.slice(offset, ENTRY_SIZE), TupleInfo.SINGLE_LONG);
     }
 
     @Override
@@ -127,7 +129,7 @@ public class UncompressedLongBlockCursor
     {
         checkReadablePosition();
         Preconditions.checkElementIndex(0, 1, "field");
-        return slice.getLong(offset);
+        return slice.getLong(offset + SIZE_OF_BYTE);
     }
 
     @Override
@@ -143,10 +145,18 @@ public class UncompressedLongBlockCursor
     }
 
     @Override
+    public boolean isNull(int field)
+    {
+        checkReadablePosition();
+        Preconditions.checkElementIndex(0, 1, "field");
+        return slice.getByte(offset) != 0;
+    }
+
+    @Override
     public boolean currentTupleEquals(Tuple value)
     {
         checkReadablePosition();
         Slice tupleSlice = value.getTupleSlice();
-        return tupleSlice.length() == SIZE_OF_LONG && slice.getLong(offset) == tupleSlice.getLong(0);
+        return tupleSlice.length() == SIZE_OF_LONG + SIZE_OF_BYTE && slice.getLong(offset + SIZE_OF_BYTE) == tupleSlice.getLong(SIZE_OF_BYTE);
     }
 }
