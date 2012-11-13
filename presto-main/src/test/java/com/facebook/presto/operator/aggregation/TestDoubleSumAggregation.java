@@ -8,7 +8,7 @@ public class TestDoubleSumAggregation
     extends AbstractTestAggregationFunction
 {
     @Override
-    public BlockCursor getSequenceCursor(long max)
+    public BlockCursor getSequenceCursor(int max)
     {
         return new DoubleSequenceCursor(max);
     }

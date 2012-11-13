@@ -1,5 +1,6 @@
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
@@ -27,6 +28,12 @@ public class AlternatingNullsBlockCursor
     public TupleInfo getTupleInfo()
     {
         return delegate.getTupleInfo();
+    }
+
+    @Override
+    public int getRemainingPositions()
+    {
+        return delegate.getRemainingPositions() * 2 + (isNullPosition() ? 1 : 0);
     }
 
     @Override
@@ -63,6 +70,12 @@ public class AlternatingNullsBlockCursor
     public boolean advanceToPosition(long position)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Block createBlockViewPort(int length)
+    {
+        throw new UnsupportedOperationException("No block form for " + getClass().getSimpleName());
     }
 
     @Override

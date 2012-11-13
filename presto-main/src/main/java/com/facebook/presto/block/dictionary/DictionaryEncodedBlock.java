@@ -53,15 +53,9 @@ public class DictionaryEncodedBlock
     }
 
     @Override
-    public int getRawPositionCount()
+    public Block createViewPort(int positionOffset, int length)
     {
-        return idBlock.getRawPositionCount();
-    }
-
-    @Override
-    public Block createViewPort(int rawPosition, int length)
-    {
-        return new DictionaryEncodedBlock(dictionary, idBlock.createViewPort(rawPosition, length));
+        return new DictionaryEncodedBlock(dictionary, idBlock.createViewPort(positionOffset, length));
     }
 
     @Override

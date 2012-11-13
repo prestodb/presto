@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.block.rle;
 
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.Tuple;
@@ -27,6 +28,12 @@ public final class RunLengthEncodedBlockCursor implements BlockCursor
     public TupleInfo getTupleInfo()
     {
         return value.getTupleInfo();
+    }
+
+    @Override
+    public int getRemainingPositions()
+    {
+        return (int) (positionCount - (position + 1));
     }
 
     @Override
@@ -77,6 +84,17 @@ public final class RunLengthEncodedBlockCursor implements BlockCursor
 
         this.position = newPosition;
         return true;
+    }
+
+    @Override
+    public Block createBlockViewPort(int length)
+    {
+        length = Math.min(length, getRemainingPositions());
+
+        // advance to end of view port
+        position += length;
+
+        return new RunLengthEncodedBlock(value, length);
     }
 
     @Override

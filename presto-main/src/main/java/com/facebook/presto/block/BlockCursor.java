@@ -27,6 +27,11 @@ public interface BlockCursor
     TupleInfo getTupleInfo();
 
     /**
+     * Gets the number of positions remaining in this cursor.
+     */
+    int getRemainingPositions();
+
+    /**
      * Returns true if the current position of the cursor is valid; false if
      * the cursor has not been advanced yet, or if the cursor has advanced
      * beyond the last position.
@@ -56,6 +61,15 @@ public interface BlockCursor
      * Attempts to advance to the requested position or the next immediately available if that position does not exist in this stream (e.g., there's a gap in the sequence)
      */
     boolean advanceToPosition(long position);
+
+    /**
+     * Creates a block view port starting at the next position and extending
+     * the specified length. If the length is greater than the remaining
+     * positions, the length wil be reduced.  This method advances the cursor
+     * to the last position in the view port, so repeated calls to this method
+     * will result in distinct chunks covering all positions of the cursor.
+     */
+    Block createBlockViewPort(int length);
 
     /**
      * Gets the current tuple.

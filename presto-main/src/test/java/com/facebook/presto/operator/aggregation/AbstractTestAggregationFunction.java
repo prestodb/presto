@@ -10,7 +10,7 @@ import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestAggregationFunction
 {
-    public abstract BlockCursor getSequenceCursor(long max);
+    public abstract BlockCursor getSequenceCursor(int max);
     public abstract AggregationFunction getFunction();
     public abstract Number getExpectedValue(long positions);
     public abstract Number getActualValue(AggregationFunction function);

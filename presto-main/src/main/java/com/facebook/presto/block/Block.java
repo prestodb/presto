@@ -26,15 +26,9 @@ public interface Block
     BlockEncoding getEncoding();
 
     /**
-     * Gets the number of position of the underlying storage block.
-     * NOTE: This should only be used by the alignment operator.
+     * Returns a block starting at the specified position and extends for the
+     * specified length.  The specified view port must be entirely contained
+     * within this block.
      */
-    int getRawPositionCount();
-
-    /**
-     * Returns a block which is restricted to the specified range.  The view
-     * port range can be out side of this block but must be within the range
-     * of the underlying storage block.
-     */
-    Block createViewPort(int rawPosition, int length);
+    Block createViewPort(int positionOffset, int length);
 }

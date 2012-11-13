@@ -12,20 +12,11 @@ public class RunLengthEncodedBlock
 {
     private final Tuple value;
     private final int positionCount;
-    private final int rawPositionCount;
 
     public RunLengthEncodedBlock(Tuple value, int positionCount)
     {
         this.value = value;
         this.positionCount = positionCount;
-        this.rawPositionCount = positionCount;
-    }
-
-    public RunLengthEncodedBlock(Tuple value, int positionCount, int rawPositionCount)
-    {
-        this.value = value;
-        this.positionCount = positionCount;
-        this.rawPositionCount = rawPositionCount;
     }
 
     public Tuple getValue()
@@ -51,16 +42,10 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public int getRawPositionCount()
+    public Block createViewPort(int positionOffset, int length)
     {
-        return rawPositionCount;
-    }
-
-    @Override
-    public Block createViewPort(int rawPosition, int length)
-    {
-        Preconditions.checkPositionIndexes(rawPosition, rawPosition + length, rawPositionCount);
-        return new RunLengthEncodedBlock(value, length, rawPositionCount);
+        Preconditions.checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
+        return new RunLengthEncodedBlock(value, length);
     }
 
     @Override
