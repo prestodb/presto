@@ -71,7 +71,6 @@ public class HashAggregationOperator
         {
             private final Map<Tuple, AggregationFunction[]> aggregationMap = new HashMap<>();
             private Iterator<Entry<Tuple, AggregationFunction[]>> aggregations;
-            private long position;
 
             @Override
             protected Page computeNext()
@@ -120,7 +119,6 @@ public class HashAggregationOperator
                 }
 
                 Page page = new Page(blocks);
-                position += blocks[0].getPositionCount();
                 return page;
             }
 

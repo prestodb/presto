@@ -60,7 +60,7 @@ public interface BlockCursor
     /**
      * Attempts to advance to the requested position or the next immediately available if that position does not exist in this stream (e.g., there's a gap in the sequence)
      */
-    boolean advanceToPosition(long position);
+    boolean advanceToPosition(int position);
 
     /**
      * Creates a block view port starting at the next position and extending
@@ -116,14 +116,14 @@ public interface BlockCursor
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
-    long getPosition();
+    int getPosition();
 
     /**
      * Returns the last position of the current value
      *
      * @throws IllegalStateException if this cursor is not at a valid position
      */
-    long getCurrentValueEndPosition();
+    int getCurrentValueEndPosition();
 
     /**
      * True if the next tuple equals the specified tuple.

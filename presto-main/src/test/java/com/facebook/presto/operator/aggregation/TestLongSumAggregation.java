@@ -20,14 +20,14 @@ public class TestLongSumAggregation
     }
 
     @Override
-    public Long getExpectedValue(long positions)
+    public Long getExpectedValue(int positions)
     {
         if (positions == 0) {
             return null;
         }
 
         long sum = 0;
-        for (long i = 0; i < positions; i++) {
+        for (int i = 0; i < positions; i++) {
             sum += i;
         }
         return sum;

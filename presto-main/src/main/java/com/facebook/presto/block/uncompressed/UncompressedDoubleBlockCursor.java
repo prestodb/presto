@@ -18,7 +18,7 @@ public class UncompressedDoubleBlockCursor
     private final Slice slice;
     private final int positionCount;
 
-    private long position;
+    private int position;
     private int offset;
 
     public UncompressedDoubleBlockCursor(int positionCount, Slice slice, int sliceOffset)
@@ -45,7 +45,7 @@ public class UncompressedDoubleBlockCursor
     @Override
     public int getRemainingPositions()
     {
-        return (int) (positionCount - (position + 1));
+        return positionCount - (position + 1);
     }
 
     @Override
@@ -86,7 +86,7 @@ public class UncompressedDoubleBlockCursor
     }
 
     @Override
-    public boolean advanceToPosition(long newPosition)
+    public boolean advanceToPosition(int newPosition)
     {
         // if new position is out of range, return false
         if (newPosition >= positionCount) {
@@ -96,7 +96,7 @@ public class UncompressedDoubleBlockCursor
 
         Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
 
-        offset += (int) ((newPosition - position) * ENTRY_SIZE);
+        offset += (newPosition - position) * ENTRY_SIZE;
         position = newPosition;
 
         return true;
@@ -117,14 +117,14 @@ public class UncompressedDoubleBlockCursor
     }
 
     @Override
-    public long getPosition()
+    public int getPosition()
     {
         checkReadablePosition();
         return position;
     }
 
     @Override
-    public long getCurrentValueEndPosition()
+    public int getCurrentValueEndPosition()
     {
         checkReadablePosition();
         return position;

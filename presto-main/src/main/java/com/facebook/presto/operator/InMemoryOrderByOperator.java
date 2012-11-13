@@ -79,7 +79,6 @@ public class InMemoryOrderByOperator
     {
         private final Iterator<Page> pageIterator;
         private Iterator<KeyAndTuples> outputIterator;
-        private long position;
 
         private InMemoryOrderByIterator(Iterator<Page> pageIterator)
         {
@@ -115,7 +114,6 @@ public class InMemoryOrderByOperator
             }
 
             Page page = new Page(blocks);
-            position += page.getPositionCount();
             return page;
         }
 

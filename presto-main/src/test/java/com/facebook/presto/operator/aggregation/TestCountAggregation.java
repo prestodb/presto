@@ -23,9 +23,9 @@ public class TestCountAggregation
     }
 
     @Override
-    public Number getExpectedValue(long positions)
+    public Number getExpectedValue(int positions)
     {
-        return positions;
+        return (long) positions;
     }
 
     @Override

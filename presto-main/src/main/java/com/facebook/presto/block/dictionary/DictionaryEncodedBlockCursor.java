@@ -61,7 +61,7 @@ public class DictionaryEncodedBlockCursor implements BlockCursor
     }
 
     @Override
-    public boolean advanceToPosition(long position)
+    public boolean advanceToPosition(int position)
     {
         return sourceCursor.advanceToPosition(position);
     }
@@ -103,7 +103,7 @@ public class DictionaryEncodedBlockCursor implements BlockCursor
     }
 
     @Override
-    public long getPosition()
+    public int getPosition()
     {
         return sourceCursor.getPosition();
     }
@@ -115,7 +115,7 @@ public class DictionaryEncodedBlockCursor implements BlockCursor
     }
 
     @Override
-    public long getCurrentValueEndPosition()
+    public int getCurrentValueEndPosition()
     {
         return sourceCursor.getCurrentValueEndPosition();
     }

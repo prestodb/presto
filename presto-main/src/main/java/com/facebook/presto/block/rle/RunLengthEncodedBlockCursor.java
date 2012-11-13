@@ -15,7 +15,7 @@ public final class RunLengthEncodedBlockCursor implements BlockCursor
     private final Tuple value;
     private final int positionCount;
 
-    private long position = -1;
+    private int position = -1;
 
     public RunLengthEncodedBlockCursor(Tuple value, int positionCount)
     {
@@ -33,7 +33,7 @@ public final class RunLengthEncodedBlockCursor implements BlockCursor
     @Override
     public int getRemainingPositions()
     {
-        return (int) (positionCount - (position + 1));
+        return positionCount - (position + 1);
     }
 
     @Override
@@ -56,7 +56,7 @@ public final class RunLengthEncodedBlockCursor implements BlockCursor
     @Override
     public boolean advanceNextValue()
     {
-        position = Long.MAX_VALUE;
+        position = positionCount;
         return false;
     }
 
@@ -73,7 +73,7 @@ public final class RunLengthEncodedBlockCursor implements BlockCursor
     }
 
     @Override
-    public boolean advanceToPosition(long newPosition)
+    public boolean advanceToPosition(int newPosition)
     {
         if (newPosition >= positionCount) {
             position = positionCount;
@@ -133,14 +133,14 @@ public final class RunLengthEncodedBlockCursor implements BlockCursor
     }
 
     @Override
-    public long getPosition()
+    public int getPosition()
     {
         checkReadablePosition();
         return position;
     }
 
     @Override
-    public long getCurrentValueEndPosition()
+    public int getCurrentValueEndPosition()
     {
         checkReadablePosition();
         return positionCount - 1;

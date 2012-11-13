@@ -17,7 +17,7 @@ public class UncompressedSliceBlockCursor
     private final Slice slice;
     private final int positionCount;
 
-    private long position;
+    private int position;
     private int offset;
     private int size;
 
@@ -46,7 +46,7 @@ public class UncompressedSliceBlockCursor
     @Override
     public int getRemainingPositions()
     {
-        return (int) (positionCount - (position + 1));
+        return positionCount - (position + 1);
     }
 
     @Override
@@ -88,7 +88,7 @@ public class UncompressedSliceBlockCursor
     }
 
     @Override
-    public boolean advanceToPosition(long newPosition)
+    public boolean advanceToPosition(int newPosition)
     {
         if (newPosition >= positionCount) {
             position = positionCount;
@@ -124,14 +124,14 @@ public class UncompressedSliceBlockCursor
     }
 
     @Override
-    public long getPosition()
+    public int getPosition()
     {
         checkReadablePosition();
         return position;
     }
 
     @Override
-    public long getCurrentValueEndPosition()
+    public int getCurrentValueEndPosition()
     {
         checkReadablePosition();
         return position;
