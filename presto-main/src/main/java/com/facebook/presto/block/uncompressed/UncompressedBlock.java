@@ -9,20 +9,13 @@ import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 
-import static com.facebook.presto.slice.SizeOf.SIZE_OF_BYTE;
-import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
-
 public class UncompressedBlock
         implements Block
 {
     private final int positionCount;
     private final TupleInfo tupleInfo;
     private final Slice slice;
-    private final int rawOffset;
-
-    // The position this block starts in the underlying storage block
-    private final int rawPositionOffset;
-    private final int rawPositionCount;
+    private final int sliceOffset;
 
     public UncompressedBlock(int positionCount, TupleInfo tupleInfo, Slice slice)
     {
@@ -32,20 +25,21 @@ public class UncompressedBlock
 
         this.tupleInfo = tupleInfo;
         this.slice = slice;
-        this.rawOffset = 0;
+        this.sliceOffset = 0;
         this.positionCount = positionCount;
-        this.rawPositionOffset = 0;
-        this.rawPositionCount = positionCount;
     }
 
-    public UncompressedBlock(int positionCount, TupleInfo tupleInfo, Slice slice, int rawOffset, int rawPositionOffset, int rawPositionCount)
+    public UncompressedBlock(int positionCount, TupleInfo tupleInfo, Slice slice, int sliceOffset)
     {
+        Preconditions.checkArgument(positionCount >= 0, "positionCount is negative");
+        Preconditions.checkNotNull(tupleInfo, "tupleInfo is null");
+        Preconditions.checkNotNull(slice, "data is null");
+        Preconditions.checkArgument(sliceOffset >= 0, "sliceOffset is negative");
+
         this.positionCount = positionCount;
         this.tupleInfo = tupleInfo;
         this.slice = slice;
-        this.rawOffset = rawOffset;
-        this.rawPositionOffset = rawPositionOffset;
-        this.rawPositionCount = rawPositionCount;
+        this.sliceOffset = sliceOffset;
     }
 
     public TupleInfo getTupleInfo()
@@ -56,11 +50,6 @@ public class UncompressedBlock
     public Slice getSlice()
     {
         return slice;
-    }
-
-    public int getRawOffset()
-    {
-        return rawOffset;
     }
 
     public int getPositionCount()
@@ -74,16 +63,16 @@ public class UncompressedBlock
         if (tupleInfo.getFieldCount() == 1) {
             Type type = tupleInfo.getTypes().get(0);
             if (type == Type.FIXED_INT_64) {
-                return new UncompressedLongBlockCursor(this);
+                return new UncompressedLongBlockCursor(positionCount, slice, sliceOffset);
             }
             if (type == Type.DOUBLE) {
-                return new UncompressedDoubleBlockCursor(this);
+                return new UncompressedDoubleBlockCursor(positionCount, slice, sliceOffset);
             }
             if (type == Type.VARIABLE_BINARY) {
-                return new UncompressedSliceBlockCursor(this);
+                return new UncompressedSliceBlockCursor(positionCount, slice, sliceOffset);
             }
         }
-        return new UncompressedBlockCursor(this);
+        return new UncompressedBlockCursor(tupleInfo, positionCount, slice, sliceOffset);
     }
 
     @Override
@@ -93,70 +82,11 @@ public class UncompressedBlock
     }
 
     @Override
-    public int getRawPositionCount()
+    public Block createViewPort(int positionOffset, int length)
     {
-        return rawPositionCount;
+        Preconditions.checkPositionIndexes(positionOffset, positionOffset + length, positionCount);
+        return cursor().createBlockViewPort(length);
     }
-
-    @Override
-    public Block createViewPort(int rawPosition, int length)
-    {
-        Preconditions.checkPositionIndexes(rawPosition, rawPosition + length, rawPositionCount);
-        int rawOffset = getPositionRawOffset(rawPosition);
-        return new UncompressedBlock(length, tupleInfo, slice, rawOffset, rawPosition, rawPositionCount);
-    }
-
-    private int getPositionRawOffset(long newPosition)
-    {
-        // optimizations for single field tuples
-        if (tupleInfo.getFieldCount() == 1) {
-            Type type = tupleInfo.getTypes().get(0);
-            if (type == Type.FIXED_INT_64 || type == Type.DOUBLE) {
-                return (int) ((SIZE_OF_LONG + SIZE_OF_BYTE) * newPosition);
-            }
-            if (type == Type.VARIABLE_BINARY) {
-                long position;
-                int offset;
-                if (newPosition >= rawPositionOffset) {
-                    position = rawPositionOffset;
-                    offset = rawOffset;
-                }
-                else {
-                    position = 0;
-                    offset = 0;
-                }
-
-                int size = slice.getInt(offset + SIZE_OF_BYTE);
-                while (position < newPosition) {
-                    position++;
-                    offset += size;
-                    size = slice.getInt(offset + SIZE_OF_BYTE);
-                }
-                return offset;
-            }
-        }
-
-        // general tuple
-        long position;
-        int offset;
-        if (newPosition >= rawPositionOffset) {
-            position = rawPositionOffset;
-            offset = rawOffset;
-        }
-        else {
-            position = 0;
-            offset = 0;
-        }
-
-        int size = tupleInfo.size(slice, offset);
-        while (position < newPosition) {
-            position++;
-            offset += size;
-            size = tupleInfo.size(slice, offset);
-        }
-        return offset;
-    }
-
 
     @Override
     public String toString()
@@ -164,10 +94,8 @@ public class UncompressedBlock
         return Objects.toStringHelper(this)
                 .add("positionCount", positionCount)
                 .add("tupleInfo", tupleInfo)
-                .add("rawPositionOffset", rawPositionOffset)
-                .add("rawPositionCount", rawPositionCount)
-                .add("rawOffset", rawOffset)
                 .add("slice", slice)
+                .add("sliceOffset", sliceOffset)
                 .toString();
     }
 }

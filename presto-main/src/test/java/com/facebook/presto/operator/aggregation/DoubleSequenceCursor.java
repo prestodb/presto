@@ -1,5 +1,6 @@
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.Tuple;
@@ -14,24 +15,25 @@ import static com.google.common.base.Preconditions.checkState;
 public class DoubleSequenceCursor
     implements BlockCursor
 {
-    private final long max;
+    private final int max;
 
-    private long current = -1;
+    private int current = -1;
 
-    public DoubleSequenceCursor(long max)
+    public DoubleSequenceCursor(int max)
     {
         this.max = max;
-    }
-
-    public long getMax()
-    {
-        return max;
     }
 
     @Override
     public TupleInfo getTupleInfo()
     {
         return TupleInfo.SINGLE_DOUBLE;
+    }
+
+    @Override
+    public int getRemainingPositions()
+    {
+        return max - (current + 1);
     }
 
     @Override
@@ -68,9 +70,15 @@ public class DoubleSequenceCursor
     public boolean advanceToPosition(long position)
     {
         Preconditions.checkArgument(position >= current, "Can't advance backwards");
-        current = position;
+        current = (int) position;
 
         return !isFinished();
+    }
+
+    @Override
+    public Block createBlockViewPort(int length)
+    {
+        throw new UnsupportedOperationException("No block form for " + getClass().getSimpleName());
     }
 
     @Override

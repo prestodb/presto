@@ -1,5 +1,6 @@
 package com.facebook.presto.block.dictionary;
 
+import com.facebook.presto.block.Block;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.BlockCursor;
@@ -30,6 +31,12 @@ public class DictionaryEncodedBlockCursor implements BlockCursor
     }
 
     @Override
+    public int getRemainingPositions()
+    {
+        return sourceCursor.getRemainingPositions();
+    }
+
+    @Override
     public boolean isValid()
     {
         return sourceCursor.isValid();
@@ -57,6 +64,12 @@ public class DictionaryEncodedBlockCursor implements BlockCursor
     public boolean advanceToPosition(long position)
     {
         return sourceCursor.advanceToPosition(position);
+    }
+
+    @Override
+    public Block createBlockViewPort(int length)
+    {
+        return new DictionaryEncodedBlock(dictionary, sourceCursor.createBlockViewPort(length));
     }
 
     @Override

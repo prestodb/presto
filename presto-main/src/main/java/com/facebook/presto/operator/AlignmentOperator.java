@@ -4,6 +4,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.AbstractIterator;
@@ -65,23 +66,21 @@ public class AlignmentOperator implements Operator
     public static class AlignmentIterator extends AbstractIterator<Page>
     {
         private final Iterator<? extends Block>[] iterators;
-        private final Block[] blocks;
-        private final int[] rawPosition;
+        private final BlockCursor[] cursors;
 
         public AlignmentIterator(Iterator<? extends Block>[] iterators)
         {
             this.iterators = iterators;
-            blocks = new Block[iterators.length];
+            cursors = new BlockCursor[iterators.length];
             for (int i = 0; i < iterators.length; i++) {
-                blocks[i] = iterators[i].next();
+                cursors[i] = iterators[i].next().cursor();
             }
-            rawPosition = new int[iterators.length];
         }
 
         protected Page computeNext()
         {
             // all iterators should end together
-            if (rawPosition[0] >= blocks[0].getRawPositionCount() && !iterators[0].hasNext()) {
+            if (cursors[0].getRemainingPositions() <= 0 && !iterators[0].hasNext()) {
                 for (Iterator<? extends Block> iterator : iterators) {
                     checkState(!iterator.hasNext());
                 }
@@ -93,26 +92,19 @@ public class AlignmentOperator implements Operator
             for (int i = 0; i < iterators.length; i++) {
                 Iterator<? extends Block> iterator = iterators[i];
 
-                Block block = blocks[i];
-                int rawPositionCount = block.getRawPositionCount();
-                if (rawPosition[i] >= rawPositionCount) {
+                BlockCursor cursor = cursors[i];
+                if (cursor.getRemainingPositions() <= 0) {
                     // load next block
-                    block = iterator.next();
-                    blocks[i] = block;
-                    rawPosition[i] = 0;
-                    rawPositionCount = block.getRawPositionCount();
+                    cursor = iterator.next().cursor();
+                    cursors[i] = cursor;
                 }
-                length = Math.min(length, rawPositionCount - rawPosition[i]);
+                length = Math.min(length, cursor.getRemainingPositions());
             }
 
             // build page
-            for (int i = 0; i < blocks.length; i++) {
-                blocks[i] = blocks[i].createViewPort(rawPosition[i], length);
-            }
-
-            // update raw position for next loop
-            for (int i = 0; i < rawPosition.length; i++) {
-                rawPosition[i] += length;
+            Block[] blocks = new Block[iterators.length];
+            for (int i = 0; i < cursors.length; i++) {
+                 blocks[i] = cursors[i].createBlockViewPort(length);
             }
 
             return new Page(blocks);

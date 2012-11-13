@@ -1,5 +1,6 @@
 package com.facebook.presto.block.uncompressed;
 
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.Tuple;
@@ -8,6 +9,7 @@ import com.google.common.base.Preconditions;
 
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_BYTE;
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_INT;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 
 public class UncompressedSliceBlockCursor
         implements BlockCursor
@@ -19,23 +21,32 @@ public class UncompressedSliceBlockCursor
     private int offset;
     private int size;
 
-    public UncompressedSliceBlockCursor(UncompressedBlock block)
+    public UncompressedSliceBlockCursor(int positionCount, Slice slice, int sliceOffset)
     {
-        Preconditions.checkNotNull(block, "block is null");
+        Preconditions.checkArgument(positionCount >= 0, "positionCount is negative");
+        Preconditions.checkNotNull(positionCount, "positionCount is null");
+        Preconditions.checkPositionIndex(sliceOffset, slice.length(), "sliceOffset");
 
-        this.slice = block.getSlice();
-        this.positionCount = block.getPositionCount();
+        this.positionCount = positionCount;
+
+        this.slice = slice;
+        offset = sliceOffset;
+        size = 0;
 
         // start one position before the start
         position = -1;
-        offset = block.getRawOffset();
-        size = 0;
     }
 
     @Override
     public TupleInfo getTupleInfo()
     {
-        return TupleInfo.SINGLE_VARBINARY;
+        return SINGLE_VARBINARY;
+    }
+
+    @Override
+    public int getRemainingPositions()
+    {
+        return (int) (positionCount - (position + 1));
     }
 
     @Override
@@ -96,6 +107,23 @@ public class UncompressedSliceBlockCursor
     }
 
     @Override
+    public Block createBlockViewPort(int length)
+    {
+        // view port starts at next position
+        int startOffset = offset + size;
+        length = Math.min(length, getRemainingPositions());
+
+        // advance to end of view port
+        for (int i = 0; i < length; i++) {
+            position++;
+            offset += size;
+            size = slice.getInt(offset + SIZE_OF_BYTE);
+        }
+
+        return new UncompressedBlock(length, SINGLE_VARBINARY, slice, startOffset);
+    }
+
+    @Override
     public long getPosition()
     {
         checkReadablePosition();
@@ -113,7 +141,7 @@ public class UncompressedSliceBlockCursor
     public Tuple getTuple()
     {
         checkReadablePosition();
-        return new Tuple(slice.slice(offset, size), TupleInfo.SINGLE_VARBINARY);
+        return new Tuple(slice.slice(offset, size), SINGLE_VARBINARY);
     }
 
     @Override
