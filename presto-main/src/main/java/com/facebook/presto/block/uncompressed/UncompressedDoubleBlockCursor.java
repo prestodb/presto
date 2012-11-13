@@ -96,7 +96,7 @@ public class UncompressedDoubleBlockCursor
     }
 
     @Override
-    public Block createBlockViewPort(int length)
+    public Block getRegionAndAdvance(int length)
     {
         // view port starts at next position
         int startOffset = offset + ENTRY_SIZE;

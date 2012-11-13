@@ -67,7 +67,7 @@ public class AlternatingNullsBlockCursor
     }
 
     @Override
-    public Block createBlockViewPort(int length)
+    public Block getRegionAndAdvance(int length)
     {
         throw new UnsupportedOperationException("No block form for " + getClass().getSimpleName());
     }

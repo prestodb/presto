@@ -104,7 +104,7 @@ public class AlignmentOperator implements Operator
             // build page
             Block[] blocks = new Block[iterators.length];
             for (int i = 0; i < cursors.length; i++) {
-                 blocks[i] = cursors[i].createBlockViewPort(length);
+                 blocks[i] = cursors[i].getRegionAndAdvance(length);
             }
 
             return new Page(blocks);

@@ -61,9 +61,9 @@ public class DictionaryEncodedBlockCursor implements BlockCursor
     }
 
     @Override
-    public Block createBlockViewPort(int length)
+    public Block getRegionAndAdvance(int length)
     {
-        return new DictionaryEncodedBlock(dictionary, sourceCursor.createBlockViewPort(length));
+        return new DictionaryEncodedBlock(dictionary, sourceCursor.getRegionAndAdvance(length));
     }
 
     @Override

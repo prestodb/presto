@@ -71,7 +71,7 @@ public class LimitOperator
                 Block[] blocks = new Block[page.getChannelCount()];
                 for (int channel = 0; channel < page.getChannelCount(); channel++) {
                     Block block = page.getBlock(channel);
-                    blocks[channel] = block.createViewPort(0, (int) remainingLimit);
+                    blocks[channel] = block.getRegion(0, (int) remainingLimit);
                 }
                 remainingLimit = 0;
                 return new Page(blocks);
