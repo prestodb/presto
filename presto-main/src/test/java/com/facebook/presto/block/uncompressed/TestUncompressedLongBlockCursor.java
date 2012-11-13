@@ -15,7 +15,7 @@ public class TestUncompressedLongBlockCursor extends AbstractTestBlockCursor
     @Override
     protected Block createExpectedValues()
     {
-        return createLongsBlock(0, 1111L, 1111L, 1111L, 2222L, 2222L, 2222L, 2222L, 2222L, 3333L, 3333L, 4444L);
+        return createLongsBlock(1111L, 1111L, 1111L, 2222L, 2222L, 2222L, 2222L, 2222L, 3333L, 3333L, 4444L);
     }
 
     @Test

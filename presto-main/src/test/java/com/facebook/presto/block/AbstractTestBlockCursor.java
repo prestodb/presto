@@ -3,11 +3,9 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.util.Range;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.Tuples;
 import com.google.common.collect.ImmutableList;
-import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -100,13 +98,6 @@ public abstract class AbstractTestBlockCursor
         assertFalse(cursor.advanceToPosition((long) 100));
         assertTrue(cursor.isFinished());
         assertFalse(cursor.isValid());
-    }
-
-    @Test
-    public void testRange()
-    {
-        BlockCursor cursor = createTestCursor();
-        Assert.assertEquals(cursor.getRange(), new Range(0, 10));
     }
 
     @Test

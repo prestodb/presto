@@ -6,7 +6,6 @@ import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.Tuples;
-import com.facebook.presto.util.Range;
 
 /**
  * A wrapper that inserts a null in every other position
@@ -15,14 +14,12 @@ public class AlternatingNullsBlockCursor
         implements BlockCursor
 {
     private final BlockCursor delegate;
-    private final Range range;
     private final Tuple nullTuple;
     private int index = -1;
 
     public AlternatingNullsBlockCursor(BlockCursor delegate)
     {
         this.delegate = delegate;
-        range = new Range(delegate.getRange().getStart(), delegate.getRange().length() * 2);
         nullTuple = Tuples.nullTuple(this.delegate.getTupleInfo());
     }
 
@@ -30,12 +27,6 @@ public class AlternatingNullsBlockCursor
     public TupleInfo getTupleInfo()
     {
         return delegate.getTupleInfo();
-    }
-
-    @Override
-    public Range getRange()
-    {
-        return range;
     }
 
     @Override
@@ -119,7 +110,7 @@ public class AlternatingNullsBlockCursor
     @Override
     public long getPosition()
     {
-        return delegate.getRange().getStart() + index;
+        return index;
     }
 
     @Override

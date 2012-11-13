@@ -51,12 +51,12 @@ public class TestAlignmentOperator
 
         AlignmentOperator operator = new AlignmentOperator(channel0, channel1);
         assertOperatorEquals(operator, createOperator(
-                new Page(createStringsBlock(0, "alice", "bob", "charlie", "dave"),
-                        createLongsBlock(0, 0, 1, 2, 3)),
-                new Page(createStringsBlock(4, "alice", "bob", "charlie", "dave"),
-                        createLongsBlock(4, 4, 5, 6, 7)),
-                new Page(createStringsBlock(8, "alice", "bob", "charlie", "dave"),
-                        createLongsBlock(8, 8, 9, 10, 11))
+                new Page(createStringsBlock("alice", "bob", "charlie", "dave"),
+                        createLongsBlock(0, 1, 2, 3)),
+                new Page(createStringsBlock("alice", "bob", "charlie", "dave"),
+                        createLongsBlock(4, 5, 6, 7)),
+                new Page(createStringsBlock("alice", "bob", "charlie", "dave"),
+                        createLongsBlock(8, 9, 10, 11))
         ));
     }
 }

@@ -10,7 +10,6 @@ import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.util.Range;
 import com.google.common.base.Preconditions;
 
 public class RunLengthBlockEncoding
@@ -42,23 +41,19 @@ public class RunLengthBlockEncoding
         RunLengthEncodedBlock rleBlock = (RunLengthEncodedBlock) block;
         Slice tupleSlice = rleBlock.getSingleValue().getTupleSlice();
         sliceOutput.appendInt(tupleSlice.length())
-                .appendInt((int) rleBlock.getRange().length())
-                .appendLong(rleBlock.getRange().getStart())
+                .appendInt(rleBlock.getPositionCount())
                 .writeBytes(tupleSlice);
     }
 
     @Override
-    public RunLengthEncodedBlock readBlock(SliceInput sliceInput, long positionOffset)
+    public RunLengthEncodedBlock readBlock(SliceInput sliceInput)
     {
         int tupleLength = sliceInput.readInt();
         int tupleCount = sliceInput.readInt();
-        long startPosition = sliceInput.readLong() + positionOffset;
-
-        Range range = Range.create(startPosition, startPosition + tupleCount - 1);
 
         Slice tupleSlice = sliceInput.readSlice(tupleLength);
         Tuple tuple = new Tuple(tupleSlice, tupleInfo);
-        return new RunLengthEncodedBlock(tuple, range);
+        return new RunLengthEncodedBlock(tuple, tupleCount);
     }
 
     public static void serialize(SliceOutput output, RunLengthBlockEncoding encoding)

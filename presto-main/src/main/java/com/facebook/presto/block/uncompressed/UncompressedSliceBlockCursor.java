@@ -4,7 +4,6 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.util.Range;
 import com.google.common.base.Preconditions;
 
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_BYTE;
@@ -14,9 +13,7 @@ public class UncompressedSliceBlockCursor
         implements BlockCursor
 {
     private final Slice slice;
-    private final Range range;
-    private final long endPosition;
-    private final long startPosition;
+    private final int positionCount;
 
     private long position;
     private int offset;
@@ -27,13 +24,10 @@ public class UncompressedSliceBlockCursor
         Preconditions.checkNotNull(block, "block is null");
 
         this.slice = block.getSlice();
-        this.range = block.getRange();
-
-        endPosition = range.getEnd();
-        startPosition = range.getStart();
+        this.positionCount = block.getPositionCount();
 
         // start one position before the start
-        position = startPosition - 1;
+        position = -1;
         offset = block.getRawOffset();
         size = 0;
     }
@@ -45,21 +39,15 @@ public class UncompressedSliceBlockCursor
     }
 
     @Override
-    public Range getRange()
-    {
-        return range;
-    }
-
-    @Override
     public boolean isValid()
     {
-        return startPosition <= position && position <= endPosition;
+        return 0 <= position && position < positionCount;
     }
 
     @Override
     public boolean isFinished()
     {
-        return position > endPosition;
+        return position >= positionCount;
     }
 
     private void checkReadablePosition()
@@ -77,8 +65,8 @@ public class UncompressedSliceBlockCursor
     @Override
     public boolean advanceNextPosition()
     {
-        if (position >= endPosition) {
-            position = Long.MAX_VALUE;
+        if (position >= positionCount -1) {
+            position = positionCount;
             return false;
         }
 
@@ -91,8 +79,8 @@ public class UncompressedSliceBlockCursor
     @Override
     public boolean advanceToPosition(long newPosition)
     {
-        if (newPosition > endPosition) {
-            position = newPosition;
+        if (newPosition >= positionCount) {
+            position = positionCount;
             return false;
         }
 

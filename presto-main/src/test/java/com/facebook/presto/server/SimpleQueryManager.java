@@ -63,7 +63,7 @@ public class SimpleQueryManager implements QueryManager
         // load initial pages
         for (int i = 0; i < initialPages; i++) {
             try {
-                queryState.addPage(new Page(createStringsBlock(0, Iterables.concat(Collections.nCopies(i + 1, data)))));
+                queryState.addPage(new Page(createStringsBlock(Iterables.concat(Collections.nCopies(i + 1, data)))));
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

@@ -77,7 +77,7 @@ public class FilterAndProjectOperator implements Operator
         {
             BlockBuilder[] outputs = new BlockBuilder[projections.size()];
             for (int i = 0; i < outputs.length; i++) {
-                outputs[i] = new BlockBuilder(outputPosition, projections.get(i).getTupleInfo());
+                outputs[i] = new BlockBuilder(projections.get(i).getTupleInfo());
 
             }
 
@@ -113,7 +113,7 @@ public class FilterAndProjectOperator implements Operator
 
         private void filterAndProjectRowOriented(Block[] blocks, BlockBuilder[] outputs)
         {
-            int rows = (int) blocks[0].getRange().length();
+            int rows = blocks[0].getPositionCount();
 
             BlockCursor[] cursors = new BlockCursor[blocks.length];
             for (int i = 0; i < blocks.length; i++) {

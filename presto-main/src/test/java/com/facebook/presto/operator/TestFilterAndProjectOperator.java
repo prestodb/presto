@@ -32,7 +32,7 @@ public class TestFilterAndProjectOperator
             }
         }, ProjectionFunctions.concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 1, 0)));
 
-        Operator expected = createOperator(new Page(new BlockBuilder(0, new TupleInfo(VARIABLE_BINARY, FIXED_INT_64))
+        Operator expected = createOperator(new Page(new BlockBuilder(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64))
                 .append("10").append(10)
                 .append("11").append(11)
                 .append("12").append(12)

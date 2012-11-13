@@ -23,12 +23,12 @@ public class TestInMemoryOrderByOperator
     {
         Operator source = createOperator(
                 new Page(
-                        BlockAssertions.createLongsBlock(0, 1, 2),
-                        BlockAssertions.createDoublesBlock(0, 0.1, 0.2)
+                        BlockAssertions.createLongsBlock(1, 2),
+                        BlockAssertions.createDoublesBlock(0.1, 0.2)
                 ),
                 new Page(
-                        BlockAssertions.createLongsBlock(2, -1, 4),
-                        BlockAssertions.createDoublesBlock(2, -0.1, 0.4)
+                        BlockAssertions.createLongsBlock(-1, 4),
+                        BlockAssertions.createDoublesBlock(-0.1, 0.4)
                 )
         );
 
@@ -38,8 +38,8 @@ public class TestInMemoryOrderByOperator
 
         Operator expected = createOperator(
                 new Page(
-                        BlockAssertions.createLongsBlock(0, -1, 1, 2, 4),
-                        BlockAssertions.createDoublesBlock(0, -0.1, 0.1, 0.2, 0.4)
+                        BlockAssertions.createLongsBlock(-1, 1, 2, 4),
+                        BlockAssertions.createDoublesBlock(-0.1, 0.1, 0.2, 0.4)
                 )
         );
         assertOperatorEquals(actual, expected);
@@ -52,13 +52,13 @@ public class TestInMemoryOrderByOperator
         TupleInfo tupleInfo = new TupleInfo(VARIABLE_BINARY, FIXED_INT_64);
         Operator source = createOperator(
                 new Page(
-                        new BlockBuilder(0, tupleInfo)
+                        new BlockBuilder(tupleInfo)
                                 .append("a").append(1)
                                 .append("b").append(2)
                                 .build()
                 ),
                 new Page(
-                        new BlockBuilder(2, tupleInfo)
+                        new BlockBuilder(tupleInfo)
                                 .append("b").append(3)
                                 .append("a").append(4)
                                 .build()
@@ -71,7 +71,7 @@ public class TestInMemoryOrderByOperator
 
         Operator expected = createOperator(
                 new Page(
-                        new BlockBuilder(0, tupleInfo)
+                        new BlockBuilder(tupleInfo)
                                 .append("a").append(1)
                                 .append("a").append(4)
                                 .append("b").append(2)
@@ -88,12 +88,12 @@ public class TestInMemoryOrderByOperator
     {
         Operator source = createOperator(
                 new Page(
-                        BlockAssertions.createLongsBlock(0, 1, 2),
-                        BlockAssertions.createDoublesBlock(0, 0.1, 0.2)
+                        BlockAssertions.createLongsBlock(1, 2),
+                        BlockAssertions.createDoublesBlock(0.1, 0.2)
                 ),
                 new Page(
-                        BlockAssertions.createLongsBlock(2, -1, 4),
-                        BlockAssertions.createDoublesBlock(2, -0.1, 0.4)
+                        BlockAssertions.createLongsBlock(-1, 4),
+                        BlockAssertions.createDoublesBlock(-0.1, 0.4)
                 )
         );
 
@@ -104,8 +104,8 @@ public class TestInMemoryOrderByOperator
 
         Operator expected = createOperator(
                 new Page(
-                        BlockAssertions.createLongsBlock(0, 4, 2, 1, -1),
-                        BlockAssertions.createDoublesBlock(0, 0.4, 0.2, 0.1, -0.1)
+                        BlockAssertions.createLongsBlock(4, 2, 1, -1),
+                        BlockAssertions.createDoublesBlock(0.4, 0.2, 0.1, -0.1)
                 )
         );
         assertOperatorEquals(actual, expected);

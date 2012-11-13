@@ -4,7 +4,6 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.util.Range;
 import com.google.common.base.Preconditions;
 
 public class UncompressedBlockCursor
@@ -12,9 +11,7 @@ public class UncompressedBlockCursor
 {
     private final TupleInfo tupleInfo;
     private final Slice slice;
-    private final Range range;
-    private final long endPosition;
-    private final long startPosition;
+    private final int positionCount;
 
     private long position;
     private int offset;
@@ -26,13 +23,10 @@ public class UncompressedBlockCursor
 
         this.tupleInfo = block.getTupleInfo();
         this.slice = block.getSlice();
-        this.range = block.getRange();
-
-        endPosition = range.getEnd();
-        startPosition = range.getStart();
+        this.positionCount = block.getPositionCount();
 
         // start one position before the start
-        position = startPosition - 1;
+        position = -1;
         offset = block.getRawOffset();
         size = 0;
     }
@@ -44,21 +38,15 @@ public class UncompressedBlockCursor
     }
 
     @Override
-    public Range getRange()
-    {
-        return range;
-    }
-
-    @Override
     public boolean isValid()
     {
-        return startPosition <= position && position <= endPosition;
+        return 0 <= position && position < positionCount;
     }
 
     @Override
     public boolean isFinished()
     {
-        return position > endPosition;
+        return position >= positionCount;
     }
 
     private void checkReadablePosition()
@@ -76,8 +64,8 @@ public class UncompressedBlockCursor
     @Override
     public boolean advanceNextPosition()
     {
-        if (position >= endPosition) {
-            position = Long.MAX_VALUE;
+        if (position >= positionCount -1) {
+            position = positionCount;
             return false;
         }
 
@@ -90,8 +78,8 @@ public class UncompressedBlockCursor
     @Override
     public boolean advanceToPosition(long newPosition)
     {
-        if (newPosition > endPosition) {
-            position = Long.MAX_VALUE;
+        if (newPosition >= positionCount) {
+            position = positionCount;
             return false;
         }
 

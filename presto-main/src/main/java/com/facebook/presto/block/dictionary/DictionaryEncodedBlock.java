@@ -2,7 +2,6 @@ package com.facebook.presto.block.dictionary;
 
 import com.facebook.presto.serde.BlockEncoding;
 import com.facebook.presto.serde.DictionaryBlockEncoding;
-import com.facebook.presto.util.Range;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.Block;
 
@@ -48,27 +47,21 @@ public class DictionaryEncodedBlock
     }
 
     @Override
-    public Range getRange()
-    {
-        return idBlock.getRange();
-    }
-
-    @Override
-    public Range getRawRange()
-    {
-        return idBlock.getRawRange();
-    }
-
-    @Override
     public BlockEncoding getEncoding()
     {
         return new DictionaryBlockEncoding(dictionary, idBlock.getEncoding());
     }
 
     @Override
-    public Block createViewPort(Range viewPortRange)
+    public int getRawPositionCount()
     {
-        return new DictionaryEncodedBlock(dictionary, idBlock.createViewPort(viewPortRange));
+        return idBlock.getRawPositionCount();
+    }
+
+    @Override
+    public Block createViewPort(int rawPosition, int length)
+    {
+        return new DictionaryEncodedBlock(dictionary, idBlock.createViewPort(rawPosition, length));
     }
 
     @Override

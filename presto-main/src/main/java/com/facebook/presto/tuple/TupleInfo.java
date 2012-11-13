@@ -8,7 +8,7 @@ import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Charsets;
-import com.google.common.base.Objects;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -445,15 +445,7 @@ public class TupleInfo
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
-                .add("size", size)
-                .add("types", types)
-                .add("offsets", offsets)
-                .add("firstVariableLengthField", firstVariableLengthField)
-                .add("secondVariableLengthField", secondVariableLengthField)
-                .add("variableLengthFieldCount", variableLengthFieldCount)
-                .add("variablePartOffset", variablePartOffset)
-                .toString();
+        return "TupleInfo{" + Joiner.on(",").join(types) + "}";
     }
 
     public class Builder

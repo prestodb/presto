@@ -6,7 +6,6 @@ package com.facebook.presto.serde;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.slice.SliceOutput;
 import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.util.Range;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -17,7 +16,6 @@ public class RunLengthEncoder
     private final SliceOutput sliceOutput;
     private boolean finished;
 
-    private long startPosition = -1;
     private int tupleCount = -1;
     private Tuple lastTuple;
     private RunLengthBlockEncoding encoding;
@@ -36,7 +34,6 @@ public class RunLengthEncoder
         for (Tuple tuple : tuples) {
             if (encoding == null) {
                 encoding = new RunLengthBlockEncoding(tuple.getTupleInfo());
-                startPosition = 0;
                 tupleCount = 1;
                 lastTuple = tuple;
             }
@@ -54,11 +51,9 @@ public class RunLengthEncoder
 
     private void writeBlock()
     {
-        Range range = new Range(startPosition, startPosition + tupleCount - 1);
-        RunLengthEncodedBlock block = new RunLengthEncodedBlock(lastTuple, range);
+        RunLengthEncodedBlock block = new RunLengthEncodedBlock(lastTuple, tupleCount);
 
         encoding.writeBlock(sliceOutput, block);
-        startPosition += tupleCount;
         tupleCount = 0;
     }
 

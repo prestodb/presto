@@ -1,6 +1,5 @@
 package com.facebook.presto.block.dictionary;
 
-import com.facebook.presto.util.Range;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.BlockCursor;
@@ -28,12 +27,6 @@ public class DictionaryEncodedBlockCursor implements BlockCursor
     public TupleInfo getTupleInfo()
     {
         return dictionary.getTupleInfo();
-    }
-
-    @Override
-    public Range getRange()
-    {
-        return sourceCursor.getRange();
     }
 
     @Override

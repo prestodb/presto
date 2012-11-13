@@ -3,7 +3,6 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.rle.RunLengthEncodedBlockCursor;
 import com.facebook.presto.tuple.Tuples;
-import com.facebook.presto.util.Range;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -39,7 +38,7 @@ public class TestCountAggregation
     public void testAllPositionsNull()
             throws Exception
     {
-        BlockCursor nullsCursor = new RunLengthEncodedBlockCursor(Tuples.nullTuple(getSequenceCursor(0).getTupleInfo()), new Range(0, 10));
+        BlockCursor nullsCursor = new RunLengthEncodedBlockCursor(Tuples.nullTuple(getSequenceCursor(0).getTupleInfo()), 11);
 
         CountAggregation function = getFunction();
 

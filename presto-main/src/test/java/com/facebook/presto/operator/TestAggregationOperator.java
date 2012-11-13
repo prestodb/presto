@@ -30,7 +30,7 @@ public class TestAggregationOperator
                 ImmutableList.of(CountAggregation.PROVIDER, LongSumAggregation.provider(1, 0), LongAverageAggregation.provider(1, 0)),
                 ImmutableList.of(concat(singleColumn(FIXED_INT_64, 0, 0), singleColumn(FIXED_INT_64, 1, 0), singleColumn(DOUBLE, 2, 0))));
 
-        Operator expected = createOperator(new Page(new BlockBuilder(0, new TupleInfo(FIXED_INT_64, FIXED_INT_64, DOUBLE))
+        Operator expected = createOperator(new Page(new BlockBuilder(new TupleInfo(FIXED_INT_64, FIXED_INT_64, DOUBLE))
                 .append(100L).append(4950L).append(49.5)
                 .build()));
 

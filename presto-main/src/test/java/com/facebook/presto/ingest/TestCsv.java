@@ -52,7 +52,7 @@ public class TestCsv
         });
 
         BlockAssertions.assertBlocksEquals(readColumn(0, encodings.get(0)),
-                BlockAssertions.createLongsBlockIterable(0,
+                BlockAssertions.createLongsBlockIterable(
                         1879196505L,
                         1879196505L,
                         1879196505L,
@@ -65,7 +65,7 @@ public class TestCsv
                         1659333773L));
 
         BlockAssertions.assertBlocksEquals(readColumn(1, encodings.get(1)),
-                BlockAssertions.createDoublesBlockIterable(0,
+                BlockAssertions.createDoublesBlockIterable(
                         1.343864557153E12,
                         1.343864681084E12,
                         1.343864759296E12,
@@ -78,7 +78,7 @@ public class TestCsv
                         1.343940261345E12));
 
         BlockAssertions.assertBlocksEquals(readColumn(2, encodings.get(2)),
-                BlockAssertions.createDoublesBlockIterable(0,
+                BlockAssertions.createDoublesBlockIterable(
                         1.343864681084E12,
                         1.343864759296E12,
                         1.343864769178E12,
@@ -91,7 +91,7 @@ public class TestCsv
                         1.343940261345E12));
 
         BlockAssertions.assertBlocksEquals(readColumn(3, encodings.get(3)),
-                BlockAssertions.createStringsBlockIterable(0,
+                BlockAssertions.createStringsBlockIterable(
                         "xyz",
                         "xyz",
                         "xyz",
