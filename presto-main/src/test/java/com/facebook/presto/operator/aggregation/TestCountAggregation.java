@@ -2,10 +2,8 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.rle.RunLengthEncodedBlockCursor;
-import com.facebook.presto.tuple.Tuples;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static com.facebook.presto.tuple.Tuples.nullTuple;
 
 public class TestCountAggregation
     extends AbstractTestAggregationFunction
@@ -17,9 +15,9 @@ public class TestCountAggregation
     }
 
     @Override
-    public CountAggregation getFunction()
+    public FullAggregationFunction getFullFunction()
     {
-        return new CountAggregation();
+        return new CountAggregation(0, 0);
     }
 
     @Override
@@ -38,29 +36,28 @@ public class TestCountAggregation
     public void testAllPositionsNull()
             throws Exception
     {
-        BlockCursor nullsCursor = new RunLengthEncodedBlockCursor(Tuples.nullTuple(getSequenceCursor(0).getTupleInfo()), 11);
-
-        CountAggregation function = getFunction();
-
-        // add 10 null positions
-        for (int i = 0; i < 10; i++) {
-            function.add(nullsCursor);
-        }
-
-        assertEquals(getActualValue(function), 10L);
+        BlockCursor nullsCursor = new RunLengthEncodedBlockCursor(nullTuple(getSequenceCursor(0).getTupleInfo()), 11);
+        testMultiplePositions(nullsCursor, 10L, 10);
     }
 
     @Override
     public void testMixedNullAndNonNullPositions()
     {
         AlternatingNullsBlockCursor cursor = new AlternatingNullsBlockCursor(getSequenceCursor(10));
-        AggregationFunction function = getFunction();
+        testMultiplePositions(cursor, 10L, 10);
+    }
 
-        for (int i = 0; i < 10; i++) {
-            assertTrue(cursor.advanceNextPosition());
-            function.add(cursor);
-        }
+    @Override
+    public void testPartialWithMixedNullAndNonNullPositions()
+    {
+        AlternatingNullsBlockCursor cursor = new AlternatingNullsBlockCursor(getSequenceCursor(10));
+        testPartialWithMultiplePositions(cursor, 10L, 10);
+    }
 
-        assertEquals(getActualValue(function), 10L);
+    @Override
+    public void testCombinerWithMixedNullAndNonNullPositions()
+    {
+        AlternatingNullsBlockCursor cursor = new AlternatingNullsBlockCursor(getSequenceCursor(10));
+        testCombinerWithMultiplePositions(cursor, 10L, 10);
     }
 }
