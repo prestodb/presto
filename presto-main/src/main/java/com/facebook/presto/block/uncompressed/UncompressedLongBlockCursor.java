@@ -13,6 +13,7 @@ import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
 public class UncompressedLongBlockCursor
         implements BlockCursor
 {
+    private static final int ENTRY_SIZE = SIZE_OF_LONG + SIZE_OF_BYTE;
     private final Slice slice;
     private final Range range;
     private final long startPosition;
@@ -33,7 +34,7 @@ public class UncompressedLongBlockCursor
 
         // start one position before the start
         position = startPosition - 1;
-        offset = block.getRawOffset() - SIZE_OF_LONG - SIZE_OF_BYTE;
+        offset = block.getRawOffset() - ENTRY_SIZE;
     }
 
     @Override
@@ -81,7 +82,7 @@ public class UncompressedLongBlockCursor
         }
 
         position++;
-        offset += SIZE_OF_LONG + SIZE_OF_BYTE;
+        offset += ENTRY_SIZE;
         return true;
     }
 
@@ -96,7 +97,7 @@ public class UncompressedLongBlockCursor
 
         Preconditions.checkArgument(newPosition >= this.position, "Can't advance backwards");
 
-        offset += (int) ((newPosition - position) * (SIZE_OF_LONG + SIZE_OF_BYTE));
+        offset += (int) ((newPosition - position) * ENTRY_SIZE);
         position = newPosition;
 
         return true;
@@ -120,7 +121,7 @@ public class UncompressedLongBlockCursor
     public Tuple getTuple()
     {
         checkReadablePosition();
-        return new Tuple(slice.slice(offset, SIZE_OF_LONG + SIZE_OF_BYTE), TupleInfo.SINGLE_LONG);
+        return new Tuple(slice.slice(offset, ENTRY_SIZE), TupleInfo.SINGLE_LONG);
     }
 
     @Override

@@ -135,25 +135,25 @@ public class ExpressionFormatter
         @Override
         protected String visitIsNullPredicate(IsNullPredicate node, Void context)
         {
-            return "(IS NULL " + process(node.getValue(), null) + ")";
+            return "(" + process(node.getValue(), null) + " IS NULL)";
         }
 
         @Override
         protected String visitIsNotNullPredicate(IsNotNullPredicate node, Void context)
         {
-            return "(IS NOT NULL " + process(node.getValue(), null) + ")";
+            return "(" + process(node.getValue(), null) + " IS NOT NULL)";
         }
 
         @Override
         protected String visitNullIfExpression(NullIfExpression node, Void context)
         {
-            return formatBinaryExpression("NULLIF", node.getFirst(), node.getSecond());
+            return "NULLIF(" + process(node.getFirst(), null) + ", " + process(node.getSecond(), null) + ')';
         }
 
         @Override
         protected String visitCoalesceExpression(CoalesceExpression node, Void context)
         {
-            return "(COALESCE " + Joiner.on(", ").join(Iterables.transform(node.getOperands(), new Function<Expression, Object>()
+            return "COALESCE(" + Joiner.on(", ").join(Iterables.transform(node.getOperands(), new Function<Expression, Object>()
             {
                 @Override
                 public Object apply(Expression input)
