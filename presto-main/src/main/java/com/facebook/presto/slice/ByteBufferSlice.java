@@ -39,6 +39,14 @@ public final class ByteBufferSlice
     }
 
     @Override
+    public void clear()
+    {
+        for (int i = 0; i < buffer.capacity(); i++) {
+            setByte(i, 0);
+        }
+    }
+
+    @Override
     public byte getByte(int index)
     {
         checkIndexLength(index, SIZE_OF_BYTE);

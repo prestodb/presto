@@ -76,6 +76,12 @@ public final class ByteArraySlice
         return length;
     }
 
+    @Override
+    public void clear()
+    {
+        Arrays.fill(data, offset, offset + length, (byte) 0);
+    }
+
     /**
      * Gets the array underlying this slice.
      */

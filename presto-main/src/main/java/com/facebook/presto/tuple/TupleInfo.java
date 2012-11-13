@@ -363,7 +363,7 @@ public class TupleInfo
         int index = field >> 3;
         int bit = field & 0b111;
         int bitMask = 1 << bit;
-        return (slice.getByte(index) & bitMask) != 0;
+        return (slice.getByte(offset + index) & bitMask) != 0;
     }
 
     /**
@@ -511,28 +511,33 @@ public class TupleInfo
             return this;
         }
 
-        public void append(Tuple tuple)
+        public Builder append(Tuple tuple)
         {
             // TODO: optimization - single copy of block of fixed length fields
 
             int field = 0;
             for (TupleInfo.Type type : tuple.getTupleInfo().getTypes()) {
-                switch (type) {
-                    case FIXED_INT_64:
-                        append(tuple.getLong(field));
-                        break;
-                    case DOUBLE:
-                        append(tuple.getDouble(field));
-                        break;
-                    case VARIABLE_BINARY:
-                        append(tuple.getSlice(field));
-                        break;
-                    default:
-                        throw new IllegalStateException("Type not yet supported: " + type);
+                if (tuple.isNull(field)) {
+                    appendNull();
                 }
-
+                else {
+                    switch (type) {
+                        case FIXED_INT_64:
+                            append(tuple.getLong(field));
+                            break;
+                        case DOUBLE:
+                            append(tuple.getDouble(field));
+                            break;
+                        case VARIABLE_BINARY:
+                            append(tuple.getSlice(field));
+                            break;
+                        default:
+                            throw new IllegalStateException("Type not yet supported: " + type);
+                    }
+                }
                 field++;
             }
+            return this;
         }
 
         public boolean isComplete()
@@ -578,6 +583,7 @@ public class TupleInfo
 
             currentField = 0;
             variableLengthFields.clear();
+            fixedBuffer.clear();
         }
 
         public Tuple build()
@@ -586,5 +592,4 @@ public class TupleInfo
             return new Tuple(sliceOutput.slice(), TupleInfo.this);
         }
     }
-
 }
