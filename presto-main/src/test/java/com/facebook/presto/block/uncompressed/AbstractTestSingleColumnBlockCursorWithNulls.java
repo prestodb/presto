@@ -22,7 +22,7 @@ public abstract class AbstractTestSingleColumnBlockCursorWithNulls
     {
         BlockCursor cursor = createTestCursor();
 
-        for (Entry<Long, Tuple> entry : getExpectedValues().entrySet()) {
+        for (Entry<Integer, Tuple> entry : getExpectedValues().entrySet()) {
             assertNextPosition(cursor, entry.getKey(), entry.getValue());
             if (cursor.getPosition() % 2 == 0) {
                 assertTrue(cursor.isNull(0));

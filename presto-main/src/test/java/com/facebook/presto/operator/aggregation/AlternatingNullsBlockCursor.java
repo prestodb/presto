@@ -67,7 +67,7 @@ public class AlternatingNullsBlockCursor
     }
 
     @Override
-    public boolean advanceToPosition(long position)
+    public boolean advanceToPosition(int position)
     {
         throw new UnsupportedOperationException();
     }
@@ -121,13 +121,13 @@ public class AlternatingNullsBlockCursor
     }
 
     @Override
-    public long getPosition()
+    public int getPosition()
     {
         return index;
     }
 
     @Override
-    public long getCurrentValueEndPosition()
+    public int getCurrentValueEndPosition()
     {
         return getPosition();
     }

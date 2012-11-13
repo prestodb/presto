@@ -67,10 +67,10 @@ public class DoubleSequenceCursor
     }
 
     @Override
-    public boolean advanceToPosition(long position)
+    public boolean advanceToPosition(int position)
     {
         Preconditions.checkArgument(position >= current, "Can't advance backwards");
-        current = (int) position;
+        current = position;
 
         return !isFinished();
     }
@@ -117,14 +117,14 @@ public class DoubleSequenceCursor
     }
 
     @Override
-    public long getPosition()
+    public int getPosition()
     {
         checkReadablePosition();
         return current;
     }
 
     @Override
-    public long getCurrentValueEndPosition()
+    public int getCurrentValueEndPosition()
     {
         checkReadablePosition();
         return current;
