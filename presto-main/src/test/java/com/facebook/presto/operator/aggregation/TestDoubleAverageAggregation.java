@@ -13,7 +13,7 @@ public class TestDoubleAverageAggregation
     }
 
     @Override
-    public DoubleAverageAggregation getFunction()
+    public DoubleAverageAggregation getFullFunction()
     {
         return new DoubleAverageAggregation(0, 0);
     }

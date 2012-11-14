@@ -14,7 +14,7 @@ public class TestDoubleSumAggregation
     }
 
     @Override
-    public DoubleSumAggregation getFunction()
+    public DoubleSumAggregation getFullFunction()
     {
         return new DoubleSumAggregation(0, 0);
     }
