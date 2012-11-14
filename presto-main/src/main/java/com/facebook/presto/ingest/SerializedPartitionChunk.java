@@ -1,7 +1,7 @@
 package com.facebook.presto.ingest;
 
-import com.facebook.presto.hive.ImportClient;
-import com.facebook.presto.hive.PartitionChunk;
+import com.facebook.presto.spi.ImportClient;
+import com.facebook.presto.spi.PartitionChunk;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonValue;
 

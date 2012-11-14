@@ -1,12 +1,12 @@
 package com.facebook.presto.importer;
 
-import com.facebook.presto.hive.ImportClient;
-import com.facebook.presto.hive.PartitionChunk;
 import com.facebook.presto.ingest.ImportPartition;
 import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.ingest.RecordProjection;
 import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.server.ShardImport;
+import com.facebook.presto.spi.ImportClient;
+import com.facebook.presto.spi.PartitionChunk;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 

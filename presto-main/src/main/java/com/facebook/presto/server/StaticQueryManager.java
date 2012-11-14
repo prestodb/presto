@@ -5,8 +5,6 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.hive.ImportClient;
-import com.facebook.presto.hive.SchemaField;
 import com.facebook.presto.importer.ImportField;
 import com.facebook.presto.importer.ImportManager;
 import com.facebook.presto.ingest.DelimitedRecordIterable;
@@ -23,6 +21,8 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.spi.ImportClient;
+import com.facebook.presto.spi.SchemaField;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Charsets;

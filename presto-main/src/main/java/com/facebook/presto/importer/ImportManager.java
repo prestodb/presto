@@ -1,10 +1,10 @@
 package com.facebook.presto.importer;
 
-import com.facebook.presto.hive.ImportClient;
 import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.server.ShardImport;
+import com.facebook.presto.spi.ImportClient;
 import com.google.common.collect.ImmutableList;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
