@@ -9,6 +9,7 @@ import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
+import it.unimi.dsi.fastutil.Swapper;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongIterable;
 import it.unimi.dsi.fastutil.longs.LongListIterator;
@@ -17,19 +18,23 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import static com.facebook.presto.hive.shaded.com.google.common.base.Preconditions.checkState;
 
 public class BlocksIndex
-        implements LongIterable
+        implements LongIterable, Swapper
 {
-    private final int channel;
+    private int positionCount;
     private final LongArrayList offsets;
     private final ObjectArrayList<Slice> slices;
     private final TupleInfo tupleInfo;
 
-    public BlocksIndex(int channel, int expectedPositions, TupleInfo tupleInfo)
+    public BlocksIndex(int expectedPositions, TupleInfo tupleInfo)
     {
-        this.channel = channel;
         this.tupleInfo = tupleInfo;
         offsets = new LongArrayList(expectedPositions);
         slices = ObjectArrayList.wrap(new Slice[1024], 0);
+    }
+
+    public int getPositionCount()
+    {
+        return positionCount;
     }
 
     public TupleInfo getTupleInfo()
@@ -47,19 +52,23 @@ public class BlocksIndex
         return offsets;
     }
 
+    public void swap(int a, int b)
+    {
+        long[] elements = offsets.elements();
+        long temp = elements[a];
+        elements[a] = elements[b];
+        elements[b] = temp;
+    }
+
     public LongListIterator iterator()
     {
         return offsets.iterator();
     }
 
-    public void indexBlock(Page page)
-    {
-        UncompressedBlock orderByBlock = (UncompressedBlock) page.getBlock(channel);
-        indexBlock(orderByBlock);
-    }
-
     public void indexBlock(UncompressedBlock block)
     {
+        positionCount += block.getPositionCount();
+
         // index the block
         int blockIndex = slices.size();
         slices.add(blockIndex, block.getSlice());
@@ -72,7 +81,6 @@ public class BlocksIndex
 
             Preconditions.checkState((int) (sliceAddress >> 32) == blockIndex);
             Preconditions.checkState((int) sliceAddress == offset);
-
 
             offsets.add(sliceAddress);
         }
