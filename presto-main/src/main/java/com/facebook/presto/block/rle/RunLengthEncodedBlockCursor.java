@@ -4,6 +4,7 @@
 package com.facebook.presto.block.rle;
 
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.Tuple;
@@ -143,5 +144,11 @@ public final class RunLengthEncodedBlockCursor implements BlockCursor
     public int getRawOffset()
     {
         return 0;
+    }
+
+    @Override
+    public void appendTupleTo(BlockBuilder blockBuilder)
+    {
+        blockBuilder.append(value);
     }
 }
