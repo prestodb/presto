@@ -18,7 +18,7 @@ public class NewInMemoryOrderByBenchmark
 
     public NewInMemoryOrderByBenchmark()
     {
-        super("duel_in_memory_orderby_1.5M", 5, 5);
+        super("duel_in_memory_orderby_1.5M", 5, 10);
         rows = 1_000_000;
     }
 
@@ -30,7 +30,7 @@ public class NewInMemoryOrderByBenchmark
         AlignmentOperator alignmentOperator = new AlignmentOperator(concat(nCopies(100, totalPrice)), concat(nCopies(100, clerk)));
 
         LimitOperator limitOperator = new LimitOperator(alignmentOperator, rows);
-        NewInMemoryOrderByOperator orderByOperator = new NewInMemoryOrderByOperator(limitOperator, 0, 1, rows);
+        NewInMemoryOrderByOperator orderByOperator = new NewInMemoryOrderByOperator(limitOperator, 0, new int[]{1}, rows);
         return orderByOperator;
     }
 
