@@ -5,7 +5,12 @@ import com.google.common.base.Objects;
 import java.net.URI;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Strings.emptyToNull;
+import static com.google.common.base.Strings.nullToEmpty;
 
+/**
+ * A node is a server in a cluster than can process queries.
+ */
 public class Node
 {
     private final String nodeIdentifier;
@@ -13,7 +18,8 @@ public class Node
 
     public Node(String nodeIdentifier, URI httpUri)
     {
-        this.nodeIdentifier = checkNotNull(nodeIdentifier, "nodeIdentifier");
+        nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
+        this.nodeIdentifier = checkNotNull(nodeIdentifier, "nodeIdentifier is null or empty");
         this.httpUri = checkNotNull(httpUri, "httpUri");
     }
 

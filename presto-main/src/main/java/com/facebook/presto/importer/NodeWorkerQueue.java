@@ -64,6 +64,7 @@ public class NodeWorkerQueue
         public void run()
         {
             // TODO: handle nodes changing their URI
+            // TODO: handle nodes disappearing
             Set<Node> activeNodes = nodeManager.getActiveNodes();
             Set<Node> newNodes = Sets.difference(activeNodes, nodes);
 
