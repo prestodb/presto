@@ -93,10 +93,7 @@ public class HashJoinOperator
             this.probeJoinChannel = probeJoinChannel;
 
             // index build channel
-            buildIndex = new PagesIndex(buildSource.getChannelCount(), expectedPositions, tupleInfos);
-            for (Page page : buildSource) {
-                buildIndex.indexPage(page);
-            }
+            buildIndex = new PagesIndex(buildSource, expectedPositions);
 
             // build hash over build join channel
             BlocksIndex joinChannelIndex = buildIndex.getIndex(buildJoinChannel);
