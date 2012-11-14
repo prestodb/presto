@@ -13,7 +13,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.hive.shaded.com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkState;
 
 public class FilterAndProjectOperator implements Operator
 {

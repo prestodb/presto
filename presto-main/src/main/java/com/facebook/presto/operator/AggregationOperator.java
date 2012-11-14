@@ -1,10 +1,10 @@
 package com.facebook.presto.operator;
 
-import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -14,7 +14,7 @@ import javax.inject.Provider;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.hive.shaded.com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkState;
 
 public class AggregationOperator
         implements Operator
