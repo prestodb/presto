@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import static com.facebook.presto.hive.shaded.com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Group input data and produce a single block for each sequence of identical values.

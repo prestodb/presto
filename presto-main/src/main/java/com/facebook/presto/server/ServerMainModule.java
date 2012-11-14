@@ -4,7 +4,6 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.hive.HiveClient;
-import com.facebook.presto.hive.ImportClient;
 import com.facebook.presto.importer.ForImportManager;
 import com.facebook.presto.importer.ImportManager;
 import com.facebook.presto.importer.NodeWorkerQueue;
@@ -21,6 +20,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.StorageManager;
+import com.facebook.presto.spi.ImportClient;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;

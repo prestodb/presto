@@ -3,8 +3,8 @@
  */
 package com.facebook.presto.ingest;
 
-import com.facebook.presto.hive.ImportClient;
-import com.facebook.presto.hive.PartitionChunk;
+import com.facebook.presto.spi.ImportClient;
+import com.facebook.presto.spi.PartitionChunk;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -39,10 +39,10 @@ public class ImportPartition
             extends AbstractIterator<Record>
             implements RecordIterator
     {
-        private final com.facebook.presto.hive.RecordIterator importRecords;
+        private final com.facebook.presto.spi.RecordIterator importRecords;
         private final List<String> columnNames;
 
-        private ImportRecordIterator(com.facebook.presto.hive.RecordIterator importRecords, List<String> columnNames)
+        private ImportRecordIterator(com.facebook.presto.spi.RecordIterator importRecords, List<String> columnNames)
         {
             this.importRecords = importRecords;
             this.columnNames = columnNames;
@@ -68,10 +68,10 @@ public class ImportPartition
     public static class ImportRecord
             implements Record
     {
-        private final com.facebook.presto.hive.Record importRecord;
+        private final com.facebook.presto.spi.Record importRecord;
         private final List<String> columnNames;
 
-        public ImportRecord(com.facebook.presto.hive.Record importRecord, List<String> columnNames)
+        public ImportRecord(com.facebook.presto.spi.Record importRecord, List<String> columnNames)
         {
             this.importRecord = importRecord;
             this.columnNames = columnNames;

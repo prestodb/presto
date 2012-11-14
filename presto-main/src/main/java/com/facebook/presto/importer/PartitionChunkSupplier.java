@@ -1,8 +1,8 @@
 package com.facebook.presto.importer;
 
-import com.facebook.presto.hive.ImportClient;
-import com.facebook.presto.hive.PartitionChunk;
 import com.facebook.presto.ingest.SerializedPartitionChunk;
+import com.facebook.presto.spi.ImportClient;
+import com.facebook.presto.spi.PartitionChunk;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 
