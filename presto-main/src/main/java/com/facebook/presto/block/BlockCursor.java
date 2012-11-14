@@ -133,4 +133,6 @@ public interface BlockCursor
     boolean currentTupleEquals(Tuple value);
 
     int getRawOffset();
+
+    void appendTupleTo(BlockBuilder blockBuilder);
 }

@@ -115,6 +115,14 @@ public class BlockBuilder
 
         // read the tuple length
         int length = tupleInfo.size(slice, offset);
+        return appendTuple(slice, offset, length);
+
+
+    }
+
+    public BlockBuilder appendTuple(Slice slice, int offset, int length)
+    {
+        Preconditions.checkState(!tupleBuilder.isPartial());
 
         // copy tuple to output
         sliceOutput.writeBytes(slice, offset, length);

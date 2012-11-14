@@ -1,7 +1,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.slice.Slice;
@@ -118,62 +117,57 @@ public class HashJoinOperator
                 return endOfData();
             }
 
-            // create outputs
-            BlockBuilder[] outputs = new BlockBuilder[tupleInfos.size()];
-            for (int i = 0; i < outputs.length; i++) {
-                outputs[i] = new BlockBuilder(tupleInfos.get(i));
-            }
+            // create output
+            PageBuilder pageBuilder = new PageBuilder(tupleInfos);
 
             // join probe pages with the hash
-            while (!isFull(outputs) && probeIterator.hasNext()) {
+            while (!pageBuilder.isFull() && probeIterator.hasNext()) {
                 Page page = probeIterator.next();
-                join(page, outputs);
+                join(page, pageBuilder);
             }
 
             // output data
-            if (outputs[0].isEmpty()) {
+            if (pageBuilder.isEmpty()) {
                 return endOfData();
             }
-
-            Block[] blocks = new Block[outputs.length];
-            for (int i = 0; i < blocks.length; i++) {
-                blocks[i] = outputs[i].build();
-            }
-
-            Page page = new Page(blocks);
+            Page page = pageBuilder.build();
             return page;
         }
 
-        private void join(Page page, BlockBuilder[] outputs)
+        private void join(Page page, PageBuilder pageBuilder)
         {
             Block[] blocks = page.getBlocks();
 
-            int probeChannelCount = blocks.length;
-            BlockCursor[] cursors = new BlockCursor[probeChannelCount];
-            for (int i = 0; i < probeChannelCount; i++) {
+            // open cursors
+            BlockCursor[] cursors = new BlockCursor[page.getChannelCount()];
+            for (int i = 0; i < page.getChannelCount(); i++) {
                 cursors[i] = blocks[i].cursor();
             }
+
+            // set hashing strategy to use probe block
             UncompressedBlock probeJoinBlock = (UncompressedBlock) page.getBlock(probeJoinChannel);
             hashStrategy.setProbeSlice(probeJoinBlock.getSlice());
 
-            BlockCursor probeJoinCursor = cursors[probeJoinChannel];
-
             int rows = page.getPositionCount();
             for (int position = 0; position < rows; position++) {
+                // advance cursors
                 for (BlockCursor cursor : cursors) {
                     checkState(cursor.advanceNextPosition());
                 }
 
-                int joinPosition = joinChannelHash.get(0xFF_FF_FF_FF_00_00_00_00L | probeJoinCursor.getRawOffset());
+                // lookup the position of the "first" joined row
+                int joinPosition = joinChannelHash.get(0xFF_FF_FF_FF_00_00_00_00L | cursors[probeJoinChannel].getRawOffset());
+                // while we have a position to join against...
                 while (joinPosition >= 0) {
                     for (int probeChannel = 0; probeChannel < cursors.length; probeChannel++) {
-                        outputs[probeChannel].append(cursors[probeChannel].getTuple());
+                        cursors[probeChannel].appendTupleTo(pageBuilder.getBlockBuilder(probeChannel));
                     }
 
-                    int outputIndex = probeChannelCount;
+                    int outputIndex = page.getChannelCount();
                     for (int buildChannel = 0; buildChannel < buildIndex.getChannelCount(); buildChannel++) {
                         if (buildChannel != buildJoinChannel) {
-                            buildIndex.appendTupleTo(buildChannel, joinPosition, outputs[outputIndex++]);
+                            buildIndex.appendTupleTo(buildChannel, joinPosition, pageBuilder.getBlockBuilder(outputIndex));
+                            outputIndex++;
                         }
                     }
                     joinPosition = positionLinks.getInt(joinPosition);
@@ -183,19 +177,6 @@ public class HashJoinOperator
             for (BlockCursor cursor : cursors) {
                 checkState(!cursor.advanceNextPosition());
             }
-        }
-
-        private boolean isFull(BlockBuilder... outputs)
-        {
-            if (outputs == null) {
-                return false;
-            }
-            for (BlockBuilder output : outputs) {
-                if (output.isFull()) {
-                    return true;
-                }
-            }
-            return false;
         }
     }
 

@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.block.dictionary;
 
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.slice.Slice;
@@ -78,6 +79,12 @@ public class Dictionary
     public Slice getTupleSlice(int dictionaryKey)
     {
         return dictionary.get(dictionaryKey);
+    }
+
+    public void appendTupleTo(int dictionaryKey, BlockBuilder blockBuilder)
+    {
+        Slice slice = dictionary.get(dictionaryKey);
+        blockBuilder.appendTuple(slice, 0, slice.length());
     }
 
     public static class DictionaryBuilder
