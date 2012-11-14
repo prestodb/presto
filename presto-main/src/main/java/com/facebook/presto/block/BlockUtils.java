@@ -9,11 +9,31 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 
 import java.util.Iterator;
 
 public class BlockUtils
 {
+    // TODO: remove this hack after empty blocks are supported
+    public static BlockIterable emptyBlockIterable()
+    {
+        return new BlockIterable()
+        {
+            @Override
+            public TupleInfo getTupleInfo()
+            {
+                return TupleInfo.SINGLE_LONG;
+            }
+
+            @Override
+            public Iterator<Block> iterator()
+            {
+                return Iterators.emptyIterator();
+            }
+        };
+    }
+
     public static BlockIterable toBlocks(Block firstBlock, Block... rest)
     {
         return new BlocksIterableAdapter(firstBlock.getTupleInfo(), ImmutableList.<Block>builder().add(firstBlock).add(rest).build());

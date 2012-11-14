@@ -12,8 +12,8 @@ import com.facebook.presto.ingest.RecordProjection;
 import com.facebook.presto.ingest.RecordProjections;
 import com.facebook.presto.ingest.StringRecord;
 import com.facebook.presto.metadata.ColumnMetadata;
+import com.facebook.presto.metadata.LegacyStorageManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.operator.Operator;
@@ -82,7 +82,7 @@ public class TestQueries
     private RecordIterable ordersRecords;
     private RecordIterable lineItemRecords;
     private Metadata metadata;
-    private StorageManager storage;
+    private LegacyStorageManager storage;
 
     @BeforeSuite
     public void setupDatabase()
@@ -162,7 +162,7 @@ public class TestQueries
             metadata.createTable(table);
         }
 
-        storage = new StorageManager()
+        storage = new LegacyStorageManager()
         {
             @Override
             public BlockIterable getBlocks(String databaseName, String tableName, int fieldIndex)
@@ -230,13 +230,6 @@ public class TestQueries
                     }
                 }
                 throw new UnsupportedOperationException("not yet implemented: " + tableName);
-            }
-
-            @Override
-            public long importTableShard(Operator source, String databaseName, String tableName)
-                    throws IOException
-            {
-                throw new UnsupportedOperationException("not yet implemented");
             }
         };
     }

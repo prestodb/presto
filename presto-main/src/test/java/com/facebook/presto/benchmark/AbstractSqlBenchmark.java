@@ -2,13 +2,12 @@ package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.metadata.ColumnMetadata;
+import com.facebook.presto.metadata.LegacyStorageManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.serde.BlocksFileEncoding;
-import com.facebook.presto.serde.BlocksFileReader;
 import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.Analyzer;
 import com.facebook.presto.sql.compiler.SessionMetadata;
@@ -28,7 +27,6 @@ import com.google.common.collect.ImmutableList;
 import org.antlr.runtime.RecognitionException;
 import org.intellij.lang.annotations.Language;
 
-import java.io.IOException;
 import java.util.List;
 
 public abstract class AbstractSqlBenchmark
@@ -94,15 +92,8 @@ public abstract class AbstractSqlBenchmark
     @Override
     protected Operator createBenchmarkedOperator(final TpchBlocksProvider provider)
     {
-        StorageManager storage = new StorageManager()
+        LegacyStorageManager storage = new LegacyStorageManager()
         {
-            @Override
-            public long importTableShard(Operator source, String databaseName, String tableName)
-                    throws IOException
-            {
-                throw new UnsupportedOperationException("not yet implemented");
-            }
-
             @Override
             public BlockIterable getBlocks(String databaseName, String tableName, int fieldIndex)
             {

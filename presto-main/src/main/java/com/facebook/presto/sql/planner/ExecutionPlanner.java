@@ -3,7 +3,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.StorageManager;
+import com.facebook.presto.metadata.LegacyStorageManager;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.AlignmentOperator;
@@ -51,9 +51,9 @@ import static java.lang.String.format;
 public class ExecutionPlanner
 {
     private final SessionMetadata metadata;
-    private final StorageManager storage;
+    private final LegacyStorageManager storage;
 
-    public ExecutionPlanner(SessionMetadata metadata, StorageManager storage)
+    public ExecutionPlanner(SessionMetadata metadata, LegacyStorageManager storage)
     {
         this.metadata = metadata;
         this.storage = storage;
