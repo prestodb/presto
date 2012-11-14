@@ -1,8 +1,8 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
-import com.facebook.presto.hive.shaded.com.google.common.collect.AbstractIterator;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.collect.AbstractIterator;
 
 import java.util.Iterator;
 import java.util.List;

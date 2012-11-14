@@ -1,6 +1,6 @@
 package com.facebook.presto.tuple;
 
-import com.facebook.presto.hive.shaded.com.google.common.base.Preconditions;
+import com.google.common.base.Preconditions;
 
 import java.util.Comparator;
 
