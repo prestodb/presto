@@ -7,12 +7,14 @@ import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.server.ShardImport;
 import com.google.common.collect.ImmutableList;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import java.net.URI;
 import java.util.List;
@@ -37,7 +39,7 @@ public class ImportManager
     private static final Logger log = Logger.get(ImportManager.class);
 
     private final ExecutorService partitionExecutor = newFixedThreadPool(50, threadsNamed("import-partition-%s"));
-    private final ExecutorService chunkExecutor = newFixedThreadPool(50, threadsNamed("import-chunk-%s"));
+    private final ScheduledExecutorService chunkExecutor = newScheduledThreadPool(50, threadsNamed("import-chunk-%s"));
     private final ScheduledExecutorService shardExecutor = newScheduledThreadPool(50, threadsNamed("import-shard-%s"));
 
     private final ImportClient importClient;
@@ -102,6 +104,7 @@ public class ImportManager
 
         public PartitionJob(long tableId, String sourceName, String partitionName, PartitionChunkSupplier supplier, List<ImportField> fields)
         {
+            checkArgument(tableId > 0, "tableId must be greater than zero");
             this.tableId = tableId;
             this.sourceName = checkNotNull(sourceName, "sourceName is null");
             this.partitionName = checkNotNull(partitionName, "partitionName is null");
@@ -112,6 +115,7 @@ public class ImportManager
         @Override
         public void run()
         {
+            // TODO: add throttling based on size of chunk job queue
             List<SerializedPartitionChunk> chunks = supplier.get();
             List<Long> shardIds = shardManager.createImportPartition(tableId, partitionName, chunks);
             log.debug("retrieved partition chunks: %s: %s: %s", partitionName, chunks.size(), shardIds);
@@ -153,16 +157,17 @@ public class ImportManager
 
             if (!initiateShardCreation(worker)) {
                 nodeWorkerQueue.releaseNodeWorker(worker);
-                chunkExecutor.execute(this);
+                // TODO: add proper per-node back-off
+                chunkExecutor.schedule(this, 1, TimeUnit.SECONDS);
             }
         }
 
         private boolean initiateShardCreation(Node worker)
         {
-            URI shardUri = URI.create(worker.getHttpUri() + "/v1/shard/" + shardId);
+            URI shardUri = uriAppendPaths(worker.getHttpUri(), "/v1/shard/" + shardId);
             Request request = preparePut()
                     .setUri(shardUri)
-                    .setHeader("Content-Type", MediaType.APPLICATION_JSON)
+                    .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
                     .setBodyGenerator(jsonBodyGenerator(shardImportCodec, shardImport))
                     .build();
 
@@ -206,6 +211,7 @@ public class ImportManager
                 shardExecutor.schedule(this, 1, TimeUnit.SECONDS);
             }
 
+            // TODO: handle database failure (avoid worker leak and retry)
             shardManager.commitShard(shardId, worker.getNodeIdentifier());
             nodeWorkerQueue.releaseNodeWorker(worker);
             log.info("shard imported: %s", shardId);
@@ -213,7 +219,7 @@ public class ImportManager
 
         private boolean isShardComplete()
         {
-            URI shardUri = URI.create(worker.getHttpUri() + "/v1/shard/" + shardId);
+            URI shardUri = uriAppendPaths(worker.getHttpUri(), "/v1/shard/" + shardId);
             Request request = prepareGet().setUri(shardUri).build();
 
             Status status;
@@ -239,5 +245,15 @@ public class ImportManager
             log.warn("unexpected response status: %s: %s", shardId, status.getStatusCode());
             return false;
         }
+    }
+
+    private static URI uriAppendPaths(URI uri, String path, String... additionalPaths)
+    {
+        HttpUriBuilder builder = HttpUriBuilder.uriBuilderFrom(uri);
+        builder.appendPath(path);
+        for (String additionalPath : additionalPaths) {
+            builder.appendPath(additionalPath);
+        }
+        return builder.build();
     }
 }

@@ -1,10 +1,12 @@
 package com.facebook.presto.importer;
 
 import com.facebook.presto.tuple.TupleInfo;
+import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 @Immutable
@@ -14,11 +16,13 @@ public class ImportField
     private final TupleInfo.Type columnType;
     private final String importFieldName;
 
+    @JsonCreator
     public ImportField(
             @JsonProperty("columnId") long columnId,
             @JsonProperty("columnType") TupleInfo.Type columnType,
             @JsonProperty("importFieldName") String importFieldName)
     {
+        checkArgument(columnId > 0, "columnId must be greater than zero");
         this.columnId = columnId;
         this.columnType = checkNotNull(columnType, "columnType is null");
         this.importFieldName = checkNotNull(importFieldName, "importFieldName is null");

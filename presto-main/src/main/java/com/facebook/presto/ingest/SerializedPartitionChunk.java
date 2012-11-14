@@ -7,6 +7,8 @@ import org.codehaus.jackson.annotate.JsonValue;
 
 import javax.annotation.concurrent.Immutable;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 @Immutable
 public class SerializedPartitionChunk
 {
@@ -15,7 +17,7 @@ public class SerializedPartitionChunk
     @JsonCreator
     public SerializedPartitionChunk(byte[] bytes)
     {
-        this.bytes = bytes;
+        this.bytes = checkNotNull(bytes, "bytes is null");
     }
 
     @JsonValue

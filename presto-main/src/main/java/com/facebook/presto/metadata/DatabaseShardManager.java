@@ -34,6 +34,7 @@ public class DatabaseShardManager
     @Override
     public void createImportTable(final long tableId, final String sourceName, final String databaseName, final String tableName)
     {
+        // creating a table is idempotent
         runIgnoringConstraintViolation(new Runnable()
         {
             @Override
@@ -70,7 +71,7 @@ public class DatabaseShardManager
     @Override
     public void commitShard(final long shardId, String nodeIdentifier)
     {
-        final long nodeId = getNodeId(nodeIdentifier);
+        final long nodeId = getOrCreateNodeId(nodeIdentifier);
         dbi.inTransaction(new VoidTransactionCallback()
         {
             @Override
@@ -93,13 +94,14 @@ public class DatabaseShardManager
         return map.build();
     }
 
-    private long getNodeId(final String nodeIdentifier)
+    private long getOrCreateNodeId(final String nodeIdentifier)
     {
         Long id = dao.getNodeId(nodeIdentifier);
         if (id != null) {
             return id;
         }
 
+        // creating a node is idempotent
         runIgnoringConstraintViolation(new Runnable()
         {
             @Override
