@@ -35,9 +35,10 @@ public class IfStatement implements FlowControl
             this.context = context;
         }
 
-        public void condition(Block condition)
+        public IfStatementBuilder condition(Block condition)
         {
             this.condition = condition;
+            return this;
         }
 
         public IfStatementBuilder condition(ByteCodeNodeFactory condition)

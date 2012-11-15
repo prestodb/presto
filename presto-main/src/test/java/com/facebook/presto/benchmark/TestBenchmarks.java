@@ -10,7 +10,12 @@ public class TestBenchmarks
             throws Exception
     {
         for (AbstractBenchmark benchmark : BenchmarkSuite.createBenchmarks(new InMemoryTpchBlocksProvider())) {
-            benchmark.runOnce();
+            try {
+                benchmark.runOnce();
+            }
+            catch (Exception e) {
+                throw new AssertionError("Error running " + benchmark.getBenchmarkName(), e);
+            }
         }
     }
 }
