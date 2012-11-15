@@ -1,5 +1,6 @@
-package com.facebook.presto.metadata;
+package com.facebook.presto.split;
 
+import com.facebook.presto.metadata.DataSourceType;
 import org.codehaus.jackson.annotate.JsonSubTypes;
 import org.codehaus.jackson.annotate.JsonTypeInfo;
 
@@ -8,9 +9,9 @@ import org.codehaus.jackson.annotate.JsonTypeInfo;
         include = JsonTypeInfo.As.PROPERTY,
         property = "type")
 @JsonSubTypes({
-        @JsonSubTypes.Type(value = NativeColumnHandle.class, name = "native"),
-        @JsonSubTypes.Type(value = ImportColumnHandle.class, name = "import")})
-public interface ColumnHandle
+        @JsonSubTypes.Type(value = NativeSplit.class, name = "native"),
+        @JsonSubTypes.Type(value = ImportSplit.class, name = "import")})
+public interface Split
 {
     DataSourceType getDataSourceType();
 }
