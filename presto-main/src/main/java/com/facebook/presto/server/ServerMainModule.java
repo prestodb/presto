@@ -14,13 +14,20 @@ import com.facebook.presto.metadata.DatabaseStorageManager;
 import com.facebook.presto.metadata.ForMetadata;
 import com.facebook.presto.metadata.ForShardManager;
 import com.facebook.presto.metadata.ForStorageManager;
+import com.facebook.presto.metadata.ImportMetadataReader;
 import com.facebook.presto.metadata.LegacyStorageManager;
 import com.facebook.presto.metadata.LegacyStorageManagerFacade;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.spi.ImportClient;
+import com.facebook.presto.split.DataStreamManager;
+import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.split.ImportClientFactory;
+import com.facebook.presto.split.ImportDataStreamProvider;
+import com.facebook.presto.split.NativeDataStreamProvider;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -43,9 +50,19 @@ public class ServerMainModule
         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(StaticQueryManager.class).in(Scopes.SINGLETON);
         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
+
         binder.bind(StorageManager.class).to(DatabaseStorageManager.class).in(Scopes.SINGLETON);
-        binder.bind(Metadata.class).to(DatabaseMetadata.class).in(Scopes.SINGLETON);
         binder.bind(LegacyStorageManager.class).to(LegacyStorageManagerFacade.class).in(Scopes.SINGLETON);
+        binder.bind(DataStreamProvider.class).to(DataStreamManager.class).in(Scopes.SINGLETON);
+        binder.bind(NativeDataStreamProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ImportDataStreamProvider.class).in(Scopes.SINGLETON);
+
+        binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
+        binder.bind(DatabaseMetadata.class).in(Scopes.SINGLETON);
+
+        binder.bind(ImportClient.class).to(HiveClient.class).in(Scopes.SINGLETON);
+        binder.bind(ImportClientFactory.class).in(Scopes.SINGLETON);
+        binder.bind(ImportMetadataReader.class).in(Scopes.SINGLETON);
 
         discoveryBinder(binder).bindSelector("presto");
         binder.bind(NodeManager.class).in(Scopes.SINGLETON);
@@ -62,7 +79,7 @@ public class ServerMainModule
 
     @Provides
     @Singleton
-    public ImportClient createHiveClient()
+    public HiveClient createHiveClient()
     {
         // TODO: configuration
         return new HiveClient("localhost", 9083);

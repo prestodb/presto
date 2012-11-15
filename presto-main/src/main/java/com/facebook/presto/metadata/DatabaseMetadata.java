@@ -2,11 +2,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.Multimaps;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionStatus;
@@ -16,10 +11,11 @@ import javax.inject.Inject;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
 public class DatabaseMetadata
-        implements Metadata
+        implements Metadata, MetadataReader
 {
     private final IDBI dbi;
     private final MetadataDao dao;
@@ -52,12 +48,43 @@ public class DatabaseMetadata
         }
         TableHandle tableHandle = new NativeTableHandle(tableId);
 
-        List<ColumnMetadata> columns = dao.getColumnMetaData(tableId);
+        List<ColumnMetadata> columns = dao.getTableColumnMetaData(tableId);
         if (columns.isEmpty()) {
             return null;
         }
 
         return new TableMetadata(catalogName, schemaName, tableName, columns, tableHandle);
+    }
+
+    @Override
+    public TableMetadata getTable(TableHandle tableHandle)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+
+        NativeTableHandle nativeTableHandle = (NativeTableHandle) tableHandle;
+
+        TableNamespace tableNamespace = dao.getTableNamespace(nativeTableHandle.getTableId());
+
+        List<ColumnMetadata> columns = dao.getTableColumnMetaData(nativeTableHandle.getTableId());
+        if (columns.isEmpty()) {
+            return null;
+        }
+
+        return new TableMetadata(
+                tableNamespace.getCatalogName(),
+                tableNamespace.getDatabaseName(),
+                tableNamespace.getTableName(),
+                columns,
+                tableHandle);
+    }
+
+    @Override
+    public ColumnMetadata getColumn(ColumnHandle columnHandle)
+    {
+        checkNotNull(columnHandle, "columnHandle is null");
+
+        NativeColumnHandle nativeColumnHandle = (NativeColumnHandle) columnHandle;
+        return dao.getColumnMetaData(nativeColumnHandle.getColumnId());
     }
 
     @Override

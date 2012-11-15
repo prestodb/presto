@@ -39,6 +39,18 @@ public class TestingMetadata
     }
 
     @Override
+    public TableMetadata getTable(TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ColumnMetadata getColumn(ColumnHandle columnHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public synchronized void createTable(TableMetadata table)
     {
         List<String> key = tableKey(table);

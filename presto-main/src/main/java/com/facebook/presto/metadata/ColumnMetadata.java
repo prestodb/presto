@@ -13,7 +13,7 @@ public class ColumnMetadata
     private final TupleInfo.Type type;
     private final Optional<ColumnHandle> columnHandle;
 
-    public ColumnMetadata(TupleInfo.Type type, String name)
+    public ColumnMetadata(String name, TupleInfo.Type type)
     {
         this(name, type, Optional.<ColumnHandle>absent());
     }
