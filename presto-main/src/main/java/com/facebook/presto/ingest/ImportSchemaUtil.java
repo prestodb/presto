@@ -17,7 +17,7 @@ public class ImportSchemaUtil
         for (SchemaField field : schemaFields) {
             checkArgument(field.getCategory() == SchemaField.Category.PRIMITIVE, "Unhandled category: %s", field.getCategory());
             TupleInfo.Type type = getTupleType(field.getPrimitiveType());
-            list.add(new ColumnMetadata(type, field.getFieldName()));
+            list.add(new ColumnMetadata(field.getFieldName(), type));
         }
         return list.build();
     }
