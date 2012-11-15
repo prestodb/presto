@@ -1,16 +1,23 @@
 package com.facebook.presto.operator.aggregation;
 
 
-import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.tuple.Tuple;
+
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
 public class TestLongSumAggregation
     extends AbstractTestAggregationFunction
 {
     @Override
-    public BlockCursor getSequenceCursor(int max)
+    public Block getSequenceBlock(int max)
     {
-        return new LongSequenceCursor(max);
+        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_LONG);
+        for (int i = 0; i < max; i++) {
+            blockBuilder.append(i);
+        }
+        return blockBuilder.build();
     }
 
     @Override
