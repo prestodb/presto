@@ -33,6 +33,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -63,6 +64,7 @@ import com.facebook.presto.util.MoreFunctions;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -436,7 +438,15 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), source.getLayout(), metadata, context.getSession());
+//            FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), source.getLayout(), metadata, context.getSession());
+            ExpressionCompiler compiler = new ExpressionCompiler(context.getSession(), source.getLayout(), source.getOperator().getTupleInfos());
+            FilterFunction filter;
+            try {
+                filter = compiler.compileFilterFunction(node.getPredicate());
+            }
+            catch (Exception e) {
+                throw Throwables.propagate(e);
+            }
 
             IdentityProjectionInfo mappings = computeIdentityMapping(node.getOutputSymbols(), source.getLayout(), context.getTypes());
 
@@ -472,7 +482,14 @@ public class LocalExecutionPlanner
                     function = ProjectionFunctions.singleColumn(context.getTypes().get(reference).getRawType(), source.getLayout().get(symbol));
                 }
                 else {
-                    function = new InterpretedProjectionFunction(context.getTypes().get(symbol), expression, source.getLayout(), metadata, context.getSession());
+//                    function = new InterpretedProjectionFunction(context.getTypes().get(symbol), expression, source.getLayout(), metadata, context.getSession());
+                    ExpressionCompiler compiler = new ExpressionCompiler(context.getSession(), source.getLayout(), source.getOperator().getTupleInfos());
+                    try {
+                        function = compiler.compileProjectionFunction(expression);
+                    }
+                    catch (Exception e) {
+                        throw Throwables.propagate(e);
+                    }
                 }
                 projections.add(function);
 

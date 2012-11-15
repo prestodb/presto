@@ -114,7 +114,7 @@ public abstract class Constant implements InstructionNode
         throw new IllegalStateException("Unsupported number type " + value.getClass().getSimpleName());
     }
 
-    public static InstructionNode loadClass(String value)
+    public static InstructionNode loadString(String value)
     {
         Preconditions.checkNotNull(value, "value is null");
         return new StringConstant(value);

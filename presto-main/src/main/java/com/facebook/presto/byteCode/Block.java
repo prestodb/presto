@@ -515,6 +515,24 @@ public class Block implements ByteCodeNode
         return this;
     }
 
+    public Block retBoolean()
+    {
+        nodes.add(OpCodes.IRETURN);
+        return this;
+    }
+
+    public Block retLong()
+    {
+        nodes.add(OpCodes.LRETURN);
+        return this;
+    }
+
+    public Block retInt()
+    {
+        nodes.add(OpCodes.IRETURN);
+        return this;
+    }
+
     public Block throwObject()
     {
         nodes.add(OpCodes.ATHROW);
@@ -678,9 +696,9 @@ public class Block implements ByteCodeNode
         return this;
     }
 
-    public Block loadConstant(String value)
+    public Block loadString(String value)
     {
-        nodes.add(loadClass(value));
+        nodes.add(Constant.loadString(value));
         return this;
     }
 

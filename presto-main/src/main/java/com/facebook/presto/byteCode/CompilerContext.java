@@ -30,9 +30,9 @@ public class CompilerContext
 
     private Integer currentLine;
 
-    public CompilerContext(VariableFactory variableFactory)
+    public CompilerContext()
     {
-        this(variableFactory, null);
+        this(new LocalVariableFactory(), new LocalVariableFactory());
     }
 
     public CompilerContext(VariableFactory variableFactory, VariableFactory parameterFactory)
