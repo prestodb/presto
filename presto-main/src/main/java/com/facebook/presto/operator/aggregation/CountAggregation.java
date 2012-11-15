@@ -1,5 +1,6 @@
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.BlockCursor;
@@ -46,9 +47,26 @@ public class CountAggregation
     }
 
     @Override
+    public void addInput(Page page)
+    {
+        count += page.getPositionCount();
+    }
+
+    @Override
     public void addInput(BlockCursor... cursors)
     {
         count++;
+    }
+
+    @Override
+    public void addIntermediate(Page page)
+    {
+        BlockCursor cursor = page.getBlock(channelIndex).cursor();
+        while (cursor.advanceNextPosition()) {
+            if (!cursor.isNull(fieldIndex)) {
+                count += cursor.getLong(fieldIndex);
+            }
+        }
     }
 
     @Override
