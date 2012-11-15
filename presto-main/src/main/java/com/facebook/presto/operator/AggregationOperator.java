@@ -2,7 +2,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
@@ -13,8 +12,6 @@ import com.google.common.collect.Iterators;
 import javax.inject.Provider;
 import java.util.Iterator;
 import java.util.List;
-
-import static com.google.common.base.Preconditions.checkState;
 
 public class AggregationOperator
         implements Operator
@@ -61,31 +58,13 @@ public class AggregationOperator
         // create the aggregation functions
         AggregationFunction[] functions = new AggregationFunction[functionProviders.size()];
         for (int i = 0; i < functions.length; i++) {
-            functions[i]= functionProviders.get(i).get();
+            functions[i] = functionProviders.get(i).get();
         }
 
         // process all rows
-        BlockCursor[] cursors = new BlockCursor[source.getChannelCount()];
         for (Page page : source) {
-            Block[] blocks = page.getBlocks();
-
-            for (int i = 0; i < blocks.length; i++) {
-                cursors[i] = blocks[i].cursor();
-            }
-
-            int rows = (int) page.getPositionCount();
-            for (int position = 0; position < rows; position++) {
-                for (BlockCursor cursor : cursors) {
-                    checkState(cursor.advanceNextPosition());
-                }
-
-                for (AggregationFunction function : functions) {
-                    function.add(cursors);
-                }
-            }
-
-            for (BlockCursor cursor : cursors) {
-                checkState(!cursor.advanceNextPosition());
+            for (AggregationFunction function : functions) {
+                function.add(page);
             }
         }
 

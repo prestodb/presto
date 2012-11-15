@@ -1,6 +1,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.operator.Page;
 import com.facebook.presto.slice.ByteArraySlice;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
@@ -56,12 +57,37 @@ public class DoubleAverageAggregation
     }
 
     @Override
+    public void addInput(Page page)
+    {
+        BlockCursor cursor = page.getBlock(channelIndex).cursor();
+        while (cursor.advanceNextPosition()) {
+            if (!cursor.isNull(fieldIndex)) {
+                sum += cursor.getDouble(fieldIndex);
+                count++;
+            }
+        }
+    }
+
+    @Override
     public void addInput(BlockCursor... cursors)
     {
         BlockCursor cursor = cursors[channelIndex];
         if (!cursor.isNull(fieldIndex)) {
             sum += cursor.getDouble(fieldIndex);
             count++;
+        }
+    }
+
+    @Override
+    public void addIntermediate(Page page)
+    {
+        BlockCursor cursor = page.getBlock(channelIndex).cursor();
+        while (cursor.advanceNextPosition()) {
+            if (!cursor.isNull(fieldIndex)) {
+                Slice data = cursor.getSlice(fieldIndex);
+                sum += data.getDouble(0);
+                count += data.getLong(SIZE_OF_DOUBLE);
+            }
         }
     }
 

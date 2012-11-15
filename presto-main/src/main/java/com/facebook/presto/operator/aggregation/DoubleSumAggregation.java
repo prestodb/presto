@@ -1,6 +1,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 
@@ -48,6 +49,18 @@ public class DoubleSumAggregation
     }
 
     @Override
+    public void addInput(Page page)
+    {
+        BlockCursor cursor = page.getBlock(channelIndex).cursor();
+        while (cursor.advanceNextPosition()) {
+            if (!cursor.isNull(fieldIndex)) {
+                hasNonNullValue = true;
+                sum += cursor.getDouble(fieldIndex);
+            }
+        }
+    }
+
+    @Override
     public void addInput(BlockCursor... cursors)
     {
         BlockCursor cursor = cursors[channelIndex];
@@ -64,6 +77,18 @@ public class DoubleSumAggregation
         if (!cursor.isNull(fieldIndex)) {
             hasNonNullValue = true;
             sum += cursor.getDouble(fieldIndex);
+        }
+    }
+
+    @Override
+    public void addIntermediate(Page page)
+    {
+        BlockCursor cursor = page.getBlock(channelIndex).cursor();
+        while (cursor.advanceNextPosition()) {
+            if (!cursor.isNull(fieldIndex)) {
+                hasNonNullValue = true;
+                sum += cursor.getDouble(fieldIndex);
+            }
         }
     }
 

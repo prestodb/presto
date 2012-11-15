@@ -4,6 +4,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 
@@ -56,6 +57,12 @@ public final class AggregationFunctions
         public TupleInfo getTupleInfo()
         {
             return fullAggregationFunction.getFinalTupleInfo();
+        }
+
+        @Override
+        public void add(Page page)
+        {
+            fullAggregationFunction.addInput(page);
         }
 
         @Override
@@ -115,6 +122,12 @@ public final class AggregationFunctions
         }
 
         @Override
+        public void add(Page page)
+        {
+            fullAggregationFunction.addInput(page);
+        }
+
+        @Override
         public void add(BlockCursor... cursors)
         {
             fullAggregationFunction.addInput(cursors);
@@ -171,6 +184,12 @@ public final class AggregationFunctions
         }
 
         @Override
+        public void add(Page page)
+        {
+            fullAggregationFunction.addIntermediate(page);
+        }
+
+        @Override
         public void add(BlockCursor... cursors)
         {
             fullAggregationFunction.addIntermediate(cursors);
@@ -224,6 +243,12 @@ public final class AggregationFunctions
         public TupleInfo getTupleInfo()
         {
             return fullAggregationFunction.getFinalTupleInfo();
+        }
+
+        @Override
+        public void add(Page page)
+        {
+            fullAggregationFunction.addIntermediate(page);
         }
 
         @Override
