@@ -1,14 +1,19 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.metadata.FunctionBinder;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.slice.ByteArraySlice;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 
 import javax.inject.Provider;
+
+import java.util.List;
 
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_DOUBLE;
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
@@ -21,17 +26,29 @@ import static com.facebook.presto.tuple.Tuples.createTuple;
 public class LongAverageAggregation
         implements FullAggregationFunction
 {
-    public static Provider<LongAverageAggregation> longAverageAggregation(final int channelIndex, final int field)
+    public static Provider<FullAggregationFunction> longAverageAggregation(final int channelIndex, final int field)
     {
-        return new Provider<LongAverageAggregation>()
-        {
-            @Override
-            public LongAverageAggregation get()
-            {
-                return new LongAverageAggregation(channelIndex, field);
-            }
-        };
+        return BINDER.bind(ImmutableList.of(new Input(channelIndex, field)));
     }
+
+    public static final FunctionBinder BINDER = new FunctionBinder()
+    {
+        @Override
+        public Provider<FullAggregationFunction> bind(final List<Input> arguments)
+        {
+            Preconditions.checkArgument(arguments.size() == 1, "avg takes 1 parameter");
+
+            return new Provider<FullAggregationFunction>()
+            {
+                @Override
+                public LongAverageAggregation get()
+                {
+                    return new LongAverageAggregation(arguments.get(0).getChannel(), arguments.get(0).getField());
+                }
+            };
+        }
+    };
+
 
     private final int channelIndex;
     private final int fieldIndex;

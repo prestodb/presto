@@ -1,5 +1,10 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.operator.aggregation.CountAggregation;
+import com.facebook.presto.operator.aggregation.DoubleAverageAggregation;
+import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
+import com.facebook.presto.operator.aggregation.LongAverageAggregation;
+import com.facebook.presto.operator.aggregation.LongSumAggregation;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
@@ -10,6 +15,7 @@ import com.google.common.collect.Multimaps;
 
 import java.util.List;
 
+import static com.facebook.presto.tuple.TupleInfo.Type.*;
 import static java.lang.String.format;
 
 public class FunctionRegistry
@@ -19,11 +25,11 @@ public class FunctionRegistry
     public FunctionRegistry()
     {
         functions = buildFunctions(
-                new FunctionInfo(QualifiedName.of("count"), true, TupleInfo.Type.FIXED_INT_64, ImmutableList.<TupleInfo.Type>of()),
-                new FunctionInfo(QualifiedName.of("sum"), true, TupleInfo.Type.FIXED_INT_64, ImmutableList.of(TupleInfo.Type.FIXED_INT_64)),
-                new FunctionInfo(QualifiedName.of("sum"), true, TupleInfo.Type.DOUBLE, ImmutableList.of(TupleInfo.Type.DOUBLE)),
-                new FunctionInfo(QualifiedName.of("avg"), true, TupleInfo.Type.DOUBLE, ImmutableList.of(TupleInfo.Type.DOUBLE)),
-                new FunctionInfo(QualifiedName.of("avg"), true, TupleInfo.Type.DOUBLE, ImmutableList.of(TupleInfo.Type.FIXED_INT_64))
+                new FunctionInfo(QualifiedName.of("count"), FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(), CountAggregation.BINDER),
+                new FunctionInfo(QualifiedName.of("sum"), FIXED_INT_64, ImmutableList.of(FIXED_INT_64), LongSumAggregation.BINDER),
+                new FunctionInfo(QualifiedName.of("sum"), DOUBLE, ImmutableList.of(DOUBLE), DoubleSumAggregation.BINDER),
+                new FunctionInfo(QualifiedName.of("avg"), DOUBLE, ImmutableList.of(DOUBLE), DoubleAverageAggregation.BINDER),
+                new FunctionInfo(QualifiedName.of("avg"), DOUBLE, ImmutableList.of(FIXED_INT_64),  LongAverageAggregation.BINDER)
         );
     }
 
