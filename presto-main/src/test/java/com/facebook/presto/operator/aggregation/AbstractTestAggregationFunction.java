@@ -25,11 +25,11 @@ public abstract class AbstractTestAggregationFunction
 {
     public abstract Block getSequenceBlock(int max);
 
-    public abstract FullAggregationFunction getFullFunction();
+    public abstract AggregationFunction getFunction();
 
     public abstract Number getExpectedValue(int positions);
 
-    public abstract Number getActualValue(AggregationFunction function);
+    public abstract Number getActualValue(AggregationFunctionStep function);
 
     @Test
     public void testNoPositions()
@@ -67,7 +67,7 @@ public abstract class AbstractTestAggregationFunction
 
     protected void testMultiplePositions(BlockCursor cursor, Number expectedValue, int positions)
     {
-        AggregationFunction function = singleNodeAggregation(getFullFunction());
+        AggregationFunctionStep function = singleNodeAggregation(getFunction());
 
         for (int i = 0; i < positions; i++) {
             assertTrue(cursor.advanceNextPosition());
@@ -118,7 +118,7 @@ public abstract class AbstractTestAggregationFunction
 
     protected void testVectorMultiplePositions(Block block, Number expectedValue)
     {
-        AggregationFunction function = singleNodeAggregation(getFullFunction());
+        AggregationFunctionStep function = singleNodeAggregation(getFunction());
         function.add(new Page(block));
         assertEquals(getActualValue(function), expectedValue);
     }
@@ -139,7 +139,7 @@ public abstract class AbstractTestAggregationFunction
     protected void testPartialWithMultiplePositions(Block block, Number expectedValue)
     {
         UncompressedBlock partialsBlock = performPartialAggregation(block);
-        AggregationFunction function = finalAggregation(getFullFunction());
+        AggregationFunctionStep function = finalAggregation(getFunction());
         BlockCursor partialsCursor = partialsBlock.cursor();
         while (partialsCursor.advanceNextPosition()) {
             function.add(partialsCursor);
@@ -174,17 +174,17 @@ public abstract class AbstractTestAggregationFunction
     protected void testVectorPartialWithMultiplePositions(Block block, Number expectedValue)
     {
         UncompressedBlock partialsBlock = performPartialAggregation(block);
-        AggregationFunction function = finalAggregation(getFullFunction());
+        AggregationFunctionStep function = finalAggregation(getFunction());
         function.add(new Page(partialsBlock));
         assertEquals(getActualValue(function), expectedValue);
     }
 
     private UncompressedBlock performPartialAggregation(Block block)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(getFullFunction().getIntermediateTupleInfo());
+        BlockBuilder blockBuilder = new BlockBuilder(getFunction().getIntermediateTupleInfo());
         BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {
-            AggregationFunction function = partialAggregation(getFullFunction());
+            AggregationFunctionStep function = partialAggregation(getFunction());
             function.add(cursor);
             Tuple tuple = function.evaluate();
             blockBuilder.append(tuple);
@@ -210,12 +210,12 @@ public abstract class AbstractTestAggregationFunction
         // "aggregate" each input value into a partial result
         List<Block> blocks = new ArrayList<>();
         for (int i = 0; i < positions; i++) {
-            AggregationFunction function = partialAggregation(getFullFunction());
+            AggregationFunctionStep function = partialAggregation(getFunction());
             assertTrue(cursor.advanceNextPosition());
             function.add(cursor);
 
             Tuple tuple = function.evaluate();
-            blocks.add(new BlockBuilder(getFullFunction().getIntermediateTupleInfo())
+            blocks.add(new BlockBuilder(getFunction().getIntermediateTupleInfo())
                     .append(tuple)
                     .build());
         }
@@ -230,7 +230,7 @@ public abstract class AbstractTestAggregationFunction
         // combine partial results together row at a time
         Block combinedBlock = null;
         for (Block block : blocks) {
-            AggregationFunction function = combinerAggregation(getFullFunction());
+            AggregationFunctionStep function = combinerAggregation(getFunction());
             if (combinedBlock != null) {
                 BlockCursor intermediateCursor = combinedBlock.cursor();
                 assertTrue(intermediateCursor.advanceNextPosition());
@@ -242,7 +242,7 @@ public abstract class AbstractTestAggregationFunction
             function.add(intermediateCursor);
 
             Tuple tuple = function.evaluate();
-            combinedBlock = new BlockBuilder(getFullFunction().getIntermediateTupleInfo())
+            combinedBlock = new BlockBuilder(getFunction().getIntermediateTupleInfo())
                     .append(tuple)
                     .build();
         }
@@ -253,7 +253,7 @@ public abstract class AbstractTestAggregationFunction
 
     private void assertFinalAggregation(Block partialsBlock, Number expectedValue)
     {
-        AggregationFunction function = finalAggregation(getFullFunction());
+        AggregationFunctionStep function = finalAggregation(getFunction());
         BlockCursor partialsCursor = partialsBlock.cursor();
         while (partialsCursor.advanceNextPosition()) {
             function.add(partialsCursor);

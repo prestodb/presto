@@ -7,11 +7,19 @@ import com.facebook.presto.tuple.TupleInfo;
 
 public interface AggregationFunction
 {
-    TupleInfo getTupleInfo();
+    TupleInfo getFinalTupleInfo();
 
-    void add(Page page);
+    TupleInfo getIntermediateTupleInfo();
 
-    void add(BlockCursor... cursors);
+    void addInput(Page page);
 
-    Tuple evaluate();
+    void addInput(BlockCursor... cursors);
+
+    void addIntermediate(Page page);
+
+    void addIntermediate(BlockCursor... cursors);
+
+    Tuple evaluateIntermediate();
+
+    Tuple evaluateFinal();
 }

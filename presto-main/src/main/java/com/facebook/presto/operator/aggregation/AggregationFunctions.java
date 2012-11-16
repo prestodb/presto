@@ -16,251 +16,251 @@ public final class AggregationFunctions
     {
     }
 
-    public static AggregationFunction singleNodeAggregation(FullAggregationFunction function)
+    public static AggregationFunctionStep singleNodeAggregation(AggregationFunction function)
     {
         return new SingleNodeAggregationAdapter(function);
     }
 
-    public static Provider<AggregationFunction> singleNodeAggregation(Provider<? extends FullAggregationFunction> provider)
+    public static Provider<AggregationFunctionStep> singleNodeAggregation(Provider<? extends AggregationFunction> provider)
     {
         return new SingleNodeAggregationProvider(provider);
     }
 
     private static class SingleNodeAggregationProvider
-            implements Provider<AggregationFunction>
+            implements Provider<AggregationFunctionStep>
     {
-        private final Provider<? extends FullAggregationFunction> provider;
+        private final Provider<? extends AggregationFunction> provider;
 
-        public SingleNodeAggregationProvider(Provider<? extends FullAggregationFunction> provider)
+        public SingleNodeAggregationProvider(Provider<? extends AggregationFunction> provider)
         {
             this.provider = provider;
         }
 
         @Override
-        public AggregationFunction get()
+        public AggregationFunctionStep get()
         {
             return new SingleNodeAggregationAdapter(provider.get());
         }
     }
 
     private static class SingleNodeAggregationAdapter
-            implements AggregationFunction
+            implements AggregationFunctionStep
     {
-        private final FullAggregationFunction fullAggregationFunction;
+        private final AggregationFunction aggregationFunction;
 
-        public SingleNodeAggregationAdapter(FullAggregationFunction fullAggregationFunction)
+        public SingleNodeAggregationAdapter(AggregationFunction aggregationFunction)
         {
-            this.fullAggregationFunction = fullAggregationFunction;
+            this.aggregationFunction = aggregationFunction;
         }
 
         @Override
         public TupleInfo getTupleInfo()
         {
-            return fullAggregationFunction.getFinalTupleInfo();
+            return aggregationFunction.getFinalTupleInfo();
         }
 
         @Override
         public void add(Page page)
         {
-            fullAggregationFunction.addInput(page);
+            aggregationFunction.addInput(page);
         }
 
         @Override
         public void add(BlockCursor... cursors)
         {
-            fullAggregationFunction.addInput(cursors);
+            aggregationFunction.addInput(cursors);
         }
 
         @Override
         public Tuple evaluate()
         {
-            return fullAggregationFunction.evaluateFinal();
+            return aggregationFunction.evaluateFinal();
         }
     }
 
-    public static AggregationFunction partialAggregation(FullAggregationFunction function)
+    public static AggregationFunctionStep partialAggregation(AggregationFunction function)
     {
         return new PartialAggregationAdapter(function);
     }
 
-    public static Provider<AggregationFunction> partialAggregation(Provider<? extends FullAggregationFunction> provider)
+    public static Provider<AggregationFunctionStep> partialAggregation(Provider<? extends AggregationFunction> provider)
     {
         return new PartialAggregationProvider(provider);
     }
 
     private static class PartialAggregationProvider
-            implements Provider<AggregationFunction>
+            implements Provider<AggregationFunctionStep>
     {
-        private final Provider<? extends FullAggregationFunction> provider;
+        private final Provider<? extends AggregationFunction> provider;
 
-        public PartialAggregationProvider(Provider<? extends FullAggregationFunction> provider)
+        public PartialAggregationProvider(Provider<? extends AggregationFunction> provider)
         {
             this.provider = provider;
         }
 
         @Override
-        public AggregationFunction get()
+        public AggregationFunctionStep get()
         {
             return new PartialAggregationAdapter(provider.get());
         }
     }
 
     private static class PartialAggregationAdapter
-            implements AggregationFunction
+            implements AggregationFunctionStep
     {
-        private final FullAggregationFunction fullAggregationFunction;
+        private final AggregationFunction aggregationFunction;
 
-        public PartialAggregationAdapter(FullAggregationFunction fullAggregationFunction)
+        public PartialAggregationAdapter(AggregationFunction aggregationFunction)
         {
-            this.fullAggregationFunction = fullAggregationFunction;
+            this.aggregationFunction = aggregationFunction;
         }
 
         @Override
         public TupleInfo getTupleInfo()
         {
-            return fullAggregationFunction.getIntermediateTupleInfo();
+            return aggregationFunction.getIntermediateTupleInfo();
         }
 
         @Override
         public void add(Page page)
         {
-            fullAggregationFunction.addInput(page);
+            aggregationFunction.addInput(page);
         }
 
         @Override
         public void add(BlockCursor... cursors)
         {
-            fullAggregationFunction.addInput(cursors);
+            aggregationFunction.addInput(cursors);
         }
 
         @Override
         public Tuple evaluate()
         {
-            return fullAggregationFunction.evaluateIntermediate();
+            return aggregationFunction.evaluateIntermediate();
         }
     }
 
-    public static AggregationFunction combinerAggregation(FullAggregationFunction function)
+    public static AggregationFunctionStep combinerAggregation(AggregationFunction function)
     {
         return new CombinerAggregationAdapter(function);
     }
 
-    public static Provider<AggregationFunction> combinerAggregation(Provider<? extends FullAggregationFunction> provider)
+    public static Provider<AggregationFunctionStep> combinerAggregation(Provider<? extends AggregationFunction> provider)
     {
         return new CombinerAggregationProvider(provider);
     }
 
     private static class CombinerAggregationProvider
-            implements Provider<AggregationFunction>
+            implements Provider<AggregationFunctionStep>
     {
-        private final Provider<? extends FullAggregationFunction> provider;
+        private final Provider<? extends AggregationFunction> provider;
 
-        public CombinerAggregationProvider(Provider<? extends FullAggregationFunction> provider)
+        public CombinerAggregationProvider(Provider<? extends AggregationFunction> provider)
         {
             this.provider = provider;
         }
 
         @Override
-        public AggregationFunction get()
+        public AggregationFunctionStep get()
         {
             return new CombinerAggregationAdapter(provider.get());
         }
     }
 
     private static class CombinerAggregationAdapter
-            implements AggregationFunction
+            implements AggregationFunctionStep
     {
-        private final FullAggregationFunction fullAggregationFunction;
+        private final AggregationFunction aggregationFunction;
 
-        public CombinerAggregationAdapter(FullAggregationFunction fullAggregationFunction)
+        public CombinerAggregationAdapter(AggregationFunction aggregationFunction)
         {
-            this.fullAggregationFunction = fullAggregationFunction;
+            this.aggregationFunction = aggregationFunction;
         }
 
         @Override
         public TupleInfo getTupleInfo()
         {
-            return fullAggregationFunction.getIntermediateTupleInfo();
+            return aggregationFunction.getIntermediateTupleInfo();
         }
 
         @Override
         public void add(Page page)
         {
-            fullAggregationFunction.addIntermediate(page);
+            aggregationFunction.addIntermediate(page);
         }
 
         @Override
         public void add(BlockCursor... cursors)
         {
-            fullAggregationFunction.addIntermediate(cursors);
+            aggregationFunction.addIntermediate(cursors);
         }
 
         @Override
         public Tuple evaluate()
         {
-            return fullAggregationFunction.evaluateIntermediate();
+            return aggregationFunction.evaluateIntermediate();
         }
     }
 
-    public static AggregationFunction finalAggregation(FullAggregationFunction function)
+    public static AggregationFunctionStep finalAggregation(AggregationFunction function)
     {
         return new FinalAggregationAdapter(function);
     }
 
-    public static Provider<AggregationFunction> finalAggregation(Provider<? extends FullAggregationFunction> provider)
+    public static Provider<AggregationFunctionStep> finalAggregation(Provider<? extends AggregationFunction> provider)
     {
         return new FinalAggregationProvider(provider);
     }
 
     private static class FinalAggregationProvider
-            implements Provider<AggregationFunction>
+            implements Provider<AggregationFunctionStep>
     {
-        private final Provider<? extends FullAggregationFunction> provider;
+        private final Provider<? extends AggregationFunction> provider;
 
-        public FinalAggregationProvider(Provider<? extends FullAggregationFunction> provider)
+        public FinalAggregationProvider(Provider<? extends AggregationFunction> provider)
         {
             this.provider = provider;
         }
 
         @Override
-        public AggregationFunction get()
+        public AggregationFunctionStep get()
         {
             return new FinalAggregationAdapter(provider.get());
         }
     }
 
     private static class FinalAggregationAdapter
-            implements AggregationFunction
+            implements AggregationFunctionStep
     {
-        private final FullAggregationFunction fullAggregationFunction;
+        private final AggregationFunction aggregationFunction;
 
-        public FinalAggregationAdapter(FullAggregationFunction fullAggregationFunction)
+        public FinalAggregationAdapter(AggregationFunction aggregationFunction)
         {
-            this.fullAggregationFunction = fullAggregationFunction;
+            this.aggregationFunction = aggregationFunction;
         }
 
         @Override
         public TupleInfo getTupleInfo()
         {
-            return fullAggregationFunction.getFinalTupleInfo();
+            return aggregationFunction.getFinalTupleInfo();
         }
 
         @Override
         public void add(Page page)
         {
-            fullAggregationFunction.addIntermediate(page);
+            aggregationFunction.addIntermediate(page);
         }
 
         @Override
         public void add(BlockCursor... cursors)
         {
-            fullAggregationFunction.addIntermediate(cursors);
+            aggregationFunction.addIntermediate(cursors);
         }
 
         @Override
         public Tuple evaluate()
         {
-            return fullAggregationFunction.evaluateFinal();
+            return aggregationFunction.evaluateFinal();
         }
     }
 }
