@@ -16,9 +16,9 @@ import java.util.List;
 import static com.facebook.presto.tuple.Tuples.createTuple;
 
 public class CountAggregation
-        implements FullAggregationFunction
+        implements AggregationFunction
 {
-    public static Provider<FullAggregationFunction> countAggregation(final int channelIndex, final int field)
+    public static Provider<AggregationFunction> countAggregation(final int channelIndex, final int field)
     {
         return BINDER.bind(ImmutableList.of(new Input(channelIndex, field)));
     }
@@ -26,12 +26,12 @@ public class CountAggregation
     public static final FunctionBinder BINDER = new FunctionBinder()
     {
         @Override
-        public Provider<FullAggregationFunction> bind(List<Input> arguments)
+        public Provider<AggregationFunction> bind(List<Input> arguments)
         {
             Preconditions.checkArgument(arguments.size() == 0 || arguments.size() == 1, "count takes 0 or 1 parameters");
             final Input input = Iterables.getFirst(arguments, new Input(-1, -1));
 
-            return new Provider<FullAggregationFunction>()
+            return new Provider<AggregationFunction>()
             {
                 @Override
                 public CountAggregation get()

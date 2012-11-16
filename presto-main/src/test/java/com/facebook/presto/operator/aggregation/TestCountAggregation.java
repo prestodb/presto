@@ -21,7 +21,7 @@ public class TestCountAggregation
     }
 
     @Override
-    public FullAggregationFunction getFullFunction()
+    public AggregationFunction getFunction()
     {
         return new CountAggregation(0, 0);
     }
@@ -33,7 +33,7 @@ public class TestCountAggregation
     }
 
     @Override
-    public Number getActualValue(AggregationFunction function)
+    public Number getActualValue(AggregationFunctionStep function)
     {
         return function.evaluate().getLong(0);
     }

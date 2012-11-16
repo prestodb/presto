@@ -21,7 +21,7 @@ public class TestDoubleSumAggregation
     }
 
     @Override
-    public DoubleSumAggregation getFullFunction()
+    public DoubleSumAggregation getFunction()
     {
         return new DoubleSumAggregation(0, 0);
     }
@@ -41,7 +41,7 @@ public class TestDoubleSumAggregation
     }
 
     @Override
-    public Double getActualValue(AggregationFunction function)
+    public Double getActualValue(AggregationFunctionStep function)
     {
         Tuple value = function.evaluate();
         if (value.isNull(0)) {

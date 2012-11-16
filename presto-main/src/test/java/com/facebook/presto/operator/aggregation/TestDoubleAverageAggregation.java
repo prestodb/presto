@@ -20,7 +20,7 @@ public class TestDoubleAverageAggregation
     }
 
     @Override
-    public DoubleAverageAggregation getFullFunction()
+    public DoubleAverageAggregation getFunction()
     {
         return new DoubleAverageAggregation(0, 0);
     }
@@ -40,7 +40,7 @@ public class TestDoubleAverageAggregation
     }
 
     @Override
-    public Double getActualValue(AggregationFunction function)
+    public Double getActualValue(AggregationFunctionStep function)
     {
         Tuple value = function.evaluate();
         if (value.isNull(0)) {

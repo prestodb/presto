@@ -1,6 +1,6 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.operator.aggregation.FullAggregationFunction;
+import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.Input;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
@@ -64,7 +64,7 @@ public class FunctionInfo
         return intermediateType;
     }
 
-    public Provider<FullAggregationFunction> bind(List<Input> inputs)
+    public Provider<AggregationFunction> bind(List<Input> inputs)
     {
         return binder.bind(inputs);
     }

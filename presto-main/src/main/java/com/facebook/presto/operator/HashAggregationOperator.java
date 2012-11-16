@@ -3,7 +3,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.aggregation.AggregationFunctionStep;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
@@ -27,11 +27,11 @@ public class HashAggregationOperator
 {
     private final Operator source;
     private final int groupByChannel;
-    private final List<Provider<AggregationFunction>> functionProviders;
+    private final List<Provider<AggregationFunctionStep>> functionProviders;
     private final List<ProjectionFunction> projections;
     private final List<TupleInfo> tupleInfos;
 
-    public HashAggregationOperator(Operator source, int groupByChannel, List<Provider<AggregationFunction>> functionProviders, List<ProjectionFunction> projections)
+    public HashAggregationOperator(Operator source, int groupByChannel, List<Provider<AggregationFunctionStep>> functionProviders, List<ProjectionFunction> projections)
     {
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkArgument(groupByChannel >= 0, "groupByChannel is negative");
@@ -69,8 +69,8 @@ public class HashAggregationOperator
     {
         return new AbstractIterator<Page>()
         {
-            private final Map<Tuple, AggregationFunction[]> aggregationMap = new HashMap<>();
-            private Iterator<Entry<Tuple, AggregationFunction[]>> aggregations;
+            private final Map<Tuple, AggregationFunctionStep[]> aggregationMap = new HashMap<>();
+            private Iterator<Entry<Tuple, AggregationFunctionStep[]>> aggregations;
 
             @Override
             protected Page computeNext()
@@ -93,12 +93,12 @@ public class HashAggregationOperator
 
                 while (!isFull(outputs) && aggregations.hasNext()) {
                     // get next aggregation
-                    Entry<Tuple, AggregationFunction[]> aggregation = aggregations.next();
+                    Entry<Tuple, AggregationFunctionStep[]> aggregation = aggregations.next();
 
                     // get result tuples
                     Tuple[] results = new Tuple[functionProviders.size() + 1];
                     results[0] = aggregation.getKey();
-                    AggregationFunction[] aggregations = aggregation.getValue();
+                    AggregationFunctionStep[] aggregations = aggregation.getValue();
                     for (int i = 1; i < results.length; i++) {
                         results[i] = aggregations[i - 1].evaluate();
                     }
@@ -148,16 +148,16 @@ public class HashAggregationOperator
                         }
 
                         Tuple key = cursors[groupByChannel].getTuple();
-                        AggregationFunction[] functions = aggregationMap.get(key);
+                        AggregationFunctionStep[] functions = aggregationMap.get(key);
                         if (functions == null) {
-                            functions = new AggregationFunction[functionProviders.size()];
+                            functions = new AggregationFunctionStep[functionProviders.size()];
                             for (int i = 0; i < functions.length; i++) {
                                 functions[i]= functionProviders.get(i).get();
                             }
                             aggregationMap.put(key, functions);
                         }
 
-                        for (AggregationFunction function : functions) {
+                        for (AggregationFunctionStep function : functions) {
                             function.add(cursors);
                         }
                     }

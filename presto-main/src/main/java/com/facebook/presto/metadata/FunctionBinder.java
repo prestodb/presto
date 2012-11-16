@@ -1,6 +1,6 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.operator.aggregation.FullAggregationFunction;
+import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.Input;
 
 import javax.inject.Provider;
@@ -11,5 +11,5 @@ import java.util.List;
  */
 public interface FunctionBinder
 {
-    Provider<FullAggregationFunction> bind(List<Input> arguments);
+    Provider<AggregationFunction> bind(List<Input> arguments);
 }

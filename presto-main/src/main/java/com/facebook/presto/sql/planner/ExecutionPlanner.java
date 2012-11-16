@@ -17,8 +17,8 @@ import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.TopNOperator;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.aggregation.AggregationFunctionStep;
 import com.facebook.presto.operator.aggregation.AggregationFunctions;
-import com.facebook.presto.operator.aggregation.FullAggregationFunction;
 import com.facebook.presto.operator.aggregation.Input;
 import com.facebook.presto.sql.compiler.SessionMetadata;
 import com.facebook.presto.sql.compiler.Slot;
@@ -141,7 +141,7 @@ public class ExecutionPlanner
 
         Map<Slot, Integer> slotToChannelMappings = mapSlotsToChannels(source.getOutputs());
 
-        List<Provider<AggregationFunction>> aggregationFunctions = new ArrayList<>();
+        List<Provider<AggregationFunctionStep>> aggregationFunctions = new ArrayList<>();
         for (Map.Entry<Slot, FunctionCall> entry : node.getAggregations().entrySet()) {
             aggregationFunctions.add(getProvider(node.getFunctionInfos().get(entry.getKey()), entry.getValue(), slotToChannelMappings));
         }
@@ -161,12 +161,12 @@ public class ExecutionPlanner
         return new HashAggregationOperator(sourceOperator, slotToChannelMappings.get(groupBySlot), aggregationFunctions, projections);
     }
 
-    private Provider<AggregationFunction> getProvider(FunctionInfo info, FunctionCall call, Map<Slot, Integer> slotToChannelMappings)
+    private Provider<AggregationFunctionStep> getProvider(FunctionInfo info, FunctionCall call, Map<Slot, Integer> slotToChannelMappings)
     {
         return getProvider(info, call, slotToChannelMappings, false, false);
     }
 
-    private Provider<AggregationFunction> getProvider(FunctionInfo info, FunctionCall call, Map<Slot, Integer> slotToChannelMappings, boolean intermediateInput, boolean intermediateOutput)
+    private Provider<AggregationFunctionStep> getProvider(FunctionInfo info, FunctionCall call, Map<Slot, Integer> slotToChannelMappings, boolean intermediateInput, boolean intermediateOutput)
     {
         List<Input> arguments = new ArrayList<>();
         for (Expression argument : call.getArguments()) {
@@ -177,7 +177,7 @@ public class ExecutionPlanner
             arguments.add(new Input(channel, field));
         }
 
-        Provider<? extends FullAggregationFunction> functionProvider = info.bind(arguments);
+        Provider<? extends AggregationFunction> functionProvider = info.bind(arguments);
         if (!intermediateInput) {
             if (!intermediateOutput) {
                 return AggregationFunctions.singleNodeAggregation(functionProvider);

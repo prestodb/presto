@@ -2,7 +2,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.aggregation.AggregationFunctionStep;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
@@ -17,11 +17,11 @@ public class AggregationOperator
         implements Operator
 {
     private final Operator source;
-    private final List<Provider<AggregationFunction>> functionProviders;
+    private final List<Provider<AggregationFunctionStep>> functionProviders;
     private final List<ProjectionFunction> projections;
     private final List<TupleInfo> tupleInfos;
 
-    public AggregationOperator(Operator source, List<Provider<AggregationFunction>> functionProviders, List<ProjectionFunction> projections)
+    public AggregationOperator(Operator source, List<Provider<AggregationFunctionStep>> functionProviders, List<ProjectionFunction> projections)
     {
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkNotNull(functionProviders, "functionProviders is null");
@@ -56,14 +56,14 @@ public class AggregationOperator
     public Iterator<Page> iterator()
     {
         // create the aggregation functions
-        AggregationFunction[] functions = new AggregationFunction[functionProviders.size()];
+        AggregationFunctionStep[] functions = new AggregationFunctionStep[functionProviders.size()];
         for (int i = 0; i < functions.length; i++) {
             functions[i] = functionProviders.get(i).get();
         }
 
         // process all rows
         for (Page page : source) {
-            for (AggregationFunction function : functions) {
+            for (AggregationFunctionStep function : functions) {
                 function.add(page);
             }
         }
