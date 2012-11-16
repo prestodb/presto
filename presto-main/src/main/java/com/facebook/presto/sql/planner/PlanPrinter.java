@@ -61,11 +61,16 @@ public class PlanPrinter
         @Override
         public Void visitAggregation(AggregationNode node, Integer indent)
         {
-            print(indent, "- Aggregate => [%s]", formatOutputs(node.getOutputs()));
-
-            if (!node.getGroupBy().isEmpty()) {
-                print(indent + 2, "key = %s", Joiner.on(", ").join(node.getGroupBy()));
+            String type = "";
+            if (node.getStep() != AggregationNode.Step.SINGLE) {
+                type = String.format("(%s)", node.getStep().toString());
             }
+            String key = "";
+            if (!node.getGroupBy().isEmpty()) {
+                key = node.getGroupBy().toString();
+            }
+
+            print(indent, "- Aggregate%s%s => [%s]", type, key, formatOutputs(node.getOutputs()));
 
             for (Map.Entry<Slot, FunctionCall> entry : node.getAggregations().entrySet()) {
                 print(indent + 2, "%s := %s", entry.getKey(), ExpressionFormatter.toString(entry.getValue()));
