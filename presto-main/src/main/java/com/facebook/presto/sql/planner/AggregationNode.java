@@ -18,13 +18,26 @@ public class AggregationNode
     private final List<Slot> groupByKeys;
     private final Map<Slot, FunctionCall> aggregations;
     private final Map<Slot, FunctionInfo> infos;
+    private final Step step;
+
+    public enum Step {
+        PARTIAL,
+        FINAL,
+        SINGLE
+    }
 
     public AggregationNode(PlanNode source, List<Slot> groupByKeys, Map<Slot, FunctionCall> aggregations, Map<Slot, FunctionInfo> infos)
+    {
+        this(source, groupByKeys, aggregations, infos, Step.SINGLE);
+    }
+
+    public AggregationNode(PlanNode source, List<Slot> groupByKeys, Map<Slot, FunctionCall> aggregations, Map<Slot, FunctionInfo> infos, Step step)
     {
         this.source = source;
         this.groupByKeys = groupByKeys;
         this.aggregations = aggregations;
         this.infos = infos;
+        this.step = step;
     }
 
     @Override
@@ -57,6 +70,11 @@ public class AggregationNode
     public PlanNode getSource()
     {
         return source;
+    }
+
+    public Step getStep()
+    {
+        return step;
     }
 
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)

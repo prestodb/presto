@@ -144,7 +144,33 @@ public class ExecutionPlanner
 
         List<Provider<AggregationFunctionStep>> aggregationFunctions = new ArrayList<>();
         for (Map.Entry<Slot, FunctionCall> entry : node.getAggregations().entrySet()) {
-            aggregationFunctions.add(getProvider(node.getFunctionInfos().get(entry.getKey()), entry.getValue(), slotToChannelMappings));
+            List<Input> arguments = new ArrayList<>();
+            for (Expression argument : entry.getValue().getArguments()) {
+                Slot slot = ((SlotReference) argument).getSlot();
+                int channel = slotToChannelMappings.get(slot);
+                int field = 0; // TODO: support composite channels
+
+                arguments.add(new Input(channel, field));
+            }
+
+            Provider<AggregationFunction> boundFunction = node.getFunctionInfos().get(entry.getKey()).bind(arguments);
+
+            Provider<AggregationFunctionStep> aggregation;
+            switch (node.getStep()) {
+                case PARTIAL:
+                    aggregation = AggregationFunctions.partialAggregation(boundFunction);
+                    break;
+                case FINAL:
+                    aggregation = AggregationFunctions.finalAggregation(boundFunction);
+                    break;
+                case SINGLE:
+                    aggregation = AggregationFunctions.singleNodeAggregation(boundFunction);
+                    break;
+                default:
+                    throw new UnsupportedOperationException("not yet implemented: " + node.getStep());
+            }
+
+            aggregationFunctions.add(aggregation);
         }
 
         List<ProjectionFunction> projections = new ArrayList<>();
@@ -160,41 +186,6 @@ public class ExecutionPlanner
         Preconditions.checkArgument(node.getGroupBy().size() <= 1, "Only single GROUP BY key supported at this time");
         Slot groupBySlot = Iterables.getOnlyElement(node.getGroupBy());
         return new HashAggregationOperator(sourceOperator, slotToChannelMappings.get(groupBySlot), aggregationFunctions, projections);
-    }
-
-    private Provider<AggregationFunctionStep> getProvider(FunctionInfo info, FunctionCall call, Map<Slot, Integer> slotToChannelMappings)
-    {
-        return getProvider(info, call, slotToChannelMappings, false, false);
-    }
-
-    private Provider<AggregationFunctionStep> getProvider(FunctionInfo info, FunctionCall call, Map<Slot, Integer> slotToChannelMappings, boolean intermediateInput, boolean intermediateOutput)
-    {
-        List<Input> arguments = new ArrayList<>();
-        for (Expression argument : call.getArguments()) {
-            Slot slot = ((SlotReference) argument).getSlot();
-            int channel = slotToChannelMappings.get(slot);
-            int field = 0; // TODO: support composite channels
-
-            arguments.add(new Input(channel, field));
-        }
-
-        Provider<? extends AggregationFunction> functionProvider = info.bind(arguments);
-        if (!intermediateInput) {
-            if (!intermediateOutput) {
-                return AggregationFunctions.singleNodeAggregation(functionProvider);
-            }
-            else {
-                return AggregationFunctions.partialAggregation(functionProvider);
-            }
-        }
-        else {
-            if (!intermediateOutput) {
-                return AggregationFunctions.finalAggregation(functionProvider);
-            }
-            else {
-                return AggregationFunctions.combinerAggregation(functionProvider);
-            }
-        }
     }
 
     private Operator createFilterNode(FilterNode node)
