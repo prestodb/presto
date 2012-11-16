@@ -25,11 +25,11 @@ public class FunctionRegistry
     public FunctionRegistry()
     {
         functions = buildFunctions(
-                new FunctionInfo(QualifiedName.of("count"), FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(), CountAggregation.BINDER),
-                new FunctionInfo(QualifiedName.of("sum"), FIXED_INT_64, ImmutableList.of(FIXED_INT_64), LongSumAggregation.BINDER),
-                new FunctionInfo(QualifiedName.of("sum"), DOUBLE, ImmutableList.of(DOUBLE), DoubleSumAggregation.BINDER),
-                new FunctionInfo(QualifiedName.of("avg"), DOUBLE, ImmutableList.of(DOUBLE), DoubleAverageAggregation.BINDER),
-                new FunctionInfo(QualifiedName.of("avg"), DOUBLE, ImmutableList.of(FIXED_INT_64),  LongAverageAggregation.BINDER)
+                new FunctionInfo(QualifiedName.of("count"), FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(), FIXED_INT_64, CountAggregation.BINDER),
+                new FunctionInfo(QualifiedName.of("sum"), FIXED_INT_64, ImmutableList.of(FIXED_INT_64), FIXED_INT_64, LongSumAggregation.BINDER),
+                new FunctionInfo(QualifiedName.of("sum"), DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DoubleSumAggregation.BINDER),
+                new FunctionInfo(QualifiedName.of("avg"), DOUBLE, ImmutableList.of(DOUBLE), VARIABLE_BINARY, DoubleAverageAggregation.BINDER),
+                new FunctionInfo(QualifiedName.of("avg"), DOUBLE, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, LongAverageAggregation.BINDER)
         );
     }
 
