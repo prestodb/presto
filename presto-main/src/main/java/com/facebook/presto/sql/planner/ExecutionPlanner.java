@@ -19,6 +19,7 @@ import com.facebook.presto.operator.TopNOperator;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.AggregationFunctions;
 import com.facebook.presto.operator.aggregation.FullAggregationFunction;
+import com.facebook.presto.operator.aggregation.Input;
 import com.facebook.presto.sql.compiler.SessionMetadata;
 import com.facebook.presto.sql.compiler.Slot;
 import com.facebook.presto.sql.compiler.SlotReference;
@@ -29,7 +30,6 @@ import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -42,13 +42,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.operator.aggregation.CountAggregation.countAggregation;
-import static com.facebook.presto.operator.aggregation.DoubleAverageAggregation.doubleAverageAggregation;
-import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.doubleSumAggregation;
-import static com.facebook.presto.operator.aggregation.LongAverageAggregation.longAverageAggregation;
-import static com.facebook.presto.operator.aggregation.LongSumAggregation.longSumAggregation;
 import static com.google.common.base.Functions.forMap;
-import static java.lang.String.format;
 
 public class ExecutionPlanner
 {
@@ -174,7 +168,16 @@ public class ExecutionPlanner
 
     private Provider<AggregationFunction> getProvider(FunctionInfo info, FunctionCall call, Map<Slot, Integer> slotToChannelMappings, boolean intermediateInput, boolean intermediateOutput)
     {
-        Provider<? extends FullAggregationFunction> functionProvider = getFullAggregationProvider(info, call, slotToChannelMappings);
+        List<Input> arguments = new ArrayList<>();
+        for (Expression argument : call.getArguments()) {
+            Slot slot = ((SlotReference) argument).getSlot();
+            int channel = slotToChannelMappings.get(slot);
+            int field = 0; // TODO: support composite channels
+
+            arguments.add(new Input(channel, field));
+        }
+
+        Provider<? extends FullAggregationFunction> functionProvider = info.bind(arguments);
         if (!intermediateInput) {
             if (!intermediateOutput) {
                 return AggregationFunctions.singleNodeAggregation(functionProvider);
@@ -191,35 +194,6 @@ public class ExecutionPlanner
                 return AggregationFunctions.combinerAggregation(functionProvider);
             }
         }
-    }
-
-    private Provider<? extends FullAggregationFunction> getFullAggregationProvider(FunctionInfo info, FunctionCall call, Map<Slot, Integer> slotToChannelMappings)
-    {
-        if (info.getName().equals(QualifiedName.of("count"))) {
-            // todo this is not correct
-            return countAggregation(-1, -1);
-        }
-
-        if (info.getName().equals(QualifiedName.of("sum"))) {
-            Slot input = ((SlotReference) call.getArguments().get(0)).getSlot();
-            if (info.getArgumentTypes().get(0) == TupleInfo.Type.FIXED_INT_64) {
-                return longSumAggregation(slotToChannelMappings.get(input), 0);
-            }
-            else if (info.getArgumentTypes().get(0) == TupleInfo.Type.DOUBLE) {
-                return doubleSumAggregation(slotToChannelMappings.get(input), 0);
-            }
-        }
-        else if (info.getName().equals(QualifiedName.of("avg"))) {
-            Slot input = ((SlotReference) call.getArguments().get(0)).getSlot();
-            if (info.getArgumentTypes().get(0) == TupleInfo.Type.FIXED_INT_64) {
-                return longAverageAggregation(slotToChannelMappings.get(input), 0);
-            }
-            else if (info.getArgumentTypes().get(0) == TupleInfo.Type.DOUBLE) {
-                return doubleAverageAggregation(slotToChannelMappings.get(input), 0);
-            }
-        }
-
-        throw new UnsupportedOperationException(format("not yet implemented: %s(%s)", info.getName(), Joiner.on(", ").join(info.getArgumentTypes())));
     }
 
     private Operator createFilterNode(FilterNode node)
