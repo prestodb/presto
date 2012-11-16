@@ -6,6 +6,8 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.Block;
 import com.google.common.base.Preconditions;
 
+import java.util.Arrays;
+
 public class Page
 {
     private final Block[] blocks;
@@ -14,7 +16,7 @@ public class Page
     {
         Preconditions.checkNotNull(blocks, "blocks is null");
         Preconditions.checkArgument(blocks.length > 0, "blocks is empty");
-        this.blocks = blocks;
+        this.blocks = Arrays.copyOf(blocks, blocks.length);
     }
 
     public int getChannelCount()
