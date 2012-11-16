@@ -24,9 +24,9 @@ import static com.facebook.presto.tuple.Tuples.NULL_STRING_TUPLE;
 import static com.facebook.presto.tuple.Tuples.createTuple;
 
 public class DoubleAverageAggregation
-        implements FullAggregationFunction
+        implements AggregationFunction
 {
-    public static Provider<FullAggregationFunction> doubleAverageAggregation(final int channelIndex, final int field)
+    public static Provider<AggregationFunction> doubleAverageAggregation(final int channelIndex, final int field)
     {
         return BINDER.bind(ImmutableList.of(new Input(channelIndex, field)));
     }
@@ -34,11 +34,11 @@ public class DoubleAverageAggregation
     public static final FunctionBinder BINDER = new FunctionBinder()
     {
         @Override
-        public Provider<FullAggregationFunction> bind(final List<Input> arguments)
+        public Provider<AggregationFunction> bind(final List<Input> arguments)
         {
             Preconditions.checkArgument(arguments.size() == 1, "avg takes 1 parameter");
 
-            return new Provider<FullAggregationFunction>()
+            return new Provider<AggregationFunction>()
             {
                 @Override
                 public DoubleAverageAggregation get()

@@ -21,7 +21,7 @@ public class TestLongSumAggregation
     }
 
     @Override
-    public LongSumAggregation getFullFunction()
+    public LongSumAggregation getFunction()
     {
         return new LongSumAggregation(0, 0);
     }
@@ -41,7 +41,7 @@ public class TestLongSumAggregation
     }
 
     @Override
-    public Long getActualValue(AggregationFunction function)
+    public Long getActualValue(AggregationFunctionStep function)
     {
         Tuple value = function.evaluate();
         if (value.isNull(0)) {
