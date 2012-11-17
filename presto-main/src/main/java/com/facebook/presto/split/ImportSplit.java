@@ -14,7 +14,7 @@ public class ImportSplit
     private final SerializedPartitionChunk serializedChunk;
 
     @JsonCreator
-    public ImportSplit(@JsonProperty("sourceName") String sourceName, @JsonProperty("chunk") SerializedPartitionChunk serializedChunk)
+    public ImportSplit(@JsonProperty("sourceName") String sourceName, @JsonProperty("serializedChunk") SerializedPartitionChunk serializedChunk)
     {
         this.sourceName = checkNotNull(sourceName, "sourceName is null");
         this.serializedChunk = checkNotNull(serializedChunk, "serializedChunk is null");

@@ -12,6 +12,7 @@ import com.facebook.presto.ingest.ImportSchemaUtil;
 import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.ingest.RecordProjection;
 import com.facebook.presto.ingest.RecordProjections;
+import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.LegacyStorageManager;
 import com.facebook.presto.metadata.Metadata;
@@ -20,9 +21,15 @@ import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.HashAggregationOperator;
+import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.SchemaField;
+import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.split.PlanFragment;
+import com.facebook.presto.split.Split;
+import com.facebook.presto.split.SplitAssignments;
+import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Charsets;
@@ -34,10 +41,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import com.google.common.io.InputSupplier;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.airlift.http.client.ApacheHttpClient;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
+import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -59,18 +66,24 @@ import static com.facebook.presto.operator.aggregation.AggregationFunctions.fina
 import static com.facebook.presto.operator.aggregation.AggregationFunctions.partialAggregation;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.longSumAggregation;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.util.Threads.threadsNamed;
 
 public class StaticQueryManager
         implements QueryManager
 {
     private final int pageBufferMax;
-    private final ExecutorService executor;
+    private final ExecutorService masterExecutor;
+    private final ExecutorService slaveExecutor;
     private final ImportClient importClient;
     private final ImportManager importManager;
     private final Metadata metadata;
     private final LegacyStorageManager storageManager;
+    private final DataStreamProvider dataStreamProvider;
+    private final SplitManager splitManager;
+    private final JsonCodec<QueryFragmentRequest> queryFragmentRequestJsonCodec;
 
     @GuardedBy("this")
     private int nextQueryId;
@@ -80,20 +93,39 @@ public class StaticQueryManager
     private final Map<String, QueryState> queries = new HashMap<>();
 
     @Inject
-    public StaticQueryManager(ImportClient importClient, ImportManager importManager, Metadata metadata, LegacyStorageManager storageManager)
+    public StaticQueryManager(
+            ImportClient importClient,
+            ImportManager importManager,
+            Metadata metadata,
+            LegacyStorageManager storageManager,
+            DataStreamProvider dataStreamProvider,
+            SplitManager splitManager,
+            JsonCodec<QueryFragmentRequest> queryFragmentRequestJsonCodec)
     {
-        this(20, importClient, importManager, metadata, storageManager);
+        this(20, importClient, importManager, metadata, storageManager, dataStreamProvider, splitManager, queryFragmentRequestJsonCodec);
     }
 
-    public StaticQueryManager(int pageBufferMax, ImportClient importClient, ImportManager importManager, Metadata metadata, LegacyStorageManager storageManager)
+    public StaticQueryManager(
+            int pageBufferMax,
+            ImportClient importClient,
+            ImportManager importManager,
+            Metadata metadata,
+            LegacyStorageManager storageManager,
+            DataStreamProvider dataStreamProvider,
+            SplitManager splitManager,
+            JsonCodec<QueryFragmentRequest> queryFragmentRequestJsonCodec)
     {
         Preconditions.checkArgument(pageBufferMax > 0, "blockBufferMax must be at least 1");
         this.pageBufferMax = pageBufferMax;
-        executor = Executors.newFixedThreadPool(50, new ThreadFactoryBuilder().setNameFormat("http-query-processor-%d").build());
+        masterExecutor = Executors.newFixedThreadPool(10, threadsNamed("master-query-processor-%d"));
+        slaveExecutor = Executors.newFixedThreadPool(50, threadsNamed("slave-query-processor-%d"));
         this.importClient = importClient;
         this.importManager = importManager;
         this.metadata = metadata;
         this.storageManager = storageManager;
+        this.dataStreamProvider = dataStreamProvider;
+        this.splitManager = splitManager;
+        this.queryFragmentRequestJsonCodec = queryFragmentRequestJsonCodec;
     }
 
     @Override
@@ -112,7 +144,7 @@ public class StaticQueryManager
         QueryTask queryTask;
         switch (queryBase) {
             case "sum":
-                queryTask = new SumQuery(queryState, executor,
+                queryTask = new SumQuery(queryState, masterExecutor,
                         URI.create("http://localhost:8080/v1/presto/query"),
                         URI.create("http://localhost:8080/v1/presto/query"),
                         URI.create("http://localhost:8080/v1/presto/query"),
@@ -161,12 +193,38 @@ public class StaticQueryManager
                 queryTask = new ImportTableQuery(queryState, importClient, importManager, metadata, strings.get(1), strings.get(2), strings.get(3));
                 break;
 
+            case "sum-frag":
+                queryTask = new SumFragmentMaster(queryState, masterExecutor, metadata, splitManager, queryFragmentRequestJsonCodec);
+                break;
+
             default:
                 throw new IllegalArgumentException("Unsupported query " + query);
         }
 
         queries.put(queryId, queryState);
-        executor.submit(queryTask);
+        masterExecutor.submit(queryTask);
+
+        return new QueryInfo(queryId, queryTask.getTupleInfos());
+    }
+
+    @Override
+    public synchronized QueryInfo createQueryFragment(Split split, PlanFragment planFragment)
+    {
+        String queryId = String.valueOf(nextQueryId++);
+        QueryState queryState = new QueryState(1, pageBufferMax);
+
+
+        QueryTask queryTask;
+        switch (planFragment.getQuery()) {
+            case "sum-frag-worker":
+                queryTask = new SumFragmentWorker(queryState, split, planFragment.getColumnHandles(), dataStreamProvider);
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported fragment query: " + planFragment.getQuery());
+        }
+
+        queries.put(queryId, queryState);
+        slaveExecutor.submit(queryTask);
 
         return new QueryInfo(queryId, queryTask.getTupleInfos());
     }
@@ -209,6 +267,138 @@ public class StaticQueryManager
             extends Runnable
     {
         List<TupleInfo> getTupleInfos();
+    }
+
+    private static class SumFragmentMaster
+            implements QueryTask
+    {
+        private final QueryState queryState;
+        private JsonCodec<QueryFragmentRequest> codec;
+        private final AsyncHttpClient asyncHttpClient;
+        private final Metadata metadata;
+        private final SplitManager splitManager;
+
+        public SumFragmentMaster(QueryState queryState, ExecutorService executor, Metadata metadata, SplitManager splitManager, JsonCodec<QueryFragmentRequest> codec)
+        {
+            this.queryState = queryState;
+            this.codec = codec;
+            ApacheHttpClient httpClient = new ApacheHttpClient(new HttpClientConfig()
+                    .setConnectTimeout(new Duration(5, TimeUnit.MINUTES))
+                    .setReadTimeout(new Duration(5, TimeUnit.MINUTES)));
+            asyncHttpClient = new AsyncHttpClient(httpClient, executor);
+            this.metadata = metadata;
+            this.splitManager = splitManager;
+        }
+
+        @Override
+        public List<TupleInfo> getTupleInfos()
+        {
+            return ImmutableList.of(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64));
+        }
+
+        @Override
+        public void run()
+        {
+            try {
+                final TableMetadata table = metadata.getTable("hive", "default", "hivedba_query_stats");
+                Iterable<SplitAssignments> splitAssignments = splitManager.getSplitAssignments(table.getTableHandle().get());
+
+                QueryDriversOperator operator = new QueryDriversOperator(10,
+                        Iterables.transform(splitAssignments, new Function<SplitAssignments, QueryDriverProvider>()
+                        {
+                            @Override
+                            public QueryDriverProvider apply(SplitAssignments splits)
+                            {
+                                return new JsonHttpQueryProvider<>(
+                                        new QueryFragmentRequest(
+                                                splits.getSplit(),
+                                                new PlanFragment("sum-frag-worker",
+                                                        ImmutableList.of(
+                                                                table.getColumns().get(2).getColumnHandle().get(),
+                                                                table.getColumns().get(6).getColumnHandle().get()
+                                                        )
+                                                )
+                                        ),
+                                        codec,
+                                        asyncHttpClient,
+                                        splits.getNodes().get(0).getHttpUri().resolve("/v1/presto/query"),
+                                        ImmutableList.of(SINGLE_VARBINARY, SINGLE_LONG)
+                                );
+
+                            }
+                        })
+                );
+
+                HashAggregationOperator aggregation = new HashAggregationOperator(operator,
+                        0,
+                        ImmutableList.of(finalAggregation(longSumAggregation(1, 0))),
+                        ImmutableList.of(concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 1, 0))));
+
+                for (Page page : aggregation) {
+                    queryState.addPage(page);
+                }
+                queryState.sourceFinished();
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                queryState.queryFailed(e);
+                throw Throwables.propagate(e);
+            }
+            catch (Exception e) {
+                queryState.queryFailed(e);
+                throw Throwables.propagate(e);
+            }
+        }
+    }
+
+    private static class SumFragmentWorker
+            implements QueryTask
+    {
+        private final QueryState queryState;
+        private final Split split;
+        private final List<ColumnHandle> columnHandles;
+        private final DataStreamProvider dataStreamProvider;
+
+        private SumFragmentWorker(QueryState queryState, Split split, List<ColumnHandle> columnHandles, DataStreamProvider dataStreamProvider)
+        {
+            this.queryState = queryState;
+            this.split = split;
+            this.columnHandles = ImmutableList.copyOf(columnHandles);
+            this.dataStreamProvider = dataStreamProvider;
+        }
+
+        @Override
+        public List<TupleInfo> getTupleInfos()
+        {
+            return ImmutableList.of(SINGLE_VARBINARY, SINGLE_LONG);
+        }
+
+        @Override
+        public void run()
+        {
+            try {
+                Operator dataStream = dataStreamProvider.createDataStream(split, columnHandles);
+                HashAggregationOperator sumOperator = new HashAggregationOperator(
+                        dataStream,
+                        0,
+                        ImmutableList.of(partialAggregation(longSumAggregation(1, 0))),
+                        ImmutableList.of(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 1, 0)));
+
+                for (Page page : sumOperator) {
+                    queryState.addPage(page);
+                }
+                queryState.sourceFinished();
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                queryState.queryFailed(e);
+                throw Throwables.propagate(e);
+            }
+            catch (Exception e) {
+                queryState.queryFailed(e);
+                throw Throwables.propagate(e);
+            }
+        }
     }
 
     private static class SumQuery
@@ -471,7 +661,7 @@ public class StaticQueryManager
         {
             try {
                 // TODO: fix this
-//                long rowCount = storageManager.importShard(source, databaseName, tableName);
+                //                long rowCount = storageManager.importShard(source, databaseName, tableName);
                 long rowCount = 0;
                 queryState.addPage(new Page(new BlockBuilder(SINGLE_LONG).append(rowCount).build()));
                 queryState.sourceFinished();

@@ -28,6 +28,7 @@ import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.ImportClientFactory;
 import com.facebook.presto.split.ImportDataStreamProvider;
 import com.facebook.presto.split.NativeDataStreamProvider;
+import com.facebook.presto.split.SplitManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -63,6 +64,10 @@ public class ServerMainModule
         binder.bind(ImportClient.class).to(HiveClient.class).in(Scopes.SINGLETON);
         binder.bind(ImportClientFactory.class).in(Scopes.SINGLETON);
         binder.bind(ImportMetadata.class).in(Scopes.SINGLETON);
+
+        binder.bind(SplitManager.class).in(Scopes.SINGLETON);
+
+        jsonCodecBinder(binder).bindJsonCodec(QueryFragmentRequest.class);
 
         discoveryBinder(binder).bindSelector("presto");
         binder.bind(NodeManager.class).in(Scopes.SINGLETON);

@@ -104,7 +104,7 @@ public class ImportPartition
         @Override
         public boolean isNull(int field)
         {
-            return importRecord.getString(columnNames.get(field)) == null;
+            return importRecord.isNull(columnNames.get(field));
         }
     }
 }
