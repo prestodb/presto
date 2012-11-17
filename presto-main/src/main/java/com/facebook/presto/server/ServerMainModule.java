@@ -14,7 +14,7 @@ import com.facebook.presto.metadata.DatabaseStorageManager;
 import com.facebook.presto.metadata.ForMetadata;
 import com.facebook.presto.metadata.ForShardManager;
 import com.facebook.presto.metadata.ForStorageManager;
-import com.facebook.presto.metadata.ImportMetadataReader;
+import com.facebook.presto.metadata.ImportMetadata;
 import com.facebook.presto.metadata.LegacyStorageManager;
 import com.facebook.presto.metadata.LegacyStorageManagerFacade;
 import com.facebook.presto.metadata.Metadata;
@@ -62,7 +62,7 @@ public class ServerMainModule
 
         binder.bind(ImportClient.class).to(HiveClient.class).in(Scopes.SINGLETON);
         binder.bind(ImportClientFactory.class).in(Scopes.SINGLETON);
-        binder.bind(ImportMetadataReader.class).in(Scopes.SINGLETON);
+        binder.bind(ImportMetadata.class).in(Scopes.SINGLETON);
 
         discoveryBinder(binder).bindSelector("presto");
         binder.bind(NodeManager.class).in(Scopes.SINGLETON);

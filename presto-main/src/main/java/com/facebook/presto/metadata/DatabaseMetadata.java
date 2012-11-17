@@ -15,7 +15,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
 public class DatabaseMetadata
-        implements Metadata, MetadataReader
+        implements Metadata
 {
     private final IDBI dbi;
     private final MetadataDao dao;
