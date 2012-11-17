@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 
 import java.net.URI;
@@ -59,5 +60,16 @@ public class Node
                 .add("nodeIdentifier", nodeIdentifier)
                 .add("httpUri", httpUri)
                 .toString();
+    }
+
+    public static Function<Node, String> getIdentifierFunction()
+    {
+        return new Function<Node, String>() {
+            @Override
+            public String apply(Node node)
+            {
+                return node.getNodeIdentifier();
+            }
+        };
     }
 }
