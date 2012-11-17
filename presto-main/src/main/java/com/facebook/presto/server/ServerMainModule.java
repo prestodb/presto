@@ -29,14 +29,21 @@ import com.facebook.presto.split.ImportClientFactory;
 import com.facebook.presto.split.ImportDataStreamProvider;
 import com.facebook.presto.split.NativeDataStreamProvider;
 import com.facebook.presto.split.SplitManager;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import io.airlift.discovery.client.ServiceDescriptor;
+import io.airlift.discovery.client.ServiceSelector;
+import io.airlift.discovery.client.ServiceState;
+import io.airlift.discovery.client.ServiceTypes;
+import io.airlift.discovery.client.testing.StaticServiceSelector;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Singleton;
+import java.util.UUID;
 
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
@@ -69,7 +76,19 @@ public class ServerMainModule
 
         jsonCodecBinder(binder).bindJsonCodec(QueryFragmentRequest.class);
 
-        discoveryBinder(binder).bindSelector("presto");
+        // TODO: add a proper way to add a testing discovery service
+        //discoveryBinder(binder).bindSelector("presto");
+        binder.bind(ServiceSelector.class).annotatedWith(ServiceTypes.serviceType("presto"))
+                .toInstance(new StaticServiceSelector(new ServiceDescriptor(
+                        UUID.randomUUID(),
+                        "myid",
+                        "default",
+                        "local",
+                        "localhost",
+                        ServiceState.RUNNING,
+                        ImmutableMap.<String, String>of("http", "http://localhost:8080")
+                )));
+
         binder.bind(NodeManager.class).in(Scopes.SINGLETON);
         binder.bind(NodeWorkerQueue.class).in(Scopes.SINGLETON);
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
