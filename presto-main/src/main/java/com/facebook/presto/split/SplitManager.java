@@ -16,6 +16,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
+import com.google.inject.Inject;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -32,6 +33,7 @@ public class SplitManager
     private final ShardManager shardManager;
     private final ImportClient importClient;
 
+    @Inject
     public SplitManager(NodeManager nodeManager, ShardManager shardManager, ImportClient importClient)
     {
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");

@@ -167,8 +167,13 @@ public class TupleInfo
         this(asList(types));
     }
 
+    public TupleInfo(Iterable<Type> types)
+    {
+        this(ImmutableList.copyOf(types));
+    }
+
     @JsonCreator
-    public TupleInfo(@JsonProperty("types") Iterable<Type> typeIterable)
+    public TupleInfo(@JsonProperty("types") List<Type> typeIterable)
     {
         checkNotNull(typeIterable, "typeIterable is null");
 //        Preconditions.checkArgument(!types.isEmpty(), "types is empty");

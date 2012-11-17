@@ -4,6 +4,8 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.split.PlanFragment;
+import com.facebook.presto.split.Split;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -47,6 +49,12 @@ public class SimpleQueryManager implements QueryManager
         Preconditions.checkArgument(initialPages <= pageBufferMax, "initialPages is greater than pageBufferMax");
         this.pageBufferMax = pageBufferMax;
         this.initialPages = initialPages;
+    }
+
+    @Override
+    public QueryInfo createQueryFragment(Split split, PlanFragment planFragment)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

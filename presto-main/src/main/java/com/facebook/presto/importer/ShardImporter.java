@@ -19,7 +19,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.importer.Threads.threadsNamed;
+import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.facebook.presto.ingest.RecordProjections.createProjection;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;

@@ -1,10 +1,10 @@
-package com.facebook.presto.importer;
+package com.facebook.presto.util;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import java.util.concurrent.ThreadFactory;
 
-class Threads
+public class Threads
 {
     public static ThreadFactory threadsNamed(String nameFormat)
     {
