@@ -1,5 +1,6 @@
 package com.facebook.presto.util;
 
+import com.google.common.base.Throwables;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
@@ -19,10 +20,30 @@ public class RetryDriver
     {
     }
 
+    public static <V> V runWithRetryUnchecked(Callable<V> callable)
+    {
+        try {
+            return runWithRetry(callable);
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
     public static <V> V runWithRetry(Callable<V> callable)
             throws Exception
     {
         return runWithRetry(callable, "<default>");
+    }
+
+    public static <V> V runWithRetryUnchecked(Callable<V> callable, int maxRetryAttempts)
+    {
+        try {
+            return runWithRetry(callable, maxRetryAttempts);
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     public static <V> V runWithRetry(Callable<V> callable, int maxRetryAttempts)
@@ -31,16 +52,46 @@ public class RetryDriver
         return runWithRetry(callable, "<default>", maxRetryAttempts);
     }
 
+    public static <V> V runWithRetryUnchecked(Callable<V> callable, String callableName)
+    {
+        try {
+            return runWithRetry(callable, callableName);
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
     public static <V> V runWithRetry(Callable<V> callable, String callableName)
             throws Exception
     {
         return runWithRetry(callable, callableName, DEFAULT_RETRY_ATTEMPTS);
     }
 
+    public static <V> V runWithRetryUnchecked(Callable<V> callable, String callableName, int maxRetryAttempts)
+    {
+        try {
+            return runWithRetry(callable, callableName, maxRetryAttempts);
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
     public static <V> V runWithRetry(Callable<V> callable, String callableName, int maxRetryAttempts)
             throws Exception
     {
         return runWithRetry(callable, callableName, maxRetryAttempts, DEFAULT_SLEEP_DURATION);
+    }
+
+    public static <V> V runWithRetryUnchecked(Callable<V> callable, String callableName, int maxRetryAttempts, Duration duration)
+    {
+        try {
+            return runWithRetry(callable, callableName, maxRetryAttempts, duration);
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     public static <V> V runWithRetry(Callable<V> callable, String callableName, int maxRetryAttempts, Duration duration)

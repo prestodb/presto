@@ -7,7 +7,9 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.concurrent.Callable;
 
+import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 class PartitionChunkSupplier
@@ -29,7 +31,15 @@ class PartitionChunkSupplier
     @Override
     public List<SerializedPartitionChunk> get()
     {
-        List<PartitionChunk> chunks = importClient.getPartitionChunks(databaseName, tableName, partitionName);
+        List<PartitionChunk> chunks = runWithRetryUnchecked(new Callable<List<PartitionChunk>>()
+        {
+            @Override
+            public List<PartitionChunk> call()
+                    throws Exception
+            {
+                return importClient.getPartitionChunks(databaseName, tableName, partitionName);
+            }
+        });
         ImmutableList.Builder<SerializedPartitionChunk> serialized = ImmutableList.builder();
         for (PartitionChunk chunk : chunks) {
             serialized.add(SerializedPartitionChunk.create(importClient, chunk));

@@ -11,6 +11,9 @@ import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.Callable;
+
+import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
 
 public class ImportPartition
         implements RecordIterable
@@ -32,7 +35,16 @@ public class ImportPartition
     @Override
     public RecordIterator iterator()
     {
-        return new ImportRecordIterator(importClient.getRecords(chunk), columnNames);
+        com.facebook.presto.spi.RecordIterator records = runWithRetryUnchecked(new Callable<com.facebook.presto.spi.RecordIterator>()
+        {
+            @Override
+            public com.facebook.presto.spi.RecordIterator call()
+                    throws Exception
+            {
+                return importClient.getRecords(chunk);
+            }
+        });
+        return new ImportRecordIterator(records, columnNames);
     }
 
     private static class ImportRecordIterator

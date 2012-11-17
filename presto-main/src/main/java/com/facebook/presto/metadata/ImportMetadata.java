@@ -11,8 +11,10 @@ import com.google.common.collect.Lists;
 import com.google.inject.Inject;
 
 import java.util.List;
+import java.util.concurrent.Callable;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ImportMetadata
@@ -33,14 +35,22 @@ public class ImportMetadata
     }
 
     @Override
-    public TableMetadata getTable(String catalogName, String schemaName, String tableName)
+    public TableMetadata getTable(String catalogName, final String schemaName, final String tableName)
     {
         checkNotNull(catalogName, "catalogName is null");
         checkNotNull(schemaName, "schemaName is null");
         checkNotNull(tableName, "tableName is null");
 
-        ImportClient client = importClientFactory.getClient(catalogName);
-        List<SchemaField> tableSchema = client.getTableSchema(schemaName, tableName);
+        final ImportClient client = importClientFactory.getClient(catalogName);
+        List<SchemaField> tableSchema = runWithRetryUnchecked(new Callable<List<SchemaField>>()
+        {
+            @Override
+            public List<SchemaField> call()
+                    throws Exception
+            {
+                return client.getTableSchema(schemaName, tableName);
+            }
+        });
 
         ImportTableHandle importTableHandle = new ImportTableHandle(catalogName, schemaName, tableName);
 
