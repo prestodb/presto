@@ -23,7 +23,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
 
+import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -79,13 +81,29 @@ public class SplitManager
     private Iterable<SplitAssignments> getImportSplitAssignments(ImportTableHandle handle)
     {
         String sourceName = handle.getSourceName();
-        String databaseName = handle.getDatabaseName();
-        String tableName = handle.getTableName();
+        final String databaseName = handle.getDatabaseName();
+        final String tableName = handle.getTableName();
 
         checkArgument(sourceName.equals("hive"), "unsupported source name: %s", sourceName);
 
-        List<String> partitions = importClient.getPartitionNames(databaseName, tableName);
-        Iterable<List<PartitionChunk>> chunks = importClient.getPartitionChunks(databaseName, tableName, partitions);
+        final List<String> partitions = runWithRetryUnchecked(new Callable<List<String>>()
+        {
+            @Override
+            public List<String> call()
+                    throws Exception
+            {
+                return importClient.getPartitionNames(databaseName, tableName);
+            }
+        });
+        Iterable<List<PartitionChunk>> chunks = runWithRetryUnchecked(new Callable<Iterable<List<PartitionChunk>>>()
+        {
+            @Override
+            public Iterable<List<PartitionChunk>> call()
+                    throws Exception
+            {
+                return importClient.getPartitionChunks(databaseName, tableName, partitions);
+            }
+        });
         return Iterables.transform(Iterables.concat(chunks), createImportSplitFunction(sourceName));
     }
 
