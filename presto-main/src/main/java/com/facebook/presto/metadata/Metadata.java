@@ -6,9 +6,14 @@ import com.facebook.presto.tuple.TupleInfo;
 import java.util.List;
 
 public interface Metadata
-    extends MetadataReader
 {
     FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes);
+
+    TableMetadata getTable(String catalogName, String schemaName, String tableName);
+
+    TableMetadata getTable(TableHandle tableHandle);
+
+    ColumnMetadata getColumn(ColumnHandle columnHandle);
 
     void createTable(TableMetadata table);
 }

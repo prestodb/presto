@@ -4,6 +4,8 @@ import com.facebook.presto.ingest.ImportSchemaUtil;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.SchemaField;
 import com.facebook.presto.split.ImportClientFactory;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
@@ -12,15 +14,21 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class ImportMetadataReader
-        implements MetadataReader
+public class ImportMetadata
+        implements Metadata
 {
     private final ImportClientFactory importClientFactory;
 
     @Inject
-    public ImportMetadataReader(ImportClientFactory importClientFactory)
+    public ImportMetadata(ImportClientFactory importClientFactory)
     {
         this.importClientFactory = checkNotNull(importClientFactory, "importClientFactory is null");
+    }
+
+    @Override
+    public FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -80,5 +88,11 @@ public class ImportMetadataReader
         }
 
         throw new IllegalArgumentException("Unknown column handle name: " + importColumnHandle.getColumnName());
+    }
+
+    @Override
+    public void createTable(TableMetadata table)
+    {
+        throw new UnsupportedOperationException();
     }
 }

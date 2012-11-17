@@ -2,7 +2,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 
@@ -15,17 +14,14 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class MetadataManager
     implements Metadata
 {
-    private final Metadata localMetadata;
-    private final Map<DataSourceType, MetadataReader> tableMetadataSourceMap;
+    private final Map<DataSourceType, Metadata> metadataSourceMap;
 
     @Inject
-    public MetadataManager(DatabaseMetadata localMetadata, ImportMetadataReader importTableMetadataSource)
+    public MetadataManager(DatabaseMetadata nativeMetadata, ImportMetadata importMetadata)
     {
-        this.localMetadata = checkNotNull(localMetadata, "localMetadata is null");
-
-        tableMetadataSourceMap = ImmutableMap.<DataSourceType, MetadataReader>builder()
-                .put(DataSourceType.NATIVE, localMetadata)
-                .put(DataSourceType.IMPORT, importTableMetadataSource)
+        metadataSourceMap = ImmutableMap.<DataSourceType, Metadata>builder()
+                .put(DataSourceType.NATIVE, checkNotNull(nativeMetadata, "nativeMetadata is null"))
+                .put(DataSourceType.IMPORT, checkNotNull(importMetadata, "importMetadata is null"))
                 .build();
     }
 
@@ -35,7 +31,8 @@ public class MetadataManager
         checkNotNull(name, "name is null");
         checkNotNull(parameterTypes, "parameterTypes is null");
         checkArgument(!parameterTypes.isEmpty(), "must provide at least one paramaterType");
-        return localMetadata.getFunction(name, parameterTypes);
+        // Only use NATIVE
+        return metadataSourceMap.get(DataSourceType.NATIVE).getFunction(name, parameterTypes);
     }
 
     @Override
@@ -69,7 +66,8 @@ public class MetadataManager
     public void createTable(TableMetadata table)
     {
         checkNotNull(table, "table is null");
-        localMetadata.createTable(table);
+        // Only use NATIVE
+        metadataSourceMap.get(DataSourceType.NATIVE).createTable(table);
     }
 
     // Temporary placeholder to determine data source from catalog
@@ -83,12 +81,12 @@ public class MetadataManager
         }
     }
 
-    public MetadataReader lookup(DataSourceType dataSourceType)
+    public Metadata lookup(DataSourceType dataSourceType)
     {
         checkNotNull(dataSourceType, "dataSourceHandle is null");
 
-        MetadataReader metadataReader = tableMetadataSourceMap.get(dataSourceType);
-        checkArgument(metadataReader != null, "tableMetadataSource does not exist: %s", dataSourceType);
-        return metadataReader;
+        Metadata metadata = metadataSourceMap.get(dataSourceType);
+        checkArgument(metadata != null, "tableMetadataSource does not exist: %s", dataSourceType);
+        return metadata;
     }
 }
