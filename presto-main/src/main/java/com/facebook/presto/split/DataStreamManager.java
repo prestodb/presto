@@ -20,19 +20,19 @@ public class DataStreamManager
 
     @Inject
     public DataStreamManager(
-            NativeDataStreamProvider nativeDataStreamProvider,
-            ImportDataStreamProvider importDataStreamProvider)
+            NativeDataStreamProvider nativeProvider,
+            ImportDataStreamProvider importProvider)
     {
-        checkNotNull(nativeDataStreamProvider, "nativeDataStreamProvider is null");
-        checkNotNull(importDataStreamProvider, "importDataStreamProvider is null");
+        checkNotNull(nativeProvider, "nativeProvider is null");
+        checkNotNull(importProvider, "importProvider is null");
 
         dataStreamProviderMap = ImmutableMap.<DataSourceType, DataStreamProvider>builder()
-                .put(DataSourceType.NATIVE, nativeDataStreamProvider)
-                .put(DataSourceType.IMPORT, importDataStreamProvider)
+                .put(DataSourceType.NATIVE, nativeProvider)
+                .put(DataSourceType.IMPORT, importProvider)
                 .build();
     }
 
-    public DataStreamProvider lookup(DataSourceType dataSourceType)
+    private DataStreamProvider lookup(DataSourceType dataSourceType)
     {
         checkNotNull(dataSourceType, "dataSourceHandle is null");
 
