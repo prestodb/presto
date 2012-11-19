@@ -38,6 +38,8 @@ public class ImportDataStreamProvider
     public Operator createDataStream(Split split, List<ColumnHandle> columns)
     {
         checkNotNull(split, "split is null");
+        checkArgument(split instanceof ImportSplit, "Split must be of type ImportSplit, not %s", split.getClass().getName());
+        assert split instanceof ImportSplit; // // IDEA-60343
         checkNotNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "must provide at least one column");
 
@@ -46,6 +48,10 @@ public class ImportDataStreamProvider
 
         ImmutableList.Builder<RecordProjection> builder = ImmutableList.builder();
         for (int i = 0; i < columns.size(); i++) {
+            ColumnHandle columnHandle = columns.get(i);
+            checkArgument(columnHandle instanceof ImportColumnHandle, "columnHandle must be of type ImportColumnHandle, not %s", columnHandle.getClass().getName());
+            assert columnHandle instanceof ImportColumnHandle; // // IDEA-60343
+
             ImportColumnHandle importColumn = (ImportColumnHandle) columns.get(i);
             // TODO: under the current implementation, this will be very slow as import metadata will fetch the full table metadata on each call. maybe add caching
             ColumnMetadata columnMetadata = metadata.getColumn(importColumn);
