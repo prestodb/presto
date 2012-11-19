@@ -81,7 +81,7 @@ public class MetadataManager
         }
     }
 
-    public Metadata lookup(DataSourceType dataSourceType)
+    private Metadata lookup(DataSourceType dataSourceType)
     {
         checkNotNull(dataSourceType, "dataSourceHandle is null");
 
