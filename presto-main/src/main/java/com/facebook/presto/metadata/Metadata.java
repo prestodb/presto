@@ -11,5 +11,9 @@ public interface Metadata
 
     TableMetadata getTable(String catalogName, String schemaName, String tableName);
 
+    TableMetadata getTable(TableHandle tableHandle);
+
+    ColumnMetadata getColumn(ColumnHandle columnHandle);
+
     void createTable(TableMetadata table);
 }

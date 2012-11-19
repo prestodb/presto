@@ -2,11 +2,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.Multimaps;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionStatus;
@@ -16,7 +11,7 @@ import javax.inject.Inject;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class DatabaseMetadata
         implements Metadata
@@ -52,12 +47,47 @@ public class DatabaseMetadata
         }
         TableHandle tableHandle = new NativeTableHandle(tableId);
 
-        List<ColumnMetadata> columns = dao.getColumnMetaData(tableId);
+        List<ColumnMetadata> columns = dao.getTableColumnMetaData(tableId);
         if (columns.isEmpty()) {
             return null;
         }
 
         return new TableMetadata(catalogName, schemaName, tableName, columns, tableHandle);
+    }
+
+    @Override
+    public TableMetadata getTable(TableHandle tableHandle)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle must be of type NativeTableHandle, not %s", tableHandle.getClass().getName());
+        assert tableHandle instanceof NativeTableHandle; // // IDEA-60343
+
+        NativeTableHandle nativeTableHandle = (NativeTableHandle) tableHandle;
+
+        TableNamespace tableNamespace = dao.getTableNamespace(nativeTableHandle.getTableId());
+
+        List<ColumnMetadata> columns = dao.getTableColumnMetaData(nativeTableHandle.getTableId());
+        if (columns.isEmpty()) {
+            return null;
+        }
+
+        return new TableMetadata(
+                tableNamespace.getCatalogName(),
+                tableNamespace.getDatabaseName(),
+                tableNamespace.getTableName(),
+                columns,
+                tableHandle);
+    }
+
+    @Override
+    public ColumnMetadata getColumn(ColumnHandle columnHandle)
+    {
+        checkNotNull(columnHandle, "columnHandle is null");
+        checkArgument(columnHandle instanceof NativeColumnHandle, "columnHandle must be of type NativeColumnHandle, not %s", columnHandle.getClass().getName());
+        assert columnHandle instanceof NativeColumnHandle; // // IDEA-60343
+
+        NativeColumnHandle nativeColumnHandle = (NativeColumnHandle) columnHandle;
+        return dao.getColumnMetaData(nativeColumnHandle.getColumnId());
     }
 
     @Override

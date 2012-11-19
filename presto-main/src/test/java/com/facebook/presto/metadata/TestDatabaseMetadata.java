@@ -65,10 +65,10 @@ public class TestDatabaseMetadata
     private static TableMetadata getOrdersTable()
     {
         return new TableMetadata("default", "default", "ORDERS", ImmutableList.of(
-                new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "orderkey"),
-                new ColumnMetadata(TupleInfo.Type.FIXED_INT_64, "custkey"),
-                new ColumnMetadata(TupleInfo.Type.DOUBLE, "totalprice"),
-                new ColumnMetadata(TupleInfo.Type.VARIABLE_BINARY, "orderdate")));
+                new ColumnMetadata("orderkey", TupleInfo.Type.FIXED_INT_64),
+                new ColumnMetadata("custkey", TupleInfo.Type.FIXED_INT_64),
+                new ColumnMetadata("totalprice", TupleInfo.Type.DOUBLE),
+                new ColumnMetadata("orderdate", TupleInfo.Type.VARIABLE_BINARY)));
     }
 
     private static void assertTableEqual(TableMetadata actual, TableMetadata expected)

@@ -3,23 +3,28 @@ package com.facebook.presto.metadata;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ImportColumnHandle
     implements ColumnHandle
 {
     private final String sourceName;
-    private final int columnIndex;
+    private final String columnName;
+    private final ImportTableHandle importTableHandle;
 
     @JsonCreator
-    public ImportColumnHandle(@JsonProperty("sourceName") String sourceName, @JsonProperty("columnIndex") int columnIndex)
+    public ImportColumnHandle(
+            @JsonProperty("sourceName") String sourceName,
+            @JsonProperty("columnName") String columnName,
+            @JsonProperty("importTableHandle") ImportTableHandle importTableHandle)
     {
         checkNotNull(sourceName, "sourceName is null");
-        checkArgument(columnIndex >= 0, "columnIndex must be greater than or equal to zero");
+        checkNotNull(columnName, "columnName is null");
+        checkNotNull(importTableHandle, "importTableHandle is null");
 
         this.sourceName = sourceName;
-        this.columnIndex = columnIndex;
+        this.columnName = columnName;
+        this.importTableHandle = importTableHandle;
     }
 
     @Override
@@ -35,8 +40,14 @@ public class ImportColumnHandle
     }
 
     @JsonProperty
-    public int getColumnIndex()
+    public String getColumnName()
     {
-        return columnIndex;
+        return columnName;
+    }
+
+    @JsonProperty
+    public ImportTableHandle getImportTableHandle()
+    {
+        return importTableHandle;
     }
 }
