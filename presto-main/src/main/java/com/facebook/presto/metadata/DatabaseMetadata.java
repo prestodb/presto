@@ -12,7 +12,6 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.lang.String.format;
 
 public class DatabaseMetadata
         implements Metadata
@@ -60,6 +59,8 @@ public class DatabaseMetadata
     public TableMetadata getTable(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
+        checkArgument(tableHandle instanceof NativeTableHandle, "tableHandle must be of type NativeTableHandle, not %s", tableHandle.getClass().getName());
+        assert tableHandle instanceof NativeTableHandle; // // IDEA-60343
 
         NativeTableHandle nativeTableHandle = (NativeTableHandle) tableHandle;
 
@@ -82,6 +83,8 @@ public class DatabaseMetadata
     public ColumnMetadata getColumn(ColumnHandle columnHandle)
     {
         checkNotNull(columnHandle, "columnHandle is null");
+        checkArgument(columnHandle instanceof NativeColumnHandle, "columnHandle must be of type NativeColumnHandle, not %s", columnHandle.getClass().getName());
+        assert columnHandle instanceof NativeColumnHandle; // // IDEA-60343
 
         NativeColumnHandle nativeColumnHandle = (NativeColumnHandle) columnHandle;
         return dao.getColumnMetaData(nativeColumnHandle.getColumnId());

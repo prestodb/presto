@@ -12,6 +12,7 @@ import com.google.inject.Inject;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ImportMetadata
@@ -52,6 +53,8 @@ public class ImportMetadata
     public TableMetadata getTable(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
+        checkArgument(tableHandle instanceof ImportTableHandle, "tableHandle must be of type ImportTableHandle, not %s", tableHandle.getClass().getName());
+        assert tableHandle instanceof ImportTableHandle; // // IDEA-60343
         ImportTableHandle importTableHandle = (ImportTableHandle) tableHandle;
 
         return getTable(importTableHandle.getSourceName(), importTableHandle.getDatabaseName(), importTableHandle.getTableName());
@@ -77,6 +80,8 @@ public class ImportMetadata
     public ColumnMetadata getColumn(ColumnHandle columnHandle)
     {
         checkNotNull(columnHandle, "columnHandle is null");
+        checkArgument(columnHandle instanceof ImportColumnHandle, "columnHandle must be of type ImportColumnHandle, not %s", columnHandle.getClass().getName());
+        assert columnHandle instanceof ImportColumnHandle; // // IDEA-60343
 
         ImportColumnHandle importColumnHandle = (ImportColumnHandle) columnHandle;
         TableMetadata table = getTable(importColumnHandle.getImportTableHandle());

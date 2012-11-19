@@ -29,6 +29,8 @@ public class NativeDataStreamProvider
     public Operator createDataStream(Split split, List<ColumnHandle> columns)
     {
         checkNotNull(split, "split is null");
+        checkArgument(split instanceof NativeSplit, "Split must be of type NativeType, not %s", split.getClass().getName());
+        assert split instanceof NativeSplit; // // IDEA-60343
         checkNotNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "must provide at least one column");
 
@@ -36,6 +38,8 @@ public class NativeDataStreamProvider
 
         ImmutableList.Builder<BlockIterable> builder = ImmutableList.builder();
         for (ColumnHandle column : columns) {
+            checkArgument(column instanceof NativeColumnHandle, "column must be of type NativeColumnHandle, not %s", column.getClass().getName());
+            assert column instanceof NativeColumnHandle; // // IDEA-60343
             NativeColumnHandle nativeColumn = (NativeColumnHandle) column;
             builder.add(storageManager.getBlocks(nativeSplit.getShardId(), nativeColumn.getColumnId()));
         }
