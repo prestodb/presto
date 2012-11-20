@@ -34,6 +34,7 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
@@ -44,11 +45,13 @@ import com.google.common.io.InputSupplier;
 import io.airlift.http.client.ApacheHttpClient;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
+import io.airlift.http.client.JsonBodyGenerator;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
+import javax.ws.rs.core.MediaType;
 import java.io.File;
 import java.io.InputStreamReader;
 import java.net.URI;
@@ -309,17 +312,18 @@ public class StaticQueryManager
                             @Override
                             public QueryDriverProvider apply(SplitAssignments splits)
                             {
-                                return new JsonHttpQueryProvider<>(
-                                        new QueryFragmentRequest(
-                                                splits.getSplit(),
-                                                new PlanFragment("sum-frag-worker",
-                                                        ImmutableList.of(
-                                                                table.getColumns().get(2).getColumnHandle().get(),
-                                                                table.getColumns().get(6).getColumnHandle().get()
-                                                        )
+                                QueryFragmentRequest queryFragmentRequest = new QueryFragmentRequest(
+                                        splits.getSplit(),
+                                        new PlanFragment("sum-frag-worker",
+                                                ImmutableList.of(
+                                                        table.getColumns().get(2).getColumnHandle().get(),
+                                                        table.getColumns().get(6).getColumnHandle().get()
                                                 )
-                                        ),
-                                        codec,
+                                        )
+                                );
+                                return new HttpQueryProvider(
+                                        JsonBodyGenerator.jsonBodyGenerator(codec, queryFragmentRequest),
+                                        Optional.of(MediaType.APPLICATION_JSON),
                                         asyncHttpClient,
                                         splits.getNodes().get(0).getHttpUri().resolve("/v1/presto/query"),
                                         ImmutableList.of(SINGLE_VARBINARY, SINGLE_LONG)
