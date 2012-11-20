@@ -1,30 +1,27 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.tuple.TupleInfo;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ImportColumnHandle
-    implements ColumnHandle
+        implements ColumnHandle
 {
     private final String sourceName;
     private final String columnName;
-    private final ImportTableHandle importTableHandle;
+    private final TupleInfo.Type columnType;
 
     @JsonCreator
     public ImportColumnHandle(
             @JsonProperty("sourceName") String sourceName,
             @JsonProperty("columnName") String columnName,
-            @JsonProperty("importTableHandle") ImportTableHandle importTableHandle)
+            @JsonProperty("columnType") TupleInfo.Type columnType)
     {
-        checkNotNull(sourceName, "sourceName is null");
-        checkNotNull(columnName, "columnName is null");
-        checkNotNull(importTableHandle, "importTableHandle is null");
-
-        this.sourceName = sourceName;
-        this.columnName = columnName;
-        this.importTableHandle = importTableHandle;
+        this.sourceName = checkNotNull(sourceName, "sourceName is null");
+        this.columnName = checkNotNull(columnName, "columnName is null");
+        this.columnType = checkNotNull(columnType, "columnType is null");
     }
 
     @Override
@@ -46,8 +43,8 @@ public class ImportColumnHandle
     }
 
     @JsonProperty
-    public ImportTableHandle getImportTableHandle()
+    public TupleInfo.Type getColumnType()
     {
-        return importTableHandle;
+        return columnType;
     }
 }

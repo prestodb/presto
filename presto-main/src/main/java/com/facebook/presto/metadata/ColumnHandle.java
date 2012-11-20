@@ -6,7 +6,7 @@ import org.codehaus.jackson.annotate.JsonTypeInfo;
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
         include = JsonTypeInfo.As.PROPERTY,
-        property = "type")
+        property = "columnHandleType")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = NativeColumnHandle.class, name = "native"),
         @JsonSubTypes.Type(value = ImportColumnHandle.class, name = "import")})

@@ -5,9 +5,7 @@ import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.ingest.RecordProjection;
 import com.facebook.presto.ingest.RecordProjections;
 import com.facebook.presto.metadata.ColumnHandle;
-import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.ImportColumnHandle;
-import com.facebook.presto.metadata.ImportMetadata;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
@@ -25,13 +23,11 @@ public class ImportDataStreamProvider
         implements DataStreamProvider
 {
     private final ImportClientFactory importClientFactory;
-    private final ImportMetadata metadata;
 
     @Inject
-    public ImportDataStreamProvider(ImportClientFactory importClientFactory, ImportMetadata metadata)
+    public ImportDataStreamProvider(ImportClientFactory importClientFactory)
     {
         this.importClientFactory = checkNotNull(importClientFactory, "importClientFactory is null");
-        this.metadata = checkNotNull(metadata, "metadata is null");
     }
 
     @Override
@@ -53,9 +49,7 @@ public class ImportDataStreamProvider
             assert columnHandle instanceof ImportColumnHandle; // // IDEA-60343
 
             ImportColumnHandle importColumn = (ImportColumnHandle) columns.get(i);
-            // TODO: under the current implementation, this will be very slow as import metadata will fetch the full table metadata on each call. maybe add caching
-            ColumnMetadata columnMetadata = metadata.getColumn(importColumn);
-            builder.add(RecordProjections.createProjection(i, columnMetadata.getType()));
+            builder.add(RecordProjections.createProjection(i, importColumn.getColumnType()));
         }
 
         PartitionChunk partitionChunk = client.deserializePartitionChunk(importSplit.getSerializedChunk().getBytes());

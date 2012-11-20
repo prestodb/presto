@@ -47,22 +47,6 @@ public class MetadataManager
     }
 
     @Override
-    public TableMetadata getTable(TableHandle tableHandle)
-    {
-        checkNotNull(tableHandle, "tableHandle is null");
-
-        return lookup(tableHandle.getDataSourceType()).getTable(tableHandle);
-    }
-
-    @Override
-    public ColumnMetadata getColumn(ColumnHandle columnHandle)
-    {
-        checkNotNull(columnHandle, "columnHandle is null");
-
-        return lookup(columnHandle.getDataSourceType()).getColumn(columnHandle);
-    }
-
-    @Override
     public void createTable(TableMetadata table)
     {
         checkNotNull(table, "table is null");
