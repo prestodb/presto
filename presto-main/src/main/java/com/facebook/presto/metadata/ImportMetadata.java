@@ -13,7 +13,6 @@ import com.google.inject.Inject;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -59,17 +58,6 @@ public class ImportMetadata
         return new TableMetadata(catalogName, schemaName, tableName, columns, importTableHandle);
     }
 
-    @Override
-    public TableMetadata getTable(TableHandle tableHandle)
-    {
-        checkNotNull(tableHandle, "tableHandle is null");
-        checkArgument(tableHandle instanceof ImportTableHandle, "tableHandle must be of type ImportTableHandle, not %s", tableHandle.getClass().getName());
-        assert tableHandle instanceof ImportTableHandle; // // IDEA-60343
-        ImportTableHandle importTableHandle = (ImportTableHandle) tableHandle;
-
-        return getTable(importTableHandle.getSourceName(), importTableHandle.getDatabaseName(), importTableHandle.getTableName());
-    }
-
     private List<ColumnMetadata> convertToMetadata(final String sourceName, final ImportTableHandle importTableHandle, List<SchemaField> schemaFields)
     {
         return Lists.transform(schemaFields, new Function<SchemaField, ColumnMetadata>()
@@ -84,25 +72,6 @@ public class ImportMetadata
                 );
             }
         });
-    }
-
-    @Override
-    public ColumnMetadata getColumn(ColumnHandle columnHandle)
-    {
-        checkNotNull(columnHandle, "columnHandle is null");
-        checkArgument(columnHandle instanceof ImportColumnHandle, "columnHandle must be of type ImportColumnHandle, not %s", columnHandle.getClass().getName());
-        assert columnHandle instanceof ImportColumnHandle; // // IDEA-60343
-
-        ImportColumnHandle importColumnHandle = (ImportColumnHandle) columnHandle;
-        TableMetadata table = getTable(importColumnHandle.getImportTableHandle());
-
-        for (ColumnMetadata columnMetadata : table.getColumns()) {
-            if (columnMetadata.getName().equals(importColumnHandle.getColumnName())) {
-                return columnMetadata;
-            }
-        }
-
-        throw new IllegalArgumentException("Unknown column handle name: " + importColumnHandle.getColumnName());
     }
 
     @Override
