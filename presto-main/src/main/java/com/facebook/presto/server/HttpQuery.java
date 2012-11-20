@@ -7,9 +7,11 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.PagesSerde;
 import com.facebook.presto.slice.InputStreamSliceInput;
 import com.google.common.base.Charsets;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.http.client.BodyGenerator;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
@@ -17,6 +19,7 @@ import io.airlift.http.client.StaticBodyGenerator;
 import io.airlift.http.client.UnexpectedResponseException;
 
 import javax.annotation.concurrent.GuardedBy;
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response.Status;
 import java.net.URI;
@@ -24,6 +27,7 @@ import java.util.Iterator;
 import java.util.concurrent.Future;
 
 import static com.facebook.presto.server.PrestoMediaTypes.PRESTO_PAGES_TYPE;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
 
@@ -35,7 +39,8 @@ public class HttpQuery implements QueryDriver
         return httpQuery;
     }
 
-    private final String query;
+    private final BodyGenerator bodyGenerator;
+    private final Optional<String> mediaType;
     private final QueryState queryState;
     private final AsyncHttpClient httpClient;
     private final URI uri;
@@ -48,12 +53,19 @@ public class HttpQuery implements QueryDriver
 
     public HttpQuery(String query, QueryState queryState, AsyncHttpClient httpClient, URI uri)
     {
-        Preconditions.checkNotNull(query, "query is null");
-        Preconditions.checkNotNull(queryState, "queryState is null");
-        Preconditions.checkNotNull(httpClient, "httpClient is null");
-        Preconditions.checkNotNull(uri, "uri is null");
+        this(StaticBodyGenerator.createStaticBodyGenerator(query, Charsets.UTF_8), Optional.<String>absent(), queryState, httpClient, uri);
+    }
 
-        this.query = query;
+    public HttpQuery(BodyGenerator bodyGenerator, Optional<String> mediaType, QueryState queryState, AsyncHttpClient httpClient, URI uri)
+    {
+        checkNotNull(bodyGenerator, "bodyGenerator is null");
+        checkNotNull(mediaType, "mediaType is null");
+        checkNotNull(queryState, "queryState is null");
+        checkNotNull(httpClient, "httpClient is null");
+        checkNotNull(uri, "uri is null");
+
+        this.bodyGenerator = bodyGenerator;
+        this.mediaType = mediaType;
         this.queryState = queryState;
         this.httpClient = httpClient;
         this.uri = uri;
@@ -63,13 +75,21 @@ public class HttpQuery implements QueryDriver
     public synchronized void start()
     {
         Preconditions.checkState(!done, "Query is already finished");
-        Preconditions.checkState(currentRequest == null, "Query is already started");
 
-        Request request = preparePost()
-                .setUri(uri)
-                .setBodyGenerator(StaticBodyGenerator.createStaticBodyGenerator(query, Charsets.UTF_8))
-                .build();
-        currentRequest = httpClient.execute(request, new CreateQueryResponseHandler());
+        // TODO: re-implement an equivalent of the below check
+        //Preconditions.checkState(currentRequest == null, "Query is already started");
+
+        if (currentRequest == null) {
+            Request.Builder requestBuilder = preparePost()
+                    .setUri(uri)
+                    .setBodyGenerator(bodyGenerator);
+
+            if (mediaType.isPresent()) {
+                requestBuilder.setHeader(HttpHeaders.CONTENT_TYPE, mediaType.get());
+            }
+
+            currentRequest = httpClient.execute(requestBuilder.build(), new CreateQueryResponseHandler());
+        }
     }
 
     private synchronized void startReadingResults(URI location)
