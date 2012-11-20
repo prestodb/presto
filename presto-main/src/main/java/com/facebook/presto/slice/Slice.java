@@ -5,6 +5,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.OutputSupplier;
+import com.google.common.primitives.Longs;
 import com.google.common.primitives.UnsignedBytes;
 import com.google.common.primitives.UnsignedLongs;
 import sun.misc.Unsafe;
@@ -24,13 +25,14 @@ import java.nio.charset.Charset;
 
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_BYTE;
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_DOUBLE;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_FLOAT;
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_INT;
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_SHORT;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.primitives.UnsignedBytes.toInt;
 
-public class Slice
+public final class Slice
         implements Comparable<Slice>, InputSupplier<SliceInput>, OutputSupplier<SliceOutput>
 {
     private static final Unsafe unsafe;
@@ -134,6 +136,27 @@ public class Slice
     /**
      * Fill the slice with the specified value;
      */
+    public void fill(byte value)
+    {
+        int offset = 0;
+        int length = size;
+        long longValue = Longs.fromBytes(value, value, value, value, value, value, value, value);
+        while (length >= SIZE_OF_LONG) {
+            unsafe.putLong(base, this.address + offset, longValue);
+            offset += SIZE_OF_LONG;
+            length -= SIZE_OF_LONG;
+        }
+
+        while (length > 0) {
+            unsafe.putByte(base, this.address + offset, value);
+            offset++;
+            length--;
+        }
+    }
+
+    /**
+     * Fill the slice with zeros;
+     */
     public void clear()
     {
         int offset = 0;
@@ -215,6 +238,19 @@ public class Slice
     }
 
     /**
+     * Gets a 32-bit float at the specified absolute {@code index} in
+     * this buffer.
+     *
+     * @throws IndexOutOfBoundsException if the specified {@code index} is less than {@code 0} or
+     * {@code index + 4} is greater than {@code this.length()}
+     */
+    public float getFloat(int index)
+    {
+        checkIndexLength(index, SIZE_OF_FLOAT);
+        return unsafe.getFloat(base, address + index);
+    }
+
+    /**
      * Gets a 64-bit double at the specified absolute {@code index} in
      * this buffer.
      *
@@ -225,6 +261,18 @@ public class Slice
     {
         checkIndexLength(index, SIZE_OF_DOUBLE);
         return unsafe.getDouble(base, address + index);
+    }
+
+    /**
+     * Transfers portion of data from this slice into the specified destination starting at
+     * the specified absolute {@code index}.
+     *
+     * @throws IndexOutOfBoundsException if the specified {@code index} is less than {@code 0}, or
+     * if {@code index + destination.length()} is greater than {@code this.length()}
+     */
+    public void getBytes(int index, Slice destination)
+    {
+        getBytes(index, destination, 0, destination.length());
     }
 
     /**
@@ -243,6 +291,18 @@ public class Slice
     public void getBytes(int index, Slice destination, int destinationIndex, int length)
     {
         destination.setBytes(destinationIndex, this, index, length);
+    }
+
+    /**
+     * Transfers portion of data from this slice into the specified destination starting at
+     * the specified absolute {@code index}.
+     *
+     * @throws IndexOutOfBoundsException if the specified {@code index} is less than {@code 0}, or
+     * if {@code index + destination.length} is greater than {@code this.length()}
+     */
+    public void getBytes(int index, byte[] destination)
+    {
+        getBytes(index, destination, 0, destination.length);
     }
 
     /**
@@ -368,6 +428,19 @@ public class Slice
     }
 
     /**
+     * Sets the specified 32-bit float at the specified absolute
+     * {@code index} in this buffer.
+     *
+     * @throws IndexOutOfBoundsException if the specified {@code index} is less than {@code 0} or
+     * {@code index + 4} is greater than {@code this.length()}
+     */
+    public void setFloat(int index, float value)
+    {
+        checkIndexLength(index, SIZE_OF_FLOAT);
+        unsafe.putFloat(base, address + index, value);
+    }
+
+    /**
      * Sets the specified 64-bit double at the specified absolute
      * {@code index} in this buffer.
      *
@@ -378,6 +451,18 @@ public class Slice
     {
         checkIndexLength(index, SIZE_OF_DOUBLE);
         unsafe.putDouble(base, address + index, value);
+    }
+
+    /**
+     * Transfers data from the specified slice into this buffer starting at
+     * the specified absolute {@code index}.
+     *
+     * @throws IndexOutOfBoundsException if the specified {@code index} is less than {@code 0}, or
+     * if {@code index + source.length()} is greater than {@code this.length()}
+     */
+    public void setBytes(int index, Slice source)
+    {
+        setBytes(index, source, 0, source.length());
     }
 
     /**
@@ -399,6 +484,18 @@ public class Slice
         checkPositionIndexes(sourceIndex, sourceIndex + length, source.length());
 
         copyMemory(source.base, source.address + sourceIndex, base, address + index, length);
+    }
+
+    /**
+     * Transfers data from the specified slice into this buffer starting at
+     * the specified absolute {@code index}.
+     *
+     * @throws IndexOutOfBoundsException if the specified {@code index} is less than {@code 0}, or
+     * if {@code index + source.length} is greater than {@code this.length()}
+     */
+    public void setBytes(int index, byte[] source)
+    {
+        setBytes(index, source, 0, source.length);
     }
 
     /**
@@ -478,7 +575,7 @@ public class Slice
      */
     public int compareTo(int offset, int length, Slice that, int otherOffset, int otherLength)
     {
-        if (this == that) {
+        if (this == that && offset == otherOffset && length == otherLength) {
             return 0;
         }
 
@@ -613,7 +710,7 @@ public class Slice
                 k1 ^= toInt(unsafe.getByte(base, this.address + offset + 2)) << 16;
                 // fall through
             case 2:
-                k1 ^= toInt(unsafe.getByte(base, this.address + offset+ 1)) << 8;
+                k1 ^= toInt(unsafe.getByte(base, this.address + offset + 1)) << 8;
                 // fall through
             case 1:
                 k1 ^= toInt(unsafe.getByte(base, this.address + offset));
@@ -645,6 +742,10 @@ public class Slice
     {
         if (length != otherLength) {
             return false;
+        }
+
+        if (this == that && offset == otherOffset) {
+            return true;
         }
 
         while (length >= SIZE_OF_LONG) {
