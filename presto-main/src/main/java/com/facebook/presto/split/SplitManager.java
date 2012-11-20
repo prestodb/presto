@@ -13,18 +13,18 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.inject.Inject;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 
+import static com.facebook.presto.util.IterableUtils.limit;
+import static com.facebook.presto.util.IterableUtils.shuffle;
 import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -119,17 +119,5 @@ public class SplitManager
                 return new SplitAssignments(split, nodes);
             }
         };
-    }
-
-    private static <T> List<T> limit(Iterable<T> iterable, int limitSize)
-    {
-        return ImmutableList.copyOf(Iterables.limit(iterable, limitSize));
-    }
-
-    private static <T> List<T> shuffle(Iterable<T> iterable)
-    {
-        List<T> list = Lists.newArrayList(iterable);
-        Collections.shuffle(list);
-        return list;
     }
 }
