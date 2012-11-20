@@ -6,9 +6,11 @@ import com.google.common.base.Throwables;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.OutputSupplier;
 import com.google.common.primitives.UnsignedBytes;
+import com.google.common.primitives.UnsignedLongs;
 import sun.misc.Unsafe;
 import sun.nio.ch.DirectBuffer;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -26,25 +28,31 @@ import static com.facebook.presto.slice.SizeOf.SIZE_OF_INT;
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_SHORT;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
-import static java.lang.Math.min;
+import static com.google.common.primitives.UnsignedBytes.toInt;
 
 public class Slice
-    implements Comparable<Slice>, InputSupplier<SliceInput>, OutputSupplier<SliceOutput>
+        implements Comparable<Slice>, InputSupplier<SliceInput>, OutputSupplier<SliceOutput>
 {
     private static final Unsafe unsafe;
     private static final MethodHandle newByteBuffer;
 
     static {
         try {
+            // fetch theUnsafe object
             Field field = Unsafe.class.getDeclaredField("theUnsafe");
             field.setAccessible(true);
             unsafe = (Unsafe) field.get(null);
+            if (unsafe == null) {
+                throw new RuntimeException("Unsafe access not available");
+            }
 
+            // make sure the VM thinks bytes are only one byte wide
             int byteArrayIndexScale = unsafe.arrayIndexScale(byte[].class);
             if (byteArrayIndexScale != 1) {
                 throw new IllegalStateException("Byte array index scale must be 1, but is " + byteArrayIndexScale);
             }
 
+            // fetch a method handle for the hidden constructor for DirectByteBuffer
             Class<?> directByteBufferClass = ClassLoader.getSystemClassLoader().loadClass("java.nio.DirectByteBuffer");
             Constructor<?> constructor = directByteBufferClass.getDeclaredConstructor(long.class, int.class, Object.class);
             constructor.setAccessible(true);
@@ -72,12 +80,9 @@ public class Slice
     private final Object reference;
     private int hash;
 
-    static {
-        if (unsafe == null) {
-            throw new RuntimeException("Unsafe access not available");
-        }
-    }
-
+    /**
+     * Creates an empty slice.
+     */
     Slice()
     {
         this.base = null;
@@ -86,6 +91,9 @@ public class Slice
         this.reference = null;
     }
 
+    /**
+     * Creates a slice over the specified array.
+     */
     Slice(byte[] base)
     {
         Preconditions.checkNotNull(base, "base is null");
@@ -95,7 +103,10 @@ public class Slice
         this.reference = null;
     }
 
-    Slice(Object base, long address, int size, Object reference)
+    /**
+     * Creates a slice for directly accessing the base object.
+     */
+    Slice(@Nullable Object base, long address, int size, @Nullable Object reference)
     {
         this.reference = reference;
         if (address <= 0) {
@@ -252,7 +263,7 @@ public class Slice
         checkIndexLength(index, length);
         checkPositionIndexes(destinationIndex, destinationIndex + length, destination.length);
 
-        unsafe.copyMemory(base, address + index, destination, BYTE_ARRAY_OFFSET + destinationIndex, length);
+        copyMemory(base, address + index, destination, BYTE_ARRAY_OFFSET + destinationIndex, length);
     }
 
     /**
@@ -294,9 +305,8 @@ public class Slice
         checkIndexLength(index, length);
 
         byte[] buffer = new byte[4096];
-
         while (length > 0) {
-            int size = Math.min(buffer.length - index, length);
+            int size = Math.min(buffer.length, length);
             getBytes(index, buffer, 0, size);
             out.write(buffer, 0, size);
             length -= size;
@@ -388,7 +398,7 @@ public class Slice
         checkIndexLength(index, length);
         checkPositionIndexes(sourceIndex, sourceIndex + length, source.length());
 
-        unsafe.copyMemory(source.base, source.address + sourceIndex, base, address + index, length);
+        copyMemory(source.base, source.address + sourceIndex, base, address + index, length);
     }
 
     /**
@@ -404,7 +414,7 @@ public class Slice
     public void setBytes(int index, byte[] source, int sourceIndex, int length)
     {
         checkPositionIndexes(sourceIndex, sourceIndex + length, source.length);
-        unsafe.copyMemory(source, BYTE_ARRAY_OFFSET + sourceIndex, base, address + index, length);
+        copyMemory(source, BYTE_ARRAY_OFFSET + sourceIndex, base, address + index, length);
     }
 
     /**
@@ -426,7 +436,7 @@ public class Slice
                 }
                 break;
             }
-            unsafe.copyMemory(bytes, BYTE_ARRAY_OFFSET, base, address + index, bytesRead);
+            copyMemory(bytes, BYTE_ARRAY_OFFSET, base, address + index, bytesRead);
             remaining -= bytesRead;
         }
         return length - remaining;
@@ -459,13 +469,49 @@ public class Slice
             return 0;
         }
 
-        int length = min(this.size, that.size);
-        for (int i = 0; i < length; i++) {
-            int v = UnsignedBytes.compare(this.getByte(i), that.getByte(i));
+        return compareTo(0, size, that, 0, that.size);
+    }
+
+    /**
+     * Compares a portion of this slice with a portion of the specified slice.  Equality is
+     * solely based on the contents of the slice.
+     */
+    public int compareTo(int offset, int length, Slice that, int otherOffset, int otherLength)
+    {
+        if (this == that) {
+            return 0;
+        }
+
+        while (length >= SIZE_OF_LONG) {
+            long thisLong = unsafe.getLong(base, this.address + offset);
+            thisLong = Long.reverseBytes(thisLong);
+            long thatLong = unsafe.getLong(that.base, that.address + otherOffset);
+            thatLong = Long.reverseBytes(thatLong);
+
+
+            int v = UnsignedLongs.compare(thisLong, thatLong);
             if (v != 0) {
                 return v;
             }
+
+            offset += SIZE_OF_LONG;
+            otherOffset += SIZE_OF_LONG;
+            length -= SIZE_OF_LONG;
         }
+
+        while (length > 0) {
+            byte thisByte = unsafe.getByte(base, this.address + offset);
+            byte thatByte = unsafe.getByte(that.base, that.address + otherOffset);
+
+            int v = UnsignedBytes.compare(thisByte, thatByte);
+            if (v != 0) {
+                return v;
+            }
+            offset++;
+            otherOffset++;
+            length--;
+        }
+
         return this.size - that.size;
     }
 
@@ -526,16 +572,7 @@ public class Slice
             return hash;
         }
 
-        // see definition in interface
-        int result = 1;
-        for (int i = 0; i < length(); i++) {
-            result = (31 * result) + unsafe.getByte(base, this.address + i);
-        }
-        if (result == 0) {
-            result = 1;
-        }
-
-        hash = result;
+        hash = hashCode(0, size);
         return hash;
     }
 
@@ -544,15 +581,60 @@ public class Slice
      */
     public int hashCode(int offset, int length)
     {
-        int result = 1;
-        for (int i = 0; i < length; i++) {
-            result = (31 * result) + unsafe.getByte(base, this.address + offset + i);
-        }
-        if (result == 0) {
-            result = 1;
+        checkIndexLength(offset, length);
+
+        int seed = 0;
+        int h1;
+        int c1 = 0xcc9e2d51;
+        int c2 = 0x1b873593;
+        final int len = length;
+        h1 = seed;
+
+
+        while (length >= SIZE_OF_INT) {
+            int k1 = unsafe.getInt(base, this.address + offset);
+
+            k1 *= c1;
+            k1 = Integer.rotateLeft(k1, 15);
+            k1 *= c2;
+
+            h1 ^= k1;
+            h1 = Integer.rotateLeft(h1, 13);
+            h1 = h1 * 5 + 0xe6546b64;
+
+            offset += SIZE_OF_INT;
+            length -= SIZE_OF_INT;
         }
 
-        return result;
+        // process remaining bytes
+        int k1 = 0;
+        switch (length) {
+            case 3:
+                k1 ^= toInt(unsafe.getByte(base, this.address + offset + 2)) << 16;
+                // fall through
+            case 2:
+                k1 ^= toInt(unsafe.getByte(base, this.address + offset+ 1)) << 8;
+                // fall through
+            case 1:
+                k1 ^= toInt(unsafe.getByte(base, this.address + offset));
+                // fall through
+            default:
+                k1 *= c1;
+                k1 = Integer.rotateLeft(k1, 15);
+                k1 *= c2;
+                h1 ^= k1;
+        }
+
+        // make hash
+        h1 ^= len;
+
+        h1 ^= h1 >>> 16;
+        h1 *= 0x85ebca6b;
+        h1 ^= h1 >>> 13;
+        h1 *= 0xc2b2ae35;
+        h1 ^= h1 >>> 16;
+
+        return h1;
     }
 
     /**
@@ -656,6 +738,26 @@ public class Slice
         return Objects.toStringHelper(this)
                 .add("length", length())
                 .toString();
+    }
+
+    private static void copyMemory(Object src, long srcAddress, Object dest, long destAddress, int length)
+    {
+        int offset = 0;
+        while (length >= SIZE_OF_LONG) {
+            long srcLong = unsafe.getLong(src, srcAddress + offset);
+            unsafe.putLong(dest, destAddress + offset, srcLong);
+
+            offset += SIZE_OF_LONG;
+            length -= SIZE_OF_LONG;
+        }
+
+        while (length > 0) {
+            byte srcLong = unsafe.getByte(src, srcAddress + offset);
+            unsafe.putByte(dest, destAddress + offset, srcLong);
+
+            offset++;
+            length--;
+        }
     }
 
     protected void checkIndexLength(int index, int length)
