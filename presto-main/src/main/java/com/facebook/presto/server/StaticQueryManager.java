@@ -4,7 +4,6 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.importer.ImportField;
 import com.facebook.presto.importer.ImportManager;
 import com.facebook.presto.ingest.DelimitedRecordIterable;
@@ -19,7 +18,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeColumnHandle;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
@@ -54,7 +52,6 @@ import javax.inject.Inject;
 import javax.ws.rs.core.MediaType;
 import java.io.File;
 import java.io.InputStreamReader;
-import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -146,32 +143,6 @@ public class StaticQueryManager
 
         QueryTask queryTask;
         switch (queryBase) {
-            case "sum":
-                queryTask = new SumQuery(queryState, masterExecutor,
-                        URI.create("http://localhost:8080/v1/presto/query"),
-                        URI.create("http://localhost:8080/v1/presto/query"),
-                        URI.create("http://localhost:8080/v1/presto/query"),
-                        URI.create("http://localhost:8080/v1/presto/query"),
-
-                        URI.create("http://localhost:8080/v1/presto/query"),
-                        URI.create("http://localhost:8080/v1/presto/query"),
-                        URI.create("http://localhost:8080/v1/presto/query"),
-                        URI.create("http://localhost:8080/v1/presto/query"),
-
-                        URI.create("http://localhost:8080/v1/presto/query"),
-                        URI.create("http://localhost:8080/v1/presto/query"),
-                        URI.create("http://localhost:8080/v1/presto/query"),
-                        URI.create("http://localhost:8080/v1/presto/query"),
-
-                        URI.create("http://localhost:8080/v1/presto/query"),
-                        URI.create("http://localhost:8080/v1/presto/query"),
-                        URI.create("http://localhost:8080/v1/presto/query"),
-                        URI.create("http://localhost:8080/v1/presto/query"));
-                break;
-            case "sum-partial":
-                queryTask = new PartialSumQuery(metadata, storageManager, queryState);
-                break;
-
             // e.g.: import-delimited:default:hivedba_query_stats:string,long,string,long:/tmp/myfile.csv:,
             case "import-delimited":
                 List<Type> types = ImmutableList.copyOf(Iterables.transform(Splitter.on(",").split(strings.get(2)), new Function<String, Type>()
@@ -402,139 +373,6 @@ public class StaticQueryManager
                 queryState.queryFailed(e);
                 throw Throwables.propagate(e);
             }
-        }
-    }
-
-    private static class SumQuery
-            implements QueryTask
-    {
-        private static final List<TupleInfo> TUPLE_INFOS = ImmutableList.of(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64));
-
-        private final QueryState queryState;
-        private final List<URI> servers;
-        private final AsyncHttpClient asyncHttpClient;
-
-        public SumQuery(QueryState queryState, ExecutorService executor, URI... servers)
-        {
-            this(queryState, executor, ImmutableList.copyOf(servers));
-        }
-
-        public SumQuery(QueryState queryState, ExecutorService executor, Iterable<URI> servers)
-        {
-            this.queryState = queryState;
-            this.servers = ImmutableList.copyOf(servers);
-            ApacheHttpClient httpClient = new ApacheHttpClient(new HttpClientConfig()
-                    .setConnectTimeout(new Duration(1, TimeUnit.MINUTES))
-                    .setReadTimeout(new Duration(1, TimeUnit.MINUTES)));
-            asyncHttpClient = new AsyncHttpClient(httpClient, executor);
-        }
-
-        @Override
-        public List<TupleInfo> getTupleInfos()
-        {
-            return TUPLE_INFOS;
-        }
-
-        @Override
-        public void run()
-        {
-            try {
-                QueryDriversOperator operator = new QueryDriversOperator(10,
-                        Iterables.transform(servers, new Function<URI, QueryDriverProvider>()
-                        {
-                            @Override
-                            public QueryDriverProvider apply(URI uri)
-                            {
-                                return new HttpQueryProvider("sum-partial", asyncHttpClient, uri, ImmutableList.of(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64)));
-                            }
-                        })
-                );
-
-                HashAggregationOperator aggregation = new HashAggregationOperator(operator,
-                        0,
-                        ImmutableList.of(finalAggregation(longSumAggregation(1, 0))),
-                        ImmutableList.of(concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 2, 0))));
-
-                for (Page page : aggregation) {
-                    queryState.addPage(page);
-                }
-                queryState.sourceFinished();
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                queryState.queryFailed(e);
-                throw Throwables.propagate(e);
-            }
-            catch (Exception e) {
-                queryState.queryFailed(e);
-                throw Throwables.propagate(e);
-            }
-        }
-    }
-
-    private static class PartialSumQuery
-            implements QueryTask
-    {
-        private static final List<TupleInfo> TUPLE_INFOS = ImmutableList.of(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64));
-
-        private final Metadata metadata;
-        private final LegacyStorageManager storageManager;
-        private final QueryState queryState;
-
-        public PartialSumQuery(Metadata metadata, LegacyStorageManager storageManager, QueryState queryState)
-        {
-            this.metadata = metadata;
-            this.storageManager = storageManager;
-            this.queryState = queryState;
-        }
-
-        @Override
-        public List<TupleInfo> getTupleInfos()
-        {
-            return TUPLE_INFOS;
-        }
-
-        @Override
-        public void run()
-        {
-            try {
-                BlockIterable groupBySource = getColumn("hivedba_query_stats", "pool_name");
-                BlockIterable aggregateSource = getColumn("hivedba_query_stats", "cpu_msec");
-
-                AlignmentOperator alignmentOperator = new AlignmentOperator(groupBySource, aggregateSource);
-                HashAggregationOperator sumOperator = new HashAggregationOperator(alignmentOperator,
-                        0,
-                        ImmutableList.of(partialAggregation(longSumAggregation(0, 0))),
-                        ImmutableList.of(concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 1, 0))));
-
-                for (Page page : sumOperator) {
-                    queryState.addPage(page);
-                }
-                queryState.sourceFinished();
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                queryState.queryFailed(e);
-                throw Throwables.propagate(e);
-            }
-            catch (Exception e) {
-                queryState.queryFailed(e);
-                throw Throwables.propagate(e);
-            }
-        }
-
-        private BlockIterable getColumn(String tableName, String columnName)
-        {
-            TableMetadata tableMetadata = metadata.getTable("default", "default", tableName);
-            int index = 0;
-            for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
-                if (columnName.equals(columnMetadata.getName())) {
-                    break;
-                }
-                ++index;
-            }
-            final int columnIndex = index;
-            return storageManager.getBlocks("default", tableName, columnIndex);
         }
     }
 

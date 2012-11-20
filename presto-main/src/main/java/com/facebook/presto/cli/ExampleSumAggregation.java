@@ -40,7 +40,7 @@ public class ExampleSumAggregation
                     .setReadTimeout(new Duration(1, TimeUnit.MINUTES)));
             AsyncHttpClient asyncHttpClient = new AsyncHttpClient(httpClient, executor);
             QueryDriversOperator operator = new QueryDriversOperator(10,
-                    new HttpQueryProvider("sum", asyncHttpClient, server, ImmutableList.of(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64)))
+                    new HttpQueryProvider("sum-frag", asyncHttpClient, server, ImmutableList.of(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64)))
             );
             // TODO: this currently leaks query resources (need to delete)
             Utils.printResults(start, operator);
