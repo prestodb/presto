@@ -2,35 +2,54 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.hive.HiveClient;
 import com.facebook.presto.spi.ImportClient;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
+import com.google.common.net.HostAndPort;
 import com.google.inject.Inject;
+import io.airlift.discovery.client.ServiceDescriptor;
+import io.airlift.discovery.client.ServiceSelector;
+import io.airlift.discovery.client.ServiceType;
 
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
+import static com.facebook.presto.util.IterableUtils.shuffle;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ImportClientFactory
 {
-    private final Map<String, ImportClient> importClientMap;
+    private final ServiceSelector selector;
 
     @Inject
-    public ImportClientFactory(HiveClient hiveClient)
+    public ImportClientFactory(@ServiceType("hive-metastore") ServiceSelector selector)
     {
-        checkNotNull(hiveClient, "hiveClient is null");
-
-        importClientMap = ImmutableMap.<String, ImportClient>builder()
-                .put("hive", hiveClient)
-                .build();
+        this.selector = selector;
     }
 
     public ImportClient getClient(String sourceName)
     {
-        checkNotNull(sourceName, "sourceName is null");
+        checkArgument("hive".equals(sourceName), "bad source name: %s", sourceName);
 
-        ImportClient importClient = importClientMap.get(sourceName);
-        checkArgument(importClient != null, "source does not exist: %s", sourceName);
+        List<ServiceDescriptor> descriptors = ImmutableList.copyOf(selector.selectAllServices());
 
-        return importClient;
+        List<HostAndPort> metastores = new ArrayList<>();
+        for (ServiceDescriptor descriptor : descriptors) {
+            String thrift = descriptor.getProperties().get("thrift");
+            if (thrift != null) {
+                try {
+                    HostAndPort metastore = HostAndPort.fromString(thrift);
+                    checkArgument(metastore.hasPort());
+                    metastores.add(metastore);
+                }
+                catch (IllegalArgumentException ignored) {
+                }
+            }
+        }
+
+        if (metastores.isEmpty()) {
+            throw new RuntimeException("hive metastore not available: " + selector.getPool());
+        }
+
+        HostAndPort metastore = shuffle(metastores).get(0);
+        return new HiveClient(metastore.getHostText(), metastore.getPort());
     }
 }
