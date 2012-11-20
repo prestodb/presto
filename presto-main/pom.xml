@@ -189,7 +189,6 @@
             <type>tar.gz</type>
         </dependency>
 
-
         <!-- for testing -->
         <dependency>
             <groupId>org.testng</groupId>
@@ -202,7 +201,6 @@
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
-
     </dependencies>
 
     <build>
@@ -219,6 +217,7 @@
                     </execution>
                 </executions>
             </plugin>
+
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
@@ -247,6 +246,7 @@
                     </systemProperties>
                 </configuration>
             </plugin>
+
             <!-- Intellij will try to load all lib dependencies into memory, so fetch the test data manually -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -273,17 +273,18 @@
                     </execution>
                 </executions>
             </plugin>
+
             <!-- Required to enable benchmarks to be run from their Main methods in Intellij -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <additionalClasspathElements>
-                        <additionalClasspathElement>${project.build.directory}/dependency/testdata-tpch-1g.jar
-                        </additionalClasspathElement>
+                        <additionalClasspathElement>${project.build.directory}/dependency/testdata-tpch-1g.jar</additionalClasspathElement>
                     </additionalClasspathElements>
                 </configuration>
             </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
@@ -297,7 +298,6 @@
                         <configuration>
                             <shadedArtifactAttached>true</shadedArtifactAttached>
                             <shadedClassifierName>standalone</shadedClassifierName>
-
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <manifestEntries>
@@ -322,7 +322,6 @@
                 <configuration>
                     <flags>-Xmx1G</flags>
                 </configuration>
-
                 <executions>
                     <execution>
                         <phase>package</phase>
