@@ -1,13 +1,16 @@
 package com.facebook.presto.util;
 
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class IterableUtils
 {
@@ -39,4 +42,15 @@ public class IterableUtils
         return builder.build();
     }
 
+    public static <T> List<T> limit(Iterable<T> iterable, int limitSize)
+    {
+        return ImmutableList.copyOf(Iterables.limit(iterable, limitSize));
+    }
+
+    public static <T> List<T> shuffle(Iterable<T> iterable)
+    {
+        List<T> list = Lists.newArrayList(iterable);
+        Collections.shuffle(list);
+        return list;
+    }
 }
