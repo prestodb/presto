@@ -65,11 +65,9 @@ public class ImportMetadata
             @Override
             public ColumnMetadata apply(SchemaField schemaField)
             {
-                return new ColumnMetadata(
-                        schemaField.getFieldName(),
-                        ImportSchemaUtil.getTupleType(schemaField.getPrimitiveType()),
-                        new ImportColumnHandle(sourceName, schemaField.getFieldName(), importTableHandle)
-                );
+                TupleInfo.Type type = ImportSchemaUtil.getTupleType(schemaField.getPrimitiveType());
+                ImportColumnHandle columnHandle = new ImportColumnHandle(sourceName, schemaField.getFieldName(), type);
+                return new ColumnMetadata(schemaField.getFieldName(), type, columnHandle);
             }
         });
     }
