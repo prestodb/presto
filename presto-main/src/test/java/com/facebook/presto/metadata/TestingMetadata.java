@@ -2,18 +2,13 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.Multimaps;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 
 public class TestingMetadata
         implements Metadata
@@ -36,18 +31,6 @@ public class TestingMetadata
 
         List<String> key = tableKey(catalogName, schemaName, tableName);
         return tables.get(key);
-    }
-
-    @Override
-    public TableMetadata getTable(TableHandle tableHandle)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ColumnMetadata getColumn(ColumnHandle columnHandle)
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override
