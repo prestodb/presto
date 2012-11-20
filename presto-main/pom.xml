@@ -13,6 +13,17 @@
         <relativePath/>
     </parent>
 
+    <distributionManagement>
+        <repository>
+            <id>libs-releases-local</id>
+            <url>http://nexus.vip.facebook.com:8181/nexus/content/repositories/libs-releases-local</url>
+        </repository>
+        <snapshotRepository>
+            <id>libs-snapshots-local</id>
+            <url>http://nexus.vip.facebook.com:8181/nexus/content/repositories/libs-snapshots-local</url>
+        </snapshotRepository>
+    </distributionManagement>
+
     <properties>
         <main-class>com.facebook.presto.Main</main-class>
     </properties>
@@ -268,7 +279,8 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <additionalClasspathElements>
-                        <additionalClasspathElement>${project.build.directory}/dependency/testdata-tpch-1g.jar</additionalClasspathElement>
+                        <additionalClasspathElement>${project.build.directory}/dependency/testdata-tpch-1g.jar
+                        </additionalClasspathElement>
                     </additionalClasspathElements>
                 </configuration>
             </plugin>

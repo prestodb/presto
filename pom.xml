@@ -26,6 +26,17 @@
         <url>https://github.com/facebook/presto</url>
     </scm>
 
+    <distributionManagement>
+        <repository>
+            <id>libs-releases-local</id>
+            <url>http://nexus.vip.facebook.com:8181/nexus/content/repositories/libs-releases-local</url>
+        </repository>
+        <snapshotRepository>
+            <id>libs-snapshots-local</id>
+            <url>http://nexus.vip.facebook.com:8181/nexus/content/repositories/libs-snapshots-local</url>
+        </snapshotRepository>
+    </distributionManagement>
+
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
