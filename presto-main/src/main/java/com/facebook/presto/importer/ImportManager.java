@@ -5,6 +5,7 @@ import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.server.ShardImport;
 import com.facebook.presto.spi.ImportClient;
+import com.facebook.presto.split.ImportClientFactory;
 import com.google.common.collect.ImmutableList;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
@@ -18,10 +19,12 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import java.net.URI;
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -42,7 +45,7 @@ public class ImportManager
     private final ScheduledExecutorService chunkExecutor = newScheduledThreadPool(50, threadsNamed("import-chunk-%s"));
     private final ScheduledExecutorService shardExecutor = newScheduledThreadPool(50, threadsNamed("import-shard-%s"));
 
-    private final ImportClient importClient;
+    private final ImportClientFactory importClientFactory;
     private final ShardManager shardManager;
     private final NodeWorkerQueue nodeWorkerQueue;
     private final HttpClient httpClient;
@@ -50,36 +53,43 @@ public class ImportManager
 
     @Inject
     public ImportManager(
-            ImportClient importClient,
+            ImportClientFactory importClientFactory,
             ShardManager shardManager,
             NodeWorkerQueue nodeWorkerQueue,
             @ForImportManager HttpClient httpClient,
             JsonCodec<ShardImport> shardImportCodec)
     {
-        this.importClient = checkNotNull(importClient, "importClient is null");
+        this.importClientFactory = checkNotNull(importClientFactory, "importClientFactory is null");
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
         this.nodeWorkerQueue = checkNotNull(nodeWorkerQueue, "nodeWorkerQueue is null");
         this.httpClient = checkNotNull(httpClient, "httpClient is null");
         this.shardImportCodec = checkNotNull(shardImportCodec, "shardImportCodec");
     }
 
-    public void importTable(long tableId, String sourceName, String databaseName, String tableName, List<ImportField> fields)
+    public void importTable(long tableId, final String sourceName, final String databaseName, final String tableName, List<ImportField> fields)
     {
         checkNotNull(sourceName, "sourceName is null");
         checkNotNull(databaseName, "databaseName is null");
         checkNotNull(tableName, "tableName is null");
         checkNotNull(fields, "fields is null");
-
         checkArgument(!fields.isEmpty(), "fields is empty");
-        checkArgument(sourceName.equals("hive"), "bad source name: %s", sourceName);
 
         shardManager.createImportTable(tableId, sourceName, databaseName, tableName);
 
-        List<String> partitions = importClient.getPartitionNames(databaseName, tableName);
+        List<String> partitions = runWithRetryUnchecked(new Callable<List<String>>()
+        {
+            @Override
+            public List<String> call()
+                    throws Exception
+            {
+                ImportClient importClient = importClientFactory.getClient(sourceName);
+                return importClient.getPartitionNames(databaseName, tableName);
+            }
+        });
         log.debug("scheduling %s partitions: %s", partitions.size(), tableId);
 
         for (String partition : partitions) {
-            PartitionChunkSupplier supplier = new PartitionChunkSupplier(importClient, databaseName, tableName, partition);
+            PartitionChunkSupplier supplier = new PartitionChunkSupplier(importClientFactory, sourceName, databaseName, tableName, partition);
             PartitionJob job = new PartitionJob(tableId, sourceName, partition, supplier, fields);
             partitionExecutor.execute(job);
         }

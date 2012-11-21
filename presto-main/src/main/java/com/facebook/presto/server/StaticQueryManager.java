@@ -24,6 +24,7 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.SchemaField;
 import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.split.ImportClientFactory;
 import com.facebook.presto.split.PlanFragment;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitAssignments;
@@ -77,7 +78,7 @@ public class StaticQueryManager
     private final int pageBufferMax;
     private final ExecutorService masterExecutor;
     private final ExecutorService slaveExecutor;
-    private final ImportClient importClient;
+    private final ImportClientFactory importClientFactory;
     private final ImportManager importManager;
     private final Metadata metadata;
     private final LegacyStorageManager storageManager;
@@ -94,7 +95,7 @@ public class StaticQueryManager
 
     @Inject
     public StaticQueryManager(
-            ImportClient importClient,
+            ImportClientFactory importClientFactory,
             ImportManager importManager,
             Metadata metadata,
             LegacyStorageManager storageManager,
@@ -102,12 +103,12 @@ public class StaticQueryManager
             SplitManager splitManager,
             JsonCodec<QueryFragmentRequest> queryFragmentRequestJsonCodec)
     {
-        this(20, importClient, importManager, metadata, storageManager, dataStreamProvider, splitManager, queryFragmentRequestJsonCodec);
+        this(20, importClientFactory, importManager, metadata, storageManager, dataStreamProvider, splitManager, queryFragmentRequestJsonCodec);
     }
 
     public StaticQueryManager(
             int pageBufferMax,
-            ImportClient importClient,
+            ImportClientFactory importClientFactory,
             ImportManager importManager,
             Metadata metadata,
             LegacyStorageManager storageManager,
@@ -119,7 +120,7 @@ public class StaticQueryManager
         this.pageBufferMax = pageBufferMax;
         masterExecutor = Executors.newFixedThreadPool(10, threadsNamed("master-query-processor-%d"));
         slaveExecutor = Executors.newFixedThreadPool(50, threadsNamed("slave-query-processor-%d"));
-        this.importClient = importClient;
+        this.importClientFactory = importClientFactory;
         this.importManager = importManager;
         this.metadata = metadata;
         this.storageManager = storageManager;
@@ -164,7 +165,7 @@ public class StaticQueryManager
 
             // e.g.: import-table:hive:default:hivedba_query_stats
             case "import-table":
-                queryTask = new ImportTableQuery(queryState, importClient, importManager, metadata, strings.get(1), strings.get(2), strings.get(3));
+                queryTask = new ImportTableQuery(queryState, importClientFactory, importManager, metadata, strings.get(1), strings.get(2), strings.get(3));
                 break;
 
             case "sum-frag":
@@ -382,7 +383,7 @@ public class StaticQueryManager
         private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_LONG);
 
         private final QueryState queryState;
-        private final ImportClient importClient;
+        private final ImportClientFactory importClientFactory;
         private final ImportManager importManager;
         private final Metadata metadata;
         private final String sourceName;
@@ -391,7 +392,7 @@ public class StaticQueryManager
 
         private ImportTableQuery(
                 QueryState queryState,
-                ImportClient importClient,
+                ImportClientFactory importClientFactory,
                 ImportManager importManager,
                 Metadata metadata,
                 String sourceName,
@@ -399,7 +400,7 @@ public class StaticQueryManager
                 String tableName)
         {
             this.queryState = queryState;
-            this.importClient = importClient;
+            this.importClientFactory = importClientFactory;
             this.importManager = importManager;
             this.metadata = metadata;
             this.sourceName = sourceName;
@@ -420,6 +421,7 @@ public class StaticQueryManager
                 String catalogName = "default";
                 String schemaName = "default";
 
+                ImportClient importClient = importClientFactory.getClient(sourceName);
                 List<SchemaField> schema = importClient.getTableSchema(databaseName, tableName);
                 List<ColumnMetadata> columns = ImportSchemaUtil.createColumnMetadata(schema);
                 TableMetadata table = new TableMetadata(catalogName, schemaName, tableName, columns);

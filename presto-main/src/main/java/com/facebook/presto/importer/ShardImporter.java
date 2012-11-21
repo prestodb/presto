@@ -7,6 +7,7 @@ import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.server.ShardImport;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
+import com.facebook.presto.split.ImportClientFactory;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 
@@ -33,13 +34,13 @@ public class ShardImporter
 
     private final ExecutorService executor = newFixedThreadPool(tasksPerNode, threadsNamed("shard-importer-%s"));
     private final Set<Long> importingShards = Collections.newSetFromMap(new ConcurrentHashMap<Long, Boolean>());
-    private final ImportClient importClient;
+    private final ImportClientFactory importClientFactory;
     private final StorageManager storageManager;
 
     @Inject
-    public ShardImporter(ImportClient importClient, StorageManager storageManager)
+    public ShardImporter(ImportClientFactory importClientFactory, StorageManager storageManager)
     {
-        this.importClient = checkNotNull(importClient, "importClient is null");
+        this.importClientFactory = checkNotNull(importClientFactory, "importClientFactory is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
     }
 
@@ -101,6 +102,8 @@ public class ShardImporter
         private void importShard()
                 throws IOException
         {
+            ImportClient importClient = importClientFactory.getClient(shardImport.getSourceName());
+
             PartitionChunk chunk = shardImport.getPartitionChunk().deserialize(importClient);
             List<String> fieldNames = getFieldNames(shardImport.getFields());
             List<Long> columnIds = getColumnIds(shardImport.getFields());

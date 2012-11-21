@@ -26,21 +26,20 @@ import java.util.concurrent.Callable;
 import static com.facebook.presto.util.IterableUtils.limit;
 import static com.facebook.presto.util.IterableUtils.shuffle;
 import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SplitManager
 {
     private final NodeManager nodeManager;
     private final ShardManager shardManager;
-    private final ImportClient importClient;
+    private final ImportClientFactory importClientFactory;
 
     @Inject
-    public SplitManager(NodeManager nodeManager, ShardManager shardManager, ImportClient importClient)
+    public SplitManager(NodeManager nodeManager, ShardManager shardManager, ImportClientFactory importClientFactory)
     {
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
-        this.importClient = checkNotNull(importClient, "importClient is null");
+        this.importClientFactory = checkNotNull(importClientFactory, "importClientFactory is null");
     }
 
     public Iterable<SplitAssignments> getSplitAssignments(TableHandle handle)
@@ -80,11 +79,9 @@ public class SplitManager
 
     private Iterable<SplitAssignments> getImportSplitAssignments(ImportTableHandle handle)
     {
-        String sourceName = handle.getSourceName();
+        final String sourceName = handle.getSourceName();
         final String databaseName = handle.getDatabaseName();
         final String tableName = handle.getTableName();
-
-        checkArgument(sourceName.equals("hive"), "unsupported source name: %s", sourceName);
 
         final List<String> partitions = runWithRetryUnchecked(new Callable<List<String>>()
         {
@@ -92,18 +89,22 @@ public class SplitManager
             public List<String> call()
                     throws Exception
             {
+                ImportClient importClient = importClientFactory.getClient(sourceName);
                 return importClient.getPartitionNames(databaseName, tableName);
             }
         });
+
         Iterable<List<PartitionChunk>> chunks = runWithRetryUnchecked(new Callable<Iterable<List<PartitionChunk>>>()
         {
             @Override
             public Iterable<List<PartitionChunk>> call()
                     throws Exception
             {
+                ImportClient importClient = importClientFactory.getClient(sourceName);
                 return importClient.getPartitionChunks(databaseName, tableName, partitions);
             }
         });
+
         return Iterables.transform(Iterables.concat(chunks), createImportSplitFunction(sourceName));
     }
 
@@ -114,6 +115,7 @@ public class SplitManager
             @Override
             public SplitAssignments apply(PartitionChunk chunk)
             {
+                ImportClient importClient = importClientFactory.getClient(sourceName);
                 Split split = new ImportSplit(sourceName, SerializedPartitionChunk.create(importClient, chunk));
                 List<Node> nodes = limit(shuffle(nodeManager.getActiveNodes()), 3);
                 return new SplitAssignments(split, nodes);
