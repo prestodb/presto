@@ -26,7 +26,7 @@ public class Main
             throws Exception
     {
         CliBuilder<Runnable> builder = Cli.buildCli("presto", Runnable.class)
-                .withDefaultCommand(Help.class)
+                .withDefaultCommand(Server.class)
                 .withCommand(Server.class)
                 .withCommand(ExampleSumAggregation.class)
                 .withCommand(Execute.class)
