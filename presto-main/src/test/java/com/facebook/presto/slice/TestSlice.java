@@ -35,7 +35,7 @@ public class TestSlice
     public void testFillAndClear()
     {
         for (byte size = 0; size < 100; size++) {
-            Slice slice = Slices.allocate(size);
+            Slice slice = allocate(size);
             for (int i = 0; i < slice.length(); i++) {
                 assertEquals(slice.getByte(i), (byte) 0);
             }
@@ -55,20 +55,20 @@ public class TestSlice
     {
         for (int size = 0; size < 100; size++) {
             // self equals
-            Slice slice = Slices.allocate(size);
+            Slice slice = allocate(size);
             assertSlicesEquals(slice, slice);
 
             // equals other all zero
-            Slice other = Slices.allocate(size);
+            Slice other = allocate(size);
             assertSlicesEquals(slice, other);
 
             // equals self fill pattern
-            slice = Slices.allocate(size); // create a new slice since slices cache the hash code value
+            slice = allocate(size); // create a new slice since slices cache the hash code value
             slice.fill((byte) 0xA5);
             assertSlicesEquals(slice, slice);
 
             // equals other fill pattern
-            other = Slices.allocate(size); // create a new slice since slices cache the hash code value
+            other = allocate(size); // create a new slice since slices cache the hash code value
             other.fill((byte) 0xA5);
             assertSlicesEquals(slice, other);
 
@@ -77,7 +77,7 @@ public class TestSlice
             assertNotEquals(new Object(), slice);
 
             // different sizes
-            Slice oneBigger = Slices.allocate(size + 1);
+            Slice oneBigger = allocate(size + 1);
             oneBigger.fill((byte) 0xA5);
             assertNotEquals(slice, oneBigger);
             assertFalse(slice.equals(0, size, oneBigger, 0, size + 1));
@@ -124,7 +124,7 @@ public class TestSlice
 
         for (int size = 0; size < 100; size++) {
             for (int index = 0; index < size; index++) {
-                assertToStrings(Slices.allocate(size), index);
+                assertToStrings(allocate(size), index);
             }
         }
     }
@@ -156,7 +156,7 @@ public class TestSlice
     {
         for (byte size = 0; size < 100; size++) {
             for (byte index = 0; index < size - SIZE_OF_BYTE; index++) {
-                assertByte(Slices.allocate(size), index);
+                assertByte(allocate(size), index);
             }
         }
     }
@@ -208,7 +208,7 @@ public class TestSlice
     {
         for (short size = 0; size < 100; size++) {
             for (short index = 0; index < size - SIZE_OF_SHORT; index++) {
-                assertShort(Slices.allocate(size), index);
+                assertShort(allocate(size), index);
             }
         }
     }
@@ -256,7 +256,7 @@ public class TestSlice
     {
         for (int size = 0; size < 100; size++) {
             for (int index = 0; index < size - SIZE_OF_INT; index++) {
-                assertInt(Slices.allocate(size), index);
+                assertInt(allocate(size), index);
             }
         }
     }
@@ -304,7 +304,7 @@ public class TestSlice
     {
         for (int size = 0; size < 100; size++) {
             for (int index = 0; index < size - SIZE_OF_LONG; index++) {
-                assertLong(Slices.allocate(size), index);
+                assertLong(allocate(size), index);
             }
         }
     }
@@ -352,7 +352,7 @@ public class TestSlice
     {
         for (int size = 0; size < 100; size++) {
             for (int index = 0; index < size - SIZE_OF_FLOAT; index++) {
-                assertFloat(Slices.allocate(size), index);
+                assertFloat(allocate(size), index);
             }
         }
     }
@@ -400,7 +400,7 @@ public class TestSlice
     {
         for (int size = 0; size < 100; size++) {
             for (int index = 0; index < size - SIZE_OF_DOUBLE; index++) {
-                assertDouble(Slices.allocate(size), index);
+                assertDouble(allocate(size), index);
             }
         }
     }
@@ -448,7 +448,7 @@ public class TestSlice
     {
         for (int size = 0; size < 100; size++) {
             for (int index = 0; index < size; index++) {
-                assertBytesArray(Slices.allocate(size), index);
+                assertBytesArray(allocate(size), index);
             }
         }
     }
@@ -482,7 +482,7 @@ public class TestSlice
     {
         for (int size = 0; size < 100; size++) {
             for (int index = 0; index < size; index++) {
-                assertBytesSlice(Slices.allocate(size), index);
+                assertBytesSlice(allocate(size), index);
             }
         }
     }
@@ -494,12 +494,12 @@ public class TestSlice
 
         // compare to self slice
         assertEquals(slice.slice(0, slice.length()), slice);
-        Slice value = Slices.allocate(slice.length());
+        Slice value = allocate(slice.length());
         slice.getBytes(0, value, 0, slice.length());
         assertEquals(value, slice);
 
         // set and get the value
-        value = Slices.allocate((slice.length() - index) / 2);
+        value = allocate((slice.length() - index) / 2);
         for (int i = 0; i < value.length(); i++) {
             value.setByte(i, i);
         }
@@ -509,7 +509,7 @@ public class TestSlice
         assertEquals(value, slice.slice(index, value.length()));
 
         // check by getting out the region
-        Slice tempValue = Slices.allocate(value.length());
+        Slice tempValue = allocate(value.length());
         slice.getBytes(index, tempValue, 0, tempValue.length());
         assertEquals(tempValue, slice.slice(index, tempValue.length()));
         assertTrue(tempValue.equals(0, tempValue.length(), slice, index, tempValue.length()));
@@ -523,7 +523,7 @@ public class TestSlice
             assertTrue(value.equals(0, length, slice, index, length));
 
             // check by getting out the region
-            tempValue = Slices.allocate(length);
+            tempValue = allocate(length);
             slice.getBytes(index, tempValue);
             assertEquals(tempValue, slice.slice(index, length));
             assertTrue(tempValue.equals(0, length, slice, index, length));
@@ -536,10 +536,10 @@ public class TestSlice
     {
         for (int size = 0; size < 100; size++) {
             for (int index = 0; index < size; index++) {
-                assertBytesStreams(Slices.allocate(size), index);
+                assertBytesStreams(allocate(size), index);
             }
         }
-        assertBytesStreams(Slices.allocate(16 * 1024), 3);
+        assertBytesStreams(allocate(16 * 1024), 3);
     }
 
     private void assertBytesStreams(Slice slice, int index)
@@ -582,7 +582,7 @@ public class TestSlice
         Path path = Files.createTempFile("longs", null);
         ImmutableList<Long> values = createRandomLongs(20000);
 
-        Slice output = Slices.allocate(values.size() * Longs.BYTES);
+        Slice output = allocate(values.size() * Longs.BYTES);
         for (int i = 0; i < values.size(); i++) {
             output.setLong(i * Longs.BYTES, values.get(i));
         }
@@ -607,5 +607,10 @@ public class TestSlice
             list.add(random.nextLong());
         }
         return list.build();
+    }
+
+    protected Slice allocate(int size)
+    {
+        return Slices.allocate(size);
     }
 }
