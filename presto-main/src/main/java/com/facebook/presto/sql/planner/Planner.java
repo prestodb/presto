@@ -205,11 +205,10 @@ public class Planner
 
         List<Symbol> groupBySymbols = new ArrayList<>();
         for (AnalyzedExpression groupBy : groupBys) {
-            Expression rewritten = TreeRewriter.rewriteWith(substitution(scalarAssignments.inverse()), groupBy.getRewrittenExpression());
-            Symbol symbol = allocator.newSymbol(rewritten, groupBy.getType());
-            groupBySymbols.add(symbol);
+            Symbol symbol = scalarAssignments.inverse().get(groupBy.getRewrittenExpression());
 
             substitutions.put(groupBy.getRewrittenExpression(), symbol);
+            groupBySymbols.add(symbol);
         }
 
         PlanNode aggregationNode = new AggregationNode(preProjectNode, groupBySymbols, aggregationAssignments, functionInfos);
