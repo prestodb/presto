@@ -5,22 +5,23 @@ import com.facebook.presto.sql.tree.Subquery;
 import com.facebook.presto.sql.tree.Table;
 
 import java.util.IdentityHashMap;
+import java.util.Map;
 
 class AnalysisContext
 {
-    private final SlotAllocator slotAllocator;
+    private final SymbolAllocator symbolAllocator;
 
     private final IdentityHashMap<Subquery, AnalysisResult> inlineViews = new IdentityHashMap<>();
     private final IdentityHashMap<Relation, TupleDescriptor> tableDescriptors = new IdentityHashMap<>();
 
     public AnalysisContext()
     {
-        this(new SlotAllocator());
+        this(new SymbolAllocator());
     }
 
-    public AnalysisContext(SlotAllocator slotAllocator)
+    public AnalysisContext(SymbolAllocator symbolAllocator)
     {
-        this.slotAllocator = slotAllocator;
+        this.symbolAllocator = symbolAllocator;
     }
 
     /**
@@ -51,8 +52,13 @@ class AnalysisContext
         return tableDescriptors;
     }
 
-    public SlotAllocator getSlotAllocator()
+    public SymbolAllocator getSymbolAllocator()
     {
-        return slotAllocator;
+        return symbolAllocator;
+    }
+
+    public Map<Symbol, Type> getSymbols()
+    {
+        return symbolAllocator.getTypes();
     }
 }

@@ -1,11 +1,10 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.sql.compiler.Slot;
+import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.compiler.Type;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -34,37 +33,44 @@ public class PruneUnreferencedOutputs
         extends PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan)
+    public PlanNode optimize(PlanNode plan, Map<Symbol, Type> types)
     {
-        return plan.accept(new Visitor(), ImmutableSet.<Slot>of());
+        return plan.accept(new Visitor(types), ImmutableSet.<Symbol>of());
     }
 
     private static class Visitor
-            extends PlanVisitor<Set<Slot>, PlanNode>
+            extends PlanVisitor<Set<Symbol>, PlanNode>
     {
+        private final Map<Symbol, Type> types;
+
+        public Visitor(Map<Symbol, Type> types)
+        {
+            this.types = types;
+        }
+
         @Override
-        protected PlanNode visitPlan(PlanNode node, Set<Slot> expectedOutputs)
+        protected PlanNode visitPlan(PlanNode node, Set<Symbol> expectedOutputs)
         {
             throw new UnsupportedOperationException("not yet implemented: " + getClass().getName());
         }
 
         @Override
-        public PlanNode visitAggregation(AggregationNode node, Set<Slot> expectedOutputs)
+        public PlanNode visitAggregation(AggregationNode node, Set<Symbol> expectedOutputs)
         {
-            ImmutableSet.Builder<Slot> expectedInputs = ImmutableSet.<Slot>builder()
+            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(node.getGroupBy());
 
-            ImmutableMap.Builder<Slot, FunctionInfo> functionInfos = ImmutableMap.builder();
-            ImmutableMap.Builder<Slot, FunctionCall> functionCalls = ImmutableMap.builder();
-            for (Map.Entry<Slot, FunctionCall> entry : node.getAggregations().entrySet()) {
-                Slot slot = entry.getKey();
+            ImmutableMap.Builder<Symbol, FunctionInfo> functionInfos = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
+            for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
+                Symbol symbol = entry.getKey();
 
-                if (expectedOutputs.contains(slot)) {
+                if (expectedOutputs.contains(symbol)) {
                     FunctionCall call = entry.getValue();
                     expectedInputs.addAll(new DependencyExtractor().extract(call));
 
-                    functionCalls.put(slot, call);
-                    functionInfos.put(slot, node.getFunctionInfos().get(slot));
+                    functionCalls.put(symbol, call);
+                    functionInfos.put(symbol, node.getFunctionInfos().get(symbol));
                 }
             }
 
@@ -74,14 +80,14 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitTableScan(TableScan node, Set<Slot> expectedOutputs)
+        public PlanNode visitTableScan(TableScan node, Set<Symbol> expectedOutputs)
         {
-            Map<String, Slot> assignments = new HashMap<>();
-            for (Map.Entry<String, Slot> entry : node.getAttributes().entrySet()) {
-                Slot slot = entry.getValue();
+            Map<String, Symbol> assignments = new HashMap<>();
+            for (Map.Entry<String, Symbol> entry : node.getAttributes().entrySet()) {
+                Symbol symbol = entry.getValue();
 
-                if (expectedOutputs.contains(slot) || expectedOutputs.isEmpty() && (slot.getType() == Type.LONG || slot.getType() == Type.DOUBLE)) {
-                    assignments.put(entry.getKey(), slot);
+                if (expectedOutputs.contains(symbol) || expectedOutputs.isEmpty() && Type.isNumeric(types.get(symbol))) {
+                    assignments.put(entry.getKey(), symbol);
 
                     if (expectedOutputs.isEmpty()) {
                         break;
@@ -90,7 +96,7 @@ public class PruneUnreferencedOutputs
             }
 
             if (assignments.isEmpty()) {
-                Map.Entry<String, Slot> first = Iterables.getFirst(node.getAttributes().entrySet(), null);
+                Map.Entry<String, Symbol> first = Iterables.getFirst(node.getAttributes().entrySet(), null);
                 assignments.put(first.getKey(), first.getValue());
             }
 
@@ -98,33 +104,33 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitFilter(FilterNode node, Set<Slot> expectedOutputs)
+        public PlanNode visitFilter(FilterNode node, Set<Symbol> expectedOutputs)
         {
-            Set<Slot> expectedInputs = ImmutableSet.<Slot>builder()
+            Set<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(new DependencyExtractor().extract(node.getPredicate()))
                     .addAll(expectedOutputs)
                     .build();
 
             PlanNode source = node.getSource().accept(this, expectedInputs);
 
-            List<Slot> outputs = ImmutableList.copyOf(Iterables.filter(source.getOutputs(), in(expectedOutputs)));
+            List<Symbol> outputs = ImmutableList.copyOf(Iterables.filter(source.getOutputSymbols(), in(expectedOutputs)));
 
             // TODO: remove once filterandproject supports empty projections
             if (expectedOutputs.isEmpty()) {
-                outputs = ImmutableList.copyOf(Iterables.limit(source.getOutputs(), 1));
+                outputs = ImmutableList.copyOf(Iterables.limit(source.getOutputSymbols(), 1));
             }
 
             return new FilterNode(source, node.getPredicate(), outputs);
         }
 
         @Override
-        public PlanNode visitProject(ProjectNode node, Set<Slot> expectedOutputs)
+        public PlanNode visitProject(ProjectNode node, Set<Symbol> expectedOutputs)
         {
-            ImmutableSet.Builder<Slot> expectedInputs = ImmutableSet.builder();
+            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.builder();
 
-            ImmutableMap.Builder<Slot, Expression> builder = ImmutableMap.<Slot, Expression>builder();
-            for (int i = 0; i < node.getOutputs().size(); i++) {
-                Slot output = node.getOutputs().get(i);
+            ImmutableMap.Builder<Symbol, Expression> builder = ImmutableMap.builder();
+            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                Symbol output = node.getOutputSymbols().get(i);
                 Expression expression = node.getExpressions().get(i);
 
                 if (expectedOutputs.contains(output)) {
@@ -139,24 +145,24 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitOutput(OutputPlan node, Set<Slot> expectedOutputs)
+        public PlanNode visitOutput(OutputPlan node, Set<Symbol> expectedOutputs)
         {
-            ImmutableSet<Slot> expectedInputs = ImmutableSet.copyOf(node.getAssignments().values());
+            Set<Symbol> expectedInputs = ImmutableSet.copyOf(node.getAssignments().values());
             PlanNode source = node.getSource().accept(this, expectedInputs);
             return new OutputPlan(source, node.getColumnNames(), node.getAssignments());
         }
 
         @Override
-        public PlanNode visitLimit(LimitNode node, Set<Slot> expectedOutputs)
+        public PlanNode visitLimit(LimitNode node, Set<Symbol> expectedOutputs)
         {
             PlanNode source = node.getSource().accept(this, expectedOutputs);
             return new LimitNode(source, node.getCount());
         }
 
         @Override
-        public PlanNode visitTopN(TopNNode node, Set<Slot> expectedOutputs)
+        public PlanNode visitTopN(TopNNode node, Set<Symbol> expectedOutputs)
         {
-            Set<Slot> expectedInputs = ImmutableSet.copyOf(concat(expectedOutputs, node.getOrderBy()));
+            Set<Symbol> expectedInputs = ImmutableSet.copyOf(concat(expectedOutputs, node.getOrderBy()));
 
             PlanNode source = node.getSource().accept(this, expectedInputs);
 

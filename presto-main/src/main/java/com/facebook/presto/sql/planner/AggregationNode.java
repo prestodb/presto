@@ -1,8 +1,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.sql.compiler.Slot;
-import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
 
@@ -15,9 +14,9 @@ public class AggregationNode
     extends PlanNode
 {
     private final PlanNode source;
-    private final List<Slot> groupByKeys;
-    private final Map<Slot, FunctionCall> aggregations;
-    private final Map<Slot, FunctionInfo> infos;
+    private final List<Symbol> groupByKeys;
+    private final Map<Symbol, FunctionCall> aggregations;
+    private final Map<Symbol, FunctionInfo> infos;
     private final Step step;
 
     public enum Step {
@@ -26,12 +25,12 @@ public class AggregationNode
         SINGLE
     }
 
-    public AggregationNode(PlanNode source, List<Slot> groupByKeys, Map<Slot, FunctionCall> aggregations, Map<Slot, FunctionInfo> infos)
+    public AggregationNode(PlanNode source, List<Symbol> groupByKeys, Map<Symbol, FunctionCall> aggregations, Map<Symbol, FunctionInfo> infos)
     {
         this(source, groupByKeys, aggregations, infos, Step.SINGLE);
     }
 
-    public AggregationNode(PlanNode source, List<Slot> groupByKeys, Map<Slot, FunctionCall> aggregations, Map<Slot, FunctionInfo> infos, Step step)
+    public AggregationNode(PlanNode source, List<Symbol> groupByKeys, Map<Symbol, FunctionCall> aggregations, Map<Symbol, FunctionInfo> infos, Step step)
     {
         this.source = source;
         this.groupByKeys = groupByKeys;
@@ -47,22 +46,22 @@ public class AggregationNode
     }
 
     @Override
-    public List<Slot> getOutputs()
+    public List<Symbol> getOutputSymbols()
     {
         return ImmutableList.copyOf(concat(groupByKeys, aggregations.keySet()));
     }
 
-    public Map<Slot, FunctionCall> getAggregations()
+    public Map<Symbol, FunctionCall> getAggregations()
     {
         return aggregations;
     }
 
-    public Map<Slot, FunctionInfo> getFunctionInfos()
+    public Map<Symbol, FunctionInfo> getFunctionInfos()
     {
         return infos;
     }
 
-    public List<Slot> getGroupBy()
+    public List<Symbol> getGroupBy()
     {
         return groupByKeys;
     }

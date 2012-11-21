@@ -25,6 +25,7 @@ public abstract class AbstractSqlBenchmark
 {
     private final PlanNode plan;
     private final SessionMetadata sessionMetadata;
+    private final AnalysisResult analysis;
 
     protected AbstractSqlBenchmark(String benchmarkName, int warmupIterations, int measuredIterations, @Language("SQL") String query)
     {
@@ -35,10 +36,10 @@ public abstract class AbstractSqlBenchmark
 
             sessionMetadata = new SessionMetadata(TpchSchema.createMetadata());
             sessionMetadata.using(TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
-            AnalysisResult analysis = new Analyzer(sessionMetadata).analyze(statement);
+            analysis = new Analyzer(sessionMetadata).analyze(statement);
             plan = new Planner().plan((Query) statement, analysis);
 
-            new PlanPrinter().print(plan);
+            new PlanPrinter().print(plan, analysis.getTypes());
         }
         catch (RecognitionException e) {
             throw Throwables.propagate(e);
@@ -49,7 +50,7 @@ public abstract class AbstractSqlBenchmark
     protected Operator createBenchmarkedOperator(final TpchBlocksProvider provider)
     {
         LegacyStorageManager storage = new TpchLegacyStorageManagerAdapter(new TpchDataStreamProvider(provider));
-        ExecutionPlanner executionPlanner = new ExecutionPlanner(sessionMetadata, storage);
+        ExecutionPlanner executionPlanner = new ExecutionPlanner(sessionMetadata, storage, analysis);
         return executionPlanner.plan(plan);
     }
 }

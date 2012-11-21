@@ -1,6 +1,6 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.compiler.Slot;
+import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.tree.SortItem;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -14,10 +14,10 @@ public class TopNNode
 {
     private final PlanNode source;
     private final long count;
-    private final List<Slot> orderBy;
-    private final Map<Slot, SortItem.Ordering> orderings;
+    private final List<Symbol> orderBy;
+    private final Map<Symbol, SortItem.Ordering> orderings;
 
-    public TopNNode(PlanNode source, long count, List<Slot> orderBy, Map<Slot, SortItem.Ordering> orderings)
+    public TopNNode(PlanNode source, long count, List<Symbol> orderBy, Map<Symbol, SortItem.Ordering> orderings)
     {
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkArgument(count > 0, "count must be positive");
@@ -43,9 +43,9 @@ public class TopNNode
     }
 
     @Override
-    public List<Slot> getOutputs()
+    public List<Symbol> getOutputSymbols()
     {
-        return source.getOutputs();
+        return source.getOutputSymbols();
     }
 
     public long getCount()
@@ -53,12 +53,12 @@ public class TopNNode
         return count;
     }
 
-    public List<Slot> getOrderBy()
+    public List<Symbol> getOrderBy()
     {
         return orderBy;
     }
 
-    public Map<Slot, SortItem.Ordering> getOrderings()
+    public Map<Symbol, SortItem.Ordering> getOrderings()
     {
         return orderings;
     }

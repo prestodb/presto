@@ -1,6 +1,6 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.compiler.Slot;
+import com.facebook.presto.sql.compiler.Symbol;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -16,9 +16,9 @@ public class OutputPlan
 {
     private final PlanNode source;
     private final List<String> columnNames;
-    private final Map<String, Slot> assignments;
+    private final Map<String, Symbol> assignments; // column name = symbol
 
-    public OutputPlan(PlanNode source, List<String> columnNames, Map<String, Slot> assignments)
+    public OutputPlan(PlanNode source, List<String> columnNames, Map<String, Symbol> assignments)
     {
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkNotNull(columnNames, "columnNames is null");
@@ -36,7 +36,7 @@ public class OutputPlan
     }
 
     @Override
-    public List<Slot> getOutputs()
+    public List<Symbol> getOutputSymbols()
     {
         return ImmutableList.copyOf(Iterables.transform(columnNames, forMap(assignments)));
     }
@@ -46,7 +46,7 @@ public class OutputPlan
         return columnNames;
     }
 
-    public Map<String, Slot> getAssignments()
+    public Map<String, Symbol> getAssignments()
     {
         return assignments;
     }

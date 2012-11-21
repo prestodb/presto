@@ -32,6 +32,7 @@ import com.google.common.collect.Iterables;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
@@ -79,6 +80,13 @@ public class Analyzer
             Preconditions.checkArgument(query.getFrom().size() == 1, "not yet implemented: multiple FROM relations");
             Preconditions.checkArgument(query.getLimit() != null && !query.getOrderBy().isEmpty() || query.getOrderBy().isEmpty(), "not yet implemented: ORDER BY without LIMIT");
 
+            // prevent symbol allocator from picking symbols named the same as output aliases, since both share the same namespace for reference resolution
+            for (Expression expression : query.getSelect().getSelectItems()) {
+                if (expression instanceof AliasedExpression) {
+                    context.getSymbolAllocator().blacklist(((AliasedExpression) expression).getAlias());
+                }
+            }
+
             // analyze FROM clause
             Relation relation = Iterables.getOnlyElement(query.getFrom());
             TupleDescriptor sourceDescriptor = new RelationAnalyzer(metadata).process(relation, context);
@@ -88,10 +96,10 @@ public class Analyzer
                 predicate = analyzePredicate(query.getWhere(), sourceDescriptor);
             }
 
-            List<AnalyzedExpression> groupBy = analyzeGroupBy(query.getGroupBy(), sourceDescriptor);
-            Set<AnalyzedAggregation> aggregations = analyzeAggregations(query.getGroupBy(), query.getSelect(), query.getOrderBy(), sourceDescriptor);
+            List<AnalyzedExpression> groupBy = analyzeGroupBy(query.getGroupBy(), sourceDescriptor, context.getSymbols());
+            Set<AnalyzedAggregation> aggregations = analyzeAggregations(query.getGroupBy(), query.getSelect(), query.getOrderBy(), sourceDescriptor, context.getSymbols());
             List<AnalyzedOrdering> orderBy = analyzeOrderBy(query.getOrderBy(), sourceDescriptor);
-            AnalyzedOutput output = analyzeOutput(query.getSelect(), context.getSlotAllocator(), sourceDescriptor);
+            AnalyzedOutput output = analyzeOutput(query.getSelect(), context.getSymbolAllocator(), sourceDescriptor);
 
             Long limit = null;
             if (query.getLimit() != null) {
@@ -109,7 +117,7 @@ public class Analyzer
                     throw new SemanticException(sortItem, "Custom null ordering not yet supported");
                 }
 
-                AnalyzedExpression expression = new ExpressionAnalyzer(metadata).analyze(sortItem.getSortKey(), descriptor);
+                AnalyzedExpression expression = new ExpressionAnalyzer(metadata, descriptor.getSymbols()).analyze(sortItem.getSortKey(), descriptor);
                 builder.add(new AnalyzedOrdering(expression, sortItem.getOrdering()));
             }
 
@@ -118,7 +126,7 @@ public class Analyzer
 
         private AnalyzedExpression analyzePredicate(Expression predicate, TupleDescriptor sourceDescriptor)
         {
-            AnalyzedExpression analyzedExpression = new ExpressionAnalyzer(metadata).analyze(predicate, sourceDescriptor);
+            AnalyzedExpression analyzedExpression = new ExpressionAnalyzer(metadata, sourceDescriptor.getSymbols()).analyze(predicate, sourceDescriptor);
             Type expressionType = analyzedExpression.getType();
             if (expressionType != Type.BOOLEAN && expressionType != Type.NULL) {
                 throw new SemanticException(predicate, "WHERE clause must evaluate to a boolean: actual type %s", expressionType);
@@ -129,7 +137,7 @@ public class Analyzer
         /**
          * Analyzes output expressions from select clause and expands wildcard selectors (e.g., SELECT * or SELECT T.*)
          */
-        private AnalyzedOutput analyzeOutput(Select select, SlotAllocator allocator, TupleDescriptor descriptor)
+        private AnalyzedOutput analyzeOutput(Select select, SymbolAllocator allocator, TupleDescriptor descriptor)
         {
             ImmutableList.Builder<Expression> expressions = ImmutableList.builder();
             ImmutableList.Builder<Optional<String>> names = ImmutableList.builder();
@@ -137,13 +145,13 @@ public class Analyzer
                 if (expression instanceof AllColumns) {
                     // expand * and T.*
                     Optional<QualifiedName> starPrefix = ((AllColumns) expression).getPrefix();
-                    for (NamedSlot slot : descriptor.getSlots()) {
-                        Optional<QualifiedName> prefix = slot.getPrefix();
-                        // Check if the prefix of the slot name (i.e., the table name or relation alias) have a suffix matching the prefix of the wildcard
+                    for (Field field : descriptor.getFields()) {
+                        Optional<QualifiedName> prefix = field.getPrefix();
+                        // Check if the prefix of the field name (i.e., the table name or relation alias) have a suffix matching the prefix of the wildcard
                         // e.g., SELECT T.* FROM S.T should resolve correctly
                         if (!starPrefix.isPresent() || prefix.isPresent() && prefix.get().hasSuffix(starPrefix.get())) {
-                            names.add(slot.getAttribute());
-                            expressions.add(new SlotReference(slot.getSlot()));
+                            names.add(field.getAttribute());
+                            expressions.add(new QualifiedNameReference(field.getSymbol().toQualifiedName()));
                         }
                     }
                 }
@@ -165,37 +173,39 @@ public class Analyzer
             }
 
 
-            BiMap<Slot, AnalyzedExpression> assignments = HashBiMap.create();
+            BiMap<Symbol, AnalyzedExpression> assignments = HashBiMap.create();
 
-            ImmutableList.Builder<Slot> slots = ImmutableList.builder();
+            ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
+            ImmutableList.Builder<Type> types = ImmutableList.builder();
             for (Expression expression : expressions.build()) {
-                AnalyzedExpression analysis = new ExpressionAnalyzer(metadata).analyze(expression, descriptor);
+                AnalyzedExpression analysis = new ExpressionAnalyzer(metadata, allocator.getTypes()).analyze(expression, descriptor);
 
-                Slot slot;
+                Symbol symbol;
                 if (assignments.containsValue(analysis)) {
-                    slot = assignments.inverse().get(analysis);
+                    symbol = assignments.inverse().get(analysis);
                 }
                 else {
-                    slot = allocator.newSlot(analysis);
-                    assignments.put(slot, analysis);
+                    symbol = allocator.newSymbol(analysis.getRewrittenExpression(), analysis.getType());
+                    assignments.put(symbol, analysis);
                 }
 
-                slots.add(slot);
+                symbols.add(symbol);
+                types.add(analysis.getType());
             }
 
-            return new AnalyzedOutput(new TupleDescriptor(names.build(), slots.build()), assignments);
+            return new AnalyzedOutput(new TupleDescriptor(names.build(), symbols.build(), types.build()), assignments);
         }
 
-        private List<AnalyzedExpression> analyzeGroupBy(List<Expression> groupBy, TupleDescriptor descriptor)
+        private List<AnalyzedExpression> analyzeGroupBy(List<Expression> groupBy, TupleDescriptor descriptor, Map<Symbol, Type> symbols)
         {
             ImmutableList.Builder<AnalyzedExpression> builder = ImmutableList.builder();
             for (Expression expression : groupBy) {
-                builder.add(new ExpressionAnalyzer(metadata).analyze(expression, descriptor));
+                builder.add(new ExpressionAnalyzer(metadata, symbols).analyze(expression, descriptor));
             }
             return builder.build();
         }
 
-        private Set<AnalyzedAggregation> analyzeAggregations(List<Expression> groupBy, Select select, List<SortItem> orderBy, TupleDescriptor descriptor)
+        private Set<AnalyzedAggregation> analyzeAggregations(List<Expression> groupBy, Select select, List<SortItem> orderBy, TupleDescriptor descriptor, Map<Symbol, Type> symbols)
         {
             if (!groupBy.isEmpty() && Iterables.any(select.getSelectItems(), instanceOf(AllColumns.class))) {
                 throw new SemanticException(select, "Wildcard selector not supported when GROUP BY is present"); // TODO: add support for SELECT T.*, count() ... GROUP BY T.* (maybe?)
@@ -206,7 +216,7 @@ public class Analyzer
             // analyze select and order by terms
             for (Expression term : concat(select.getSelectItems(), transform(orderBy, sortKeyGetter()))) {
                 // TODO: this doesn't currently handle queries like 'SELECT k + sum(v) FROM T GROUP BY k' correctly
-                AggregateAnalyzer analyzer = new AggregateAnalyzer(metadata, descriptor);
+                AggregateAnalyzer analyzer = new AggregateAnalyzer(metadata, descriptor, symbols);
 
                 List<AnalyzedAggregation> aggregations = analyzer.analyze(term);
                 if (aggregations.isEmpty()) {
@@ -242,20 +252,22 @@ public class Analyzer
     }
 
     /**
-     * Resolves and extracts aggregate functions from an expression and analyzes them (infer types and replace QualifiedNames with SlotReferences)
+     * Resolves and extracts aggregate functions from an expression and analyzes them (infer types and replace QualifiedNames with symbols)
      */
     private static class AggregateAnalyzer
             extends DefaultTraversalVisitor<Void, FunctionCall>
     {
         private final SessionMetadata metadata;
         private final TupleDescriptor descriptor;
+        private final Map<Symbol, Type> symbols;
 
         private List<AnalyzedAggregation> aggregations;
 
-        public AggregateAnalyzer(SessionMetadata metadata, TupleDescriptor descriptor)
+        public AggregateAnalyzer(SessionMetadata metadata, TupleDescriptor descriptor, Map<Symbol, Type> symbols)
         {
             this.metadata = metadata;
             this.descriptor = descriptor;
+            this.symbols = symbols;
         }
 
         public List<AnalyzedAggregation> analyze(Expression expression)
@@ -272,7 +284,7 @@ public class Analyzer
             ImmutableList.Builder<AnalyzedExpression> argumentsAnalysis = ImmutableList.builder();
             ImmutableList.Builder<Type> argumentTypes = ImmutableList.builder();
             for (Expression expression : node.getArguments()) {
-                AnalyzedExpression analysis = new ExpressionAnalyzer(metadata).analyze(expression, descriptor);
+                AnalyzedExpression analysis = new ExpressionAnalyzer(metadata, symbols).analyze(expression, descriptor);
                 argumentsAnalysis.add(analysis);
                 argumentTypes.add(analysis.getType());
             }
@@ -284,7 +296,7 @@ public class Analyzer
                     throw new SemanticException(node, "Cannot nest aggregate functions: %s", ExpressionFormatter.toString(enclosingAggregate));
                 }
 
-                FunctionCall rewritten = TreeRewriter.rewriteWith(new NameToSlotRewriter(descriptor), node);
+                FunctionCall rewritten = TreeRewriter.rewriteWith(new NameToSymbolRewriter(descriptor), node);
                 aggregations.add(new AnalyzedAggregation(info, argumentsAnalysis.build(), rewritten));
                 return super.visitFunctionCall(node, node); // visit children
             }
@@ -312,15 +324,15 @@ public class Analyzer
                 throw new SemanticException(table, "Cannot resolve table '%s'", table.getName());
             }
 
-            ImmutableList.Builder<NamedSlot> slots = ImmutableList.builder();
+            ImmutableList.Builder<Field> fields = ImmutableList.builder();
             for (ColumnMetadata column : tableMetadata.getColumns()) {
-                Slot slot = context.getSlotAllocator().newSlot(Type.fromRaw(column.getType()));
                 QualifiedName prefix = QualifiedName.of(tableMetadata.getCatalogName(), tableMetadata.getSchemaName(), tableMetadata.getTableName());
 
-                slots.add(new NamedSlot(Optional.of(prefix), Optional.of(column.getName()), slot));
+                Symbol symbol = context.getSymbolAllocator().newSymbol(column.getName(), Type.fromRaw(column.getType()));
+                fields.add(new Field(Optional.of(prefix), Optional.of(column.getName()), symbol, Type.fromRaw(column.getType())));
             }
 
-            TupleDescriptor descriptor = new TupleDescriptor(slots.build());
+            TupleDescriptor descriptor = new TupleDescriptor(fields.build());
             context.registerTable(table, descriptor);
             return descriptor;
         }
@@ -334,9 +346,9 @@ public class Analyzer
 
             TupleDescriptor child = process(relation.getRelation(), context);
 
-            ImmutableList.Builder<NamedSlot> builder = ImmutableList.builder();
-            for (NamedSlot slot : child.getSlots()) {
-                builder.add(new NamedSlot(Optional.of(QualifiedName.of(relation.getAlias())), slot.getAttribute(), slot.getSlot()));
+            ImmutableList.Builder<Field> builder = ImmutableList.builder();
+            for (Field field : child.getFields()) {
+                builder.add(new Field(Optional.of(QualifiedName.of(relation.getAlias())), field.getAttribute(), field.getSymbol(), field.getType()));
             }
 
             return new TupleDescriptor(builder.build());
@@ -346,7 +358,7 @@ public class Analyzer
         protected TupleDescriptor visitSubquery(Subquery node, AnalysisContext context)
         {
             // Analyze the subquery recursively
-            AnalysisResult analysis = new Analyzer(metadata).analyze(node.getQuery(), new AnalysisContext(context.getSlotAllocator()));
+            AnalysisResult analysis = new Analyzer(metadata).analyze(node.getQuery(), new AnalysisContext(context.getSymbolAllocator()));
 
             context.registerInlineView(node, analysis);
 

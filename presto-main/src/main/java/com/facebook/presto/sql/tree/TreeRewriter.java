@@ -1,6 +1,5 @@
 package com.facebook.presto.sql.tree;
 
-import com.facebook.presto.sql.compiler.SlotReference;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 
@@ -475,19 +474,6 @@ public final class TreeRewriter<C>
         {
             if (!context.isDefaultRewrite()) {
                 Node result = nodeRewriter.rewriteQualifiedNameReference(node, context.get(), TreeRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            return node;
-        }
-
-        @Override
-        public Node visitSlotReference(SlotReference node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                Node result = nodeRewriter.rewriteSlotReference(node, context.get(), TreeRewriter.this);
                 if (result != null) {
                     return result;
                 }

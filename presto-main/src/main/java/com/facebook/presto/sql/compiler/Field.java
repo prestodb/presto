@@ -5,23 +5,24 @@ import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 
-import javax.annotation.Nullable;
-
-public class NamedSlot
+public class Field
 {
     private final Optional<QualifiedName> prefix;
     private final Optional<String> attribute;
-    private final Slot slot;
+    private final Symbol symbol;
+    private final Type type;
 
-    public NamedSlot(Optional<QualifiedName> prefix, Optional<String> attribute, Slot slot)
+    public Field(Optional<QualifiedName> prefix, Optional<String> attribute, Symbol symbol, Type type)
     {
         Preconditions.checkNotNull(prefix, "prefix is null");
         Preconditions.checkNotNull(attribute, "attribute is null");
-        Preconditions.checkNotNull(slot, "slot is null");
+        Preconditions.checkNotNull(symbol, "uniqueName is null");
+        Preconditions.checkNotNull(type, "type is null");
 
         this.prefix = prefix;
         this.attribute = attribute;
-        this.slot = slot;
+        this.symbol = symbol;
+        this.type = type;
     }
 
     public Optional<QualifiedName> getPrefix()
@@ -34,34 +35,39 @@ public class NamedSlot
         return attribute;
     }
 
-    public Slot getSlot()
+    public Symbol getSymbol()
     {
-        return slot;
+        return symbol;
+    }
+
+    public Type getType()
+    {
+        return type;
     }
 
     public String toString()
     {
-        return String.format("%s.%s:%s", prefix, attribute.or("<anonymous>"), slot.getType());
+        return String.format("%s.%s:%s:%s", prefix.or(QualifiedName.of("<anonymous")), attribute.or("<anonymous>"), symbol, type);
     }
 
-    public static Function<NamedSlot, QualifiedName> nameGetter()
+    public static Function<Field, QualifiedName> nameGetter()
     {
-        return new Function<NamedSlot, QualifiedName>()
+        return new Function<Field, QualifiedName>()
         {
             @Override
-            public QualifiedName apply(NamedSlot input)
+            public QualifiedName apply(Field input)
             {
                 return QualifiedName.of(input.getPrefix().get(), input.getAttribute().get());
             }
         };
     }
 
-    public static Function<NamedSlot, Optional<String>> attributeGetter()
+    public static Function<Field, Optional<String>> attributeGetter()
     {
-        return new Function<NamedSlot, Optional<String>>()
+        return new Function<Field, Optional<String>>()
         {
             @Override
-            public Optional<String> apply(NamedSlot input)
+            public Optional<String> apply(Field input)
             {
                return input.getAttribute();
             }

@@ -1,8 +1,10 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.compiler.Slot;
-import com.facebook.presto.sql.compiler.SlotReference;
+import com.facebook.presto.sql.compiler.Symbol;
+import com.facebook.presto.sql.compiler.Type;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
 
 import java.util.Map;
 
@@ -13,7 +15,7 @@ public class PruneRedundantProjections
         extends PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan)
+    public PlanNode optimize(PlanNode plan, Map<Symbol, Type> types)
     {
         return plan.accept(new Visitor(), null);
     }
@@ -26,16 +28,16 @@ public class PruneRedundantProjections
         {
             PlanNode source = node.getSource().accept(this, context);
 
-            if (node.getOutputs().size() != source.getOutputs().size()) {
+            if (node.getOutputSymbols().size() != source.getOutputSymbols().size()) {
                 // Can't get rid of this projection. It constrains the output tuple from the underlying operator
                 return new ProjectNode(source, node.getOutputMap());
             }
 
             boolean canElide = true;
-            for (Map.Entry<Slot, Expression> entry : node.getOutputMap().entrySet()) {
+            for (Map.Entry<Symbol, Expression> entry : node.getOutputMap().entrySet()) {
                 Expression expression = entry.getValue();
-                Slot slot = entry.getKey();
-                if (!(expression instanceof SlotReference && ((SlotReference) expression).getSlot().equals(slot))) {
+                Symbol symbol = entry.getKey();
+                if (!(expression instanceof QualifiedNameReference && ((QualifiedNameReference) expression).getName().equals(symbol.toQualifiedName()))) {
                     canElide = false;
                     break;
                 }
@@ -65,7 +67,7 @@ public class PruneRedundantProjections
         public PlanNode visitFilter(FilterNode node, Void context)
         {
             PlanNode source = node.getSource().accept(this, context);
-            return new FilterNode(source, node.getPredicate(), node.getOutputs());
+            return new FilterNode(source, node.getPredicate(), node.getOutputSymbols());
         }
 
         @Override

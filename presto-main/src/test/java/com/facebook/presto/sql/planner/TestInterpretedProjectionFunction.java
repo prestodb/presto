@@ -5,9 +5,9 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.sql.compiler.NameToSlotRewriter;
-import com.facebook.presto.sql.compiler.NamedSlot;
-import com.facebook.presto.sql.compiler.Slot;
+import com.facebook.presto.sql.compiler.Field;
+import com.facebook.presto.sql.compiler.NameToSymbolRewriter;
+import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.compiler.TupleDescriptor;
 import com.facebook.presto.sql.compiler.Type;
 import com.facebook.presto.sql.parser.CaseInsensitiveStream;
@@ -127,29 +127,26 @@ public class TestInterpretedProjectionFunction
     }
 
     @Test
-    public void testSlotReference()
+    public void testSymbolReference()
     {
-        Slot longSlot = new Slot(0, LONG);
-        assertProjection(LONG, toExpression("slot", LONG), 42L, ImmutableMap.of(longSlot, 0), createTuple(42L));
-        assertProjection(LONG, toExpression("slot", LONG), null, ImmutableMap.of(longSlot, 0), NULL_LONG_TUPLE);
+        assertProjection(LONG, toExpression("symbol", LONG), 42L, ImmutableMap.of(new Symbol("symbol"), 0), ImmutableMap.of(new Symbol("symbol"), LONG), createTuple(42L));
+        assertProjection(LONG, toExpression("symbol", LONG), null, ImmutableMap.of(new Symbol("symbol"), 0), ImmutableMap.of(new Symbol("symbol"), LONG), NULL_LONG_TUPLE);
 
-        Slot doubleSlot = new Slot(0, DOUBLE);
-        assertProjection(DOUBLE, toExpression("slot", DOUBLE), 11.1, ImmutableMap.of(doubleSlot, 0), createTuple(11.1));
-        assertProjection(DOUBLE, toExpression("slot", DOUBLE), null, ImmutableMap.of(doubleSlot, 0), NULL_DOUBLE_TUPLE);
+        assertProjection(DOUBLE, toExpression("symbol", DOUBLE), 11.1, ImmutableMap.of(new Symbol("symbol"), 0), ImmutableMap.of(new Symbol("symbol"), DOUBLE), createTuple(11.1));
+        assertProjection(DOUBLE, toExpression("symbol", DOUBLE), null, ImmutableMap.of(new Symbol("symbol"), 0), ImmutableMap.of(new Symbol("symbol"), DOUBLE), NULL_DOUBLE_TUPLE);
 
-        Slot stringSlot = new Slot(0, STRING);
-        assertProjection(STRING, toExpression("slot", STRING), "foo", ImmutableMap.of(stringSlot, 0), createTuple("foo"));
-        assertProjection(STRING, toExpression("slot", STRING), null, ImmutableMap.of(stringSlot, 0), NULL_STRING_TUPLE);
+        assertProjection(STRING, toExpression("symbol", STRING), "foo", ImmutableMap.of(new Symbol("symbol"), 0), ImmutableMap.of(new Symbol("symbol"), STRING), createTuple("foo"));
+        assertProjection(STRING, toExpression("symbol", STRING), null, ImmutableMap.of(new Symbol("symbol"), 0), ImmutableMap.of(new Symbol("symbol"), STRING), NULL_STRING_TUPLE);
     }
 
     public static void assertProjection(Type outputType, String expression, @Nullable Object expectedValue)
     {
-        assertProjection(outputType, toExpression(expression), expectedValue, ImmutableMap.<Slot, Integer>of());
+        assertProjection(outputType, toExpression(expression), expectedValue, ImmutableMap.<Symbol, Integer>of(), ImmutableMap.<Symbol, Type>of());
     }
 
-    public static void assertProjection(Type outputType, Expression expression, @Nullable Object expectedValue, Map<Slot, Integer> slotToChannelMappings, TupleReadable... channels)
+    public static void assertProjection(Type outputType, Expression expression, @Nullable Object expectedValue, Map<Symbol, Integer> symbolToChannelMappings, Map<Symbol, Type> types, TupleReadable... channels)
     {
-        InterpretedProjectionFunction projectionFunction = new InterpretedProjectionFunction(outputType, expression, slotToChannelMappings);
+        InterpretedProjectionFunction projectionFunction = new InterpretedProjectionFunction(outputType, expression, symbolToChannelMappings, types);
 
         // create output
         BlockBuilder builder = new BlockBuilder(new TupleInfo(outputType.getRawType()));
@@ -167,7 +164,7 @@ public class TestInterpretedProjectionFunction
         return toExpression(expression, Type.DOUBLE);
     }
 
-    public static Expression toExpression(String expression, Type slotType)
+    public static Expression toExpression(String expression, Type type)
     {
         try {
             StatementLexer lexer = new StatementLexer(new CaseInsensitiveStream(new ANTLRStringStream(expression)));
@@ -178,9 +175,9 @@ public class TestInterpretedProjectionFunction
 
             Optional<QualifiedName> prefix = Optional.of(QualifiedName.of("T"));
             TupleDescriptor descriptor = new TupleDescriptor(ImmutableList.of(
-                    new NamedSlot(prefix, Optional.of("slot"), new Slot(0, slotType))));
+                    new Field(prefix, Optional.of("symbol"), new Symbol("symbol"), type)));
 
-            Expression rewritten = TreeRewriter.rewriteWith(new NameToSlotRewriter(descriptor), raw);
+            Expression rewritten = TreeRewriter.rewriteWith(new NameToSymbolRewriter(descriptor), raw);
             return rewritten;
         }
         catch (RecognitionException e) {

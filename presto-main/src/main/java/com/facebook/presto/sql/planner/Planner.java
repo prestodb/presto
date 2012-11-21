@@ -5,17 +5,18 @@ import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.AnalyzedAggregation;
 import com.facebook.presto.sql.compiler.AnalyzedExpression;
 import com.facebook.presto.sql.compiler.AnalyzedOrdering;
-import com.facebook.presto.sql.compiler.NamedSlot;
-import com.facebook.presto.sql.compiler.Slot;
-import com.facebook.presto.sql.compiler.SlotAllocator;
-import com.facebook.presto.sql.compiler.SlotReference;
+import com.facebook.presto.sql.compiler.Field;
+import com.facebook.presto.sql.compiler.Symbol;
+import com.facebook.presto.sql.compiler.SymbolAllocator;
 import com.facebook.presto.sql.compiler.TupleDescriptor;
+import com.facebook.presto.sql.compiler.Type;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRewriter;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.SortItem;
@@ -38,16 +39,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import static com.facebook.presto.sql.compiler.AnalyzedOrdering.expressionGetter;
 
 import static com.facebook.presto.sql.compiler.AnalyzedAggregation.argumentGetter;
+import static com.facebook.presto.sql.compiler.AnalyzedOrdering.expressionGetter;
 import static com.google.common.collect.Iterables.concat;
 
 public class Planner
 {
     private final static List<PlanOptimizer> OPTIMIZATIONS = ImmutableList.of(
             new PruneUnreferencedOutputs(),
-            new UnaliasSlotReferences(),
+            new UnaliasSymbolReferences(),
             new PruneRedundantProjections(),
             new CoalesceLimits()
     );
@@ -56,8 +57,10 @@ public class Planner
     {
         PlanNode root = createOutputPlan(query, analysis);
 
+        Map<Symbol, Type> types = analysis.getTypes();
+
         for (PlanOptimizer optimizer : OPTIMIZATIONS) {
-            root = optimizer.optimize(root);
+            root = optimizer.optimize(root, types);
         }
 
         return root;
@@ -69,11 +72,11 @@ public class Planner
 
         int i = 0;
         ImmutableList.Builder<String> names = ImmutableList.builder();
-        ImmutableMap.Builder<String, Slot> assignments = ImmutableMap.builder();
-        for (NamedSlot namedSlot : analysis.getOutputDescriptor().getSlots()) {
-            String name = namedSlot.getAttribute().or("_col" + i);
+        ImmutableMap.Builder<String, Symbol> assignments = ImmutableMap.builder();
+        for (Field field : analysis.getOutputDescriptor().getFields()) {
+            String name = field.getAttribute().or("_col" + i);
             names.add(name);
-            assignments.put(name, namedSlot.getSlot());
+            assignments.put(name, field.getSymbol());
             i++;
         }
 
@@ -88,7 +91,7 @@ public class Planner
             root = createFilterPlan(root, analysis.getPredicate());
         }
 
-        Map<Expression, Slot> substitutions = new HashMap<>();
+        Map<Expression, Symbol> substitutions = new HashMap<>();
 
         if (!analysis.getAggregations().isEmpty()) {
             root = createAggregatePlan(root,
@@ -96,12 +99,12 @@ public class Planner
                     Lists.transform(analysis.getOrderBy(), expressionGetter()),
                     analysis.getAggregations(),
                     analysis.getGroupByExpressions(),
-                    analysis.getSlotAllocator(),
+                    analysis.getSymbolAllocator(),
                     substitutions);
         }
 
         if (analysis.getLimit() != null && !analysis.getOrderBy().isEmpty()) {
-            root = createTopNPlan(root, analysis.getLimit(), analysis.getOrderBy(), analysis.getSlotAllocator(), substitutions);
+            root = createTopNPlan(root, analysis.getLimit(), analysis.getOrderBy(), analysis.getSymbolAllocator(), substitutions);
         }
 
         root = createProjectPlan(root, analysis.getOutputExpressions(), substitutions); // project query outputs
@@ -118,7 +121,7 @@ public class Planner
         return new LimitNode(source, limit);
     }
 
-    private PlanNode createTopNPlan(PlanNode source, long limit, List<AnalyzedOrdering> orderBy, SlotAllocator allocator, Map<Expression, Slot> substitutions)
+    private PlanNode createTopNPlan(PlanNode source, long limit, List<AnalyzedOrdering> orderBy, SymbolAllocator allocator, Map<Expression, Symbol> substitutions)
     {
         /**
          * Turns SELECT $10, $11 ORDER BY expr($0, $1,...), expr($2, $3, ...) LIMIT c into
@@ -127,27 +130,27 @@ public class Planner
          *     - Project $4 = expr($0, $1, ...), $5 = expr($2, $3, ...), $10, $11
          */
 
-        Map<Slot, Expression> preProjectSlots = new HashMap<>();
-        for (Slot slot : source.getOutputs()) {
-            // propagate all output slots from underlying operator
-            SlotReference expression = new SlotReference(slot);
-            preProjectSlots.put(slot, expression);
+        Map<Symbol, Expression> preProjectAssignments = new HashMap<>();
+        for (Symbol symbol : source.getOutputSymbols()) {
+            // propagate all output symbols from underlying operator
+            QualifiedNameReference expression = new QualifiedNameReference(symbol.toQualifiedName());
+            preProjectAssignments.put(symbol, expression);
         }
 
-        List<Slot> orderBySlots = new ArrayList<>();
-        Map<Slot, SortItem.Ordering> orderings = new HashMap<>();
+        List<Symbol> orderBySymbols = new ArrayList<>();
+        Map<Symbol,SortItem.Ordering> orderings = new HashMap<>();
         for (AnalyzedOrdering item : orderBy) {
             Expression rewritten = TreeRewriter.rewriteWith(substitution(substitutions), item.getExpression().getRewrittenExpression());
 
-            Slot slot = allocator.newSlot(item.getExpression().getType(), rewritten);
+            Symbol symbol = allocator.newSymbol(rewritten, item.getExpression().getType());
 
-            orderBySlots.add(slot);
-            preProjectSlots.put(slot, rewritten);
-            orderings.put(slot, item.getOrdering());
+            orderBySymbols.add(symbol);
+            preProjectAssignments.put(symbol, rewritten);
+            orderings.put(symbol, item.getOrdering());
         }
 
-        ProjectNode preProject = new ProjectNode(source, preProjectSlots);
-        return new TopNNode(preProject, limit, orderBySlots, orderings);
+        ProjectNode preProject = new ProjectNode(source, preProjectAssignments);
+        return new TopNNode(preProject, limit, orderBySymbols, orderings);
     }
 
     private PlanNode createAggregatePlan(PlanNode source,
@@ -155,8 +158,8 @@ public class Planner
             List<AnalyzedExpression> orderBy,
             Set<AnalyzedAggregation> aggregations,
             List<AnalyzedExpression> groupBys,
-            SlotAllocator allocator,
-            Map<Expression, Slot> outputSubstitutions)
+            SymbolAllocator allocator,
+            Map<Expression, Symbol> outputSubstitutions)
     {
         /**
          * Turns SELECT k1 + 1, sum(v1 * v2) - sum(v3 * v4) GROUP BY k1 + 1, k2 into
@@ -173,10 +176,10 @@ public class Planner
                         .list(),
                 groupBys));
 
-        BiMap<Slot, Expression> scalarAssignments = HashBiMap.create();
+        BiMap<Symbol, Expression> scalarAssignments = HashBiMap.create();
         for (AnalyzedExpression expression : scalarExpressions) {
-            Slot slot = allocator.newSlot(expression);
-            scalarAssignments.put(slot, expression.getRewrittenExpression());
+            Symbol symbol = allocator.newSymbol(expression.getRewrittenExpression(), expression.getType());
+            scalarAssignments.put(symbol, expression.getRewrittenExpression());
         }
 
         PlanNode preProjectNode = source;
@@ -185,50 +188,50 @@ public class Planner
         }
 
         // 2. Aggregate
-        Map<Expression, Slot> substitutions = new HashMap<>();
+        Map<Expression, Symbol> substitutions = new HashMap<>();
 
-        BiMap<Slot, FunctionCall> aggregationAssignments = HashBiMap.create();
-        Map<Slot, FunctionInfo> functionInfos = new HashMap<>();
+        BiMap<Symbol, FunctionCall> aggregationAssignments = HashBiMap.create();
+        Map<Symbol, FunctionInfo> functionInfos = new HashMap<>();
         for (AnalyzedAggregation aggregation : aggregations) {
             // rewrite function calls in terms of scalar inputs
             FunctionCall rewrittenFunction = TreeRewriter.rewriteWith(substitution(scalarAssignments.inverse()), aggregation.getRewrittenCall());
-            Slot slot = allocator.newSlot(aggregation.getType());
-            aggregationAssignments.put(slot, rewrittenFunction);
-            functionInfos.put(slot, aggregation.getFunctionInfo());
+            Symbol symbol = allocator.newSymbol(aggregation.getFunctionName().getSuffix(), aggregation.getType());
+            aggregationAssignments.put(symbol, rewrittenFunction);
+            functionInfos.put(symbol, aggregation.getFunctionInfo());
 
             // build substitution map to rewrite assignments in post-project
-            substitutions.put(aggregation.getRewrittenCall(), slot);
+            substitutions.put(aggregation.getRewrittenCall(), symbol);
         }
 
-        List<Slot> groupBySlots = new ArrayList<>();
+        List<Symbol> groupBySymbols = new ArrayList<>();
         for (AnalyzedExpression groupBy : groupBys) {
             Expression rewritten = TreeRewriter.rewriteWith(substitution(scalarAssignments.inverse()), groupBy.getRewrittenExpression());
-            Slot slot = allocator.newSlot(groupBy.getType(), rewritten);
-            groupBySlots.add(slot);
+            Symbol symbol = allocator.newSymbol(rewritten, groupBy.getType());
+            groupBySymbols.add(symbol);
 
-            substitutions.put(groupBy.getRewrittenExpression(), slot);
+            substitutions.put(groupBy.getRewrittenExpression(), symbol);
         }
 
-        PlanNode aggregationNode = new AggregationNode(preProjectNode, groupBySlots, aggregationAssignments, functionInfos);
+        PlanNode aggregationNode = new AggregationNode(preProjectNode, groupBySymbols, aggregationAssignments, functionInfos);
 
         // 3. Post-project scalar expressions based on aggregations
-        BiMap<Slot, Expression> postProjectScalarAssignments = HashBiMap.create();
+        BiMap<Symbol, Expression> postProjectScalarAssignments = HashBiMap.create();
         for (AnalyzedExpression expression : ImmutableSet.copyOf(concat(outputs, groupBys, orderBy))) {
             Expression rewritten = TreeRewriter.rewriteWith(substitution(substitutions), expression.getRewrittenExpression());
-            Slot slot = allocator.newSlot(expression.getType(), rewritten);
+            Symbol symbol = allocator.newSymbol(rewritten, expression.getType());
 
-            postProjectScalarAssignments.put(slot, rewritten);
+            postProjectScalarAssignments.put(symbol, rewritten);
 
             // build substitution map to return to caller
-            outputSubstitutions.put(expression.getRewrittenExpression(), slot);
+            outputSubstitutions.put(expression.getRewrittenExpression(), symbol);
         }
 
         return new ProjectNode(aggregationNode, postProjectScalarAssignments);
     }
 
-    private PlanNode createProjectPlan(PlanNode root, Map<Slot, AnalyzedExpression> outputAnalysis, final Map<Expression, Slot> substitutions)
+    private PlanNode createProjectPlan(PlanNode root, Map<Symbol, AnalyzedExpression> outputAnalysis, final Map<Expression, Symbol> substitutions)
     {
-        Map<Slot, Expression> outputs = Maps.transformValues(outputAnalysis, new Function<AnalyzedExpression, Expression>()
+        Map<Symbol, Expression> outputs = Maps.transformValues(outputAnalysis, new Function<AnalyzedExpression, Expression>()
         {
             @Override
             public Expression apply(AnalyzedExpression input)
@@ -242,7 +245,7 @@ public class Planner
 
     private FilterNode createFilterPlan(PlanNode source, AnalyzedExpression predicate)
     {
-        return new FilterNode(source, predicate.getRewrittenExpression(), source.getOutputs());
+        return new FilterNode(source, predicate.getRewrittenExpression(), source.getOutputSymbols());
     }
 
     private PlanNode createRelationPlan(List<Relation> relations, AnalysisResult analysis)
@@ -266,16 +269,16 @@ public class Planner
     {
         TupleDescriptor descriptor = analysis.getTableDescriptor(table);
 
-        ImmutableMap.Builder<String, Slot> attributes = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Symbol> attributes = ImmutableMap.builder();
 
-        List<NamedSlot> slots = descriptor.getSlots();
-        for (NamedSlot namedSlot : slots) {
-            Slot slot = namedSlot.getSlot();
-            String attribute = namedSlot.getAttribute().get();
-            attributes.put(attribute, slot);
+        List<Field> fields = descriptor.getFields();
+        for (Field field : fields) {
+            Symbol symbol = field.getSymbol();
+            String attribute = field.getAttribute().get();
+            attributes.put(attribute, symbol);
         }
 
-        QualifiedName tableFullName = Iterables.getFirst(slots, null).getPrefix().get();
+        QualifiedName tableFullName = Iterables.getFirst(fields, null).getPrefix().get();
 
         String catalogName = tableFullName.getParts().get(0);
         String schemaName = tableFullName.getParts().get(1);
@@ -284,16 +287,16 @@ public class Planner
         return new TableScan(catalogName, schemaName, tableName, attributes.build());
     }
 
-    private NodeRewriter<Void> substitution(final Map<Expression, Slot> substitutions)
+    private NodeRewriter<Void> substitution(final Map<Expression, Symbol> substitutions)
     {
         return new NodeRewriter<Void>()
         {
             @Override
             public Node rewriteExpression(Expression node, Void context, TreeRewriter<Void> treeRewriter)
             {
-                Slot slot = substitutions.get(node);
-                if (slot != null) {
-                    return new SlotReference(slot);
+                Symbol symbol = substitutions.get(node);
+                if (symbol != null) {
+                    return new QualifiedNameReference(symbol.toQualifiedName());
                 }
 
                 return treeRewriter.defaultRewrite(node, context);

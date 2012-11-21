@@ -1,6 +1,6 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.compiler.Slot;
+import com.facebook.presto.sql.compiler.Symbol;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -34,9 +34,9 @@ public class LimitNode
     }
 
     @Override
-    public List<Slot> getOutputs()
+    public List<Symbol> getOutputSymbols()
     {
-        return source.getOutputs();
+        return source.getOutputSymbols();
     }
 
     @Override

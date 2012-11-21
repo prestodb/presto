@@ -1,6 +1,6 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.compiler.Slot;
+import com.facebook.presto.sql.compiler.Symbol;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
@@ -10,9 +10,9 @@ public class ExchangeNode
         extends PlanNode
 {
     private final int sourceFragmentId;
-    private final List<Slot> outputs;
+    private final List<Symbol> outputs;
 
-    public ExchangeNode(int sourceFragmentId, List<Slot> outputs)
+    public ExchangeNode(int sourceFragmentId, List<Symbol> outputs)
     {
         Preconditions.checkNotNull(outputs, "outputs is null");
 
@@ -27,7 +27,7 @@ public class ExchangeNode
     }
 
     @Override
-    public List<Slot> getOutputs()
+    public List<Symbol> getOutputSymbols()
     {
         return outputs;
     }
