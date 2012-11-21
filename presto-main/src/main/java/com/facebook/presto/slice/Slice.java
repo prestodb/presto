@@ -535,6 +535,7 @@ public final class Slice
             }
             copyMemory(bytes, BYTE_ARRAY_OFFSET, base, address + index, bytesRead);
             remaining -= bytesRead;
+            index += bytesRead;
         }
         return length - remaining;
     }
