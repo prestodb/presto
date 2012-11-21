@@ -141,6 +141,14 @@ public class PlanPrinter
         }
 
         @Override
+        public Void visitExchange(ExchangeNode node, Integer indent)
+        {
+            print(indent, "- Exchange[%s] => [%s]", node.getSourceFragmentId(), formatOutputs(node.getOutputs()));
+
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
         protected Void visitPlan(PlanNode node, Integer context)
         {
             throw new UnsupportedOperationException("not yet implemented");
