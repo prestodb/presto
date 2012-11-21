@@ -2,6 +2,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.compiler.Slot;
+import com.facebook.presto.sql.compiler.SlotReference;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.base.Function;
@@ -52,9 +53,7 @@ public class PlanPrinter
         @Override
         public Void visitLimit(LimitNode node, Integer indent)
         {
-            print(indent, "- Limit => [%s]", formatOutputs(node.getOutputs()));
-            print(indent + 2, "count = %s", node.getCount());
-
+            print(indent, "- Limit[%s] => [%s]", node.getCount(), formatOutputs(node.getOutputs()));
             return processChildren(node, indent + 1);
         }
 
@@ -94,9 +93,7 @@ public class PlanPrinter
         @Override
         public Void visitFilter(FilterNode node, Integer indent)
         {
-            print(indent, "- Filter => [%s]", formatOutputs(node.getOutputs()));
-            print(indent + 2, "predicate = %s", ExpressionFormatter.toString(node.getPredicate()));
-
+            print(indent, "- Filter[%s] => [%s]", ExpressionFormatter.toString(node.getPredicate()), formatOutputs(node.getOutputs()));
             return processChildren(node, indent + 1);
         }
 
@@ -105,6 +102,10 @@ public class PlanPrinter
         {
             print(indent, "- Project => [%s]", formatOutputs(node.getOutputs()));
             for (Map.Entry<Slot, Expression> entry : node.getOutputMap().entrySet()) {
+                if (entry.getValue() instanceof SlotReference && ((SlotReference) entry.getValue()).getSlot().equals(entry.getKey())) {
+                    // skip identity assignments
+                    continue;
+                }
                 print(indent + 2, "%s := %s", entry.getKey(), ExpressionFormatter.toString(entry.getValue()));
             }
 
@@ -124,13 +125,18 @@ public class PlanPrinter
         }
 
         @Override
-        public Void visitTopN(TopNNode node, Integer indent)
+        public Void visitTopN(final TopNNode node, Integer indent)
         {
-            print(indent, "- TopN => [%s]", formatOutputs(node.getOutputs()));
-            print(indent + 2, "key = %s", node.getOrderBy());
-            print(indent + 2, "order = %s", node.getOrderings());
-            print(indent + 2, "count = %s", node.getCount());
+            Iterable<String> keys = Iterables.transform(node.getOrderBy(), new Function<Slot, String>()
+            {
+                @Override
+                public String apply(Slot input)
+                {
+                    return input + " " + node.getOrderings().get(input);
+                }
+            });
 
+            print(indent, "- TopN[%s by (%s)] => [%s]", node.getCount(), Joiner.on(", ").join(keys), formatOutputs(node.getOutputs()));
             return processChildren(node, indent + 1);
         }
 
