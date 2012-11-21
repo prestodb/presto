@@ -49,6 +49,8 @@ class ExpressionInterpreter
         Preconditions.checkState(symbols.containsKey(symbol), "Unknown symbol: %s", symbol);
 
         Integer channel = symbolToChannelMapping.get(symbol);
+        Preconditions.checkState(channel != null, "Unknown channel for symbol: %s", symbol);
+
         TupleReadable input = inputs[channel];
 
         // TODO: support channels with composite tuples
