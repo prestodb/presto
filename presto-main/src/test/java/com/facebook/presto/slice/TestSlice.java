@@ -539,6 +539,7 @@ public class TestSlice
                 assertBytesStreams(Slices.allocate(size), index);
             }
         }
+        assertBytesStreams(Slices.allocate(16 * 1024), 3);
     }
 
     private void assertBytesStreams(Slice slice, int index)
