@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.compiler.Slot;
+import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
@@ -186,7 +186,7 @@ public class TestInterpretedFilterFunction
 
     public static void assertFilter(Expression predicate, boolean expectedValue)
     {
-        InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(predicate, ImmutableMap.<Slot, Integer>of());
+        InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(predicate, ImmutableMap.<Symbol, Integer>of(), null);
         boolean result = filterFunction.filter();
         assertEquals(result, expectedValue);
     }

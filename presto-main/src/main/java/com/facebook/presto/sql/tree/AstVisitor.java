@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.tree;
 
-import com.facebook.presto.sql.compiler.SlotReference;
+import com.facebook.presto.sql.compiler.Symbol;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nullable;
 
@@ -127,11 +128,6 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitQualifiedNameReference(QualifiedNameReference node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
-    public R visitSlotReference(SlotReference node, C context)
     {
         return visitExpression(node, context);
     }

@@ -1,12 +1,8 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.metadata.ColumnMetadata;
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.LegacyStorageManager;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.AggregationOperator;
-import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.FilterFunctions;
@@ -20,12 +16,13 @@ import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.AggregationFunctionStep;
 import com.facebook.presto.operator.aggregation.AggregationFunctions;
 import com.facebook.presto.operator.aggregation.Input;
+import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.SessionMetadata;
-import com.facebook.presto.sql.compiler.Slot;
-import com.facebook.presto.sql.compiler.SlotReference;
+import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.TupleInfo;
@@ -50,10 +47,13 @@ public class ExecutionPlanner
     private final SessionMetadata metadata;
     private final LegacyStorageManager storage;
 
-    public ExecutionPlanner(SessionMetadata metadata, LegacyStorageManager storage)
+    private final AnalysisResult analysis;
+
+    public ExecutionPlanner(SessionMetadata metadata, LegacyStorageManager storage, AnalysisResult analysis)
     {
         this.metadata = metadata;
         this.storage = storage;
+        this.analysis = analysis;
     }
 
     public Operator plan(PlanNode plan)
@@ -88,17 +88,17 @@ public class ExecutionPlanner
         PlanNode source = Iterables.getOnlyElement(node.getSources());
         Operator sourceOperator = plan(Iterables.getOnlyElement(node.getSources()));
 
-        Map<Slot, Integer> slotToChannelMappings = mapSlotsToChannels(source.getOutputs());
+        Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
 
-        List<Slot> resultSlots = Lists.transform(node.getColumnNames(), forMap(node.getAssignments()));
-        if (resultSlots.equals(source.getOutputs())) {
+        List<Symbol> resultSymbols = Lists.transform(node.getColumnNames(), forMap(node.getAssignments()));
+        if (resultSymbols.equals(source.getOutputSymbols())) {
             // no need for a projection -- the output matches the result of the underlying operator
             return sourceOperator;
         }
 
         List<ProjectionFunction> projections = new ArrayList<>();
-        for (Slot slot : resultSlots) {
-            ProjectionFunction function = new InterpretedProjectionFunction(slot.getType(), new SlotReference(slot), slotToChannelMappings);
+        for (Symbol symbol : resultSymbols) {
+            ProjectionFunction function = new InterpretedProjectionFunction(analysis.getType(symbol), new QualifiedNameReference(symbol.toQualifiedName()), symbolToChannelMappings, analysis.getTypes());
             projections.add(function);
         }
 
@@ -108,25 +108,25 @@ public class ExecutionPlanner
     private Operator createTopNNode(TopNNode node)
     {
         Preconditions.checkArgument(node.getOrderBy().size() == 1, "Order by multiple fields not yet supported");
-        Slot orderBySlot = Iterables.getOnlyElement(node.getOrderBy());
+        Symbol orderBySymbol = Iterables.getOnlyElement(node.getOrderBy());
 
         PlanNode source = Iterables.getOnlyElement(node.getSources());
 
-        Map<Slot, Integer> slotToChannelMappings = mapSlotsToChannels(source.getOutputs());
+        Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
 
         List<ProjectionFunction> projections = new ArrayList<>();
-        for (int i = 0; i < node.getOutputs().size(); i++) {
-            Slot slot = node.getOutputs().get(i);
-            ProjectionFunction function = ProjectionFunctions.singleColumn(slot.getType().getRawType(), slotToChannelMappings.get(slot), 0);
+        for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+            Symbol symbol = node.getOutputSymbols().get(i);
+            ProjectionFunction function = ProjectionFunctions.singleColumn(analysis.getType(symbol).getRawType(), symbolToChannelMappings.get(symbol), 0);
             projections.add(function);
         }
 
         Ordering<TupleReadable> ordering = Ordering.from(FieldOrderedTupleComparator.INSTANCE);
-        if (node.getOrderings().get(orderBySlot) == SortItem.Ordering.ASCENDING) {
+        if (node.getOrderings().get(orderBySymbol) == SortItem.Ordering.ASCENDING) {
             ordering = ordering.reverse();
         }
 
-        return new TopNOperator(plan(source), (int) node.getCount(), slotToChannelMappings.get(orderBySlot), projections, ordering);
+        return new TopNOperator(plan(source), (int) node.getCount(), symbolToChannelMappings.get(orderBySymbol), projections, ordering);
     }
 
     private Operator createLimitNode(LimitNode node)
@@ -140,14 +140,13 @@ public class ExecutionPlanner
         PlanNode source = Iterables.getOnlyElement(node.getSources());
         Operator sourceOperator = plan(source);
 
-        Map<Slot, Integer> slotToChannelMappings = mapSlotsToChannels(source.getOutputs());
+        Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
 
         List<Provider<AggregationFunctionStep>> aggregationFunctions = new ArrayList<>();
-        for (Map.Entry<Slot, FunctionCall> entry : node.getAggregations().entrySet()) {
+        for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
             List<Input> arguments = new ArrayList<>();
             for (Expression argument : entry.getValue().getArguments()) {
-                Slot slot = ((SlotReference) argument).getSlot();
-                int channel = slotToChannelMappings.get(slot);
+                int channel = symbolToChannelMappings.get(Symbol.fromQualifiedName(((QualifiedNameReference) argument).getName()));
                 int field = 0; // TODO: support composite channels
 
                 arguments.add(new Input(channel, field));
@@ -174,9 +173,9 @@ public class ExecutionPlanner
         }
 
         List<ProjectionFunction> projections = new ArrayList<>();
-        for (int i = 0; i < node.getOutputs().size(); ++i) {
-            Slot slot = node.getOutputs().get(i);
-            projections.add(ProjectionFunctions.singleColumn(slot.getType().getRawType(), i, 0));
+        for (int i = 0; i < node.getOutputSymbols().size(); ++i) {
+            Symbol symbol = node.getOutputSymbols().get(i);
+            projections.add(ProjectionFunctions.singleColumn(analysis.getType(symbol).getRawType(), i, 0));
         }
 
         if (node.getGroupBy().isEmpty()) {
@@ -184,8 +183,8 @@ public class ExecutionPlanner
         }
 
         Preconditions.checkArgument(node.getGroupBy().size() <= 1, "Only single GROUP BY key supported at this time");
-        Slot groupBySlot = Iterables.getOnlyElement(node.getGroupBy());
-        return new HashAggregationOperator(sourceOperator, slotToChannelMappings.get(groupBySlot), aggregationFunctions, projections);
+        Symbol groupBySymbol = Iterables.getOnlyElement(node.getGroupBy());
+        return new HashAggregationOperator(sourceOperator, symbolToChannelMappings.get(groupBySymbol), aggregationFunctions, projections);
     }
 
     private Operator createFilterNode(FilterNode node)
@@ -193,14 +192,14 @@ public class ExecutionPlanner
         PlanNode source = Iterables.getOnlyElement(node.getSources());
         Operator sourceOperator = plan(source);
 
-        Map<Slot, Integer> slotToChannelMappings = mapSlotsToChannels(source.getOutputs());
+        Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
 
-        FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), slotToChannelMappings);
+        FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), symbolToChannelMappings, analysis.getTypes());
 
         List<ProjectionFunction> projections = new ArrayList<>();
-        for (int i = 0; i < node.getOutputs().size(); i++) {
-            Slot slot = node.getOutputs().get(i);
-            ProjectionFunction function = ProjectionFunctions.singleColumn(slot.getType().getRawType(), slotToChannelMappings.get(slot), 0);
+        for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+            Symbol symbol = node.getOutputSymbols().get(i);
+            ProjectionFunction function = ProjectionFunctions.singleColumn(analysis.getType(symbol).getRawType(), symbolToChannelMappings.get(symbol), 0);
             projections.add(function);
         }
 
@@ -212,13 +211,13 @@ public class ExecutionPlanner
         PlanNode source = Iterables.getOnlyElement(node.getSources());
         Operator sourceOperator = plan(Iterables.getOnlyElement(node.getSources()));
 
-        Map<Slot, Integer> slotToChannelMappings = mapSlotsToChannels(source.getOutputs());
+        Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
 
         List<ProjectionFunction> projections = new ArrayList<>();
         for (int i = 0; i < node.getExpressions().size(); i++) {
-            Slot slot = node.getOutputs().get(i);
+            Symbol symbol = node.getOutputSymbols().get(i);
             Expression expression = node.getExpressions().get(i);
-            ProjectionFunction function = new InterpretedProjectionFunction(slot.getType(), expression, slotToChannelMappings);
+            ProjectionFunction function = new InterpretedProjectionFunction(analysis.getType(symbol), expression, symbolToChannelMappings, analysis.getTypes());
             projections.add(function);
         }
 
@@ -229,35 +228,35 @@ public class ExecutionPlanner
     {
         TableMetadata tableMetadata = metadata.getTable(QualifiedName.of(node.getCatalogName(), node.getSchemaName(), node.getTableName()));
 
-        Integer[] indicies = new Integer[node.getAttributes().size()];
+        Integer[] indices = new Integer[node.getAttributes().size()];
 
-        Map<Slot, Integer> slotToChannelMappings = mapSlotsToChannels(node.getOutputs());
+        Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(node.getOutputSymbols());
 
-        for (Map.Entry<String, Slot> entry : node.getAttributes().entrySet()) {
-            int channel = slotToChannelMappings.get(entry.getValue());
-            indicies[channel] = findIndex(entry.getKey(), tableMetadata);
+        for (Map.Entry<String, Symbol> entry : node.getAttributes().entrySet()) {
+            int channel = symbolToChannelMappings.get(entry.getValue());
+            indices[channel] = findIndex(entry.getKey(), tableMetadata);
         }
 
         // TODO: replace this with DataStreamProvider when plans are operating in terms of handles
-        return storage.getOperator(node.getSchemaName(), node.getTableName(), Arrays.asList(indicies));
+        return storage.getOperator(node.getSchemaName(), node.getTableName(), Arrays.asList(indices));
     }
 
-    public static TupleInfo toTupleInfo(Iterable<Slot> slots)
+    public static TupleInfo toTupleInfo(AnalysisResult analysis, Iterable<Symbol> symbols)
     {
         ImmutableList.Builder<TupleInfo.Type> types = ImmutableList.builder();
-        for (Slot slot : slots) {
-            types.add(slot.getType().getRawType());
+        for (Symbol symbol : symbols) {
+            types.add(analysis.getType(symbol).getRawType());
         }
         return new TupleInfo(types.build());
     }
 
-    private Map<Slot, Integer> mapSlotsToChannels(List<Slot> outputs)
+    private Map<Symbol, Integer> mapSymbolsToChannels(List<Symbol> outputs)
     {
-        Map<Slot, Integer> slotToChannelMappings = new HashMap<>();
+        Map<Symbol, Integer> symbolToChannelMappings = new HashMap<>();
         for (int i = 0; i < outputs.size(); i++) {
-            slotToChannelMappings.put(outputs.get(i), i);
+            symbolToChannelMappings.put(outputs.get(i), i);
         }
-        return slotToChannelMappings;
+        return symbolToChannelMappings;
     }
 
     private int findIndex(String columnName, TableMetadata tableMetadata)

@@ -492,17 +492,17 @@ public class TestQueries
         sessionMetadata.using(TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
 
         Analyzer analyzer = new Analyzer(sessionMetadata);
+
         AnalysisResult analysis = analyzer.analyze(statement);
 
         Planner planner = new Planner();
         PlanNode plan = planner.plan((Query) statement, analysis);
+        new PlanPrinter().print(plan, analysis.getTypes());
 
-        new PlanPrinter().print(plan);
-
-        ExecutionPlanner executionPlanner = new ExecutionPlanner(sessionMetadata, storage);
+        ExecutionPlanner executionPlanner = new ExecutionPlanner(new SessionMetadata(metadata), storage, analysis);
         Operator operator = executionPlanner.plan(plan);
 
-        TupleInfo outputTupleInfo = ExecutionPlanner.toTupleInfo(plan.getOutputs());
+        TupleInfo outputTupleInfo = ExecutionPlanner.toTupleInfo(analysis, plan.getOutputSymbols());
 
         ImmutableList.Builder<Tuple> output = ImmutableList.builder();
 

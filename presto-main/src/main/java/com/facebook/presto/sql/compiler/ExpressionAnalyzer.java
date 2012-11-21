@@ -27,42 +27,57 @@ import com.google.common.collect.Iterables;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
-import static com.facebook.presto.sql.compiler.NamedSlot.nameGetter;
+import static com.facebook.presto.sql.compiler.Field.nameGetter;
 import static com.google.common.base.Predicates.equalTo;
 
 public class ExpressionAnalyzer
 {
     private final SessionMetadata metadata;
+    private final Map<Symbol, Type> symbols;
 
-    public ExpressionAnalyzer(SessionMetadata metadata)
+    public ExpressionAnalyzer(SessionMetadata metadata, Map<Symbol, Type> symbols)
     {
         this.metadata = metadata;
+        this.symbols = symbols;
     }
 
     public AnalyzedExpression analyze(Expression expression, TupleDescriptor sourceDescriptor)
     {
-        Type type = new Visitor(metadata).process(expression, sourceDescriptor);
+        Type type = new Visitor(metadata, symbols, sourceDescriptor).process(expression, null);
 
-        Expression rewritten = TreeRewriter.rewriteWith(new NameToSlotRewriter(sourceDescriptor), expression);
+        Expression rewritten = TreeRewriter.rewriteWith(new NameToSymbolRewriter(sourceDescriptor), expression);
 
         return new AnalyzedExpression(type, rewritten);
     }
 
     private static class Visitor
-            extends AstVisitor<Type, TupleDescriptor>
+            extends AstVisitor<Type, Void>
     {
         private final SessionMetadata metadata;
+        private final TupleDescriptor descriptor;
+        private final Map<Symbol, Type> symbols;
 
-        private Visitor(SessionMetadata metadata)
+        private Visitor(SessionMetadata metadata, Map<Symbol, Type> symbols, TupleDescriptor descriptor)
         {
             this.metadata = metadata;
+            this.descriptor = descriptor;
+            this.symbols = symbols;
         }
 
         @Override
-        protected Type visitQualifiedNameReference(QualifiedNameReference node, TupleDescriptor descriptor)
+        protected Type visitQualifiedNameReference(QualifiedNameReference node, Void context)
         {
-            List<NamedSlot> matches = descriptor.resolve(node.getName());
+            // is this a known symbol?
+            if (!node.getName().getPrefix().isPresent()) { // symbols can't have prefixes
+                Type type = symbols.get(Symbol.fromQualifiedName(node.getName()));
+                if (type != null) {
+                    return type;
+                }
+            }
+
+            List<Field> matches = descriptor.resolve(node.getName());
             if (matches.isEmpty()) {
                 throw new SemanticException(node, "Attribute '%s' cannot be resolved", node.getName());
             }
@@ -70,17 +85,11 @@ public class ExpressionAnalyzer
                 throw new SemanticException(node, "Attribute '%s' is ambiguous. Possible matches: %s", Iterables.transform(matches, nameGetter()));
             }
 
-            return Iterables.getOnlyElement(matches).getSlot().getType();
+            return Iterables.getOnlyElement(matches).getType();
         }
 
         @Override
-        public Type visitSlotReference(SlotReference node, TupleDescriptor context)
-        {
-            return node.getSlot().getType();
-        }
-
-        @Override
-        protected Type visitNotExpression(NotExpression node, TupleDescriptor context)
+        protected Type visitNotExpression(NotExpression node, Void context)
         {
             Type value = process(node.getValue(), context);
             if (value != Type.BOOLEAN) {
@@ -90,7 +99,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitLogicalBinaryExpression(LogicalBinaryExpression node, TupleDescriptor context)
+        protected Type visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
         {
             Type left = process(node.getLeft(), context);
             if (left != Type.BOOLEAN) {
@@ -105,7 +114,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitComparisonExpression(ComparisonExpression node, TupleDescriptor context)
+        protected Type visitComparisonExpression(ComparisonExpression node, Void context)
         {
             Type left = process(node.getLeft(), context);
             Type right = process(node.getRight(), context);
@@ -118,19 +127,19 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitIsNullPredicate(IsNullPredicate node, TupleDescriptor context)
+        protected Type visitIsNullPredicate(IsNullPredicate node, Void context)
         {
             return Type.BOOLEAN;
         }
 
         @Override
-        protected Type visitIsNotNullPredicate(IsNotNullPredicate node, TupleDescriptor context)
+        protected Type visitIsNotNullPredicate(IsNotNullPredicate node, Void context)
         {
             return Type.BOOLEAN;
         }
 
         @Override
-        protected Type visitNullIfExpression(NullIfExpression node, TupleDescriptor context)
+        protected Type visitNullIfExpression(NullIfExpression node, Void context)
         {
             Type first = process(node.getFirst(), context);
             Type second = process(node.getSecond(), context);
@@ -143,7 +152,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitCoalesceExpression(CoalesceExpression node, TupleDescriptor context)
+        protected Type visitCoalesceExpression(CoalesceExpression node, Void context)
         {
             List<Type> operandTypes = new ArrayList<>();
             for (Expression expression : node.getOperands()) {
@@ -162,7 +171,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitArithmeticExpression(ArithmeticExpression node, TupleDescriptor context)
+        protected Type visitArithmeticExpression(ArithmeticExpression node, Void context)
         {
             Type left = process(node.getLeft(), context);
             Type right = process(node.getRight(), context);
@@ -182,7 +191,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitLikePredicate(LikePredicate node, TupleDescriptor context)
+        protected Type visitLikePredicate(LikePredicate node, Void context)
         {
             if (node.getEscape() != null) {
                 throw new UnsupportedOperationException("not yet implemented: LIKE with ESCAPE");
@@ -202,31 +211,31 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitStringLiteral(StringLiteral node, TupleDescriptor context)
+        protected Type visitStringLiteral(StringLiteral node, Void context)
         {
             return Type.STRING;
         }
 
         @Override
-        protected Type visitLongLiteral(LongLiteral node, TupleDescriptor context)
+        protected Type visitLongLiteral(LongLiteral node, Void context)
         {
             return Type.LONG;
         }
 
         @Override
-        protected Type visitDoubleLiteral(DoubleLiteral node, TupleDescriptor context)
+        protected Type visitDoubleLiteral(DoubleLiteral node, Void context)
         {
             return Type.DOUBLE;
         }
 
         @Override
-        protected Type visitNullLiteral(NullLiteral node, TupleDescriptor context)
+        protected Type visitNullLiteral(NullLiteral node, Void context)
         {
             return Type.NULL;
         }
 
         @Override
-        protected Type visitFunctionCall(FunctionCall node, TupleDescriptor context)
+        protected Type visitFunctionCall(FunctionCall node, Void context)
         {
             ImmutableList.Builder<Type> argumentTypes = ImmutableList.builder();
             for (Expression expression : node.getArguments()) {
@@ -238,19 +247,19 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitBetweenPredicate(BetweenPredicate node, TupleDescriptor context)
+        protected Type visitBetweenPredicate(BetweenPredicate node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented: BETWEEN");
         }
 
         @Override
-        protected Type visitInPredicate(InPredicate node, TupleDescriptor context)
+        protected Type visitInPredicate(InPredicate node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented: IN");
         }
 
         @Override
-        protected Type visitExpression(Expression node, TupleDescriptor context)
+        protected Type visitExpression(Expression node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented: " + getClass().getName());
         }

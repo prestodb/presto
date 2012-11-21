@@ -15,7 +15,7 @@ import java.util.Set;
 
 public class AnalysisResult
 {
-    private final SlotAllocator slotAllocator;
+    private final SymbolAllocator symbolAllocator;
     private final IdentityHashMap<Subquery, AnalysisResult> inlineViews;
     private final IdentityHashMap<Relation, TupleDescriptor> tableDescriptors;
 
@@ -35,7 +35,7 @@ public class AnalysisResult
             List<AnalyzedOrdering> orderBy)
     {
         return new AnalysisResult(
-                context.getSlotAllocator(),
+                context.getSymbolAllocator(),
                 context.getTableDescriptors(),
                 context.getInlineViews(),
                 aggregations,
@@ -47,7 +47,7 @@ public class AnalysisResult
         );
     }
 
-    private AnalysisResult(SlotAllocator slotAllocator,
+    private AnalysisResult(SymbolAllocator symbolAllocator,
             IdentityHashMap<Relation, TupleDescriptor> tableDescriptors,
             IdentityHashMap<Subquery, AnalysisResult> inlineViews,
             Set<AnalyzedAggregation> aggregations,
@@ -57,7 +57,7 @@ public class AnalysisResult
             List<AnalyzedOrdering> orderBy,
             @Nullable Long limit)
     {
-        Preconditions.checkNotNull(slotAllocator, "slotAllocator is null");
+        Preconditions.checkNotNull(symbolAllocator, "symbolAllocator is null");
         Preconditions.checkNotNull(tableDescriptors, "tableDescriptors is null");
         Preconditions.checkNotNull(inlineViews, "inlineViews is null");
         Preconditions.checkNotNull(aggregations, "aggregations is null");
@@ -65,7 +65,7 @@ public class AnalysisResult
         Preconditions.checkNotNull(groupBy, "groupBy is null");
         Preconditions.checkNotNull(orderBy, "orderBy is null");
 
-        this.slotAllocator = slotAllocator;
+        this.symbolAllocator = symbolAllocator;
         this.tableDescriptors = new IdentityHashMap<>(tableDescriptors);
         this.inlineViews = new IdentityHashMap<>(inlineViews);
         this.aggregations = ImmutableSet.copyOf(aggregations);
@@ -81,7 +81,7 @@ public class AnalysisResult
         return output.getDescriptor();
     }
 
-    public Map<Slot, AnalyzedExpression> getOutputExpressions()
+    public Map<Symbol, AnalyzedExpression> getOutputExpressions()
     {
         return output.getExpressions();
     }
@@ -108,9 +108,9 @@ public class AnalysisResult
         return aggregations;
     }
 
-    public SlotAllocator getSlotAllocator()
+    public SymbolAllocator getSymbolAllocator()
     {
-        return slotAllocator;
+        return symbolAllocator;
     }
 
     public List<AnalyzedExpression> getGroupByExpressions()
@@ -126,5 +126,15 @@ public class AnalysisResult
     public List<AnalyzedOrdering> getOrderBy()
     {
         return orderBy;
+    }
+
+    public Type getType(Symbol symbol)
+    {
+        return symbolAllocator.getType(symbol);
+    }
+
+    public Map<Symbol, Type> getTypes()
+    {
+        return symbolAllocator.getTypes();
     }
 }

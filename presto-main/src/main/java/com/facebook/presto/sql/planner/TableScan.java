@@ -1,6 +1,6 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.compiler.Slot;
+import com.facebook.presto.sql.compiler.Symbol;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -14,9 +14,9 @@ public class TableScan
     private final String catalogName;
     private final String schemaName;
     private final String tableName;
-    private final Map<String, Slot> attributes;
+    private final Map<String, Symbol> attributes; // attribute -> symbol
 
-    public TableScan(String catalogName, String schemaName, String tableName, Map<String, Slot> attributes)
+    public TableScan(String catalogName, String schemaName, String tableName, Map<String, Symbol> attributes)
     {
         Preconditions.checkNotNull(catalogName, "catalogName is null");
         Preconditions.checkNotNull(schemaName, "schemaName is null");
@@ -45,12 +45,12 @@ public class TableScan
         return tableName;
     }
 
-    public Map<String, Slot> getAttributes()
+    public Map<String, Symbol> getAttributes()
     {
         return attributes;
     }
 
-    public List<Slot> getOutputs()
+    public List<Symbol> getOutputSymbols()
     {
         return ImmutableList.copyOf(attributes.values());
     }

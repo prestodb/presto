@@ -1,19 +1,20 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.sql.compiler.Slot;
-import com.facebook.presto.sql.compiler.SlotReference;
+import com.facebook.presto.sql.compiler.Symbol;
+import com.facebook.presto.sql.compiler.Type;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRewriter;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.TreeRewriter;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
@@ -22,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Re-maps slot references that are just aliases of each other (e.g., due to projects like $0 := $1)
+ * Re-maps symbol references that are just aliases of each other (e.g., due to projects like $0 := $1)
  *
  * E.g.,
  *
@@ -32,22 +33,22 @@ import java.util.Map;
  *
  * Output[$2, $1] -> Project[$2, $1 := $3 * 100] -> Aggregate[$2, $3 := sum($4)] -> ...
  */
-public class UnaliasSlotReferences
+public class UnaliasSymbolReferences
         extends PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan)
+    public PlanNode optimize(PlanNode plan, Map<Symbol, Type> types)
     {
-        Visitor visitor = new Visitor(new HashMap<Slot, Slot>());
+        Visitor visitor = new Visitor(new HashMap<Symbol, Symbol>());
         return plan.accept(visitor, null);
     }
 
     private static class Visitor
             extends PlanVisitor<Void, PlanNode>
     {
-        private final Map<Slot, Slot> mapping;
+        private final Map<Symbol, Symbol> mapping;
 
-        public Visitor(Map<Slot, Slot> mapping)
+        public Visitor(Map<Symbol, Symbol> mapping)
         {
             this.mapping = mapping;
         }
@@ -57,13 +58,13 @@ public class UnaliasSlotReferences
         {
             PlanNode source = node.getSource().accept(this, context);
 
-            ImmutableMap.Builder<Slot, FunctionInfo> functionInfos = ImmutableMap.builder();
-            ImmutableMap.Builder<Slot, FunctionCall> functionCalls = ImmutableMap.builder();
-            for (Map.Entry<Slot, FunctionCall> entry : node.getAggregations().entrySet()) {
-                Slot slot = entry.getKey();
-                Slot canonical = canonicalize(slot);
+            ImmutableMap.Builder<Symbol, FunctionInfo> functionInfos = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
+            for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
+                Symbol symbol = entry.getKey();
+                Symbol canonical = canonicalize(symbol);
                 functionCalls.put(canonical, (FunctionCall) canonicalize(entry.getValue()));
-                functionInfos.put(canonical, node.getFunctionInfos().get(slot));
+                functionInfos.put(canonical, node.getFunctionInfos().get(symbol));
             }
 
             return new AggregationNode(source, canonicalize(node.getGroupBy()), functionCalls.build(), functionInfos.build());
@@ -80,7 +81,7 @@ public class UnaliasSlotReferences
         {
             PlanNode source = node.getSource().accept(this, context);
 
-            return new FilterNode(source, canonicalize(node.getPredicate()), canonicalize(node.getOutputs()));
+            return new FilterNode(source, canonicalize(node.getPredicate()), canonicalize(node.getOutputSymbols()));
         }
 
         @Override
@@ -88,18 +89,18 @@ public class UnaliasSlotReferences
         {
             PlanNode source = node.getSource().accept(this, context);
 
-            Map<Slot, Expression> assignments = new HashMap<>();
-            for (Map.Entry<Slot, Expression> entry : node.getOutputMap().entrySet()) {
+            Map<Symbol, Expression> assignments = new HashMap<>();
+            for (Map.Entry<Symbol, Expression> entry : node.getOutputMap().entrySet()) {
                 Expression expression = canonicalize(entry.getValue());
 
-                if (entry.getValue() instanceof SlotReference) {
-                    Slot slot = ((SlotReference) entry.getValue()).getSlot();
-                    if (!slot.equals(entry.getKey())) {
-                        map(entry.getKey(), slot);
+                if (entry.getValue() instanceof QualifiedNameReference) {
+                    Symbol symbol = Symbol.fromQualifiedName(((QualifiedNameReference) entry.getValue()).getName());
+                    if (!symbol.equals(entry.getKey())) {
+                        map(entry.getKey(), symbol);
                     }
                 }
 
-                Slot canonical = canonicalize(entry.getKey());
+                Symbol canonical = canonicalize(entry.getKey());
 
                 if (!assignments.containsKey(canonical)) {
                     assignments.put(canonical, expression);
@@ -114,7 +115,7 @@ public class UnaliasSlotReferences
         {
             PlanNode source = node.getSource().accept(this, context);
 
-            Map<String, Slot> canonicalized = Maps.transformValues(node.getAssignments(), canonicalizeFunction());
+            Map<String, Symbol> canonicalized = Maps.transformValues(node.getAssignments(), canonicalizeFunction());
             return new OutputPlan(source, node.getColumnNames(), canonicalized);
         }
 
@@ -130,15 +131,15 @@ public class UnaliasSlotReferences
         {
             PlanNode source = node.getSource().accept(this, context);
 
-            ImmutableList.Builder<Slot> slots = ImmutableList.<Slot>builder();
-            ImmutableMap.Builder<Slot, SortItem.Ordering> orderings = ImmutableMap.<Slot, SortItem.Ordering>builder();
-            for (Slot slot : node.getOrderBy()) {
-                Slot canonical = canonicalize(slot);
-                slots.add(canonical);
-                orderings.put(canonical, node.getOrderings().get(slot));
+            ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
+            ImmutableMap.Builder<Symbol, SortItem.Ordering> orderings = ImmutableMap.builder();
+            for (Symbol symbol : node.getOrderBy()) {
+                Symbol canonical = canonicalize(symbol);
+                symbols.add(canonical);
+                orderings.put(canonical, node.getOrderings().get(symbol));
             }
 
-            return new TopNNode(source, node.getCount(), slots.build(), orderings.build());
+            return new TopNNode(source, node.getCount(), symbols.build(), orderings.build());
         }
 
         @Override
@@ -147,15 +148,15 @@ public class UnaliasSlotReferences
             throw new UnsupportedOperationException("not yet implemented");
         }
 
-        private void map(Slot slot, Slot canonical)
+        private void map(Symbol symbol, Symbol canonical)
         {
-            Preconditions.checkArgument(!slot.equals(canonical), "Can't map slot to itself: %s", slot);
-            mapping.put(slot, canonical);
+            Preconditions.checkArgument(!symbol.equals(canonical), "Can't map symbol to itself: %s", symbol);
+            mapping.put(symbol, canonical);
         }
 
-        private Slot canonicalize(Slot slot)
+        private Symbol canonicalize(Symbol symbol)
         {
-            Slot canonical = slot;
+            Symbol canonical = symbol;
             while (mapping.containsKey(canonical)) {
                 canonical = mapping.get(canonical);
             }
@@ -167,24 +168,25 @@ public class UnaliasSlotReferences
             return TreeRewriter.rewriteWith(new NodeRewriter<Void>()
             {
                 @Override
-                public Node rewriteSlotReference(SlotReference node, Void context, TreeRewriter<Void> treeRewriter)
+                public Node rewriteQualifiedNameReference(QualifiedNameReference node, Void context, TreeRewriter<Void> treeRewriter)
                 {
-                    return new SlotReference(canonicalize(node.getSlot()));
+                    Symbol canonical = canonicalize(Symbol.fromQualifiedName(node.getName()));
+                    return new QualifiedNameReference(canonical.toQualifiedName());
                 }
             }, value);
         }
 
-        private List<Slot> canonicalize(List<Slot> outputs)
+        private List<Symbol> canonicalize(List<Symbol> outputs)
         {
             return Lists.transform(outputs, canonicalizeFunction());
         }
 
-        private Function<Slot, Slot> canonicalizeFunction()
+        private Function<Symbol, Symbol> canonicalizeFunction()
         {
-            return new Function<Slot, Slot>()
+            return new Function<Symbol, Symbol>()
             {
                 @Override
-                public Slot apply(Slot input)
+                public Symbol apply(Symbol input)
                 {
                     return canonicalize(input);
                 }

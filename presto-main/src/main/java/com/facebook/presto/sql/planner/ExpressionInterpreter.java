@@ -2,8 +2,8 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
-import com.facebook.presto.sql.compiler.Slot;
-import com.facebook.presto.sql.compiler.SlotReference;
+import com.facebook.presto.sql.compiler.Symbol;
+import com.facebook.presto.sql.compiler.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.CoalesceExpression;
@@ -21,6 +21,7 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.tuple.TupleReadable;
+import com.google.common.base.Preconditions;
 
 import java.util.Map;
 
@@ -31,18 +32,23 @@ import static java.lang.String.format;
 class ExpressionInterpreter
         extends AstVisitor<Object, TupleReadable[]>
 {
-    private final Map<Slot, Integer> slotToChannelMapping;
+    private final Map<Symbol, Integer> symbolToChannelMapping;
+    private final Map<Symbol, Type> symbols;
 
-    public ExpressionInterpreter(Map<Slot, Integer> slotToChannelMapping)
+    public ExpressionInterpreter(Map<Symbol, Integer> symbolToChannelMappings, Map<Symbol, Type> symbols)
     {
-        this.slotToChannelMapping = slotToChannelMapping;
+        this.symbolToChannelMapping = symbolToChannelMappings;
+        this.symbols = symbols;
     }
 
     @Override
-    public Object visitSlotReference(SlotReference node, TupleReadable[] inputs)
+    protected Object visitQualifiedNameReference(QualifiedNameReference node, TupleReadable[] inputs)
     {
-        Slot slot = node.getSlot();
-        Integer channel = slotToChannelMapping.get(slot);
+        Symbol symbol = Symbol.fromQualifiedName(node.getName());
+
+        Preconditions.checkState(symbols.containsKey(symbol), "Unknown symbol: %s", symbol);
+
+        Integer channel = symbolToChannelMapping.get(symbol);
         TupleReadable input = inputs[channel];
 
         // TODO: support channels with composite tuples
@@ -50,7 +56,7 @@ class ExpressionInterpreter
             return null;
         }
 
-        switch (slot.getType()) {
+        switch (symbols.get(symbol)) {
             case LONG:
                 return input.getLong(0);
             case DOUBLE:
@@ -58,14 +64,8 @@ class ExpressionInterpreter
             case STRING:
                 return input.getSlice(0);
             default:
-                throw new UnsupportedOperationException("not yet implemented: " + slot.getType());
+                throw new UnsupportedOperationException("not yet implemented: " + symbols.get(symbol));
         }
-    }
-
-    @Override
-    protected Object visitQualifiedNameReference(QualifiedNameReference node, TupleReadable[] context)
-    {
-        throw new UnsupportedOperationException("QualifiedNames should be rewritten to slot references");
     }
 
     @Override

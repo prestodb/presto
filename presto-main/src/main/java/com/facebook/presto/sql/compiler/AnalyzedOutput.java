@@ -7,9 +7,9 @@ import java.util.Map;
 public class AnalyzedOutput
 {
     private final TupleDescriptor descriptor;
-    private final Map<Slot, AnalyzedExpression> expressions;
+    private final Map<Symbol, AnalyzedExpression> expressions;
 
-    public AnalyzedOutput(TupleDescriptor descriptor, Map<Slot, AnalyzedExpression> expressions)
+    public AnalyzedOutput(TupleDescriptor descriptor, Map<Symbol, AnalyzedExpression> expressions)
     {
         Preconditions.checkNotNull(descriptor, "descriptor is null");
         Preconditions.checkNotNull(expressions, "expressions is null");
@@ -18,7 +18,7 @@ public class AnalyzedOutput
         this.expressions = expressions;
     }
 
-    public Map<Slot, AnalyzedExpression> getExpressions()
+    public Map<Symbol, AnalyzedExpression> getExpressions()
     {
         return expressions;
     }

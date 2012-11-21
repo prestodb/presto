@@ -1,6 +1,6 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.compiler.Slot;
+import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 
@@ -11,9 +11,9 @@ public class FilterNode
 {
     private final PlanNode source;
     private final Expression predicate;
-    private final List<Slot> outputs;
+    private final List<Symbol> outputs;
 
-    public FilterNode(PlanNode source, Expression predicate, List<Slot> outputs)
+    public FilterNode(PlanNode source, Expression predicate, List<Symbol> outputs)
     {
         this.source = source;
         this.predicate = predicate;
@@ -26,7 +26,7 @@ public class FilterNode
     }
 
     @Override
-    public List<Slot> getOutputs()
+    public List<Symbol> getOutputSymbols()
     {
         return outputs;
     }

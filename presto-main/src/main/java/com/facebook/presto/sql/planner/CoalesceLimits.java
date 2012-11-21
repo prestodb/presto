@@ -1,5 +1,10 @@
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.sql.compiler.Symbol;
+import com.facebook.presto.sql.compiler.Type;
+
+import java.util.Map;
+
 /**
  * Merges successive LIMIT operators into a single LIMIT that's the minimum of the entire chain
  */
@@ -7,7 +12,7 @@ public class CoalesceLimits
         extends PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan)
+    public PlanNode optimize(PlanNode plan, Map<Symbol, Type> types)
     {
         Visitor visitor = new Visitor();
         return plan.accept(visitor, null);
@@ -50,7 +55,7 @@ public class CoalesceLimits
         public PlanNode visitFilter(FilterNode node, Void context)
         {
             PlanNode source = node.getSource().accept(this, context);
-            return new FilterNode(source, node.getPredicate(), node.getOutputs());
+            return new FilterNode(source, node.getPredicate(), node.getOutputSymbols());
         }
 
         @Override
