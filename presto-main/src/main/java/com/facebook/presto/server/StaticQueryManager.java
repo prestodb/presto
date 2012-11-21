@@ -119,7 +119,7 @@ public class StaticQueryManager
         Preconditions.checkArgument(pageBufferMax > 0, "blockBufferMax must be at least 1");
         this.pageBufferMax = pageBufferMax;
         masterExecutor = Executors.newFixedThreadPool(10, threadsNamed("master-query-processor-%d"));
-        slaveExecutor = Executors.newFixedThreadPool(50, threadsNamed("slave-query-processor-%d"));
+        slaveExecutor = Executors.newFixedThreadPool(1000, threadsNamed("slave-query-processor-%d"));
         this.importClientFactory = importClientFactory;
         this.importManager = importManager;
         this.metadata = metadata;
@@ -168,8 +168,9 @@ public class StaticQueryManager
                 queryTask = new ImportTableQuery(queryState, importClientFactory, importManager, metadata, strings.get(1), strings.get(2), strings.get(3));
                 break;
 
+            // e.g.: sum-frag:catalog
             case "sum-frag":
-                queryTask = new SumFragmentMaster(queryState, masterExecutor, metadata, splitManager, queryFragmentRequestJsonCodec);
+                queryTask = new SumFragmentMaster(queryState, masterExecutor, metadata, splitManager, queryFragmentRequestJsonCodec, strings.get(1));
                 break;
 
             default:
@@ -252,8 +253,9 @@ public class StaticQueryManager
         private final AsyncHttpClient asyncHttpClient;
         private final Metadata metadata;
         private final SplitManager splitManager;
+        private final String catalogName;
 
-        public SumFragmentMaster(QueryState queryState, ExecutorService executor, Metadata metadata, SplitManager splitManager, JsonCodec<QueryFragmentRequest> codec)
+        public SumFragmentMaster(QueryState queryState, ExecutorService executor, Metadata metadata, SplitManager splitManager, JsonCodec<QueryFragmentRequest> codec, String catalogName)
         {
             this.queryState = queryState;
             this.codec = codec;
@@ -263,6 +265,7 @@ public class StaticQueryManager
             asyncHttpClient = new AsyncHttpClient(httpClient, executor);
             this.metadata = metadata;
             this.splitManager = splitManager;
+            this.catalogName = catalogName;
         }
 
         @Override
@@ -275,7 +278,7 @@ public class StaticQueryManager
         public void run()
         {
             try {
-                final TableMetadata table = metadata.getTable("hive", "default", "hivedba_query_stats");
+                final TableMetadata table = metadata.getTable(catalogName, "default", "hivedba_query_stats");
                 Iterable<SplitAssignments> splitAssignments = splitManager.getSplitAssignments(table.getTableHandle().get());
 
                 QueryDriversOperator operator = new QueryDriversOperator(10,
