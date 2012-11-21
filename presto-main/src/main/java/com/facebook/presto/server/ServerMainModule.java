@@ -3,7 +3,6 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.hive.HiveClient;
 import com.facebook.presto.importer.ForImportManager;
 import com.facebook.presto.importer.ImportManager;
 import com.facebook.presto.importer.NodeWorkerQueue;
@@ -22,28 +21,20 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.StorageManager;
-import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.ImportClientFactory;
 import com.facebook.presto.split.ImportDataStreamProvider;
 import com.facebook.presto.split.NativeDataStreamProvider;
 import com.facebook.presto.split.SplitManager;
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import io.airlift.discovery.client.ServiceDescriptor;
-import io.airlift.discovery.client.ServiceSelector;
-import io.airlift.discovery.client.ServiceState;
-import io.airlift.discovery.client.ServiceTypes;
-import io.airlift.discovery.client.testing.StaticServiceSelector;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Singleton;
-import java.util.UUID;
 
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
@@ -68,7 +59,6 @@ public class ServerMainModule
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(DatabaseMetadata.class).in(Scopes.SINGLETON);
 
-        binder.bind(ImportClient.class).to(HiveClient.class).in(Scopes.SINGLETON);
         binder.bind(ImportClientFactory.class).in(Scopes.SINGLETON);
         binder.bind(ImportMetadata.class).in(Scopes.SINGLETON);
 
@@ -76,18 +66,8 @@ public class ServerMainModule
 
         jsonCodecBinder(binder).bindJsonCodec(QueryFragmentRequest.class);
 
-        // TODO: add a proper way to add a testing discovery service
-        //discoveryBinder(binder).bindSelector("presto");
-        binder.bind(ServiceSelector.class).annotatedWith(ServiceTypes.serviceType("presto"))
-                .toInstance(new StaticServiceSelector(new ServiceDescriptor(
-                        UUID.randomUUID(),
-                        "myid",
-                        "default",
-                        "local",
-                        "localhost",
-                        ServiceState.RUNNING,
-                        ImmutableMap.<String, String>of("http", "http://localhost:8080")
-                )));
+        discoveryBinder(binder).bindSelector("presto");
+        discoveryBinder(binder).bindSelector("hive-metastore");
 
         binder.bind(NodeManager.class).in(Scopes.SINGLETON);
         binder.bind(NodeWorkerQueue.class).in(Scopes.SINGLETON);
@@ -99,14 +79,6 @@ public class ServerMainModule
         jsonCodecBinder(binder).bindJsonCodec(ShardImport.class);
 
         discoveryBinder(binder).bindHttpAnnouncement("presto");
-    }
-
-    @Provides
-    @Singleton
-    public HiveClient createHiveClient()
-    {
-        // TODO: configuration
-        return new HiveClient("localhost", 9083);
     }
 
     @Provides
