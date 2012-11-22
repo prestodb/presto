@@ -11,18 +11,25 @@ import com.facebook.presto.ingest.ImportSchemaUtil;
 import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.ingest.RecordProjection;
 import com.facebook.presto.ingest.RecordProjections;
+import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeColumnHandle;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.operator.AggregationOperator;
+import com.facebook.presto.operator.HashJoinOperator;
+import com.facebook.presto.operator.LimitOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.operator.SourceHashManager;
+import com.facebook.presto.operator.SourceHashProvider;
 import com.facebook.presto.server.QueryState.State;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.SchemaField;
 import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.split.ExchangeSplit;
 import com.facebook.presto.split.ImportClientFactory;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitAssignments;
@@ -85,7 +92,15 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.operator.ProjectionFunctions.concat;
+import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
+import static com.facebook.presto.operator.aggregation.AggregationFunctions.finalAggregation;
+import static com.facebook.presto.operator.aggregation.AggregationFunctions.partialAggregation;
+import static com.facebook.presto.operator.aggregation.CountAggregation.countAggregation;
+import static com.facebook.presto.operator.aggregation.LongSumAggregation.longSumAggregation;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
@@ -113,6 +128,8 @@ public class StaticQueryManager
 
     @GuardedBy("this")
     private final Map<String, QueryState> queries = new HashMap<>();
+
+    private final SourceHashManager sourceHashManager;
 
     @Inject
     public StaticQueryManager(
@@ -157,6 +174,7 @@ public class StaticQueryManager
         this.dataStreamProvider = dataStreamProvider;
         this.splitManager = splitManager;
         this.queryFragmentRequestJsonCodec = queryFragmentRequestJsonCodec;
+        this.sourceHashManager = new SourceHashManager(queryExecutor);
     }
 
     @Override
@@ -217,6 +235,10 @@ public class StaticQueryManager
                             Splitter.on(strings.get(4)));
                     break;
 
+                case "join-frag":
+                    queryTask = new JoinFragmentMaster(queryId, pageBufferMax, queryExecutor, metadata, splitManager, queryFragmentRequestJsonCodec);
+                    break;
+
                 // e.g.: import-table:hive:default:hivedba_query_stats
                 case "import-table":
                     queryTask = new ImportTableQuery(queryId, pageBufferMax, importClientFactory, importManager, metadata, strings.get(1), strings.get(2), strings.get(3));
@@ -239,7 +261,23 @@ public class StaticQueryManager
     public synchronized QueryInfo createQueryFragment(Map<String, List<Split>> sourceSplits, PlanFragment planFragment)
     {
         String queryId = String.valueOf(nextQueryId++);
-        QueryTask queryTask = new FragmentWorker(pageBufferMax, planFragment, sourceSplits, dataStreamProvider, metadata, shardExecutor);
+        QueryTask queryTask;
+        if (true) {
+            queryTask = new FragmentWorker(pageBufferMax, planFragment, sourceSplits, dataStreamProvider, metadata, shardExecutor);
+        }
+//        else {
+//            switch (planFragment.getQuery()) {
+//                case "join-worker":
+//                    queryTask = new JoinWorker(queryId, pageBufferMax, sourceSplits, planFragment.getColumnHandles(), dataStreamProvider, sourceHashManager, shardExecutor);
+//                    break;
+//                case "join-build-worker":
+//                    queryTask = new JoinBuildTableWorker(pageBufferMax, sourceSplits, planFragment.getColumnHandles(), dataStreamProvider, shardExecutor);
+//                    break;
+//                default:
+//                    throw new IllegalArgumentException("Unsupported fragment query: " + planFragment.getQuery());
+//            }
+//        }
+
         queries.put(queryId, queryTask.getQueryState());
         queryExecutor.submit(queryTask);
 
@@ -606,6 +644,394 @@ public class StaticQueryManager
         }
     }
 
+    private static class JoinFragmentMaster
+            implements MasterQueryTask
+    {
+        private final MasterQueryState masterQueryState;
+        private final ExecutorService executor;
+        private final ApacheHttpClient httpClient;
+        private final JsonCodec<QueryFragmentRequest> codec;
+        private final Metadata metadata;
+        private final SplitManager splitManager;
+
+        public JoinFragmentMaster(String queryId, int pageBufferMax, ExecutorService executor, Metadata metadata, SplitManager splitManager, JsonCodec<QueryFragmentRequest> codec)
+        {
+            this.masterQueryState = new MasterQueryState(queryId, new QueryState(ImmutableList.of(new TupleInfo(FIXED_INT_64, FIXED_INT_64, FIXED_INT_64)), 1, pageBufferMax));
+            this.executor = executor;
+            this.codec = codec;
+            httpClient = new ApacheHttpClient(new HttpClientConfig()
+                    .setConnectTimeout(new Duration(5, TimeUnit.MINUTES))
+                    .setReadTimeout(new Duration(5, TimeUnit.MINUTES)));
+            this.metadata = metadata;
+            this.splitManager = splitManager;
+        }
+
+        @Override
+        public MasterQueryState getMasterQueryState()
+        {
+            return masterQueryState;
+        }
+
+        @Override
+        public QueryState getQueryState()
+        {
+            return masterQueryState.getOutputQueryState();
+        }
+
+        @Override
+        public List<TupleInfo> getTupleInfos()
+        {
+            return masterQueryState.getOutputQueryState().getTupleInfos();
+        }
+
+        @Override
+        public void run()
+        {
+            QueryState queryState = masterQueryState.getOutputQueryState();
+            try {
+                final List<Split> buildSplits = scheduleBuildTableScan();
+
+                final TableMetadata table = metadata.getTable("default", "default", "hivedba_query_stats");
+                Iterable<SplitAssignments> splitAssignments = splitManager.getSplitAssignments(table.getTableHandle().get());
+
+//                final PlanFragment planFragment = new PlanFragment("join-worker",
+//                        ImmutableList.of(
+//                                table.getColumns().get(2).getColumnHandle().get(),
+//                                table.getColumns().get(6).getColumnHandle().get()
+//                        )
+//                );
+                final PlanFragment planFragment = null;
+
+                Multimap<Node, Split> nodeSplits = SplitAssignments.randomNodeAssignment(new Random(), splitAssignments);
+                List<HttpQueryProvider> driverProviders = ImmutableList.copyOf(
+                        transform(nodeSplits.asMap().entrySet(), new Function<Entry<Node, Collection<Split>>, HttpQueryProvider>()
+                        {
+                            @Override
+                            public HttpQueryProvider apply(Entry<Node, Collection<Split>> splits)
+                            {
+                                ImmutableMap<String, List<Split>> sources = ImmutableMap.<String, List<Split>>of(
+                                        "probe", ImmutableList.copyOf(splits.getValue()),
+                                        "build", ImmutableList.copyOf(buildSplits)
+                                );
+                                QueryFragmentRequest queryFragmentRequest = new QueryFragmentRequest(sources, planFragment);
+
+                                return new HttpQueryProvider(
+                                        jsonBodyGenerator(codec, queryFragmentRequest),
+                                        Optional.of(MediaType.APPLICATION_JSON),
+                                        httpClient,
+                                        executor,
+                                        splits.getKey().getHttpUri().resolve("/v1/presto/query")
+                                );
+
+                            }
+                        }));
+
+                masterQueryState.addStage("join-worker", driverProviders);
+
+                // wait for all queries to start
+                waitForRunning(driverProviders);
+
+                QueryDriversOperator operator = new QueryDriversOperator(10, driverProviders);
+
+                AggregationOperator aggregation = new AggregationOperator(operator,
+                        ImmutableList.of(finalAggregation(countAggregation(0, 0)), finalAggregation(longSumAggregation(1, 0)), finalAggregation(longSumAggregation(2, 0))),
+                        ImmutableList.of(concat(singleColumn(FIXED_INT_64, 0, 0), singleColumn(FIXED_INT_64, 1, 0), singleColumn(FIXED_INT_64, 2, 0))));
+
+                for (Page page : aggregation) {
+                    queryState.addPage(page);
+                }
+                queryState.sourceFinished();
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                queryState.queryFailed(e);
+                throw Throwables.propagate(e);
+            }
+            catch (Exception e) {
+                queryState.queryFailed(e);
+                throw Throwables.propagate(e);
+            }
+        }
+
+        private List<Split> scheduleBuildTableScan()
+        {
+            TableMetadata table = metadata.getTable("default", "default", "hivedba_query_stats");
+            Iterable<SplitAssignments> splitAssignments = splitManager.getSplitAssignments(table.getTableHandle().get());
+
+            final PlanFragment buildPlanFragment = null;
+//            final PlanFragment buildPlanFragment = new PlanFragment("join-build-worker",
+//                    ImmutableList.of(
+//                            table.getColumns().get(2).getColumnHandle().get(),
+//                            table.getColumns().get(6).getColumnHandle().get()
+//                    )
+//            );
+
+            Multimap<Node, Split> nodeSplits = SplitAssignments.randomNodeAssignment(new Random(), splitAssignments);
+            List<HttpQueryProvider> queryProviders = ImmutableList.copyOf(transform(nodeSplits.asMap().entrySet(), new Function<Entry<Node, Collection<Split>>, HttpQueryProvider>()
+            {
+                @Override
+                public HttpQueryProvider apply(Entry<Node, Collection<Split>> splits)
+                {
+                    ImmutableMap<String, List<Split>> sources = ImmutableMap.<String, List<Split>>of("source", ImmutableList.copyOf(splits.getValue()));
+                    QueryFragmentRequest queryFragmentRequest = new QueryFragmentRequest(sources, buildPlanFragment);
+
+                    return new HttpQueryProvider(
+                            jsonBodyGenerator(codec, queryFragmentRequest),
+                            Optional.of(MediaType.APPLICATION_JSON),
+                            httpClient,
+                            executor,
+                            splits.getKey().getHttpUri().resolve("/v1/presto/query")
+                    );
+                }
+            }));
+
+            masterQueryState.addStage("join-build-worker", queryProviders);
+
+            // wait for all queries to start
+            waitForRunning(queryProviders);
+
+            // create a split for each query
+            List<Split> splits = ImmutableList.copyOf(Lists.transform(queryProviders, new Function<HttpQueryProvider, Split>()
+            {
+                @Override
+                public Split apply(HttpQueryProvider queryProvider)
+                {
+                    return new ExchangeSplit(queryProvider.getLocation());
+                }
+            }));
+            return splits;
+        }
+    }
+
+    private static class JoinWorker
+            implements QueryTask
+    {
+        private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_LONG, SINGLE_LONG, SINGLE_LONG);
+        private final String queryId;
+        private final QueryState queryState;
+        private final List<Split> probeSplits;
+        private final List<Split> buildSplits;
+        private final List<ColumnHandle> columnHandles;
+
+        private final DataStreamProvider dataStreamProvider;
+
+        private final SourceHashManager sourceHashManager;
+        private final ThreadPoolExecutor shardExecutor;
+
+        public JoinWorker(String queryId,
+                int pageBufferMax,
+                Map<String, List<Split>> sourceSplits,
+                List<ColumnHandle> columnHandles,
+                DataStreamProvider dataStreamProvider,
+                SourceHashManager sourceHashManager, ThreadPoolExecutor shardExecutor)
+        {
+            this.queryId = queryId;
+            this.queryState = new QueryState(TUPLE_INFOS, 1, pageBufferMax);
+
+            this.probeSplits = sourceSplits.get("probe");
+            this.buildSplits = sourceSplits.get("build");
+            this.shardExecutor = shardExecutor;
+            this.columnHandles = ImmutableList.copyOf(columnHandles);
+            this.dataStreamProvider = dataStreamProvider;
+
+            this.sourceHashManager = sourceHashManager;
+        }
+
+        @Override
+        public QueryState getQueryState()
+        {
+            return queryState;
+        }
+
+        @Override
+        public List<TupleInfo> getTupleInfos()
+        {
+            return TUPLE_INFOS;
+        }
+
+        @Override
+        public void run()
+        {
+            try {
+                final SourceHashProvider hashProvider = sourceHashManager.getSourceHashProvider(queryId,
+                        0,
+                        1_000_000,
+                        buildSplits,
+                        ImmutableList.of(SINGLE_VARBINARY, SINGLE_LONG)
+                );
+
+                List<Future<Void>> results = shardExecutor.invokeAll(Lists.transform(probeSplits, new Function<Split, Callable<Void>>()
+                {
+                    @Override
+                    public Callable<Void> apply(Split split)
+                    {
+                        return new SplitJoinWorker(queryState, split, columnHandles, dataStreamProvider, hashProvider);
+                    }
+                }));
+
+                checkQueryResults(results);
+
+                queryState.sourceFinished();
+                sourceHashManager.dropSourceHashProvider(queryId);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                queryState.queryFailed(e);
+                throw Throwables.propagate(e);
+            }
+            catch (Exception e) {
+                queryState.queryFailed(e);
+                throw Throwables.propagate(e);
+            }
+        }
+
+        private static class SplitJoinWorker
+                implements Callable<Void>
+        {
+            private final QueryState queryState;
+            private final Split split;
+            private final List<ColumnHandle> columnHandles;
+            private final DataStreamProvider dataStreamProvider;
+            private final SourceHashProvider hashProvider;
+
+            private SplitJoinWorker(QueryState queryState, Split split, List<ColumnHandle> columnHandles, DataStreamProvider dataStreamProvider, SourceHashProvider hashProvider)
+            {
+                this.queryState = queryState;
+                this.split = split;
+                this.columnHandles = columnHandles;
+                this.dataStreamProvider = dataStreamProvider;
+                this.hashProvider = hashProvider;
+            }
+
+            @Override
+            public Void call()
+                    throws Exception
+            {
+                try {
+                    Operator dataStream = dataStreamProvider.createDataStream(split, columnHandles);
+                    HashJoinOperator hashJoinOperator = new HashJoinOperator(hashProvider, dataStream, 0);
+                    AggregationOperator sumOperator = new AggregationOperator(
+                            hashJoinOperator,
+                            ImmutableList.of(partialAggregation(countAggregation(1, 0)),
+                                    partialAggregation(longSumAggregation(1, 0)),
+                                    partialAggregation(longSumAggregation(2, 0))),
+                            ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0), singleColumn(FIXED_INT_64, 1, 0), singleColumn(FIXED_INT_64, 2, 0)));
+
+                    for (Page page : sumOperator) {
+                        queryState.addPage(page);
+                    }
+                    return null;
+
+                }
+                catch (Exception e) {
+                    queryState.queryFailed(e);
+                    throw e;
+                }
+            }
+        }
+    }
+
+
+    private static class JoinBuildTableWorker
+            implements QueryTask
+    {
+        private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_VARBINARY, SINGLE_LONG);
+        private final QueryState queryState;
+        private final List<Split> splits;
+        private final List<ColumnHandle> columnHandles;
+        private final DataStreamProvider dataStreamProvider;
+        private final ThreadPoolExecutor shardExecutor;
+
+        private JoinBuildTableWorker(int pageBufferMax,
+                Map<String, List<Split>> sourceSplits,
+                List<ColumnHandle> columnHandles,
+                DataStreamProvider dataStreamProvider,
+                ThreadPoolExecutor shardExecutor)
+        {
+            this.queryState = new QueryState(TUPLE_INFOS, 1, pageBufferMax);
+            this.splits = sourceSplits.get("source");
+            this.columnHandles = ImmutableList.copyOf(columnHandles);
+            this.dataStreamProvider = dataStreamProvider;
+            this.shardExecutor = shardExecutor;
+        }
+
+        @Override
+        public QueryState getQueryState()
+        {
+            return queryState;
+        }
+
+        @Override
+        public List<TupleInfo> getTupleInfos()
+        {
+            return TUPLE_INFOS;
+        }
+
+        @Override
+        public void run()
+        {
+            try {
+                List<Future<Void>> results = shardExecutor.invokeAll(Lists.transform(splits, new Function<Split, Callable<Void>>()
+                {
+                    @Override
+                    public Callable<Void> apply(Split split)
+                    {
+                        return new SplitJoinBuildTableWorker(queryState, split, columnHandles, dataStreamProvider);
+                    }
+                }));
+
+                checkQueryResults(results);
+
+                queryState.sourceFinished();
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                queryState.queryFailed(e);
+                throw Throwables.propagate(e);
+            }
+            catch (Exception e) {
+                queryState.queryFailed(e);
+                throw Throwables.propagate(e);
+            }
+        }
+
+        private static class SplitJoinBuildTableWorker
+                implements Callable<Void>
+        {
+            private final QueryState queryState;
+            private final Split split;
+            private final List<ColumnHandle> columnHandles;
+            private final DataStreamProvider dataStreamProvider;
+
+            private SplitJoinBuildTableWorker(QueryState queryState, Split split, List<ColumnHandle> columnHandles, DataStreamProvider dataStreamProvider)
+            {
+                this.queryState = queryState;
+                this.split = split;
+                this.columnHandles = columnHandles;
+                this.dataStreamProvider = dataStreamProvider;
+            }
+
+            @Override
+            public Void call()
+                    throws Exception
+            {
+                try {
+                    Operator dataStream = dataStreamProvider.createDataStream(split, columnHandles);
+                    LimitOperator limitOperator = new LimitOperator(dataStream, 2);
+
+                    for (Page page : limitOperator) {
+                        queryState.addPage(page);
+                    }
+                    return null;
+                }
+                catch (Exception e) {
+                    queryState.queryFailed(e);
+                    throw e;
+                }
+            }
+        }
+    }
+
     private static class ImportTableQuery
             implements MasterQueryTask
     {
@@ -803,7 +1229,7 @@ public class StaticQueryManager
         while (true) {
             long start = System.nanoTime();
 
-            queryProviders = ImmutableList.copyOf(Iterables.filter(queryProviders, new Predicate<HttpQueryProvider>()
+            queryProviders = ImmutableList.copyOf(filter(queryProviders, new Predicate<HttpQueryProvider>()
             {
                 @Override
                 public boolean apply(HttpQueryProvider queryProvider)

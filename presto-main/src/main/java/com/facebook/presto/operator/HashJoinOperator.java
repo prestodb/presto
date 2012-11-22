@@ -1,6 +1,5 @@
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.tuple.TupleInfo;
@@ -11,45 +10,44 @@ import com.google.common.collect.ImmutableList;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.hive.shaded.com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkState;
 
 public class HashJoinOperator
         implements Operator
 {
-    private final Operator buildSource;
-    private final int buildJoinChannel;
     private final Operator probeSource;
     private final int probeJoinChannel;
     private final List<TupleInfo> tupleInfos;
+    private final SourceHashProvider sourceHashProvider;
+    private final int channelCount;
 
-    public HashJoinOperator(Operator buildSource, int buildJoinChannel, Operator probeSource, int probeJoinChannel)
+    public HashJoinOperator(SourceHashProvider sourceHashProvider, Operator probeSource, int probeJoinChannel)
     {
-        Preconditions.checkNotNull(buildSource, "buildSource is null");
-        Preconditions.checkArgument(buildJoinChannel >= 0, "buildJoinChannel is negative");
+        Preconditions.checkNotNull(sourceHashProvider, "sourceHashProvider is null");
         Preconditions.checkNotNull(probeSource, "probeSource is null");
         Preconditions.checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
 
-        this.buildSource = buildSource;
-        this.buildJoinChannel = buildJoinChannel;
+        this.sourceHashProvider = sourceHashProvider;
         this.probeSource = probeSource;
         this.probeJoinChannel = probeJoinChannel;
 
         ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
         tupleInfos.addAll(probeSource.getTupleInfos());
         int buildChannel = 0;
-        for (TupleInfo tupleInfo : buildSource.getTupleInfos()) {
-            if (buildChannel != buildJoinChannel) {
+        for (TupleInfo tupleInfo : this.sourceHashProvider.getTupleInfos()) {
+            if (buildChannel != this.sourceHashProvider.getHashChannel()) {
                 tupleInfos.add(tupleInfo);
             }
             buildChannel++;
         }
         this.tupleInfos = tupleInfos.build();
+        channelCount = this.sourceHashProvider.getChannelCount() + this.probeSource.getChannelCount() - 1;
     }
 
     @Override
     public int getChannelCount()
     {
-        return buildSource.getChannelCount() + probeSource.getChannelCount() - 1;
+        return channelCount;
     }
 
     @Override
@@ -61,7 +59,7 @@ public class HashJoinOperator
     @Override
     public Iterator<Page> iterator()
     {
-        return new HashJoinIterator(tupleInfos, buildSource, buildJoinChannel, probeSource, probeJoinChannel, 1_000_000);
+        return new HashJoinIterator(tupleInfos, probeSource, probeJoinChannel, sourceHashProvider);
     }
 
     private static class HashJoinIterator
@@ -72,36 +70,49 @@ public class HashJoinOperator
         private final Iterator<Page> probeIterator;
         private final int probeJoinChannel;
 
-        private final PagesIndex buildIndex;
-        private final BlocksHash hash;
+        private final SourceHash hash;
 
-        private final int buildJoinChannel;
+        private final BlockCursor[] cursors;
+        private int joinPosition = -1;
 
-        private HashJoinIterator(List<TupleInfo> tupleInfos, Operator buildSource, int buildJoinChannel, Operator probeSource, int probeJoinChannel, int expectedPositions)
+        private HashJoinIterator(List<TupleInfo> tupleInfos, Operator probeSource, int probeJoinChannel, SourceHashProvider sourceHashProvider)
         {
             this.tupleInfos = tupleInfos;
-            this.buildJoinChannel = buildJoinChannel;
             probeIterator = probeSource.iterator();
             this.probeJoinChannel = probeJoinChannel;
 
-            // index build channel
-            buildIndex = new PagesIndex(buildSource, expectedPositions);
-            hash = new BlocksHash(buildIndex.getIndex(buildJoinChannel));
+            hash = sourceHashProvider.get();
+            cursors = new BlockCursor[probeSource.getChannelCount()];
         }
 
         protected Page computeNext()
         {
-            if (!probeIterator.hasNext()) {
-                return endOfData();
-            }
-
             // create output
             PageBuilder pageBuilder = new PageBuilder(tupleInfos);
 
             // join probe pages with the hash
-            while (!pageBuilder.isFull() && probeIterator.hasNext()) {
-                Page page = probeIterator.next();
-                join(page, pageBuilder);
+            while (joinPosition(pageBuilder)) {
+                // advance cursors (only if we have initialized the cursors)
+                if (cursors[0] == null || !advanceNextPosition()) {
+                    // advance failed, do we have more cursors
+                    if (!probeIterator.hasNext()) {
+                        break;
+                    }
+
+                    // open next cursor
+                    Page page = probeIterator.next();
+                    for (int i = 0; i < page.getChannelCount(); i++) {
+                        cursors[i] = page.getBlock(i).cursor();
+                        cursors[i].advanceNextPosition();
+                    }
+
+                    // set hashing strategy to use probe block
+                    UncompressedBlock probeJoinBlock = (UncompressedBlock) page.getBlock(probeJoinChannel);
+                    hash.setProbeSlice(probeJoinBlock.getSlice());
+                }
+
+                // update join position
+                joinPosition = hash.getJoinPosition(cursors[probeJoinChannel]);
             }
 
             // output data
@@ -112,47 +123,46 @@ public class HashJoinOperator
             return page;
         }
 
-        private void join(Page page, PageBuilder pageBuilder)
+        private boolean joinPosition(PageBuilder pageBuilder)
         {
-            // open cursors
-            BlockCursor[] cursors = new BlockCursor[page.getChannelCount()];
-            Block[] blocks = page.getBlocks();
-            for (int i = 0; i < page.getChannelCount(); i++) {
-                cursors[i] = blocks[i].cursor();
-            }
-
-            // set hashing strategy to use probe block
-            UncompressedBlock probeJoinBlock = (UncompressedBlock) page.getBlock(probeJoinChannel);
-            hash.setProbeSlice(probeJoinBlock.getSlice());
-
-            int rows = page.getPositionCount();
-            for (int position = 0; position < rows; position++) {
-                // advance cursors
-                for (BlockCursor cursor : cursors) {
-                    checkState(cursor.advanceNextPosition());
+            // while we have a position to join against...
+            while (joinPosition >= 0) {
+                // write probe columns
+                for (int probeChannel = 0; probeChannel < cursors.length; probeChannel++) {
+                    cursors[probeChannel].appendTupleTo(pageBuilder.getBlockBuilder(probeChannel));
                 }
 
-                // lookup the position of the "first" joined row
-                int joinPosition = hash.get(cursors[probeJoinChannel]);
-                // while we have a position to join against...
-                while (joinPosition >= 0) {
-                    for (int probeChannel = 0; probeChannel < cursors.length; probeChannel++) {
-                        cursors[probeChannel].appendTupleTo(pageBuilder.getBlockBuilder(probeChannel));
+                // write build columns
+                int outputIndex = cursors.length;
+                for (int buildChannel = 0; buildChannel < hash.getChannelCount(); buildChannel++) {
+                    if (buildChannel != hash.getHashChannel()) {
+                        hash.appendTupleTo(buildChannel, joinPosition, pageBuilder.getBlockBuilder(outputIndex));
+                        outputIndex++;
                     }
+                }
 
-                    int outputIndex = page.getChannelCount();
-                    for (int buildChannel = 0; buildChannel < buildIndex.getChannelCount(); buildChannel++) {
-                        if (buildChannel != buildJoinChannel) {
-                            buildIndex.appendTupleTo(buildChannel, joinPosition, pageBuilder.getBlockBuilder(outputIndex));
-                            outputIndex++;
-                        }
-                    }
-                    joinPosition = hash.getNextPosition(joinPosition);
+                // get next join position for this row
+                joinPosition = hash.getNextJoinPosition(joinPosition);
+                if (pageBuilder.isFull()) {
+                    return false;
                 }
             }
+            return true;
+        }
 
-            for (BlockCursor cursor : cursors) {
-                checkState(!cursor.advanceNextPosition());
+        public boolean advanceNextPosition()
+        {
+            if (cursors[0].advanceNextPosition()) {
+                for (int i = 1; i < cursors.length; i++) {
+                    checkState(cursors[i].advanceNextPosition());
+                }
+                return true;
+            }
+            else {
+                for (int i = 1; i < cursors.length; i++) {
+                    checkState(!cursors[i].advanceNextPosition());
+                }
+                return false;
             }
         }
     }
