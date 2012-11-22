@@ -6,5 +6,5 @@ import java.io.File;
 
 public interface TpchDataProvider
 {
-    File getColumnFile(TpchSchema.Column column, BlocksFileEncoding encoding);
+    File getDataFile(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding);
 }

@@ -38,6 +38,7 @@ import com.google.common.collect.Ordering;
 
 import javax.inject.Provider;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -237,26 +238,17 @@ public class ExecutionPlanner
     {
         TableMetadata tableMetadata = metadata.getTable(QualifiedName.of(node.getCatalogName(), node.getSchemaName(), node.getTableName()));
 
-        BlockIterable[] blocks = new BlockIterable[node.getAttributes().size()];
+        Integer[] indicies = new Integer[node.getAttributes().size()];
 
         Map<Slot, Integer> slotToChannelMappings = mapSlotsToChannels(node.getOutputs());
 
         for (Map.Entry<String, Slot> entry : node.getAttributes().entrySet()) {
-
-            int index = 0;
-            for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
-                String attribute = entry.getKey();
-                if (columnMetadata.getName().equals(attribute)) {
-                    break;
-                }
-                ++index;
-            }
-
             int channel = slotToChannelMappings.get(entry.getValue());
-            blocks[channel] = storage.getBlocks(node.getSchemaName(), node.getTableName(), index);
+            indicies[channel] = findIndex(entry.getKey(), tableMetadata);
         }
 
-        return new AlignmentOperator(blocks);
+        // TODO: replace this with DataStreamProvider when plans are operating in terms of handles
+        return storage.getOperator(node.getSchemaName(), node.getTableName(), Arrays.asList(indicies));
     }
 
     public static TupleInfo toTupleInfo(Iterable<Slot> slots)
@@ -275,5 +267,15 @@ public class ExecutionPlanner
             slotToChannelMappings.put(outputs.get(i), i);
         }
         return slotToChannelMappings;
+    }
+
+    private int findIndex(String columnName, TableMetadata tableMetadata)
+    {
+        for (int index = 0; index < tableMetadata.getColumns().size(); index++) {
+            if (tableMetadata.getColumns().get(index).getName().equals(columnName)) {
+                return index;
+            }
+        }
+        throw new IllegalArgumentException("Unknown column name: " + columnName);
     }
 }

@@ -11,13 +11,11 @@ import com.facebook.presto.ingest.RecordIterator;
 import com.facebook.presto.ingest.RecordProjection;
 import com.facebook.presto.ingest.RecordProjections;
 import com.facebook.presto.ingest.StringRecord;
-import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.LegacyStorageManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.Analyzer;
@@ -29,20 +27,28 @@ import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.Planner;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.tpch.TpchBlocksProvider;
+import com.facebook.presto.tpch.TpchColumnHandle;
+import com.facebook.presto.tpch.TpchDataStreamProvider;
+import com.facebook.presto.tpch.TpchLegacyStorageManagerAdapter;
 import com.facebook.presto.tpch.TpchSchema;
+import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.io.CharStreams;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.Resources;
+import io.airlift.units.DataSize;
 import org.antlr.runtime.RecognitionException;
 import org.intellij.lang.annotations.Language;
 import org.skife.jdbi.v2.DBI;
@@ -63,6 +69,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.zip.GZIPInputStream;
 
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
@@ -125,113 +132,17 @@ public class TestQueries
                 ")");
         insertRows("lineitem", handle, lineItemRecords);
 
-        List<TableMetadata> tables = ImmutableList.of(
-                new TableMetadata(SessionMetadata.DEFAULT_CATALOG, SessionMetadata.DEFAULT_SCHEMA, "ORDERS",
-                        ImmutableList.of(
-                                new ColumnMetadata("orderkey", TupleInfo.Type.FIXED_INT_64),
-                                new ColumnMetadata("custkey", TupleInfo.Type.FIXED_INT_64),
-                                new ColumnMetadata("totalprice", TupleInfo.Type.DOUBLE),
-                                new ColumnMetadata("orderdate", TupleInfo.Type.VARIABLE_BINARY),
-                                new ColumnMetadata("orderstatus", TupleInfo.Type.VARIABLE_BINARY),
-                                new ColumnMetadata("orderpriority", TupleInfo.Type.VARIABLE_BINARY),
-                                new ColumnMetadata("clerk", TupleInfo.Type.VARIABLE_BINARY),
-                                new ColumnMetadata("shippriority", TupleInfo.Type.VARIABLE_BINARY),
-                                new ColumnMetadata("comment", TupleInfo.Type.VARIABLE_BINARY))),
-                new TableMetadata(SessionMetadata.DEFAULT_CATALOG, SessionMetadata.DEFAULT_SCHEMA, "LINEITEM",
-                        ImmutableList.of(
-                                new ColumnMetadata("orderkey", TupleInfo.Type.FIXED_INT_64),
-                                new ColumnMetadata("partkey", TupleInfo.Type.FIXED_INT_64),
-                                new ColumnMetadata("suppkey", TupleInfo.Type.FIXED_INT_64),
-                                new ColumnMetadata("linenumber", TupleInfo.Type.FIXED_INT_64),
-                                new ColumnMetadata("quantity", TupleInfo.Type.FIXED_INT_64),
-                                new ColumnMetadata("extendedprice", TupleInfo.Type.DOUBLE),
-                                new ColumnMetadata("discount", TupleInfo.Type.DOUBLE),
-                                new ColumnMetadata("tax", TupleInfo.Type.DOUBLE),
-                                new ColumnMetadata("returnflag", TupleInfo.Type.VARIABLE_BINARY),
-                                new ColumnMetadata("linestatus", TupleInfo.Type.VARIABLE_BINARY),
-                                new ColumnMetadata("shipdate", TupleInfo.Type.VARIABLE_BINARY),
-                                new ColumnMetadata("commitdate", TupleInfo.Type.VARIABLE_BINARY),
-                                new ColumnMetadata("receiptdate", TupleInfo.Type.VARIABLE_BINARY),
-                                new ColumnMetadata("shipinstruct", TupleInfo.Type.VARIABLE_BINARY),
-                                new ColumnMetadata("shipmode", TupleInfo.Type.VARIABLE_BINARY),
-                                new ColumnMetadata("comment", TupleInfo.Type.VARIABLE_BINARY)))
+        metadata = TpchSchema.createMetadata();
+
+
+        TestTpchBlocksProvider testTpchBlocksProvider = new TestTpchBlocksProvider(
+                ImmutableMap.of(
+                        "orders", ordersRecords,
+                        "lineitem", lineItemRecords
+                )
         );
 
-        metadata = new TestingMetadata();
-        for (TableMetadata table : tables) {
-            metadata.createTable(table);
-        }
-
-        storage = new LegacyStorageManager()
-        {
-            @Override
-            public BlockIterable getBlocks(String databaseName, String tableName, int fieldIndex)
-            {
-                if (tableName.equalsIgnoreCase("ORDERS")) {
-                    switch (fieldIndex) {
-                        case 0:
-                            return createBlocks(ordersRecords, TpchSchema.Orders.ORDERKEY, FIXED_INT_64);
-                        case 1:
-                            return createBlocks(ordersRecords, TpchSchema.Orders.CUSTKEY, FIXED_INT_64);
-                        case 2:
-                            return createBlocks(ordersRecords, TpchSchema.Orders.TOTALPRICE, DOUBLE);
-                        case 3:
-                            return createBlocks(ordersRecords, TpchSchema.Orders.ORDERDATE, VARIABLE_BINARY);
-                        case 4:
-                            return createBlocks(ordersRecords, TpchSchema.Orders.ORDERSTATUS, VARIABLE_BINARY);
-                        case 5:
-                            return createBlocks(ordersRecords, TpchSchema.Orders.ORDERPRIORITY, VARIABLE_BINARY);
-                        case 6:
-                            return createBlocks(ordersRecords, TpchSchema.Orders.CLERK, VARIABLE_BINARY);
-                        case 7:
-                            return createBlocks(ordersRecords, TpchSchema.Orders.SHIPPRIORITY, VARIABLE_BINARY);
-                        case 8:
-                            return createBlocks(ordersRecords, TpchSchema.Orders.COMMENT, VARIABLE_BINARY);
-                        default:
-                            throw new UnsupportedOperationException("not yet implemented: " + fieldIndex);
-                    }
-                }
-                else if (tableName.equalsIgnoreCase("LINEITEM")) {
-                    switch (fieldIndex) {
-                        case 0:
-                            return createBlocks(lineItemRecords, TpchSchema.LineItem.ORDERKEY, FIXED_INT_64);
-                        case 1:
-                            return createBlocks(lineItemRecords, TpchSchema.LineItem.PARTKEY, FIXED_INT_64);
-                        case 2:
-                            return createBlocks(lineItemRecords, TpchSchema.LineItem.SUPPKEY, FIXED_INT_64);
-                        case 3:
-                            return createBlocks(lineItemRecords, TpchSchema.LineItem.LINENUMBER, FIXED_INT_64);
-                        case 4:
-                            return createBlocks(lineItemRecords, TpchSchema.LineItem.QUANTITY, FIXED_INT_64);
-                        case 5:
-                            return createBlocks(lineItemRecords, TpchSchema.LineItem.EXTENDEDPRICE, DOUBLE);
-                        case 6:
-                            return createBlocks(lineItemRecords, TpchSchema.LineItem.DISCOUNT, DOUBLE);
-                        case 7:
-                            return createBlocks(lineItemRecords, TpchSchema.LineItem.TAX, DOUBLE);
-                        case 8:
-                            return createBlocks(lineItemRecords, TpchSchema.LineItem.RETURNFLAG, VARIABLE_BINARY);
-                        case 9:
-                            return createBlocks(lineItemRecords, TpchSchema.LineItem.LINESTATUS, VARIABLE_BINARY);
-                        case 10:
-                            return createBlocks(lineItemRecords, TpchSchema.LineItem.SHIPDATE, VARIABLE_BINARY);
-                        case 11:
-                            return createBlocks(lineItemRecords, TpchSchema.LineItem.COMMITDATE, VARIABLE_BINARY);
-                        case 12:
-                            return createBlocks(lineItemRecords, TpchSchema.LineItem.RECEIPTDATE, VARIABLE_BINARY);
-                        case 13:
-                            return createBlocks(lineItemRecords, TpchSchema.LineItem.SHIPINSTRUCT, VARIABLE_BINARY);
-                        case 14:
-                            return createBlocks(lineItemRecords, TpchSchema.LineItem.SHIPMODE, VARIABLE_BINARY);
-                        case 15:
-                            return createBlocks(lineItemRecords, TpchSchema.LineItem.COMMENT, VARIABLE_BINARY);
-                        default:
-                            throw new UnsupportedOperationException("not yet implemented: " + fieldIndex);
-                    }
-                }
-                throw new UnsupportedOperationException("not yet implemented: " + tableName);
-            }
-        };
+        storage = new TpchLegacyStorageManagerAdapter(new TpchDataStreamProvider(testTpchBlocksProvider));
     }
 
     @AfterSuite
@@ -334,8 +245,8 @@ public class TestQueries
     @Test
     public void testWildcard()
     {
-        List<Tuple> expected = computeExpected("SELECT orderkey, custkey, totalprice, orderdate, orderstatus, orderpriority, clerk, shippriority, comment FROM ORDERS",
-                FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY);
+        List<Tuple> expected = computeExpected("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment FROM ORDERS",
+                FIXED_INT_64, FIXED_INT_64, VARIABLE_BINARY, DOUBLE, VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY);
         List<Tuple> actual = computeActual("SELECT * FROM ORDERS");
 
         assertEqualsIgnoreOrder(actual, expected);
@@ -344,8 +255,8 @@ public class TestQueries
     @Test
     public void testQualifiedWildcardFromAlias()
     {
-        List<Tuple> expected = computeExpected("SELECT orderkey, custkey, totalprice, orderdate, orderstatus, orderpriority, clerk, shippriority, comment FROM ORDERS",
-                FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY);
+        List<Tuple> expected = computeExpected("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment FROM ORDERS",
+                FIXED_INT_64, FIXED_INT_64, VARIABLE_BINARY, DOUBLE, VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY);
         List<Tuple> actual = computeActual("SELECT T.* FROM ORDERS T");
 
         assertEqualsIgnoreOrder(actual, expected);
@@ -364,8 +275,8 @@ public class TestQueries
     @Test
     public void testQualifiedWildcard()
     {
-        List<Tuple> expected = computeExpected("SELECT orderkey, custkey, totalprice, orderdate, orderstatus, orderpriority, clerk, shippriority, comment FROM ORDERS",
-                FIXED_INT_64, FIXED_INT_64, DOUBLE, VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY);
+        List<Tuple> expected = computeExpected("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment FROM ORDERS",
+                FIXED_INT_64, FIXED_INT_64, VARIABLE_BINARY, DOUBLE, VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY);
         List<Tuple> actual = computeActual("SELECT ORDERS.* FROM ORDERS");
 
         assertEqualsIgnoreOrder(actual, expected);
@@ -578,6 +489,7 @@ public class TestQueries
         }
 
         SessionMetadata sessionMetadata = new SessionMetadata(metadata);
+        sessionMetadata.using(TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
 
         Analyzer analyzer = new Analyzer(sessionMetadata);
         AnalysisResult analysis = analyzer.analyze(statement);
@@ -740,42 +652,60 @@ public class TestQueries
         };
     }
 
-    private BlockIterable createBlocks(final RecordIterable data, final TpchSchema.Column column, final TupleInfo.Type type)
+    private static class TestTpchBlocksProvider
+        implements TpchBlocksProvider
     {
-        final RecordProjection projection = RecordProjections.createProjection(column.getIndex(), type);
+        private final Map<String, RecordIterable> data;
 
-        return new BlockIterable()
+        private TestTpchBlocksProvider(Map<String, RecordIterable> data)
         {
-            @Override
-            public TupleInfo getTupleInfo()
+            Preconditions.checkNotNull(data, "data is null");
+            this.data = ImmutableMap.copyOf(data);
+        }
+
+        @Override
+        public BlockIterable getBlocks(final TpchTableHandle tableHandle, final TpchColumnHandle columnHandle, BlocksFileEncoding encoding)
+        {
+            return new BlockIterable()
             {
-                return new TupleInfo(type);
-            }
+                @Override
+                public TupleInfo getTupleInfo()
+                {
+                    return new TupleInfo(columnHandle.getType());
+                }
 
-            @Override
-            public Iterator<Block> iterator()
-            {
-                return new AbstractIterator<Block>() {
-                    RecordIterator iterator = data.iterator();
+                @Override
+                public Iterator<Block> iterator()
+                {
+                    return new AbstractIterator<Block>() {
+                        private final RecordIterator iterator = data.get(tableHandle.getTableName()).iterator();
+                        private final RecordProjection projection = RecordProjections.createProjection(columnHandle.getFieldIndex(), columnHandle.getType());
 
-                    @Override
-                    protected Block computeNext()
-                    {
-                        BlockBuilder builder = new BlockBuilder(new TupleInfo(type));
+                        @Override
+                        protected Block computeNext()
+                        {
+                            BlockBuilder builder = new BlockBuilder(new TupleInfo(columnHandle.getType()));
 
-                        while (iterator.hasNext() && !builder.isFull()) {
-                            Record record = iterator.next();
-                            projection.project(record, builder);
+                            while (iterator.hasNext() && !builder.isFull()) {
+                                Record record = iterator.next();
+                                projection.project(record, builder);
+                            }
+
+                            if (builder.isEmpty()) {
+                                return endOfData();
+                            }
+
+                            return builder.build();
                         }
+                    };
+                }
+            };
+        }
 
-                        if (builder.isEmpty()) {
-                            return endOfData();
-                        }
-
-                        return builder.build();
-                    }
-                };
-            }
-        };
+        @Override
+        public DataSize getColumnDataSize(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding)
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 }
