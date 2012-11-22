@@ -1,8 +1,10 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.operator.Operator;
+
+import java.util.List;
 
 public interface LegacyStorageManager
 {
-    BlockIterable getBlocks(String databaseName, String tableName, int fieldIndex);
+    Operator getOperator(String databaseName, String tableName, List<Integer> fieldIndexes);
 }

@@ -3,12 +3,12 @@
  */
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileReader;
 import com.facebook.presto.serde.BlocksFileStats;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
-import com.facebook.presto.tpch.TpchSchema.Column;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -44,27 +44,28 @@ public class StatsTpchBlocksProvider
     }
 
     @Override
-    public BlocksFileReader getBlocks(Column column, BlocksFileEncoding encoding)
+    public BlockIterable  getBlocks(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding)
     {
-        Slice slice = getColumnSlice(column, encoding);
+        Slice slice = getColumnSlice(tableHandle, columnHandle, encoding);
         BlocksFileReader blocks = BlocksFileReader.readBlocks(slice);
         statsBuilder.add(blocks.getStats());
         return blocks;
     }
 
     @Override
-    public DataSize getColumnDataSize(Column column, BlocksFileEncoding encoding)
+    public DataSize getColumnDataSize(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding)
     {
-        Slice slice = getColumnSlice(column, encoding);
+        Slice slice = getColumnSlice(tableHandle, columnHandle, encoding);
         return new DataSize(slice.length(), Unit.BYTE);
     }
 
-    private Slice getColumnSlice(Column column, BlocksFileEncoding encoding)
+    private Slice getColumnSlice(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding)
     {
-        checkNotNull(column, "column is null");
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkNotNull(columnHandle, "columnHandle is null");
         checkNotNull(encoding, "encoding is null");
 
-        File columnFile = tpchDataProvider.getColumnFile(column, encoding);
+        File columnFile = tpchDataProvider.getDataFile(tableHandle, columnHandle, encoding);
         return mappedFileCache.getUnchecked(columnFile.getAbsolutePath());
     }
 

@@ -1,8 +1,6 @@
 package com.facebook.presto.tpch;
 
 import com.facebook.presto.serde.BlocksFileEncoding;
-import com.facebook.presto.tpch.TpchSchema.Column;
-import com.google.common.base.Preconditions;
 
 import java.io.File;
 import java.util.HashMap;
@@ -22,16 +20,17 @@ public class CachingTpchDataProvider
     }
 
     @Override
-    public File getColumnFile(Column column, BlocksFileEncoding encoding)
+    public File getDataFile(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding)
     {
-        Preconditions.checkNotNull(column, "column is null");
-        Preconditions.checkNotNull(encoding, "encoding is null");
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkNotNull(columnHandle, "columnHandle is null");
+        checkNotNull(encoding, "encoding is null");
 
         // Hack: Use the serdeName as the unique identifier of the serializer
-        TpchColumnRequest columnRequest = new TpchColumnRequest(column, encoding.getName());
+        TpchColumnRequest columnRequest = new TpchColumnRequest(tableHandle, columnHandle, encoding.getName());
         File file = localFileCache.get(columnRequest);
         if (file == null) {
-            file = delegate.getColumnFile(column, encoding);
+            file = delegate.getDataFile(tableHandle, columnHandle, encoding);
             localFileCache.put(columnRequest, file);
         }
         return file;
@@ -39,25 +38,38 @@ public class CachingTpchDataProvider
 
     private static final class TpchColumnRequest
     {
-        private final TpchSchema.Column column;
+        private final TpchTableHandle tableHandle;
+        private final TpchColumnHandle columnHandle;
         private final String serdeName;
 
-        private TpchColumnRequest(TpchSchema.Column column, String serdeName)
+        private TpchColumnRequest(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, String serdeName)
         {
-            this.column = checkNotNull(column, "column is null");
-            this.serdeName = checkNotNull(serdeName, "serdeName is null");
+            this.tableHandle =  checkNotNull(tableHandle, "tableHandle is null");
+            this.columnHandle =  checkNotNull(columnHandle, "columnHandle is null");
+            this.serdeName =  checkNotNull(serdeName, "serdeName is null");
         }
 
         @Override
         public boolean equals(Object o)
         {
-            if (this == o) return true;
-            if (!(o instanceof TpchColumnRequest)) return false;
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof TpchColumnRequest)) {
+                return false;
+            }
 
             TpchColumnRequest that = (TpchColumnRequest) o;
 
-            if (!column.equals(that.column)) return false;
-            if (!serdeName.equals(that.serdeName)) return false;
+            if (!columnHandle.equals(that.columnHandle)) {
+                return false;
+            }
+            if (!serdeName.equals(that.serdeName)) {
+                return false;
+            }
+            if (!tableHandle.equals(that.tableHandle)) {
+                return false;
+            }
 
             return true;
         }
@@ -65,7 +77,8 @@ public class CachingTpchDataProvider
         @Override
         public int hashCode()
         {
-            int result = column.hashCode();
+            int result = tableHandle.hashCode();
+            result = 31 * result + columnHandle.hashCode();
             result = 31 * result + serdeName.hashCode();
             return result;
         }
