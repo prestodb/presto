@@ -34,6 +34,16 @@ public class BlocksHash
                 positionLinks.set(position, oldPosition);
             }
         }
+
+    }
+
+    public BlocksHash(BlocksHash hash)
+    {
+        // hash strategy can not be shared across threads, but everything else can
+        this.hashStrategy = new SliceHashStrategy(hash.hashStrategy.tupleInfo, hash.hashStrategy.slices);
+        this.joinChannelHash = new Long2IntOpenCustomHashMap(hash.joinChannelHash, hashStrategy);
+        joinChannelHash.defaultReturnValue(-1);
+        this.positionLinks = hash.positionLinks;
     }
 
     public void setProbeSlice(Slice slice)

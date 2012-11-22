@@ -13,7 +13,8 @@ public enum DataSourceType
 {
     NATIVE("native"),
     IMPORT("import"),
-    INTERNAL("internal");
+    INTERNAL("internal"),
+    EXCHANGE("exchange"); // remote presto node processing a fragment
 
     private static final Map<String, DataSourceType> NAME_MAP;
     static {
