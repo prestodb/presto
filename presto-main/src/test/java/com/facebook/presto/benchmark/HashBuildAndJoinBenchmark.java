@@ -8,14 +8,12 @@ import com.facebook.presto.operator.SourceHashProvider;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 
-public class HashJoinBenchmark
+public class HashBuildAndJoinBenchmark
         extends AbstractOperatorBenchmark
 {
-    private SourceHashProvider sourceHashProvider;
-
-    public HashJoinBenchmark()
+    public HashBuildAndJoinBenchmark()
     {
-        super("hash_join", 4, 5);
+        super("hash_build_and_join", 4, 5);
     }
 
     /*
@@ -25,14 +23,12 @@ public class HashJoinBenchmark
     @Override
     protected Operator createBenchmarkedOperator(TpchBlocksProvider blocksProvider)
     {
-        if (sourceHashProvider == null) {
-            BlockIterable orderOrderKey = getBlockIterable(blocksProvider, "orders", "orderkey", BlocksFileEncoding.RAW);
-            BlockIterable totalPrice = getBlockIterable(blocksProvider, "orders", "totalprice", BlocksFileEncoding.RAW);
-            AlignmentOperator ordersTableScan = new AlignmentOperator(orderOrderKey, totalPrice);
-//            AlignmentOperator ordersTableScan = new AlignmentOperator(concat(nCopies(100, orderOrderKey)), concat(nCopies(100, totalPrice)));
-//            LimitOperator ordersLimit = new LimitOperator(ordersTableScan, 1_500_000);
-            sourceHashProvider = new SourceHashProvider(ordersTableScan, 0, 1_500_000);
-        }
+        BlockIterable orderOrderKey = getBlockIterable(blocksProvider, "orders", "orderkey", BlocksFileEncoding.RAW);
+        BlockIterable totalPrice = getBlockIterable(blocksProvider, "orders", "totalprice", BlocksFileEncoding.RAW);
+        AlignmentOperator ordersTableScan = new AlignmentOperator(orderOrderKey, totalPrice);
+//        AlignmentOperator ordersTableScan = new AlignmentOperator(concat(nCopies(100, orderOrderKey)), concat(nCopies(100, totalPrice)));
+//        LimitOperator ordersLimit = new LimitOperator(ordersTableScan, 1_500_000);
+        SourceHashProvider sourceHashProvider = new SourceHashProvider(ordersTableScan, 0, 1_500_000);
 
         BlockIterable lineItemOrderKey = getBlockIterable(blocksProvider, "lineitem", "orderkey", BlocksFileEncoding.RAW);
         BlockIterable lineNumber = getBlockIterable(blocksProvider, "lineitem", "quantity", BlocksFileEncoding.RAW);
@@ -45,7 +41,7 @@ public class HashJoinBenchmark
 
     public static void main(String[] args)
     {
-        new HashJoinBenchmark().runBenchmark(
+        new HashBuildAndJoinBenchmark().runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

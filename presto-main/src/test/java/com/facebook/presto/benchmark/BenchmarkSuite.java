@@ -26,6 +26,12 @@ public class BenchmarkSuite
             new Top100Benchmark(),
             new InMemoryOrderByBenchmark(),
 
+            // benchmarks for new non-integrated features
+            new NewInMemoryOrderByBenchmark(),
+            new HashBuildBenchmark(),
+            new HashJoinBenchmark(),
+            new HashBuildAndJoinBenchmark(),
+
             // sql benchmarks
             new GroupBySumWithArithmeticSqlBenchmark(),
             new CountAggregationSqlBenchmark(),
