@@ -12,7 +12,7 @@ import java.util.List;
 public interface QueryManager {
     QueryInfo createQuery(String query);
 
-    QueryInfo createQueryFragment(Split split, PlanFragment planFragment);
+    QueryInfo createQueryFragment(List<Split> splits, PlanFragment planFragment);
 
     List<Page> getQueryResults(String queryId, int maxPageCount)
             throws InterruptedException;
