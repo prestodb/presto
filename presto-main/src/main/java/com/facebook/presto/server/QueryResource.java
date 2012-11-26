@@ -4,12 +4,8 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.split.PlanFragment;
-import com.facebook.presto.split.Split;
 import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
-import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonProperty;
 
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
@@ -28,7 +24,6 @@ import javax.ws.rs.core.UriInfo;
 import java.net.URI;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 
 @Path("/v1/presto/query")
@@ -57,7 +52,7 @@ public class QueryResource
     @Produces(MediaType.APPLICATION_JSON)
     public Response create(QueryFragmentRequest queryFragmentRequest, @Context UriInfo uriInfo)
     {
-        QueryInfo queryInfo = queryManager.createQueryFragment(queryFragmentRequest.getSplit(), queryFragmentRequest.getPlanFragment());
+        QueryInfo queryInfo = queryManager.createQueryFragment(queryFragmentRequest.getSplits(), queryFragmentRequest.getPlanFragment());
         URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryInfo.getQueryId()).build();
         return Response.created(pagesUri).entity(queryInfo).build();
     }

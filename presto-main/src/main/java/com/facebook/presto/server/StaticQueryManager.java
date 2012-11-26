@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.LegacyStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeColumnHandle;
 import com.facebook.presto.metadata.NativeTableHandle;
+import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.operator.Operator;
@@ -39,6 +40,8 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Multimap;
 import com.google.common.io.Files;
 import com.google.common.io.InputSupplier;
 import io.airlift.http.client.ApacheHttpClient;
@@ -53,12 +56,20 @@ import javax.inject.Inject;
 import javax.ws.rs.core.MediaType;
 import java.io.File;
 import java.io.InputStreamReader;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.NoSuchElementException;
+import java.util.Random;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.operator.ProjectionFunctions.concat;
@@ -76,8 +87,8 @@ public class StaticQueryManager
         implements QueryManager
 {
     private final int pageBufferMax;
-    private final ExecutorService masterExecutor;
-    private final ExecutorService slaveExecutor;
+    private final ExecutorService queryExecutor;
+    private final ThreadPoolExecutor shardExecutor;
     private final ImportClientFactory importClientFactory;
     private final ImportManager importManager;
     private final Metadata metadata;
@@ -115,8 +126,20 @@ public class StaticQueryManager
     {
         Preconditions.checkArgument(pageBufferMax > 0, "blockBufferMax must be at least 1");
         this.pageBufferMax = pageBufferMax;
-        masterExecutor = Executors.newFixedThreadPool(10, threadsNamed("master-query-processor-%d"));
-        slaveExecutor = Executors.newFixedThreadPool(1000, threadsNamed("slave-query-processor-%d"));
+
+        int processors = Runtime.getRuntime().availableProcessors();
+        queryExecutor = new ThreadPoolExecutor(processors,
+                1000,
+                1, TimeUnit.MINUTES,
+                new LinkedBlockingQueue<Runnable>(),
+                threadsNamed("query-processor-%d"));
+        shardExecutor = new ThreadPoolExecutor(processors,
+                processors,
+                1, TimeUnit.MINUTES,
+                new SynchronousQueue<Runnable>(),
+                threadsNamed("shard-query-processor-%d"),
+                new ThreadPoolExecutor.CallerRunsPolicy());
+
         this.importClientFactory = importClientFactory;
         this.importManager = importManager;
         this.metadata = metadata;
@@ -165,7 +188,7 @@ public class StaticQueryManager
 
             // e.g.: sum-frag:catalog
             case "sum-frag":
-                queryTask = new SumFragmentMaster(queryState, masterExecutor, metadata, splitManager, queryFragmentRequestJsonCodec, strings.get(1));
+                queryTask = new SumFragmentMaster(queryState, queryExecutor, metadata, splitManager, queryFragmentRequestJsonCodec, strings.get(1));
                 break;
 
             default:
@@ -173,13 +196,13 @@ public class StaticQueryManager
         }
 
         queries.put(queryId, queryState);
-        masterExecutor.submit(queryTask);
+        queryExecutor.submit(queryTask);
 
         return new QueryInfo(queryId, queryTask.getTupleInfos());
     }
 
     @Override
-    public synchronized QueryInfo createQueryFragment(Split split, PlanFragment planFragment)
+    public synchronized QueryInfo createQueryFragment(List<Split> splits, PlanFragment planFragment)
     {
         String queryId = String.valueOf(nextQueryId++);
         QueryState queryState = new QueryState(1, pageBufferMax);
@@ -188,14 +211,14 @@ public class StaticQueryManager
         QueryTask queryTask;
         switch (planFragment.getQuery()) {
             case "sum-frag-worker":
-                queryTask = new SumFragmentWorker(queryState, split, planFragment.getColumnHandles(), dataStreamProvider);
+                queryTask = new SumFragmentWorker(queryState, splits, planFragment.getColumnHandles(), dataStreamProvider, shardExecutor);
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported fragment query: " + planFragment.getQuery());
         }
 
         queries.put(queryId, queryState);
-        slaveExecutor.submit(queryTask);
+        queryExecutor.submit(queryTask);
 
         return new QueryInfo(queryId, queryTask.getTupleInfos());
     }
@@ -250,7 +273,12 @@ public class StaticQueryManager
         private final SplitManager splitManager;
         private final String catalogName;
 
-        public SumFragmentMaster(QueryState queryState, ExecutorService executor, Metadata metadata, SplitManager splitManager, JsonCodec<QueryFragmentRequest> codec, String catalogName)
+        public SumFragmentMaster(QueryState queryState,
+                ExecutorService executor,
+                Metadata metadata,
+                SplitManager splitManager,
+                JsonCodec<QueryFragmentRequest> codec,
+                String catalogName)
         {
             this.queryState = queryState;
             this.codec = codec;
@@ -276,14 +304,15 @@ public class StaticQueryManager
                 final TableMetadata table = metadata.getTable(catalogName, "default", "hivedba_query_stats");
                 Iterable<SplitAssignments> splitAssignments = splitManager.getSplitAssignments(table.getTableHandle().get());
 
+                Multimap<Node, Split> nodeSplits = SplitAssignments.randomNodeAssignment(new Random(), splitAssignments);
                 QueryDriversOperator operator = new QueryDriversOperator(10,
-                        Iterables.transform(splitAssignments, new Function<SplitAssignments, QueryDriverProvider>()
+                        Iterables.transform(nodeSplits.asMap().entrySet(), new Function<Entry<Node, Collection<Split>>, QueryDriverProvider>()
                         {
                             @Override
-                            public QueryDriverProvider apply(SplitAssignments splits)
+                            public QueryDriverProvider apply(Entry<Node, Collection<Split>> splits)
                             {
                                 QueryFragmentRequest queryFragmentRequest = new QueryFragmentRequest(
-                                        splits.getSplit(),
+                                        ImmutableList.copyOf(splits.getValue()),
                                         new PlanFragment("sum-frag-worker",
                                                 ImmutableList.of(
                                                         table.getColumns().get(2).getColumnHandle().get(),
@@ -295,7 +324,7 @@ public class StaticQueryManager
                                         JsonBodyGenerator.jsonBodyGenerator(codec, queryFragmentRequest),
                                         Optional.of(MediaType.APPLICATION_JSON),
                                         asyncHttpClient,
-                                        splits.getNodes().get(0).getHttpUri().resolve("/v1/presto/query"),
+                                        splits.getKey().getHttpUri().resolve("/v1/presto/query"),
                                         ImmutableList.of(SINGLE_VARBINARY, SINGLE_LONG)
                                 );
 
@@ -329,16 +358,22 @@ public class StaticQueryManager
             implements QueryTask
     {
         private final QueryState queryState;
-        private final Split split;
+        private final List<Split> splits;
         private final List<ColumnHandle> columnHandles;
         private final DataStreamProvider dataStreamProvider;
+        private final ThreadPoolExecutor shardExecutor;
 
-        private SumFragmentWorker(QueryState queryState, Split split, List<ColumnHandle> columnHandles, DataStreamProvider dataStreamProvider)
+        private SumFragmentWorker(QueryState queryState,
+                List<Split> splits,
+                List<ColumnHandle> columnHandles,
+                DataStreamProvider dataStreamProvider,
+                ThreadPoolExecutor shardExecutor)
         {
             this.queryState = queryState;
-            this.split = split;
+            this.splits = splits;
             this.columnHandles = ImmutableList.copyOf(columnHandles);
             this.dataStreamProvider = dataStreamProvider;
+            this.shardExecutor = shardExecutor;
         }
 
         @Override
@@ -351,16 +386,17 @@ public class StaticQueryManager
         public void run()
         {
             try {
-                Operator dataStream = dataStreamProvider.createDataStream(split, columnHandles);
-                HashAggregationOperator sumOperator = new HashAggregationOperator(
-                        dataStream,
-                        0,
-                        ImmutableList.of(partialAggregation(longSumAggregation(1, 0))),
-                        ImmutableList.of(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 1, 0)));
+                List<Future<Void>> results = shardExecutor.invokeAll(Lists.transform(splits, new Function<Split, Callable<Void>>()
+                {
+                    @Override
+                    public Callable<Void> apply(Split split)
+                    {
+                        return new SplitSumFragmentWorker(queryState, split, columnHandles, dataStreamProvider);
+                    }
+                }));
 
-                for (Page page : sumOperator) {
-                    queryState.addPage(page);
-                }
+                checkQueryResults(results);
+
                 queryState.sourceFinished();
             }
             catch (InterruptedException e) {
@@ -373,6 +409,47 @@ public class StaticQueryManager
                 throw Throwables.propagate(e);
             }
         }
+
+        private static class SplitSumFragmentWorker
+                implements Callable<Void>
+        {
+            private final QueryState queryState;
+            private final Split split;
+            private final List<ColumnHandle> columnHandles;
+            private final DataStreamProvider dataStreamProvider;
+
+            private SplitSumFragmentWorker(QueryState queryState, Split split, List<ColumnHandle> columnHandles, DataStreamProvider dataStreamProvider)
+            {
+                this.queryState = queryState;
+                this.split = split;
+                this.columnHandles = ImmutableList.copyOf(columnHandles);
+                this.dataStreamProvider = dataStreamProvider;
+            }
+
+            @Override
+            public Void call()
+                    throws Exception
+            {
+                try {
+                    Operator dataStream = dataStreamProvider.createDataStream(split, columnHandles);
+                    HashAggregationOperator sumOperator = new HashAggregationOperator(
+                            dataStream,
+                            0,
+                            ImmutableList.of(partialAggregation(longSumAggregation(1, 0))),
+                            ImmutableList.of(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 1, 0)));
+
+                    for (Page page : sumOperator) {
+                        queryState.addPage(page);
+                    }
+                    return null;
+                }
+                catch (Exception e) {
+                    queryState.queryFailed(e);
+                    throw Throwables.propagate(e);
+                }
+            }
+        }
+
     }
 
     private static class ImportTableQuery
@@ -515,6 +592,27 @@ public class StaticQueryManager
                 queryState.queryFailed(e);
                 throw Throwables.propagate(e);
             }
+        }
+    }
+
+    private static void checkQueryResults(Iterable<Future<Void>> results)
+            throws InterruptedException
+    {
+        RuntimeException queryFailedException = null;
+        for (Future<Void> result : results) {
+            try {
+                result.get();
+            }
+            catch (ExecutionException e) {
+                if (queryFailedException == null) {
+                    queryFailedException = new RuntimeException("Query failed");
+                }
+                Throwable cause = e.getCause();
+                queryFailedException.addSuppressed(cause);
+            }
+        }
+        if (queryFailedException != null) {
+            throw queryFailedException;
         }
     }
 }

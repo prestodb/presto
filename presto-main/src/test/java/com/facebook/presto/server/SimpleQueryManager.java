@@ -52,7 +52,7 @@ public class SimpleQueryManager implements QueryManager
     }
 
     @Override
-    public QueryInfo createQueryFragment(Split split, PlanFragment planFragment)
+    public QueryInfo createQueryFragment(List<Split> splits, PlanFragment planFragment)
     {
         throw new UnsupportedOperationException();
     }
