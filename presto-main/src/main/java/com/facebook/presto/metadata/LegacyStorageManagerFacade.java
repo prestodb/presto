@@ -2,8 +2,12 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.block.BlockUtils;
+import com.facebook.presto.operator.AlignmentOperator;
+import com.facebook.presto.operator.Operator;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 
 import javax.inject.Inject;
 import java.util.List;
@@ -12,6 +16,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+// TODO: please kill this when ExecutionPlanner switches to using DataStreamProviders, temporarily a hack
 public class LegacyStorageManagerFacade
         implements LegacyStorageManager
 {
@@ -28,18 +33,27 @@ public class LegacyStorageManagerFacade
     }
 
     @Override
-    public BlockIterable getBlocks(String databaseName, String tableName, int fieldIndex)
+    public Operator getOperator(String databaseName, String tableName, List<Integer> fieldIndexes)
     {
-        TableMetadata table = metadata.getTable("default", databaseName, tableName);
-        ColumnMetadata column = getColumn(table, fieldIndex);
-        long tableId = getTableId(table);
-        long columnId = getColumnId(column);
+        final TableMetadata table = metadata.getTable("default", databaseName, tableName);
 
-        ImmutableList.Builder<BlockIterable> blocks = ImmutableList.builder();
-        for (long shardId : shardManager.getShardNodes(tableId).keySet()) {
-            blocks.add(storageManager.getBlocks(shardId, columnId));
-        }
-        return BlockUtils.toBlocks(Iterables.concat(blocks.build()));
+        List<BlockIterable> blockIterables = Lists.transform(fieldIndexes, new Function<Integer, BlockIterable>()
+        {
+            @Override
+            public BlockIterable apply(Integer fieldIndex)
+            {
+                ColumnMetadata column = getColumn(table, fieldIndex);
+                long tableId = getTableId(table);
+                long columnId = getColumnId(column);
+
+                ImmutableList.Builder<BlockIterable> blocks = ImmutableList.builder();
+                for (long shardId : shardManager.getShardNodes(tableId).keySet()) {
+                    blocks.add(storageManager.getBlocks(shardId, columnId));
+                }
+                return BlockUtils.toBlocks(Iterables.concat(blocks.build()));
+            }
+        });
+        return new AlignmentOperator(blockIterables);
     }
 
     private static ColumnMetadata getColumn(TableMetadata table, int fieldIndex)

@@ -2,7 +2,6 @@ package com.facebook.presto.tpch;
 
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.serde.BlocksFileEncoding;
-import com.facebook.presto.tpch.TpchSchema.Column;
 import com.google.common.base.Preconditions;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -22,14 +21,15 @@ public class MetricRecordingTpchBlocksProvider
     }
 
     @Override
-    public BlockIterable getBlocks(Column column, BlocksFileEncoding encoding)
+    public BlockIterable getBlocks(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding)
     {
-        Preconditions.checkNotNull(column, "column is null");
+        Preconditions.checkNotNull(tableHandle, "tableHandle is null");
+        Preconditions.checkNotNull(columnHandle, "columnHandle is null");
         Preconditions.checkNotNull(encoding, "encoding is null");
         long start = System.nanoTime();
         try {
-            BlockIterable blocks = tpchBlocksProvider.getBlocks(column, encoding);
-            cumulativeDataByteSize += tpchBlocksProvider.getColumnDataSize(column, encoding).toBytes();
+            BlockIterable blocks = tpchBlocksProvider.getBlocks(tableHandle, columnHandle, encoding);
+            cumulativeDataByteSize += tpchBlocksProvider.getColumnDataSize(tableHandle, columnHandle, encoding).toBytes();
             return blocks;
         } finally {
             dataFetchElapsedMillis += Duration.nanosSince(start).toMillis();
@@ -37,9 +37,9 @@ public class MetricRecordingTpchBlocksProvider
     }
 
     @Override
-    public DataSize getColumnDataSize(Column column, BlocksFileEncoding encoding)
+    public DataSize getColumnDataSize(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding)
     {
-        return tpchBlocksProvider.getColumnDataSize(column, encoding);
+        return tpchBlocksProvider.getColumnDataSize(tableHandle, columnHandle, encoding);
     }
 
     public Duration getDataFetchElapsedTime()

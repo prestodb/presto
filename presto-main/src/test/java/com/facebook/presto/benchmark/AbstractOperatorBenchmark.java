@@ -26,17 +26,9 @@ public abstract class AbstractOperatorBenchmark
 {
     private static final TpchDataProvider TPCH_DATA_PROVIDER = new CachingTpchDataProvider(new GeneratingTpchDataProvider());
 
-    private final TpchDataProvider tpchDataProvider;
-
-    protected AbstractOperatorBenchmark(String benchmarkName, int warmupIterations, int measuredIterations, TpchDataProvider tpchDataProvider)
-    {
-        super(benchmarkName, warmupIterations, measuredIterations);
-        this.tpchDataProvider = tpchDataProvider;
-    }
-
     protected AbstractOperatorBenchmark(String benchmarkName, int warmupIterations, int measuredIterations)
     {
-        this(benchmarkName, warmupIterations, measuredIterations, TPCH_DATA_PROVIDER);
+        super(benchmarkName, warmupIterations, measuredIterations);
     }
 
     @Override
@@ -45,14 +37,14 @@ public abstract class AbstractOperatorBenchmark
         return "input_rows_per_second";
     }
 
-    protected abstract Operator createBenchmarkedOperator(TpchBlocksProvider inputStreamProvider);
+    protected abstract Operator createBenchmarkedOperator(TpchBlocksProvider blocksProvider);
 
     @Override
     protected Map<String, Long> runOnce()
     {
         long start = System.nanoTime();
 
-        StatsTpchBlocksProvider statsTpchBlocksProvider = new StatsTpchBlocksProvider(tpchDataProvider);
+        StatsTpchBlocksProvider statsTpchBlocksProvider = new StatsTpchBlocksProvider(TPCH_DATA_PROVIDER);
         MetricRecordingTpchBlocksProvider metricRecordingTpchBlocksProvider = new MetricRecordingTpchBlocksProvider(statsTpchBlocksProvider);
 
         Operator operator = createBenchmarkedOperator(metricRecordingTpchBlocksProvider);

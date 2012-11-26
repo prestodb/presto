@@ -1,169 +1,103 @@
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.metadata.ColumnMetadata;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Iterables;
 
-import java.util.List;
+import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
+import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 
-import static com.facebook.presto.tuple.TupleInfo.Type;
-
-// TODO: consider migrating to Metastore format when it gets added
 public class TpchSchema
 {
-    public static class Table
+    public static final String CATALOG_NAME = "tpch";
+    public static final String SCHEMA_NAME = "default";
+
+    private static final Metadata METADATA_INSTANCE = createMetadata();
+
+    public static TpchTableHandle tableHandle(String tableName)
     {
-        private final String name;
-        private final List<Column> columns;
-        private final TupleInfo tupleInfo;
-
-        public Table(String name, Iterable<Column> columnsIterable)
-        {
-            this.name = Preconditions.checkNotNull(name, "name is null");
-            this.columns = ImmutableList.copyOf(Preconditions.checkNotNull(columnsIterable, "columnsIterable is null"));
-            tupleInfo = new TupleInfo(Iterables.transform(columns, new Function<Column, Type>()
-            {
-                @Override
-                public Type apply(Column input)
-                {
-                    return input.getType();
-                }
-            }));
-        }
-
-        public String getName()
-        {
-            return name;
-        }
-
-        public List<Column> getColumns()
-        {
-            return columns;
-        }
-
-        public TupleInfo getTupleInfo()
-        {
-            return tupleInfo;
-        }
+        TableMetadata table = METADATA_INSTANCE.getTable(CATALOG_NAME, SCHEMA_NAME, tableName);
+        return (TpchTableHandle) table.getTableHandle().get();
     }
 
-    public interface Column
+    public static TpchColumnHandle columnHandle(TpchTableHandle tableHandle, String columnName)
     {
-        Table getTable();
-        int getIndex();
-        Type getType();
+        TableMetadata table = METADATA_INSTANCE.getTable(CATALOG_NAME, SCHEMA_NAME, tableHandle.getTableName());
+        for (ColumnMetadata columnMetadata : table.getColumns()) {
+            if (columnMetadata.getName().equals(columnName)) {
+                return (TpchColumnHandle) columnMetadata.getColumnHandle().get();
+            }
+        }
+        throw new IllegalArgumentException("Unknown column name: " + columnName);
     }
 
-    // Main fact table
-    public static enum Orders implements Column
+    public static TpchColumnHandle columnHandle(TpchTableHandle tableHandle, int fieldIndex)
     {
-        ORDERKEY(0, Type.FIXED_INT_64), // Mostly increasing IDs
-        CUSTKEY(1, Type.FIXED_INT_64), // 15:1
-        ORDERSTATUS(2, Type.VARIABLE_BINARY), // 3 unique
-        TOTALPRICE(3, Type.DOUBLE), // High cardinality
-        ORDERDATE(4, Type.VARIABLE_BINARY), // 2400 unique
-        ORDERPRIORITY(5, Type.VARIABLE_BINARY), // 5 unique
-        CLERK(6, Type.VARIABLE_BINARY), // High cardinality
-        SHIPPRIORITY(7, Type.VARIABLE_BINARY), // 1 unique
-        COMMENT(8, Type.VARIABLE_BINARY); // Arbitrary strings
-
-        public static final Table TABLE = TpchSchema.createTable("orders", Orders.class);
-
-        private final int index;
-        private final Type type;
-
-        private Orders(int index, Type type)
-        {
-            this.index = index;
-            this.type = type;
-        }
-
-        @Override
-        public Table getTable()
-        {
-            return TABLE;
-        }
-
-        @Override
-        public int getIndex()
-        {
-            return index;
-        }
-
-        @Override
-        public Type getType()
-        {
-            return type;
-        }
+        TableMetadata table = METADATA_INSTANCE.getTable(CATALOG_NAME, SCHEMA_NAME, tableHandle.getTableName());
+        return (TpchColumnHandle) table.getColumns().get(fieldIndex).getColumnHandle().get();
     }
 
-    public static enum LineItem implements Column
+    public static Metadata createMetadata()
     {
-        ORDERKEY(0, Type.FIXED_INT_64),
-        PARTKEY(1, Type.FIXED_INT_64),
-        SUPPKEY(2, Type.FIXED_INT_64),
-        LINENUMBER(3, Type.FIXED_INT_64),
-        QUANTITY(4, Type.DOUBLE),
-        EXTENDEDPRICE(5, Type.DOUBLE),
-        DISCOUNT(6, Type.DOUBLE),
-        TAX(7, Type.DOUBLE),
-        RETURNFLAG(8, Type.VARIABLE_BINARY), // Single letter, low cardinality
-        LINESTATUS(9, Type.VARIABLE_BINARY), // Single letter, low cardinality
-        SHIPDATE(10, Type.VARIABLE_BINARY),
-        COMMITDATE(11, Type.VARIABLE_BINARY),
-        RECEIPTDATE(12, Type.VARIABLE_BINARY),
-        SHIPINSTRUCT(13, Type.VARIABLE_BINARY),
-        SHIPMODE(14, Type.VARIABLE_BINARY),
-        COMMENT(15, Type.VARIABLE_BINARY);
-        
-        public static final Table TABLE = TpchSchema.createTable("lineitem", LineItem.class);
-
-        private final int index;
-        private final Type type;
-
-        private LineItem(int index, Type type)
-        {
-            this.index = index;
-            this.type = type;
-        }
-
-        @Override
-        public Table getTable()
-        {
-            return TABLE;
-        }
-
-        @Override
-        public int getIndex()
-        {
-            return index;
-        }
-
-        @Override
-        public Type getType()
-        {
-            return type;
-        }
+        TestingMetadata testingMetadata = new TestingMetadata();
+        testingMetadata.createTable(createOrders());
+        testingMetadata.createTable(createLineItem());
+        return testingMetadata;
     }
-    
-    private static Table createTable(String name, Class<? extends Column> clazz)
+
+    public static TableMetadata createOrders()
     {
-        ImmutableSortedMap.Builder<Integer, Column> columnBuilder = ImmutableSortedMap.naturalOrder();
-        for (Column column : clazz.getEnumConstants()) {
-            columnBuilder.put(column.getIndex(), column);
-        }
-        ImmutableSortedMap<Integer, Column> sortedMap = columnBuilder.build();
+        TpchTableHandle tpchTableHandle = new TpchTableHandle("orders");
+        return new TableMetadata(
+                CATALOG_NAME, SCHEMA_NAME, tpchTableHandle.getTableName(),
+                ImmutableList.<ColumnMetadata>of(
+                        createColumn("orderkey", FIXED_INT_64, 0), // Mostly increasing IDs
+                        createColumn("custkey", FIXED_INT_64, 1), // 15:1
+                        createColumn("orderstatus", VARIABLE_BINARY, 2), // 3 unique
+                        createColumn("totalprice", DOUBLE, 3), // High cardinality
+                        createColumn("orderdate", VARIABLE_BINARY, 4), // 2400 unique
+                        createColumn("orderpriorty", VARIABLE_BINARY, 5), // 5 unique
+                        createColumn("clerk", VARIABLE_BINARY, 6), // High cardinality
+                        createColumn("shippriority", VARIABLE_BINARY, 7), // 1 unique
+                        createColumn("comment", VARIABLE_BINARY, 8) // Arbitrary strings
+                ),
+                tpchTableHandle
+        );
+    }
 
-        // Verify that there are no gaps in the definition
-        int lastIndex = -1;
-        for (Integer index : sortedMap.keySet()) {
-            Preconditions.checkState(index == lastIndex + 1, "Table indicies has a gap");
-            lastIndex = index;
-        }
+    public static TableMetadata createLineItem()
+    {
+        TpchTableHandle tpchTableHandle = new TpchTableHandle("lineitem");
+        return new TableMetadata(
+                CATALOG_NAME, SCHEMA_NAME, tpchTableHandle.getTableName(),
+                ImmutableList.<ColumnMetadata>of(
+                        createColumn("orderkey", FIXED_INT_64, 0),
+                        createColumn("partkey", FIXED_INT_64, 1),
+                        createColumn("suppkey", FIXED_INT_64, 2),
+                        createColumn("linenumber", FIXED_INT_64, 3),
+                        createColumn("quantity", DOUBLE, 4),
+                        createColumn("extendedprice", DOUBLE, 5),
+                        createColumn("discount", DOUBLE, 6),
+                        createColumn("tax", DOUBLE, 7),
+                        createColumn("returnflag", VARIABLE_BINARY, 8), // Single letter, low cardinality
+                        createColumn("linestatus", VARIABLE_BINARY, 9), // Single letter, low cardinality
+                        createColumn("shipdate", VARIABLE_BINARY, 10),
+                        createColumn("commitdate", VARIABLE_BINARY, 11),
+                        createColumn("receiptdate", VARIABLE_BINARY, 12),
+                        createColumn("shipinstruct", VARIABLE_BINARY, 13),
+                        createColumn("shipmode", VARIABLE_BINARY, 14),
+                        createColumn("comment", VARIABLE_BINARY, 15)
+                ),
+                tpchTableHandle
+        );
+    }
 
-        return new Table(name, sortedMap.values());
+    private static ColumnMetadata createColumn(String columnName, TupleInfo.Type type, int fieldIndex)
+    {
+        return new ColumnMetadata(columnName, type, new TpchColumnHandle(fieldIndex, type));
     }
 }

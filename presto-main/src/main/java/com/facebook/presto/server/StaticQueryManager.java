@@ -81,7 +81,6 @@ public class StaticQueryManager
     private final ImportClientFactory importClientFactory;
     private final ImportManager importManager;
     private final Metadata metadata;
-    private final LegacyStorageManager storageManager;
     private final DataStreamProvider dataStreamProvider;
     private final SplitManager splitManager;
     private final JsonCodec<QueryFragmentRequest> queryFragmentRequestJsonCodec;
@@ -98,12 +97,11 @@ public class StaticQueryManager
             ImportClientFactory importClientFactory,
             ImportManager importManager,
             Metadata metadata,
-            LegacyStorageManager storageManager,
             DataStreamProvider dataStreamProvider,
             SplitManager splitManager,
             JsonCodec<QueryFragmentRequest> queryFragmentRequestJsonCodec)
     {
-        this(20, importClientFactory, importManager, metadata, storageManager, dataStreamProvider, splitManager, queryFragmentRequestJsonCodec);
+        this(20, importClientFactory, importManager, metadata, dataStreamProvider, splitManager, queryFragmentRequestJsonCodec);
     }
 
     public StaticQueryManager(
@@ -111,7 +109,6 @@ public class StaticQueryManager
             ImportClientFactory importClientFactory,
             ImportManager importManager,
             Metadata metadata,
-            LegacyStorageManager storageManager,
             DataStreamProvider dataStreamProvider,
             SplitManager splitManager,
             JsonCodec<QueryFragmentRequest> queryFragmentRequestJsonCodec)
@@ -123,7 +120,6 @@ public class StaticQueryManager
         this.importClientFactory = importClientFactory;
         this.importManager = importManager;
         this.metadata = metadata;
-        this.storageManager = storageManager;
         this.dataStreamProvider = dataStreamProvider;
         this.splitManager = splitManager;
         this.queryFragmentRequestJsonCodec = queryFragmentRequestJsonCodec;
@@ -155,7 +151,6 @@ public class StaticQueryManager
                     }
                 }));
                 queryTask = new ImportDelimited(queryState,
-                        storageManager,
                         strings.get(1),
                         strings.get(2),
                         new TupleInfo(types),
@@ -467,14 +462,12 @@ public class StaticQueryManager
         private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_LONG);
 
         private final QueryState queryState;
-        private final LegacyStorageManager storageManager;
         private final String databaseName;
         private final String tableName;
         private final RecordProjectOperator source;
 
         public ImportDelimited(
                 QueryState queryState,
-                LegacyStorageManager storageManager,
                 String databaseName,
                 String tableName,
                 TupleInfo tupleInfo,
@@ -482,7 +475,6 @@ public class StaticQueryManager
                 Splitter splitter)
         {
             this.queryState = queryState;
-            this.storageManager = storageManager;
             this.databaseName = databaseName;
             this.tableName = tableName;
 

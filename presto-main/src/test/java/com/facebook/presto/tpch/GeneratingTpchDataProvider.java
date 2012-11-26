@@ -3,9 +3,8 @@ package com.facebook.presto.tpch;
 import com.facebook.presto.ingest.DelimitedRecordIterable;
 import com.facebook.presto.ingest.ImportingOperator;
 import com.facebook.presto.ingest.RecordProjectOperator;
-import com.facebook.presto.serde.BlocksFileWriter;
 import com.facebook.presto.serde.BlocksFileEncoding;
-import com.facebook.presto.tpch.TpchSchema.Column;
+import com.facebook.presto.serde.BlocksFileWriter;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.hash.Hashing;
@@ -122,28 +121,30 @@ public class GeneratingTpchDataProvider
     }
 
     @Override
-    public File getColumnFile(Column column, BlocksFileEncoding encoding)
+    public File getDataFile(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding)
     {
-        checkNotNull(column, "column is null");
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkNotNull(columnHandle, "columnHandle is null");
         checkNotNull(encoding, "encoding is null");
 
+        String tableName = tableHandle.getTableName();
         try {
-            String hash = ByteStreams.hash(ByteStreams.slice(tableInputSupplierFactory.getInputSupplier(column.getTable().getName()), 0, 1024 * 1024), Hashing.murmur3_32()).toString();
+            String hash = ByteStreams.hash(ByteStreams.slice(tableInputSupplierFactory.getInputSupplier(tableName), 0, 1024 * 1024), Hashing.murmur3_32()).toString();
 
-            File cachedFile = new File(new File(cacheDirectory, column.getTable().getName() + "-" + hash), "new-" + createFileName(column, encoding.getName()));
+            File cachedFile = new File(new File(cacheDirectory, tableName + "-" + hash), "new-" + createFileName(columnHandle, encoding));
             if (cachedFile.exists()) {
                 return cachedFile;
             }
 
             Files.createParentDirs(cachedFile);
 
-            InputSupplier<InputStream> inputSupplier = tableInputSupplierFactory.getInputSupplier(column.getTable().getName());
+            InputSupplier<InputStream> inputSupplier = tableInputSupplierFactory.getInputSupplier(tableName);
 
             DelimitedRecordIterable records = new DelimitedRecordIterable(
                     newReaderSupplier(inputSupplier, UTF_8),
                     Splitter.on("|")
             );
-            RecordProjectOperator source = new RecordProjectOperator(records, createProjection(column.getIndex(), column.getType()));
+            RecordProjectOperator source = new RecordProjectOperator(records, createProjection(columnHandle.getFieldIndex(), columnHandle.getType()));
 
             ImportingOperator.importData(source, new BlocksFileWriter(encoding, newOutputStreamSupplier(cachedFile)));
 
@@ -159,8 +160,8 @@ public class GeneratingTpchDataProvider
         return tableName + ".tbl";
     }
 
-    private static String createFileName(TpchSchema.Column column, String serdeName)
+    private static String createFileName(TpchColumnHandle columnHandle, BlocksFileEncoding encoding)
     {
-        return String.format("column%d.%s_%s.data", column.getIndex(), column.getType().getName(), serdeName);
+        return String.format("column%d.%s_%s.data", columnHandle.getFieldIndex(), columnHandle.getType(), encoding.getName());
     }
 }

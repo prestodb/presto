@@ -6,7 +6,8 @@ import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchBlocksProvider;
-import com.facebook.presto.tpch.TpchSchema.Orders;
+import com.facebook.presto.tpch.TpchColumnHandle;
+import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.collect.ImmutableList;
 
@@ -14,6 +15,8 @@ import static com.facebook.presto.operator.ProjectionFunctions.concat;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 import static com.facebook.presto.operator.aggregation.AggregationFunctions.singleNodeAggregation;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.doubleSumAggregation;
+import static com.facebook.presto.tpch.TpchSchema.columnHandle;
+import static com.facebook.presto.tpch.TpchSchema.tableHandle;
 
 public class HashAggregationBenchmark
         extends AbstractOperatorBenchmark
@@ -24,12 +27,15 @@ public class HashAggregationBenchmark
     }
 
     @Override
-    protected Operator createBenchmarkedOperator(TpchBlocksProvider inputStreamProvider)
+    protected Operator createBenchmarkedOperator(TpchBlocksProvider blocksProvider)
     {
-        BlockIterable orderStatus = inputStreamProvider.getBlocks(Orders.ORDERSTATUS, BlocksFileEncoding.RAW);
-        BlockIterable totalPrice = inputStreamProvider.getBlocks(Orders.TOTALPRICE, BlocksFileEncoding.RAW);
+        TpchTableHandle orders = tableHandle("orders");
+        TpchColumnHandle orderStatus = columnHandle(orders, "orderstatus");
+        TpchColumnHandle totalPrice = columnHandle(orders, "totalprice");
+        BlockIterable orderStatusBlockIterable = blocksProvider.getBlocks(orders, orderStatus, BlocksFileEncoding.RAW);
+        BlockIterable totalPriceBlockIterable = blocksProvider.getBlocks(orders, totalPrice, BlocksFileEncoding.RAW);
 
-        AlignmentOperator alignmentOperator = new AlignmentOperator(orderStatus, totalPrice);
+        AlignmentOperator alignmentOperator = new AlignmentOperator(orderStatusBlockIterable, totalPriceBlockIterable);
         return new HashAggregationOperator(alignmentOperator,
                 0,
                 ImmutableList.of(singleNodeAggregation(doubleSumAggregation(1, 0))),
