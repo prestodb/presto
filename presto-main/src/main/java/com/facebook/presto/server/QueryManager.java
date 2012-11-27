@@ -8,11 +8,12 @@ import com.facebook.presto.split.PlanFragment;
 import com.facebook.presto.split.Split;
 
 import java.util.List;
+import java.util.Map;
 
 public interface QueryManager {
     QueryInfo createQuery(String query);
 
-    QueryInfo createQueryFragment(List<Split> splits, PlanFragment planFragment);
+    QueryInfo createQueryFragment(Map<String, List<Split>> sourceSplits, PlanFragment planFragment);
 
     List<Page> getQueryResults(String queryId, int maxPageCount)
             throws InterruptedException;

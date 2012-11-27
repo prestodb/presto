@@ -52,7 +52,7 @@ public class QueryResource
     @Produces(MediaType.APPLICATION_JSON)
     public Response create(QueryFragmentRequest queryFragmentRequest, @Context UriInfo uriInfo)
     {
-        QueryInfo queryInfo = queryManager.createQueryFragment(queryFragmentRequest.getSplits(), queryFragmentRequest.getPlanFragment());
+        QueryInfo queryInfo = queryManager.createQueryFragment(queryFragmentRequest.getSourceSplits(), queryFragmentRequest.getPlanFragment());
         URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryInfo.getQueryId()).build();
         return Response.created(pagesUri).entity(queryInfo).build();
     }
