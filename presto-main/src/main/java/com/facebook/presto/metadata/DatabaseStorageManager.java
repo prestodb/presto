@@ -20,18 +20,24 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
+import com.google.common.io.OutputSupplier;
 import com.google.inject.Inject;
+import io.airlift.units.DataSize;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.VoidTransactionCallback;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 
 public class DatabaseStorageManager
@@ -43,6 +49,7 @@ public class DatabaseStorageManager
     private static final File DEFAULT_BASE_STAGING_DIR = new File("var/presto-data/staging");
     private static final int RUN_LENGTH_AVERAGE_CUTOFF = 3;
     private static final int DICTIONARY_CARDINALITY_CUTOFF = 1000;
+    private static final int OUTPUT_BUFFER_SIZE = (int) new DataSize(1, MEGABYTE).toBytes();
 
     private final IDBI dbi;
     private final File baseStorageDir;
@@ -123,7 +130,7 @@ public class DatabaseStorageManager
     {
         ImmutableList.Builder<BlocksFileWriter> writers = ImmutableList.builder();
         for (File file : files) {
-            writers.add(new BlocksFileWriter(BlocksFileEncoding.RAW, Files.newOutputStreamSupplier(file)));
+            writers.add(new BlocksFileWriter(BlocksFileEncoding.RAW, createOutputSupplier(file)));
         }
         return writers.build();
     }
@@ -183,7 +190,7 @@ public class DatabaseStorageManager
             }
             else {
                 sourcesBuilder.add(blocks);
-                writersBuilder.add(new BlocksFileWriter(encoding, Files.newOutputStreamSupplier(outputFile)));
+                writersBuilder.add(new BlocksFileWriter(encoding, createOutputSupplier(outputFile)));
             }
         }
         List<BlockIterable> sources = sourcesBuilder.build();
@@ -200,6 +207,19 @@ public class DatabaseStorageManager
     private void deleteStagingDirectory(long shardId)
     {
         getShardPath(baseStagingDir, shardId).delete();
+    }
+
+    private static OutputSupplier<OutputStream> createOutputSupplier(final File file)
+    {
+        return new OutputSupplier<OutputStream>()
+        {
+            @Override
+            public OutputStream getOutput()
+                    throws IOException
+            {
+                return new BufferedOutputStream(new FileOutputStream(file), OUTPUT_BUFFER_SIZE);
+            }
+        };
     }
 
     private static File getShardPath(File baseDir, long shardId)
