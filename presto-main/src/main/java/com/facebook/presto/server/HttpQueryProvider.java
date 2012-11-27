@@ -19,7 +19,12 @@ import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
+import static io.airlift.http.client.Request.Builder.prepareDelete;
+import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
+import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
 
 public class HttpQueryProvider
@@ -77,6 +82,22 @@ public class HttpQueryProvider
         return location;
     }
 
+    public QueryInfo getQueryInfo()
+    {
+        try {
+            URI statusUri = uriBuilderFrom(location).appendPath("info").build();
+            QueryInfo queryInfo = httpClient.execute(prepareGet().setUri(statusUri).build(), createJsonResponseHandler(jsonCodec(QueryInfo.class))).get();
+            return queryInfo;
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw Throwables.propagate(e);
+        }
+        catch (ExecutionException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
     @Override
     public int getChannelCount()
     {
@@ -94,5 +115,16 @@ public class HttpQueryProvider
     {
         HttpQuery httpQuery = new HttpQuery(location, queryState, httpClient);
         return httpQuery;
+    }
+
+    public void destroy()
+    {
+        try {
+            Request.Builder requestBuilder = prepareDelete().setUri(location);
+            Request request = requestBuilder.build();
+            httpClient.execute(request, createStatusResponseHandler());
+        }
+        catch (RuntimeException ignored) {
+        }
     }
 }

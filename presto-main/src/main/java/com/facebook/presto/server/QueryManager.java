@@ -4,16 +4,24 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.server.QueryState.State;
 import com.facebook.presto.split.PlanFragment;
 import com.facebook.presto.split.Split;
 
 import java.util.List;
 import java.util.Map;
 
-public interface QueryManager {
+public interface QueryManager
+{
+    List<QueryInfo> getAllQueryInfo();
+
     QueryInfo createQuery(String query);
 
     QueryInfo createQueryFragment(Map<String, List<Split>> sourceSplits, PlanFragment planFragment);
+
+    QueryInfo getQueryInfo(String queryId);
+
+    State getQueryStatus(String queryId);
 
     List<Page> getQueryResults(String queryId, int maxPageCount)
             throws InterruptedException;

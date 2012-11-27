@@ -4,6 +4,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
@@ -21,19 +22,22 @@ import java.util.concurrent.TimeUnit;
 @ThreadSafe
 public class QueryState
 {
-    private static enum State
+    public static enum State
     {
+        PREPARING,
         RUNNING,
         FINISHED,
         CANCELED,
         FAILED
     }
 
+    private final List<TupleInfo> tupleInfos;
+
     @GuardedBy("pageBuffer")
     private final ArrayDeque<Page> pageBuffer;
 
     @GuardedBy("pageBuffer")
-    private State state = State.RUNNING;
+    private State state = State.PREPARING;
 
     @GuardedBy("pageBuffer")
     private final List<Throwable> causes = new ArrayList<>();
@@ -44,21 +48,35 @@ public class QueryState
     private final Semaphore notFull;
     private final Semaphore notEmpty;
 
-    public QueryState(int sourceCount, int pageBufferMax)
+    public QueryState(List<TupleInfo> tupleInfos, int sourceCount, int pageBufferMax)
     {
+        Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
         Preconditions.checkArgument(sourceCount > 0, "sourceCount must be at least 1");
         Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
 
+        this.tupleInfos = tupleInfos;
         this.sourceCount = sourceCount;
         this.pageBuffer = new ArrayDeque<>(pageBufferMax);
         this.notFull = new Semaphore(pageBufferMax);
         this.notEmpty = new Semaphore(0);
     }
 
+    public List<TupleInfo> getTupleInfos()
+    {
+        return tupleInfos;
+    }
+
+    public State getState()
+    {
+        synchronized (pageBuffer) {
+            return state;
+        }
+    }
+
     public boolean isDone()
     {
         synchronized (pageBuffer) {
-            return state != State.RUNNING;
+            return state == State.FINISHED || state == State.CANCELED || state == State.FAILED;
         }
     }
 
@@ -76,13 +94,20 @@ public class QueryState
         }
     }
 
+    public int getBufferedPageCount()
+    {
+        synchronized (pageBuffer) {
+            return pageBuffer.size();
+        }
+    }
+
     /**
      * Marks a source as finished and drop all buffered pages.  Once all sources are finished, no more pages can be added to the buffer.
      */
     public void cancel()
     {
         synchronized (pageBuffer) {
-            if (state != State.RUNNING) {
+            if (isDone()) {
                 return;
             }
 
@@ -101,7 +126,7 @@ public class QueryState
     public void sourceFinished()
     {
         synchronized (pageBuffer) {
-            if (state != State.RUNNING) {
+            if (isDone()) {
                 return;
             }
             sourceCount--;
@@ -123,7 +148,7 @@ public class QueryState
     {
         synchronized (pageBuffer) {
             // if query is already done, nothing can be done here
-            if (state == State.CANCELED || state == State.FINISHED) {
+            if (isDone()) {
                 causes.add(cause);
                 return;
             }
@@ -168,6 +193,7 @@ public class QueryState
                 notFull.release();
                 throw new IllegalStateException("All sources are finished");
             }
+            state = State.RUNNING;
             pageBuffer.addLast(page);
             notEmpty.release();
         }

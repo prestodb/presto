@@ -5,6 +5,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.PagesSerde;
+import com.facebook.presto.server.QueryState.State;
 import com.facebook.presto.slice.InputStreamSliceInput;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
@@ -27,7 +28,6 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
-import io.airlift.http.client.StatusResponseHandler;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.http.client.UnexpectedResponseException;
 import io.airlift.http.server.testing.TestingHttpServer;
@@ -46,9 +46,13 @@ import java.net.URI;
 import java.util.List;
 
 import static com.facebook.presto.server.PrestoMediaTypes.PRESTO_PAGES_TYPE;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
+import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 
 public class TestQueryResourceServer
@@ -96,13 +100,24 @@ public class TestQueryResourceServer
             throws Exception
     {
         URI location = client.execute(preparePost().setUri(uriFor("/v1/presto/query")).build(), new CreatedResponseHandler());
-
+        assertQueryStatus(location, State.RUNNING);
 
         assertEquals(loadData(location), 220);
-        assertEquals(loadData(location), 44 + 48);
+        assertQueryStatus(location, State.RUNNING);
 
-        StatusResponse response = client.execute(prepareDelete().setUri(location).build(), StatusResponseHandler.createStatusResponseHandler());
+        assertEquals(loadData(location), 44 + 48);
+        assertQueryStatus(location, State.FINISHED);
+
+        StatusResponse response = client.execute(prepareDelete().setUri(location).build(), createStatusResponseHandler());
+        assertQueryStatus(location, State.FINISHED);
         assertEquals(response.getStatusCode(), Status.NO_CONTENT.getStatusCode());
+    }
+
+    private void assertQueryStatus(URI location, State expectedState)
+    {
+        URI statusUri = uriBuilderFrom(location).appendPath("info").build();
+        QueryInfo queryInfo = client.execute(prepareGet().setUri(statusUri).build(), createJsonResponseHandler(jsonCodec(QueryInfo.class)));
+        assertEquals(queryInfo.getState(), expectedState);
     }
 
     private int loadData(URI location)
@@ -193,5 +208,4 @@ public class TestQueryResourceServer
             }
         }
     }
-
 }

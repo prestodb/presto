@@ -5,6 +5,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -23,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -32,6 +34,8 @@ import static org.testng.Assert.fail;
 
 public class TestQueryState
 {
+    private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_LONG);
+
     private ExecutorService executor;
 
     @BeforeMethod
@@ -53,14 +57,14 @@ public class TestQueryState
             throws Exception
     {
         try {
-            new QueryState(0, 4);
+            new QueryState(TUPLE_INFOS, 0, 4);
             fail("Expected IllegalArgumentException");
         }
         catch (IllegalArgumentException e) {
 
         }
         try {
-            new QueryState(4, 0);
+            new QueryState(ImmutableList.of(SINGLE_LONG), 4, 0);
             fail("Expected IllegalArgumentException");
         }
         catch (IllegalArgumentException e) {
@@ -72,7 +76,7 @@ public class TestQueryState
     public void testNormalExecution()
             throws Exception
     {
-        QueryState queryState = new QueryState(1, 20);
+        QueryState queryState = new QueryState(ImmutableList.of(SINGLE_LONG), 1, 20);
         assertRunning(queryState);
 
         // fill the buffer
@@ -150,7 +154,7 @@ public class TestQueryState
     public void testFailedExecution()
             throws Exception
     {
-        QueryState queryState = new QueryState(1, 20);
+        QueryState queryState = new QueryState(ImmutableList.of(SINGLE_LONG), 1, 20);
         assertRunning(queryState);
 
         // fill the buffer
@@ -206,7 +210,7 @@ public class TestQueryState
     public void testCanceledExecution()
             throws Exception
     {
-        QueryState queryState = new QueryState(1, 20);
+        QueryState queryState = new QueryState(TUPLE_INFOS, 1, 20);
         assertRunning(queryState);
 
         // fill the buffer
@@ -256,7 +260,7 @@ public class TestQueryState
     public void testMultiSourceNormalExecution()
             throws Exception
     {
-        QueryState queryState = new QueryState(3, 20);
+        QueryState queryState = new QueryState(TUPLE_INFOS, 3, 20);
         assertRunning(queryState);
 
         // add some pages
@@ -319,7 +323,7 @@ public class TestQueryState
     public void testBufferSizeNormal()
             throws Exception
     {
-        QueryState queryState = new QueryState(1, 5);
+        QueryState queryState = new QueryState(TUPLE_INFOS, 1, 5);
         assertRunning(queryState);
 
         // exec thread to get two pages
@@ -378,7 +382,7 @@ public class TestQueryState
     public void testCancelFreesReader()
             throws Exception
     {
-        QueryState queryState = new QueryState(1, 5);
+        QueryState queryState = new QueryState(TUPLE_INFOS, 1, 5);
         assertRunning(queryState);
 
         ExecutorService executor = Executors.newCachedThreadPool();
@@ -412,7 +416,7 @@ public class TestQueryState
     public void testCancelFreesWriter()
             throws Exception
     {
-        QueryState queryState = new QueryState(1, 5);
+        QueryState queryState = new QueryState(TUPLE_INFOS, 1, 5);
         assertRunning(queryState);
 
         ExecutorService executor = Executors.newCachedThreadPool();
@@ -448,7 +452,7 @@ public class TestQueryState
     public void testFailFreesReader()
             throws Exception
     {
-        QueryState queryState = new QueryState(1, 5);
+        QueryState queryState = new QueryState(TUPLE_INFOS, 1, 5);
         assertRunning(queryState);
 
         ExecutorService executor = Executors.newCachedThreadPool();
@@ -484,7 +488,7 @@ public class TestQueryState
     public void testFailFreesWriter()
             throws Exception
     {
-        QueryState queryState = new QueryState(1, 5);
+        QueryState queryState = new QueryState(TUPLE_INFOS, 1, 5);
         assertRunning(queryState);
 
         ExecutorService executor = Executors.newCachedThreadPool();

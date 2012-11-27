@@ -34,6 +34,7 @@ public class Execute
         Main.initializeLogging(false);
 
         ExecutorService executor = Executors.newCachedThreadPool();
+        HttpQueryProvider queryProvider = null;
         try {
             long start = System.nanoTime();
 
@@ -42,17 +43,20 @@ public class Execute
                     .setReadTimeout(new Duration(30, TimeUnit.MINUTES)));
             AsyncHttpClient asyncHttpClient = new AsyncHttpClient(httpClient, executor);
 
-            HttpQueryProvider queryProvider = new HttpQueryProvider(createStaticBodyGenerator(query, Charsets.UTF_8),
+            queryProvider = new HttpQueryProvider(createStaticBodyGenerator(query, Charsets.UTF_8),
                     Optional.<String>absent(),
                     asyncHttpClient,
                     server);
 
             QueryDriversOperator operator = new QueryDriversOperator(10, queryProvider);
 
-            // TODO: this currently leaks query resources (need to delete)
             Utils.printResults(start, operator);
+
         }
         finally {
+            if (queryProvider != null) {
+                queryProvider.destroy();
+            }
             executor.shutdownNow();
         }
     }
