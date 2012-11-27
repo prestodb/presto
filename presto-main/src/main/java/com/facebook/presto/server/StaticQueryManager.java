@@ -13,7 +13,6 @@ import com.facebook.presto.ingest.RecordProjection;
 import com.facebook.presto.ingest.RecordProjections;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ColumnMetadata;
-import com.facebook.presto.metadata.LegacyStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeColumnHandle;
 import com.facebook.presto.metadata.NativeTableHandle;
@@ -39,6 +38,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
@@ -202,7 +202,7 @@ public class StaticQueryManager
     }
 
     @Override
-    public synchronized QueryInfo createQueryFragment(List<Split> splits, PlanFragment planFragment)
+    public synchronized QueryInfo createQueryFragment(Map<String, List<Split>> sourceSplits, PlanFragment planFragment)
     {
         String queryId = String.valueOf(nextQueryId++);
         QueryState queryState = new QueryState(1, pageBufferMax);
@@ -211,7 +211,7 @@ public class StaticQueryManager
         QueryTask queryTask;
         switch (planFragment.getQuery()) {
             case "sum-frag-worker":
-                queryTask = new SumFragmentWorker(queryState, splits, planFragment.getColumnHandles(), dataStreamProvider, shardExecutor);
+                queryTask = new SumFragmentWorker(queryState, sourceSplits, planFragment.getColumnHandles(), dataStreamProvider, shardExecutor);
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported fragment query: " + planFragment.getQuery());
@@ -312,7 +312,7 @@ public class StaticQueryManager
                             public QueryDriverProvider apply(Entry<Node, Collection<Split>> splits)
                             {
                                 QueryFragmentRequest queryFragmentRequest = new QueryFragmentRequest(
-                                        ImmutableList.copyOf(splits.getValue()),
+                                        ImmutableMap.<String, List<Split>>of("source", ImmutableList.copyOf(splits.getValue())),
                                         new PlanFragment("sum-frag-worker",
                                                 ImmutableList.of(
                                                         table.getColumns().get(2).getColumnHandle().get(),
@@ -364,13 +364,13 @@ public class StaticQueryManager
         private final ThreadPoolExecutor shardExecutor;
 
         private SumFragmentWorker(QueryState queryState,
-                List<Split> splits,
+                Map<String, List<Split>> sourceSplits,
                 List<ColumnHandle> columnHandles,
                 DataStreamProvider dataStreamProvider,
                 ThreadPoolExecutor shardExecutor)
         {
             this.queryState = queryState;
-            this.splits = splits;
+            this.splits = sourceSplits.get("source");
             this.columnHandles = ImmutableList.copyOf(columnHandles);
             this.dataStreamProvider = dataStreamProvider;
             this.shardExecutor = shardExecutor;
