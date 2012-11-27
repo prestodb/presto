@@ -85,8 +85,8 @@ public class ExecutionPlanner
 
     private Operator createOutputPlan(OutputPlan node)
     {
-        PlanNode source = Iterables.getOnlyElement(node.getSources());
-        Operator sourceOperator = plan(Iterables.getOnlyElement(node.getSources()));
+        PlanNode source = node.getSource();
+        Operator sourceOperator = plan(node.getSource());
 
         Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
 
@@ -110,7 +110,7 @@ public class ExecutionPlanner
         Preconditions.checkArgument(node.getOrderBy().size() == 1, "Order by multiple fields not yet supported");
         Symbol orderBySymbol = Iterables.getOnlyElement(node.getOrderBy());
 
-        PlanNode source = Iterables.getOnlyElement(node.getSources());
+        PlanNode source = node.getSource();
 
         Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
 
@@ -131,13 +131,13 @@ public class ExecutionPlanner
 
     private Operator createLimitNode(LimitNode node)
     {
-        PlanNode source = Iterables.getOnlyElement(node.getSources());
+        PlanNode source = node.getSource();
         return new LimitOperator(plan(source), node.getCount());
     }
 
     private Operator createAggregationNode(AggregationNode node)
     {
-        PlanNode source = Iterables.getOnlyElement(node.getSources());
+        PlanNode source = node.getSource();
         Operator sourceOperator = plan(source);
 
         Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
@@ -189,7 +189,7 @@ public class ExecutionPlanner
 
     private Operator createFilterNode(FilterNode node)
     {
-        PlanNode source = Iterables.getOnlyElement(node.getSources());
+        PlanNode source = node.getSource();
         Operator sourceOperator = plan(source);
 
         Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
@@ -208,8 +208,8 @@ public class ExecutionPlanner
 
     private Operator createProjectNode(final ProjectNode node)
     {
-        PlanNode source = Iterables.getOnlyElement(node.getSources());
-        Operator sourceOperator = plan(Iterables.getOnlyElement(node.getSources()));
+        PlanNode source = node.getSource();
+        Operator sourceOperator = plan(node.getSource());
 
         Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
 
