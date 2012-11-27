@@ -45,7 +45,8 @@ public class Execute
 
             queryProvider = new HttpQueryProvider(createStaticBodyGenerator(query, Charsets.UTF_8),
                     Optional.<String>absent(),
-                    asyncHttpClient,
+                    httpClient,
+                    executor,
                     server);
 
             QueryDriversOperator operator = new QueryDriversOperator(10, queryProvider);
