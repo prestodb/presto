@@ -1,0 +1,176 @@
+package com.facebook.presto.sql.planner;
+
+import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.sql.compiler.Symbol;
+import com.facebook.presto.sql.compiler.SymbolAllocator;
+import com.facebook.presto.sql.compiler.Type;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+
+import static com.facebook.presto.sql.planner.AggregationNode.Step.FINAL;
+import static com.facebook.presto.sql.planner.AggregationNode.Step.PARTIAL;
+import static com.facebook.presto.sql.planner.AggregationNode.Step.SINGLE;
+
+public class FragmentPlanner
+{
+    public List<PlanFragment> createFragments(PlanNode plan, SymbolAllocator allocator, boolean createSingleNodePlan)
+    {
+        Visitor visitor = new Visitor(allocator, createSingleNodePlan);
+        plan.accept(visitor, null);
+
+        return Lists.transform(visitor.getFragments(), PlanFragmentBuilder.buildFragmentFunction(allocator.getTypes()));
+    }
+
+    private static class Visitor
+            extends PlanVisitor<Void, PlanFragmentBuilder>
+    {
+        private int fragmentId = 0;
+        private final LinkedList<PlanFragmentBuilder> fragments = new LinkedList<>();
+
+        private final SymbolAllocator allocator;
+        private final boolean createSingleNodePlan;
+
+        public Visitor(SymbolAllocator allocator, boolean createSingleNodePlan)
+        {
+            this.allocator = allocator;
+            this.createSingleNodePlan = createSingleNodePlan;
+        }
+
+        @Override
+        public PlanFragmentBuilder visitAggregation(AggregationNode node, Void context)
+        {
+            PlanFragmentBuilder current = node.getSource().accept(this, context);
+
+            if (!current.isPartitioned()) {
+                // add the aggregation node as the root of the current fragment
+                current.setRoot(new AggregationNode(current.getRoot(), node.getGroupBy(), node.getAggregations(), node.getFunctionInfos(), SINGLE));
+                return current;
+            }
+
+            Map<Symbol, FunctionCall> finalCalls = new HashMap<>();
+            Map<Symbol, FunctionCall> intermediateCalls = new HashMap<>();
+            Map<Symbol, FunctionInfo> intermediateInfos = new HashMap<>();
+            for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
+                FunctionInfo info = node.getFunctionInfos().get(entry.getKey());
+
+                Symbol intermediateSymbol = allocator.newSymbol(info.getName().getSuffix(), Type.fromRaw(info.getIntermediateType()));
+                intermediateCalls.put(intermediateSymbol, entry.getValue());
+                intermediateInfos.put(intermediateSymbol, info);
+
+                // rewrite final aggregation in terms of intermediate function
+                finalCalls.put(entry.getKey(), new FunctionCall(info.getName(), ImmutableList.<Expression>of(new QualifiedNameReference(intermediateSymbol.toQualifiedName()))));
+            }
+
+            current.setRoot(new AggregationNode(current.getRoot(), node.getGroupBy(), intermediateCalls, intermediateInfos, PARTIAL));
+
+            // create merge + aggregation plan
+            ExchangeNode source = new ExchangeNode(current.getId(), current.getRoot().getOutputSymbols());
+            AggregationNode merged = new AggregationNode(source, node.getGroupBy(), finalCalls, node.getFunctionInfos(), FINAL);
+            current = newPlanFragment(merged, false);
+
+            return current;
+        }
+
+        @Override
+        public PlanFragmentBuilder visitFilter(FilterNode node, Void context)
+        {
+            PlanFragmentBuilder current = node.getSource().accept(this, context);
+            current.setRoot(new FilterNode(current.getRoot(), node.getPredicate(), node.getOutputSymbols()));
+            return current;
+        }
+
+        @Override
+        public PlanFragmentBuilder visitProject(ProjectNode node, Void context)
+        {
+            PlanFragmentBuilder current = node.getSource().accept(this, context);
+            current.setRoot(new ProjectNode(current.getRoot(), node.getOutputMap()));
+            return current;
+        }
+
+        @Override
+        public PlanFragmentBuilder visitTopN(TopNNode node, Void context)
+        {
+            PlanFragmentBuilder current = node.getSource().accept(this, context);
+
+            current.setRoot(new TopNNode(current.getRoot(), node.getCount(), node.getOrderBy(), node.getOrderings()));
+
+            if (current.isPartitioned()) {
+                // create merge plan fragment
+                PlanNode source = new ExchangeNode(current.getId(), current.getRoot().getOutputSymbols());
+                TopNNode merge = new TopNNode(source, node.getCount(), node.getOrderBy(), node.getOrderings());
+                current = newPlanFragment(merge, false);
+            }
+
+            return current;
+        }
+
+        @Override
+        public PlanFragmentBuilder visitOutput(OutputPlan node, Void context)
+        {
+            PlanFragmentBuilder current = node.getSource().accept(this, context);
+
+            if (current.isPartitioned()) {
+                // create a new non-partitioned fragment
+                return newPlanFragment(new ExchangeNode(current.getId(), current.getRoot().getOutputSymbols()), false);
+            }
+
+            current.setRoot(new OutputPlan(current.getRoot(), node.getColumnNames(), node.getAssignments()));
+
+            return current;
+        }
+
+        @Override
+        public PlanFragmentBuilder visitLimit(LimitNode node, Void context)
+        {
+            PlanFragmentBuilder current = node.getSource().accept(this, context);
+
+            current.setRoot(new LimitNode(current.getRoot(), node.getCount()));
+
+            if (current.isPartitioned()) {
+                // create merge plan fragment
+                PlanNode source = new ExchangeNode(current.getId(), current.getRoot().getOutputSymbols());
+                LimitNode merge = new LimitNode(source, node.getCount());
+                current = newPlanFragment(merge, false);
+            }
+
+            return current;
+        }
+
+        @Override
+        public PlanFragmentBuilder visitTableScan(TableScan node, Void context)
+        {
+            return newPlanFragment(node, !createSingleNodePlan);
+        }
+
+        @Override
+        protected PlanFragmentBuilder visitPlan(PlanNode node, Void context)
+        {
+            throw new UnsupportedOperationException("not yet implemented");
+        }
+
+        private PlanFragmentBuilder newPlanFragment(PlanNode root, boolean partitioned)
+        {
+            PlanFragmentBuilder builder = new PlanFragmentBuilder(fragmentId++)
+                    .setRoot(root)
+                    .setPartitioned(partitioned);
+
+            fragments.add(builder);
+
+            return builder;
+        }
+
+        private List<PlanFragmentBuilder> getFragments()
+        {
+            return fragments;
+        }
+    }
+
+}
