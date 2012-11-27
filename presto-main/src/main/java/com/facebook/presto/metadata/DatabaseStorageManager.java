@@ -90,6 +90,9 @@ public class DatabaseStorageManager
 
         // Commit all the columns at the same time once everything has been successfully imported
         commitShardColumns(shardId, columnIds, finalOutputFiles);
+
+        // Delete empty staging directory
+        deleteStagingDirectory(shardId);
     }
 
     private List<File> stagingImport(long shardId, List<Long> columnIds, Operator source)
@@ -191,6 +194,12 @@ public class DatabaseStorageManager
             ImportingOperator.importData(source, writers);
         }
         return optimizedFilesBuilder.build();
+    }
+
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    private void deleteStagingDirectory(long shardId)
+    {
+        getShardPath(baseStagingDir, shardId).delete();
     }
 
     private static File getShardPath(File baseDir, long shardId)
