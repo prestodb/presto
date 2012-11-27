@@ -23,7 +23,6 @@ import com.google.common.io.Files;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
@@ -39,44 +38,19 @@ public final class Slices
     public static Slice mapFileReadOnly(File file)
             throws IOException
     {
-        return UnsafeSlice.toUnsafeSlice(Files.map(file));
-    }
-
-    public static Slice readLengthPrefixedBytes(SliceInput sliceInput)
-    {
-        int length = VariableLengthQuantity.readVariableLengthInt(sliceInput);
-        return sliceInput.readSlice(length);
-    }
-
-    public static void writeLengthPrefixedBytes(SliceOutput sliceOutput, Slice value)
-    {
-        VariableLengthQuantity.writeVariableLengthInt(value.length(), sliceOutput);
-        sliceOutput.writeBytes(value);
+        return Slice.toUnsafeSlice(Files.map(file));
     }
 
     /**
-     * A buffer whose capacity is {@code 0}.
+     * A slice with size {@code 0}.
      */
-    public static final ByteArraySlice EMPTY_SLICE = new ByteArraySlice(0);
+    public static final Slice EMPTY_SLICE = new Slice();
 
     private Slices()
     {
     }
 
-    public static ByteArraySlice ensureSize(Slice existingSlice, int minWritableBytes)
-    {
-        if (existingSlice == null) {
-            return EMPTY_SLICE;
-        }
-
-        if (existingSlice instanceof ByteArraySlice) {
-            return ensureSize((ByteArraySlice) existingSlice, minWritableBytes);
-        }
-
-        return ensureSize(new ByteArraySlice(existingSlice.getBytes()), minWritableBytes);
-    }
-
-    public static ByteArraySlice ensureSize(ByteArraySlice existingSlice, int minWritableBytes)
+    public static Slice ensureSize(Slice existingSlice, int minWritableBytes)
     {
         if (existingSlice == null) {
             return EMPTY_SLICE;
@@ -98,44 +72,25 @@ public final class Slices
             newCapacity <<= 1;
         }
 
-        ByteArraySlice newSlice = Slices.allocate(newCapacity);
+        Slice newSlice = Slices.allocate(newCapacity);
         newSlice.setBytes(0, existingSlice, 0, existingSlice.length());
         return newSlice;
     }
 
-    public static ByteArraySlice allocate(int capacity)
+    public static Slice allocate(int capacity)
     {
         if (capacity == 0) {
             return EMPTY_SLICE;
         }
-        return new ByteArraySlice(capacity);
+        return new Slice(new byte[capacity]);
     }
 
-    public static ByteArraySlice wrappedBuffer(byte[] array)
+    public static Slice wrappedBuffer(byte[] array)
     {
         if (array.length == 0) {
             return EMPTY_SLICE;
         }
-        return new ByteArraySlice(array);
-    }
-
-    public static Slice copiedBuffer(ByteBuffer source, int sourceOffset, int length)
-    {
-        Preconditions.checkNotNull(source, "source is null");
-        int newPosition = source.position() + sourceOffset;
-        return copiedBuffer((ByteBuffer) source.duplicate()
-                .order(ByteOrder.LITTLE_ENDIAN)
-                .clear()
-                .limit(newPosition + length)
-                .position(newPosition));
-    }
-
-    public static Slice copiedBuffer(ByteBuffer source)
-    {
-        Preconditions.checkNotNull(source, "source is null");
-        Slice copy = allocate(source.limit() - source.position());
-        copy.setBytes(0, source.duplicate().order(ByteOrder.LITTLE_ENDIAN));
-        return copy;
+        return new Slice(array);
     }
 
     public static Slice copiedBuffer(String string, Charset charset)
@@ -144,28 +99,6 @@ public final class Slices
         Preconditions.checkNotNull(charset, "charset is null");
 
         return wrappedBuffer(string.getBytes(charset));
-    }
-
-    public static ByteBuffer encodeString(CharBuffer src, Charset charset)
-    {
-        final CharsetEncoder encoder = getEncoder(charset);
-        final ByteBuffer dst = ByteBuffer.allocate(
-                (int) ((double) src.remaining() * encoder.maxBytesPerChar()));
-        try {
-            CoderResult cr = encoder.encode(src, dst, true);
-            if (!cr.isUnderflow()) {
-                cr.throwException();
-            }
-            cr = encoder.flush(dst);
-            if (!cr.isUnderflow()) {
-                cr.throwException();
-            }
-        }
-        catch (CharacterCodingException x) {
-            throw new IllegalStateException(x);
-        }
-        dst.flip();
-        return dst;
     }
 
     public static String decodeString(ByteBuffer src, Charset charset)
@@ -189,39 +122,13 @@ public final class Slices
         return dst.flip().toString();
     }
 
-    /**
-     * Toggles the endianness of the specified 16-bit short integer.
-     */
-    public static short swapShort(short value)
-    {
-        return (short) (value << 8 | value >>> 8 & 0xff);
-    }
-
-    /**
-     * Toggles the endianness of the specified 32-bit integer.
-     */
-    public static int swapInt(int value)
-    {
-        return swapShort((short) value) << 16 |
-                swapShort((short) (value >>> 16)) & 0xffff;
-    }
-
-    /**
-     * Toggles the endianness of the specified 64-bit long integer.
-     */
-    public static long swapLong(long value)
-    {
-        return (long) swapInt((int) value) << 32 |
-                swapInt((int) (value >>> 32)) & 0xffffffffL;
-    }
-
     private static final ThreadLocal<Map<Charset, CharsetEncoder>> encoders =
             new ThreadLocal<Map<Charset, CharsetEncoder>>()
             {
                 @Override
                 protected Map<Charset, CharsetEncoder> initialValue()
                 {
-                    return new IdentityHashMap<Charset, CharsetEncoder>();
+                    return new IdentityHashMap<>();
                 }
             };
 
@@ -231,35 +138,9 @@ public final class Slices
                 @Override
                 protected Map<Charset, CharsetDecoder> initialValue()
                 {
-                    return new IdentityHashMap<Charset, CharsetDecoder>();
+                    return new IdentityHashMap<>();
                 }
             };
-
-    /**
-     * Returns a cached thread-local {@link CharsetEncoder} for the specified
-     * <tt>charset</tt>.
-     */
-    private static CharsetEncoder getEncoder(Charset charset)
-    {
-        if (charset == null) {
-            throw new NullPointerException("charset");
-        }
-
-        Map<Charset, CharsetEncoder> map = encoders.get();
-        CharsetEncoder e = map.get(charset);
-        if (e != null) {
-            e.reset();
-            e.onMalformedInput(CodingErrorAction.REPLACE);
-            e.onUnmappableCharacter(CodingErrorAction.REPLACE);
-            return e;
-        }
-
-        e = charset.newEncoder();
-        e.onMalformedInput(CodingErrorAction.REPLACE);
-        e.onUnmappableCharacter(CodingErrorAction.REPLACE);
-        map.put(charset, e);
-        return e;
-    }
 
     /**
      * Returns a cached thread-local {@link CharsetDecoder} for the specified

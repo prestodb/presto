@@ -168,18 +168,6 @@ public abstract class SliceOutput extends OutputStream implements DataOutput
     public abstract void writeBytes(byte[] source, int sourceIndex, int length);
 
     /**
-     * Transfers the specified source buffer's data to this buffer starting at
-     * the current {@code writerIndex} until the source buffer's position
-     * reaches its limit, and increases the {@code writerIndex} by the
-     * number of the transferred bytes.
-     *
-     * @throws IndexOutOfBoundsException
-     *         if {@code source.remaining()} is greater than
-     *            {@code this.writableBytes}
-     */
-    public abstract void writeBytes(ByteBuffer source);
-
-    /**
      * Transfers the content of the specified stream to this buffer
      * starting at the current {@code writerIndex} and increases the
      * {@code writerIndex} by the number of the transferred bytes.
@@ -194,24 +182,6 @@ public abstract class SliceOutput extends OutputStream implements DataOutput
      *         if the specified stream threw an exception during I/O
      */
     public abstract int  writeBytes(InputStream in, int length) throws IOException;
-
-    /**
-     * Transfers the content of the specified channel to this buffer
-     * starting at the current {@code writerIndex} and increases the
-     * {@code writerIndex} by the number of the transferred bytes.
-     *
-     * @param length the maximum number of bytes to transfer
-     *
-     * @return the actual number of bytes read in from the specified channel
-     *
-     * @throws IndexOutOfBoundsException
-     *         if {@code length} is greater than {@code this.writableBytes}
-     * @throws java.io.IOException
-     *         if the specified channel threw an exception during I/O
-     */
-    public abstract int  writeBytes(ScatteringByteChannel in, int length) throws IOException;
-
-    public abstract int  writeBytes(FileChannel in, int position, int length) throws IOException;
 
     /**
      * Fills this buffer with <tt>NUL (0x00)</tt> starting at the current
@@ -261,16 +231,6 @@ public abstract class SliceOutput extends OutputStream implements DataOutput
      * this buffer.
      */
     public abstract Slice slice();
-
-    /**
-     * Converts this buffer's readable bytes into a NIO buffer.  The returned
-     * buffer might or might not share the content with this buffer, while
-     * they have separate indexes and marks.  This method is identical to
-     * {@code buf.toByteBuffer(buf.readerIndex(), buf.readableBytes())}.
-     * This method does not modify {@code readerIndex} or {@code writerIndex} of
-     * this buffer.
-     */
-    public abstract ByteBuffer toByteBuffer();
 
     /**
      * Decodes this buffer's readable bytes into a string with the specified

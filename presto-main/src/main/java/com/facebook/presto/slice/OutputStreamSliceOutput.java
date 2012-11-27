@@ -7,9 +7,6 @@ import com.google.common.io.LittleEndianDataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.channels.ScatteringByteChannel;
 import java.nio.charset.Charset;
 
 public class OutputStreamSliceOutput extends SliceOutput
@@ -145,17 +142,6 @@ public class OutputStreamSliceOutput extends SliceOutput
     }
 
     @Override
-    public void writeBytes(ByteBuffer source)
-    {
-        try {
-            ByteBufferSlice byteBufferSlice = new ByteBufferSlice(source);
-            byteBufferSlice.getBytes(0, dataOutputStream, byteBufferSlice.length());
-        } catch (IOException e) {
-            throw new RuntimeIOException(e);
-        }
-    }
-
-    @Override
     public int writeBytes(InputStream in, int length) throws IOException
     {
         int bytesRead = 0;
@@ -169,20 +155,6 @@ public class OutputStreamSliceOutput extends SliceOutput
             bytesRead += newBytes;
         }
         return bytesRead;
-    }
-
-    @Override
-    public int writeBytes(ScatteringByteChannel in, int length) throws IOException
-    {
-        // We don't need this, so not going to bother with implementation
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public int writeBytes(FileChannel in, int position, int length) throws IOException
-    {
-        // We don't need this, so not going to bother with implementation
-        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -236,12 +208,6 @@ public class OutputStreamSliceOutput extends SliceOutput
 
     @Override
     public Slice slice()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ByteBuffer toByteBuffer()
     {
         throw new UnsupportedOperationException();
     }
