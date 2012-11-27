@@ -200,29 +200,6 @@ public abstract class SliceInput extends InputStream implements Closeable, DataI
     public abstract void readBytes(Slice destination, int destinationIndex, int length);
 
     /**
-     * Transfers this buffer's data to the specified destination starting at
-     * the current {@code position} until the destination's position
-     * reaches its limit, and increases the {@code position} by the
-     * number of the transferred bytes.
-     *
-     * @throws IndexOutOfBoundsException if {@code destination.remaining()} is greater than
-     * {@code this.available()}
-     */
-    public abstract void readBytes(ByteBuffer destination);
-
-    /**
-     * Transfers this buffer's data to the specified stream starting at the
-     * current {@code position}.
-     *
-     * @param length the maximum number of bytes to transfer
-     * @return the actual number of bytes written out to the specified channel
-     * @throws IndexOutOfBoundsException if {@code length} is greater than {@code this.available()}
-     * @throws java.io.IOException if the specified channel threw an exception during I/O
-     */
-    public abstract int readBytes(GatheringByteChannel out, int length)
-            throws IOException;
-
-    /**
      * Transfers this buffer's data to the specified stream starting at the
      * current {@code position}.
      *

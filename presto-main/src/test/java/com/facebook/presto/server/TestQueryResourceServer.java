@@ -3,13 +3,13 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.PagesSerde;
-import com.facebook.presto.slice.ByteArraySlice;
 import com.facebook.presto.slice.InputStreamSliceInput;
+import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.Slices;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -184,7 +184,7 @@ public class TestQueryResourceServer
             try {
                 SliceInput sliceInput = new InputStreamSliceInput(response.getInputStream());
                 byte[] bytes = ByteStreams.toByteArray(sliceInput);
-                ByteArraySlice byteArraySlice = Slices.wrappedBuffer(bytes);
+                Slice byteArraySlice = Slices.wrappedBuffer(bytes);
                 List<Page> pages = ImmutableList.copyOf(PagesSerde.readPages(byteArraySlice.getInput()));
                 return pages;
             }

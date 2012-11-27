@@ -10,8 +10,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PushbackInputStream;
-import java.nio.ByteBuffer;
-import java.nio.channels.GatheringByteChannel;
 
 public final class InputStreamSliceInput extends SliceInput
 {
@@ -256,18 +254,4 @@ public final class InputStreamSliceInput extends SliceInput
         ByteStreams.copy(new LimitInputStream(countingInputStream, length), out);
     }
 
-    @Override
-    public void readBytes(ByteBuffer destination)
-    {
-        // this is too annoying to implement
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public int readBytes(GatheringByteChannel out, int length)
-            throws IOException
-    {
-        // this is too annoying to implement
-        throw new UnsupportedOperationException();
-    }
 }

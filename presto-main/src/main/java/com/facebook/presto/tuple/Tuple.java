@@ -95,7 +95,8 @@ public class Tuple
                         values.add(getDouble(index));
                         break;
                     case VARIABLE_BINARY:
-                        values.add(getSlice(index).toString(UTF_8));
+                        Slice slice = getSlice(index);
+                        values.add(slice.toString(UTF_8));
                         break;
                 }
             }

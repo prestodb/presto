@@ -4,8 +4,6 @@ import com.google.common.base.Objects;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.nio.channels.GatheringByteChannel;
 import java.nio.charset.Charset;
 
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_INT;
@@ -135,23 +133,6 @@ public final class BasicSliceInput extends SliceInput
     {
         slice.getBytes(position, destination, destinationIndex, length);
         position += length;
-    }
-
-    @Override
-    public void readBytes(ByteBuffer destination)
-    {
-        int length = destination.remaining();
-        slice.getBytes(position, destination);
-        position += length;
-    }
-
-    @Override
-    public int readBytes(GatheringByteChannel out, int length)
-            throws IOException
-    {
-        int readBytes = slice.getBytes(position, out, length);
-        position += readBytes;
-        return readBytes;
     }
 
     @Override
