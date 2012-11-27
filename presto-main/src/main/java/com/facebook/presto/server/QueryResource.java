@@ -38,6 +38,13 @@ public class QueryResource
         this.queryManager = queryManager;
     }
 
+    @GET
+    public List<QueryInfo> getAllStatus()
+            throws InterruptedException
+    {
+        return queryManager.getAllQueryInfo();
+    }
+
     @POST
     @Produces(MediaType.APPLICATION_JSON)
     public Response create(String query, @Context UriInfo uriInfo)
@@ -70,6 +77,17 @@ public class QueryResource
         }
         GenericEntity<?> entity = new GenericEntity<>(pages, new TypeToken<List<Page>>() {}.getType());
         return Response.ok(entity).build();
+    }
+
+    @GET
+    @Path("{operatorId: .+}/info")
+    public Response getQueryInfo(@PathParam("operatorId") String operatorId)
+            throws InterruptedException
+    {
+        Preconditions.checkNotNull(operatorId, "operatorId is null");
+
+        QueryInfo queryInfo = queryManager.getQueryInfo(operatorId);
+        return Response.ok(queryInfo).build();
     }
 
     @DELETE

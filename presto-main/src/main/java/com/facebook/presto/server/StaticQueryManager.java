@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.server.QueryState.State;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.SchemaField;
 import com.facebook.presto.split.DataStreamProvider;
@@ -101,6 +102,9 @@ public class StaticQueryManager
 
     // todo this is a potential memory leak if the query objects are not removed
     @GuardedBy("this")
+    private final Map<String, MasterQueryState> masterQueries = new HashMap<>();
+
+    @GuardedBy("this")
     private final Map<String, QueryState> queries = new HashMap<>();
 
     @Inject
@@ -128,7 +132,7 @@ public class StaticQueryManager
         this.pageBufferMax = pageBufferMax;
 
         int processors = Runtime.getRuntime().availableProcessors();
-        queryExecutor = new ThreadPoolExecutor(processors,
+        queryExecutor = new ThreadPoolExecutor(1000,
                 1000,
                 1, TimeUnit.MINUTES,
                 new LinkedBlockingQueue<Runnable>(),
@@ -149,19 +153,31 @@ public class StaticQueryManager
     }
 
     @Override
+    public List<QueryInfo> getAllQueryInfo()
+    {
+        return ImmutableList.copyOf(transform(masterQueries.values(), new Function<MasterQueryState, QueryInfo>()
+        {
+            @Override
+            public QueryInfo apply(MasterQueryState masterQueryState)
+            {
+                return masterQueryState.toQueryInfo();
+            }
+        }));
+    }
+
+    @Override
     public synchronized QueryInfo createQuery(String query)
     {
         Preconditions.checkNotNull(query, "query is null");
         Preconditions.checkArgument(query.length() > 0, "query must not be empty string");
 
         String queryId = String.valueOf(nextQueryId++);
-        final QueryState queryState = new QueryState(1, pageBufferMax);
 
         // TODO: fix how we get our query parameters. typically we will have a query parser/planner to drive executions, but in the meantime, just use this ghetto-ness
         ImmutableList<String> strings = ImmutableList.copyOf(Splitter.on(":").split(query));
         String queryBase = strings.get(0);
 
-        QueryTask queryTask;
+        MasterQueryTask queryTask;
         switch (queryBase) {
             // e.g.: import-delimited:default:hivedba_query_stats:string,long,string,long:/tmp/myfile.csv:,
             case "import-delimited":
@@ -173,7 +189,8 @@ public class StaticQueryManager
                         return Type.fromName(input);
                     }
                 }));
-                queryTask = new ImportDelimited(queryState,
+                queryTask = new ImportDelimited(queryId,
+                        pageBufferMax,
                         strings.get(1),
                         strings.get(2),
                         new TupleInfo(types),
@@ -183,44 +200,63 @@ public class StaticQueryManager
 
             // e.g.: import-table:hive:default:hivedba_query_stats
             case "import-table":
-                queryTask = new ImportTableQuery(queryState, importClientFactory, importManager, metadata, strings.get(1), strings.get(2), strings.get(3));
+                queryTask = new ImportTableQuery(queryId, pageBufferMax, importClientFactory, importManager, metadata, strings.get(1), strings.get(2), strings.get(3));
                 break;
 
             // e.g.: sum-frag:catalog
             case "sum-frag":
-                queryTask = new SumFragmentMaster(queryState, queryExecutor, metadata, splitManager, queryFragmentRequestJsonCodec, strings.get(1));
+                queryTask = new SumFragmentMaster(queryId, pageBufferMax, queryExecutor, metadata, splitManager, queryFragmentRequestJsonCodec, strings.get(1));
                 break;
 
             default:
                 throw new IllegalArgumentException("Unsupported query " + query);
         }
 
-        queries.put(queryId, queryState);
+        MasterQueryState masterQueryState = queryTask.getMasterQueryState();
+        masterQueries.put(queryId, masterQueryState);
+        queries.put(queryId, masterQueryState.getOutputQueryState());
         queryExecutor.submit(queryTask);
 
-        return new QueryInfo(queryId, queryTask.getTupleInfos());
+        return new QueryInfo(queryId, queryTask.getTupleInfos(), State.PREPARING, 0);
     }
 
     @Override
     public synchronized QueryInfo createQueryFragment(Map<String, List<Split>> sourceSplits, PlanFragment planFragment)
     {
         String queryId = String.valueOf(nextQueryId++);
-        QueryState queryState = new QueryState(1, pageBufferMax);
 
 
         QueryTask queryTask;
         switch (planFragment.getQuery()) {
             case "sum-frag-worker":
-                queryTask = new SumFragmentWorker(queryState, sourceSplits, planFragment.getColumnHandles(), dataStreamProvider, shardExecutor);
+                queryTask = new SumFragmentWorker(pageBufferMax, sourceSplits, planFragment.getColumnHandles(), dataStreamProvider, shardExecutor);
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported fragment query: " + planFragment.getQuery());
         }
 
-        queries.put(queryId, queryState);
+        queries.put(queryId, queryTask.getQueryState());
         queryExecutor.submit(queryTask);
 
-        return new QueryInfo(queryId, queryTask.getTupleInfos());
+        return new QueryInfo(queryId, queryTask.getTupleInfos(), State.PREPARING, 0);
+    }
+
+    @Override
+    public QueryInfo getQueryInfo(String queryId)
+    {
+        try {
+            return getMasterQuery(queryId).toQueryInfo();
+        }
+        catch (NoSuchElementException e) {
+            QueryState queryState = getQuery(queryId);
+            return new QueryInfo(queryId, queryState.getTupleInfos(), queryState.getState(), queryState.getBufferedPageCount());
+        }
+    }
+
+    @Override
+    public State getQueryStatus(String queryId)
+    {
+        return getQuery(queryId).getState();
     }
 
     @Override
@@ -240,11 +276,22 @@ public class StaticQueryManager
 
         QueryState query;
         synchronized (this) {
+            masterQueries.remove(queryId);
             query = queries.remove(queryId);
         }
         if (query != null && !query.isDone()) {
             query.cancel();
         }
+    }
+
+    public synchronized MasterQueryState getMasterQuery(String queryId)
+            throws NoSuchElementException
+    {
+        MasterQueryState masterQueryState = masterQueries.get(queryId);
+        if (masterQueryState == null) {
+            throw new NoSuchElementException();
+        }
+        return masterQueryState;
     }
 
     public synchronized QueryState getQuery(String queryId)
@@ -261,26 +308,35 @@ public class StaticQueryManager
             extends Runnable
     {
         List<TupleInfo> getTupleInfos();
+
+        QueryState getQueryState();
+    }
+
+    private static interface MasterQueryTask
+            extends QueryTask
+    {
+        MasterQueryState getMasterQueryState();
     }
 
     private static class SumFragmentMaster
-            implements QueryTask
+            implements MasterQueryTask
     {
-        private final QueryState queryState;
-        private JsonCodec<QueryFragmentRequest> codec;
+        private final MasterQueryState masterQueryState;
         private final AsyncHttpClient asyncHttpClient;
+        private final JsonCodec<QueryFragmentRequest> codec;
         private final Metadata metadata;
         private final SplitManager splitManager;
         private final String catalogName;
 
-        public SumFragmentMaster(QueryState queryState,
+        public SumFragmentMaster(String queryId,
+                int pageBufferMax,
                 ExecutorService executor,
                 Metadata metadata,
                 SplitManager splitManager,
                 JsonCodec<QueryFragmentRequest> codec,
                 String catalogName)
         {
-            this.queryState = queryState;
+            this.masterQueryState = new MasterQueryState(queryId, new QueryState(ImmutableList.of(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64)), 1, pageBufferMax));
             this.codec = codec;
             ApacheHttpClient httpClient = new ApacheHttpClient(new HttpClientConfig()
                     .setConnectTimeout(new Duration(5, TimeUnit.MINUTES))
@@ -292,24 +348,37 @@ public class StaticQueryManager
         }
 
         @Override
+        public MasterQueryState getMasterQueryState()
+        {
+            return masterQueryState;
+        }
+
+        @Override
+        public QueryState getQueryState()
+        {
+            return masterQueryState.getOutputQueryState();
+        }
+
+        @Override
         public List<TupleInfo> getTupleInfos()
         {
-            return ImmutableList.of(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64));
+            return masterQueryState.getOutputQueryState().getTupleInfos();
         }
 
         @Override
         public void run()
         {
+            QueryState queryState = masterQueryState.getOutputQueryState();
             try {
                 final TableMetadata table = metadata.getTable(catalogName, "default", "hivedba_query_stats");
                 Iterable<SplitAssignments> splitAssignments = splitManager.getSplitAssignments(table.getTableHandle().get());
 
                 Multimap<Node, Split> nodeSplits = SplitAssignments.randomNodeAssignment(new Random(), splitAssignments);
-                QueryDriversOperator operator = new QueryDriversOperator(10,
-                        transform(nodeSplits.asMap().entrySet(), new Function<Entry<Node, Collection<Split>>, QueryDriverProvider>()
+                List<HttpQueryProvider> providers = ImmutableList.copyOf(transform(nodeSplits.asMap().entrySet(),
+                        new Function<Entry<Node, Collection<Split>>, HttpQueryProvider>()
                         {
                             @Override
-                            public QueryDriverProvider apply(Entry<Node, Collection<Split>> splits)
+                            public HttpQueryProvider apply(Entry<Node, Collection<Split>> splits)
                             {
                                 QueryFragmentRequest queryFragmentRequest = new QueryFragmentRequest(
                                         ImmutableMap.<String, List<Split>>of("source", ImmutableList.copyOf(splits.getValue())),
@@ -328,8 +397,11 @@ public class StaticQueryManager
                                 );
 
                             }
-                        })
-                );
+                        }));
+
+                masterQueryState.addStage("sum-frag-worker", providers);
+
+                QueryDriversOperator operator = new QueryDriversOperator(10, providers);
 
                 HashAggregationOperator aggregation = new HashAggregationOperator(operator,
                         0,
@@ -356,19 +428,20 @@ public class StaticQueryManager
     private static class SumFragmentWorker
             implements QueryTask
     {
+        private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_VARBINARY, SINGLE_LONG);
         private final QueryState queryState;
         private final List<Split> splits;
         private final List<ColumnHandle> columnHandles;
         private final DataStreamProvider dataStreamProvider;
         private final ThreadPoolExecutor shardExecutor;
 
-        private SumFragmentWorker(QueryState queryState,
+        private SumFragmentWorker(int pageBufferMax,
                 Map<String, List<Split>> sourceSplits,
                 List<ColumnHandle> columnHandles,
                 DataStreamProvider dataStreamProvider,
                 ThreadPoolExecutor shardExecutor)
         {
-            this.queryState = queryState;
+            this.queryState = new QueryState(TUPLE_INFOS, 1, pageBufferMax);
             this.splits = sourceSplits.get("source");
             this.columnHandles = ImmutableList.copyOf(columnHandles);
             this.dataStreamProvider = dataStreamProvider;
@@ -376,9 +449,15 @@ public class StaticQueryManager
         }
 
         @Override
+        public QueryState getQueryState()
+        {
+            return queryState;
+        }
+
+        @Override
         public List<TupleInfo> getTupleInfos()
         {
-            return ImmutableList.of(SINGLE_VARBINARY, SINGLE_LONG);
+            return TUPLE_INFOS;
         }
 
         @Override
@@ -452,11 +531,11 @@ public class StaticQueryManager
     }
 
     private static class ImportTableQuery
-            implements QueryTask
+            implements MasterQueryTask
     {
         private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_LONG);
 
-        private final QueryState queryState;
+        private final MasterQueryState masterQueryState;
         private final ImportClientFactory importClientFactory;
         private final ImportManager importManager;
         private final Metadata metadata;
@@ -465,7 +544,8 @@ public class StaticQueryManager
         private final String tableName;
 
         private ImportTableQuery(
-                QueryState queryState,
+                String queryId,
+                int pageBufferMax,
                 ImportClientFactory importClientFactory,
                 ImportManager importManager,
                 Metadata metadata,
@@ -473,13 +553,25 @@ public class StaticQueryManager
                 String databaseName,
                 String tableName)
         {
-            this.queryState = queryState;
+            this.masterQueryState = new MasterQueryState(queryId, new QueryState(TUPLE_INFOS, 1, pageBufferMax));
             this.importClientFactory = importClientFactory;
             this.importManager = importManager;
             this.metadata = metadata;
             this.sourceName = sourceName;
             this.databaseName = databaseName;
             this.tableName = tableName;
+        }
+
+        @Override
+        public MasterQueryState getMasterQueryState()
+        {
+            return masterQueryState;
+        }
+
+        @Override
+        public QueryState getQueryState()
+        {
+            return masterQueryState.getOutputQueryState();
         }
 
         @Override
@@ -491,6 +583,7 @@ public class StaticQueryManager
         @Override
         public void run()
         {
+            QueryState queryState = masterQueryState.getOutputQueryState();
             try {
                 String catalogName = "default";
                 String schemaName = "default";
@@ -533,24 +626,25 @@ public class StaticQueryManager
     }
 
     private static class ImportDelimited
-            implements QueryTask
+            implements MasterQueryTask
     {
         private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_LONG);
 
-        private final QueryState queryState;
+        private final MasterQueryState masterQueryState;
         private final String databaseName;
         private final String tableName;
         private final RecordProjectOperator source;
 
         public ImportDelimited(
-                QueryState queryState,
+                String queryId,
+                int pageBufferMax,
                 String databaseName,
                 String tableName,
                 TupleInfo tupleInfo,
                 File delimitedFile,
                 Splitter splitter)
         {
-            this.queryState = queryState;
+            this.masterQueryState = new MasterQueryState(queryId, new QueryState(TUPLE_INFOS, 1, pageBufferMax));
             this.databaseName = databaseName;
             this.tableName = tableName;
 
@@ -566,6 +660,18 @@ public class StaticQueryManager
         }
 
         @Override
+        public MasterQueryState getMasterQueryState()
+        {
+            return masterQueryState;
+        }
+
+        @Override
+        public QueryState getQueryState()
+        {
+            return masterQueryState.getOutputQueryState();
+        }
+
+        @Override
         public List<TupleInfo> getTupleInfos()
         {
             return TUPLE_INFOS;
@@ -574,6 +680,7 @@ public class StaticQueryManager
         @Override
         public void run()
         {
+            QueryState queryState = masterQueryState.getOutputQueryState();
             try {
                 // TODO: fix this
                 //                long rowCount = storageManager.importShard(source, databaseName, tableName);
