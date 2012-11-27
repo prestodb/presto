@@ -82,9 +82,9 @@ public class LocalQueryCommand
         AnalysisResult analysis = analyzer.analyze(statement);
 
         PlanNode plan = new Planner().plan((Query) statement, analysis);
-        new PlanPrinter().print(plan);
+        new PlanPrinter().print(plan, analysis.getTypes());
 
-        ExecutionPlanner executionPlanner = new ExecutionPlanner(sessionMetadata, storageManager);
+        ExecutionPlanner executionPlanner = new ExecutionPlanner(sessionMetadata, storageManager, analysis);
         Operator operator = executionPlanner.plan(plan);
 
         for (int i = 0; i < 30; i++) {

@@ -5,59 +5,64 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 
 import java.util.List;
-
-import static com.facebook.presto.sql.compiler.NamedSlot.attributeGetter;
+import java.util.Map;
 
 public class TupleDescriptor
 {
-    private final List<NamedSlot> slots;
+    private final List<Field> fields;
 
-    public TupleDescriptor(List<NamedSlot> slots)
+    public TupleDescriptor(List<Field> fields)
     {
-        Preconditions.checkNotNull(slots, "slots is null");
-        this.slots = ImmutableList.copyOf(slots);
+        Preconditions.checkNotNull(fields, "fields is null");
+        this.fields = ImmutableList.copyOf(fields);
     }
 
-    public TupleDescriptor(List<Optional<String>> attributes, List<Slot> slots)
+    public TupleDescriptor(List<Optional<String>> attributes, List<Symbol> symbols, List<Type> types)
     {
         Preconditions.checkNotNull(attributes, "attributes is null");
-        Preconditions.checkNotNull(slots, "slots is null");
-        Preconditions.checkArgument(attributes.size() == slots.size(), "attributes and slots sizes do not match");
+        Preconditions.checkNotNull(symbols, "symbols is null");
+        Preconditions.checkNotNull(types, "types is null");
+        Preconditions.checkArgument(attributes.size() == symbols.size(), "attributes and symbols sizes do not match");
+        Preconditions.checkArgument(attributes.size() == types.size(), "attributes and types sizes do not match");
 
-        ImmutableList.Builder<NamedSlot> builder = ImmutableList.builder();
+        ImmutableList.Builder<Field> builder = ImmutableList.builder();
         for (int i = 0; i < attributes.size(); i++) {
-            builder.add(new NamedSlot(Optional.<QualifiedName>absent(), attributes.get(i), slots.get(i)));
+            builder.add(new Field(Optional.<QualifiedName>absent(), attributes.get(i), symbols.get(i), types.get(i)));
         }
 
-        this.slots = builder.build();
+        this.fields = builder.build();
     }
 
-    public List<Optional<String>> getAttributes()
+    public List<Field> getFields()
     {
-        return Lists.transform(slots, attributeGetter());
+        return fields;
     }
 
-    public List<NamedSlot> getSlots()
+    public Map<Symbol, Type> getSymbols()
     {
-        return slots;
+        ImmutableMap.Builder<Symbol, Type> builder = ImmutableMap.builder();
+        for (Field field : fields) {
+            builder.put(field.getSymbol(), field.getType());
+        }
+        return builder.build();
     }
 
     @Override
     public String toString()
     {
-        return slots.toString();
+        return fields.toString();
     }
 
-    public List<NamedSlot> resolve(final QualifiedName name)
+    public List<Field> resolve(final QualifiedName name)
     {
-        return ImmutableList.copyOf(Iterables.filter(slots, new Predicate<NamedSlot>()
+        return ImmutableList.copyOf(Iterables.filter(fields, new Predicate<Field>()
         {
             @Override
-            public boolean apply(NamedSlot input)
+            public boolean apply(Field input)
             {
                 if (!input.getPrefix().isPresent() || !input.getAttribute().isPresent()) {
                     return false;

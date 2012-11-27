@@ -1,7 +1,8 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.operator.FilterFunction;
-import com.facebook.presto.sql.compiler.Slot;
+import com.facebook.presto.sql.compiler.Symbol;
+import com.facebook.presto.sql.compiler.Type;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.tuple.TupleReadable;
 
@@ -13,18 +14,20 @@ public class InterpretedFilterFunction
         implements FilterFunction
 {
     private final Expression predicate;
-    private final Map<Slot, Integer> slotToChannelMapping;
+    private final Map<Symbol, Integer> symbolToChannelMapping;
+    private final Map<Symbol, Type> symbols;
 
-    public InterpretedFilterFunction(Expression predicate, Map<Slot, Integer> slotToChannelMapping)
+    public InterpretedFilterFunction(Expression predicate, Map<Symbol, Integer> symbolToChannelMapping, Map<Symbol, Type> symbols)
     {
         this.predicate = predicate;
-        this.slotToChannelMapping = slotToChannelMapping;
+        this.symbolToChannelMapping = symbolToChannelMapping;
+        this.symbols = symbols;
     }
 
     @Override
     public boolean filter(TupleReadable... cursors)
     {
-        ExpressionInterpreter evaluator = new ExpressionInterpreter(slotToChannelMapping);
+        ExpressionInterpreter evaluator = new ExpressionInterpreter(symbolToChannelMapping, symbols);
         Boolean result = (Boolean) evaluator.process(predicate, cursors);
         return result == TRUE;
     }

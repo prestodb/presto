@@ -7,6 +7,11 @@ public class PlanVisitor<C, R>
         return null;
     }
 
+    public R visitExchange(ExchangeNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitAggregation(AggregationNode node, C context)
     {
         return visitPlan(node, context);

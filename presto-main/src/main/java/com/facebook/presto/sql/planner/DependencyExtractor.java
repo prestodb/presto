@@ -1,18 +1,18 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.compiler.Slot;
-import com.facebook.presto.sql.compiler.SlotReference;
+import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
 class DependencyExtractor
 {
-    public Set<Slot> extract(Expression expression)
+    public Set<Symbol> extract(Expression expression)
     {
-        ImmutableSet.Builder<Slot> builder = ImmutableSet.builder();
+        ImmutableSet.Builder<Symbol> builder = ImmutableSet.builder();
 
         Visitor visitor = new Visitor();
         visitor.process(expression, builder);
@@ -22,13 +22,12 @@ class DependencyExtractor
 
 
     private static class Visitor
-            extends DefaultTraversalVisitor<Void, ImmutableSet.Builder<Slot>>
+            extends DefaultTraversalVisitor<Void, ImmutableSet.Builder<Symbol>>
     {
         @Override
-        public Void visitSlotReference(SlotReference node, ImmutableSet.Builder<Slot> builder)
+        protected Void visitQualifiedNameReference(QualifiedNameReference node, ImmutableSet.Builder<Symbol> builder)
         {
-            builder.add(node.getSlot());
-
+            builder.add(Symbol.fromQualifiedName(node.getName()));
             return null;
         }
     }
