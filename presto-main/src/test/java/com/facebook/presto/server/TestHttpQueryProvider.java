@@ -18,7 +18,6 @@ import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.configuration.ConfigurationModule;
 import io.airlift.event.client.InMemoryEventModule;
 import io.airlift.http.client.ApacheHttpClient;
-import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
@@ -39,7 +38,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestHttpQueryProvider
 {
-    private AsyncHttpClient httpClient ;
+    private ApacheHttpClient httpClient;
     private TestingHttpServer server1;
     private TestingHttpServer server2;
     private TestingHttpServer server3;
@@ -54,7 +53,7 @@ public class TestHttpQueryProvider
             server2 = createServer();
             server3 = createServer();
             executor = Executors.newCachedThreadPool();
-            httpClient = new AsyncHttpClient(new ApacheHttpClient(), executor);
+            httpClient = new ApacheHttpClient();
         }
         catch (Exception | Error e) {
             teardown();
@@ -162,6 +161,7 @@ public class TestHttpQueryProvider
         return new HttpQueryProvider(createStaticBodyGenerator("query", Charsets.UTF_8),
                 Optional.<String>absent(),
                 httpClient,
+                executor,
                 httpServer.getBaseUrl().resolve("/v1/presto/query"));
     }
 }

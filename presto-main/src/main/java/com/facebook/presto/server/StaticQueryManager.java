@@ -36,16 +36,17 @@ import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.io.Files;
 import com.google.common.io.InputSupplier;
 import io.airlift.http.client.ApacheHttpClient;
-import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
@@ -322,7 +323,8 @@ public class StaticQueryManager
             implements MasterQueryTask
     {
         private final MasterQueryState masterQueryState;
-        private final AsyncHttpClient asyncHttpClient;
+        private final ExecutorService executor;
+        private final ApacheHttpClient httpClient;
         private final JsonCodec<QueryFragmentRequest> codec;
         private final Metadata metadata;
         private final SplitManager splitManager;
@@ -337,11 +339,11 @@ public class StaticQueryManager
                 String catalogName)
         {
             this.masterQueryState = new MasterQueryState(queryId, new QueryState(ImmutableList.of(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64)), 1, pageBufferMax));
+            this.executor = executor;
             this.codec = codec;
-            ApacheHttpClient httpClient = new ApacheHttpClient(new HttpClientConfig()
+            httpClient = new ApacheHttpClient(new HttpClientConfig()
                     .setConnectTimeout(new Duration(5, TimeUnit.MINUTES))
                     .setReadTimeout(new Duration(5, TimeUnit.MINUTES)));
-            asyncHttpClient = new AsyncHttpClient(httpClient, executor);
             this.metadata = metadata;
             this.splitManager = splitManager;
             this.catalogName = catalogName;
@@ -392,7 +394,8 @@ public class StaticQueryManager
                                 return new HttpQueryProvider(
                                         jsonBodyGenerator(codec, queryFragmentRequest),
                                         Optional.of(MediaType.APPLICATION_JSON),
-                                        asyncHttpClient,
+                                        httpClient,
+                                        executor,
                                         splits.getKey().getHttpUri().resolve("/v1/presto/query")
                                 );
 
@@ -400,6 +403,9 @@ public class StaticQueryManager
                         }));
 
                 masterQueryState.addStage("sum-frag-worker", providers);
+
+                // wait for providers to start
+                waitForRunning(providers);
 
                 QueryDriversOperator operator = new QueryDriversOperator(10, providers);
 
@@ -527,7 +533,6 @@ public class StaticQueryManager
                 }
             }
         }
-
     }
 
     private static class ImportTableQuery
@@ -719,6 +724,38 @@ public class StaticQueryManager
         }
         if (queryFailedException != null) {
             throw queryFailedException;
+        }
+    }
+
+    private static void waitForRunning(List<HttpQueryProvider> queryProviders)
+    {
+        while (true) {
+            long start = System.nanoTime();
+
+            queryProviders = ImmutableList.copyOf(Iterables.filter(queryProviders, new Predicate<HttpQueryProvider>()
+            {
+                @Override
+                public boolean apply(HttpQueryProvider queryProvider)
+                {
+                    QueryInfo queryInfo = queryProvider.getQueryInfo();
+                    return queryInfo.getState() == State.PREPARING;
+                }
+            }));
+            if (queryProviders.isEmpty()) {
+                return;
+            }
+
+            Duration duration = Duration.nanosSince(start);
+            long waitTime = (long) (100 - duration.toMillis());
+            if (waitTime > 0) {
+                try {
+                    Thread.sleep(waitTime);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw Throwables.propagate(e);
+                }
+            }
         }
     }
 }
