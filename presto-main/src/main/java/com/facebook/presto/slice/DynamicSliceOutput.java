@@ -16,14 +16,9 @@
 package com.facebook.presto.slice;
 
 import com.google.common.base.Objects;
-import com.google.common.io.OutputSupplier;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.channels.ScatteringByteChannel;
 import java.nio.charset.Charset;
 
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_BYTE;
@@ -39,7 +34,7 @@ public class DynamicSliceOutput extends SliceOutput
 
     public DynamicSliceOutput(int estimatedSize)
     {
-        this.slice = new ByteArraySlice(estimatedSize);
+        this.slice = Slices.allocate(estimatedSize);
     }
 
     @Override
@@ -135,44 +130,11 @@ public class DynamicSliceOutput extends SliceOutput
     }
 
     @Override
-    public void writeBytes(ByteBuffer source)
-    {
-        int length = source.remaining();
-        slice = Slices.ensureSize(slice, size + length);
-        slice.setBytes(size, source);
-        size += length;
-    }
-
-    @Override
     public int writeBytes(InputStream in, int length)
             throws IOException
     {
         slice = Slices.ensureSize(slice, size + length);
         int writtenBytes = slice.setBytes(size, in, length);
-        if (writtenBytes > 0) {
-            size += writtenBytes;
-        }
-        return writtenBytes;
-    }
-
-    @Override
-    public int writeBytes(ScatteringByteChannel in, int length)
-            throws IOException
-    {
-        slice = Slices.ensureSize(slice, size + length);
-        int writtenBytes = slice.setBytes(size, in, length);
-        if (writtenBytes > 0) {
-            size += writtenBytes;
-        }
-        return writtenBytes;
-    }
-
-    @Override
-    public int writeBytes(FileChannel in, int position, int length)
-            throws IOException
-    {
-        slice = Slices.ensureSize(slice, size + length);
-        int writtenBytes = slice.setBytes(size, in, position, length);
         if (writtenBytes > 0) {
             size += writtenBytes;
         }
@@ -239,12 +201,6 @@ public class DynamicSliceOutput extends SliceOutput
     public Slice slice()
     {
         return slice.slice(0, size);
-    }
-
-    @Override
-    public ByteBuffer toByteBuffer()
-    {
-        return slice.toByteBuffer(0, size);
     }
 
     @Override
