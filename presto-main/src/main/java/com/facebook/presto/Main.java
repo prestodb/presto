@@ -5,7 +5,6 @@ package com.facebook.presto;
 
 import com.facebook.presto.cli.Console;
 import com.facebook.presto.cli.ConvertCsv;
-import com.facebook.presto.cli.ExampleSumAggregation;
 import com.facebook.presto.cli.Execute;
 import com.facebook.presto.cli.LocalQueryCommand;
 import com.facebook.presto.cli.Server;
@@ -28,16 +27,10 @@ public class Main
         CliBuilder<Runnable> builder = Cli.buildCli("presto", Runnable.class)
                 .withDefaultCommand(Server.class)
                 .withCommand(Server.class)
-                .withCommand(ExampleSumAggregation.class)
                 .withCommand(Execute.class)
                 .withCommand(LocalQueryCommand.class)
                 .withCommand(Console.class)
                 .withCommands(Help.class);
-
-        builder.withGroup("example")
-                .withDescription("run example queries")
-                .withDefaultCommand(Help.class)
-                .withCommand(ExampleSumAggregation.class);
 
         builder.withGroup("convert")
                 .withDescription("convert file formats")
