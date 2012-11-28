@@ -2,6 +2,8 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.compiler.Type;
+import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import org.codehaus.jackson.annotate.JsonProperty;
 
@@ -17,6 +19,10 @@ public class PlanFragment
 
     public PlanFragment(@JsonProperty("id") int id, @JsonProperty("partitioned") boolean isPartitioned, @JsonProperty("symbols") Map<Symbol, Type> symbols, @JsonProperty("root") PlanNode root)
     {
+        Preconditions.checkArgument(id >= 0, "id must be positive");
+        Preconditions.checkNotNull(symbols, "symbols is null");
+        Preconditions.checkNotNull(root, "root is null");
+
         this.id = id;
         this.root = root;
         partitioned = isPartitioned;
@@ -63,5 +69,14 @@ public class PlanFragment
         if (node.getSources().isEmpty()) {
             builder.add(node);
         }
+    }
+
+    @Override
+    public String toString()
+    {
+        return Objects.toStringHelper(this)
+                .add("id", id)
+                .add("partitioned", partitioned)
+                .toString();
     }
 }

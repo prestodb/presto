@@ -21,6 +21,9 @@ import static com.facebook.presto.sql.planner.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.AggregationNode.Step.SINGLE;
 
+/**
+ * Splits a logical plan into fragments that can be shipped and executed on distributed nodes
+ */
 public class FragmentPlanner
 {
     private final SessionMetadata metadata;

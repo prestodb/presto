@@ -185,40 +185,41 @@ public class StaticQueryManager
         String queryBase = strings.get(0);
 
         MasterQueryTask queryTask;
-        switch (queryBase) {
-            // e.g.: import-delimited:default:hivedba_query_stats:string,long,string,long:/tmp/myfile.csv:,
-            case "import-delimited":
-                List<Type> types = ImmutableList.copyOf(transform(Splitter.on(",").split(strings.get(2)), new Function<String, Type>()
-                {
-                    @Override
-                    public Type apply(String input)
-                    {
-                        return Type.fromName(input);
-                    }
-                }));
-                queryTask = new ImportDelimited(queryId,
-                        pageBufferMax,
-                        strings.get(1),
-                        strings.get(2),
-                        new TupleInfo(types),
-                        new File(strings.get(3)),
-                        Splitter.on(strings.get(4)));
-                break;
 
-            // e.g.: import-table:hive:default:hivedba_query_stats
-            case "import-table":
-                queryTask = new ImportTableQuery(queryId, pageBufferMax, importClientFactory, importManager, metadata, strings.get(1), strings.get(2), strings.get(3));
-                break;
-
+        if (query.startsWith("sql:")) {
             // e.g.: sql:select count(*) from hivedba_query_stats
-            case "sql":
-                String sql = Joiner.on(':').join(strings.subList(1, strings.size()));
+            String sql = query.substring("sql:".length());
+            queryTask = new SqlFragmentMaster(queryId, pageBufferMax, queryExecutor, metadata, splitManager, queryFragmentRequestJsonCodec, sql);
+        }
+        else {
+            switch (queryBase) {
+                // e.g.: import-delimited:default:hivedba_query_stats:string,long,string,long:/tmp/myfile.csv:,
+                case "import-delimited":
+                    List<Type> types = ImmutableList.copyOf(transform(Splitter.on(",").split(strings.get(2)), new Function<String, Type>()
+                    {
+                        @Override
+                        public Type apply(String input)
+                        {
+                            return Type.fromName(input);
+                        }
+                    }));
+                    queryTask = new ImportDelimited(queryId,
+                            pageBufferMax,
+                            strings.get(1),
+                            strings.get(2),
+                            new TupleInfo(types),
+                            new File(strings.get(3)),
+                            Splitter.on(strings.get(4)));
+                    break;
 
-                queryTask = new SqlFragmentMaster(queryId, pageBufferMax, queryExecutor, metadata, splitManager, queryFragmentRequestJsonCodec, sql);
-                break;
+                // e.g.: import-table:hive:default:hivedba_query_stats
+                case "import-table":
+                    queryTask = new ImportTableQuery(queryId, pageBufferMax, importClientFactory, importManager, metadata, strings.get(1), strings.get(2), strings.get(3));
+                    break;
 
-            default:
-                throw new IllegalArgumentException("Unsupported query " + query);
+                default:
+                    throw new IllegalArgumentException("Unsupported query " + query);
+            }
         }
 
         MasterQueryState masterQueryState = queryTask.getMasterQueryState();
@@ -345,13 +346,7 @@ public class StaticQueryManager
             this.splitManager = splitManager;
 
             try {
-                Statement statement;
-                try {
-                    statement = SqlParser.createStatement(sql);
-                }
-                catch (RecognitionException e) {
-                    throw Throwables.propagate(e);
-                }
+                Statement statement = SqlParser.createStatement(sql);
 
                 sessionMetadata = new SessionMetadata(metadata);
 
