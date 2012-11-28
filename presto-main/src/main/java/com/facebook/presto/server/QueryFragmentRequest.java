@@ -1,7 +1,7 @@
 package com.facebook.presto.server;
 
-import com.facebook.presto.split.PlanFragment;
 import com.facebook.presto.split.Split;
+import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;

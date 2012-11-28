@@ -11,14 +11,12 @@ import com.facebook.presto.ingest.ImportSchemaUtil;
 import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.ingest.RecordProjection;
 import com.facebook.presto.ingest.RecordProjections;
-import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeColumnHandle;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.server.QueryState.State;
@@ -26,14 +24,29 @@ import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.SchemaField;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.ImportClientFactory;
-import com.facebook.presto.split.PlanFragment;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitAssignments;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.compiler.AnalysisResult;
+import com.facebook.presto.sql.compiler.Analyzer;
+import com.facebook.presto.sql.compiler.SessionMetadata;
+import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.ExecutionPlanner;
+import com.facebook.presto.sql.planner.FragmentPlanner;
+import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.PlanNode;
+import com.facebook.presto.sql.planner.PlanPrinter;
+import com.facebook.presto.sql.planner.Planner;
+import com.facebook.presto.sql.planner.TableScan;
+import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -50,6 +63,7 @@ import io.airlift.http.client.ApacheHttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
+import org.antlr.runtime.RecognitionException;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
@@ -72,15 +86,7 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.operator.ProjectionFunctions.concat;
-import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
-import static com.facebook.presto.operator.aggregation.AggregationFunctions.finalAggregation;
-import static com.facebook.presto.operator.aggregation.AggregationFunctions.partialAggregation;
-import static com.facebook.presto.operator.aggregation.LongSumAggregation.longSumAggregation;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
@@ -204,9 +210,11 @@ public class StaticQueryManager
                 queryTask = new ImportTableQuery(queryId, pageBufferMax, importClientFactory, importManager, metadata, strings.get(1), strings.get(2), strings.get(3));
                 break;
 
-            // e.g.: sum-frag:catalog
-            case "sum-frag":
-                queryTask = new SumFragmentMaster(queryId, pageBufferMax, queryExecutor, metadata, splitManager, queryFragmentRequestJsonCodec, strings.get(1));
+            // e.g.: sql:select count(*) from hivedba_query_stats
+            case "sql":
+                String sql = Joiner.on(':').join(strings.subList(1, strings.size()));
+
+                queryTask = new SqlFragmentMaster(queryId, pageBufferMax, queryExecutor, metadata, splitManager, queryFragmentRequestJsonCodec, sql);
                 break;
 
             default:
@@ -225,17 +233,7 @@ public class StaticQueryManager
     public synchronized QueryInfo createQueryFragment(Map<String, List<Split>> sourceSplits, PlanFragment planFragment)
     {
         String queryId = String.valueOf(nextQueryId++);
-
-
-        QueryTask queryTask;
-        switch (planFragment.getQuery()) {
-            case "sum-frag-worker":
-                queryTask = new SumFragmentWorker(pageBufferMax, sourceSplits, planFragment.getColumnHandles(), dataStreamProvider, shardExecutor);
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported fragment query: " + planFragment.getQuery());
-        }
-
+        QueryTask queryTask = new FragmentWorker(pageBufferMax, planFragment, sourceSplits, dataStreamProvider, metadata, shardExecutor);
         queries.put(queryId, queryTask.getQueryState());
         queryExecutor.submit(queryTask);
 
@@ -319,34 +317,75 @@ public class StaticQueryManager
         MasterQueryState getMasterQueryState();
     }
 
-    private static class SumFragmentMaster
+    private static class SqlFragmentMaster
             implements MasterQueryTask
     {
         private final MasterQueryState masterQueryState;
         private final ExecutorService executor;
         private final ApacheHttpClient httpClient;
         private final JsonCodec<QueryFragmentRequest> codec;
-        private final Metadata metadata;
         private final SplitManager splitManager;
-        private final String catalogName;
+        private final QueryState queryState;
+        private final SessionMetadata sessionMetadata;
+        private final List<PlanFragment> fragments;
 
-        public SumFragmentMaster(String queryId,
+        public SqlFragmentMaster(String queryId,
                 int pageBufferMax,
                 ExecutorService executor,
                 Metadata metadata,
                 SplitManager splitManager,
                 JsonCodec<QueryFragmentRequest> codec,
-                String catalogName)
+                String sql)
         {
-            this.masterQueryState = new MasterQueryState(queryId, new QueryState(ImmutableList.of(new TupleInfo(VARIABLE_BINARY, FIXED_INT_64)), 1, pageBufferMax));
             this.executor = executor;
             this.codec = codec;
             httpClient = new ApacheHttpClient(new HttpClientConfig()
                     .setConnectTimeout(new Duration(5, TimeUnit.MINUTES))
                     .setReadTimeout(new Duration(5, TimeUnit.MINUTES)));
-            this.metadata = metadata;
             this.splitManager = splitManager;
-            this.catalogName = catalogName;
+
+            try {
+                Statement statement;
+                try {
+                    statement = SqlParser.createStatement(sql);
+                }
+                catch (RecognitionException e) {
+                    throw Throwables.propagate(e);
+                }
+
+                sessionMetadata = new SessionMetadata(metadata);
+
+                Analyzer analyzer = new Analyzer(sessionMetadata);
+                final AnalysisResult analysis = analyzer.analyze(statement);
+
+                Planner planner = new Planner();
+                PlanNode plan = planner.plan((Query) statement, analysis);
+
+                fragments = new FragmentPlanner(sessionMetadata).createFragments(plan, analysis.getSymbolAllocator(), false);
+
+                Preconditions.checkArgument(fragments.size() == 2, "Distributed plans with more than 2 levels not yet supported");
+            }
+            catch (Exception e) {
+                throw Throwables.propagate(e);
+            }
+
+            PlanFragment top = fragments.get(1);
+
+            List<TupleInfo> tupleInfos = ImmutableList.copyOf(IterableTransformer.on(top.getRoot().getOutputSymbols())
+                    .transform(Functions.forMap(top.getSymbols()))
+                    .transform(com.facebook.presto.sql.compiler.Type.toRaw())
+                    .transform(new Function<Type, TupleInfo>()
+                    {
+                        @Override
+                        public TupleInfo apply(Type input)
+                        {
+                            return new TupleInfo(input);
+                        }
+                    })
+                    .list());
+
+            this.masterQueryState = new MasterQueryState(queryId, new QueryState(tupleInfos, 1, pageBufferMax));
+            queryState = masterQueryState.getOutputQueryState();
         }
 
         @Override
@@ -370,10 +409,13 @@ public class StaticQueryManager
         @Override
         public void run()
         {
-            QueryState queryState = masterQueryState.getOutputQueryState();
             try {
-                final TableMetadata table = metadata.getTable(catalogName, "default", "hivedba_query_stats");
-                Iterable<SplitAssignments> splitAssignments = splitManager.getSplitAssignments(table.getTableHandle().get());
+                PlanFragment top = fragments.get(1);
+                final PlanFragment bottom = fragments.get(0);
+
+                TableScan tableScan = (TableScan) Iterables.getOnlyElement(bottom.getSources());
+
+                Iterable<SplitAssignments> splitAssignments = splitManager.getSplitAssignments(tableScan.getTable());
 
                 Multimap<Node, Split> nodeSplits = SplitAssignments.randomNodeAssignment(new Random(), splitAssignments);
                 List<HttpQueryProvider> providers = ImmutableList.copyOf(transform(nodeSplits.asMap().entrySet(),
@@ -384,12 +426,7 @@ public class StaticQueryManager
                             {
                                 QueryFragmentRequest queryFragmentRequest = new QueryFragmentRequest(
                                         ImmutableMap.<String, List<Split>>of("source", ImmutableList.copyOf(splits.getValue())),
-                                        new PlanFragment("sum-frag-worker",
-                                                ImmutableList.of(
-                                                        table.getColumns().get(2).getColumnHandle().get(),
-                                                        table.getColumns().get(6).getColumnHandle().get()
-                                                )
-                                        )
+                                        bottom // bottom fragment
                                 );
                                 return new HttpQueryProvider(
                                         jsonBodyGenerator(codec, queryFragmentRequest),
@@ -402,17 +439,21 @@ public class StaticQueryManager
                             }
                         }));
 
-                masterQueryState.addStage("sum-frag-worker", providers);
+                masterQueryState.addStage("sql-frag-worker", providers);
 
                 // wait for providers to start
                 waitForRunning(providers);
 
                 QueryDriversOperator operator = new QueryDriversOperator(10, providers);
 
-                HashAggregationOperator aggregation = new HashAggregationOperator(operator,
-                        0,
-                        ImmutableList.of(finalAggregation(longSumAggregation(1, 0))),
-                        ImmutableList.of(concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 1, 0))));
+                ExecutionPlanner executionPlanner = new ExecutionPlanner(sessionMetadata,
+                        null, // no data provider for non-leaf plan TODO: unify exchanges with data providers
+                        top.getSymbols(),
+                        ImmutableMap.<Integer, Operator>of(bottom.getId(), operator),
+                        null // no split for non-leaf plan TODO: unify exchanges with data providers
+                );
+
+                Operator aggregation = executionPlanner.plan(top.getRoot());
 
                 for (Page page : aggregation) {
                     queryState.addPage(page);
@@ -431,27 +472,45 @@ public class StaticQueryManager
         }
     }
 
-    private static class SumFragmentWorker
+    private static class FragmentWorker
             implements QueryTask
     {
-        private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_VARBINARY, SINGLE_LONG);
         private final QueryState queryState;
+
         private final List<Split> splits;
-        private final List<ColumnHandle> columnHandles;
         private final DataStreamProvider dataStreamProvider;
         private final ThreadPoolExecutor shardExecutor;
+        private final PlanFragment fragment;
+        private final List<TupleInfo> tupleInfos;
+        private final Metadata metadata;
 
-        private SumFragmentWorker(int pageBufferMax,
+        private FragmentWorker(int pageBufferMax,
+                PlanFragment fragment,
                 Map<String, List<Split>> sourceSplits,
-                List<ColumnHandle> columnHandles,
                 DataStreamProvider dataStreamProvider,
+                Metadata metadata,
                 ThreadPoolExecutor shardExecutor)
         {
-            this.queryState = new QueryState(TUPLE_INFOS, 1, pageBufferMax);
+            this.fragment = fragment;
             this.splits = sourceSplits.get("source");
-            this.columnHandles = ImmutableList.copyOf(columnHandles);
             this.dataStreamProvider = dataStreamProvider;
             this.shardExecutor = shardExecutor;
+            this.metadata = metadata;
+
+            this.tupleInfos = ImmutableList.copyOf(IterableTransformer.on(fragment.getRoot().getOutputSymbols())
+                    .transform(Functions.forMap(fragment.getSymbols()))
+                    .transform(com.facebook.presto.sql.compiler.Type.toRaw())
+                    .transform(new Function<Type, TupleInfo>()
+                    {
+                        @Override
+                        public TupleInfo apply(Type input)
+                        {
+                            return new TupleInfo(input);
+                        }
+                    })
+                    .list());
+
+            this.queryState = new QueryState(tupleInfos, 1, pageBufferMax);
         }
 
         @Override
@@ -463,7 +522,7 @@ public class StaticQueryManager
         @Override
         public List<TupleInfo> getTupleInfos()
         {
-            return TUPLE_INFOS;
+            return tupleInfos;
         }
 
         @Override
@@ -475,7 +534,7 @@ public class StaticQueryManager
                     @Override
                     public Callable<Void> apply(Split split)
                     {
-                        return new SplitSumFragmentWorker(queryState, split, columnHandles, dataStreamProvider);
+                        return new SplitSumFragmentWorker(queryState, split, fragment, dataStreamProvider, metadata);
                     }
                 }));
 
@@ -498,16 +557,14 @@ public class StaticQueryManager
                 implements Callable<Void>
         {
             private final QueryState queryState;
-            private final Split split;
-            private final List<ColumnHandle> columnHandles;
-            private final DataStreamProvider dataStreamProvider;
+            private final Operator operator;
 
-            private SplitSumFragmentWorker(QueryState queryState, Split split, List<ColumnHandle> columnHandles, DataStreamProvider dataStreamProvider)
+            private SplitSumFragmentWorker(QueryState queryState, Split split, PlanFragment fragment, DataStreamProvider dataStreamProvider, Metadata metadata)
             {
                 this.queryState = queryState;
-                this.split = split;
-                this.columnHandles = ImmutableList.copyOf(columnHandles);
-                this.dataStreamProvider = dataStreamProvider;
+
+                ExecutionPlanner planner = new ExecutionPlanner(new SessionMetadata(metadata), dataStreamProvider, fragment.getSymbols(), ImmutableMap.<Integer, Operator>of(), split);
+                operator = planner.plan(fragment.getRoot());
             }
 
             @Override
@@ -515,14 +572,7 @@ public class StaticQueryManager
                     throws Exception
             {
                 try {
-                    Operator dataStream = dataStreamProvider.createDataStream(split, columnHandles);
-                    HashAggregationOperator sumOperator = new HashAggregationOperator(
-                            dataStream,
-                            0,
-                            ImmutableList.of(partialAggregation(longSumAggregation(1, 0))),
-                            ImmutableList.of(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 1, 0)));
-
-                    for (Page page : sumOperator) {
+                    for (Page page : operator) {
                         queryState.addPage(page);
                     }
                     return null;

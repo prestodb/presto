@@ -5,8 +5,8 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.server.QueryState.State;
-import com.facebook.presto.split.PlanFragment;
 import com.facebook.presto.split.Split;
+import com.facebook.presto.sql.planner.PlanFragment;
 
 import java.util.List;
 import java.util.Map;
