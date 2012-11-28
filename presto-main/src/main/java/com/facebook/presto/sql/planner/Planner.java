@@ -59,6 +59,9 @@ public class Planner
     {
         PlanNode root = createOutputPlan(query, analysis);
 
+        // make sure we produce a valid plan. This is mainly to catch programming errors
+        PlanSanityChecker.validate(root);
+
         Map<Symbol, Type> types = analysis.getTypes();
 
         for (PlanOptimizer optimizer : OPTIMIZATIONS) {
