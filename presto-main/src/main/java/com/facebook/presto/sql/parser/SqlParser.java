@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.annotations.VisibleForTesting;
 import org.antlr.runtime.ANTLRStringStream;
@@ -19,6 +20,12 @@ public class SqlParser
         return createStatement(parseStatement(sql));
     }
 
+    public static Expression createExpression(String expression)
+            throws RecognitionException
+    {
+        return createExpression(parseExpression(expression));
+    }
+
     public static Statement createStatement(CommonTree tree)
             throws RecognitionException
     {
@@ -27,11 +34,25 @@ public class SqlParser
         return builder.statement().value;
     }
 
+    public static Expression createExpression(CommonTree tree)
+            throws RecognitionException
+    {
+        TreeNodeStream stream = new BufferedTreeNodeStream(tree);
+        StatementBuilder builder = new StatementBuilder(stream);
+        return builder.expr().value;
+    }
+
     @VisibleForTesting
     public static CommonTree parseStatement(String sql)
             throws RecognitionException
     {
         return (CommonTree) getParser(sql).singleStatement().getTree();
+    }
+
+    private static CommonTree parseExpression(String expression)
+            throws RecognitionException
+    {
+        return (CommonTree) getParser(expression).expr().getTree();
     }
 
     @VisibleForTesting
