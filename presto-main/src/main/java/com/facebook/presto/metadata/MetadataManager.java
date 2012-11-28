@@ -30,7 +30,7 @@ public class MetadataManager
     {
         checkNotNull(name, "name is null");
         checkNotNull(parameterTypes, "parameterTypes is null");
-        checkArgument(!parameterTypes.isEmpty(), "must provide at least one paramaterType");
+
         // Only use NATIVE
         return metadataSourceMap.get(DataSourceType.NATIVE).getFunction(name, parameterTypes);
     }
