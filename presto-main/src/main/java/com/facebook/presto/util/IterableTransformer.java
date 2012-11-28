@@ -6,7 +6,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Ordering;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
@@ -54,6 +56,11 @@ public class IterableTransformer<E>
     public IterableTransformer<E> select(Predicate<? super E> predicate)
     {
         return new IterableTransformer<>(Iterables.filter(iterable, predicate));
+    }
+
+    public IterableTransformer<E> orderBy(Comparator<E> ordering)
+    {
+        return new IterableTransformer<>(Ordering.from(ordering).sortedCopy(iterable));
     }
 
     public boolean all(Predicate<E> predicate)
@@ -105,5 +112,4 @@ public class IterableTransformer<E>
     {
         return Iterables.getLast(iterable);
     }
-
 }

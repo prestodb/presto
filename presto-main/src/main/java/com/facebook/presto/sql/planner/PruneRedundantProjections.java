@@ -3,7 +3,6 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.compiler.Type;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 
 import java.util.Map;
@@ -54,7 +53,7 @@ public class PruneRedundantProjections
         public PlanNode visitAggregation(AggregationNode node, Void context)
         {
             PlanNode source = node.getSource().accept(this, context);
-            return new AggregationNode(source, node.getGroupBy(), node.getAggregations(), node.getFunctionInfos());
+            return new AggregationNode(source, node.getGroupBy(), node.getAggregations(), node.getFunctions());
         }
 
         @Override

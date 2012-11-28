@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.compiler;
 
+import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -9,18 +10,22 @@ public class Field
 {
     private final Optional<QualifiedName> prefix;
     private final Optional<String> attribute;
+    private final Optional<ColumnHandle> column;
     private final Symbol symbol;
     private final Type type;
 
-    public Field(Optional<QualifiedName> prefix, Optional<String> attribute, Symbol symbol, Type type)
+
+    public Field(Optional<QualifiedName> prefix, Optional<String> attribute, Optional<ColumnHandle> column, Symbol symbol, Type type)
     {
         Preconditions.checkNotNull(prefix, "prefix is null");
         Preconditions.checkNotNull(attribute, "attribute is null");
-        Preconditions.checkNotNull(symbol, "uniqueName is null");
+        Preconditions.checkNotNull(column, "column is null");
+        Preconditions.checkNotNull(symbol, "symbol is null");
         Preconditions.checkNotNull(type, "type is null");
 
         this.prefix = prefix;
         this.attribute = attribute;
+        this.column = column;
         this.symbol = symbol;
         this.type = type;
     }
@@ -33,6 +38,11 @@ public class Field
     public Optional<String> getAttribute()
     {
         return attribute;
+    }
+
+    public Optional<ColumnHandle> getColumn()
+    {
+        return column;
     }
 
     public Symbol getSymbol()

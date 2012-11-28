@@ -1,6 +1,6 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
@@ -16,7 +16,7 @@ public class AggregationNode
     private final PlanNode source;
     private final List<Symbol> groupByKeys;
     private final Map<Symbol, FunctionCall> aggregations;
-    private final Map<Symbol, FunctionInfo> infos;
+    private final Map<Symbol, FunctionHandle> functions;
     private final Step step;
 
     public enum Step {
@@ -25,17 +25,21 @@ public class AggregationNode
         SINGLE
     }
 
-    public AggregationNode(PlanNode source, List<Symbol> groupByKeys, Map<Symbol, FunctionCall> aggregations, Map<Symbol, FunctionInfo> infos)
+    public AggregationNode(PlanNode source, List<Symbol> groupByKeys, Map<Symbol, FunctionCall> aggregations, Map<Symbol, FunctionHandle> functions)
     {
-        this(source, groupByKeys, aggregations, infos, Step.SINGLE);
+        this(source, groupByKeys, aggregations, functions, Step.SINGLE);
     }
 
-    public AggregationNode(PlanNode source, List<Symbol> groupByKeys, Map<Symbol, FunctionCall> aggregations, Map<Symbol, FunctionInfo> infos, Step step)
+    public AggregationNode(PlanNode source,
+            List<Symbol> groupByKeys,
+            Map<Symbol, FunctionCall> aggregations,
+            Map<Symbol, FunctionHandle> functions,
+            Step step)
     {
         this.source = source;
         this.groupByKeys = groupByKeys;
         this.aggregations = aggregations;
-        this.infos = infos;
+        this.functions = functions;
         this.step = step;
     }
 
@@ -56,9 +60,9 @@ public class AggregationNode
         return aggregations;
     }
 
-    public Map<Symbol, FunctionInfo> getFunctionInfos()
+    public Map<Symbol, FunctionHandle> getFunctions()
     {
-        return infos;
+        return functions;
     }
 
     public List<Symbol> getGroupBy()

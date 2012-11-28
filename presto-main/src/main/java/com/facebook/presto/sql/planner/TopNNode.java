@@ -17,7 +17,10 @@ public class TopNNode
     private final List<Symbol> orderBy;
     private final Map<Symbol, SortItem.Ordering> orderings;
 
-    public TopNNode(PlanNode source, long count, List<Symbol> orderBy, Map<Symbol, SortItem.Ordering> orderings)
+    public TopNNode(PlanNode source,
+            long count,
+            List<Symbol> orderBy,
+            Map<Symbol, SortItem.Ordering> orderings)
     {
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkArgument(count > 0, "count must be positive");
