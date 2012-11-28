@@ -27,7 +27,6 @@ import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
-import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CoderResult;
 import java.nio.charset.CodingErrorAction;
 import java.util.IdentityHashMap;
@@ -53,7 +52,7 @@ public final class Slices
     public static Slice ensureSize(Slice existingSlice, int minWritableBytes)
     {
         if (existingSlice == null) {
-            return EMPTY_SLICE;
+            return allocate(minWritableBytes);
         }
 
         if (minWritableBytes <= existingSlice.length()) {
@@ -121,16 +120,6 @@ public final class Slices
         }
         return dst.flip().toString();
     }
-
-    private static final ThreadLocal<Map<Charset, CharsetEncoder>> encoders =
-            new ThreadLocal<Map<Charset, CharsetEncoder>>()
-            {
-                @Override
-                protected Map<Charset, CharsetEncoder> initialValue()
-                {
-                    return new IdentityHashMap<>();
-                }
-            };
 
     private static final ThreadLocal<Map<Charset, CharsetDecoder>> decoders =
             new ThreadLocal<Map<Charset, CharsetDecoder>>()

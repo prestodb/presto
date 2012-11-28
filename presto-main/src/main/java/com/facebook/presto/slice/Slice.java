@@ -76,10 +76,35 @@ public final class Slice
         return new Slice(null, address, capacity, byteBuffer);
     }
 
+    /**
+     * Base object for relative addresses.  If null, the address is an
+     * absolute location in memory.
+     */
     private final Object base;
+
+    /**
+     * If base is null, address is the absolute memory location of data for
+     * this slice; otherwise, address is the offset from the base object.
+     * This base plus relative offset addressing is taken directly from
+     * the Unsafe interface.
+     *
+     * Note: if base object is a byte array, this address BYTE_ARRAY_OFFSET,
+     * since the byte array data starts AFTER the byte array object header.
+     */
     private final long address;
+
+    /**
+     * Size of the slice
+     */
     private final int size;
+
+    /**
+     * Reference is typically a ByteBuffer object, but can be any object this
+     * slice must hold onto to assure that the underlying memory is not
+     * freed by the garbage collector.
+     */
     private final Object reference;
+
     private int hash;
 
     /**
@@ -846,9 +871,19 @@ public final class Slice
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
-                .add("length", length())
-                .toString();
+        if (base == null) {
+            return Objects.toStringHelper(this)
+                    .add("address", address)
+                    .add("length", length())
+                    .toString();
+        }
+        else {
+            return Objects.toStringHelper(this)
+                    .add("base", base.getClass().getName() + "@" + Integer.toHexString(System.identityHashCode(base)))
+                    .add("address", address)
+                    .add("length", length())
+                    .toString();
+        }
     }
 
     private static void copyMemory(Object src, long srcAddress, Object dest, long destAddress, int length)
@@ -863,8 +898,8 @@ public final class Slice
         }
 
         while (length > 0) {
-            byte srcLong = unsafe.getByte(src, srcAddress + offset);
-            unsafe.putByte(dest, destAddress + offset, srcLong);
+            byte srcByte = unsafe.getByte(src, srcAddress + offset);
+            unsafe.putByte(dest, destAddress + offset, srcByte);
 
             offset++;
             length--;
