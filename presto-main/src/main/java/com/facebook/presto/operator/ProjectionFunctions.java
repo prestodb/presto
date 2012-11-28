@@ -47,18 +47,23 @@ public class ProjectionFunctions
         @Override
         public void project(TupleReadable[] cursors, BlockBuilder output)
         {
-            switch (columnType) {
-                case FIXED_INT_64:
-                    output.append(cursors[channelIndex].getLong(fieldIndex));
-                    return;
-                case VARIABLE_BINARY:
-                    output.append(cursors[channelIndex].getSlice(fieldIndex));
-                    return;
-                case DOUBLE:
-                    output.append(cursors[channelIndex].getDouble(fieldIndex));
-                    return;
+            if (cursors[channelIndex].isNull(fieldIndex)) {
+                output.appendNull();
             }
-            throw new IllegalStateException("Unsupported type info " + info);
+            else {
+                switch (columnType) {
+                    case FIXED_INT_64:
+                        output.append(cursors[channelIndex].getLong(fieldIndex));
+                        return;
+                    case VARIABLE_BINARY:
+                        output.append(cursors[channelIndex].getSlice(fieldIndex));
+                        return;
+                    case DOUBLE:
+                        output.append(cursors[channelIndex].getDouble(fieldIndex));
+                        return;
+                }
+                throw new IllegalStateException("Unsupported type info " + info);
+            }
         }
     }
 
