@@ -2,6 +2,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 
@@ -33,6 +34,14 @@ public class MetadataManager
 
         // Only use NATIVE
         return metadataSourceMap.get(DataSourceType.NATIVE).getFunction(name, parameterTypes);
+    }
+
+    @Override
+    public FunctionInfo getFunction(FunctionHandle handle)
+    {
+        Preconditions.checkNotNull(handle, "handle is null");
+
+        return metadataSourceMap.get(DataSourceType.NATIVE).getFunction(handle);
     }
 
     @Override

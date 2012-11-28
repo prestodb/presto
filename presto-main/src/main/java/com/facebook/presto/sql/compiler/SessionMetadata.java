@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.compiler;
 
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
@@ -42,6 +43,11 @@ public class SessionMetadata
     public FunctionInfo getFunction(QualifiedName name, List<Type> parameterTypes)
     {
         return metadata.getFunction(name, Lists.transform(parameterTypes, toRaw()));
+    }
+
+    public FunctionInfo getFunction(FunctionHandle handle)
+    {
+        return metadata.getFunction(handle);
     }
 
     public TableMetadata getTable(QualifiedName name)

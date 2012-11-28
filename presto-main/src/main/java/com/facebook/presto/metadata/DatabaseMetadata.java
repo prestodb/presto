@@ -34,6 +34,12 @@ public class DatabaseMetadata
     }
 
     @Override
+    public FunctionInfo getFunction(FunctionHandle handle)
+    {
+        return functions.get(handle);
+    }
+
+    @Override
     public TableMetadata getTable(String catalogName, String schemaName, String tableName)
     {
         checkArgument(catalogName.equals(catalogName.toLowerCase()), "catalogName is not lowercase");
