@@ -21,6 +21,7 @@ import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.SessionMetadata;
 import com.facebook.presto.sql.compiler.Symbol;
+import com.facebook.presto.sql.compiler.Type;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -49,13 +50,13 @@ public class ExecutionPlanner
     private final SessionMetadata metadata;
     private final DataStreamProvider dataProvider;
 
-    private final AnalysisResult analysis;
+    private final Map<Symbol, Type> types;
     private final Split split;
 
-    public ExecutionPlanner(SessionMetadata metadata, DataStreamProvider dataProvider, AnalysisResult analysis, Split split)
+    public ExecutionPlanner(SessionMetadata metadata, DataStreamProvider dataProvider, Map<Symbol, Type> types, Split split)
     {
         this.metadata = metadata;
-        this.analysis = analysis;
+        this.types = types;
         this.dataProvider = dataProvider;
         this.split = split;
     }
@@ -102,10 +103,10 @@ public class ExecutionPlanner
 
         List<ProjectionFunction> projections = new ArrayList<>();
         for (Symbol symbol : resultSymbols) {
-            ProjectionFunction function = new InterpretedProjectionFunction(analysis.getType(symbol),
+            ProjectionFunction function = new InterpretedProjectionFunction(types.get(symbol),
                     new QualifiedNameReference(symbol.toQualifiedName()),
                     symbolToChannelMappings,
-                    analysis.getTypes());
+                    types);
             projections.add(function);
         }
 
@@ -124,7 +125,7 @@ public class ExecutionPlanner
         List<ProjectionFunction> projections = new ArrayList<>();
         for (int i = 0; i < node.getOutputSymbols().size(); i++) {
             Symbol symbol = node.getOutputSymbols().get(i);
-            ProjectionFunction function = ProjectionFunctions.singleColumn(analysis.getType(symbol).getRawType(), symbolToChannelMappings.get(symbol), 0);
+            ProjectionFunction function = ProjectionFunctions.singleColumn(types.get(symbol).getRawType(), symbolToChannelMappings.get(symbol), 0);
             projections.add(function);
         }
 
@@ -183,7 +184,7 @@ public class ExecutionPlanner
         List<ProjectionFunction> projections = new ArrayList<>();
         for (int i = 0; i < node.getOutputSymbols().size(); ++i) {
             Symbol symbol = node.getOutputSymbols().get(i);
-            projections.add(ProjectionFunctions.singleColumn(analysis.getType(symbol).getRawType(), i, 0));
+            projections.add(ProjectionFunctions.singleColumn(types.get(symbol).getRawType(), i, 0));
         }
 
         if (node.getGroupBy().isEmpty()) {
@@ -202,12 +203,12 @@ public class ExecutionPlanner
 
         Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
 
-        FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), symbolToChannelMappings, analysis.getTypes());
+        FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), symbolToChannelMappings, types);
 
         List<ProjectionFunction> projections = new ArrayList<>();
         for (int i = 0; i < node.getOutputSymbols().size(); i++) {
             Symbol symbol = node.getOutputSymbols().get(i);
-            ProjectionFunction function = ProjectionFunctions.singleColumn(analysis.getType(symbol).getRawType(), symbolToChannelMappings.get(symbol), 0);
+            ProjectionFunction function = ProjectionFunctions.singleColumn(types.get(symbol).getRawType(), symbolToChannelMappings.get(symbol), 0);
             projections.add(function);
         }
 
@@ -225,7 +226,7 @@ public class ExecutionPlanner
         for (int i = 0; i < node.getExpressions().size(); i++) {
             Symbol symbol = node.getOutputSymbols().get(i);
             Expression expression = node.getExpressions().get(i);
-            ProjectionFunction function = new InterpretedProjectionFunction(analysis.getType(symbol), expression, symbolToChannelMappings, analysis.getTypes());
+            ProjectionFunction function = new InterpretedProjectionFunction(types.get(symbol), expression, symbolToChannelMappings, types);
             projections.add(function);
         }
 

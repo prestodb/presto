@@ -509,7 +509,7 @@ public class TestQueries
         TpchTableHandle table = (TpchTableHandle) tableScan.getTable();
 
         Split split = new TpchSplit(table);
-        ExecutionPlanner executionPlanner = new ExecutionPlanner(new SessionMetadata(metadata), dataProvider, analysis, split);
+        ExecutionPlanner executionPlanner = new ExecutionPlanner(new SessionMetadata(metadata), dataProvider, analysis.getTypes(), split);
         Operator operator = executionPlanner.plan(plan);
 
         TupleInfo outputTupleInfo = ExecutionPlanner.toTupleInfo(analysis, plan.getOutputSymbols());
