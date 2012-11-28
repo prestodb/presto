@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * QueryState contains the current state of the query and output buffer.
@@ -45,10 +46,18 @@ public class QueryState
     @GuardedBy("pageBuffer")
     private int sourceCount;
 
+    private final int splits;
+    private final AtomicInteger completedSplits = new AtomicInteger();
+
     private final Semaphore notFull;
     private final Semaphore notEmpty;
 
     public QueryState(List<TupleInfo> tupleInfos, int sourceCount, int pageBufferMax)
+    {
+        this(tupleInfos, sourceCount, pageBufferMax, 0);
+    }
+
+    public QueryState(List<TupleInfo> tupleInfos, int sourceCount, int pageBufferMax, int splits)
     {
         Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
         Preconditions.checkArgument(sourceCount > 0, "sourceCount must be at least 1");
@@ -57,6 +66,7 @@ public class QueryState
         this.tupleInfos = tupleInfos;
         this.sourceCount = sourceCount;
         this.pageBuffer = new ArrayDeque<>(pageBufferMax);
+        this.splits = splits;
         this.notFull = new Semaphore(pageBufferMax);
         this.notEmpty = new Semaphore(0);
     }
@@ -94,11 +104,26 @@ public class QueryState
         }
     }
 
+    public int getSplits()
+    {
+        return splits;
+    }
+
+    public int getCompletedSplits()
+    {
+        return Math.min(completedSplits.get(), splits);
+    }
+
     public int getBufferedPageCount()
     {
         synchronized (pageBuffer) {
             return pageBuffer.size();
         }
+    }
+
+    public void splitCompleted()
+    {
+        completedSplits.incrementAndGet();
     }
 
     /**

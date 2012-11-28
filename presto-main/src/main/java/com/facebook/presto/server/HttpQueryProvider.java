@@ -64,7 +64,10 @@ public class HttpQueryProvider
         Request request = requestBuilder.build();
 
         JsonResponse<QueryInfo> response = httpClient.execute(request, createFullJsonResponseHandler(jsonCodec(QueryInfo.class)));
-        Preconditions.checkState(response.getStatusCode() == 201);
+        Preconditions.checkState(response.getStatusCode() == 201,
+                "Expected response code to be 201, but was %d: %s",
+                response.getStatusCode(),
+                response.getStatusMessage());
         String location = response.getHeader("Location");
         Preconditions.checkState(location != null);
 

@@ -35,7 +35,6 @@ import com.facebook.presto.sql.planner.ExecutionPlanner;
 import com.facebook.presto.sql.planner.FragmentPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanNode;
-import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.Planner;
 import com.facebook.presto.sql.planner.TableScan;
 import com.facebook.presto.sql.tree.Query;
@@ -46,7 +45,6 @@ import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
-import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -59,11 +57,11 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.io.Files;
 import com.google.common.io.InputSupplier;
+import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.http.client.ApacheHttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
-import org.antlr.runtime.RecognitionException;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
@@ -227,7 +225,7 @@ public class StaticQueryManager
         queries.put(queryId, masterQueryState.getOutputQueryState());
         queryExecutor.submit(queryTask);
 
-        return new QueryInfo(queryId, queryTask.getTupleInfos(), State.PREPARING, 0);
+        return new QueryInfo(queryId, queryTask.getTupleInfos(), State.PREPARING, 0, 0, 0);
     }
 
     @Override
@@ -238,7 +236,7 @@ public class StaticQueryManager
         queries.put(queryId, queryTask.getQueryState());
         queryExecutor.submit(queryTask);
 
-        return new QueryInfo(queryId, queryTask.getTupleInfos(), State.PREPARING, 0);
+        return new QueryInfo(queryId, queryTask.getTupleInfos(), State.PREPARING, 0, 0, 0);
     }
 
     @Override
@@ -249,7 +247,12 @@ public class StaticQueryManager
         }
         catch (NoSuchElementException e) {
             QueryState queryState = getQuery(queryId);
-            return new QueryInfo(queryId, queryState.getTupleInfos(), queryState.getState(), queryState.getBufferedPageCount());
+            return new QueryInfo(queryId,
+                    queryState.getTupleInfos(),
+                    queryState.getState(),
+                    queryState.getBufferedPageCount(),
+                    queryState.getSplits(),
+                    queryState.getCompletedSplits());
         }
     }
 
@@ -436,9 +439,6 @@ public class StaticQueryManager
 
                 masterQueryState.addStage("sql-frag-worker", providers);
 
-                // wait for providers to start
-                waitForRunning(providers);
-
                 QueryDriversOperator operator = new QueryDriversOperator(10, providers);
 
                 ExecutionPlanner executionPlanner = new ExecutionPlanner(sessionMetadata,
@@ -448,6 +448,7 @@ public class StaticQueryManager
                         null // no split for non-leaf plan TODO: unify exchanges with data providers
                 );
 
+                Uninterruptibles.sleepUninterruptibly(3, TimeUnit.SECONDS);
                 Operator aggregation = executionPlanner.plan(top.getRoot());
 
                 for (Page page : aggregation) {
@@ -505,7 +506,7 @@ public class StaticQueryManager
                     })
                     .list());
 
-            this.queryState = new QueryState(tupleInfos, 1, pageBufferMax);
+            this.queryState = new QueryState(tupleInfos, 1, pageBufferMax, splits.size());
         }
 
         @Override
@@ -575,6 +576,8 @@ public class StaticQueryManager
                 catch (Exception e) {
                     queryState.queryFailed(e);
                     throw Throwables.propagate(e);
+                } finally {
+                    queryState.splitCompleted();
                 }
             }
         }
