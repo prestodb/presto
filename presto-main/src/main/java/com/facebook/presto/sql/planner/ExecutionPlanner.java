@@ -53,9 +53,12 @@ public class ExecutionPlanner
     private final Map<Symbol, Type> types;
     private final Split split;
 
-    public ExecutionPlanner(SessionMetadata metadata, DataStreamProvider dataProvider, Map<Symbol, Type> types, Split split)
+    private final Map<Integer, Operator> exchangeMap;
+
+    public ExecutionPlanner(SessionMetadata metadata, DataStreamProvider dataProvider, Map<Symbol, Type> types, Map<Integer, Operator> exchangeMap, Split split)
     {
         this.metadata = metadata;
+        this.exchangeMap = exchangeMap;
         this.types = types;
         this.dataProvider = dataProvider;
         this.split = split;
@@ -84,8 +87,16 @@ public class ExecutionPlanner
         else if (plan instanceof TopNNode) {
             return createTopNNode((TopNNode) plan);
         }
+        else if (plan instanceof ExchangeNode) {
+            return createExchange((ExchangeNode) plan);
+        }
 
         throw new UnsupportedOperationException("not yet implemented: " + plan.getClass().getName());
+    }
+
+    private Operator createExchange(ExchangeNode node)
+    {
+        return exchangeMap.get(node.getSourceFragmentId());
     }
 
     private Operator createOutputPlan(OutputPlan node)

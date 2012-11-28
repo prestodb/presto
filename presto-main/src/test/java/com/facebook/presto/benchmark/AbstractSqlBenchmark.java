@@ -59,7 +59,7 @@ public abstract class AbstractSqlBenchmark
     protected Operator createBenchmarkedOperator(final TpchBlocksProvider provider)
     {
         TpchTableHandle table = (TpchTableHandle) ((TableScan) Iterables.getOnlyElement(fragment.getSources())).getTable();
-        ExecutionPlanner executionPlanner = new ExecutionPlanner(sessionMetadata, new TpchDataStreamProvider(provider), analysis.getTypes(), new TpchSplit(table));
+        ExecutionPlanner executionPlanner = new ExecutionPlanner(sessionMetadata, new TpchDataStreamProvider(provider), analysis.getTypes(), ImmutableMap.<Integer, Operator>of(), new TpchSplit(table));
         return executionPlanner.plan(fragment.getRoot());
     }
 }
