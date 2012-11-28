@@ -18,6 +18,7 @@ import static com.facebook.presto.slice.SizeOf.SIZE_OF_FLOAT;
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_INT;
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_SHORT;
+import static com.facebook.presto.slice.Slices.EMPTY_SLICE;
 import static com.google.common.base.Charsets.UTF_8;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.longBitsToDouble;
@@ -80,8 +81,13 @@ public class TestSlice
             Slice oneBigger = allocate(size + 1);
             oneBigger.fill((byte) 0xA5);
             assertNotEquals(slice, oneBigger);
+            assertNotEquals(oneBigger, slice);
+            assertTrue(slice.compareTo(oneBigger) < 0);
+            assertTrue(oneBigger.compareTo(slice) > 0);
             assertFalse(slice.equals(0, size, oneBigger, 0, size + 1));
+            assertFalse(oneBigger.equals(0, size + 1, slice, 0, size));
             assertTrue(slice.compareTo(0, size, oneBigger, 0, size + 1) < 0);
+            assertTrue(oneBigger.compareTo(0, size + 1, slice, 0, size) > 0);
 
             // different in one byte
             for (int i = 1; i < slice.length(); i++) {
@@ -91,6 +97,41 @@ public class TestSlice
                 assertNotEquals(slice, other);
                 assertFalse(slice.equals(i, size - i, other, i, size - i));
                 assertTrue(slice.compareTo(0, size, oneBigger, 0, size + 1) > 0);
+            }
+
+            // compare with empty slice
+            if (slice.length() > 0) {
+                assertNotEquals(slice, EMPTY_SLICE);
+                assertNotEquals(EMPTY_SLICE, slice);
+                assertFalse(slice.equals(0, size, EMPTY_SLICE, 0, 0));
+                assertFalse(EMPTY_SLICE.equals(0, 0, slice, 0, size));
+                assertTrue(slice.compareTo(0, size, EMPTY_SLICE, 0, 0) > 0);
+                assertTrue(EMPTY_SLICE.compareTo(0, 0, slice, 0, size) < 0);
+
+                try {
+                    slice.equals(0, size, EMPTY_SLICE, 0, size);
+                    fail("expected IndexOutOfBoundsException");
+                }
+                catch (IndexOutOfBoundsException expected) {
+                }
+                try {
+                    EMPTY_SLICE.equals(0, size, slice, 0, size);
+                    fail("expected IndexOutOfBoundsException");
+                }
+                catch (IndexOutOfBoundsException expected) {
+                }
+                try {
+                    slice.compareTo(0, size, EMPTY_SLICE, 0, size);
+                    fail("expected IndexOutOfBoundsException");
+                }
+                catch (IndexOutOfBoundsException expected) {
+                }
+                try {
+                    EMPTY_SLICE.compareTo(0, size, slice, 0, size);
+                    fail("expected IndexOutOfBoundsException");
+                }
+                catch (IndexOutOfBoundsException expected) {
+                }
             }
         }
     }

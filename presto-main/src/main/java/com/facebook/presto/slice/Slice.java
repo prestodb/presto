@@ -580,7 +580,11 @@ public final class Slice
             return 0;
         }
 
-        while (length >= SIZE_OF_LONG) {
+        checkIndexLength(offset, length);
+        that.checkIndexLength(otherOffset, otherLength);
+
+        int compareLength = Math.min(length, otherLength);
+        while (compareLength >= SIZE_OF_LONG) {
             long thisLong = unsafe.getLong(base, this.address + offset);
             thisLong = Long.reverseBytes(thisLong);
             long thatLong = unsafe.getLong(that.base, that.address + otherOffset);
@@ -594,10 +598,10 @@ public final class Slice
 
             offset += SIZE_OF_LONG;
             otherOffset += SIZE_OF_LONG;
-            length -= SIZE_OF_LONG;
+            compareLength -= SIZE_OF_LONG;
         }
 
-        while (length > 0) {
+        while (compareLength > 0) {
             byte thisByte = unsafe.getByte(base, this.address + offset);
             byte thatByte = unsafe.getByte(that.base, that.address + otherOffset);
 
@@ -607,10 +611,10 @@ public final class Slice
             }
             offset++;
             otherOffset++;
-            length--;
+            compareLength--;
         }
 
-        return this.size - that.size;
+        return Integer.compare(this.size, that.size);
     }
 
     /**
@@ -681,6 +685,8 @@ public final class Slice
     {
         checkIndexLength(offset, length);
 
+        // this is basically murmur3-32, but the implementation has not been verified
+
         int seed = 0;
         int h1;
         int c1 = 0xcc9e2d51;
@@ -748,6 +754,9 @@ public final class Slice
         if (this == that && offset == otherOffset) {
             return true;
         }
+
+        checkIndexLength(offset, length);
+        that.checkIndexLength(otherOffset, otherLength);
 
         while (length >= SIZE_OF_LONG) {
             long thisLong = unsafe.getLong(base, this.address + offset);
