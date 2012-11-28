@@ -1,8 +1,10 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.Main;
-import com.facebook.presto.server.CliHttpQueryProvider;
+import com.facebook.presto.server.HttpQueryProvider;
 import com.facebook.presto.server.QueryDriversOperator;
+import com.google.common.base.Charsets;
+import com.google.common.base.Optional;
 import io.airlift.command.Command;
 import io.airlift.command.Option;
 import io.airlift.http.client.ApacheHttpClient;
@@ -14,6 +16,8 @@ import java.net.URI;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+
+import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 
 @Command(name = "execute", description = "Execute a query")
 public class Execute
@@ -37,9 +41,14 @@ public class Execute
                     .setConnectTimeout(new Duration(1, TimeUnit.MINUTES))
                     .setReadTimeout(new Duration(30, TimeUnit.MINUTES)));
             AsyncHttpClient asyncHttpClient = new AsyncHttpClient(httpClient, executor);
-            QueryDriversOperator operator = new QueryDriversOperator(10,
-                    new CliHttpQueryProvider(query, asyncHttpClient, server)
-            );
+
+            HttpQueryProvider queryProvider = new HttpQueryProvider(createStaticBodyGenerator(query, Charsets.UTF_8),
+                    Optional.<String>absent(),
+                    asyncHttpClient,
+                    server);
+
+            QueryDriversOperator operator = new QueryDriversOperator(10, queryProvider);
+
             // TODO: this currently leaks query resources (need to delete)
             Utils.printResults(start, operator);
         }
