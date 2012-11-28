@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.google.common.base.Objects;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
@@ -27,5 +28,11 @@ public class NativeTableHandle
     public long getTableId()
     {
         return tableId;
+    }
+
+    @Override
+    public String toString()
+    {
+        return "native:" + tableId;
     }
 }

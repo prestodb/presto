@@ -6,7 +6,6 @@ package com.facebook.presto;
 import com.facebook.presto.cli.Console;
 import com.facebook.presto.cli.ConvertCsv;
 import com.facebook.presto.cli.Execute;
-import com.facebook.presto.cli.LocalQueryCommand;
 import com.facebook.presto.cli.Server;
 import com.facebook.presto.ingest.RuntimeIOException;
 import com.google.common.io.NullOutputStream;
@@ -28,7 +27,6 @@ public class Main
                 .withDefaultCommand(Server.class)
                 .withCommand(Server.class)
                 .withCommand(Execute.class)
-                .withCommand(LocalQueryCommand.class)
                 .withCommand(Console.class)
                 .withCommands(Help.class);
 

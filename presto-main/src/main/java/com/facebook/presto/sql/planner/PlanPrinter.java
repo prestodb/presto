@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.compiler.Type;
@@ -77,11 +78,9 @@ public class PlanPrinter
         @Override
         public Void visitTableScan(TableScan node, Integer indent)
         {
-            print(indent, "- TableScan[%s.%s.%s] => [%s]", node.getCatalogName(), node.getSchemaName(), node.getTableName(), formatOutputs(node.getOutputSymbols()));
-            for (Map.Entry<String, Symbol> entry : node.getAttributes().entrySet()) {
-                if (!entry.getKey().equals(entry.getValue().toString())) {
-                    print(indent + 2, "%s := %s", entry.getValue(), entry.getKey());
-                }
+            print(indent, "- TableScan[%s] => [%s]", node.getTable(), formatOutputs(node.getOutputSymbols()));
+            for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
+                print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
             }
 
             return null;

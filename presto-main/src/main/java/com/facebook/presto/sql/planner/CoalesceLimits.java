@@ -42,7 +42,7 @@ public class CoalesceLimits
         public PlanNode visitAggregation(AggregationNode node, Void context)
         {
             PlanNode source = node.getSource().accept(this, context);
-            return new AggregationNode(source, node.getGroupBy(), node.getAggregations(), node.getFunctionInfos());
+            return new AggregationNode(source, node.getGroupBy(), node.getAggregations(), node.getFunctions());
         }
 
         @Override

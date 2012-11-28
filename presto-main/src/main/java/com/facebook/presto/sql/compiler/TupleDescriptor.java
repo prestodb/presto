@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.compiler;
 
+import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -31,7 +32,7 @@ public class TupleDescriptor
 
         ImmutableList.Builder<Field> builder = ImmutableList.builder();
         for (int i = 0; i < attributes.size(); i++) {
-            builder.add(new Field(Optional.<QualifiedName>absent(), attributes.get(i), symbols.get(i), types.get(i)));
+            builder.add(new Field(Optional.<QualifiedName>absent(), attributes.get(i), Optional.<ColumnHandle>absent(), symbols.get(i), types.get(i)));
         }
 
         this.fields = builder.build();

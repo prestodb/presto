@@ -1,9 +1,13 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.compiler.Symbol;
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.TableHandle;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonProperty;
 
 import java.util.List;
 import java.util.Map;
@@ -11,48 +15,35 @@ import java.util.Map;
 public class TableScan
     extends PlanNode
 {
-    private final String catalogName;
-    private final String schemaName;
-    private final String tableName;
-    private final Map<String, Symbol> attributes; // attribute -> symbol
+    private final TableHandle table;
+    private final Map<Symbol, ColumnHandle> attributes; // symbol -> column
 
-    public TableScan(String catalogName, String schemaName, String tableName, Map<String, Symbol> attributes)
+    @JsonCreator
+    public TableScan(@JsonProperty("table") TableHandle table, @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments)
     {
-        Preconditions.checkNotNull(catalogName, "catalogName is null");
-        Preconditions.checkNotNull(schemaName, "schemaName is null");
-        Preconditions.checkNotNull(tableName, "tableName is null");
-        Preconditions.checkNotNull(attributes, "attributes is null");
-        Preconditions.checkArgument(!attributes.isEmpty(), "attributes is empty");
+        Preconditions.checkNotNull(table, "table is null");
+        Preconditions.checkNotNull(assignments, "assignments is null");
+        Preconditions.checkArgument(!assignments.isEmpty(), "assignments is empty");
 
-        this.catalogName = catalogName;
-        this.schemaName = schemaName;
-        this.tableName = tableName;
-        this.attributes = ImmutableMap.copyOf(attributes);
+        this.table = table;
+        this.attributes = ImmutableMap.copyOf(assignments);
     }
 
-    public String getCatalogName()
+    @JsonProperty("table")
+    public TableHandle getTable()
     {
-        return catalogName;
+        return table;
     }
 
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    public String getTableName()
-    {
-        return tableName;
-    }
-
-    public Map<String, Symbol> getAttributes()
+    @JsonProperty("assignments")
+    public Map<Symbol, ColumnHandle> getAssignments()
     {
         return attributes;
     }
 
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.copyOf(attributes.values());
+        return ImmutableList.copyOf(attributes.keySet());
     }
 
     public List<PlanNode> getSources()

@@ -3,6 +3,8 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
+import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonProperty;
 
 import java.util.List;
 import java.util.Map;
@@ -13,7 +15,8 @@ public class ProjectNode
     private final PlanNode source;
     private final Map<Symbol, Expression> outputs;
 
-    public ProjectNode(PlanNode source, Map<Symbol, Expression> outputs)
+    @JsonCreator
+    public ProjectNode(@JsonProperty("source") PlanNode source, @JsonProperty("assignments") Map<Symbol, Expression> outputs)
     {
         this.source = source;
         this.outputs = outputs;
@@ -29,6 +32,7 @@ public class ProjectNode
         return ImmutableList.copyOf(outputs.keySet());
     }
 
+    @JsonProperty("assignments")
     public Map<Symbol, Expression> getOutputMap()
     {
         return outputs;
@@ -40,6 +44,7 @@ public class ProjectNode
         return ImmutableList.of(source);
     }
 
+    @JsonProperty
     public PlanNode getSource()
     {
         return source;

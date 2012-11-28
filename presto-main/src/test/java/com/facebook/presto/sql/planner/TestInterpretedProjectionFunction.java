@@ -5,6 +5,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.sql.compiler.Field;
 import com.facebook.presto.sql.compiler.NameToSymbolRewriter;
 import com.facebook.presto.sql.compiler.Symbol;
@@ -175,7 +176,7 @@ public class TestInterpretedProjectionFunction
 
             Optional<QualifiedName> prefix = Optional.of(QualifiedName.of("T"));
             TupleDescriptor descriptor = new TupleDescriptor(ImmutableList.of(
-                    new Field(prefix, Optional.of("symbol"), new Symbol("symbol"), type)));
+                    new Field(prefix, Optional.of("symbol"), Optional.<ColumnHandle>absent(), new Symbol("symbol"), type)));
 
             Expression rewritten = TreeRewriter.rewriteWith(new NameToSymbolRewriter(descriptor), raw);
             return rewritten;

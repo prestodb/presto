@@ -329,11 +329,13 @@ public class Analyzer
                 QualifiedName prefix = QualifiedName.of(tableMetadata.getCatalogName(), tableMetadata.getSchemaName(), tableMetadata.getTableName());
 
                 Symbol symbol = context.getSymbolAllocator().newSymbol(column.getName(), Type.fromRaw(column.getType()));
-                fields.add(new Field(Optional.of(prefix), Optional.of(column.getName()), symbol, Type.fromRaw(column.getType())));
+
+                Preconditions.checkArgument(column.getColumnHandle().isPresent(), "Column doesn't have a handle");
+                fields.add(new Field(Optional.of(prefix), Optional.of(column.getName()), column.getColumnHandle(), symbol, Type.fromRaw(column.getType())));
             }
 
             TupleDescriptor descriptor = new TupleDescriptor(fields.build());
-            context.registerTable(table, descriptor);
+            context.registerTable(table, descriptor, tableMetadata);
             return descriptor;
         }
 
@@ -348,7 +350,7 @@ public class Analyzer
 
             ImmutableList.Builder<Field> builder = ImmutableList.builder();
             for (Field field : child.getFields()) {
-                builder.add(new Field(Optional.of(QualifiedName.of(relation.getAlias())), field.getAttribute(), field.getSymbol(), field.getType()));
+                builder.add(new Field(Optional.of(QualifiedName.of(relation.getAlias())), field.getAttribute(), field.getColumn(), field.getSymbol(), field.getType()));
             }
 
             return new TupleDescriptor(builder.build());

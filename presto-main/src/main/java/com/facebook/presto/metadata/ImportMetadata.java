@@ -34,6 +34,12 @@ public class ImportMetadata
     }
 
     @Override
+    public FunctionInfo getFunction(FunctionHandle handle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public TableMetadata getTable(String catalogName, final String schemaName, final String tableName)
     {
         checkNotNull(catalogName, "catalogName is null");

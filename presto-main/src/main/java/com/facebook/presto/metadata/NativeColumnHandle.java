@@ -28,4 +28,35 @@ public class NativeColumnHandle
     {
         return columnId;
     }
+
+    @Override
+    public String toString()
+    {
+        return "native:" + columnId;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        NativeColumnHandle that = (NativeColumnHandle) o;
+
+        if (columnId != that.columnId) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return (int) (columnId ^ (columnId >>> 32));
+    }
 }
