@@ -3,7 +3,6 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.metadata.FunctionBinder;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.slice.ByteArraySlice;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tuple.Tuple;
@@ -124,7 +123,7 @@ public class DoubleAverageAggregation
         if (count == 0) {
             return NULL_STRING_TUPLE;
         }
-        ByteArraySlice data = Slices.allocate(SIZE_OF_DOUBLE + SIZE_OF_LONG);
+        Slice data = Slices.allocate(SIZE_OF_DOUBLE + SIZE_OF_LONG);
         data.setDouble(0, sum);
         data.setLong(SIZE_OF_DOUBLE, count);
         return SINGLE_VARBINARY.builder()
