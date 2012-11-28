@@ -39,7 +39,6 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.io.Files;
@@ -47,7 +46,6 @@ import com.google.common.io.InputSupplier;
 import io.airlift.http.client.ApacheHttpClient;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
-import io.airlift.http.client.JsonBodyGenerator;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 
@@ -82,6 +80,8 @@ import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.util.Threads.threadsNamed;
+import static com.google.common.collect.Iterables.transform;
+import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 
 public class StaticQueryManager
         implements QueryManager
@@ -165,7 +165,7 @@ public class StaticQueryManager
         switch (queryBase) {
             // e.g.: import-delimited:default:hivedba_query_stats:string,long,string,long:/tmp/myfile.csv:,
             case "import-delimited":
-                List<Type> types = ImmutableList.copyOf(Iterables.transform(Splitter.on(",").split(strings.get(2)), new Function<String, Type>()
+                List<Type> types = ImmutableList.copyOf(transform(Splitter.on(",").split(strings.get(2)), new Function<String, Type>()
                 {
                     @Override
                     public Type apply(String input)
@@ -306,7 +306,7 @@ public class StaticQueryManager
 
                 Multimap<Node, Split> nodeSplits = SplitAssignments.randomNodeAssignment(new Random(), splitAssignments);
                 QueryDriversOperator operator = new QueryDriversOperator(10,
-                        Iterables.transform(nodeSplits.asMap().entrySet(), new Function<Entry<Node, Collection<Split>>, QueryDriverProvider>()
+                        transform(nodeSplits.asMap().entrySet(), new Function<Entry<Node, Collection<Split>>, QueryDriverProvider>()
                         {
                             @Override
                             public QueryDriverProvider apply(Entry<Node, Collection<Split>> splits)
@@ -321,11 +321,10 @@ public class StaticQueryManager
                                         )
                                 );
                                 return new HttpQueryProvider(
-                                        JsonBodyGenerator.jsonBodyGenerator(codec, queryFragmentRequest),
+                                        jsonBodyGenerator(codec, queryFragmentRequest),
                                         Optional.of(MediaType.APPLICATION_JSON),
                                         asyncHttpClient,
-                                        splits.getKey().getHttpUri().resolve("/v1/presto/query"),
-                                        ImmutableList.of(SINGLE_VARBINARY, SINGLE_LONG)
+                                        splits.getKey().getHttpUri().resolve("/v1/presto/query")
                                 );
 
                             }
