@@ -1,13 +1,13 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.compiler.Type;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRewriter;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.TreeRewriter;
@@ -58,13 +58,13 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = node.getSource().accept(this, context);
 
-            ImmutableMap.Builder<Symbol, FunctionInfo> functionInfos = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, FunctionHandle> functionInfos = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
                 Symbol symbol = entry.getKey();
                 Symbol canonical = canonicalize(symbol);
                 functionCalls.put(canonical, (FunctionCall) canonicalize(entry.getValue()));
-                functionInfos.put(canonical, node.getFunctionInfos().get(symbol));
+                functionInfos.put(canonical, node.getFunctions().get(symbol));
             }
 
             return new AggregationNode(source, canonicalize(node.getGroupBy()), functionCalls.build(), functionInfos.build());
@@ -73,7 +73,12 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitTableScan(TableScan node, Void context)
         {
-            return new TableScan(node.getCatalogName(), node.getSchemaName(), node.getTableName(), Maps.transformValues(node.getAttributes(), canonicalizeFunction()));
+            ImmutableMap.Builder<Symbol, ColumnHandle> builder = ImmutableMap.builder();
+            for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
+                builder.put(canonicalize(entry.getKey()), entry.getValue());
+            }
+
+            return new TableScan(node.getTable(), builder.build());
         }
 
         @Override
@@ -115,8 +120,8 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = node.getSource().accept(this, context);
 
-            Map<String, Symbol> canonicalized = Maps.transformValues(node.getAssignments(), canonicalizeFunction());
-            return new OutputPlan(source, node.getColumnNames(), canonicalized);
+            Map<String, Symbol> canonical = Maps.transformValues(node.getAssignments(), canonicalizeFunction());
+            return new OutputPlan(source, node.getColumnNames(), canonical);
         }
 
         @Override

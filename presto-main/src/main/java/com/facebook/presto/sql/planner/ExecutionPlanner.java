@@ -1,7 +1,7 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.LegacyStorageManager;
-import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
@@ -16,17 +16,20 @@ import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.AggregationFunctionStep;
 import com.facebook.presto.operator.aggregation.AggregationFunctions;
 import com.facebook.presto.operator.aggregation.Input;
+import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.SessionMetadata;
 import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
+import com.facebook.presto.util.IterableTransformer;
+import com.facebook.presto.util.MoreFunctions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -35,7 +38,6 @@ import com.google.common.collect.Ordering;
 
 import javax.inject.Provider;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,15 +47,17 @@ import static com.google.common.base.Functions.forMap;
 public class ExecutionPlanner
 {
     private final SessionMetadata metadata;
-    private final LegacyStorageManager storage;
+    private final DataStreamProvider dataProvider;
 
     private final AnalysisResult analysis;
+    private final Split split;
 
-    public ExecutionPlanner(SessionMetadata metadata, LegacyStorageManager storage, AnalysisResult analysis)
+    public ExecutionPlanner(SessionMetadata metadata, DataStreamProvider dataProvider, AnalysisResult analysis, Split split)
     {
         this.metadata = metadata;
-        this.storage = storage;
         this.analysis = analysis;
+        this.dataProvider = dataProvider;
+        this.split = split;
     }
 
     public Operator plan(PlanNode plan)
@@ -98,7 +102,10 @@ public class ExecutionPlanner
 
         List<ProjectionFunction> projections = new ArrayList<>();
         for (Symbol symbol : resultSymbols) {
-            ProjectionFunction function = new InterpretedProjectionFunction(analysis.getType(symbol), new QualifiedNameReference(symbol.toQualifiedName()), symbolToChannelMappings, analysis.getTypes());
+            ProjectionFunction function = new InterpretedProjectionFunction(analysis.getType(symbol),
+                    new QualifiedNameReference(symbol.toQualifiedName()),
+                    symbolToChannelMappings,
+                    analysis.getTypes());
             projections.add(function);
         }
 
@@ -152,7 +159,8 @@ public class ExecutionPlanner
                 arguments.add(new Input(channel, field));
             }
 
-            Provider<AggregationFunction> boundFunction = node.getFunctionInfos().get(entry.getKey()).bind(arguments);
+            FunctionHandle functionHandle = node.getFunctions().get(entry.getKey());
+            Provider<AggregationFunction> boundFunction = metadata.getFunction(functionHandle).bind(arguments);
 
             Provider<AggregationFunctionStep> aggregation;
             switch (node.getStep()) {
@@ -226,19 +234,12 @@ public class ExecutionPlanner
 
     private Operator createTableScan(TableScan node)
     {
-        TableMetadata tableMetadata = metadata.getTable(QualifiedName.of(node.getCatalogName(), node.getSchemaName(), node.getTableName()));
+        List<ColumnHandle> columns = IterableTransformer.on(node.getAssignments().entrySet())
+                .orderBy(Ordering.explicit(node.getOutputSymbols()).onResultOf(MoreFunctions.<Symbol, ColumnHandle>keyGetter()))
+                .transform(MoreFunctions.<Symbol, ColumnHandle>valueGetter())
+                .list();
 
-        Integer[] indices = new Integer[node.getAttributes().size()];
-
-        Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(node.getOutputSymbols());
-
-        for (Map.Entry<String, Symbol> entry : node.getAttributes().entrySet()) {
-            int channel = symbolToChannelMappings.get(entry.getValue());
-            indices[channel] = findIndex(entry.getKey(), tableMetadata);
-        }
-
-        // TODO: replace this with DataStreamProvider when plans are operating in terms of handles
-        return storage.getOperator(node.getSchemaName(), node.getTableName(), Arrays.asList(indices));
+        return dataProvider.createDataStream(split, columns);
     }
 
     public static TupleInfo toTupleInfo(AnalysisResult analysis, Iterable<Symbol> symbols)
@@ -257,15 +258,5 @@ public class ExecutionPlanner
             symbolToChannelMappings.put(outputs.get(i), i);
         }
         return symbolToChannelMappings;
-    }
-
-    private int findIndex(String columnName, TableMetadata tableMetadata)
-    {
-        for (int index = 0; index < tableMetadata.getColumns().size(); index++) {
-            if (tableMetadata.getColumns().get(index).getName().equals(columnName)) {
-                return index;
-            }
-        }
-        throw new IllegalArgumentException("Unknown column name: " + columnName);
     }
 }

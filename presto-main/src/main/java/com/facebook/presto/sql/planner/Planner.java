@@ -1,6 +1,8 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.FunctionHandle;
+import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.AnalyzedAggregation;
 import com.facebook.presto.sql.compiler.AnalyzedExpression;
@@ -15,7 +17,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRewriter;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Relation;
@@ -191,13 +192,13 @@ public class Planner
         Map<Expression, Symbol> substitutions = new HashMap<>();
 
         BiMap<Symbol, FunctionCall> aggregationAssignments = HashBiMap.create();
-        Map<Symbol, FunctionInfo> functionInfos = new HashMap<>();
+        Map<Symbol, FunctionHandle> functions = new HashMap<>();
         for (AnalyzedAggregation aggregation : aggregations) {
             // rewrite function calls in terms of scalar inputs
             FunctionCall rewrittenFunction = TreeRewriter.rewriteWith(substitution(scalarAssignments.inverse()), aggregation.getRewrittenCall());
             Symbol symbol = allocator.newSymbol(aggregation.getFunctionName().getSuffix(), aggregation.getType());
             aggregationAssignments.put(symbol, rewrittenFunction);
-            functionInfos.put(symbol, aggregation.getFunctionInfo());
+            functions.put(symbol, aggregation.getFunctionInfo().getHandle());
 
             // build substitution map to rewrite assignments in post-project
             substitutions.put(aggregation.getRewrittenCall(), symbol);
@@ -211,7 +212,7 @@ public class Planner
             groupBySymbols.add(symbol);
         }
 
-        PlanNode aggregationNode = new AggregationNode(preProjectNode, groupBySymbols, aggregationAssignments, functionInfos);
+        PlanNode aggregationNode = new AggregationNode(preProjectNode, groupBySymbols, aggregationAssignments, functions);
 
         // 3. Post-project scalar expressions based on aggregations
         BiMap<Symbol, Expression> postProjectScalarAssignments = HashBiMap.create();
@@ -267,23 +268,16 @@ public class Planner
     private PlanNode createScanNode(Table table, AnalysisResult analysis)
     {
         TupleDescriptor descriptor = analysis.getTableDescriptor(table);
+        TableMetadata metadata = analysis.getTableMetadata(table);
 
-        ImmutableMap.Builder<String, Symbol> attributes = ImmutableMap.builder();
+        ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
 
         List<Field> fields = descriptor.getFields();
         for (Field field : fields) {
-            Symbol symbol = field.getSymbol();
-            String attribute = field.getAttribute().get();
-            attributes.put(attribute, symbol);
+            columns.put(field.getSymbol(), field.getColumn().get());
         }
 
-        QualifiedName tableFullName = Iterables.getFirst(fields, null).getPrefix().get();
-
-        String catalogName = tableFullName.getParts().get(0);
-        String schemaName = tableFullName.getParts().get(1);
-        String tableName = tableFullName.getParts().get(2);
-
-        return new TableScan(catalogName, schemaName, tableName, attributes.build());
+        return new TableScan(metadata.getTableHandle().get(), columns.build());
     }
 
     private NodeRewriter<Void> substitution(final Map<Expression, Symbol> substitutions)

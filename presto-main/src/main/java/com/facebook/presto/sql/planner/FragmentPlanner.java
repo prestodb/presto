@@ -1,6 +1,8 @@
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.sql.compiler.SessionMetadata;
 import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.compiler.SymbolAllocator;
 import com.facebook.presto.sql.compiler.Type;
@@ -21,6 +23,13 @@ import static com.facebook.presto.sql.planner.AggregationNode.Step.SINGLE;
 
 public class FragmentPlanner
 {
+    private final SessionMetadata metadata;
+
+    public FragmentPlanner(SessionMetadata metadata)
+    {
+        this.metadata = metadata;
+    }
+
     public List<PlanFragment> createFragments(PlanNode plan, SymbolAllocator allocator, boolean createSingleNodePlan)
     {
         Visitor visitor = new Visitor(allocator, createSingleNodePlan);
@@ -29,7 +38,7 @@ public class FragmentPlanner
         return Lists.transform(visitor.getFragments(), PlanFragmentBuilder.buildFragmentFunction(allocator.getTypes()));
     }
 
-    private static class Visitor
+    private class Visitor
             extends PlanVisitor<Void, PlanFragmentBuilder>
     {
         private int fragmentId = 0;
@@ -51,29 +60,30 @@ public class FragmentPlanner
 
             if (!current.isPartitioned()) {
                 // add the aggregation node as the root of the current fragment
-                current.setRoot(new AggregationNode(current.getRoot(), node.getGroupBy(), node.getAggregations(), node.getFunctionInfos(), SINGLE));
+                current.setRoot(new AggregationNode(current.getRoot(), node.getGroupBy(), node.getAggregations(), node.getFunctions(), SINGLE));
                 return current;
             }
 
             Map<Symbol, FunctionCall> finalCalls = new HashMap<>();
             Map<Symbol, FunctionCall> intermediateCalls = new HashMap<>();
-            Map<Symbol, FunctionInfo> intermediateInfos = new HashMap<>();
+            Map<Symbol, FunctionHandle> intermediateFunctions = new HashMap<>();
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
-                FunctionInfo info = node.getFunctionInfos().get(entry.getKey());
+                FunctionHandle functionHandle = node.getFunctions().get(entry.getKey());
+                FunctionInfo function = metadata.getFunction(functionHandle);
 
-                Symbol intermediateSymbol = allocator.newSymbol(info.getName().getSuffix(), Type.fromRaw(info.getIntermediateType()));
+                Symbol intermediateSymbol = allocator.newSymbol(function.getName().getSuffix(), Type.fromRaw(function.getIntermediateType()));
                 intermediateCalls.put(intermediateSymbol, entry.getValue());
-                intermediateInfos.put(intermediateSymbol, info);
+                intermediateFunctions.put(intermediateSymbol, functionHandle);
 
                 // rewrite final aggregation in terms of intermediate function
-                finalCalls.put(entry.getKey(), new FunctionCall(info.getName(), ImmutableList.<Expression>of(new QualifiedNameReference(intermediateSymbol.toQualifiedName()))));
+                finalCalls.put(entry.getKey(), new FunctionCall(function.getName(), ImmutableList.<Expression>of(new QualifiedNameReference(intermediateSymbol.toQualifiedName()))));
             }
 
-            current.setRoot(new AggregationNode(current.getRoot(), node.getGroupBy(), intermediateCalls, intermediateInfos, PARTIAL));
+            current.setRoot(new AggregationNode(current.getRoot(), node.getGroupBy(), intermediateCalls, intermediateFunctions, PARTIAL));
 
             // create merge + aggregation plan
             ExchangeNode source = new ExchangeNode(current.getId(), current.getRoot().getOutputSymbols());
-            AggregationNode merged = new AggregationNode(source, node.getGroupBy(), finalCalls, node.getFunctionInfos(), FINAL);
+            AggregationNode merged = new AggregationNode(source, node.getGroupBy(), finalCalls, node.getFunctions(), FINAL);
             current = newPlanFragment(merged, false);
 
             return current;

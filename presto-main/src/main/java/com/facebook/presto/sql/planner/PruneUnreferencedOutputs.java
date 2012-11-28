@@ -1,7 +1,8 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.sql.compiler.Symbol;
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.sql.compiler.Type;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -60,7 +61,7 @@ public class PruneUnreferencedOutputs
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(node.getGroupBy());
 
-            ImmutableMap.Builder<Symbol, FunctionInfo> functionInfos = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, FunctionHandle> functions = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
                 Symbol symbol = entry.getKey();
@@ -70,24 +71,24 @@ public class PruneUnreferencedOutputs
                     expectedInputs.addAll(new DependencyExtractor().extract(call));
 
                     functionCalls.put(symbol, call);
-                    functionInfos.put(symbol, node.getFunctionInfos().get(symbol));
+                    functions.put(symbol, node.getFunctions().get(symbol));
                 }
             }
 
             PlanNode source = node.getSource().accept(this, expectedInputs.build());
 
-            return new AggregationNode(source, node.getGroupBy(), functionCalls.build(), functionInfos.build());
+            return new AggregationNode(source, node.getGroupBy(), functionCalls.build(), functions.build());
         }
 
         @Override
         public PlanNode visitTableScan(TableScan node, Set<Symbol> expectedOutputs)
         {
-            Map<String, Symbol> assignments = new HashMap<>();
-            for (Map.Entry<String, Symbol> entry : node.getAttributes().entrySet()) {
-                Symbol symbol = entry.getValue();
+            Map<Symbol, ColumnHandle> assignments = new HashMap<>();
+            for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
+                Symbol symbol = entry.getKey();
 
                 if (expectedOutputs.contains(symbol) || expectedOutputs.isEmpty() && Type.isNumeric(types.get(symbol))) {
-                    assignments.put(entry.getKey(), symbol);
+                    assignments.put(symbol, entry.getValue());
 
                     if (expectedOutputs.isEmpty()) {
                         break;
@@ -96,11 +97,11 @@ public class PruneUnreferencedOutputs
             }
 
             if (assignments.isEmpty()) {
-                Map.Entry<String, Symbol> first = Iterables.getFirst(node.getAttributes().entrySet(), null);
+                Map.Entry<Symbol, ColumnHandle> first = Iterables.getFirst(node.getAssignments().entrySet(), null);
                 assignments.put(first.getKey(), first.getValue());
             }
 
-            return new TableScan(node.getCatalogName(), node.getSchemaName(), node.getTableName(), assignments);
+            return new TableScan(node.getTable(), assignments);
         }
 
         @Override

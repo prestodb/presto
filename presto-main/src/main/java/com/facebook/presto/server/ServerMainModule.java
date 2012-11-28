@@ -14,8 +14,6 @@ import com.facebook.presto.metadata.ForMetadata;
 import com.facebook.presto.metadata.ForShardManager;
 import com.facebook.presto.metadata.ForStorageManager;
 import com.facebook.presto.metadata.ImportMetadata;
-import com.facebook.presto.metadata.LegacyStorageManager;
-import com.facebook.presto.metadata.LegacyStorageManagerFacade;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.NodeManager;
@@ -51,7 +49,6 @@ public class ServerMainModule
         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
 
         binder.bind(StorageManager.class).to(DatabaseStorageManager.class).in(Scopes.SINGLETON);
-        binder.bind(LegacyStorageManager.class).to(LegacyStorageManagerFacade.class).in(Scopes.SINGLETON);
         binder.bind(DataStreamProvider.class).to(DataStreamManager.class).in(Scopes.SINGLETON);
         binder.bind(NativeDataStreamProvider.class).in(Scopes.SINGLETON);
         binder.bind(ImportDataStreamProvider.class).in(Scopes.SINGLETON);

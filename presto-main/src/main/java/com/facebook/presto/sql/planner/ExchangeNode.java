@@ -26,7 +26,6 @@ public class ExchangeNode
         return ImmutableList.of();
     }
 
-    @Override
     public List<Symbol> getOutputSymbols()
     {
         return outputs;

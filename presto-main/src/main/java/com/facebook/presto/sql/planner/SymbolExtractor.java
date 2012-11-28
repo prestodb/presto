@@ -95,7 +95,7 @@ public class SymbolExtractor
         @Override
         public Void visitTableScan(TableScan node, Void context)
         {
-            builder.addAll(node.getAttributes().values());
+            builder.addAll(node.getAssignments().keySet());
 
             return null;
         }

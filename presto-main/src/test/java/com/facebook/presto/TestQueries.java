@@ -11,27 +11,30 @@ import com.facebook.presto.ingest.RecordIterator;
 import com.facebook.presto.ingest.RecordProjection;
 import com.facebook.presto.ingest.RecordProjections;
 import com.facebook.presto.ingest.StringRecord;
-import com.facebook.presto.metadata.LegacyStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.slice.Slices;
+import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.Analyzer;
 import com.facebook.presto.sql.compiler.SessionMetadata;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExecutionPlanner;
+import com.facebook.presto.sql.planner.FragmentPlanner;
+import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanNode;
 import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.Planner;
+import com.facebook.presto.sql.planner.TableScan;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
-import com.facebook.presto.tpch.TpchLegacyStorageManagerAdapter;
 import com.facebook.presto.tpch.TpchSchema;
+import com.facebook.presto.tpch.TpchSplit;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
@@ -89,7 +92,7 @@ public class TestQueries
     private RecordIterable ordersRecords;
     private RecordIterable lineItemRecords;
     private Metadata metadata;
-    private LegacyStorageManager storage;
+    private TpchDataStreamProvider dataProvider;
 
     @BeforeSuite
     public void setupDatabase()
@@ -142,7 +145,7 @@ public class TestQueries
                 )
         );
 
-        storage = new TpchLegacyStorageManagerAdapter(new TpchDataStreamProvider(testTpchBlocksProvider));
+        dataProvider = new TpchDataStreamProvider(testTpchBlocksProvider);
     }
 
     @AfterSuite
@@ -499,7 +502,14 @@ public class TestQueries
         PlanNode plan = planner.plan((Query) statement, analysis);
         new PlanPrinter().print(plan, analysis.getTypes());
 
-        ExecutionPlanner executionPlanner = new ExecutionPlanner(new SessionMetadata(metadata), storage, analysis);
+        FragmentPlanner fragmentPlanner = new FragmentPlanner(sessionMetadata);
+        List<PlanFragment> fragments = fragmentPlanner.createFragments(plan, analysis.getSymbolAllocator(), true);
+
+        TableScan tableScan = (TableScan) Iterables.getOnlyElement(fragments).getSources().get(0);
+        TpchTableHandle table = (TpchTableHandle) tableScan.getTable();
+
+        Split split = new TpchSplit(table);
+        ExecutionPlanner executionPlanner = new ExecutionPlanner(new SessionMetadata(metadata), dataProvider, analysis, split);
         Operator operator = executionPlanner.plan(plan);
 
         TupleInfo outputTupleInfo = ExecutionPlanner.toTupleInfo(analysis, plan.getOutputSymbols());
