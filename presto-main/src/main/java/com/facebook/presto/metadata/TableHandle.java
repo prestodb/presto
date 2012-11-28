@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.tpch.TpchTableHandle;
 import org.codehaus.jackson.annotate.JsonSubTypes;
 import org.codehaus.jackson.annotate.JsonTypeInfo;
 
@@ -9,7 +10,8 @@ import org.codehaus.jackson.annotate.JsonTypeInfo;
         property = "type")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = NativeTableHandle.class, name = "native"),
-        @JsonSubTypes.Type(value = ImportTableHandle.class, name = "import")})
+        @JsonSubTypes.Type(value = ImportTableHandle.class, name = "import"),
+        @JsonSubTypes.Type(value = TpchTableHandle.class, name = "tpch")})
 public interface TableHandle
 {
     DataSourceType getDataSourceType();
