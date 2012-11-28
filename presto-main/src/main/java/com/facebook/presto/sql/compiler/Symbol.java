@@ -2,17 +2,21 @@ package com.facebook.presto.sql.compiler;
 
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Preconditions;
+import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonValue;
 
 public class Symbol
 {
     private final String name;
 
+    @JsonCreator
     public Symbol(String name)
     {
         Preconditions.checkNotNull(name, "name is null");
         this.name = name;
     }
 
+    @JsonValue
     public String getName()
     {
         return name;

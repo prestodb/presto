@@ -4,6 +4,8 @@ import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
+import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonProperty;
 
 import java.util.List;
 import java.util.Map;
@@ -30,11 +32,12 @@ public class AggregationNode
         this(source, groupByKeys, aggregations, functions, Step.SINGLE);
     }
 
-    public AggregationNode(PlanNode source,
-            List<Symbol> groupByKeys,
-            Map<Symbol, FunctionCall> aggregations,
-            Map<Symbol, FunctionHandle> functions,
-            Step step)
+    @JsonCreator
+    public AggregationNode(@JsonProperty("source") PlanNode source,
+            @JsonProperty("groupBy") List<Symbol> groupByKeys,
+            @JsonProperty("aggregations") Map<Symbol, FunctionCall> aggregations,
+            @JsonProperty("functions") Map<Symbol, FunctionHandle> functions,
+            @JsonProperty("step") Step step)
     {
         this.source = source;
         this.groupByKeys = groupByKeys;
@@ -55,26 +58,31 @@ public class AggregationNode
         return ImmutableList.copyOf(concat(groupByKeys, aggregations.keySet()));
     }
 
+    @JsonProperty("aggregations")
     public Map<Symbol, FunctionCall> getAggregations()
     {
         return aggregations;
     }
 
+    @JsonProperty("functions")
     public Map<Symbol, FunctionHandle> getFunctions()
     {
         return functions;
     }
 
+    @JsonProperty("groupBy")
     public List<Symbol> getGroupBy()
     {
         return groupByKeys;
     }
 
+    @JsonProperty("source")
     public PlanNode getSource()
     {
         return source;
     }
 
+    @JsonProperty("step")
     public Step getStep()
     {
         return step;

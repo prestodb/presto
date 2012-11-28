@@ -6,6 +6,8 @@ import com.facebook.presto.metadata.TableHandle;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonProperty;
 
 import java.util.List;
 import java.util.Map;
@@ -16,7 +18,8 @@ public class TableScan
     private final TableHandle table;
     private final Map<Symbol, ColumnHandle> attributes; // symbol -> column
 
-    public TableScan(TableHandle table, Map<Symbol, ColumnHandle> assignments)
+    @JsonCreator
+    public TableScan(@JsonProperty("table") TableHandle table, @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments)
     {
         Preconditions.checkNotNull(table, "table is null");
         Preconditions.checkNotNull(assignments, "assignments is null");
@@ -26,11 +29,13 @@ public class TableScan
         this.attributes = ImmutableMap.copyOf(assignments);
     }
 
+    @JsonProperty("table")
     public TableHandle getTable()
     {
         return table;
     }
 
+    @JsonProperty("assignments")
     public Map<Symbol, ColumnHandle> getAssignments()
     {
         return attributes;

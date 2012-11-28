@@ -5,6 +5,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonProperty;
 
 import java.util.List;
 import java.util.Map;
@@ -18,7 +20,8 @@ public class OutputPlan
     private final List<String> columnNames;
     private final Map<String, Symbol> assignments; // column name = symbol
 
-    public OutputPlan(PlanNode source, List<String> columnNames, Map<String, Symbol> assignments)
+    @JsonCreator
+    public OutputPlan(@JsonProperty("source") PlanNode source, @JsonProperty("columns") List<String> columnNames, @JsonProperty("assignments") Map<String, Symbol> assignments)
     {
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkNotNull(columnNames, "columnNames is null");
@@ -41,16 +44,19 @@ public class OutputPlan
         return ImmutableList.copyOf(Iterables.transform(columnNames, forMap(assignments)));
     }
 
+    @JsonProperty("columns")
     public List<String> getColumnNames()
     {
         return columnNames;
     }
 
+    @JsonProperty
     public Map<String, Symbol> getAssignments()
     {
         return assignments;
     }
 
+    @JsonProperty
     public PlanNode getSource()
     {
         return source;
