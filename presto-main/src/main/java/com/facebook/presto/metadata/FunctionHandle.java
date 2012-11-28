@@ -6,12 +6,13 @@ import org.codehaus.jackson.annotate.JsonProperty;
 
 public class FunctionHandle
 {
-    private int id;
+    private final int id;
     private final String name;
 
     @JsonCreator
     public FunctionHandle(@JsonProperty("id") int id, @JsonProperty("name") String name)
     {
+        Preconditions.checkArgument(id >= 0, "id must be positive");
         Preconditions.checkNotNull(name, "name is null");
 
         this.id = id;
