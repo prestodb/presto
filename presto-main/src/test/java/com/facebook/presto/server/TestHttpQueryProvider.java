@@ -6,7 +6,8 @@ package com.facebook.presto.server;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.server.QueryDriversOperator.QueryDriversIterator;
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.Charsets;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Guice;
@@ -17,7 +18,6 @@ import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.configuration.ConfigurationModule;
 import io.airlift.event.client.InMemoryEventModule;
 import io.airlift.http.client.ApacheHttpClient;
-import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
@@ -30,7 +30,7 @@ import org.testng.annotations.Test;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -38,7 +38,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestHttpQueryProvider
 {
-    private AsyncHttpClient httpClient ;
+    private ApacheHttpClient httpClient;
     private TestingHttpServer server1;
     private TestingHttpServer server2;
     private TestingHttpServer server3;
@@ -53,7 +53,7 @@ public class TestHttpQueryProvider
             server2 = createServer();
             server3 = createServer();
             executor = Executors.newCachedThreadPool();
-            httpClient = new AsyncHttpClient(new ApacheHttpClient(), executor);
+            httpClient = new ApacheHttpClient();
         }
         catch (Exception | Error e) {
             teardown();
@@ -107,9 +107,9 @@ public class TestHttpQueryProvider
             throws Exception
     {
         QueryDriversOperator operator = new QueryDriversOperator(10,
-                new HttpQueryProvider("query", httpClient, server1.getBaseUrl().resolve("/v1/presto/query"), ImmutableList.of(SINGLE_VARBINARY)),
-                new HttpQueryProvider("query", httpClient, server2.getBaseUrl().resolve("/v1/presto/query"), ImmutableList.of(SINGLE_VARBINARY)),
-                new HttpQueryProvider("query", httpClient, server3.getBaseUrl().resolve("/v1/presto/query"), ImmutableList.of(SINGLE_VARBINARY))
+                createHttpQueryProvider(server1),
+                createHttpQueryProvider(server2),
+                createHttpQueryProvider(server3)
         );
 
         int count = 0;
@@ -127,9 +127,9 @@ public class TestHttpQueryProvider
             throws Exception
     {
         QueryDriversOperator operator = new QueryDriversOperator(10,
-                new HttpQueryProvider("query", httpClient, server1.getBaseUrl().resolve("/v1/presto/query"), ImmutableList.of(SINGLE_VARBINARY)),
-                new HttpQueryProvider("query", httpClient, server2.getBaseUrl().resolve("/v1/presto/query"), ImmutableList.of(SINGLE_VARBINARY)),
-                new HttpQueryProvider("query", httpClient, server3.getBaseUrl().resolve("/v1/presto/query"), ImmutableList.of(SINGLE_VARBINARY))
+                createHttpQueryProvider(server1),
+                createHttpQueryProvider(server2),
+                createHttpQueryProvider(server3)
         );
 
         int count = 0;
@@ -154,5 +154,14 @@ public class TestHttpQueryProvider
         assertTrue(iterator.hasNext());
         assertNotNull(iterator.next());
         assertFalse(iterator.hasNext());
+    }
+
+    private HttpQueryProvider createHttpQueryProvider(TestingHttpServer httpServer)
+    {
+        return new HttpQueryProvider(createStaticBodyGenerator("query", Charsets.UTF_8),
+                Optional.<String>absent(),
+                httpClient,
+                executor,
+                httpServer.getBaseUrl().resolve("/v1/presto/query"));
     }
 }

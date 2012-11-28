@@ -4,47 +4,84 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Charsets;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.BodyGenerator;
+import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
+import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.Request;
 
+import javax.ws.rs.core.HttpHeaders;
 import java.net.URI;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
+import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
+import static io.airlift.http.client.Request.Builder.prepareDelete;
+import static io.airlift.http.client.Request.Builder.prepareGet;
+import static io.airlift.http.client.Request.Builder.preparePost;
+import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
+import static io.airlift.json.JsonCodec.jsonCodec;
 
-public class HttpQueryProvider implements QueryDriverProvider
+public class HttpQueryProvider
+        implements QueryDriverProvider
 {
-    private final BodyGenerator bodyGenerator;
-    private final Optional<String> mediaType;
-    private final AsyncHttpClient httpClient;
-    private final URI uri;
+    private final HttpClient httpClient;
+    private final ExecutorService executor;
+    private final URI location;
     private final List<TupleInfo> tupleInfos;
 
-    public HttpQueryProvider(String query, AsyncHttpClient httpClient, URI uri, List<TupleInfo> tupleInfos)
+    public HttpQueryProvider(HttpClient httpClient, ExecutorService executor, URI location, List<TupleInfo> tupleInfos)
     {
-        this(createStaticBodyGenerator(checkNotNull(query, "query is null"), Charsets.UTF_8),
-                Optional.<String>absent(),
-                httpClient,
-                uri,
-                tupleInfos);
+        this.httpClient = httpClient;
+        this.executor = executor;
+        this.location = location;
+        this.tupleInfos = tupleInfos;
     }
 
-    public HttpQueryProvider(BodyGenerator bodyGenerator, Optional<String> mediaType, AsyncHttpClient httpClient, URI uri, List<TupleInfo> tupleInfos)
+    public HttpQueryProvider(BodyGenerator bodyGenerator, Optional<String> mediaType, HttpClient httpClient, ExecutorService executor, URI uri)
     {
         checkNotNull(bodyGenerator, "bodyGenerator is null");
         checkNotNull(mediaType, "mediaType is null");
         checkNotNull(httpClient, "httpClient is null");
-        checkNotNull(uri, "uri is null");
-        checkNotNull(tupleInfos, "tupleInfos is null");
+        checkNotNull(executor, "executor is null");
 
-        this.bodyGenerator = bodyGenerator;
-        this.mediaType = mediaType;
         this.httpClient = httpClient;
-        this.uri = uri;
-        this.tupleInfos = tupleInfos;
+        this.executor = executor;
+
+        Request.Builder requestBuilder = preparePost()
+                .setUri(uri)
+                .setBodyGenerator(bodyGenerator);
+
+        if (mediaType.isPresent()) {
+            requestBuilder.setHeader(HttpHeaders.CONTENT_TYPE, mediaType.get());
+        }
+
+        Request request = requestBuilder.build();
+
+        JsonResponse<QueryInfo> response = httpClient.execute(request, createFullJsonResponseHandler(jsonCodec(QueryInfo.class)));
+        Preconditions.checkState(response.getStatusCode() == 201);
+        String location = response.getHeader("Location");
+        Preconditions.checkState(location != null);
+
+        this.location = URI.create(location);
+        this.tupleInfos = response.getValue().getTupleInfos();
+    }
+
+    public URI getLocation()
+    {
+        return location;
+    }
+
+    public QueryInfo getQueryInfo()
+    {
+        URI statusUri = uriBuilderFrom(location).appendPath("info").build();
+        QueryInfo queryInfo = httpClient.execute(prepareGet().setUri(statusUri).build(), createJsonResponseHandler(jsonCodec(QueryInfo.class)));
+        return queryInfo;
     }
 
     @Override
@@ -62,7 +99,18 @@ public class HttpQueryProvider implements QueryDriverProvider
     @Override
     public QueryDriver create(QueryState queryState)
     {
-        HttpQuery httpQuery = new HttpQuery(bodyGenerator, mediaType, queryState, httpClient, uri);
+        HttpQuery httpQuery = new HttpQuery(location, queryState, new AsyncHttpClient(httpClient, executor));
         return httpQuery;
+    }
+
+    public void destroy()
+    {
+        try {
+            Request.Builder requestBuilder = prepareDelete().setUri(location);
+            Request request = requestBuilder.build();
+            httpClient.execute(request, createStatusResponseHandler());
+        }
+        catch (RuntimeException ignored) {
+        }
     }
 }

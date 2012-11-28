@@ -21,6 +21,7 @@ public class QueryDriversOperator
     private static final Logger log = Logger.get(QueryDriversOperator.class);
     private final List<QueryDriverProvider> driverProviders;
     private final int pageBufferMax;
+    private final List<TupleInfo> tupleInfos;
 
     public QueryDriversOperator(int pageBufferMax, QueryDriverProvider... driverProviders)
     {
@@ -35,6 +36,7 @@ public class QueryDriversOperator
 
         this.pageBufferMax = pageBufferMax;
         this.driverProviders = ImmutableList.copyOf(driverProviders);
+        tupleInfos = this.driverProviders.get(0).getTupleInfos();
     }
 
     @Override
@@ -46,7 +48,7 @@ public class QueryDriversOperator
     @Override
     public List<TupleInfo> getTupleInfos()
     {
-        return driverProviders.get(0).getTupleInfos();
+        return tupleInfos;
     }
 
     @Override
@@ -54,7 +56,7 @@ public class QueryDriversOperator
     {
         ImmutableList.Builder<QueryDriver> queries = ImmutableList.builder();
         try {
-            QueryState queryState = new QueryState(driverProviders.size(), pageBufferMax);
+            QueryState queryState = new QueryState(tupleInfos, driverProviders.size(), pageBufferMax);
             for (QueryDriverProvider provider : driverProviders) {
                 QueryDriver queryDriver = provider.create(queryState);
                 queries.add(queryDriver);

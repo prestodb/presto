@@ -4,6 +4,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.server.QueryState.State;
 import com.facebook.presto.split.PlanFragment;
 import com.facebook.presto.split.Split;
 import com.google.common.base.Preconditions;
@@ -52,7 +53,19 @@ public class SimpleQueryManager implements QueryManager
     }
 
     @Override
-    public QueryInfo createQueryFragment(Split split, PlanFragment planFragment)
+    public QueryInfo createQueryFragment(Map<String, List<Split>> sourceSplits, PlanFragment planFragment)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public QueryInfo getQueryInfo(String queryId)
+    {
+        return new MasterQueryState(queryId, getQuery(queryId)).toQueryInfo();
+    }
+
+    @Override
+    public List<QueryInfo> getAllQueryInfo()
     {
         throw new UnsupportedOperationException();
     }
@@ -63,7 +76,7 @@ public class SimpleQueryManager implements QueryManager
         Preconditions.checkNotNull(query, "query is null");
 
         String queryId = String.valueOf(nextQueryId++);
-        QueryState queryState = new QueryState(1, pageBufferMax);
+        QueryState queryState = new QueryState(ImmutableList.of(SINGLE_VARBINARY), 1, pageBufferMax);
         queries.put(queryId, queryState);
 
         List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");
@@ -80,7 +93,13 @@ public class SimpleQueryManager implements QueryManager
         }
         queryState.sourceFinished();
 
-        return new QueryInfo(queryId, ImmutableList.of(SINGLE_VARBINARY));
+        return new QueryInfo(queryId, ImmutableList.of(SINGLE_VARBINARY), State.PREPARING, 0);
+    }
+
+    @Override
+    public State getQueryStatus(String queryId)
+    {
+        return getQuery(queryId).getState();
     }
 
     @Override

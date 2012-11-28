@@ -1,6 +1,7 @@
 package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.Tuple;
@@ -157,5 +158,17 @@ public class UncompressedLongBlockCursor
         checkReadablePosition();
         Slice tupleSlice = value.getTupleSlice();
         return tupleSlice.length() == SIZE_OF_LONG + SIZE_OF_BYTE && slice.getLong(offset + SIZE_OF_BYTE) == tupleSlice.getLong(SIZE_OF_BYTE);
+    }
+
+    @Override
+    public int getRawOffset()
+    {
+        return offset;
+    }
+
+    @Override
+    public void appendTupleTo(BlockBuilder blockBuilder)
+    {
+        blockBuilder.appendTuple(slice, offset, ENTRY_SIZE);
     }
 }
