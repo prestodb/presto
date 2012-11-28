@@ -2,6 +2,8 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.compiler.Symbol;
 import com.google.common.collect.ImmutableList;
+import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonProperty;
 
 import java.util.List;
 
@@ -11,7 +13,8 @@ public class LimitNode
     private final PlanNode source;
     private final long count;
 
-    public LimitNode(PlanNode source, long count)
+    @JsonCreator
+    public LimitNode(@JsonProperty("source") PlanNode source, @JsonProperty("count") long count)
     {
         this.source = source;
         this.count = count;
@@ -23,11 +26,13 @@ public class LimitNode
         return ImmutableList.of(source);
     }
 
+    @JsonProperty("source")
     public PlanNode getSource()
     {
         return source;
     }
 
+    @JsonProperty("count")
     public long getCount()
     {
         return count;

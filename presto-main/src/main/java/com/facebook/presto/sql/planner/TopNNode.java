@@ -5,6 +5,8 @@ import com.facebook.presto.sql.tree.SortItem;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonProperty;
 
 import java.util.List;
 import java.util.Map;
@@ -17,10 +19,11 @@ public class TopNNode
     private final List<Symbol> orderBy;
     private final Map<Symbol, SortItem.Ordering> orderings;
 
-    public TopNNode(PlanNode source,
-            long count,
-            List<Symbol> orderBy,
-            Map<Symbol, SortItem.Ordering> orderings)
+    @JsonCreator
+    public TopNNode(@JsonProperty("source") PlanNode source,
+            @JsonProperty("count") long count,
+            @JsonProperty("orderBy") List<Symbol> orderBy,
+            @JsonProperty("orderings") Map<Symbol, SortItem.Ordering> orderings)
     {
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkArgument(count > 0, "count must be positive");
@@ -40,6 +43,7 @@ public class TopNNode
         return ImmutableList.of(source);
     }
 
+    @JsonProperty("source")
     public PlanNode getSource()
     {
         return source;
@@ -51,16 +55,19 @@ public class TopNNode
         return source.getOutputSymbols();
     }
 
+    @JsonProperty("count")
     public long getCount()
     {
         return count;
     }
 
+    @JsonProperty("orderBy")
     public List<Symbol> getOrderBy()
     {
         return orderBy;
     }
 
+    @JsonProperty("orderings")
     public Map<Symbol, SortItem.Ordering> getOrderings()
     {
         return orderings;

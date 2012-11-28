@@ -3,6 +3,8 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.sql.compiler.Symbol;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonProperty;
 
 import java.util.List;
 
@@ -12,7 +14,8 @@ public class ExchangeNode
     private final int sourceFragmentId;
     private final List<Symbol> outputs;
 
-    public ExchangeNode(int sourceFragmentId, List<Symbol> outputs)
+    @JsonCreator
+    public ExchangeNode(@JsonProperty("sourceFragmentId") int sourceFragmentId, @JsonProperty("outputs") List<Symbol> outputs)
     {
         Preconditions.checkNotNull(outputs, "outputs is null");
 
@@ -26,11 +29,13 @@ public class ExchangeNode
         return ImmutableList.of();
     }
 
+    @JsonProperty("outputs")
     public List<Symbol> getOutputSymbols()
     {
         return outputs;
     }
 
+    @JsonProperty("sourceFragmentId")
     public int getSourceFragmentId()
     {
         return sourceFragmentId;

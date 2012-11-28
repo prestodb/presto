@@ -25,14 +25,29 @@ import com.facebook.presto.split.ImportClientFactory;
 import com.facebook.presto.split.ImportDataStreamProvider;
 import com.facebook.presto.split.NativeDataStreamProvider;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.ExpressionFormatter;
+import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
+import com.google.common.base.Throwables;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import io.airlift.json.JsonBinder;
+import org.antlr.runtime.RecognitionException;
+import org.codehaus.jackson.JsonGenerator;
+import org.codehaus.jackson.JsonParser;
+import org.codehaus.jackson.map.DeserializationContext;
+import org.codehaus.jackson.map.JsonDeserializer;
+import org.codehaus.jackson.map.JsonSerializer;
+import org.codehaus.jackson.map.SerializerProvider;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Singleton;
+
+import java.io.IOException;
 
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
@@ -61,7 +76,50 @@ public class ServerMainModule
 
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
 
+
+        // fragment serialization
         jsonCodecBinder(binder).bindJsonCodec(QueryFragmentRequest.class);
+
+        JsonBinder.jsonBinder(binder).addSerializerBinding(Expression.class).toInstance(new JsonSerializer<Expression>()
+        {
+            @Override
+            public void serialize(Expression expression, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
+                    throws IOException
+            {
+                jsonGenerator.writeString(ExpressionFormatter.toString(expression));
+            }
+        });
+
+        JsonBinder.jsonBinder(binder).addDeserializerBinding(Expression.class).toInstance(new JsonDeserializer<Expression>()
+        {
+            @Override
+            public Expression deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
+                    throws IOException
+            {
+                try {
+                    return SqlParser.createExpression(jsonParser.readValueAs(String.class));
+                }
+                catch (RecognitionException e) {
+                    throw Throwables.propagate(e);
+                }
+            }
+        });
+
+        JsonBinder.jsonBinder(binder).addDeserializerBinding(FunctionCall.class).toInstance(new JsonDeserializer<FunctionCall>()
+        {
+            @Override
+            public FunctionCall deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
+                    throws IOException
+            {
+                try {
+                    return (FunctionCall) SqlParser.createExpression(jsonParser.readValueAs(String.class));
+                }
+                catch (RecognitionException e) {
+                    throw Throwables.propagate(e);
+                }
+            }
+        });
+
 
         discoveryBinder(binder).bindSelector("presto");
         discoveryBinder(binder).bindSelector("hive-metastore");

@@ -3,6 +3,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.compiler.Type;
 import com.google.common.collect.ImmutableList;
+import org.codehaus.jackson.annotate.JsonProperty;
 
 import java.util.List;
 import java.util.Map;
@@ -14,7 +15,7 @@ public class PlanFragment
     private final boolean partitioned;
     private final Map<Symbol, Type> symbols;
 
-    public PlanFragment(int id, boolean isPartitioned, Map<Symbol, Type> symbols, PlanNode root)
+    public PlanFragment(@JsonProperty("id") int id, @JsonProperty("partitioned") boolean isPartitioned, @JsonProperty("symbols") Map<Symbol, Type> symbols, @JsonProperty("root") PlanNode root)
     {
         this.id = id;
         this.root = root;
@@ -22,21 +23,25 @@ public class PlanFragment
         this.symbols = symbols;
     }
 
+    @JsonProperty("id")
     public int getId()
     {
         return id;
     }
 
+    @JsonProperty("partitioned")
     public boolean isPartitioned()
     {
         return partitioned;
     }
 
+    @JsonProperty("root")
     public PlanNode getRoot()
     {
         return root;
     }
 
+    @JsonProperty("symbols")
     public Map<Symbol, Type> getSymbols()
     {
         return symbols;
