@@ -129,7 +129,9 @@ public class ConsolePrinter
                     if (!first) {
                         writer.write(delimiter);
                     }
-                    Joiner.on(delimiter).appendTo(writer, tuple.toValues());
+                    Joiner.on(delimiter)
+                            .useForNull("")
+                            .appendTo(writer, tuple.toValues());
                     first = false;
                 }
                 writer.write('\n');
