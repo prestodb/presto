@@ -32,11 +32,11 @@ public class QueryDriversOperator
     {
         Preconditions.checkArgument(pageBufferMax > 0, "blockBufferMax must be at least 1");
         Preconditions.checkNotNull(driverProviders, "driverProviders is null");
-        Preconditions.checkArgument(!Iterables.isEmpty(driverProviders), "driverProviders is empty");
 
         this.pageBufferMax = pageBufferMax;
         this.driverProviders = ImmutableList.copyOf(driverProviders);
         tupleInfos = this.driverProviders.get(0).getTupleInfos();
+        Preconditions.checkArgument(!this.driverProviders.isEmpty(), "driverProviders is empty");
     }
 
     @Override
