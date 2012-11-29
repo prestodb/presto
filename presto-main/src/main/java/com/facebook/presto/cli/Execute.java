@@ -117,7 +117,7 @@ public class Execute
                     break;
             }
         }
-        if (completedSplits == splits && (overallState == State.PREPARING || overallState == State.RUNNING)) {
+        if (splits > 0 && completedSplits == splits && (overallState == State.PREPARING || overallState == State.RUNNING)) {
             overallState = State.FINISHED;
         }
 
