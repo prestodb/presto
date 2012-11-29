@@ -6,12 +6,17 @@ package com.facebook.presto.block;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
+import io.airlift.units.DataSize;
 
 import java.util.Iterator;
 import java.util.List;
+
+import static io.airlift.units.DataSize.Unit.BYTE;
 
 public final class BlockIterables
 {
@@ -33,12 +38,23 @@ public final class BlockIterables
             implements BlockIterable
     {
         private final List<Block> blocks;
+        private final int positionCount;
+        private final DataSize dataSize;
 
         public StaticBlockIterable(Iterable<Block> blocks)
         {
             Preconditions.checkNotNull(blocks, "blocks is null");
             this.blocks = ImmutableList.copyOf(blocks);
             Preconditions.checkArgument(!this.blocks.isEmpty(), "blocks is empty");
+
+            long positionCount = 0;
+            long dataSize = 0;
+            for (Block block : this.blocks) {
+                positionCount += block.getPositionCount();
+                dataSize += block.getDataSize().toBytes();
+            }
+            this.positionCount = Ints.checkedCast(positionCount);
+            this.dataSize = new DataSize(dataSize, BYTE);
         }
 
         @Override
@@ -52,6 +68,52 @@ public final class BlockIterables
         {
             return blocks.iterator();
         }
+
+        @Override
+        public Optional<DataSize> getDataSize()
+        {
+            return Optional.of(dataSize);
+        }
+
+        @Override
+        public Optional<Integer> getPositionCount()
+        {
+            return Optional.of(positionCount);
+        }
+    }
+
+    public static Optional<DataSize> getDataSize(BlockIterable... blockIterables)
+    {
+        return getDataSize(ImmutableList.copyOf(blockIterables));
+    }
+
+    public static Optional<DataSize> getDataSize(Iterable<? extends BlockIterable> blockIterables)
+    {
+        long dataSize = 0;
+        for (BlockIterable blocks : blockIterables) {
+            if (!blocks.getDataSize().isPresent()) {
+                return Optional.absent();
+            }
+            dataSize += blocks.getDataSize().get().toBytes();
+        }
+        return Optional.of(new DataSize(dataSize, BYTE));
+    }
+
+    public static Optional<Integer> getPositionCount(BlockIterable... blockIterables)
+    {
+        return getPositionCount(ImmutableList.copyOf(blockIterables));
+    }
+
+    public static Optional<Integer> getPositionCount(Iterable<? extends BlockIterable> blockIterables)
+    {
+        long positionCount = 0;
+        for (BlockIterable blocks : blockIterables) {
+            if (!blocks.getDataSize().isPresent()) {
+                return Optional.absent();
+            }
+            positionCount += blocks.getPositionCount().get();
+        }
+        return Optional.of(Ints.checkedCast(positionCount));
     }
 
     public static BlockIterable concat(BlockIterable... blockIterables)
@@ -69,6 +131,8 @@ public final class BlockIterables
     {
         private final Iterable<? extends BlockIterable> blockIterables;
         private final TupleInfo tupleInfo;
+        private final Optional<DataSize> dataSize;
+        private final Optional<Integer> positionCount;
 
         private ConcatBlockIterable(Iterable<? extends BlockIterable> blockIterables)
         {
@@ -79,12 +143,26 @@ public final class BlockIterables
                 types.addAll(blocks.getTupleInfo().getTypes());
             }
             tupleInfo = new TupleInfo(types.build());
+            this.dataSize = BlockIterables.getDataSize(blockIterables);
+            this.positionCount = BlockIterables.getPositionCount(blockIterables);
         }
 
         @Override
         public TupleInfo getTupleInfo()
         {
             return tupleInfo;
+        }
+
+        @Override
+        public Optional<DataSize> getDataSize()
+        {
+            return dataSize;
+        }
+
+        @Override
+        public Optional<Integer> getPositionCount()
+        {
+            return positionCount;
         }
 
         @Override

@@ -5,6 +5,8 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
 import com.google.common.base.Preconditions;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 
 import java.util.Arrays;
 
@@ -27,6 +29,15 @@ public class Page
     public int getPositionCount()
     {
         return blocks[0].getPositionCount();
+    }
+
+    public DataSize getDataSize()
+    {
+        long dataSize = 0;
+        for (Block block : blocks) {
+            dataSize += block.getDataSize().toBytes();
+        }
+        return new DataSize(dataSize, Unit.BYTE);
     }
 
     public Block[] getBlocks()

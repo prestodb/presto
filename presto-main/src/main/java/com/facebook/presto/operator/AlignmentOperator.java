@@ -6,11 +6,14 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.block.BlockIterables;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Optional;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
+import io.airlift.units.DataSize;
 
 import java.util.Iterator;
 import java.util.List;
@@ -21,6 +24,8 @@ public class AlignmentOperator implements Operator
 {
     private final BlockIterable[] channels;
     private final List<TupleInfo> tupleInfos;
+    private Optional<DataSize> dataSize;
+    private Optional<Integer> positionCount;
 
     public AlignmentOperator(BlockIterable... channels)
     {
@@ -30,6 +35,8 @@ public class AlignmentOperator implements Operator
             tupleInfos.add(channel.getTupleInfo());
         }
         this.tupleInfos = tupleInfos.build();
+        dataSize = BlockIterables.getDataSize(channels);
+        positionCount = BlockIterables.getPositionCount(channels);
     }
 
     public AlignmentOperator(Iterable<BlockIterable> channels)
@@ -40,6 +47,8 @@ public class AlignmentOperator implements Operator
             tupleInfos.add(channel.getTupleInfo());
         }
         this.tupleInfos = tupleInfos.build();
+        dataSize = BlockIterables.getDataSize(channels);
+        positionCount = BlockIterables.getPositionCount(channels);
     }
 
     @Override
@@ -52,6 +61,16 @@ public class AlignmentOperator implements Operator
     public List<TupleInfo> getTupleInfos()
     {
         return tupleInfos;
+    }
+
+    public Optional<DataSize> getDataSize()
+    {
+        return dataSize;
+    }
+
+    public Optional<Integer> getPositionCount()
+    {
+        return positionCount;
     }
 
     @Override
