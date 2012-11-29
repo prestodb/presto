@@ -331,13 +331,19 @@ public class QueryState
      * @throws FailedQueryException if the query failed
      * @throws InterruptedException if the thread is interrupted while waiting for pages to be buffered
      */
-    public List<Page> getNextPages(int maxPageCount)
+    public List<Page> getNextPages(int maxPageCount, Duration maxWait)
             throws InterruptedException
     {
         Preconditions.checkArgument(maxPageCount > 0, "pageBufferMax must be at least 1");
 
+        long start = System.nanoTime();
+        long maxWaitNanos = (long) maxWait.convertTo(TimeUnit.NANOSECONDS);
+
         // block until first page is available
         while (!isDone() && !notEmpty.tryAcquire(1, TimeUnit.SECONDS)) {
+            if (System.nanoTime() - start  > maxWaitNanos) {
+                return ImmutableList.of();
+            }
         }
 
         synchronized (pageBuffer) {

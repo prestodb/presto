@@ -59,6 +59,12 @@ public class MasterQueryState
                 public QueryInfo apply(HttpQueryProvider queryProvider)
                 {
                     QueryInfo queryInfo = queryProvider.getQueryInfo();
+                    if (queryInfo == null) {
+                        // task was not found, so we mark the master as failed
+                        RuntimeException exception = new RuntimeException(String.format("Query %s sub task %s has been deleted", queryId, queryProvider.getLocation()));
+                        outputQueryState.queryFailed(exception);
+                        throw exception;
+                    }
                     return new QueryInfo(queryProvider.getLocation().toString(),
                             queryProvider.getTupleInfos(),
                             queryInfo.getState(),

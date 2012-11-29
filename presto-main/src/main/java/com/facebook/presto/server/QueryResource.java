@@ -4,8 +4,10 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.server.QueryState.State;
 import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
+import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
@@ -23,6 +25,8 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 import java.net.URI;
 import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.concurrent.TimeUnit;
 
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 
@@ -30,6 +34,7 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 public class QueryResource
 {
     private static final int DEFAULT_MAX_PAGE_COUNT = 10;
+    private static final Duration DEFAULT_MAX_WAIT = new Duration(1, TimeUnit.SECONDS);
     private final QueryManager queryManager;
 
     @Inject
@@ -71,9 +76,14 @@ public class QueryResource
     {
         Preconditions.checkNotNull(operatorId, "operatorId is null");
 
-        List<Page> pages = queryManager.getQueryResults(operatorId, DEFAULT_MAX_PAGE_COUNT);
+        List<Page> pages = queryManager.getQueryResults(operatorId, DEFAULT_MAX_PAGE_COUNT, DEFAULT_MAX_WAIT);
         if (pages.isEmpty()) {
-            return Response.status(Status.GONE).build();
+            State queryStatus = queryManager.getQueryStatus(operatorId);
+            if (queryStatus == State.PREPARING || queryStatus == State.RUNNING) {
+                return Response.status(Status.NO_CONTENT).build();
+            } else {
+                return Response.status(Status.GONE).build();
+            }
         }
         GenericEntity<?> entity = new GenericEntity<>(pages, new TypeToken<List<Page>>() {}.getType());
         return Response.ok(entity).build();
@@ -86,8 +96,13 @@ public class QueryResource
     {
         Preconditions.checkNotNull(operatorId, "operatorId is null");
 
-        QueryInfo queryInfo = queryManager.getQueryInfo(operatorId);
-        return Response.ok(queryInfo).build();
+        try {
+            QueryInfo queryInfo = queryManager.getQueryInfo(operatorId);
+            return Response.ok(queryInfo).build();
+        }
+        catch (NoSuchElementException e) {
+            return Response.status(Status.GONE).build();
+        }
     }
 
     @DELETE

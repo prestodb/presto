@@ -48,8 +48,8 @@ public class Execute
             long start = System.nanoTime();
 
             ApacheHttpClient httpClient = new ApacheHttpClient(new HttpClientConfig()
-                    .setConnectTimeout(new Duration(1, TimeUnit.MINUTES))
-                    .setReadTimeout(new Duration(30, TimeUnit.MINUTES)));
+                    .setConnectTimeout(new Duration(1, TimeUnit.SECONDS))
+                    .setReadTimeout(new Duration(1, TimeUnit.SECONDS)));
 
             queryProvider = new HttpQueryProvider(createStaticBodyGenerator(query, Charsets.UTF_8),
                     Optional.<String>absent(),
@@ -57,20 +57,7 @@ public class Execute
                     executor,
                     server);
 
-            try {
-                for (QueryInfo queryInfo = queryProvider.getQueryInfo(); queryInfo.getState() == State.PREPARING; queryInfo = queryProvider.getQueryInfo()) {
-                    System.err.print("\r" + toInfoString(queryInfo, start));
-                    System.err.flush();
-                    Uninterruptibles.sleepUninterruptibly(50, TimeUnit.MILLISECONDS);
-                }
-            }
-            finally {
-                // clear line and flush
-                System.err.printf("%-" + maxInfoString + "s\r", "");
-                System.err.flush();
-                // reset to beginning of line... this shouldn't be necessary, but intellij likes it
-                System.err.print("\r");
-            }
+            printInitialStatusUpdates(queryProvider, start);
 
             QueryDriversOperator operator = new QueryDriversOperator(10, queryProvider);
 
@@ -89,6 +76,36 @@ public class Execute
                 queryProvider.destroy();
             }
             executor.shutdownNow();
+        }
+    }
+
+    private void printInitialStatusUpdates(HttpQueryProvider queryProvider, long start)
+    {
+        try {
+            while (true) {
+                try {
+                    QueryInfo queryInfo = queryProvider.getQueryInfo();
+                    if (queryInfo == null) {
+                        // todo maybe throw
+                        return;
+                    }
+                    if (queryInfo.getState() != State.PREPARING) {
+                        return;
+                    }
+                    System.err.print("\r" + toInfoString(queryInfo, start));
+                    System.err.flush();
+                    Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
+                }
+                catch (Exception ignored) {
+                }
+            }
+        }
+        finally {
+            // clear line and flush
+            System.err.printf("%-" + maxInfoString + "s\r", "");
+            System.err.flush();
+            // reset to beginning of line... this shouldn't be necessary, but intellij likes it
+            System.err.print("\r");
         }
     }
 
@@ -224,6 +241,7 @@ public class Execute
         }
         return String.format("%.01f%s", dataSize.getValue(), unitString);
     }
+
     private String formatDataRate(long inputDataSize, Duration duration)
     {
         double rate = inputDataSize / duration.convertTo(TimeUnit.SECONDS);

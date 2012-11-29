@@ -7,6 +7,7 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.server.QueryState.State;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.planner.PlanFragment;
+import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.Map;
@@ -23,7 +24,7 @@ public interface QueryManager
 
     State getQueryStatus(String queryId);
 
-    List<Page> getQueryResults(String queryId, int maxPageCount)
+    List<Page> getQueryResults(String queryId, int maxPageCount, Duration maxWait)
             throws InterruptedException;
 
     void destroyQuery(String queryId);

@@ -48,6 +48,7 @@ import com.google.common.base.Functions;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -86,6 +87,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.util.Threads.threadsNamed;
+import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 
@@ -160,14 +162,19 @@ public class StaticQueryManager
     @Override
     public List<QueryInfo> getAllQueryInfo()
     {
-        return ImmutableList.copyOf(transform(masterQueries.values(), new Function<MasterQueryState, QueryInfo>()
+        return ImmutableList.copyOf(filter(transform(masterQueries.values(), new Function<MasterQueryState, QueryInfo>()
         {
             @Override
             public QueryInfo apply(MasterQueryState masterQueryState)
             {
-                return masterQueryState.toQueryInfo();
+                try {
+                    return masterQueryState.toQueryInfo();
+                }
+                catch (Exception ignored) {
+                    return null;
+                }
             }
-        }));
+        }), Predicates.notNull()));
     }
 
     @Override
@@ -258,13 +265,14 @@ public class StaticQueryManager
     }
 
     @Override
-    public List<Page> getQueryResults(String queryId, int maxPageCount)
+    public List<Page> getQueryResults(String queryId, int maxPageCount, Duration maxWait)
             throws InterruptedException
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkArgument(maxPageCount > 0, "maxPageCount must be at least 1");
+        Preconditions.checkNotNull(maxWait, "maxWait is null");
 
-        return getQuery(queryId).getNextPages(maxPageCount);
+        return getQuery(queryId).getNextPages(maxPageCount, maxWait);
     }
 
     @Override
@@ -339,8 +347,8 @@ public class StaticQueryManager
             this.executor = executor;
             this.codec = codec;
             httpClient = new ApacheHttpClient(new HttpClientConfig()
-                    .setConnectTimeout(new Duration(5, TimeUnit.MINUTES))
-                    .setReadTimeout(new Duration(5, TimeUnit.MINUTES)));
+                    .setConnectTimeout(new Duration(5, TimeUnit.SECONDS))
+                    .setReadTimeout(new Duration(5, TimeUnit.SECONDS)));
             this.splitManager = splitManager;
 
             try {
