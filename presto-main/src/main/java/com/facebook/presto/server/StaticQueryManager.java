@@ -57,7 +57,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.io.Files;
 import com.google.common.io.InputSupplier;
-import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.http.client.ApacheHttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.json.JsonCodec;
@@ -448,7 +447,6 @@ public class StaticQueryManager
                         null // no split for non-leaf plan TODO: unify exchanges with data providers
                 );
 
-                Uninterruptibles.sleepUninterruptibly(3, TimeUnit.SECONDS);
                 Operator aggregation = executionPlanner.plan(top.getRoot());
 
                 for (Page page : aggregation) {
