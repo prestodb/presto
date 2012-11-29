@@ -20,18 +20,22 @@ public class QueryInfo
     private final List<TupleInfo> tupleInfos;
     private final QueryState.State state;
     private final int bufferedPages;
+    private final int splits;
+    private final int completedSplits;
     private final Map<String, List<QueryInfo>> stages;
 
-    public QueryInfo(String queryId, List<TupleInfo> tupleInfos, QueryState.State state, int bufferedPages)
+    public QueryInfo(String queryId, List<TupleInfo> tupleInfos, State state, int bufferedPages, int splits, int completedSplits)
     {
-        this(queryId, tupleInfos, state, bufferedPages, ImmutableMap.<String, List<QueryInfo>>of());
+        this(queryId, tupleInfos, state, bufferedPages, splits, completedSplits, ImmutableMap.<String, List<QueryInfo>>of());
     }
 
     @JsonCreator
     public QueryInfo(@JsonProperty("queryId") String queryId,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
-            @JsonProperty("state") QueryState.State state,
+            @JsonProperty("state") State state,
             @JsonProperty("bufferedPages") int bufferedPages,
+            @JsonProperty("splits") int splits,
+            @JsonProperty("completedSplits") int completedSplits,
             @JsonProperty("stages") Map<String, List<QueryInfo>> stages)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
@@ -41,6 +45,8 @@ public class QueryInfo
         this.tupleInfos = tupleInfos;
         this.state = state;
         this.bufferedPages = bufferedPages;
+        this.splits = splits;
+        this.completedSplits = completedSplits;
         this.stages = ImmutableMap.copyOf(stages);
     }
 
@@ -66,6 +72,18 @@ public class QueryInfo
     public int getBufferedPages()
     {
         return bufferedPages;
+    }
+
+    @JsonProperty
+    public int getSplits()
+    {
+        return splits;
+    }
+
+    @JsonProperty
+    public int getCompletedSplits()
+    {
+        return completedSplits;
     }
 
     @JsonProperty
@@ -99,6 +117,10 @@ public class QueryInfo
         return Objects.toStringHelper(this)
                 .add("queryId", queryId)
                 .add("tupleInfos", tupleInfos)
+                .add("state", state)
+                .add("bufferedPages", bufferedPages)
+                .add("splits", splits)
+                .add("completedSplits", completedSplits)
                 .add("stages", stages)
                 .toString();
     }

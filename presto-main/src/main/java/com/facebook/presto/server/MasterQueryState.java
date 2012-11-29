@@ -59,11 +59,22 @@ public class MasterQueryState
                 public QueryInfo apply(HttpQueryProvider queryProvider)
                 {
                     QueryInfo queryInfo = queryProvider.getQueryInfo();
-                    return new QueryInfo(queryProvider.getLocation().toString(), queryProvider.getTupleInfos(), queryInfo.getState(), queryInfo.getBufferedPages());
+                    return new QueryInfo(queryProvider.getLocation().toString(),
+                            queryProvider.getTupleInfos(),
+                            queryInfo.getState(),
+                            queryInfo.getBufferedPages(),
+                            queryInfo.getSplits(),
+                            queryInfo.getCompletedSplits());
                 }
             })));
         }
-        return new QueryInfo(queryId, outputQueryState.getTupleInfos(), outputQueryState.getState(), outputQueryState.getBufferedPageCount(), map.build());
+        return new QueryInfo(queryId,
+                outputQueryState.getTupleInfos(),
+                outputQueryState.getState(),
+                outputQueryState.getBufferedPageCount(),
+                outputQueryState.getSplits(),
+                outputQueryState.getCompletedSplits(),
+                map.build());
     }
 
     @Override
