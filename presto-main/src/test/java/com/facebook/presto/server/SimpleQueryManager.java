@@ -93,7 +93,7 @@ public class SimpleQueryManager implements QueryManager
         }
         queryState.sourceFinished();
 
-        return new QueryInfo(queryId, ImmutableList.of(SINGLE_VARBINARY), State.PREPARING, 0, 0, 0);
+        return new QueryInfo(queryId, ImmutableList.of(SINGLE_VARBINARY));
     }
 
     @Override

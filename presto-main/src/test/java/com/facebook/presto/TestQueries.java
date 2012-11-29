@@ -41,6 +41,7 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
@@ -682,6 +683,18 @@ public class TestQueries
                 public TupleInfo getTupleInfo()
                 {
                     return new TupleInfo(columnHandle.getType());
+                }
+
+                @Override
+                public Optional<DataSize> getDataSize()
+                {
+                    return Optional.absent();
+                }
+
+                @Override
+                public Optional<Integer> getPositionCount()
+                {
+                    return Optional.absent();
                 }
 
                 @Override

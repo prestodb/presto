@@ -8,6 +8,8 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 
 public class UncompressedBlock
         implements Block
@@ -55,6 +57,12 @@ public class UncompressedBlock
     public int getPositionCount()
     {
         return positionCount;
+    }
+
+    @Override
+    public DataSize getDataSize()
+    {
+        return new DataSize(slice.length(), Unit.BYTE);
     }
 
     @Override

@@ -21,12 +21,18 @@ public class QueryInfo
     private final QueryState.State state;
     private final int bufferedPages;
     private final int splits;
+    private final int startedSplits;
     private final int completedSplits;
+    private final long splitCpuTime;
+    private final long inputDataSize;
+    private final long inputPositionCount;
+    private final long completedDataSize;
+    private final long completedPositionCount;
     private final Map<String, List<QueryInfo>> stages;
 
-    public QueryInfo(String queryId, List<TupleInfo> tupleInfos, State state, int bufferedPages, int splits, int completedSplits)
+    public QueryInfo(String queryId, List<TupleInfo> tupleInfos)
     {
-        this(queryId, tupleInfos, state, bufferedPages, splits, completedSplits, ImmutableMap.<String, List<QueryInfo>>of());
+        this(queryId, tupleInfos, State.PREPARING, 0, 0, 0, 0, 0, 0, 0, 0, 0, ImmutableMap.<String, List<QueryInfo>>of());
     }
 
     @JsonCreator
@@ -35,7 +41,13 @@ public class QueryInfo
             @JsonProperty("state") State state,
             @JsonProperty("bufferedPages") int bufferedPages,
             @JsonProperty("splits") int splits,
+            @JsonProperty("startedSplits") int startedSplits,
             @JsonProperty("completedSplits") int completedSplits,
+            @JsonProperty("splitCpuTime") long splitCpuTime,
+            @JsonProperty("inputDataSize") long inputDataSize,
+            @JsonProperty("inputPositionCount") long inputPositionCount,
+            @JsonProperty("completedDataSize") long completedDataSize,
+            @JsonProperty("completedPositionCount") long completedPositionCount,
             @JsonProperty("stages") Map<String, List<QueryInfo>> stages)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
@@ -46,7 +58,13 @@ public class QueryInfo
         this.state = state;
         this.bufferedPages = bufferedPages;
         this.splits = splits;
+        this.startedSplits = startedSplits;
         this.completedSplits = completedSplits;
+        this.splitCpuTime = splitCpuTime;
+        this.inputDataSize = inputDataSize;
+        this.inputPositionCount = inputPositionCount;
+        this.completedDataSize = completedDataSize;
+        this.completedPositionCount = completedPositionCount;
         this.stages = ImmutableMap.copyOf(stages);
     }
 
@@ -81,9 +99,45 @@ public class QueryInfo
     }
 
     @JsonProperty
+    public int getStartedSplits()
+    {
+        return startedSplits;
+    }
+
+    @JsonProperty
     public int getCompletedSplits()
     {
         return completedSplits;
+    }
+
+    @JsonProperty
+    public long getSplitCpuTime()
+    {
+        return splitCpuTime;
+    }
+
+    @JsonProperty
+    public long getInputDataSize()
+    {
+        return inputDataSize;
+    }
+
+    @JsonProperty
+    public long getInputPositionCount()
+    {
+        return inputPositionCount;
+    }
+
+    @JsonProperty
+    public long getCompletedDataSize()
+    {
+        return completedDataSize;
+    }
+
+    @JsonProperty
+    public long getCompletedPositionCount()
+    {
+        return completedPositionCount;
     }
 
     @JsonProperty
@@ -116,11 +170,17 @@ public class QueryInfo
     {
         return Objects.toStringHelper(this)
                 .add("queryId", queryId)
-                .add("tupleInfos", tupleInfos)
                 .add("state", state)
                 .add("bufferedPages", bufferedPages)
                 .add("splits", splits)
+                .add("startedSplits", startedSplits)
                 .add("completedSplits", completedSplits)
+                .add("splitCpuTime", splitCpuTime)
+                .add("inputDataSize", inputDataSize)
+                .add("inputPositionCount", inputPositionCount)
+                .add("completedDataSize", completedDataSize)
+                .add("completedPositionCount", completedPositionCount)
+                .add("tupleInfos", tupleInfos)
                 .add("stages", stages)
                 .toString();
     }

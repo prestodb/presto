@@ -7,15 +7,22 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Ints;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
+import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * QueryState contains the current state of the query and output buffer.
@@ -47,7 +54,16 @@ public class QueryState
     private int sourceCount;
 
     private final int splits;
+    private final AtomicInteger startedSplits = new AtomicInteger();
     private final AtomicInteger completedSplits = new AtomicInteger();
+
+    private final AtomicLong splitCpuMillis = new AtomicLong();
+
+    private final AtomicLong inputDataSize = new AtomicLong();
+    private final AtomicLong inputPositions = new AtomicLong();
+
+    private final AtomicLong completedDataSize = new AtomicLong();
+    private final AtomicLong completedPositions = new AtomicLong();
 
     private final Semaphore notFull;
     private final Semaphore notEmpty;
@@ -109,9 +125,14 @@ public class QueryState
         return splits;
     }
 
+    public int getStartedSplits()
+    {
+        return Ints.min(startedSplits.get(), completedSplits.get(), splits);
+    }
+
     public int getCompletedSplits()
     {
-        return Math.min(completedSplits.get(), splits);
+        return Ints.min(completedSplits.get(), splits);
     }
 
     public int getBufferedPageCount()
@@ -121,9 +142,86 @@ public class QueryState
         }
     }
 
+    public Duration getSplitCpu()
+    {
+        return new Duration(splitCpuMillis.get(), TimeUnit.MILLISECONDS);
+    }
+
+    public DataSize getInputDataSize()
+    {
+        return new DataSize(inputDataSize.get(), Unit.BYTE);
+    }
+
+    public long getInputPositions()
+    {
+        return inputPositions.get();
+    }
+
+    public DataSize getCompletedDataSize()
+    {
+        return new DataSize(completedDataSize.get(), Unit.BYTE);
+    }
+
+    public long getCompletedPositions()
+    {
+        return completedPositions.get();
+    }
+
+    public void splitStarted()
+    {
+        startedSplits.incrementAndGet();
+    }
+
     public void splitCompleted()
     {
         completedSplits.incrementAndGet();
+    }
+
+    public void addSplitCpuTime(Duration duration)
+    {
+        splitCpuMillis.addAndGet((long) duration.toMillis());
+    }
+
+    public void addInputPositions(long inputPositions)
+    {
+        this.inputPositions.addAndGet(inputPositions);
+    }
+
+    public void addInputDataSize(DataSize inputDataSize)
+    {
+        this.inputDataSize.addAndGet(inputDataSize.toBytes());
+    }
+
+    public void addCompletedPositions(long completedPositions)
+    {
+        this.completedPositions.addAndGet(completedPositions);
+    }
+
+    public void addCompletedDataSize(DataSize completedDataSize)
+    {
+        this.completedDataSize.addAndGet(completedDataSize.toBytes());
+    }
+
+    public QueryInfo toQueryInfo(String queryId)
+    {
+        return toQueryInfo(queryId, ImmutableMap.<String, List<QueryInfo>>of());
+    }
+
+    public QueryInfo toQueryInfo(String queryId, Map<String, List<QueryInfo>> stages)
+    {
+        return new QueryInfo(queryId,
+                getTupleInfos(),
+                getState(),
+                getBufferedPageCount(),
+                getSplits(),
+                getStartedSplits(),
+                getCompletedSplits(),
+                (long) getSplitCpu().toMillis(),
+                getInputDataSize().toBytes(),
+                getInputPositions(),
+                getCompletedDataSize().toBytes(),
+                getCompletedPositions(),
+                stages);
     }
 
     /**

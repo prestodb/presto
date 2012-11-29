@@ -2,6 +2,7 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.serde.BlockEncoding;
 import com.facebook.presto.tuple.TupleInfo;
+import io.airlift.units.DataSize;
 
 public interface Block
 {
@@ -14,6 +15,11 @@ public interface Block
      * Returns the number of positions in this block.
      */
     int getPositionCount();
+
+    /**
+     * Returns the size of this block in memory.
+     */
+    DataSize getDataSize();
 
     /**
      * Gets a cursor over the block

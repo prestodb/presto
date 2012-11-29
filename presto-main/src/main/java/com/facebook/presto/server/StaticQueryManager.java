@@ -60,6 +60,7 @@ import com.google.common.io.InputSupplier;
 import io.airlift.http.client.ApacheHttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.json.JsonCodec;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -224,7 +225,7 @@ public class StaticQueryManager
         queries.put(queryId, masterQueryState.getOutputQueryState());
         queryExecutor.submit(queryTask);
 
-        return new QueryInfo(queryId, queryTask.getTupleInfos(), State.PREPARING, 0, 0, 0);
+        return new QueryInfo(queryId, queryTask.getTupleInfos());
     }
 
     @Override
@@ -235,7 +236,7 @@ public class StaticQueryManager
         queries.put(queryId, queryTask.getQueryState());
         queryExecutor.submit(queryTask);
 
-        return new QueryInfo(queryId, queryTask.getTupleInfos(), State.PREPARING, 0, 0, 0);
+        return new QueryInfo(queryId, queryTask.getTupleInfos());
     }
 
     @Override
@@ -246,12 +247,7 @@ public class StaticQueryManager
         }
         catch (NoSuchElementException e) {
             QueryState queryState = getQuery(queryId);
-            return new QueryInfo(queryId,
-                    queryState.getTupleInfos(),
-                    queryState.getState(),
-                    queryState.getBufferedPageCount(),
-                    queryState.getSplits(),
-                    queryState.getCompletedSplits());
+            return queryState.toQueryInfo(queryId);
         }
     }
 
@@ -552,6 +548,8 @@ public class StaticQueryManager
         {
             private final QueryState queryState;
             private final Operator operator;
+            private final Optional<DataSize> inputDataSize;
+            private final Optional<Integer> inputPositionCount;
 
             private SplitSumFragmentWorker(QueryState queryState, Split split, PlanFragment fragment, DataStreamProvider dataStreamProvider, Metadata metadata)
             {
@@ -559,12 +557,23 @@ public class StaticQueryManager
 
                 ExecutionPlanner planner = new ExecutionPlanner(new SessionMetadata(metadata), dataStreamProvider, fragment.getSymbols(), ImmutableMap.<Integer, Operator>of(), split);
                 operator = planner.plan(fragment.getRoot());
+
+                inputDataSize = planner.getInputDataSize();
+                if (inputDataSize.isPresent()) {
+                    queryState.addInputDataSize(inputDataSize.get());
+                }
+                inputPositionCount = planner.getInputPositionCount();
+                if (inputPositionCount.isPresent()) {
+                    queryState.addInputPositions(inputPositionCount.get());
+                }
             }
 
             @Override
             public Void call()
                     throws Exception
             {
+                queryState.splitStarted();
+                long startTime = System.nanoTime();
                 try {
                     for (Page page : operator) {
                         queryState.addPage(page);
@@ -575,7 +584,15 @@ public class StaticQueryManager
                     queryState.queryFailed(e);
                     throw Throwables.propagate(e);
                 } finally {
+                    queryState.addSplitCpuTime(Duration.nanosSince(startTime));
                     queryState.splitCompleted();
+                    if (inputDataSize.isPresent()) {
+                        queryState.addCompletedDataSize(inputDataSize.get());
+                    }
+                    if (inputPositionCount.isPresent()) {
+                        queryState.addCompletedPositions(inputPositionCount.get());
+                    }
+
                 }
             }
         }

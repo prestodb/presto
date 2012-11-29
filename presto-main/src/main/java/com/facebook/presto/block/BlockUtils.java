@@ -5,11 +5,14 @@ package com.facebook.presto.block;
 
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 
 import java.util.Iterator;
 
@@ -27,6 +30,18 @@ public class BlockUtils
             }
 
             @Override
+            public Optional<DataSize> getDataSize()
+            {
+                return Optional.of(new DataSize(0, Unit.BYTE));
+            }
+
+            @Override
+            public Optional<Integer> getPositionCount()
+            {
+                return Optional.of(0);
+            }
+
+            @Override
             public Iterator<Block> iterator()
             {
                 return Iterators.emptyIterator();
@@ -36,29 +51,64 @@ public class BlockUtils
 
     public static BlockIterable toBlocks(Block firstBlock, Block... rest)
     {
-        return new BlocksIterableAdapter(firstBlock.getTupleInfo(), ImmutableList.<Block>builder().add(firstBlock).add(rest).build());
+        return new BlocksIterableAdapter(firstBlock.getTupleInfo(),
+                Optional.<DataSize>absent(),
+                Optional.<Integer>absent(),
+                ImmutableList.<Block>builder().add(firstBlock).add(rest).build());
     }
 
     public static BlockIterable toBlocks(Iterable<Block> blocks)
     {
-        return new BlocksIterableAdapter(Iterables.get(blocks, 0).getTupleInfo(), blocks);
+        return new BlocksIterableAdapter(Iterables.get(blocks, 0).getTupleInfo(),
+                Optional.<DataSize>absent(),
+                Optional.<Integer>absent(),
+                blocks);
+    }
+
+    public static BlockIterable toBlocks(DataSize dataSize, int positionCount, Iterable<Block> blocks)
+    {
+        return new BlocksIterableAdapter(Iterables.get(blocks, 0).getTupleInfo(),
+                Optional.of(dataSize),
+                Optional.of(positionCount),
+                blocks);
     }
 
     private static class BlocksIterableAdapter implements BlockIterable
     {
         private final TupleInfo tupleInfo;
         private final Iterable<Block> blocks;
+        private Optional<DataSize> dataSize;
+        private final Optional<Integer> positionCount;
 
         public BlocksIterableAdapter(TupleInfo tupleInfo, Iterable<Block> blocks)
         {
+            this(tupleInfo, Optional.<DataSize>absent(), Optional.<Integer>absent(), blocks);
+        }
+
+        public BlocksIterableAdapter(TupleInfo tupleInfo, Optional<DataSize> dataSize, Optional<Integer> positionCount, Iterable<Block> blocks)
+        {
             this.tupleInfo = tupleInfo;
             this.blocks = blocks;
+            this.dataSize = dataSize;
+            this.positionCount = positionCount;
         }
 
         @Override
         public TupleInfo getTupleInfo()
         {
             return tupleInfo;
+        }
+
+        @Override
+        public Optional<DataSize> getDataSize()
+        {
+            return dataSize;
+        }
+
+        @Override
+        public Optional<Integer> getPositionCount()
+        {
+            return positionCount;
         }
 
         @Override
