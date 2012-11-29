@@ -12,8 +12,10 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class QueryDriversOperator
         implements Operator
@@ -104,7 +106,8 @@ public class QueryDriversOperator
                 if (queryState.isCanceled()) {
                     return endOfData();
                 }
-                List<Page> nextPages = queryState.getNextPages(1);
+                // wait forever for the next page to show up
+                List<Page> nextPages = queryState.getNextPages(1, new Duration(365, TimeUnit.DAYS));
                 if (nextPages.isEmpty()) {
                     return endOfData();
                 }

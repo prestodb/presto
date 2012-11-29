@@ -11,6 +11,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -103,13 +104,13 @@ public class SimpleQueryManager implements QueryManager
     }
 
     @Override
-    public List<Page> getQueryResults(String queryId, int maxPageCount)
+    public List<Page> getQueryResults(String queryId, int maxPageCount, Duration maxWait)
             throws InterruptedException
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkArgument(maxPageCount > 0, "maxPageCount must be at least 1");
 
-        return getQuery(queryId).getNextPages(maxPageCount);
+        return getQuery(queryId).getNextPages(maxPageCount, maxWait);
     }
 
     @Override
