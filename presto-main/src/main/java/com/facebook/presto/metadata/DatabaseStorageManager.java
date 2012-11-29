@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import com.google.common.io.OutputSupplier;
+import com.google.common.primitives.Ints;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import org.skife.jdbi.v2.Handle;
@@ -37,6 +38,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 
@@ -279,7 +281,13 @@ public class DatabaseStorageManager
             }
         })));
 
-        return BlockUtils.toBlocks(blocks);
+        long dataSize = 0;
+        long positionCount = 0;
+        for (Block block : blocks) {
+            dataSize += block.getDataSize().toBytes();
+            positionCount += block.getPositionCount();
+        }
+        return BlockUtils.toBlocks(new DataSize(dataSize, BYTE), Ints.checkedCast(positionCount), blocks);
     }
 
     @Override

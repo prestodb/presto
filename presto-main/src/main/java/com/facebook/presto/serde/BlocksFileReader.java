@@ -9,7 +9,10 @@ import com.facebook.presto.slice.SizeOf;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.primitives.Ints;
+import io.airlift.units.DataSize;
 
 import java.util.Iterator;
 
@@ -43,13 +46,25 @@ public class BlocksFileReader
         stats = BlocksFileStats.deserialize(input);
 
         blocksSlice = slice.slice(0, footerOffset);
-        blockIterable = new EncodedBlockIterable(blockEncoding, blocksSlice);
+        blockIterable = new EncodedBlockIterable(blockEncoding, blocksSlice, Ints.checkedCast(stats.getRowCount()));
     }
 
     @Override
     public TupleInfo getTupleInfo()
     {
         return blockEncoding.getTupleInfo();
+    }
+
+    @Override
+    public Optional<DataSize> getDataSize()
+    {
+        return blockIterable.getDataSize();
+    }
+
+    @Override
+    public Optional<Integer> getPositionCount()
+    {
+        return blockIterable.getPositionCount();
     }
 
     public BlockEncoding getEncoding()

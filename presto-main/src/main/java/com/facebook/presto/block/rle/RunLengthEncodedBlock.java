@@ -6,6 +6,8 @@ import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 
 public class RunLengthEncodedBlock
         implements Block
@@ -33,6 +35,12 @@ public class RunLengthEncodedBlock
     public int getPositionCount()
     {
         return positionCount;
+    }
+
+    @Override
+    public DataSize getDataSize()
+    {
+        return new DataSize(value.getTupleSlice().length(), Unit.BYTE);
     }
 
     @Override

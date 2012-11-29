@@ -1,9 +1,10 @@
 package com.facebook.presto.block.dictionary;
 
+import com.facebook.presto.block.Block;
 import com.facebook.presto.serde.BlockEncoding;
 import com.facebook.presto.serde.DictionaryBlockEncoding;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.block.Block;
+import io.airlift.units.DataSize;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -44,6 +45,13 @@ public class DictionaryEncodedBlock
     public int getPositionCount()
     {
         return idBlock.getPositionCount();
+    }
+
+    @Override
+    public DataSize getDataSize()
+    {
+        // todo include dictionary size
+        return idBlock.getDataSize();
     }
 
     @Override

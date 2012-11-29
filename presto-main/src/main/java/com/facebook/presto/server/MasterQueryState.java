@@ -64,17 +64,18 @@ public class MasterQueryState
                             queryInfo.getState(),
                             queryInfo.getBufferedPages(),
                             queryInfo.getSplits(),
-                            queryInfo.getCompletedSplits());
+                            queryInfo.getStartedSplits(),
+                            queryInfo.getCompletedSplits(),
+                            queryInfo.getSplitCpuTime(),
+                            queryInfo.getInputDataSize(),
+                            queryInfo.getInputPositionCount(),
+                            queryInfo.getCompletedDataSize(),
+                            queryInfo.getCompletedPositionCount(),
+                            ImmutableMap.<String, List<QueryInfo>>of());
                 }
             })));
         }
-        return new QueryInfo(queryId,
-                outputQueryState.getTupleInfos(),
-                outputQueryState.getState(),
-                outputQueryState.getBufferedPageCount(),
-                outputQueryState.getSplits(),
-                outputQueryState.getCompletedSplits(),
-                map.build());
+        return outputQueryState.toQueryInfo(queryId, map.build());
     }
 
     @Override

@@ -3,6 +3,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.operator.AggregationOperator;
+import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.FilterFunctions;
@@ -31,11 +32,13 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
 import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.MoreFunctions;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
+import io.airlift.units.DataSize;
 
 import javax.inject.Provider;
 import java.util.ArrayList;
@@ -54,6 +57,8 @@ public class ExecutionPlanner
     private final Split split;
 
     private final Map<Integer, Operator> exchangeMap;
+    private Optional<DataSize> inputDataSize = Optional.absent();
+    private Optional<Integer> inputPositionCount = Optional.absent();
 
     public ExecutionPlanner(SessionMetadata metadata, DataStreamProvider dataProvider, Map<Symbol, Type> types, Map<Integer, Operator> exchangeMap, Split split)
     {
@@ -92,6 +97,16 @@ public class ExecutionPlanner
         }
 
         throw new UnsupportedOperationException("not yet implemented: " + plan.getClass().getName());
+    }
+
+    public Optional<DataSize> getInputDataSize()
+    {
+        return inputDataSize;
+    }
+
+    public Optional<Integer> getInputPositionCount()
+    {
+        return inputPositionCount;
     }
 
     private Operator createExchange(ExchangeNode node)
@@ -251,7 +266,13 @@ public class ExecutionPlanner
                 .transform(MoreFunctions.<Symbol, ColumnHandle>valueGetter())
                 .list();
 
-        return dataProvider.createDataStream(split, columns);
+        Operator operator = dataProvider.createDataStream(split, columns);
+        if (operator instanceof AlignmentOperator) {
+            AlignmentOperator alignmentOperator = (AlignmentOperator) operator;
+            inputDataSize = alignmentOperator.getDataSize();
+            inputPositionCount = alignmentOperator.getPositionCount();
+        }
+        return operator;
     }
 
     public static TupleInfo toTupleInfo(AnalysisResult analysis, Iterable<Symbol> symbols)
