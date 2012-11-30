@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.compiler;
 
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Subquery;
 import com.facebook.presto.sql.tree.Table;
@@ -15,6 +16,7 @@ class AnalysisContext
     private final IdentityHashMap<Subquery, AnalysisResult> inlineViews = new IdentityHashMap<>();
     private final IdentityHashMap<Relation, TupleDescriptor> tableDescriptors = new IdentityHashMap<>();
     private final IdentityHashMap<Relation, TableMetadata> tableMetadata = new IdentityHashMap<>();
+    private final IdentityHashMap<Join, AnalyzedExpression> joinCriteria = new IdentityHashMap<>();
 
     public AnalysisContext()
     {
@@ -64,6 +66,15 @@ class AnalysisContext
         return tableMetadata;
     }
 
+    /**
+     * We really want to expose an unmodifiable identity map here. Unfortunately there's no such a thing, so we expose the raw reference.
+     * Callers should *not* modify its contents.
+     */
+    IdentityHashMap<Join, AnalyzedExpression> getJoinCriteria()
+    {
+        return joinCriteria;
+    }
+
     public SymbolAllocator getSymbolAllocator()
     {
         return symbolAllocator;
@@ -72,5 +83,10 @@ class AnalysisContext
     public Map<Symbol, Type> getSymbols()
     {
         return symbolAllocator.getTypes();
+    }
+
+    public void registerJoin(Join node, AnalyzedExpression criteria)
+    {
+        joinCriteria.put(node, criteria);
     }
 }

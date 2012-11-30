@@ -8,10 +8,15 @@ import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Join;
+import com.facebook.presto.sql.tree.JoinCriteria;
+import com.facebook.presto.sql.tree.JoinOn;
+import com.facebook.presto.sql.tree.JoinUsing;
+import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -370,7 +375,45 @@ public class Analyzer
         @Override
         protected TupleDescriptor visitJoin(Join node, AnalysisContext context)
         {
-            throw new UnsupportedOperationException("not yet implemented: JOIN");
+            if (node.getType() != Join.Type.INNER) {
+                throw new SemanticException(node, "Only inner joins are supported");
+            }
+
+            TupleDescriptor left = process(node.getLeft(), context);
+            TupleDescriptor right = process(node.getRight(), context);
+
+            TupleDescriptor descriptor = new TupleDescriptor(ImmutableList.copyOf(Iterables.concat(left.getFields(), right.getFields())));
+
+            AnalyzedExpression analyzedCriteria;
+
+            JoinCriteria criteria = node.getCriteria();
+            if (criteria instanceof NaturalJoin) {
+                throw new SemanticException(node, "Natural join not supported");
+            }
+            else if (criteria instanceof JoinUsing) {
+                throw new UnsupportedOperationException("Join 'using' not yet supported");
+            }
+            else if (criteria instanceof JoinOn) {
+                analyzedCriteria = new ExpressionAnalyzer(metadata, descriptor.getSymbols())
+                        .analyze(((JoinOn) criteria).getExpression(), descriptor);
+
+                Expression expression = analyzedCriteria.getRewrittenExpression();
+                if (!(expression instanceof ComparisonExpression)) {
+                    throw new SemanticException(node, "Non-equi joins not supported");
+                }
+
+                ComparisonExpression comparison = (ComparisonExpression) expression;
+                if (comparison.getType() != ComparisonExpression.Type.EQUAL || !(comparison.getLeft() instanceof QualifiedNameReference) || !(comparison.getRight() instanceof QualifiedNameReference)) {
+                    throw new SemanticException(node, "Non-equi joins not supported");
+                }
+            }
+            else {
+                throw new UnsupportedOperationException("unsupported join criteria: " + criteria.getClass().getName());
+            }
+
+            context.registerJoin(node, analyzedCriteria);
+
+            return descriptor;
         }
     }
 

@@ -46,4 +46,9 @@ public class PlanVisitor<C, R>
     {
         return visitPlan(node, context);
     }
+
+    public R visitJoin(JoinNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
 }

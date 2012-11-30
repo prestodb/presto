@@ -15,6 +15,7 @@ import com.facebook.presto.sql.compiler.Type;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRewriter;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -265,8 +266,21 @@ public class Planner
         else if (relation instanceof Subquery) {
             return createQueryPlan(((Subquery) relation).getQuery(), analysis.getAnalysis((Subquery) relation));
         }
+        else if (relation instanceof Join) {
+            return createJoinPlan((Join) relation, analysis);
+        }
 
         throw new UnsupportedOperationException("not yet implemented");
+    }
+
+    private PlanNode createJoinPlan(Join join, AnalysisResult analysis)
+    {
+        PlanNode left = createRelationPlan(ImmutableList.of(join.getLeft()), analysis);
+        PlanNode right = createRelationPlan(ImmutableList.of(join.getRight()), analysis);
+
+        AnalyzedExpression criteria = analysis.getJoinCriteria(join);
+
+        return new JoinNode(left, right, criteria.getRewrittenExpression());
     }
 
     private PlanNode createScanNode(Table table, AnalysisResult analysis)

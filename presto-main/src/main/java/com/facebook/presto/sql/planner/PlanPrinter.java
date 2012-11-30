@@ -48,6 +48,16 @@ public class PlanPrinter
         }
 
         @Override
+        public Void visitJoin(JoinNode node, Integer indent)
+        {
+            print(indent, "- Join[%s] => [%s]", ExpressionFormatter.toString(node.getCriteria()), formatOutputs(node.getOutputSymbols()));
+            node.getLeft().accept(this, indent + 1);
+            node.getRight().accept(this, indent + 1);
+
+            return null;
+        }
+
+        @Override
         public Void visitLimit(LimitNode node, Integer indent)
         {
             print(indent, "- Limit[%s] => [%s]", node.getCount(), formatOutputs(node.getOutputSymbols()));

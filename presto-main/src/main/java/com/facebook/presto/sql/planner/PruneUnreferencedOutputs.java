@@ -52,7 +52,21 @@ public class PruneUnreferencedOutputs
         @Override
         protected PlanNode visitPlan(PlanNode node, Set<Symbol> expectedOutputs)
         {
-            throw new UnsupportedOperationException("not yet implemented: " + getClass().getName());
+            throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
+        }
+
+        @Override
+        public PlanNode visitJoin(JoinNode node, Set<Symbol> expectedOutputs)
+        {
+            Set<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(expectedOutputs)
+                    .addAll(new DependencyExtractor().extract(node.getCriteria()))
+                    .build();
+
+            PlanNode left = node.getLeft().accept(this, expectedInputs);
+            PlanNode right = node.getRight().accept(this, expectedInputs);
+
+            return new JoinNode(left, right, node.getCriteria());
         }
 
         @Override

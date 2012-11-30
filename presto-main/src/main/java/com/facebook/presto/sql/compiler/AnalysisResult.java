@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.compiler;
 
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Subquery;
 import com.facebook.presto.sql.tree.Table;
@@ -27,6 +28,7 @@ public class AnalysisResult
     private final Set<AnalyzedAggregation> aggregations;
     private final Long limit;
     private final List<AnalyzedOrdering> orderBy;
+    private final IdentityHashMap<Join, AnalyzedExpression> joinCriteria;
 
     public static AnalysisResult newInstance(AnalysisContext context,
             AnalyzedOutput output,
@@ -41,6 +43,7 @@ public class AnalysisResult
                 context.getTableDescriptors(),
                 context.getTableMetadata(),
                 context.getInlineViews(),
+                context.getJoinCriteria(),
                 aggregations,
                 predicate,
                 output,
@@ -54,6 +57,7 @@ public class AnalysisResult
             IdentityHashMap<Relation, TupleDescriptor> tableDescriptors,
             IdentityHashMap<Relation, TableMetadata> tableMetadata, 
             IdentityHashMap<Subquery, AnalysisResult> inlineViews,
+            IdentityHashMap<Join, AnalyzedExpression> joinCriteria,
             Set<AnalyzedAggregation> aggregations,
             @Nullable AnalyzedExpression predicate,
             AnalyzedOutput output,
@@ -65,6 +69,7 @@ public class AnalysisResult
         Preconditions.checkNotNull(tableDescriptors, "tableDescriptors is null");
         Preconditions.checkNotNull(tableMetadata, "tableMetadata is null");
         Preconditions.checkNotNull(inlineViews, "inlineViews is null");
+        Preconditions.checkNotNull(joinCriteria, "joinCriteria is null");
         Preconditions.checkNotNull(aggregations, "aggregations is null");
         Preconditions.checkNotNull(output, "output is null");
         Preconditions.checkNotNull(groupBy, "groupBy is null");
@@ -74,6 +79,7 @@ public class AnalysisResult
         this.tableDescriptors = new IdentityHashMap<>(tableDescriptors);
         this.tableMetadata = new IdentityHashMap<>(tableMetadata);
         this.inlineViews = new IdentityHashMap<>(inlineViews);
+        this.joinCriteria = new IdentityHashMap<>(joinCriteria);
         this.aggregations = ImmutableSet.copyOf(aggregations);
         this.predicate = predicate;
         this.output = output;
@@ -113,6 +119,12 @@ public class AnalysisResult
     {
         Preconditions.checkArgument(inlineViews.containsKey(inlineView), "Analysis for inlineView is missing. Broken analysis?");
         return inlineViews.get(inlineView);
+    }
+
+    public AnalyzedExpression getJoinCriteria(Join join)
+    {
+        Preconditions.checkArgument(joinCriteria.containsKey(join), "Analysis for join is missing. Broken analysis?");
+        return joinCriteria.get(join);
     }
 
     public Set<AnalyzedAggregation> getAggregations()
