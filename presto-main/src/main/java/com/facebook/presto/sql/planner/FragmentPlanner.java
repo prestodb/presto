@@ -132,7 +132,7 @@ public class FragmentPlanner
 
             if (current.isPartitioned()) {
                 // create a new non-partitioned fragment
-                return newPlanFragment(new ExchangeNode(current.getId(), current.getRoot().getOutputSymbols()), false);
+                current = newPlanFragment(new ExchangeNode(current.getId(), current.getRoot().getOutputSymbols()), false);
             }
 
             current.setRoot(new OutputPlan(current.getRoot(), node.getColumnNames(), node.getAssignments()));
