@@ -127,12 +127,12 @@ public class QueryState
 
     public int getStartedSplits()
     {
-        return Ints.min(startedSplits.get(), completedSplits.get(), splits);
+        return Ints.min(startedSplits.get(), splits);
     }
 
     public int getCompletedSplits()
     {
-        return Ints.min(completedSplits.get(), splits);
+        return Ints.min(completedSplits.get(), startedSplits.get(), splits);
     }
 
     public int getBufferedPageCount()
