@@ -218,35 +218,6 @@
                 </executions>
             </plugin>
 
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <version>1.2.1</version>
-                <executions>
-                    <execution>
-                        <id>benchmarks</id>
-                        <goals>
-                            <goal>java</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <mainClass>com.facebook.presto.benchmark.BenchmarkSuite</mainClass>
-                    <classpathScope>test</classpathScope>
-                    <systemProperties>
-                        <systemProperty>
-                            <key>outputDirectory</key>
-                            <value>benchmark_outputs</value>
-                        </systemProperty>
-                        <!-- We need this property in order to locate testdata-tpch-1g.jar in exec:java -->
-                        <systemProperty>
-                            <key>tpchDataJar</key>
-                            <value>${project.build.directory}/dependency/testdata-tpch-1g.jar</value>
-                        </systemProperty>
-                    </systemProperties>
-                </configuration>
-            </plugin>
-
             <!-- Intellij will try to load all lib dependencies into memory, so fetch the test data manually -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -333,4 +304,39 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>benchmarks</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>1.2.1</version>
+                        <executions>
+                            <execution>
+                                <id>benchmarks</id>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <executable>java</executable>
+                            <arguments>
+                                <argument>-DoutputDirectory=benchmark_outputs</argument>
+                                <argument>-DtpchDataJar=${project.build.directory}/dependency/testdata-tpch-1g.jar</argument>
+                                <argument>-Dmyproperty=myvalue</argument>
+                                <argument>-classpath</argument>
+                                <classpath/>
+                                <argument>com.facebook.presto.benchmark.BenchmarkSuite</argument>
+                            </arguments>
+                            <classpathScope>test</classpathScope>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
