@@ -13,6 +13,7 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 
 import javax.ws.rs.core.HttpHeaders;
+import javax.ws.rs.core.Response.Status;
 import java.net.URI;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -20,7 +21,6 @@ import java.util.concurrent.ExecutorService;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
@@ -83,7 +83,19 @@ public class HttpQueryProvider
     public QueryInfo getQueryInfo()
     {
         URI statusUri = uriBuilderFrom(location).appendPath("info").build();
-        QueryInfo queryInfo = httpClient.execute(prepareGet().setUri(statusUri).build(), createJsonResponseHandler(jsonCodec(QueryInfo.class)));
+        JsonResponse<QueryInfo> response = httpClient.execute(prepareGet().setUri(statusUri).build(), createFullJsonResponseHandler(jsonCodec(QueryInfo.class)));
+
+        if (response.getStatusCode() == Status.GONE.getStatusCode()) {
+            // query has failed, been deleted, or something, and is no longer being tracked by the server
+            return null;
+        }
+
+        Preconditions.checkState(response.getStatusCode() == Status.OK.getStatusCode(),
+                "Expected response code to be 201, but was %d: %s",
+                response.getStatusCode(),
+                response.getStatusMessage());
+
+        QueryInfo queryInfo = response.getValue();
         return queryInfo;
     }
 

@@ -9,6 +9,7 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Uninterruptibles;
+import io.airlift.units.Duration;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -35,6 +36,8 @@ import static org.testng.Assert.fail;
 public class TestQueryState
 {
     private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_LONG);
+
+    private static final Duration MAX_WAIT = new Duration(1, TimeUnit.SECONDS);
 
     private ExecutorService executor;
 
@@ -87,21 +90,21 @@ public class TestQueryState
         // verify pages are in correct order
         assertRunning(queryState);
 
-        List<Page> nextPages = queryState.getNextPages(2);
+        List<Page> nextPages = queryState.getNextPages(2, MAX_WAIT);
         assertEquals(nextPages.size(), 2);
         assertEquals(getPageOnlyValue(nextPages.get(0)), 0);
         assertEquals(getPageOnlyValue(nextPages.get(1)), 1);
 
         assertRunning(queryState);
 
-        nextPages = queryState.getNextPages(2);
+        nextPages = queryState.getNextPages(2, MAX_WAIT);
         assertEquals(nextPages.size(), 2);
         assertEquals(getPageOnlyValue(nextPages.get(0)), 2);
         assertEquals(getPageOnlyValue(nextPages.get(1)), 3);
 
         assertRunning(queryState);
 
-        nextPages = queryState.getNextPages(2);
+        nextPages = queryState.getNextPages(2, MAX_WAIT);
         assertEquals(nextPages.size(), 1);
         assertEquals(getPageOnlyValue(nextPages.get(0)), 4);
 
@@ -118,7 +121,7 @@ public class TestQueryState
         assertRunning(queryState);
 
         // get the last page and assure the query is finished
-        nextPages = queryState.getNextPages(2);
+        nextPages = queryState.getNextPages(2, MAX_WAIT);
         assertEquals(nextPages.size(), 1);
         assertEquals(getPageOnlyValue(nextPages.get(0)), 9);
         assertFinished(queryState);
@@ -165,14 +168,14 @@ public class TestQueryState
         // verify pages are in correct order
         assertRunning(queryState);
 
-        List<Page> nextPages = queryState.getNextPages(2);
+        List<Page> nextPages = queryState.getNextPages(2, MAX_WAIT);
         assertEquals(nextPages.size(), 2);
         assertEquals(getPageOnlyValue(nextPages.get(0)), 0);
         assertEquals(getPageOnlyValue(nextPages.get(1)), 1);
 
         assertRunning(queryState);
 
-        nextPages = queryState.getNextPages(2);
+        nextPages = queryState.getNextPages(2, MAX_WAIT);
         assertEquals(nextPages.size(), 2);
         assertEquals(getPageOnlyValue(nextPages.get(0)), 2);
         assertEquals(getPageOnlyValue(nextPages.get(1)), 3);
@@ -221,14 +224,14 @@ public class TestQueryState
         // verify pages are in correct order
         assertRunning(queryState);
 
-        List<Page> nextPages = queryState.getNextPages(2);
+        List<Page> nextPages = queryState.getNextPages(2, MAX_WAIT);
         assertEquals(nextPages.size(), 2);
         assertEquals(getPageOnlyValue(nextPages.get(0)), 0);
         assertEquals(getPageOnlyValue(nextPages.get(1)), 1);
 
         assertRunning(queryState);
 
-        nextPages = queryState.getNextPages(2);
+        nextPages = queryState.getNextPages(2, MAX_WAIT);
         assertEquals(nextPages.size(), 2);
         assertEquals(getPageOnlyValue(nextPages.get(0)), 2);
         assertEquals(getPageOnlyValue(nextPages.get(1)), 3);
@@ -270,7 +273,7 @@ public class TestQueryState
         // verify pages are in correct order
         assertRunning(queryState);
 
-        List<Page> nextPages = queryState.getNextPages(2);
+        List<Page> nextPages = queryState.getNextPages(2, MAX_WAIT);
         assertEquals(nextPages.size(), 2);
         assertEquals(getPageOnlyValue(nextPages.get(0)), 0);
         assertEquals(getPageOnlyValue(nextPages.get(1)), 1);
@@ -288,7 +291,7 @@ public class TestQueryState
         assertRunning(queryState);
 
         // the page
-        nextPages = queryState.getNextPages(2);
+        nextPages = queryState.getNextPages(2, MAX_WAIT);
         assertEquals(nextPages.size(), 1);
         assertEquals(getPageOnlyValue(nextPages.get(0)), 9);
         assertRunning(queryState);
@@ -363,13 +366,13 @@ public class TestQueryState
         addPagesJob.assertBlockedWithCount(2);
 
         // get one page
-        assertEquals(queryState.getNextPages(1).size(), 1);
+        assertEquals(queryState.getNextPages(1, MAX_WAIT).size(), 1);
 
         // "verify" thread is blocked again with one remaining page
         addPagesJob.assertBlockedWithCount(1);
 
         // get one page
-        assertEquals(queryState.getNextPages(1).size(), 1);
+        assertEquals(queryState.getNextPages(1, MAX_WAIT).size(), 1);
 
         // verify thread is released
         addPagesJob.waitForFinished();
@@ -435,7 +438,7 @@ public class TestQueryState
         addPagesJob.assertBlockedWithCount(2);
 
         // get one page
-        assertEquals(queryState.getNextPages(1).size(), 1);
+        assertEquals(queryState.getNextPages(1, MAX_WAIT).size(), 1);
 
         // "verify" thread is blocked again with one remaining page
         addPagesJob.assertBlockedWithCount(1);
@@ -507,7 +510,7 @@ public class TestQueryState
         addPagesJob.assertBlockedWithCount(2);
 
         // get one page
-        assertEquals(queryState.getNextPages(1).size(), 1);
+        assertEquals(queryState.getNextPages(1, MAX_WAIT).size(), 1);
 
         // "verify" thread is blocked again with one remaining page
         addPagesJob.assertBlockedWithCount(1);
@@ -596,7 +599,7 @@ public class TestQueryState
             try {
                 while (pages.size() < pagesToGet) {
                     try {
-                        List<Page> pages = queryState.getNextPages(batchSize);
+                        List<Page> pages = queryState.getNextPages(batchSize, MAX_WAIT);
                         assertTrue(!pages.isEmpty());
                         this.pages.addAll(pages);
                     }
@@ -713,7 +716,7 @@ public class TestQueryState
 
         // getNextPages should return an empty list
         for (int loop = 0; loop < 5; loop++) {
-            List<Page> nextPages = queryState.getNextPages(2);
+            List<Page> nextPages = queryState.getNextPages(2, MAX_WAIT);
             assertNotNull(nextPages);
             assertEquals(nextPages.size(), 0);
         }
@@ -729,7 +732,7 @@ public class TestQueryState
         // getNextPages should throw an exception
         for (int loop = 0; loop < 5; loop++) {
             try {
-                queryState.getNextPages(2);
+                queryState.getNextPages(2, MAX_WAIT);
                 fail("expected FailedQueryException");
             }
             catch (FailedQueryException e) {
@@ -757,7 +760,7 @@ public class TestQueryState
 
         // getNextPages should return an empty list
         for (int loop = 0; loop < 5; loop++) {
-            List<Page> nextPages = queryState.getNextPages(2);
+            List<Page> nextPages = queryState.getNextPages(2, MAX_WAIT);
             assertNotNull(nextPages);
             assertEquals(nextPages.size(), 0);
         }
