@@ -78,5 +78,14 @@ public class CoalesceLimits
             PlanNode source = node.getSource().accept(this, context);
             return new TopNNode(source, node.getCount(), node.getOrderBy(), node.getOrderings());
         }
+
+        @Override
+        public PlanNode visitJoin(JoinNode node, Void context)
+        {
+            PlanNode left = node.getLeft().accept(this, context);
+            PlanNode right = node.getRight().accept(this, context);
+
+            return new JoinNode(left, right, node.getCriteria());
+        }
     }
 }

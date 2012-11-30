@@ -164,6 +164,23 @@ public class FragmentPlanner
         }
 
         @Override
+        public PlanFragmentBuilder visitJoin(JoinNode node, Void context)
+        {
+            PlanFragmentBuilder left = node.getLeft().accept(this, context);
+            PlanFragmentBuilder right = node.getRight().accept(this, context);
+
+            if (left.isPartitioned() || right.isPartitioned()) {
+                ExchangeNode exchange = new ExchangeNode(right.getId(), right.getRoot().getOutputSymbols());
+                JoinNode join = new JoinNode(left.getRoot(), exchange, node.getCriteria());
+                left.setRoot(join);
+                return left;
+            }
+            else {
+                throw new UnsupportedOperationException("not yet implemented");
+            }
+        }
+
+        @Override
         protected PlanFragmentBuilder visitPlan(PlanNode node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented");
