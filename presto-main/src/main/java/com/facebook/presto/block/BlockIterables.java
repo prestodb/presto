@@ -10,6 +10,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 
@@ -106,14 +107,13 @@ public final class BlockIterables
 
     public static Optional<Integer> getPositionCount(Iterable<? extends BlockIterable> blockIterables)
     {
-        long positionCount = 0;
         for (BlockIterable blocks : blockIterables) {
             if (!blocks.getDataSize().isPresent()) {
                 return Optional.absent();
             }
-            positionCount += blocks.getPositionCount().get();
         }
-        return Optional.of(Ints.checkedCast(positionCount));
+
+        return Iterables.getFirst(blockIterables, null).getPositionCount();
     }
 
     public static BlockIterable concat(BlockIterable... blockIterables)
