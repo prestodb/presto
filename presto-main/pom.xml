@@ -351,16 +351,14 @@
                             <execution>
                                 <id>console</id>
                                 <goals>
-                                    <goal>exec</goal>
+                                    <goal>java</goal>
                                 </goals>
                             </execution>
                         </executions>
                         <configuration>
                             <executable>java</executable>
+                            <mainClass>com.facebook.presto.Main</mainClass>
                             <arguments>
-                                <argument>-classpath</argument>
-                                <classpath/>
-                                <argument>com.facebook.presto.Main</argument>
                                 <argument>console</argument>
                             </arguments>
                         </configuration>
