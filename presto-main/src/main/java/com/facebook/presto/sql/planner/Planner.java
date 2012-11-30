@@ -72,16 +72,20 @@ public class Planner
         PlanNode result = createQueryPlan(query, analysis);
 
         int i = 0;
-        ImmutableList.Builder<String> names = ImmutableList.builder();
+        List<String> names = new ArrayList<>();
         ImmutableMap.Builder<String, Symbol> assignments = ImmutableMap.builder();
         for (Field field : analysis.getOutputDescriptor().getFields()) {
-            String name = field.getAttribute().or("_col" + i);
+            String name = field.getAttribute().orNull();
+            while (name == null || names.contains(name)) {
+                // TODO: this shouldn't be necessary once OutputNode uses Multimaps (requires updating to Jackson 2 for serialization support)
+                i++;
+                name = "_col" + i;
+            }
             names.add(name);
             assignments.put(name, field.getSymbol());
-            i++;
         }
 
-        return new OutputPlan(result, names.build(), assignments.build());
+        return new OutputPlan(result, names, assignments.build());
     }
 
     private PlanNode createQueryPlan(Query query, AnalysisResult analysis)
