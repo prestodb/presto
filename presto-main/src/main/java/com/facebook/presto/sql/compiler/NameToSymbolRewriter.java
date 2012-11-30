@@ -24,14 +24,12 @@ public class NameToSymbolRewriter
     @Override
     public Node rewriteQualifiedNameReference(QualifiedNameReference node, Void context, TreeRewriter<Void> treeRewriter)
     {
-        // try to resolve name
-        List<Field> fields = descriptor.resolve(node.getName());
-
-        if (fields.isEmpty() && symbols.containsKey(Symbol.fromQualifiedName(node.getName()))) {
-            // if the name is not a valid field, is it a known symbol?
+        // is this a known symbol?
+        if (!node.getName().getPrefix().isPresent() && symbols.containsKey(Symbol.fromQualifiedName(node.getName()))) { // symbols can't have prefixes
             return node;
         }
 
+        // try to resolve name
         Symbol symbol = Iterables.getOnlyElement(descriptor.resolve(node.getName())).getSymbol();
         return new QualifiedNameReference(symbol.toQualifiedName());
     }
