@@ -220,11 +220,13 @@ public class ImportManager
                 // TODO: after some period, give up and re-queue chunk job
                 shardExecutor.schedule(this, 1, TimeUnit.SECONDS);
             }
+            else {
 
-            // TODO: handle database failure (avoid worker leak and retry)
-            shardManager.commitShard(shardId, worker.getNodeIdentifier());
-            nodeWorkerQueue.releaseNodeWorker(worker);
-            log.info("shard imported: %s", shardId);
+                // TODO: handle database failure (avoid worker leak and retry)
+                shardManager.commitShard(shardId, worker.getNodeIdentifier());
+                nodeWorkerQueue.releaseNodeWorker(worker);
+                log.info("shard imported: %s", shardId);
+            }
         }
 
         private boolean isShardComplete()

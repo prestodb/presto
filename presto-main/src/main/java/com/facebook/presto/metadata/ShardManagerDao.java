@@ -53,21 +53,12 @@ public interface ShardManagerDao
     @SqlUpdate("CREATE TABLE IF NOT EXISTS import_partition_shards (\n" +
             "  import_partition_id BIGINT,\n" +
             "  shard_id BIGINT NOT NULL,\n" +
-            "  PRIMARY KEY (import_partition_id, shard_id),\n" +
-            "  FOREIGN KEY (import_partition_id) REFERENCES import_partitions,\n" +
-            "  FOREIGN KEY (shard_id) REFERENCES shards\n" +
-            ")")
-    void createTableImportPartitionShards();
-
-    @SqlUpdate("CREATE TABLE IF NOT EXISTS import_partition_chunks (\n" +
-            "  import_partition_id BIGINT,\n" +
-            "  shard_id BIGINT NOT NULL,\n" +
             "  partition_chunk VARBINARY(65535) NOT NULL,\n" +
             "  PRIMARY KEY (import_partition_id, shard_id),\n" +
             "  FOREIGN KEY (import_partition_id) REFERENCES import_partitions,\n" +
             "  FOREIGN KEY (shard_id) REFERENCES shards\n" +
             ")")
-    void createTableImportPartitionChunks();
+    void createTableImportPartitionShards();
 
     @SqlUpdate("INSERT INTO nodes (node_identifier) VALUES (:nodeIdentifier)")
     void insertNode(@Bind("nodeIdentifier") String nodeIdentifier);
@@ -103,16 +94,9 @@ public interface ShardManagerDao
             @Bind("partitionName") String partitionName);
 
     @SqlUpdate("INSERT INTO import_partition_shards\n" +
-            "(import_partition_id, shard_id)\n" +
-            "VALUES (:importPartitionId, :shardId)")
-    void insertImportPartitionShard(
-            @Bind("importPartitionId") long importPartitionId,
-            @Bind("shardId") long shardId);
-
-    @SqlUpdate("INSERT INTO import_partition_chunks\n" +
             "(import_partition_id, shard_id, partition_chunk)\n" +
             "VALUES (:importPartitionId, :shardId, :partitionChunk)")
-    void insertImportPartitionChunk(
+    void insertImportPartitionShard(
             @Bind("importPartitionId") long importPartitionId,
             @Bind("shardId") long shardId,
             @Bind("partitionChunk") byte[] partitionChunk);

@@ -59,8 +59,7 @@ public class DatabaseShardManager
                 long importPartitionId = dao.insertImportPartition(tableId, partitionName);
                 for (SerializedPartitionChunk chunk : partitionChunks) {
                     long shardId = dao.insertShard(tableId, false);
-                    dao.insertImportPartitionChunk(importPartitionId, shardId, chunk.getBytes());
-                    dao.insertImportPartitionShard(importPartitionId, shardId);
+                    dao.insertImportPartitionShard(importPartitionId, shardId, chunk.getBytes());
                     shardIds.add(shardId);
                 }
                 return shardIds.build();
@@ -126,7 +125,6 @@ public class DatabaseShardManager
         dao.createTableImportTables();
         dao.createTableImportPartitions();
         dao.createTableImportPartitionShards();
-        dao.createTableImportPartitionChunks();
     }
 
     private static void runIgnoringConstraintViolation(Runnable runnable)
