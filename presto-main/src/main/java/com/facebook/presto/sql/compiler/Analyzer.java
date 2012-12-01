@@ -391,7 +391,21 @@ public class Analyzer
                 throw new SemanticException(node, "Natural join not supported");
             }
             else if (criteria instanceof JoinUsing) {
-                throw new UnsupportedOperationException("Join 'using' not yet supported");
+                List<String> columns = ((JoinUsing) criteria).getColumns();
+                if (columns.size() > 1) {
+                    throw new SemanticException(node, "Only single-column join criteria supported at this time");
+                }
+
+                String column = Iterables.getOnlyElement(columns);
+                Field leftField = resolveSingleField(node, left, column);
+                Field rightField = resolveSingleField(node, right, column);
+
+                Expression expression = new ComparisonExpression(ComparisonExpression.Type.EQUAL,
+                        new QualifiedNameReference(leftField.getSymbol().toQualifiedName()),
+                        new QualifiedNameReference(rightField.getSymbol().toQualifiedName()));
+
+                analyzedCriteria = new ExpressionAnalyzer(metadata, descriptor.getSymbols())
+                        .analyze(expression, descriptor);
             }
             else if (criteria instanceof JoinOn) {
                 analyzedCriteria = new ExpressionAnalyzer(metadata, descriptor.getSymbols())
@@ -414,6 +428,19 @@ public class Analyzer
             context.registerJoin(node, analyzedCriteria);
 
             return descriptor;
+        }
+
+        private Field resolveSingleField(Node node, TupleDescriptor descriptor, String column)
+        {
+            List<Field> matches = descriptor.resolve(QualifiedName.of(column));
+            if (matches.isEmpty()) {
+                throw new SemanticException(node, "Attribute '%s' cannot be resolved", column);
+            }
+            else if (matches.size() > 1) {
+                throw new SemanticException(node, "Attribute '%s' is ambiguous. Possible matches: %s", column, Iterables.transform(matches, nameGetter()));
+            }
+
+            return Iterables.getOnlyElement(matches);
         }
     }
 
