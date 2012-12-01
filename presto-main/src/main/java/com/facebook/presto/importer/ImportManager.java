@@ -7,6 +7,8 @@ import com.facebook.presto.server.ShardImport;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.split.ImportClientFactory;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
@@ -19,6 +21,7 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import java.net.URI;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -86,13 +89,20 @@ public class ImportManager
                 return importClient.getPartitionNames(databaseName, tableName);
             }
         });
-        log.debug("scheduling %s partitions: %s", partitions.size(), tableId);
+        log.debug("Found %d current partitions: %d", partitions.size(), tableId);
 
+        Set<String> importedPartitions = shardManager.getImportedPartitions(tableId);
+
+        int newPartitionCount = 0;
         for (String partition : partitions) {
-            PartitionChunkSupplier supplier = new PartitionChunkSupplier(importClientFactory, sourceName, databaseName, tableName, partition);
-            PartitionJob job = new PartitionJob(tableId, sourceName, partition, supplier, fields);
-            partitionExecutor.execute(job);
+            if (!importedPartitions.contains(partition)) {
+                PartitionChunkSupplier supplier = new PartitionChunkSupplier(importClientFactory, sourceName, databaseName, tableName, partition);
+                PartitionJob job = new PartitionJob(tableId, sourceName, partition, supplier, fields);
+                partitionExecutor.execute(job);
+                newPartitionCount++;
+            }
         }
+        log.debug("Loading %d new partitions: %d", newPartitionCount, tableId);
     }
 
     @PreDestroy

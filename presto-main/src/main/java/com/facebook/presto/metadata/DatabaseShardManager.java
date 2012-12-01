@@ -14,6 +14,7 @@ import org.skife.jdbi.v2.exceptions.UnableToExecuteStatementException;
 import javax.inject.Inject;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -81,6 +82,12 @@ public class DatabaseShardManager
                 dao.insertShardNode(shardId, nodeId);
             }
         });
+    }
+
+    @Override
+    public Set<String> getImportedPartitions(long tableId)
+    {
+        return dao.getImportedPartitions(tableId);
     }
 
     @Override
