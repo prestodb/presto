@@ -2,11 +2,16 @@ package com.facebook.presto.importer;
 
 import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.facebook.presto.metadata.Node;
+import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.server.ShardImport;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.split.ImportClientFactory;
+import com.facebook.presto.util.ShardBoundedExecutor;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import io.airlift.http.client.HttpClient;
@@ -14,24 +19,32 @@ import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import org.skife.jdbi.v2.exceptions.UnableToExecuteStatementException;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import java.net.URI;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
+import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePut;
 import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
@@ -45,14 +58,18 @@ public class ImportManager
     private static final Logger log = Logger.get(ImportManager.class);
 
     private final ExecutorService partitionExecutor = newFixedThreadPool(50, threadsNamed("import-partition-%s"));
+    private final ShardBoundedExecutor<PartitionMarker> partitionBoundedExecutor = new ShardBoundedExecutor<>(partitionExecutor);
     private final ScheduledExecutorService chunkExecutor = newScheduledThreadPool(50, threadsNamed("import-chunk-%s"));
+    private final ShardBoundedExecutor<Long> chunkBoundedExecutor = new ShardBoundedExecutor<>(chunkExecutor);
     private final ScheduledExecutorService shardExecutor = newScheduledThreadPool(50, threadsNamed("import-shard-%s"));
+    private final PartitionOperationTracker partitionOperationTracker = new PartitionOperationTracker();
 
     private final ImportClientFactory importClientFactory;
     private final ShardManager shardManager;
     private final NodeWorkerQueue nodeWorkerQueue;
     private final HttpClient httpClient;
     private final JsonCodec<ShardImport> shardImportCodec;
+    private final NodeManager nodeManager;
 
     @Inject
     public ImportManager(
@@ -60,16 +77,18 @@ public class ImportManager
             ShardManager shardManager,
             NodeWorkerQueue nodeWorkerQueue,
             @ForImportManager HttpClient httpClient,
-            JsonCodec<ShardImport> shardImportCodec)
+            JsonCodec<ShardImport> shardImportCodec,
+            NodeManager nodeManager)
     {
         this.importClientFactory = checkNotNull(importClientFactory, "importClientFactory is null");
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
         this.nodeWorkerQueue = checkNotNull(nodeWorkerQueue, "nodeWorkerQueue is null");
         this.httpClient = checkNotNull(httpClient, "httpClient is null");
         this.shardImportCodec = checkNotNull(shardImportCodec, "shardImportCodec");
+        this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
     }
 
-    public void importTable(long tableId, final String sourceName, final String databaseName, final String tableName, List<ImportField> fields)
+    public synchronized void importTable(long tableId, final String sourceName, final String databaseName, final String tableName, List<ImportField> fields)
     {
         checkNotNull(sourceName, "sourceName is null");
         checkNotNull(databaseName, "databaseName is null");
@@ -79,30 +98,44 @@ public class ImportManager
 
         shardManager.createImportTable(tableId, sourceName, databaseName, tableName);
 
-        List<String> partitions = runWithRetryUnchecked(new Callable<List<String>>()
+        Set<String> activePartitions = runWithRetryUnchecked(new Callable<Set<String>>()
         {
             @Override
-            public List<String> call()
+            public Set<String> call()
                     throws Exception
             {
                 ImportClient importClient = importClientFactory.getClient(sourceName);
-                return importClient.getPartitionNames(databaseName, tableName);
+                return ImmutableSet.copyOf(importClient.getPartitionNames(databaseName, tableName));
             }
         });
-        log.debug("Found %d current partitions: %d", partitions.size(), tableId);
 
-        Set<String> importedPartitions = shardManager.getImportedPartitions(tableId);
+        log.info("Found %d current remote partitions: table %d", activePartitions.size(), tableId);
 
-        int newPartitionCount = 0;
-        for (String partition : partitions) {
-            if (!importedPartitions.contains(partition)) {
-                PartitionChunkSupplier supplier = new PartitionChunkSupplier(importClientFactory, sourceName, databaseName, tableName, partition);
-                PartitionJob job = new PartitionJob(tableId, sourceName, partition, supplier, fields);
-                partitionExecutor.execute(job);
-                newPartitionCount++;
-            }
+        // TODO: handle minor race condition where getAllPartitions does not include pre-started partition import tasks
+        Set<String> allPartitions = shardManager.getAllPartitions(tableId);
+        Set<String> committedPartitions = shardManager.getCommittedPartitions(tableId);
+        Set<String> uncommittedPartitions = Sets.difference(allPartitions, committedPartitions);
+        Set<String> operatingPartitions = partitionOperationTracker.getOperatingPartitions(tableId);
+
+        // Only repair failed partitions that are part of the active set
+        Set<String> erroredPartitions = Sets.difference(uncommittedPartitions, operatingPartitions);
+        Set<String> repairPartitions = Sets.intersection(erroredPartitions, activePartitions);
+        log.info("Repairing %d failed partitions from before: table %d", repairPartitions.size(), tableId);
+
+        Set<String> partitionsToAdd = Sets.difference(activePartitions, allPartitions);
+        Set<String> partitionsToRemove = Sets.difference(allPartitions, activePartitions);
+
+        for (String partition : Iterables.concat(partitionsToRemove, repairPartitions)) {
+            partitionBoundedExecutor.execute(PartitionMarker.from(tableId, partition), new PartitionDropJob(tableId, partition));
         }
-        log.debug("Loading %d new partitions: %d", newPartitionCount, tableId);
+        log.info("Dropping %d old partitions: table %d", partitionsToRemove.size(), tableId);
+
+        for (String partition : Iterables.concat(partitionsToAdd, repairPartitions)) {
+            PartitionChunkSupplier supplier = new PartitionChunkSupplier(importClientFactory, sourceName, databaseName, tableName, partition);
+            PartitionImportJob importJob = new PartitionImportJob(tableId, sourceName, partition, supplier, fields);
+            partitionBoundedExecutor.execute(PartitionMarker.from(tableId, partition), importJob);
+        }
+        log.info("Loading %d new partitions: table %d", partitionsToAdd.size(), tableId);
     }
 
     @PreDestroy
@@ -113,7 +146,108 @@ public class ImportManager
         shardExecutor.shutdown();
     }
 
-    private class PartitionJob
+    private class PartitionDropJob
+            implements Runnable
+    {
+        private final long tableId;
+        private final String partitionName;
+
+        private PartitionDropJob(long tableId, String partitionName)
+        {
+            this.tableId = tableId;
+            this.partitionName = partitionName;
+        }
+
+        @Override
+        public void run()
+        {
+            Multimap<Long, String> shardNodes = shardManager.getShardNodes(tableId, partitionName);
+            if (!shardNodes.isEmpty()) {
+                PartitionMarker partitionMarker = PartitionMarker.from(tableId, partitionName);
+                checkState(partitionOperationTracker.claimPartition(partitionMarker, shardNodes.size()));
+
+                Map<String, Node> nodeMap = getNodeMap(nodeManager.getActiveNodes());
+                for (Map.Entry<Long, String> shardNode : shardNodes.entries()) {
+                    Node node = nodeMap.get(shardNode.getValue());
+                    if (node != null) {
+                        Long shardId = shardNode.getKey();
+                        chunkBoundedExecutor.execute(shardId, new ShardDropJob(partitionMarker, shardId, node));
+                    }
+                }
+            }
+            shardManager.dropPartition(tableId, partitionName);
+        }
+
+        private Map<String, Node> getNodeMap(Set<Node> nodes)
+        {
+            return Maps.uniqueIndex(nodes, Node.getIdentifierFunction());
+        }
+    }
+
+    private class ShardDropJob
+            implements Runnable
+    {
+        private final PartitionMarker partitionMarker;
+        private final long shardId;
+        private final Node node;
+
+        private ShardDropJob(PartitionMarker partitionMarker, long shardId, Node node)
+        {
+            this.partitionMarker = partitionMarker;
+            this.shardId = shardId;
+            this.node = node;
+        }
+
+        @Override
+        public void run()
+        {
+            try {
+                runWithRetryUnchecked(new Callable<Void>()
+                {
+                    @Override
+                    public Void call()
+                            throws Exception
+                    {
+                        if (!dropShardRequest(node)) {
+                            throw new Exception("Failed to drop shard for " + node);
+                        }
+                        return null;
+                    }
+                });
+            }
+            catch (Exception e) {
+                log.error(e);
+            }
+            finally {
+                partitionOperationTracker.decrementActiveTasks(partitionMarker);
+            }
+        }
+
+        private boolean dropShardRequest(Node node)
+        {
+            URI shardUri = uriAppendPaths(node.getHttpUri(), "/v1/shard/" + shardId);
+            Request request = prepareDelete().setUri(shardUri).build();
+
+            StatusResponse response;
+            try {
+                response = httpClient.execute(request, createStatusResponseHandler());
+            }
+            catch (RuntimeException e) {
+                log.warn(e, "drop request failed: %s", shardId);
+                return false;
+            }
+
+            if (response.getStatusCode() != Status.ACCEPTED.getStatusCode()) {
+                log.warn("unexpected response status: %s: %s", shardId, response.getStatusCode());
+                return false;
+            }
+
+            log.debug("initiated drop shard: %s", shardId);
+            return true;
+        }
+    }
+
+    private class PartitionImportJob
             implements Runnable
     {
         private final long tableId;
@@ -122,7 +256,7 @@ public class ImportManager
         private final String partitionName;
         private final PartitionChunkSupplier supplier;
 
-        public PartitionJob(long tableId, String sourceName, String partitionName, PartitionChunkSupplier supplier, List<ImportField> fields)
+        public PartitionImportJob(long tableId, String sourceName, String partitionName, PartitionChunkSupplier supplier, List<ImportField> fields)
         {
             checkArgument(tableId > 0, "tableId must be greater than zero");
             this.tableId = tableId;
@@ -136,26 +270,32 @@ public class ImportManager
         public void run()
         {
             // TODO: add throttling based on size of chunk job queue
-            List<SerializedPartitionChunk> chunks = supplier.get();
+            Iterable<SerializedPartitionChunk> chunks = supplier.get();
             List<Long> shardIds = shardManager.createImportPartition(tableId, partitionName, chunks);
-            log.debug("retrieved partition chunks: %s: %s: %s", partitionName, chunks.size(), shardIds);
+            PartitionMarker partitionMarker = PartitionMarker.from(tableId, partitionName);
+            checkState(partitionOperationTracker.claimPartition(partitionMarker, shardIds.size()));
 
-            for (int i = 0; i < chunks.size(); i++) {
-                SerializedPartitionChunk chunk = chunks.get(i);
-                long shardId = shardIds.get(i);
-                chunkExecutor.execute(new ChunkJob(sourceName, shardId, chunk, fields));
+            log.debug("retrieved partition chunks: %s: %s: %s", partitionName, shardIds.size(), shardIds);
+
+            Iterator<Long> shardIdIter = shardIds.iterator();
+            for (SerializedPartitionChunk chunk : chunks) {
+                checkState(shardIdIter.hasNext());
+                Long shardId = shardIdIter.next();
+                chunkBoundedExecutor.execute(shardId, new ChunkImportJob(partitionMarker, sourceName, shardId, chunk, fields));
             }
         }
     }
 
-    private class ChunkJob
+    private class ChunkImportJob
             implements Runnable
     {
+        private final PartitionMarker partitionMarker;
         private final long shardId;
         private final ShardImport shardImport;
 
-        public ChunkJob(String sourceName, long shardId, SerializedPartitionChunk chunk, List<ImportField> fields)
+        public ChunkImportJob(PartitionMarker partitionMarker, String sourceName, long shardId, SerializedPartitionChunk chunk, List<ImportField> fields)
         {
+            this.partitionMarker = partitionMarker;
             this.shardId = shardId;
             this.shardImport = new ShardImport(sourceName, chunk, fields);
         }
@@ -163,22 +303,35 @@ public class ImportManager
         @Override
         public void run()
         {
-            log.debug("acquiring worker for shard: %s", shardId);
-            Node worker;
             try {
-                worker = nodeWorkerQueue.acquireNodeWorker();
+                runWithRetryUnchecked(new Callable<Void>()
+                {
+                    @Override
+                    public Void call()
+                            throws Exception
+                    {
+                        log.debug("acquiring worker for shard: %s", shardId);
+                        final Node worker;
+                        try {
+                            worker = nodeWorkerQueue.acquireNodeWorker();
+                        }
+                        catch (InterruptedException e) {
+                            log.warn("interrupted while acquiring node worker");
+                            Thread.currentThread().interrupt();
+                            return null;
+                        }
+                        log.debug("acquired worker for shard: %s: %s", shardId, worker);
+                        if (!initiateShardCreation(worker)) {
+                            nodeWorkerQueue.releaseNodeWorker(worker);
+                            throw new RuntimeException("Failed to initiate shard creation on " + worker);
+                        }
+                        return null;
+                    }
+                });
             }
-            catch (InterruptedException e) {
-                log.warn("interrupted while acquiring node worker");
-                Thread.currentThread().interrupt();
-                return;
-            }
-            log.debug("acquired worker for shard: %s: %s", shardId, worker);
-
-            if (!initiateShardCreation(worker)) {
-                nodeWorkerQueue.releaseNodeWorker(worker);
-                // TODO: add proper per-node back-off
-                chunkExecutor.schedule(this, 1, TimeUnit.SECONDS);
+            catch (Exception e) {
+                partitionOperationTracker.decrementActiveTasks(partitionMarker);
+                log.error(e);
             }
         }
 
@@ -206,19 +359,21 @@ public class ImportManager
             }
 
             log.debug("initiated shard creation: %s", shardId);
-            shardExecutor.schedule(new ShardJob(shardId, worker), 1, TimeUnit.SECONDS);
+            shardExecutor.schedule(new ShardMonitorJob(partitionMarker, shardId, worker), 1, TimeUnit.SECONDS);
             return true;
         }
     }
 
-    private class ShardJob
+    private class ShardMonitorJob
             implements Runnable
     {
+        private final PartitionMarker partitionMarker;
         private final long shardId;
         private final Node worker;
 
-        private ShardJob(long shardId, Node worker)
+        private ShardMonitorJob(PartitionMarker partitionMarker, long shardId, Node worker)
         {
+            this.partitionMarker = partitionMarker;
             this.shardId = shardId;
             this.worker = checkNotNull(worker, "worker is null");
         }
@@ -226,46 +381,62 @@ public class ImportManager
         @Override
         public void run()
         {
-            if (!isShardComplete()) {
-                // TODO: after some period, give up and re-queue chunk job
-                shardExecutor.schedule(this, 1, TimeUnit.SECONDS);
+            if (shardProcessed()) {
+                nodeWorkerQueue.releaseNodeWorker(worker);
+                partitionOperationTracker.decrementActiveTasks(partitionMarker);
             }
             else {
-
-                // TODO: handle database failure (avoid worker leak and retry)
-                shardManager.commitShard(shardId, worker.getNodeIdentifier());
-                nodeWorkerQueue.releaseNodeWorker(worker);
-                log.info("shard imported: %s", shardId);
+                shardExecutor.schedule(this, 1, TimeUnit.SECONDS);
             }
         }
 
-        private boolean isShardComplete()
+        private boolean shardProcessed()
+        {
+            Status status;
+            try {
+                status = shardStatus();
+            }
+            catch (RuntimeException e) {
+                log.warn(e, "Failed to get shard status: %s", shardId);
+                return false;
+            }
+
+            switch (status) {
+                case ACCEPTED:
+                    // Still in progress
+                    return false;
+
+                case OK:
+                    // Shard complete
+                    try {
+                        shardManager.commitShard(shardId, worker.getNodeIdentifier());
+                    }
+                    catch (UnableToExecuteStatementException e) {
+                        log.warn(e, "Shard commit error: %s", shardId);
+                        return false;
+                    }
+
+                    log.info("shard imported: %s", shardId);
+                    return true;
+
+                case NOT_FOUND:
+                    // Node import error
+                    log.info("shard import error or was dropped before commit: %s", shardId);
+                    return true;
+
+                default:
+                    throw new AssertionError("Unknown shard status: " + status);
+            }
+        }
+
+        private Status shardStatus()
         {
             URI shardUri = uriAppendPaths(worker.getHttpUri(), "/v1/shard/" + shardId);
             Request request = prepareGet().setUri(shardUri).build();
-
-            Status status;
-            try {
-                StatusResponse response = httpClient.execute(request, createStatusResponseHandler());
-                status = Status.fromStatusCode(response.getStatusCode());
-            }
-            catch (RuntimeException e) {
-                log.warn(e, "request failed: %s", shardId);
-                return false;
-            }
+            StatusResponse response = httpClient.execute(request, createStatusResponseHandler());
+            Status status = Status.fromStatusCode(response.getStatusCode());
             log.debug("shard status: %s: %s", shardId, status);
-
-            if (status == Status.ACCEPTED) {
-                // still in progress
-                return false;
-            }
-
-            if (status == Status.OK) {
-                return true;
-            }
-
-            log.warn("unexpected response status: %s: %s", shardId, status.getStatusCode());
-            return false;
+            return status;
         }
     }
 
@@ -277,5 +448,42 @@ public class ImportManager
             builder.appendPath(additionalPath);
         }
         return builder.build();
+    }
+
+    // Tracks which partitions still have outstanding tasks
+    private static class PartitionOperationTracker
+    {
+        private final static Logger log = Logger.get(PartitionOperationTracker.class);
+
+        private final ConcurrentMap<PartitionMarker, AtomicInteger> importingPartitions = new ConcurrentHashMap<>();
+
+        public Set<String> getOperatingPartitions(long tableId)
+        {
+            ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+            for (PartitionMarker partitionMarker : importingPartitions.keySet()) {
+                builder.add(partitionMarker.getPartitionName());
+            }
+            return builder.build();
+        }
+
+        public boolean claimPartition(PartitionMarker partitionMarker, int totalTasks)
+        {
+            checkNotNull(partitionMarker, "partitionMarker is null");
+            checkArgument(totalTasks > 0, "totalTasks must be greater than zero");
+            return importingPartitions.putIfAbsent(partitionMarker, new AtomicInteger(totalTasks)) == null;
+        }
+
+        public void decrementActiveTasks(PartitionMarker partitionMarker)
+        {
+            checkNotNull(partitionMarker, "partitionMarker is null");
+            AtomicInteger chunkCount = importingPartitions.get(partitionMarker);
+            checkArgument(chunkCount != null, "unknown partitionMarker: %s", partitionMarker);
+            checkState(chunkCount.get() > 0, "cannot decrement partitionMarker %s with count %d", partitionMarker, chunkCount.get());
+            if (chunkCount.addAndGet(-1) == 0) {
+                checkState(importingPartitions.remove(partitionMarker, chunkCount));
+                log.info("Operation finished for: " + partitionMarker);
+            }
+            checkState(chunkCount.get() >= 0);
+        }
     }
 }

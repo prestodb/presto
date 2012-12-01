@@ -59,7 +59,7 @@ public class TestDatabaseShardManager
             shardManager.commitShard(shardId, node);
         }
 
-        Multimap<Long, String> shardNodes = shardManager.getShardNodes(tableId);
+        Multimap<Long, String> shardNodes = shardManager.getCommittedShardNodes(tableId);
         assertEquals(shardNodes, ImmutableMultimap.of(
                 1L, "foo", 2L, "bar", 3L, "baz", 4L, "foo", 5L, "bar"));
     }

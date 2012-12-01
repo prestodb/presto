@@ -59,7 +59,7 @@ public class SplitManager
     private Iterable<SplitAssignments> getNativeSplitAssignments(NativeTableHandle handle)
     {
         Map<String, Node> nodeMap = getNodeMap(nodeManager.getActiveNodes());
-        Multimap<Long, String> shardNodes = shardManager.getShardNodes(handle.getTableId());
+        Multimap<Long, String> shardNodes = shardManager.getCommittedShardNodes(handle.getTableId());
 
         ImmutableList.Builder<SplitAssignments> splitAssignments = ImmutableList.builder();
         for (Map.Entry<Long, Collection<String>> entry : shardNodes.asMap().entrySet()) {

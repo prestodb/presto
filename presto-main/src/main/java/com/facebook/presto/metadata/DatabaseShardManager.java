@@ -47,7 +47,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public List<Long> createImportPartition(final long tableId, final String partitionName, final List<SerializedPartitionChunk> partitionChunks)
+    public List<Long> createImportPartition(final long tableId, final String partitionName, final Iterable<SerializedPartitionChunk> partitionChunks)
     {
         return dbi.inTransaction(new TransactionCallback<List<Long>>()
         {
@@ -84,19 +84,56 @@ public class DatabaseShardManager
     }
 
     @Override
-    public Set<String> getImportedPartitions(long tableId)
+    public Set<String> getAllPartitions(long tableId)
     {
-        return dao.getImportedPartitions(tableId);
+        return dao.getAllPartitions(tableId);
     }
 
     @Override
-    public Multimap<Long, String> getShardNodes(long tableId)
+    public Set<String> getCommittedPartitions(long tableId)
+    {
+        return dao.getCommittedPartitions(tableId);
+    }
+
+    @Override
+    public Multimap<Long, String> getCommittedShardNodes(long tableId)
     {
         ImmutableMultimap.Builder<Long, String> map = ImmutableMultimap.builder();
-        for (ShardNode sn : dao.getShardNodes(tableId)) {
+        for (ShardNode sn : dao.getCommittedShardNodes(tableId)) {
             map.put(sn.getShardId(), sn.getNodeIdentifier());
         }
         return map.build();
+    }
+
+    @Override
+    public Multimap<Long, String> getShardNodes(long tableId, String partitionName)
+    {
+        ImmutableMultimap.Builder<Long, String> map = ImmutableMultimap.builder();
+        for (ShardNode sn : dao.getAllShardNodes(tableId, partitionName)) {
+            map.put(sn.getShardId(), sn.getNodeIdentifier());
+        }
+        return map.build();
+    }
+
+    @Override
+    public void dropPartition(final long tableId, final String partitionName)
+    {
+        dbi.inTransaction(new VoidTransactionCallback()
+        {
+            @Override
+            protected void execute(Handle handle, TransactionStatus status)
+                    throws Exception
+            {
+                ShardManagerDao dao = handle.attach(ShardManagerDao.class);
+                List<Long> shardIds = dao.getAllShards(tableId, partitionName);
+                for (Long shardId : shardIds) {
+                    dao.deleteShardFromShardNodes(shardId);
+                    dao.deleteShardFromImportPartitionShards(shardId);
+                    dao.deleteShard(shardId);
+                }
+                dao.dropPartition(tableId, partitionName);
+            }
+        });
     }
 
     private long getOrCreateNodeId(final String nodeIdentifier)

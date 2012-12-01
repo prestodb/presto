@@ -4,9 +4,12 @@ import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.split.ImportClientFactory;
+import com.google.common.base.Function;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.concurrent.Callable;
 
@@ -14,7 +17,7 @@ import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 class PartitionChunkSupplier
-        implements Supplier<List<SerializedPartitionChunk>>
+        implements Supplier<Iterable<SerializedPartitionChunk>>
 {
     private final ImportClientFactory importClientFactory;
     private final String sourceName;
@@ -32,7 +35,7 @@ class PartitionChunkSupplier
     }
 
     @Override
-    public List<SerializedPartitionChunk> get()
+    public Iterable<SerializedPartitionChunk> get()
     {
         List<PartitionChunk> chunks = runWithRetryUnchecked(new Callable<List<PartitionChunk>>()
         {
@@ -45,11 +48,14 @@ class PartitionChunkSupplier
             }
         });
 
-        ImportClient importClient = importClientFactory.getClient(sourceName);
-        ImmutableList.Builder<SerializedPartitionChunk> serialized = ImmutableList.builder();
-        for (PartitionChunk chunk : chunks) {
-            serialized.add(SerializedPartitionChunk.create(importClient, chunk));
-        }
-        return serialized.build();
+        final ImportClient importClient = importClientFactory.getClient(sourceName);
+        return Iterables.transform(chunks, new Function<PartitionChunk, SerializedPartitionChunk>()
+        {
+            @Override
+            public SerializedPartitionChunk apply(PartitionChunk chunk)
+            {
+                return SerializedPartitionChunk.create(importClient, chunk);
+            }
+        });
     }
 }
