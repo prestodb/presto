@@ -15,8 +15,11 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.BlocksFileEncoding;
+import com.facebook.presto.server.HackPlanFragmentSourceProvider;
+import com.facebook.presto.server.QueryTaskInfo;
+import com.facebook.presto.sql.planner.PlanFragmentSource;
+import com.facebook.presto.server.TableScanPlanFragmentSource;
 import com.facebook.presto.slice.Slices;
-import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.Analyzer;
 import com.facebook.presto.sql.compiler.SessionMetadata;
@@ -52,6 +55,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.io.CharStreams;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.Resources;
+import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import org.antlr.runtime.RecognitionException;
 import org.intellij.lang.annotations.Language;
@@ -89,6 +93,8 @@ import static org.testng.Assert.assertTrue;
 
 public class TestQueries
 {
+    private static final JsonCodec<QueryTaskInfo> QUERY_TASK_INFO_CODEC = JsonCodec.jsonCodec(QueryTaskInfo.class);
+
     private Handle handle;
     private RecordIterable ordersRecords;
     private RecordIterable lineItemRecords;
@@ -509,8 +515,11 @@ public class TestQueries
         TableScan tableScan = (TableScan) Iterables.getOnlyElement(fragments).getSources().get(0);
         TpchTableHandle table = (TpchTableHandle) tableScan.getTable();
 
-        Split split = new TpchSplit(table);
-        ExecutionPlanner executionPlanner = new ExecutionPlanner(new SessionMetadata(metadata), dataProvider, analysis.getTypes(), ImmutableMap.<Integer, Operator>of(), split);
+        PlanFragmentSource tableScanSource = new TableScanPlanFragmentSource(new TpchSplit(table));
+        ExecutionPlanner executionPlanner = new ExecutionPlanner(sessionMetadata,
+                new HackPlanFragmentSourceProvider(dataProvider, QUERY_TASK_INFO_CODEC),
+                analysis.getTypes(),
+                ImmutableMap.<String, PlanFragmentSource>of(table.getHandleId(), tableScanSource));
         Operator operator = executionPlanner.plan(plan);
 
         TupleInfo outputTupleInfo = ExecutionPlanner.toTupleInfo(analysis, plan.getOutputSymbols());

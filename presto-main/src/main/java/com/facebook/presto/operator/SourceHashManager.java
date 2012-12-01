@@ -3,9 +3,10 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.server.HttpQueryProvider;
+import com.facebook.presto.server.HttpTaskClient;
 import com.facebook.presto.server.QueryDriverProvider;
 import com.facebook.presto.server.QueryDriversOperator;
+import com.facebook.presto.server.QueryTaskInfo;
 import com.facebook.presto.split.ExchangeSplit;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.tuple.TupleInfo;
@@ -13,6 +14,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import io.airlift.http.client.ApacheHttpClient;
 import io.airlift.http.client.HttpClientConfig;
+import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -32,14 +34,17 @@ public class SourceHashManager
 
     @GuardedBy("this")
     private final Map<String, SourceHashProvider> hashProvidersByQueryId = new HashMap<>();
+    private final JsonCodec<QueryTaskInfo> queryTaskInfoCodec;
 
     @Inject
-    public SourceHashManager(ExecutorService executor)
+    public SourceHashManager(ExecutorService executor, JsonCodec<QueryTaskInfo> queryTaskInfoCodec1)
     {
         this.executor = executor;
         httpClient = new ApacheHttpClient(new HttpClientConfig()
                 .setConnectTimeout(new Duration(5, TimeUnit.MINUTES))
                 .setReadTimeout(new Duration(5, TimeUnit.MINUTES)));
+
+        queryTaskInfoCodec = queryTaskInfoCodec1;
     }
 
     public synchronized SourceHashProvider getSourceHashProvider(
@@ -58,13 +63,14 @@ public class SourceHashManager
                         public QueryDriverProvider apply(Split split)
                         {
                             ExchangeSplit exchangeSplit = (ExchangeSplit) split;
-                            return new HttpQueryProvider(
-                                    httpClient,
-                                    executor,
+                            return new HttpTaskClient(
+                                    exchangeSplit.getLocation().toString(), // todo add taskId to exchange split
                                     exchangeSplit.getLocation(),
-                                    outputTupleInfos
+                                    "out",
+                                    outputTupleInfos, httpClient,
+                                    executor,
+                                    queryTaskInfoCodec
                             );
-
                         }
                     })
             );

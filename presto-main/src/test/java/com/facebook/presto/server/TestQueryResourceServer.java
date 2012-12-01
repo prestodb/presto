@@ -10,7 +10,6 @@ import com.facebook.presto.slice.InputStreamSliceInput;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.Slices;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -18,12 +17,14 @@ import com.google.common.io.ByteStreams;
 import com.google.inject.Binder;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.configuration.ConfigurationModule;
 import io.airlift.event.client.InMemoryEventModule;
 import io.airlift.http.client.ApacheHttpClient;
+import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
@@ -46,6 +47,7 @@ import java.net.URI;
 import java.util.List;
 
 import static com.facebook.presto.server.PrestoMediaTypes.PRESTO_PAGES_TYPE;
+import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
@@ -75,7 +77,10 @@ public class TestQueryResourceServer
                     public void configure(Binder binder)
                     {
                         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
+                        binder.bind(QueryTaskResource.class).in(Scopes.SINGLETON);
                         binder.bind(QueryManager.class).to(SimpleQueryManager.class).in(Scopes.SINGLETON);
+                        binder.bind(SimpleQueryTaskManager.class).in(Scopes.SINGLETON);
+                        binder.bind(QueryTaskManager.class).to(Key.get(SimpleQueryTaskManager.class)).in(Scopes.SINGLETON);
                         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
                     }
                 },
@@ -102,10 +107,14 @@ public class TestQueryResourceServer
         URI location = client.execute(preparePost().setUri(uriFor("/v1/presto/query")).build(), new CreatedResponseHandler());
         assertQueryStatus(location, State.RUNNING);
 
-        assertEquals(loadData(location), 220);
+        QueryInfo queryInfo = client.execute(prepareGet().setUri(location).build(), createJsonResponseHandler(jsonCodec(QueryInfo.class)));
+        QueryTaskInfo outQueryTask = queryInfo.getStages().get("out").get(0);
+        URI outputLocation = uriFor("/v1/presto/task/" + outQueryTask.getTaskId() + "/results/out");
+
+        assertEquals(loadData(outputLocation), 220);
         assertQueryStatus(location, State.RUNNING);
 
-        assertEquals(loadData(location), 44 + 48);
+        assertEquals(loadData(outputLocation), 44 + 48);
         assertQueryStatus(location, State.FINISHED);
 
         StatusResponse response = client.execute(prepareDelete().setUri(location).build(), createStatusResponseHandler());
@@ -115,8 +124,13 @@ public class TestQueryResourceServer
 
     private void assertQueryStatus(URI location, State expectedState)
     {
-        URI statusUri = uriBuilderFrom(location).appendPath("info").build();
-        QueryInfo queryInfo = client.execute(prepareGet().setUri(statusUri).build(), createJsonResponseHandler(jsonCodec(QueryInfo.class)));
+        URI statusUri = uriBuilderFrom(location).build();
+        JsonResponse<QueryInfo> response = client.execute(prepareGet().setUri(statusUri).build(), createFullJsonResponseHandler(jsonCodec(QueryInfo.class)));
+        if (expectedState == State.FINISHED && response.getStatusCode() == Status.GONE.getStatusCode()) {
+            // when query finishes the server may delete it
+            return;
+        }
+        QueryInfo queryInfo = response.getValue();
         assertEquals(queryInfo.getState(), expectedState);
     }
 
@@ -124,7 +138,7 @@ public class TestQueryResourceServer
     {
         List<Page> pages = client.execute(
                 prepareGet().setUri(location).build(),
-                new PageResponseHandler(TupleInfo.SINGLE_VARBINARY));
+                new PageResponseHandler());
 
         int count = 0;
         for (Page page : pages) {
@@ -165,13 +179,6 @@ public class TestQueryResourceServer
 
     public static class PageResponseHandler implements ResponseHandler<List<Page>, RuntimeException>
     {
-        private final TupleInfo info;
-
-        public PageResponseHandler(TupleInfo info)
-        {
-            this.info = info;
-        }
-
         @Override
         public RuntimeException handleException(Request request, Exception exception)
         {

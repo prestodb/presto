@@ -17,8 +17,6 @@ import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.AggregationFunctionStep;
 import com.facebook.presto.operator.aggregation.AggregationFunctions;
 import com.facebook.presto.operator.aggregation.Input;
-import com.facebook.presto.split.DataStreamProvider;
-import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.SessionMetadata;
 import com.facebook.presto.sql.compiler.Symbol;
@@ -47,26 +45,24 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Functions.forMap;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ExecutionPlanner
 {
     private final SessionMetadata metadata;
-    private final DataStreamProvider dataProvider;
-
+    private final PlanFragmentSourceProvider sourceProvider;
     private final Map<Symbol, Type> types;
-    private final Split split;
+    private final Map<String, PlanFragmentSource> fragmentSources;
 
-    private final Map<Integer, Operator> exchangeMap;
     private Optional<DataSize> inputDataSize = Optional.absent();
     private Optional<Integer> inputPositionCount = Optional.absent();
 
-    public ExecutionPlanner(SessionMetadata metadata, DataStreamProvider dataProvider, Map<Symbol, Type> types, Map<Integer, Operator> exchangeMap, Split split)
+    public ExecutionPlanner(SessionMetadata metadata, PlanFragmentSourceProvider sourceProvider, Map<Symbol, Type> types, Map<String, PlanFragmentSource> fragmentSources)
     {
-        this.metadata = metadata;
-        this.exchangeMap = exchangeMap;
-        this.types = types;
-        this.dataProvider = dataProvider;
-        this.split = split;
+        this.metadata = checkNotNull(metadata, "metadata is null");
+        this.sourceProvider = checkNotNull(sourceProvider, "sourceProvider is null");
+        this.types = checkNotNull(types, "types is null");
+        this.fragmentSources = checkNotNull(fragmentSources, "sourceSplits is null");
     }
 
     public Operator plan(PlanNode plan)
@@ -111,7 +107,10 @@ public class ExecutionPlanner
 
     private Operator createExchange(ExchangeNode node)
     {
-        return exchangeMap.get(node.getSourceFragmentId());
+        int fragmentSourceId = node.getSourceFragmentId();
+        PlanFragmentSource source = fragmentSources.get(String.valueOf(fragmentSourceId));
+        Preconditions.checkState(source != null, "Source for fragment %s was not found: available sources %s", fragmentSourceId, fragmentSources.keySet());
+        return sourceProvider.createDataStream(source, ImmutableList.<ColumnHandle>of());
     }
 
     private Operator createOutputPlan(OutputPlan node)
@@ -266,7 +265,11 @@ public class ExecutionPlanner
                 .transform(MoreFunctions.<Symbol, ColumnHandle>valueGetter())
                 .list();
 
-        Operator operator = dataProvider.createDataStream(split, columns);
+        String fragmentSourceId = node.getTable().getHandleId();
+        PlanFragmentSource source = fragmentSources.get(fragmentSourceId);
+        Preconditions.checkState(source != null, "Source for fragment %s was not found: available sources %s", fragmentSourceId, fragmentSources.keySet());
+
+        Operator operator = sourceProvider.createDataStream(source, columns);
         if (operator instanceof AlignmentOperator) {
             AlignmentOperator alignmentOperator = (AlignmentOperator) operator;
             inputDataSize = alignmentOperator.getDataSize();

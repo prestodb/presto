@@ -14,7 +14,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonProperty;
 import org.codehaus.jackson.annotate.JsonValue;
 
 import java.util.ArrayList;
@@ -173,7 +172,7 @@ public class TupleInfo
     }
 
     @JsonCreator
-    public TupleInfo(@JsonProperty("types") List<Type> typeIterable)
+    public TupleInfo(List<Type> typeIterable)
     {
         checkNotNull(typeIterable, "typeIterable is null");
 //        Preconditions.checkArgument(!types.isEmpty(), "types is empty");
@@ -264,7 +263,7 @@ public class TupleInfo
         this.variablePartOffset = variablePartOffset;
     }
 
-    @JsonProperty
+    @JsonValue
     public List<Type> getTypes()
     {
         return types;

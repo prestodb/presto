@@ -1,14 +1,12 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.Main;
+import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OutputProcessor;
-import com.facebook.presto.server.HttpQueryProvider;
-import com.facebook.presto.server.QueryDriversOperator;
+import com.facebook.presto.server.HttpQueryClient;
 import com.facebook.presto.server.QueryInfo;
 import com.facebook.presto.server.QueryState.State;
-import com.google.common.base.Charsets;
-import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.server.QueryTaskInfo;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.command.Command;
 import io.airlift.command.Option;
@@ -19,13 +17,14 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 
 import java.net.URI;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.operator.OutputProcessor.OutputStats;
 import static com.google.common.collect.Iterables.concat;
-import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
+import static io.airlift.json.JsonCodec.jsonCodec;
 
 @Command(name = "execute", description = "Execute a query")
 public class Execute
@@ -42,49 +41,59 @@ public class Execute
         Main.initializeLogging(false);
 
         ExecutorService executor = Executors.newCachedThreadPool();
-        HttpQueryProvider queryProvider = null;
+        HttpQueryClient queryClient = null;
         try {
             long start = System.nanoTime();
 
             ApacheHttpClient httpClient = new ApacheHttpClient(new HttpClientConfig()
                     .setConnectTimeout(new Duration(1, TimeUnit.SECONDS))
-                    .setReadTimeout(new Duration(1, TimeUnit.SECONDS)));
+                    .setReadTimeout(new Duration(10, TimeUnit.SECONDS)));
 
-            queryProvider = new HttpQueryProvider(createStaticBodyGenerator(query, Charsets.UTF_8),
-                    Optional.<String>absent(),
+            queryClient = new HttpQueryClient(query,
+                    server,
                     httpClient,
                     executor,
-                    server);
+                    jsonCodec(QueryInfo.class),
+                    jsonCodec(QueryTaskInfo.class));
 
-            printInitialStatusUpdates(queryProvider, start);
+            printInitialStatusUpdates(queryClient, start);
 
-            QueryDriversOperator operator = new QueryDriversOperator(10, queryProvider);
+            Operator operator = queryClient.getResultsOperator();
 
             OutputProcessor processor = new OutputProcessor(operator, new TuplePrinters.DelimitedTuplePrinter());
             OutputStats stats = processor.process();
 
-            System.err.println(toFinalInfo(queryProvider.getQueryInfo(), start, stats.getRows(), stats.getBytes()));
+            System.err.println(toFinalInfo(queryClient.getQueryInfo(), start, stats.getRows(), stats.getBytes()));
         }
         finally {
-            if (queryProvider != null) {
-                queryProvider.destroy();
+            if (queryClient != null) {
+                queryClient.destroy();
             }
             executor.shutdownNow();
         }
     }
 
-    private void printInitialStatusUpdates(HttpQueryProvider queryProvider, long start)
+    private void printInitialStatusUpdates(HttpQueryClient queryClient, long start)
     {
         try {
             while (true) {
                 try {
-                    QueryInfo queryInfo = queryProvider.getQueryInfo();
+                    QueryInfo queryInfo = queryClient.getQueryInfo();
                     if (queryInfo == null) {
-                        // todo maybe throw
-                        return;
+                        throw new IllegalStateException("Query has been canceled");
                     }
                     if (queryInfo.getState() != State.PREPARING) {
-                        return;
+                        // if query is no longer running, finish
+                        if (queryInfo.getState() != State.RUNNING) {
+                            return;
+                        }
+                        // query is running, check if there is there is pending output
+                        List<QueryTaskInfo> outStage = queryInfo.getStages().get("out");
+                        for (QueryTaskInfo outputTask : outStage) {
+                            if (outputTask.getBufferedPages() > 0) {
+                                return;
+                            }
+                        }
                     }
                     System.err.print("\r" + toInfoString(queryInfo, start));
                     System.err.flush();
@@ -112,7 +121,6 @@ public class Execute
         int stages = queryInfo.getStages().size();
         int completeStages = queryInfo.getStages().size();
 
-        State overallState = State.PREPARING;
         int startedSplits = 0;
         int completedSplits = 0;
         int totalSplits = 0;
@@ -121,7 +129,7 @@ public class Execute
         long inputPositions = 0;
         long completedDataSize = 0;
         long completedPositions = 0;
-        for (QueryInfo info : concat(ImmutableList.of(queryInfo), concat(queryInfo.getStages().values()))) {
+        for (QueryTaskInfo info : concat(queryInfo.getStages().values())) {
             totalSplits += info.getSplits();
             startedSplits += info.getStartedSplits();
             completedSplits += info.getCompletedSplits();
@@ -130,27 +138,9 @@ public class Execute
             inputPositions += info.getInputPositionCount();
             completedDataSize += info.getCompletedDataSize();
             completedPositions += info.getCompletedPositionCount();
-            switch (info.getState()) {
-                case RUNNING:
-                    if (overallState == State.PREPARING) {
-                        overallState = State.RUNNING;
-                    }
-                    break;
-                case FINISHED:
-                case CANCELED:
-                    if (overallState != State.FAILED) {
-                        overallState = State.CANCELED;
-                    }
-                    break;
-                case FAILED:
-                    overallState = State.FAILED;
-                    break;
-            }
-        }
-        if (totalSplits > 0 && completedSplits == totalSplits && (overallState == State.PREPARING || overallState == State.RUNNING)) {
-            overallState = State.FINISHED;
         }
 
+        State overallState = queryInfo.getState();
         Duration cpuTime = new Duration(splitCpuTime, TimeUnit.MILLISECONDS);
         String infoString = String.format(
                 "%s QueryId %s: Stages [%,d of %,d]: Splits [%,d total, %,d pending, %,d running, %,d finished]: Input [%,d rows %s]: CPU Time %s %s: Elapsed %s %s",
@@ -185,7 +175,7 @@ public class Execute
         long splitCpuTime = 0;
         long inputDataSize = 0;
         long inputPositions = 0;
-        for (QueryInfo info : concat(ImmutableList.of(queryInfo), concat(queryInfo.getStages().values()))) {
+        for (QueryTaskInfo info : concat(queryInfo.getStages().values())) {
             totalSplits += info.getSplits();
             splitCpuTime += info.getSplitCpuTime();
             inputDataSize += info.getInputDataSize();
@@ -193,7 +183,8 @@ public class Execute
         }
         Duration cpuTime = new Duration(splitCpuTime, TimeUnit.MILLISECONDS);
 
-        return String.format("FINISHED QueryId %s: Splits %,d: In %,d rows %s: Out %,d rows %s: CPU Time %s %s: Elapsed %s %s",
+        return String.format("%s QueryId %s: Splits %,d: In %,d rows %s: Out %,d rows %s: CPU Time %s %s: Elapsed %s %s",
+                queryInfo.getState(),
                 queryInfo.getQueryId(),
                 totalSplits,
                 inputPositions,

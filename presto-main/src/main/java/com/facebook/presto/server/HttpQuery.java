@@ -16,6 +16,7 @@ import io.airlift.http.client.UnexpectedResponseException;
 import io.airlift.log.Logger;
 
 import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response.Status;
 import java.net.URI;
@@ -26,6 +27,7 @@ import static com.facebook.presto.server.PrestoMediaTypes.PRESTO_PAGES_TYPE;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 
+@ThreadSafe
 public class HttpQuery
         implements QueryDriver
 {
@@ -55,7 +57,8 @@ public class HttpQuery
     public synchronized void start()
     {
         Preconditions.checkState(!done, "Query is already finished");
-        currentRequest = httpClient.execute(prepareGet().setUri(location).build(), new PageResponseHandler(location));
+        PageResponseHandler responseHandler = new PageResponseHandler(location);
+        responseHandler.rescheduleRequest();
     }
 
     @Override
@@ -90,7 +93,6 @@ public class HttpQuery
     {
         done = true;
         queryState.queryFailed(throwable);
-        // todo send delete command
     }
 
     private synchronized void setCurrentRequest(Future<Void> currentRequest)
