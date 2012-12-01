@@ -7,6 +7,7 @@ import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
 
 import java.util.List;
+import java.util.Set;
 
 public interface ShardManagerDao
 {
@@ -109,6 +110,11 @@ public interface ShardManagerDao
 
     @SqlQuery("SELECT COUNT(*) > 0 FROM import_tables WHERE table_id = :tableId")
     boolean importTableExists(@Bind("tableId") long tableId);
+
+    @SqlQuery("SELECT partition_name\n" +
+            "FROM import_partitions\n" +
+            "WHERE table_id = :tableId\n")
+    Set<String> getImportedPartitions(@Bind("tableId") long tableId);
 
     @SqlQuery("SELECT s.shard_id, n.node_identifier\n" +
             "FROM shard_nodes sn\n" +
