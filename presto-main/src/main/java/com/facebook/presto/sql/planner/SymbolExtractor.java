@@ -101,6 +101,15 @@ public class SymbolExtractor
         }
 
         @Override
+        public Void visitJoin(JoinNode node, Void context)
+        {
+            node.getLeft().accept(this, context);
+            node.getRight().accept(this, context);
+
+            return null;
+        }
+
+        @Override
         protected Void visitPlan(PlanNode node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented");

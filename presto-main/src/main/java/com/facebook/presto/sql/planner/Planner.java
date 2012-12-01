@@ -15,6 +15,7 @@ import com.facebook.presto.sql.compiler.Type;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRewriter;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -58,6 +59,9 @@ public class Planner
     {
         PlanNode root = createOutputPlan(query, analysis);
 
+        // make sure we produce a valid plan. This is mainly to catch programming errors
+        PlanSanityChecker.validate(root);
+
         Map<Symbol, Type> types = analysis.getTypes();
 
         for (PlanOptimizer optimizer : OPTIMIZATIONS) {
@@ -72,16 +76,20 @@ public class Planner
         PlanNode result = createQueryPlan(query, analysis);
 
         int i = 0;
-        ImmutableList.Builder<String> names = ImmutableList.builder();
+        List<String> names = new ArrayList<>();
         ImmutableMap.Builder<String, Symbol> assignments = ImmutableMap.builder();
         for (Field field : analysis.getOutputDescriptor().getFields()) {
-            String name = field.getAttribute().or("_col" + i);
+            String name = field.getAttribute().orNull();
+            while (name == null || names.contains(name)) {
+                // TODO: this shouldn't be necessary once OutputNode uses Multimaps (requires updating to Jackson 2 for serialization support)
+                i++;
+                name = "_col" + i;
+            }
             names.add(name);
             assignments.put(name, field.getSymbol());
-            i++;
         }
 
-        return new OutputPlan(result, names.build(), assignments.build());
+        return new OutputPlan(result, names, assignments.build());
     }
 
     private PlanNode createQueryPlan(Query query, AnalysisResult analysis)
@@ -261,8 +269,21 @@ public class Planner
         else if (relation instanceof Subquery) {
             return createQueryPlan(((Subquery) relation).getQuery(), analysis.getAnalysis((Subquery) relation));
         }
+        else if (relation instanceof Join) {
+            return createJoinPlan((Join) relation, analysis);
+        }
 
         throw new UnsupportedOperationException("not yet implemented");
+    }
+
+    private PlanNode createJoinPlan(Join join, AnalysisResult analysis)
+    {
+        PlanNode left = createRelationPlan(ImmutableList.of(join.getLeft()), analysis);
+        PlanNode right = createRelationPlan(ImmutableList.of(join.getRight()), analysis);
+
+        AnalyzedExpression criteria = analysis.getJoinCriteria(join);
+
+        return new JoinNode(left, right, criteria.getRewrittenExpression());
     }
 
     private PlanNode createScanNode(Table table, AnalysisResult analysis)

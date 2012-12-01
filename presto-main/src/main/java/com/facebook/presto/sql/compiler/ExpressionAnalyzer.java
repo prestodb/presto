@@ -82,7 +82,7 @@ public class ExpressionAnalyzer
                 throw new SemanticException(node, "Attribute '%s' cannot be resolved", node.getName());
             }
             else if (matches.size() > 1) {
-                throw new SemanticException(node, "Attribute '%s' is ambiguous. Possible matches: %s", Iterables.transform(matches, nameGetter()));
+                throw new SemanticException(node, "Attribute '%s' is ambiguous. Possible matches: %s", node.getName(), Iterables.transform(matches, nameGetter()));
             }
 
             return Iterables.getOnlyElement(matches).getType();

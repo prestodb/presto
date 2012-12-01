@@ -132,7 +132,7 @@ public class FragmentPlanner
 
             if (current.isPartitioned()) {
                 // create a new non-partitioned fragment
-                return newPlanFragment(new ExchangeNode(current.getId(), current.getRoot().getOutputSymbols()), false);
+                current = newPlanFragment(new ExchangeNode(current.getId(), current.getRoot().getOutputSymbols()), false);
             }
 
             current.setRoot(new OutputPlan(current.getRoot(), node.getColumnNames(), node.getAssignments()));
@@ -161,6 +161,23 @@ public class FragmentPlanner
         public PlanFragmentBuilder visitTableScan(TableScan node, Void context)
         {
             return newPlanFragment(node, !createSingleNodePlan);
+        }
+
+        @Override
+        public PlanFragmentBuilder visitJoin(JoinNode node, Void context)
+        {
+            PlanFragmentBuilder left = node.getLeft().accept(this, context);
+            PlanFragmentBuilder right = node.getRight().accept(this, context);
+
+            if (left.isPartitioned() || right.isPartitioned()) {
+                ExchangeNode exchange = new ExchangeNode(right.getId(), right.getRoot().getOutputSymbols());
+                JoinNode join = new JoinNode(left.getRoot(), exchange, node.getCriteria());
+                left.setRoot(join);
+                return left;
+            }
+            else {
+                throw new UnsupportedOperationException("not yet implemented");
+            }
         }
 
         @Override
