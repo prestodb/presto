@@ -3,131 +3,108 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.operator.Page;
-import com.facebook.presto.server.QueryState.State;
-import com.facebook.presto.split.Split;
-import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.PlanFragmentSource;
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import io.airlift.units.Duration;
+import com.google.common.collect.ImmutableMap;
 
-import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static com.google.common.collect.Iterables.filter;
+import static com.google.common.collect.Iterables.transform;
 
 @ThreadSafe
 public class SimpleQueryManager implements QueryManager
 {
-    private final int pageBufferMax;
-    private final int initialPages;
-
-    @GuardedBy("this")
-    private int nextQueryId;
-
-    // todo this is a potential memory leak if the query objects are not removed up
-    @GuardedBy("this")
-    private final Map<String, QueryState> queries = new HashMap<>();
+    private final SimpleQueryTaskManager simpleQueryTaskManager;
+    private final AtomicInteger nextQueryId = new AtomicInteger();
+    private final ConcurrentMap<String, SimpleQuery> queries = new ConcurrentHashMap<>();
 
     @Inject
-    public SimpleQueryManager()
+    public SimpleQueryManager(SimpleQueryTaskManager simpleQueryTaskManager)
     {
-        this(20, 12);
-    }
-
-    public SimpleQueryManager(int pageBufferMax, int initialPages)
-    {
-        Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
-        Preconditions.checkArgument(initialPages >= 0, "initialPages is negative");
-        Preconditions.checkArgument(initialPages <= pageBufferMax, "initialPages is greater than pageBufferMax");
-        this.pageBufferMax = pageBufferMax;
-        this.initialPages = initialPages;
-    }
-
-    @Override
-    public QueryInfo createQueryFragment(Map<String, List<Split>> sourceSplits, PlanFragment planFragment)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public QueryInfo getQueryInfo(String queryId)
-    {
-        return new MasterQueryState(queryId, getQuery(queryId)).toQueryInfo();
+        Preconditions.checkNotNull(simpleQueryTaskManager, "simpleQueryTaskManager is null");
+        this.simpleQueryTaskManager = simpleQueryTaskManager;
     }
 
     @Override
     public List<QueryInfo> getAllQueryInfo()
     {
-        throw new UnsupportedOperationException();
+        return ImmutableList.copyOf(filter(transform(queries.values(), new Function<SimpleQuery, QueryInfo>()
+        {
+            @Override
+            public QueryInfo apply(SimpleQuery queryWorker)
+            {
+                try {
+                    return queryWorker.getQueryInfo();
+                }
+                catch (Exception ignored) {
+                    return null;
+                }
+            }
+        }), Predicates.notNull()));
     }
 
     @Override
-    public synchronized QueryInfo createQuery(String query)
+    public QueryInfo getQueryInfo(String queryId)
+    {
+        Preconditions.checkNotNull(queryId, "queryId is null");
+
+        SimpleQuery query = queries.get(queryId);
+        if (query == null) {
+            throw new NoSuchElementException();
+        }
+        return query.getQueryInfo();
+    }
+
+    @Override
+    public QueryInfo createQuery(String query)
     {
         Preconditions.checkNotNull(query, "query is null");
 
-        String queryId = String.valueOf(nextQueryId++);
-        QueryState queryState = new QueryState(ImmutableList.of(SINGLE_VARBINARY), 1, pageBufferMax);
-        queries.put(queryId, queryState);
+        String queryId = String.valueOf(nextQueryId.getAndIncrement());
 
-        List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");
+        QueryTask outputTask = simpleQueryTaskManager.createQueryTask(null, ImmutableMap.<String, List<PlanFragmentSource>>of());
+        SimpleQuery simpleQuery = new SimpleQuery(queryId, outputTask.getTaskId(), simpleQueryTaskManager);
+        queries.put(queryId, simpleQuery);
+        return simpleQuery.getQueryInfo();
+    }
 
-        // load initial pages
-        for (int i = 0; i < initialPages; i++) {
-            try {
-                queryState.addPage(new Page(createStringsBlock(Iterables.concat(Collections.nCopies(i + 1, data)))));
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
-            }
+    @Override
+    public void cancelQuery(String queryId)
+    {
+        queries.remove(queryId);
+    }
+
+    private static class SimpleQuery
+    {
+        private final String queryId;
+        private final String outputTaskId;
+        private final SimpleQueryTaskManager simpleQueryTaskManager;
+
+        private SimpleQuery(String queryId, String outputTaskId, SimpleQueryTaskManager simpleQueryTaskManager)
+        {
+            this.queryId = queryId;
+            this.outputTaskId = outputTaskId;
+            this.simpleQueryTaskManager = simpleQueryTaskManager;
         }
-        queryState.sourceFinished();
 
-        return new QueryInfo(queryId, ImmutableList.of(SINGLE_VARBINARY));
-    }
+        private QueryInfo getQueryInfo()
+        {
+            QueryTaskInfo outputTask = simpleQueryTaskManager.getQueryTaskInfo(outputTaskId);
 
-    @Override
-    public State getQueryStatus(String queryId)
-    {
-        return getQuery(queryId).getState();
-    }
-
-    @Override
-    public List<Page> getQueryResults(String queryId, int maxPageCount, Duration maxWait)
-            throws InterruptedException
-    {
-        Preconditions.checkNotNull(queryId, "queryId is null");
-        Preconditions.checkArgument(maxPageCount > 0, "maxPageCount must be at least 1");
-
-        return getQuery(queryId).getNextPages(maxPageCount, maxWait);
-    }
-
-    @Override
-    public void destroyQuery(String queryId)
-    {
-        // todo should we drop the query reference
-        Preconditions.checkNotNull(queryId, "queryId is null");
-        getQuery(queryId).sourceFinished();
-    }
-
-    public synchronized QueryState getQuery(String queryId)
-            throws NoSuchElementException
-    {
-        QueryState queryState = queries.get(queryId);
-        if (queryState == null) {
-            throw new NoSuchElementException();
+            return new QueryInfo(queryId,
+                    outputTask.getTupleInfos(),
+                    outputTask.getState(),
+                    ImmutableMap.<String, List<QueryTaskInfo>>of("out", ImmutableList.of(outputTask)));
         }
-        return queryState;
     }
 }

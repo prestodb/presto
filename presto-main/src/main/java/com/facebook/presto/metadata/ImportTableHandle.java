@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
@@ -20,6 +21,12 @@ public class ImportTableHandle
         this.sourceName = Preconditions.checkNotNull(sourceName, "sourceName is null");
         this.databaseName = Preconditions.checkNotNull(databaseName, "databaseName is null");
         this.tableName = Preconditions.checkNotNull(tableName, "tableName is null");
+    }
+
+    @Override
+    public String getHandleId()
+    {
+        return Joiner.on(".").join("import", sourceName, databaseName, tableName);
     }
 
     @Override

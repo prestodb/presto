@@ -27,6 +27,7 @@ import com.facebook.presto.split.NativeDataStreamProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.base.Throwables;
@@ -46,7 +47,6 @@ import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Singleton;
-
 import java.io.IOException;
 
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
@@ -61,7 +61,13 @@ public class ServerMainModule
     {
         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(StaticQueryManager.class).in(Scopes.SINGLETON);
+
+        binder.bind(QueryTaskResource.class).in(Scopes.SINGLETON);
+        binder.bind(QueryTaskManager.class).to(SqlQueryTaskManager.class).in(Scopes.SINGLETON);
+        jsonCodecBinder(binder).bindJsonCodec(QueryTaskInfo.class);
+
         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
+        binder.bind(PlanFragmentSourceProvider.class).to(HackPlanFragmentSourceProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(StorageManager.class).to(DatabaseStorageManager.class).in(Scopes.SINGLETON);
         binder.bind(DataStreamProvider.class).to(DataStreamManager.class).in(Scopes.SINGLETON);

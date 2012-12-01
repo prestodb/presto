@@ -6,12 +6,17 @@ package com.facebook.presto.server;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.server.QueryDriversOperator.QueryDriversIterator;
-import com.google.common.base.Charsets;
-import com.google.common.base.Optional;
+import com.facebook.presto.sql.compiler.Symbol;
+import com.facebook.presto.sql.compiler.Type;
+import com.facebook.presto.sql.planner.ExchangeNode;
+import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.PlanFragmentSource;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.configuration.ConfigurationFactory;
@@ -27,10 +32,11 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -75,7 +81,10 @@ public class TestHttpQueryProvider
                     public void configure(Binder binder)
                     {
                         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
+                        binder.bind(QueryTaskResource.class).in(Scopes.SINGLETON);
                         binder.bind(QueryManager.class).to(SimpleQueryManager.class).in(Scopes.SINGLETON);
+                        binder.bind(SimpleQueryTaskManager.class).in(Scopes.SINGLETON);
+                        binder.bind(QueryTaskManager.class).to(Key.get(SimpleQueryTaskManager.class)).in(Scopes.SINGLETON);
                         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
                     }
                 },
@@ -99,7 +108,9 @@ public class TestHttpQueryProvider
         if (server3 != null) {
             server3.stop();
         }
-        executor.shutdownNow();
+        if (executor != null) {
+            executor.shutdownNow();
+        }
     }
 
     @Test
@@ -156,12 +167,17 @@ public class TestHttpQueryProvider
         assertFalse(iterator.hasNext());
     }
 
-    private HttpQueryProvider createHttpQueryProvider(TestingHttpServer httpServer)
+    private HttpTaskClient createHttpQueryProvider(TestingHttpServer httpServer)
     {
-        return new HttpQueryProvider(createStaticBodyGenerator("query", Charsets.UTF_8),
-                Optional.<String>absent(),
+        ImmutableMap<String, List<PlanFragmentSource>> sourceSplits = ImmutableMap.of();
+        PlanFragment planFragment = new PlanFragment(32, false, ImmutableMap.<Symbol, Type>of(), new ExchangeNode(22, ImmutableList.<Symbol>of()));
+
+        return new HttpTaskClient(planFragment,
+                sourceSplits,
                 httpClient,
                 executor,
-                httpServer.getBaseUrl().resolve("/v1/presto/query"));
+                jsonCodec(QueryFragmentRequest.class),
+                jsonCodec(QueryTaskInfo.class),
+                httpServer.getBaseUrl().resolve("/v1/presto/task"), "out");
     }
 }

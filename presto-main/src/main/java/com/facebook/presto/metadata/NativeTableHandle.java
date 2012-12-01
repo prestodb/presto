@@ -1,6 +1,5 @@
 package com.facebook.presto.metadata;
 
-import com.google.common.base.Objects;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
@@ -16,6 +15,12 @@ public class NativeTableHandle
     {
         checkArgument(tableId > 0, "tableId must be greater than zero");
         this.tableId = tableId;
+    }
+
+    @Override
+    public String getHandleId()
+    {
+        return "presto." + tableId;
     }
 
     @Override

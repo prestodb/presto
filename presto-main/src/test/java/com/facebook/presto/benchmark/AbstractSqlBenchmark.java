@@ -1,6 +1,9 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.server.HackPlanFragmentSourceProvider;
+import com.facebook.presto.server.QueryTaskInfo;
+import com.facebook.presto.server.TableScanPlanFragmentSource;
 import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.Analyzer;
 import com.facebook.presto.sql.compiler.SessionMetadata;
@@ -8,6 +11,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExecutionPlanner;
 import com.facebook.presto.sql.planner.FragmentPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanNode;
 import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.Planner;
@@ -25,7 +29,7 @@ import com.google.common.collect.Iterables;
 import org.antlr.runtime.RecognitionException;
 import org.intellij.lang.annotations.Language;
 
-import java.util.List;
+import static io.airlift.json.JsonCodec.jsonCodec;
 
 public abstract class AbstractSqlBenchmark
         extends AbstractOperatorBenchmark
@@ -59,7 +63,12 @@ public abstract class AbstractSqlBenchmark
     protected Operator createBenchmarkedOperator(final TpchBlocksProvider provider)
     {
         TpchTableHandle table = (TpchTableHandle) ((TableScan) Iterables.getOnlyElement(fragment.getSources())).getTable();
-        ExecutionPlanner executionPlanner = new ExecutionPlanner(sessionMetadata, new TpchDataStreamProvider(provider), analysis.getTypes(), ImmutableMap.<Integer, Operator>of(), new TpchSplit(table));
+
+        PlanFragmentSource tableScanSource = new TableScanPlanFragmentSource(new TpchSplit(table));
+        ExecutionPlanner executionPlanner = new ExecutionPlanner(sessionMetadata,
+                new HackPlanFragmentSourceProvider(new TpchDataStreamProvider(provider), jsonCodec(QueryTaskInfo.class)),
+                analysis.getTypes(),
+                ImmutableMap.<String, PlanFragmentSource>of(table.getHandleId(), tableScanSource));
         return executionPlanner.plan(fragment.getRoot());
     }
 }
