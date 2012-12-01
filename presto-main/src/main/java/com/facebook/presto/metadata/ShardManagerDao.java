@@ -114,7 +114,17 @@ public interface ShardManagerDao
     @SqlQuery("SELECT partition_name\n" +
             "FROM import_partitions\n" +
             "WHERE table_id = :tableId\n")
-    Set<String> getImportedPartitions(@Bind("tableId") long tableId);
+    Set<String> getAllPartitions(@Bind("tableId") long tableId);
+
+    @SqlQuery("SELECT ip.partition_name\n" +
+            "FROM import_partitions ip\n" +
+            "WHERE ip.table_id = :tableId\n" +
+            "  AND TRUE = ALL (\n" +
+            "    SELECT committed\n" +
+            "    FROM shards s\n" +
+            "    JOIN import_partition_shards ips ON (ips.shard_id = s.shard_id)\n" +
+            "    WHERE ip.import_partition_id = ips.import_partition_id)\n")
+    Set<String> getCommittedPartitions(@Bind("tableId") long tableId);
 
     @SqlQuery("SELECT s.shard_id, n.node_identifier\n" +
             "FROM shard_nodes sn\n" +
@@ -123,5 +133,39 @@ public interface ShardManagerDao
             "WHERE s.committed = true\n" +
             "  AND s.table_id = :tableId\n")
     @Mapper(ShardNode.Mapper.class)
-    List<ShardNode> getShardNodes(@Bind("tableId") long tableId);
+    List<ShardNode> getCommittedShardNodes(@Bind("tableId") long tableId);
+
+    @SqlQuery("SELECT sn.shard_id, n.node_identifier\n" +
+            "FROM import_partitions ip\n" +
+            "JOIN import_partition_shards ips ON (ip.import_partition_id = ips.import_partition_id)\n" +
+            "JOIN shard_nodes sn ON (ips.shard_id = sn.shard_id)\n" +
+            "JOIN nodes n ON (sn.node_id = n.node_id)\n" +
+            "WHERE ip.table_id = :tableId\n" +
+            "  AND ip.partition_name = :partitionName\n")
+    @Mapper(ShardNode.Mapper.class)
+    List<ShardNode> getAllShardNodes(@Bind("tableId") long tableId, @Bind("partitionName") String partitionName);
+
+    @SqlQuery("SELECT ips.shard_id\n" +
+            "FROM import_partitions ip\n" +
+            "JOIN import_partition_shards ips ON (ip.import_partition_id = ips.import_partition_id)\n" +
+            "WHERE ip.table_id = :tableId\n" +
+            "  AND ip.partition_name = :partitionName\n")
+    List<Long> getAllShards(@Bind("tableId") long tableId, @Bind("partitionName") String partitionName);
+
+    @SqlUpdate("DELETE FROM shard_nodes\n" +
+            "WHERE shard_id = :shardId\n")
+    void deleteShardFromShardNodes(@Bind("shardId") long shardId);
+
+    @SqlUpdate("DELETE FROM import_partition_shards\n" +
+            "WHERE shard_id = :shardId\n")
+    void deleteShardFromImportPartitionShards(@Bind("shardId") long shardId);
+
+    @SqlUpdate("DELETE FROM shards\n" +
+            "WHERE shard_id = :shardId\n")
+    void deleteShard(@Bind("shardId") long shardId);
+
+    @SqlUpdate("DELETE FROM import_partitions\n" +
+            "WHERE table_id = :tableId\n" +
+            "  AND partition_name = :partitionName\n")
+    void dropPartition(@Bind("tableId") long tableId, @Bind("partitionName") String partitionName);
 }
