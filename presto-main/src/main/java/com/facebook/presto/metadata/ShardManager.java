@@ -4,6 +4,7 @@ import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.google.common.collect.Multimap;
 
 import java.util.List;
+import java.util.Set;
 
 public interface ShardManager
 {
@@ -23,6 +24,13 @@ public interface ShardManager
      * Mark shard as complete with data residing on given node
      */
     void commitShard(long shardId, String nodeIdentifier);
+
+    /**
+     * Get the names of all partitions that have been imported for table
+     *
+     * @return list of partition names
+     */
+    Set<String> getImportedPartitions(long tableId);
 
     /**
      * Get all complete shards in table
