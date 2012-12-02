@@ -25,7 +25,7 @@ public class ExchangePlanFragmentSource
 
     @JsonCreator
     public ExchangePlanFragmentSource(
-            @JsonProperty("locations") Map<String, URI> sources,
+            @JsonProperty("sources") Map<String, URI> sources,
             @JsonProperty("outputId") String outputId,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos)
     {

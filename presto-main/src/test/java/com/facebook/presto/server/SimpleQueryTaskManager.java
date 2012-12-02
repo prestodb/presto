@@ -71,8 +71,9 @@ public class SimpleQueryTaskManager
     }
 
     @Override
-    public QueryTask createQueryTask(PlanFragment planFragment, Map<String, List<PlanFragmentSource>> fragmentSources)
+    public QueryTask createQueryTask(PlanFragment planFragment, List<String> outputIds, Map<String, List<PlanFragmentSource>> fragmentSources)
     {
+        // todo add output id suport
         String queryId = String.valueOf(nextQueryId.getAndIncrement());
         QueryState queryState = new QueryState(ImmutableList.of(SINGLE_VARBINARY), 1, pageBufferMax);
         SimpleQueryTask queryTask = new SimpleQueryTask(queryId, queryState);

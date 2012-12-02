@@ -100,8 +100,7 @@ public class HttpQueryClient
     public Operator getResultsOperator()
     {
         QueryInfo queryInfo = getQueryInfo();
-        List<QueryTaskInfo> outputStage = queryInfo.getStages().get("out");
-        if (outputStage == null) {
+        if (queryInfo == null || queryInfo.getOutputStage() == null) {
             return new Operator()
             {
                 @Override
@@ -124,6 +123,7 @@ public class HttpQueryClient
             };
         }
 
+        List<QueryTaskInfo> outputStage = queryInfo.getStages().get(queryInfo.getOutputStage());
         return new QueryDriversOperator(10, Iterables.transform(outputStage, new Function<QueryTaskInfo, QueryDriverProvider>()
         {
             @Override

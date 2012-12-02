@@ -115,13 +115,13 @@ public class SqlQueryTaskManager
     }
 
     @Override
-    public QueryTask createQueryTask(PlanFragment planFragment, Map<String, List<PlanFragmentSource>> fragmentSources)
+    public QueryTask createQueryTask(PlanFragment planFragment, List<String> outputIds, Map<String, List<PlanFragmentSource>> fragmentSources)
     {
         Preconditions.checkNotNull(planFragment, "planFragment is null");
         Preconditions.checkNotNull(fragmentSources, "fragmentSources is null");
 
         String taskId = String.valueOf(nextTaskId.getAndIncrement());
-        SqlQueryTask queryTask = new SqlQueryTask(taskId, pageBufferMax, planFragment, fragmentSources, sourceProvider, metadata, shardExecutor);
+        SqlQueryTask queryTask = new SqlQueryTask(taskId, planFragment, outputIds, fragmentSources, sourceProvider, metadata, shardExecutor, pageBufferMax);
         queryTasks.put(taskId, queryTask);
         taskExecutor.submit(queryTask);
 
@@ -166,12 +166,13 @@ public class SqlQueryTaskManager
         private final Metadata metadata;
 
         private SqlQueryTask(String taskId,
-                int pageBufferMax,
                 PlanFragment fragment,
+                List<String> outputIds,
                 Map<String, List<PlanFragmentSource>> fragmentSources,
                 PlanFragmentSourceProvider sourceProvider,
                 Metadata metadata,
-                ExecutorService shardExecutor)
+                ExecutorService shardExecutor,
+                int pageBufferMax)
         {
             this.taskId = taskId;
             this.fragment = fragment;
@@ -193,7 +194,11 @@ public class SqlQueryTaskManager
                     })
                     .list());
 
-            this.outputBuffers = ImmutableMap.of("out", new QueryState(tupleInfos, 1, pageBufferMax, this.fragmentSources.size()));
+            ImmutableMap.Builder<String, QueryState> builder = ImmutableMap.builder();
+            for (String outputId : outputIds) {
+                builder.put(outputId, new QueryState(tupleInfos, 1, pageBufferMax, this.fragmentSources.size()));
+            }
+            this.outputBuffers = builder.build();
         }
 
         @Override
@@ -204,7 +209,7 @@ public class SqlQueryTaskManager
 
         public QueryTaskInfo getQueryTaskInfo()
         {
-            QueryState outputBuffer = outputBuffers.get("out");
+            QueryState outputBuffer = outputBuffers.values().iterator().next();
             return outputBuffer.toQueryTaskInfo(taskId);
         }
 
@@ -227,7 +232,8 @@ public class SqlQueryTaskManager
         @Override
         public void run()
         {
-            final QueryState outputBuffer = outputBuffers.get("out");
+            // todo add support for multiple outputs
+            final QueryState outputBuffer = outputBuffers.values().iterator().next();
             Preconditions.checkNotNull(outputBuffer, "outputBuffer is null");
             try {
                 // todo move all of this planning into the planner
@@ -260,6 +266,7 @@ public class SqlQueryTaskManager
                 throw Throwables.propagate(e);
             }
             catch (Exception e) {
+                e.printStackTrace();
                 outputBuffer.queryFailed(e);
                 throw Throwables.propagate(e);
             }

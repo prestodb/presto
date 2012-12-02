@@ -11,6 +11,7 @@ import com.facebook.presto.sql.compiler.Type;
 import com.facebook.presto.sql.planner.ExchangeNode;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
@@ -23,6 +24,8 @@ import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.configuration.ConfigurationModule;
 import io.airlift.event.client.InMemoryEventModule;
 import io.airlift.http.client.ApacheHttpClient;
+import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
+import io.airlift.http.client.Request;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
@@ -32,10 +35,16 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import javax.ws.rs.core.HttpHeaders;
+import javax.ws.rs.core.MediaType;
+import java.net.URI;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
+import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
+import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -169,15 +178,35 @@ public class TestHttpQueryProvider
 
     private HttpTaskClient createHttpQueryProvider(TestingHttpServer httpServer)
     {
-        ImmutableMap<String, List<PlanFragmentSource>> sourceSplits = ImmutableMap.of();
+        ImmutableMap<String, List<PlanFragmentSource>> fragmentSources = ImmutableMap.of();
         PlanFragment planFragment = new PlanFragment(32, false, ImmutableMap.<Symbol, Type>of(), new ExchangeNode(22, ImmutableList.<Symbol>of()));
 
-        return new HttpTaskClient(planFragment,
-                sourceSplits,
+        QueryFragmentRequest fragmentRequest = new QueryFragmentRequest(planFragment, ImmutableList.of("out"), fragmentSources);
+        Request request = preparePost()
+                .setUri(httpServer.getBaseUrl().resolve("/v1/presto/task"))
+                .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
+                .setBodyGenerator(jsonBodyGenerator(jsonCodec(QueryFragmentRequest.class), fragmentRequest))
+                .build();
+
+        JsonResponse<QueryTaskInfo> response = httpClient.execute(request, createFullJsonResponseHandler(jsonCodec(QueryTaskInfo.class)));
+        Preconditions.checkState(response.getStatusCode() == 201,
+                "Expected response code from %s to be 201, but was %d: %s",
+                request.getUri(),
+                response.getStatusCode(),
+                response.getStatusMessage());
+        String location = response.getHeader("Location");
+        Preconditions.checkState(location != null);
+
+        QueryTaskInfo queryTaskInfo = response.getValue();
+
+        // schedule table scan task on remote node
+        // todo we don't need a QueryDriverProvider
+        return new HttpTaskClient(queryTaskInfo.getTaskId(),
+                URI.create(location),
+                "out",
+                queryTaskInfo.getTupleInfos(),
                 httpClient,
                 executor,
-                jsonCodec(QueryFragmentRequest.class),
-                jsonCodec(QueryTaskInfo.class),
-                httpServer.getBaseUrl().resolve("/v1/presto/task"), "out");
+                jsonCodec(QueryTaskInfo.class));
     }
 }
