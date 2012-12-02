@@ -25,7 +25,7 @@ import static io.airlift.http.client.StatusResponseHandler.createStatusResponseH
 
 @ThreadSafe
 public class HttpTaskClient
-        implements QueryDriverProvider, QueryTask
+        implements QueryDriverProvider
 {
     private final String taskId;
     private final HttpClient httpClient;
@@ -51,7 +51,6 @@ public class HttpTaskClient
         this.outputId = outputId;
     }
 
-    @Override
     public String getTaskId()
     {
         return taskId;
@@ -62,7 +61,6 @@ public class HttpTaskClient
         return location;
     }
 
-    @Override
     public QueryTaskInfo getQueryTaskInfo()
     {
         URI statusUri = uriBuilderFrom(location).build();
@@ -101,7 +99,6 @@ public class HttpTaskClient
         return httpQuery;
     }
 
-    @Override
     public void cancel()
     {
         try {
