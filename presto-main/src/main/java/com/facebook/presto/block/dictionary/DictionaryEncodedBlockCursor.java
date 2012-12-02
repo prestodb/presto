@@ -1,6 +1,7 @@
 package com.facebook.presto.block.dictionary;
 
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.BlockCursor;
@@ -106,6 +107,18 @@ public class DictionaryEncodedBlockCursor implements BlockCursor
     public boolean currentTupleEquals(Tuple value)
     {
         return dictionary.tupleEquals(getDictionaryKey(), value);
+    }
+
+    @Override
+    public int getRawOffset()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void appendTupleTo(BlockBuilder blockBuilder)
+    {
+        dictionary.appendTupleTo(getDictionaryKey(), blockBuilder);
     }
 
     public int getDictionaryKey()

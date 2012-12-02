@@ -131,4 +131,8 @@ public interface BlockCursor
      * @throws IllegalStateException if this cursor is not at a valid position
      */
     boolean currentTupleEquals(Tuple value);
+
+    int getRawOffset();
+
+    void appendTupleTo(BlockBuilder blockBuilder);
 }
