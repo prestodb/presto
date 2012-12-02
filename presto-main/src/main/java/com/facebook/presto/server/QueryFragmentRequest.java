@@ -4,6 +4,7 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -18,16 +19,21 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class QueryFragmentRequest
 {
     private final PlanFragment fragment;
+    private final List<String> outputIds;
     private final Map<String, List<PlanFragmentSource>> fragmentSources;
 
     @JsonCreator
     public QueryFragmentRequest(
             @JsonProperty("fragment") PlanFragment fragment,
+            @JsonProperty("outputIds") List<String> outputIds,
             @JsonProperty("fragmentSources") Map<String, List<PlanFragmentSource>> fragmentSources)
     {
-        this.fragment = checkNotNull(fragment, "fragment is null");
-
+        checkNotNull(fragment, "fragment is null");
+        Preconditions.checkNotNull(outputIds, "outputIds is null");
         checkNotNull(fragmentSources, "fragmentSources is null");
+
+        this.fragment = fragment;
+        this.outputIds = ImmutableList.copyOf(outputIds);
         this.fragmentSources = ImmutableMap.copyOf(Maps.transformValues(fragmentSources, new Function<List<PlanFragmentSource>, List<PlanFragmentSource>>()
         {
             @Override
@@ -45,6 +51,12 @@ public class QueryFragmentRequest
     }
 
     @JsonProperty
+    public List<String> getOutputIds()
+    {
+        return outputIds;
+    }
+
+    @JsonProperty
     public Map<String, List<PlanFragmentSource>> getFragmentSources()
     {
         return fragmentSources;
@@ -55,6 +67,7 @@ public class QueryFragmentRequest
     {
         return Objects.toStringHelper(this)
                 .add("fragment", fragment)
+                .add("outputIds", outputIds)
                 .add("fragmentSources", fragmentSources)
                 .toString();
     }

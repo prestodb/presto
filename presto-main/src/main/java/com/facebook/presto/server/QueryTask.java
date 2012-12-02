@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.server;
 
-interface QueryTask
+public interface QueryTask
 {
     String getTaskId();
 

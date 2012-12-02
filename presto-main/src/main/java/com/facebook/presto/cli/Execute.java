@@ -46,8 +46,8 @@ public class Execute
             long start = System.nanoTime();
 
             ApacheHttpClient httpClient = new ApacheHttpClient(new HttpClientConfig()
-                    .setConnectTimeout(new Duration(1, TimeUnit.SECONDS))
-                    .setReadTimeout(new Duration(10, TimeUnit.SECONDS)));
+                    .setConnectTimeout(new Duration(1, TimeUnit.DAYS))
+                    .setReadTimeout(new Duration(10, TimeUnit.DAYS)));
 
             queryClient = new HttpQueryClient(query,
                     server,
@@ -80,15 +80,16 @@ public class Execute
                 try {
                     QueryInfo queryInfo = queryClient.getQueryInfo();
                     if (queryInfo == null) {
-                        throw new IllegalStateException("Query has been canceled");
+                        return;
                     }
-                    if (queryInfo.getState() != State.PREPARING) {
-                        // if query is no longer running, finish
-                        if (queryInfo.getState() != State.RUNNING) {
-                            return;
-                        }
-                        // query is running, check if there is there is pending output
-                        List<QueryTaskInfo> outStage = queryInfo.getStages().get("out");
+                    // if query is no longer running, finish
+                    if (queryInfo.getState() != State.PREPARING && queryInfo.getState() != State.RUNNING) {
+                        return;
+                    }
+
+                    // check if there is there is pending output
+                    if (queryInfo.getOutputStage() != null) {
+                        List<QueryTaskInfo> outStage = queryInfo.getStages().get(queryInfo.getOutputStage());
                         for (QueryTaskInfo outputTask : outStage) {
                             if (outputTask.getBufferedPages() > 0) {
                                 return;

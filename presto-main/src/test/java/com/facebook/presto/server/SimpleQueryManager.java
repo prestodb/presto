@@ -72,7 +72,7 @@ public class SimpleQueryManager implements QueryManager
 
         String queryId = String.valueOf(nextQueryId.getAndIncrement());
 
-        QueryTask outputTask = simpleQueryTaskManager.createQueryTask(null, ImmutableMap.<String, List<PlanFragmentSource>>of());
+        QueryTask outputTask = simpleQueryTaskManager.createQueryTask(null, ImmutableList.<String>of(), ImmutableMap.<String, List<PlanFragmentSource>>of());
         SimpleQuery simpleQuery = new SimpleQuery(queryId, outputTask.getTaskId(), simpleQueryTaskManager);
         queries.put(queryId, simpleQuery);
         return simpleQuery.getQueryInfo();
@@ -104,6 +104,7 @@ public class SimpleQueryManager implements QueryManager
             return new QueryInfo(queryId,
                     outputTask.getTupleInfos(),
                     outputTask.getState(),
+                    "out",
                     ImmutableMap.<String, List<QueryTaskInfo>>of("out", ImmutableList.of(outputTask)));
         }
     }

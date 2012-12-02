@@ -21,17 +21,19 @@ public class QueryInfo
     private final String queryId;
     private final List<TupleInfo> tupleInfos;
     private final QueryState.State state;
+    private final String outputStage;
     private final Map<String, List<QueryTaskInfo>> stages;
 
     public QueryInfo(String queryId, List<TupleInfo> tupleInfos)
     {
-        this(queryId, tupleInfos, State.PREPARING, ImmutableMap.<String, List<QueryTaskInfo>>of());
+        this(queryId, tupleInfos, State.PREPARING, null, ImmutableMap.<String, List<QueryTaskInfo>>of());
     }
 
     @JsonCreator
     public QueryInfo(@JsonProperty("queryId") String queryId,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
             @JsonProperty("state") State state,
+            @JsonProperty("outputStage") String outputStage,
             @JsonProperty("stages") Map<String, List<QueryTaskInfo>> stages)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
@@ -40,6 +42,7 @@ public class QueryInfo
         this.queryId = queryId;
         this.tupleInfos = tupleInfos;
         this.state = state;
+        this.outputStage = outputStage;
         this.stages = ImmutableMap.copyOf(stages);
     }
 
@@ -59,6 +62,12 @@ public class QueryInfo
     public State getState()
     {
         return state;
+    }
+
+    @JsonProperty
+    public String getOutputStage()
+    {
+        return outputStage;
     }
 
     @JsonProperty

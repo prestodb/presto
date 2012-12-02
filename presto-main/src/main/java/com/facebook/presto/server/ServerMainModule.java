@@ -28,6 +28,7 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
+import com.facebook.presto.sql.planner.TaskScheduler;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.base.Throwables;
@@ -65,6 +66,7 @@ public class ServerMainModule
         binder.bind(QueryTaskResource.class).in(Scopes.SINGLETON);
         binder.bind(QueryTaskManager.class).to(SqlQueryTaskManager.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(QueryTaskInfo.class);
+        binder.bind(TaskScheduler.class).in(Scopes.SINGLETON);
 
         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
         binder.bind(PlanFragmentSourceProvider.class).to(HackPlanFragmentSourceProvider.class).in(Scopes.SINGLETON);

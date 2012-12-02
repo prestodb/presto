@@ -4,6 +4,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.operator.Page;
+import com.google.common.base.Throwables;
 import com.google.common.reflect.TypeToken;
 import io.airlift.units.Duration;
 
@@ -23,6 +24,7 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 import java.net.URI;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -45,7 +47,6 @@ public class QueryTaskResource
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public List<QueryTaskInfo> getAllQueryTaskInfo()
-            throws InterruptedException
     {
         return queryTaskManager.getAllQueryTaskInfo();
     }
@@ -55,11 +56,20 @@ public class QueryTaskResource
     @Produces(MediaType.APPLICATION_JSON)
     public Response create(QueryFragmentRequest queryFragmentRequest, @Context UriInfo uriInfo)
     {
-        checkNotNull(queryFragmentRequest, "queryFragmentRequest is null");
+        try {
+            checkNotNull(queryFragmentRequest, "queryFragmentRequest is null");
 
-        QueryTask queryTask = queryTaskManager.createQueryTask(queryFragmentRequest.getFragment(), queryFragmentRequest.getFragmentSources());
-        URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryTask.getTaskId()).build();
-        return Response.created(pagesUri).entity(queryTask.getQueryTaskInfo()).build();
+            QueryTask queryTask = queryTaskManager.createQueryTask(queryFragmentRequest.getFragment(),
+                    queryFragmentRequest.getOutputIds(),
+                    queryFragmentRequest.getFragmentSources());
+            URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryTask.getTaskId()).build();
+            QueryTaskInfo queryTaskInfo = queryTask.getQueryTaskInfo();
+            return Response.created(pagesUri).entity(queryTaskInfo).build();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            throw Throwables.propagate(e);
+        }
     }
 
     @GET
@@ -69,8 +79,13 @@ public class QueryTaskResource
     {
         checkNotNull(taskId, "taskId is null");
 
-        QueryTaskInfo queryTaskInfo = queryTaskManager.getQueryTaskInfo(taskId);
-        return Response.ok(queryTaskInfo).build();
+        try {
+            QueryTaskInfo queryTaskInfo = queryTaskManager.getQueryTaskInfo(taskId);
+            return Response.ok(queryTaskInfo).build();
+        }
+        catch (NoSuchElementException e) {
+            return Response.status(Status.GONE).build();
+        }
     }
 
     @DELETE
@@ -91,11 +106,16 @@ public class QueryTaskResource
         checkNotNull(taskId, "taskId is null");
         checkNotNull(outputId, "outputId is null");
 
-        List<Page> pages = queryTaskManager.getQueryTaskResults(taskId, outputId, DEFAULT_MAX_PAGE_COUNT, DEFAULT_MAX_WAIT_TIME);
-        if (pages.isEmpty()) {
+        try {
+            List<Page> pages = queryTaskManager.getQueryTaskResults(taskId, outputId, DEFAULT_MAX_PAGE_COUNT, DEFAULT_MAX_WAIT_TIME);
+            if (pages.isEmpty()) {
+                return Response.status(Status.GONE).build();
+            }
+            GenericEntity<?> entity = new GenericEntity<>(pages, new TypeToken<List<Page>>() {}.getType());
+            return Response.ok(entity).build();
+        }
+        catch (NoSuchElementException e) {
             return Response.status(Status.GONE).build();
         }
-        GenericEntity<?> entity = new GenericEntity<>(pages, new TypeToken<List<Page>>() {}.getType());
-        return Response.ok(entity).build();
     }
 }
