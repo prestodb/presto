@@ -58,7 +58,7 @@ public class SqlQueryTaskManager
     private final PlanFragmentSourceProvider sourceProvider;
 
     private final AtomicInteger nextTaskId = new AtomicInteger();
-    private final ConcurrentMap<String, SqlQueryTask> queryTasks = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, TaskOutput> tasks = new ConcurrentHashMap<>();
 
     @Inject
     public SqlQueryTaskManager(
@@ -87,13 +87,13 @@ public class SqlQueryTaskManager
     @Override
     public List<QueryTaskInfo> getAllQueryTaskInfo()
     {
-        return ImmutableList.copyOf(filter(transform(queryTasks.values(), new Function<SqlQueryTask, QueryTaskInfo>()
+        return ImmutableList.copyOf(filter(transform(tasks.values(), new Function<TaskOutput, QueryTaskInfo>()
         {
             @Override
-            public QueryTaskInfo apply(SqlQueryTask queryTask)
+            public QueryTaskInfo apply(TaskOutput taskOutput)
             {
                 try {
-                    return queryTask.getQueryTaskInfo();
+                    return taskOutput.getQueryTaskInfo();
                 }
                 catch (Exception ignored) {
                     return null;
@@ -107,25 +107,41 @@ public class SqlQueryTaskManager
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 
-        SqlQueryTask queryTask = queryTasks.get(taskId);
-        if (queryTask == null) {
+        TaskOutput taskOutput = tasks.get(taskId);
+        if (taskOutput == null) {
             throw new NoSuchElementException("Unknown query task " + taskId);
         }
-        return queryTask.getQueryTaskInfo();
+        return taskOutput.getQueryTaskInfo();
     }
 
     @Override
-    public QueryTask createQueryTask(PlanFragment planFragment, List<String> outputIds, Map<String, List<PlanFragmentSource>> fragmentSources)
+    public QueryTaskInfo createQueryTask(PlanFragment fragment, List<String> outputIds, Map<String, List<PlanFragmentSource>> fragmentSources)
     {
-        Preconditions.checkNotNull(planFragment, "planFragment is null");
+        Preconditions.checkNotNull(fragment, "fragment is null");
         Preconditions.checkNotNull(fragmentSources, "fragmentSources is null");
 
         String taskId = String.valueOf(nextTaskId.getAndIncrement());
-        SqlQueryTask queryTask = new SqlQueryTask(taskId, planFragment, outputIds, fragmentSources, sourceProvider, metadata, shardExecutor, pageBufferMax);
-        queryTasks.put(taskId, queryTask);
+
+        // create output buffers
+        List<TupleInfo> tupleInfos = ImmutableList.copyOf(IterableTransformer.on(fragment.getRoot().getOutputSymbols())
+                .transform(Functions.forMap(fragment.getSymbols()))
+                .transform(com.facebook.presto.sql.compiler.Type.toRaw())
+                .transform(new Function<Type, TupleInfo>()
+                {
+                    @Override
+                    public TupleInfo apply(Type input)
+                    {
+                        return new TupleInfo(input);
+                    }
+                })
+                .list());
+        TaskOutput taskOutput = new TaskOutput(taskId, outputIds, tupleInfos, pageBufferMax, fragmentSources.size());
+
+        SqlQueryTask queryTask = new SqlQueryTask(taskId, fragment, taskOutput, fragmentSources, sourceProvider, metadata, shardExecutor);
         taskExecutor.submit(queryTask);
 
-        return queryTask;
+        tasks.put(taskId, taskOutput);
+        return taskOutput.getQueryTaskInfo();
     }
 
     @Override
@@ -135,11 +151,11 @@ public class SqlQueryTaskManager
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(outputName, "outputName is null");
 
-        SqlQueryTask queryTask = queryTasks.get(taskId);
-        if (queryTask == null) {
+        TaskOutput taskOutput = tasks.get(taskId);
+        if (taskOutput == null) {
             throw new NoSuchElementException("Unknown query task " + taskId);
         }
-        return queryTask.getNextPages(outputName, maxPageCount, maxWaitTime);
+        return taskOutput.getNextPages(outputName, maxPageCount, maxWaitTime);
     }
 
     @Override
@@ -147,94 +163,48 @@ public class SqlQueryTaskManager
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 
-        SqlQueryTask queryTask = queryTasks.remove(taskId);
-        if (queryTask != null) {
-            queryTask.cancel();
+        TaskOutput taskOutput = tasks.remove(taskId);
+        if (taskOutput != null) {
+            taskOutput.cancel();
         }
     }
 
     private static class SqlQueryTask
-            implements QueryTask, Runnable
+            implements Runnable
     {
         private final String taskId;
-        private final Map<String, QueryState> outputBuffers;
+        private final TaskOutput taskOutput;
         private final Map<String, List<PlanFragmentSource>> fragmentSources;
         private final PlanFragmentSourceProvider sourceProvider;
         private final ExecutorService shardExecutor;
         private final PlanFragment fragment;
-        private final List<TupleInfo> tupleInfos;
         private final Metadata metadata;
 
         private SqlQueryTask(String taskId,
                 PlanFragment fragment,
-                List<String> outputIds,
+                TaskOutput taskOutput,
                 Map<String, List<PlanFragmentSource>> fragmentSources,
                 PlanFragmentSourceProvider sourceProvider,
                 Metadata metadata,
-                ExecutorService shardExecutor,
-                int pageBufferMax)
+                ExecutorService shardExecutor)
         {
             this.taskId = taskId;
             this.fragment = fragment;
+            this.taskOutput = taskOutput;
             this.fragmentSources = fragmentSources;
             this.sourceProvider = sourceProvider;
             this.shardExecutor = shardExecutor;
             this.metadata = metadata;
-
-            this.tupleInfos = ImmutableList.copyOf(IterableTransformer.on(fragment.getRoot().getOutputSymbols())
-                    .transform(Functions.forMap(fragment.getSymbols()))
-                    .transform(com.facebook.presto.sql.compiler.Type.toRaw())
-                    .transform(new Function<Type, TupleInfo>()
-                    {
-                        @Override
-                        public TupleInfo apply(Type input)
-                        {
-                            return new TupleInfo(input);
-                        }
-                    })
-                    .list());
-
-            ImmutableMap.Builder<String, QueryState> builder = ImmutableMap.builder();
-            for (String outputId : outputIds) {
-                builder.put(outputId, new QueryState(tupleInfos, 1, pageBufferMax, this.fragmentSources.size()));
-            }
-            this.outputBuffers = builder.build();
         }
 
-        @Override
         public String getTaskId()
         {
             return taskId;
         }
 
-        public QueryTaskInfo getQueryTaskInfo()
-        {
-            QueryState outputBuffer = outputBuffers.values().iterator().next();
-            return outputBuffer.toQueryTaskInfo(taskId);
-        }
-
-        public List<Page> getNextPages(String outputName, int maxPageCount, Duration maxWaitTime)
-                throws InterruptedException
-        {
-            QueryState outputBuffer = outputBuffers.get(outputName);
-            Preconditions.checkArgument(outputBuffer != null, "Unknown output %s: available outputs %s", outputName, outputBuffers.keySet());
-            return outputBuffer.getNextPages(maxPageCount, maxWaitTime);
-        }
-
-        @Override
-        public void cancel()
-        {
-            for (QueryState outputBuffer : outputBuffers.values()) {
-                outputBuffer.cancel();
-            }
-        }
-
         @Override
         public void run()
         {
-            // todo add support for multiple outputs
-            final QueryState outputBuffer = outputBuffers.values().iterator().next();
-            Preconditions.checkNotNull(outputBuffer, "outputBuffer is null");
             try {
                 // todo move all of this planning into the planner
                 Preconditions.checkState(fragmentSources.size() == 1, "Expected single source");
@@ -243,7 +213,7 @@ public class SqlQueryTaskManager
 
                 // if we have a single source, just execute in the current thread; otherwise use the thread pool
                 if (sources.size() == 1) {
-                    new SplitWorker(outputBuffer, fragment, ImmutableMap.<String, PlanFragmentSource>of(sourceName, sources.get(0)), sourceProvider, metadata).call();
+                    new SplitWorker(taskOutput, fragment, ImmutableMap.<String, PlanFragmentSource>of(sourceName, sources.get(0)), sourceProvider, metadata).call();
                 }
                 else {
                     List<Future<Void>> results = shardExecutor.invokeAll(Lists.transform(sources, new Function<PlanFragmentSource, Callable<Void>>()
@@ -251,23 +221,23 @@ public class SqlQueryTaskManager
                         @Override
                         public Callable<Void> apply(PlanFragmentSource fragmentSource)
                         {
-                            return new SplitWorker(outputBuffer, fragment, ImmutableMap.of(sourceName, fragmentSource), sourceProvider, metadata);
+                            return new SplitWorker(taskOutput, fragment, ImmutableMap.of(sourceName, fragmentSource), sourceProvider, metadata);
                         }
                     }));
 
                     checkQueryResults(results);
                 }
 
-                outputBuffer.sourceFinished();
+                taskOutput.finish();
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                outputBuffer.queryFailed(e);
+                taskOutput.queryFailed(e);
                 throw Throwables.propagate(e);
             }
             catch (Exception e) {
                 e.printStackTrace();
-                outputBuffer.queryFailed(e);
+                taskOutput.queryFailed(e);
                 throw Throwables.propagate(e);
             }
         }
@@ -278,7 +248,7 @@ public class SqlQueryTaskManager
             return Objects.toStringHelper(this)
                     .add("taskId", taskId)
                     .add("splits", fragmentSources)
-                    .add("tupleInfos", tupleInfos)
+                    .add("taskOutput", taskOutput)
                     .toString();
         }
     }
@@ -286,18 +256,18 @@ public class SqlQueryTaskManager
     private static class SplitWorker
             implements Callable<Void>
     {
-        private final QueryState queryState;
+        private final TaskOutput taskOutput;
         private final Operator operator;
         private final Optional<DataSize> inputDataSize;
         private final Optional<Integer> inputPositionCount;
 
-        private SplitWorker(QueryState queryState,
+        private SplitWorker(TaskOutput taskOutput,
                 PlanFragment fragment,
                 Map<String, PlanFragmentSource> fragmentSources,
                 PlanFragmentSourceProvider sourceProvider,
                 Metadata metadata)
         {
-            this.queryState = queryState;
+            this.taskOutput = taskOutput;
 
             ExecutionPlanner planner = new ExecutionPlanner(new SessionMetadata(metadata),
                     sourceProvider,
@@ -308,11 +278,11 @@ public class SqlQueryTaskManager
 
             inputDataSize = planner.getInputDataSize();
             if (inputDataSize.isPresent()) {
-                queryState.addInputDataSize(inputDataSize.get());
+                taskOutput.addInputDataSize(inputDataSize.get());
             }
             inputPositionCount = planner.getInputPositionCount();
             if (inputPositionCount.isPresent()) {
-                queryState.addInputPositions(inputPositionCount.get());
+                taskOutput.addInputPositions(inputPositionCount.get());
             }
         }
 
@@ -320,26 +290,26 @@ public class SqlQueryTaskManager
         public Void call()
                 throws Exception
         {
-            queryState.splitStarted();
+            taskOutput.splitStarted();
             long startTime = System.nanoTime();
             try {
                 for (Page page : operator) {
-                    queryState.addPage(page);
+                    taskOutput.addPage(page);
                 }
                 return null;
             }
             catch (Exception e) {
-                queryState.queryFailed(e);
+                taskOutput.queryFailed(e);
                 throw Throwables.propagate(e);
             }
             finally {
-                queryState.addSplitCpuTime(Duration.nanosSince(startTime));
-                queryState.splitCompleted();
+                taskOutput.addSplitCpuTime(Duration.nanosSince(startTime));
+                taskOutput.splitCompleted();
                 if (inputDataSize.isPresent()) {
-                    queryState.addCompletedDataSize(inputDataSize.get());
+                    taskOutput.addCompletedDataSize(inputDataSize.get());
                 }
                 if (inputPositionCount.isPresent()) {
-                    queryState.addCompletedPositions(inputPositionCount.get());
+                    taskOutput.addCompletedPositions(inputPositionCount.get());
                 }
 
             }

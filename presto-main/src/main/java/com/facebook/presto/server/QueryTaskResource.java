@@ -59,11 +59,11 @@ public class QueryTaskResource
         try {
             checkNotNull(queryFragmentRequest, "queryFragmentRequest is null");
 
-            QueryTask queryTask = queryTaskManager.createQueryTask(queryFragmentRequest.getFragment(),
+            QueryTaskInfo queryTaskInfo = queryTaskManager.createQueryTask(queryFragmentRequest.getFragment(),
                     queryFragmentRequest.getOutputIds(),
                     queryFragmentRequest.getFragmentSources());
-            URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryTask.getTaskId()).build();
-            QueryTaskInfo queryTaskInfo = queryTask.getQueryTaskInfo();
+
+            URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryTaskInfo.getTaskId()).build();
             return Response.created(pagesUri).entity(queryTaskInfo).build();
         }
         catch (Exception e) {

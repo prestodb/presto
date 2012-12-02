@@ -261,7 +261,7 @@ public class StaticQueryManager
                 }
             }
 
-            for (QueryTask taskClient : Iterables.concat(stages.values())) {
+            for (HttpTaskClient taskClient : Iterables.concat(stages.values())) {
                 taskClient.cancel();
             }
         }
@@ -271,15 +271,15 @@ public class StaticQueryManager
         {
             ImmutableMap.Builder<String, List<QueryTaskInfo>> map = ImmutableMap.builder();
             for (Entry<Integer, List<HttpTaskClient>> stage : stages.entrySet()) {
-                map.put(String.valueOf(stage.getKey()), ImmutableList.copyOf(Iterables.transform(stage.getValue(), new Function<QueryTask, QueryTaskInfo>()
+                map.put(String.valueOf(stage.getKey()), ImmutableList.copyOf(Iterables.transform(stage.getValue(), new Function<HttpTaskClient, QueryTaskInfo>()
                 {
                     @Override
-                    public QueryTaskInfo apply(QueryTask queryTask)
+                    public QueryTaskInfo apply(HttpTaskClient taskClient)
                     {
-                        QueryTaskInfo taskInfo = queryTask.getQueryTaskInfo();
+                        QueryTaskInfo taskInfo = taskClient.getQueryTaskInfo();
                         if (taskInfo == null) {
                             // task was not found, so we mark the master as failed
-                            RuntimeException exception = new RuntimeException(String.format("Query %s task %s has been deleted", queryId, queryTask.getTaskId()));
+                            RuntimeException exception = new RuntimeException(String.format("Query %s task %s has been deleted", queryId, taskClient.getTaskId()));
                             cancel();
                             throw exception;
                         }
