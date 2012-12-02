@@ -23,22 +23,6 @@ import static com.google.common.base.Preconditions.checkState;
 public class ConsolePrinter
         implements Operator
 {
-    public static long print(Operator source)
-    {
-        return print(source, new DelimitedTuplePrinter());
-    }
-
-    public static long print(Operator source, TuplePrinter printer)
-    {
-        ConsolePrinter consolePrinter = new ConsolePrinter(source, printer);
-
-        int rows = 0;
-        for (Page page : consolePrinter) {
-            rows += page.getPositionCount();
-        }
-        return rows;
-    }
-
     private final Operator source;
     private final TuplePrinter printer;
 
