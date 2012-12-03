@@ -69,7 +69,7 @@ public class HttpQueryClient
 
         JsonResponse<QueryInfo> response = httpClient.execute(request, createFullJsonResponseHandler(queryInfoCodec));
         Preconditions.checkState(response.getStatusCode() == 201,
-                "Expected response code to be 201, but was %d: %s",
+                "Expected response code to be 201, but was %s: %s",
                 response.getStatusCode(),
                 response.getStatusMessage());
         String location = response.getHeader("Location");
