@@ -11,13 +11,13 @@ public class SourceHash
 {
     private final int hashChannel;
     private final PagesIndex pagesIndex;
-    private final BlocksHash blocksHash;
+    private final ChannelHash channelHash;
 
     public SourceHash(Operator source, int hashChannel, int expectedPositions)
     {
         this.hashChannel = hashChannel;
         this.pagesIndex = new PagesIndex(source, expectedPositions);
-        this.blocksHash = new BlocksHash(pagesIndex.getIndex(hashChannel));
+        this.channelHash = new ChannelHash(pagesIndex.getIndex(hashChannel));
     }
 
     public SourceHash(SourceHash sourceHash)
@@ -25,7 +25,7 @@ public class SourceHash
         this.hashChannel = sourceHash.hashChannel;
         this.pagesIndex = sourceHash.pagesIndex;
         // hash strategy can not be shared across threads
-        this.blocksHash = new BlocksHash(sourceHash.blocksHash);
+        this.channelHash = new ChannelHash(sourceHash.channelHash);
     }
 
     public int getChannelCount()
@@ -40,17 +40,17 @@ public class SourceHash
 
     public void setProbeSlice(Slice slice)
     {
-        blocksHash.setProbeSlice(slice);
+        channelHash.setLookupSlice(slice);
     }
 
     public int getJoinPosition(BlockCursor cursor)
     {
-        return blocksHash.get(cursor);
+        return channelHash.get(cursor);
     }
 
     public int getNextJoinPosition(int joinPosition)
     {
-        return blocksHash.getNextPosition(joinPosition);
+        return channelHash.getNextPosition(joinPosition);
     }
 
     public void appendTupleTo(int channel, int position, BlockBuilder blockBuilder)
