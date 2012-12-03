@@ -296,15 +296,16 @@ public class StaticQueryManager
                     overallState = State.RUNNING;
                     queryState.set(overallState);
                 }
-                Iterable<State> taskStates = transform(concat(stages.values()), new Function<QueryTaskInfo, State>() {
-                    @Override
-                    public State apply(QueryTaskInfo queryTaskInfo)
-                    {
-                        return queryTaskInfo.getState();
-                    }
-                });
 
-                if (overallState == State.PREPARING || overallState == State.RUNNING) {
+                if (overallState == State.RUNNING) {
+                    Iterable<State> taskStates = transform(concat(stages.values()), new Function<QueryTaskInfo, State>() {
+                        @Override
+                        public State apply(QueryTaskInfo queryTaskInfo)
+                        {
+                            return queryTaskInfo.getState();
+                        }
+                    });
+
                     if (Iterables.any(taskStates, Predicates.equalTo(State.FAILED))) {
                         overallState = State.FAILED;
                         queryState.set(overallState);
