@@ -18,12 +18,6 @@ public class NativeTableHandle
     }
 
     @Override
-    public String getHandleId()
-    {
-        return "presto." + tableId;
-    }
-
-    @Override
     public DataSourceType getDataSourceType()
     {
         return DataSourceType.NATIVE;

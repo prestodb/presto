@@ -18,12 +18,6 @@ public class TpchTableHandle
     }
 
     @Override
-    public String getHandleId()
-    {
-        return "tpch." + tableName;
-    }
-
-    @Override
     public DataSourceType getDataSourceType()
     {
         throw new UnsupportedOperationException();

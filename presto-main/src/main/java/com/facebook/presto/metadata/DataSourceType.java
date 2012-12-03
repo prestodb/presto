@@ -12,9 +12,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public enum DataSourceType
 {
     NATIVE("native"),
-    IMPORT("import"),
-    INTERNAL("internal"),
-    EXCHANGE("exchange"); // remote presto node processing a fragment
+    IMPORT("import");
 
     private static final Map<String, DataSourceType> NAME_MAP;
     static {
