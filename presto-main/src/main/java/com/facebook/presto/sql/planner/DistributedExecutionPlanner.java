@@ -21,14 +21,14 @@ import java.util.Random;
 
 import static com.google.common.collect.Iterables.transform;
 
-public class PhysicalPlanner
+public class DistributedExecutionPlanner
 {
     private final NodeManager nodeManager;
     private final SplitManager splitManager;
     private final Random random = new Random();
 
     @Inject
-    public PhysicalPlanner(NodeManager nodeManager, SplitManager splitManager)
+    public DistributedExecutionPlanner(NodeManager nodeManager, SplitManager splitManager)
     {
         this.nodeManager = nodeManager;
         this.splitManager = splitManager;
