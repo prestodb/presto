@@ -12,7 +12,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public enum DataSourceType
 {
     NATIVE("native"),
-    IMPORT("import");
+    IMPORT("import"),
+    INTERNAL("internal");
 
     private static final Map<String, DataSourceType> NAME_MAP;
     static {
