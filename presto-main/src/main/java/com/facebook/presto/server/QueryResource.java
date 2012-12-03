@@ -22,6 +22,9 @@ import java.util.NoSuchElementException;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 
+/**
+ * Manage queries scheduled on this node
+ */
 @Path("/v1/presto/query")
 public class QueryResource
 {

@@ -70,6 +70,7 @@ public class TaskOutput
 
     public State getState()
     {
+        // TODO: this method should not have side-effects. Move that logic to a background thread or something
         State overallState = taskState.get();
         Iterable<State> taskStates = transform(outputBuffers.values(), new Function<QueryState, State>()
         {

@@ -10,6 +10,7 @@ import java.util.IdentityHashMap;
 
 public class SourceHashProviderFactory
 {
+    // TODO: assign ids to each JoinNode instead of using identity hashmap
     private final IdentityHashMap<JoinNode, SourceHashProvider> joinHashes = new IdentityHashMap<>();
 
     public synchronized SourceHashProvider getSourceHashProvider(JoinNode node, ExecutionPlanner executionPlanner)
