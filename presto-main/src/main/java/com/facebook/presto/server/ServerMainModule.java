@@ -28,7 +28,6 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
-import com.facebook.presto.sql.planner.TaskScheduler;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.base.Throwables;
