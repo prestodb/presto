@@ -55,13 +55,6 @@ public class TestDatabaseMetadata
         assertEquals(((NativeColumnHandle) columnHandle).getColumnId(), 1);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = ".*already defined")
-    public void testAlreadyExists()
-    {
-        metadata.createTable(getOrdersTable());
-        metadata.createTable(getOrdersTable());
-    }
-
     private static TableMetadata getOrdersTable()
     {
         return new TableMetadata("default", "default", "ORDERS", ImmutableList.of(
