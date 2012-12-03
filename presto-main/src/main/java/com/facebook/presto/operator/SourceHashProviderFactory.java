@@ -12,7 +12,7 @@ public class SourceHashProviderFactory
 {
     private final IdentityHashMap<JoinNode, SourceHashProvider> joinHashes = new IdentityHashMap<>();
 
-    public SourceHashProvider getSourceHashProvider(JoinNode node, ExecutionPlanner executionPlanner)
+    public synchronized SourceHashProvider getSourceHashProvider(JoinNode node, ExecutionPlanner executionPlanner)
     {
         SourceHashProvider hashProvider = joinHashes.get(node);
         if (hashProvider == null) {
