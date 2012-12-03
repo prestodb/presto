@@ -181,7 +181,11 @@ public class TestHttpQueryProvider
         ImmutableMap<String, List<PlanFragmentSource>> fragmentSources = ImmutableMap.of();
         PlanFragment planFragment = new PlanFragment(32, false, ImmutableMap.<Symbol, Type>of(), new ExchangeNode(22, ImmutableList.<Symbol>of()));
 
-        QueryFragmentRequest fragmentRequest = new QueryFragmentRequest(planFragment, ImmutableList.of("out"), fragmentSources);
+        QueryFragmentRequest fragmentRequest = new QueryFragmentRequest(planFragment,
+                ImmutableList.<PlanFragmentSource>of(),
+                ImmutableMap.<String, ExchangePlanFragmentSource>of(),
+                ImmutableList.of("out"));
+
         Request request = preparePost()
                 .setUri(httpServer.getBaseUrl().resolve("/v1/presto/task"))
                 .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)

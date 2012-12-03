@@ -15,7 +15,7 @@ public interface QueryTaskManager
 {
     List<QueryTaskInfo> getAllQueryTaskInfo();
 
-    QueryTaskInfo createQueryTask(PlanFragment planFragment, List<String> outputIds, Map<String, List<PlanFragmentSource>> fragmentSources);
+    QueryTaskInfo createQueryTask(PlanFragment fragment, List<PlanFragmentSource> splits, Map<String, ExchangePlanFragmentSource> exchangeSources, List<String> outputIds);
 
     QueryTaskInfo getQueryTaskInfo(String taskId);
 

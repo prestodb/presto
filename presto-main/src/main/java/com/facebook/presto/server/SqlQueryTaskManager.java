@@ -6,6 +6,7 @@ package com.facebook.presto.server;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.sql.compiler.SessionMetadata;
 import com.facebook.presto.sql.planner.ExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -22,7 +23,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -115,10 +115,15 @@ public class SqlQueryTaskManager
     }
 
     @Override
-    public QueryTaskInfo createQueryTask(PlanFragment fragment, List<String> outputIds, Map<String, List<PlanFragmentSource>> fragmentSources)
+    public QueryTaskInfo createQueryTask(PlanFragment fragment,
+            List<PlanFragmentSource> splits,
+            Map<String, ExchangePlanFragmentSource> exchangeSources,
+            List<String> outputIds)
     {
         Preconditions.checkNotNull(fragment, "fragment is null");
-        Preconditions.checkNotNull(fragmentSources, "fragmentSources is null");
+        Preconditions.checkNotNull(outputIds, "outputIds is null");
+        Preconditions.checkNotNull(splits, "splits is null");
+        Preconditions.checkNotNull(exchangeSources, "exchangeSources is null");
 
         String taskId = String.valueOf(nextTaskId.getAndIncrement());
 
@@ -135,9 +140,9 @@ public class SqlQueryTaskManager
                     }
                 })
                 .list());
-        TaskOutput taskOutput = new TaskOutput(taskId, outputIds, tupleInfos, pageBufferMax, fragmentSources.size());
+        TaskOutput taskOutput = new TaskOutput(taskId, outputIds, tupleInfos, pageBufferMax, splits.size());
 
-        SqlQueryTask queryTask = new SqlQueryTask(taskId, fragment, taskOutput, fragmentSources, sourceProvider, metadata, shardExecutor);
+        SqlQueryTask queryTask = new SqlQueryTask(taskId, fragment, taskOutput, splits, exchangeSources, sourceProvider, metadata, shardExecutor);
         taskExecutor.submit(queryTask);
 
         tasks.put(taskId, taskOutput);
@@ -174,7 +179,8 @@ public class SqlQueryTaskManager
     {
         private final String taskId;
         private final TaskOutput taskOutput;
-        private final Map<String, List<PlanFragmentSource>> fragmentSources;
+        private final List<PlanFragmentSource> splits;
+        private final Map<String, ExchangePlanFragmentSource> exchangeSources;
         private final PlanFragmentSourceProvider sourceProvider;
         private final ExecutorService shardExecutor;
         private final PlanFragment fragment;
@@ -183,7 +189,8 @@ public class SqlQueryTaskManager
         private SqlQueryTask(String taskId,
                 PlanFragment fragment,
                 TaskOutput taskOutput,
-                Map<String, List<PlanFragmentSource>> fragmentSources,
+                List<PlanFragmentSource> splits,
+                Map<String, ExchangePlanFragmentSource> exchangeSources,
                 PlanFragmentSourceProvider sourceProvider,
                 Metadata metadata,
                 ExecutorService shardExecutor)
@@ -191,7 +198,8 @@ public class SqlQueryTaskManager
             this.taskId = taskId;
             this.fragment = fragment;
             this.taskOutput = taskOutput;
-            this.fragmentSources = fragmentSources;
+            this.splits = splits;
+            this.exchangeSources = exchangeSources;
             this.sourceProvider = sourceProvider;
             this.shardExecutor = shardExecutor;
             this.metadata = metadata;
@@ -206,22 +214,19 @@ public class SqlQueryTaskManager
         public void run()
         {
             try {
-                // todo move all of this planning into the planner
-                Preconditions.checkState(fragmentSources.size() == 1, "Expected single source");
-                final String sourceName = fragmentSources.keySet().iterator().next();
-                List<PlanFragmentSource> sources = fragmentSources.values().iterator().next();
-
-                // if we have a single source, just execute in the current thread; otherwise use the thread pool
-                if (sources.size() == 1) {
-                    new SplitWorker(taskOutput, fragment, ImmutableMap.<String, PlanFragmentSource>of(sourceName, sources.get(0)), sourceProvider, metadata).call();
+                // if we have a single split, just execute in the current thread; otherwise use the thread pool
+                final SourceHashProviderFactory sourceHashProviderFactory = new SourceHashProviderFactory();
+                if (splits.size() <= 1) {
+                    PlanFragmentSource split = splits.isEmpty() ? null : splits.get(0);
+                    new SplitWorker(taskOutput, fragment, split, exchangeSources, sourceHashProviderFactory, sourceProvider, metadata).call();
                 }
                 else {
-                    List<Future<Void>> results = shardExecutor.invokeAll(Lists.transform(sources, new Function<PlanFragmentSource, Callable<Void>>()
+                    List<Future<Void>> results = shardExecutor.invokeAll(Lists.transform(splits, new Function<PlanFragmentSource, Callable<Void>>()
                     {
                         @Override
-                        public Callable<Void> apply(PlanFragmentSource fragmentSource)
+                        public Callable<Void> apply(PlanFragmentSource split)
                         {
-                            return new SplitWorker(taskOutput, fragment, ImmutableMap.of(sourceName, fragmentSource), sourceProvider, metadata);
+                            return new SplitWorker(taskOutput, fragment, split, exchangeSources, sourceHashProviderFactory, sourceProvider, metadata);
                         }
                     }));
 
@@ -247,7 +252,7 @@ public class SqlQueryTaskManager
         {
             return Objects.toStringHelper(this)
                     .add("taskId", taskId)
-                    .add("splits", fragmentSources)
+                    .add("splits", exchangeSources)
                     .add("taskOutput", taskOutput)
                     .toString();
         }
@@ -263,7 +268,9 @@ public class SqlQueryTaskManager
 
         private SplitWorker(TaskOutput taskOutput,
                 PlanFragment fragment,
-                Map<String, PlanFragmentSource> fragmentSources,
+                PlanFragmentSource split,
+                Map<String, ExchangePlanFragmentSource> exchangeSources,
+                SourceHashProviderFactory sourceHashProviderFactory,
                 PlanFragmentSourceProvider sourceProvider,
                 Metadata metadata)
         {
@@ -272,7 +279,9 @@ public class SqlQueryTaskManager
             ExecutionPlanner planner = new ExecutionPlanner(new SessionMetadata(metadata),
                     sourceProvider,
                     fragment.getSymbols(),
-                    fragmentSources);
+                    split,
+                    exchangeSources,
+                    sourceHashProviderFactory);
 
             operator = planner.plan(fragment.getRoot());
 

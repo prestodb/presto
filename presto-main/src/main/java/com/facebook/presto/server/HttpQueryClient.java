@@ -89,7 +89,7 @@ public class HttpQueryClient
         }
 
         Preconditions.checkState(response.getStatusCode() == Status.OK.getStatusCode(),
-                "Expected response code to be 201, but was %d: %s",
+                "Expected response code to be 201, but was %s: %s",
                 response.getStatusCode(),
                 response.getStatusMessage());
 

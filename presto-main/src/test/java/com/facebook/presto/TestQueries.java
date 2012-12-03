@@ -14,10 +14,11 @@ import com.facebook.presto.ingest.StringRecord;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.serde.BlocksFileEncoding;
+import com.facebook.presto.server.ExchangePlanFragmentSource;
 import com.facebook.presto.server.HackPlanFragmentSourceProvider;
 import com.facebook.presto.server.QueryTaskInfo;
-import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.server.TableScanPlanFragmentSource;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.sql.compiler.AnalysisResult;
@@ -27,6 +28,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExecutionPlanner;
 import com.facebook.presto.sql.planner.FragmentPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanNode;
 import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.Planner;
@@ -519,7 +521,9 @@ public class TestQueries
         ExecutionPlanner executionPlanner = new ExecutionPlanner(sessionMetadata,
                 new HackPlanFragmentSourceProvider(dataProvider, QUERY_TASK_INFO_CODEC),
                 analysis.getTypes(),
-                ImmutableMap.<String, PlanFragmentSource>of(table.getHandleId(), tableScanSource));
+                tableScanSource,
+                ImmutableMap.<String, ExchangePlanFragmentSource>of(),
+                new SourceHashProviderFactory());
         Operator operator = executionPlanner.plan(plan);
 
         TupleInfo outputTupleInfo = ExecutionPlanner.toTupleInfo(analysis, plan.getOutputSymbols());

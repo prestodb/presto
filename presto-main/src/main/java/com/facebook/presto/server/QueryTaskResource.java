@@ -60,8 +60,10 @@ public class QueryTaskResource
             checkNotNull(queryFragmentRequest, "queryFragmentRequest is null");
 
             QueryTaskInfo queryTaskInfo = queryTaskManager.createQueryTask(queryFragmentRequest.getFragment(),
-                    queryFragmentRequest.getOutputIds(),
-                    queryFragmentRequest.getFragmentSources());
+                    queryFragmentRequest.getSplits(),
+                    queryFragmentRequest.getExchangeSources(),
+                    queryFragmentRequest.getOutputIds()
+            );
 
             URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryTaskInfo.getTaskId()).build();
             return Response.created(pagesUri).entity(queryTaskInfo).build();

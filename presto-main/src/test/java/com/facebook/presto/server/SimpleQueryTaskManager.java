@@ -73,7 +73,9 @@ public class SimpleQueryTaskManager
     }
 
     @Override
-    public QueryTaskInfo createQueryTask(PlanFragment planFragment, List<String> outputIds, Map<String, List<PlanFragmentSource>> fragmentSources)
+    public QueryTaskInfo createQueryTask(PlanFragment fragment,
+            List<PlanFragmentSource> splits,
+            Map<String, ExchangePlanFragmentSource> exchangeSources, List<String> outputIds)
     {
         String taskId = String.valueOf(nextTaskId.getAndIncrement());
         TaskOutput taskOutput = new TaskOutput(taskId, ImmutableList.copyOf(outputIds), TUPLE_INFOS, pageBufferMax, 0);

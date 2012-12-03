@@ -8,15 +8,19 @@ import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.FilterFunctions;
 import com.facebook.presto.operator.HashAggregationOperator;
+import com.facebook.presto.operator.HashJoinOperator;
 import com.facebook.presto.operator.LimitOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
+import com.facebook.presto.operator.SourceHashProvider;
+import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.operator.TopNOperator;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.AggregationFunctionStep;
 import com.facebook.presto.operator.aggregation.AggregationFunctions;
 import com.facebook.presto.operator.aggregation.Input;
+import com.facebook.presto.server.ExchangePlanFragmentSource;
 import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.SessionMetadata;
 import com.facebook.presto.sql.compiler.Symbol;
@@ -33,6 +37,7 @@ import com.facebook.presto.util.MoreFunctions;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
@@ -52,17 +57,27 @@ public class ExecutionPlanner
     private final SessionMetadata metadata;
     private final PlanFragmentSourceProvider sourceProvider;
     private final Map<Symbol, Type> types;
-    private final Map<String, PlanFragmentSource> fragmentSources;
+    private final PlanFragmentSource split;
+    private final Map<String, ExchangePlanFragmentSource> exchangeSources;
+
+    private final SourceHashProviderFactory joinHashFactory;
 
     private Optional<DataSize> inputDataSize = Optional.absent();
     private Optional<Integer> inputPositionCount = Optional.absent();
 
-    public ExecutionPlanner(SessionMetadata metadata, PlanFragmentSourceProvider sourceProvider, Map<Symbol, Type> types, Map<String, PlanFragmentSource> fragmentSources)
+    public ExecutionPlanner(SessionMetadata metadata,
+            PlanFragmentSourceProvider sourceProvider,
+            Map<Symbol, Type> types,
+            PlanFragmentSource split,
+            Map<String, ExchangePlanFragmentSource> exchangeSources,
+            SourceHashProviderFactory joinHashFactory)
     {
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.sourceProvider = checkNotNull(sourceProvider, "sourceProvider is null");
         this.types = checkNotNull(types, "types is null");
-        this.fragmentSources = checkNotNull(fragmentSources, "sourceSplits is null");
+        this.split = split;
+        this.exchangeSources = ImmutableMap.copyOf(checkNotNull(exchangeSources, "exchangeSources is null"));
+        this.joinHashFactory = checkNotNull(joinHashFactory, "joinHashFactory is null");
     }
 
     public Operator plan(PlanNode plan)
@@ -91,6 +106,9 @@ public class ExecutionPlanner
         else if (plan instanceof ExchangeNode) {
             return createExchange((ExchangeNode) plan);
         }
+        else if (plan instanceof JoinNode) {
+            return createJoinNode((JoinNode) plan);
+        }
 
         throw new UnsupportedOperationException("not yet implemented: " + plan.getClass().getName());
     }
@@ -107,9 +125,9 @@ public class ExecutionPlanner
 
     private Operator createExchange(ExchangeNode node)
     {
-        int fragmentSourceId = node.getSourceFragmentId();
-        PlanFragmentSource source = fragmentSources.get(String.valueOf(fragmentSourceId));
-        Preconditions.checkState(source != null, "Source for fragment %s was not found: available sources %s", fragmentSourceId, fragmentSources.keySet());
+        int sourceFragmentId = node.getSourceFragmentId();
+        ExchangePlanFragmentSource source = exchangeSources.get(String.valueOf(sourceFragmentId));
+        Preconditions.checkState(source != null, "Exchange source for fragment %s was not found: available sources %s", sourceFragmentId, exchangeSources.keySet());
         return sourceProvider.createDataStream(source, ImmutableList.<ColumnHandle>of());
     }
 
@@ -265,16 +283,23 @@ public class ExecutionPlanner
                 .transform(MoreFunctions.<Symbol, ColumnHandle>valueGetter())
                 .list();
 
-        String fragmentSourceId = node.getTable().getHandleId();
-        PlanFragmentSource source = fragmentSources.get(fragmentSourceId);
-        Preconditions.checkState(source != null, "Source for fragment %s was not found: available sources %s", fragmentSourceId, fragmentSources.keySet());
+        // table scan only works with a split
+        Preconditions.checkState(split != null, "This fragment does not have a split");
 
-        Operator operator = sourceProvider.createDataStream(source, columns);
+        Operator operator = sourceProvider.createDataStream(split, columns);
         if (operator instanceof AlignmentOperator) {
             AlignmentOperator alignmentOperator = (AlignmentOperator) operator;
             inputDataSize = alignmentOperator.getDataSize();
             inputPositionCount = alignmentOperator.getPositionCount();
         }
+        return operator;
+    }
+
+    private Operator createJoinNode(JoinNode node)
+    {
+        SourceHashProvider hashProvider = joinHashFactory.getSourceHashProvider(node, this);
+        Operator leftOperator = plan(node.getLeft());
+        HashJoinOperator operator = new HashJoinOperator(hashProvider, leftOperator, 0);
         return operator;
     }
 
