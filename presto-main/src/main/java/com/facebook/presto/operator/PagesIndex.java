@@ -15,20 +15,27 @@ import it.unimi.dsi.fastutil.ints.AbstractIntComparator;
 
 import java.util.List;
 
+/**
+ * PagesIndex a low-level data structure which contains the address of every value position of every channel.
+ * This data structure is not general purpose and is designed for a few specific uses:
+ *   Sort via the sort method
+ *   Hash build via the iterator method
+ *   Positional output via the appendTo method
+ */
 public class PagesIndex
         implements Swapper
 {
-    private final BlocksIndex[] indexes;
+    private final ChannelIndex[] indexes;
     private final int channelCount;
     private final int positionCount;
 
     public PagesIndex(Operator source, int expectedPositions)
     {
         channelCount = source.getChannelCount();
-        indexes = new BlocksIndex[channelCount];
+        indexes = new ChannelIndex[channelCount];
         List<TupleInfo> tupleInfos = source.getTupleInfos();
         for (int channel = 0; channel < indexes.length; channel++) {
-            indexes[channel] = new BlocksIndex(expectedPositions, tupleInfos.get(channel));
+            indexes[channel] = new ChannelIndex(expectedPositions, tupleInfos.get(channel));
         }
 
         int positionCount = 0;
@@ -58,7 +65,7 @@ public class PagesIndex
         return indexes[channel].getTupleInfo();
     }
 
-    public BlocksIndex getIndex(int channel)
+    public ChannelIndex getIndex(int channel)
     {
         return indexes[channel];
     }
@@ -66,7 +73,7 @@ public class PagesIndex
     @Override
     public void swap(int a, int b)
     {
-        for (BlocksIndex index : indexes) {
+        for (ChannelIndex index : indexes) {
             index.swap(a, b);
         }
     }
@@ -78,9 +85,9 @@ public class PagesIndex
 
     public void sort(int orderByChannel, int[] sortFields, boolean[] sortOrder)
     {
-        BlocksIndex index = indexes[orderByChannel];
+        ChannelIndex index = indexes[orderByChannel];
         MultiSliceFieldOrderedTupleComparator comparator = new MultiSliceFieldOrderedTupleComparator(sortFields, sortOrder, index);
-        Arrays.quickSort(0, indexes[0].getOffsets().size(), comparator, this);
+        Arrays.quickSort(0, indexes[0].getValueAddresses().size(), comparator, this);
     }
 
     public static class MultiSliceFieldOrderedTupleComparator
@@ -93,9 +100,9 @@ public class PagesIndex
         private final int[] sortFields;
         private final boolean[] sortOrder;
 
-        public MultiSliceFieldOrderedTupleComparator(int[] sortFields, boolean[] sortOrder, BlocksIndex index)
+        public MultiSliceFieldOrderedTupleComparator(int[] sortFields, boolean[] sortOrder, ChannelIndex index)
         {
-            this(sortFields, sortOrder, index.getTupleInfo(), index.getOffsets().elements(), index.getSlices().elements());
+            this(sortFields, sortOrder, index.getTupleInfo(), index.getValueAddresses().elements(), index.getSlices().elements());
         }
 
         public MultiSliceFieldOrderedTupleComparator(int[] sortFields, boolean[] sortOrder, TupleInfo tupleInfo, long[] sliceAddresses, Slice... slices)
@@ -117,13 +124,14 @@ public class PagesIndex
             int leftOffset = (int) leftSliceAddress;
 
             long rightSliceAddress = sliceAddresses[rightPosition];
-            Slice rightSlice = slices[((int) (rightSliceAddress >> 32))];
+            Slice :rightSlice = slices[((int) (rightSliceAddress >> 32))];
             int rightOffset = (int) rightSliceAddress;
 
             for (int i = 0; i < sortFields.length; i++) {
                 int field = sortFields[i];
                 Type type = types[field];
 
+                // todo add support for nulls first, nulls last
                 int comparison;
                 switch (type) {
                     case FIXED_INT_64:
