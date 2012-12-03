@@ -243,7 +243,6 @@ public class SqlQueryTaskManager
                 throw Throwables.propagate(e);
             }
             catch (Exception e) {
-                e.printStackTrace();
                 taskOutput.queryFailed(e);
                 throw Throwables.propagate(e);
             }
