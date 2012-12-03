@@ -1,9 +1,7 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.Main;
-import com.facebook.presto.operator.ConsolePrinter;
-import com.facebook.presto.operator.ConsolePrinter.DelimitedTuplePrinter;
-import com.facebook.presto.operator.Page;
+import com.facebook.presto.operator.OutputProcessor;
 import com.facebook.presto.server.HttpQueryProvider;
 import com.facebook.presto.server.QueryDriversOperator;
 import com.facebook.presto.server.QueryInfo;
@@ -25,6 +23,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.operator.OutputProcessor.OutputStats;
 import static com.google.common.collect.Iterables.concat;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 
@@ -61,15 +60,10 @@ public class Execute
 
             QueryDriversOperator operator = new QueryDriversOperator(10, queryProvider);
 
-            ConsolePrinter consolePrinter = new ConsolePrinter(operator, new DelimitedTuplePrinter());
+            OutputProcessor processor = new OutputProcessor(operator, new TuplePrinters.DelimitedTuplePrinter());
+            OutputStats stats = processor.process();
 
-            long outputPositions = 0;
-            long outputDataSize = 0;
-            for (Page page : consolePrinter) {
-                outputPositions += page.getPositionCount();
-                outputDataSize += page.getDataSize().toBytes();
-            }
-            System.err.println(toFinalInfo(queryProvider.getQueryInfo(), start, outputPositions, outputDataSize));
+            System.err.println(toFinalInfo(queryProvider.getQueryInfo(), start, stats.getRows(), stats.getBytes()));
         }
         finally {
             if (queryProvider != null) {
