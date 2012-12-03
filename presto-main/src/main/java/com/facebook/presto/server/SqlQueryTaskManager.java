@@ -27,6 +27,7 @@ import com.google.common.collect.Lists;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
@@ -218,7 +219,8 @@ public class SqlQueryTaskManager
                 final SourceHashProviderFactory sourceHashProviderFactory = new SourceHashProviderFactory();
                 if (splits.size() <= 1) {
                     PlanFragmentSource split = splits.isEmpty() ? null : splits.get(0);
-                    new SplitWorker(taskOutput, fragment, split, exchangeSources, sourceHashProviderFactory, sourceProvider, metadata).call();
+                    SplitWorker worker = new SplitWorker(taskOutput, fragment, split, exchangeSources, sourceHashProviderFactory, sourceProvider, metadata);
+                    worker.call();
                 }
                 else {
                     List<Future<Void>> results = shardExecutor.invokeAll(Lists.transform(splits, new Function<PlanFragmentSource, Callable<Void>>()
@@ -268,7 +270,7 @@ public class SqlQueryTaskManager
 
         private SplitWorker(TaskOutput taskOutput,
                 PlanFragment fragment,
-                PlanFragmentSource split,
+                @Nullable PlanFragmentSource split,
                 Map<String, ExchangePlanFragmentSource> exchangeSources,
                 SourceHashProviderFactory sourceHashProviderFactory,
                 PlanFragmentSourceProvider sourceProvider,

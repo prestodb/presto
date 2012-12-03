@@ -38,6 +38,7 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 
 public class TaskScheduler
 {
+    private static final String ROOT_OUTPUT_BUFFER_NAME = "out";
     private final ExecutorService executor;
     private final ApacheHttpClient httpClient;
     private final JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec;
@@ -57,7 +58,7 @@ public class TaskScheduler
 
     public void schedule(Stage stage, ConcurrentMap<String, List<HttpTaskClient>> stageTasks)
     {
-        scheduleFragment(stage, ImmutableList.of("out"), stageTasks);
+        scheduleFragment(stage, ImmutableList.of(ROOT_OUTPUT_BUFFER_NAME), stageTasks);
     }
 
     private void scheduleFragment(final Stage stage,
