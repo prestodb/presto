@@ -71,7 +71,6 @@ public class QueryTaskResource
             return Response.created(pagesUri).entity(queryTaskInfo).build();
         }
         catch (Exception e) {
-            e.printStackTrace();
             throw Throwables.propagate(e);
         }
     }

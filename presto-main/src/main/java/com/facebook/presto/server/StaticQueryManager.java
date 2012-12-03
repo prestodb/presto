@@ -134,7 +134,6 @@ public class StaticQueryManager
         }
         catch (RuntimeException e) {
             // todo need better signal for a failed task
-            e.printStackTrace();
             queries.remove(queryId);
             throw e;
         }
@@ -338,7 +337,6 @@ public class StaticQueryManager
                 }
             }
             catch (Exception e) {
-                e.printStackTrace();
                 queryState.set(State.FAILED);
                 cancel();
                 throw Throwables.propagate(e);
