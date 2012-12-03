@@ -60,7 +60,7 @@ public class Execute
 
             Operator operator = queryClient.getResultsOperator();
 
-            OutputProcessor processor = new OutputProcessor(operator, new TuplePrinters.DelimitedTuplePrinter());
+            OutputProcessor processor = new OutputProcessor(operator, new DelimitedTuplePrinter());
             OutputStats stats = processor.process();
 
             System.err.println(toFinalInfo(queryClient.getQueryInfo(), start, stats.getRows(), stats.getBytes()));
