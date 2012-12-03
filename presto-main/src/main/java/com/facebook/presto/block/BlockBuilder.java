@@ -8,7 +8,6 @@ import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Charsets;
-import com.google.common.base.Preconditions;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
@@ -111,7 +110,7 @@ public class BlockBuilder
 
     public BlockBuilder appendTuple(Slice slice, int offset)
     {
-        Preconditions.checkState(!tupleBuilder.isPartial());
+        checkState(!tupleBuilder.isPartial(), "Tuple is not complete");
 
         // read the tuple length
         int length = tupleInfo.size(slice, offset);
@@ -122,7 +121,7 @@ public class BlockBuilder
 
     public BlockBuilder appendTuple(Slice slice, int offset, int length)
     {
-        Preconditions.checkState(!tupleBuilder.isPartial());
+        checkState(!tupleBuilder.isPartial(), "Tuple is not complete");
 
         // copy tuple to output
         sliceOutput.writeBytes(slice, offset, length);

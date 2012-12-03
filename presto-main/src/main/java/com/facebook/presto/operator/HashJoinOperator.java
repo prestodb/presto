@@ -34,6 +34,7 @@ public class HashJoinOperator
         ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
         tupleInfos.addAll(probeSource.getTupleInfos());
         int buildChannel = 0;
+        // todo planner should choose which channels are preserved/dropped
         for (TupleInfo tupleInfo : this.sourceHashProvider.getTupleInfos()) {
             if (buildChannel != this.sourceHashProvider.getHashChannel()) {
                 tupleInfos.add(tupleInfo);
@@ -91,7 +92,7 @@ public class HashJoinOperator
             PageBuilder pageBuilder = new PageBuilder(tupleInfos);
 
             // join probe pages with the hash
-            while (joinPosition(pageBuilder)) {
+            while (joinCurrentPosition(pageBuilder)) {
                 // advance cursors (only if we have initialized the cursors)
                 if (cursors[0] == null || !advanceNextPosition()) {
                     // advance failed, do we have more cursors
@@ -123,7 +124,7 @@ public class HashJoinOperator
             return page;
         }
 
-        private boolean joinPosition(PageBuilder pageBuilder)
+        private boolean joinCurrentPosition(PageBuilder pageBuilder)
         {
             // while we have a position to join against...
             while (joinPosition >= 0) {
