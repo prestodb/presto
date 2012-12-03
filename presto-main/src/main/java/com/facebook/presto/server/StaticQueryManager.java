@@ -10,27 +10,27 @@ import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeColumnHandle;
 import com.facebook.presto.metadata.NativeTableHandle;
+import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.server.QueryState.State;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.SchemaField;
 import com.facebook.presto.split.ImportClientFactory;
+import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.Analyzer;
 import com.facebook.presto.sql.compiler.SessionMetadata;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.FragmentPlanner;
+import com.facebook.presto.sql.planner.PhysicalPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanNode;
 import com.facebook.presto.sql.planner.Planner;
-import com.facebook.presto.sql.planner.TaskScheduler;
+import com.facebook.presto.sql.planner.Stage;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
-import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.base.Splitter;
@@ -68,6 +68,8 @@ public class StaticQueryManager
     private final ImportClientFactory importClientFactory;
     private final ImportManager importManager;
     private final Metadata metadata;
+    private final NodeManager nodeManager;
+    private final SplitManager splitManager;
 
     private final AtomicInteger nextQueryId = new AtomicInteger();
     private final ConcurrentMap<String, QueryWorker> queries = new ConcurrentHashMap<>();
@@ -77,7 +79,9 @@ public class StaticQueryManager
             TaskScheduler taskScheduler,
             ImportClientFactory importClientFactory,
             ImportManager importManager,
-            Metadata metadata)
+            Metadata metadata,
+            NodeManager nodeManager,
+            SplitManager splitManager)
     {
         Preconditions.checkNotNull(taskScheduler, "taskScheduler is null");
         Preconditions.checkNotNull(importClientFactory, "importClientFactory is null");
@@ -94,6 +98,8 @@ public class StaticQueryManager
         this.importClientFactory = importClientFactory;
         this.importManager = importManager;
         this.metadata = metadata;
+        this.nodeManager = nodeManager;
+        this.splitManager = splitManager;
     }
 
     @Override
@@ -144,7 +150,12 @@ public class StaticQueryManager
         if (query.startsWith("sql:")) {
             // e.g.: sql:select count(*) from hivedba_query_stats
             String sql = query.substring("sql:".length());
-            queryWorker = new SqlQueryWorker(String.valueOf(nextQueryId.getAndIncrement()), sql, taskScheduler, new SessionMetadata(metadata));
+            queryWorker = new SqlQueryWorker(String.valueOf(nextQueryId.getAndIncrement()),
+                    sql,
+                    taskScheduler,
+                    new SessionMetadata(metadata),
+                    nodeManager,
+                    splitManager);
         }
         else {
             // todo this is a hack until we have language support for import or create table as select
@@ -195,13 +206,11 @@ public class StaticQueryManager
         private final String queryId;
         private final TaskScheduler taskScheduler;
         private final SessionMetadata sessionMetadata;
-        private final List<PlanFragment> fragments;
-        private final List<TupleInfo> tupleInfos;
-        private final AtomicReference<String> outputStage = new AtomicReference<>();
-        private final ConcurrentHashMap<Integer, List<HttpTaskClient>> stages = new ConcurrentHashMap<>();
+        private final ConcurrentHashMap<String, List<HttpTaskClient>> stages = new ConcurrentHashMap<>();
         private final AtomicReference<State> queryState = new AtomicReference<>(State.PREPARING);
+        private final Stage outputStage;
 
-        public SqlQueryWorker(String queryId, String sql, TaskScheduler taskScheduler, SessionMetadata sessionMetadata)
+        public SqlQueryWorker(String queryId, String sql, TaskScheduler taskScheduler, SessionMetadata sessionMetadata, NodeManager nodeManager, SplitManager splitManager)
         {
             this.queryId = queryId;
             this.taskScheduler = taskScheduler;
@@ -221,25 +230,17 @@ public class StaticQueryManager
 
                 // fragment the plan
                 FragmentPlanner fragmentPlanner = new FragmentPlanner(this.sessionMetadata);
-                fragments = fragmentPlanner.createFragments(plan, analysis.getSymbolAllocator(), false);
+                List<PlanFragment> fragments = fragmentPlanner.createFragments(plan, analysis.getSymbolAllocator(), false);
+
+                // plan the execution on the active nodes
+                PhysicalPlanner physicalPlanner = new PhysicalPlanner(nodeManager, splitManager);
+                outputStage = physicalPlanner.plan(fragments);
+
             }
             catch (Exception e) {
                 throw Throwables.propagate(e);
             }
 
-            PlanFragment top = fragments.get(fragments.size() - 1); // todo find fragment containing output source instead of using last position
-            tupleInfos = ImmutableList.copyOf(IterableTransformer.on(top.getRoot().getOutputSymbols())
-                    .transform(Functions.forMap(top.getSymbols()))
-                    .transform(com.facebook.presto.sql.compiler.Type.toRaw())
-                    .transform(new Function<Type, TupleInfo>()
-                    {
-                        @Override
-                        public TupleInfo apply(Type input)
-                        {
-                            return new TupleInfo(input);
-                        }
-                    })
-                    .list());
         }
 
         @Override
@@ -270,7 +271,7 @@ public class StaticQueryManager
         public QueryInfo getQueryInfo()
         {
             ImmutableMap.Builder<String, List<QueryTaskInfo>> map = ImmutableMap.builder();
-            for (Entry<Integer, List<HttpTaskClient>> stage : stages.entrySet()) {
+            for (Entry<String, List<HttpTaskClient>> stage : stages.entrySet()) {
                 map.put(String.valueOf(stage.getKey()), ImmutableList.copyOf(Iterables.transform(stage.getValue(), new Function<HttpTaskClient, QueryTaskInfo>()
                 {
                     @Override
@@ -321,18 +322,15 @@ public class StaticQueryManager
                 }
             }
 
-            return new QueryInfo(queryId, tupleInfos, overallState, outputStage.get(), stages);
+            return new QueryInfo(queryId, outputStage.getTupleInfos(), overallState, outputStage.getStageId(), stages);
         }
 
         @Override
         public void run()
         {
             try {
-                Integer outputStage = taskScheduler.schedule(fragments, stages);
-                if (!stages.isEmpty()) {
-                    this.outputStage.set(String.valueOf(outputStage));
-                }
-                else {
+                taskScheduler.schedule(outputStage, stages);
+                if (stages.get(outputStage.getStageId()).isEmpty()) {
                     queryState.set(State.FINISHED);
                 }
             }
