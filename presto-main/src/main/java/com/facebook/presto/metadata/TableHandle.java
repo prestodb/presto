@@ -14,6 +14,5 @@ import org.codehaus.jackson.annotate.JsonTypeInfo;
         @JsonSubTypes.Type(value = TpchTableHandle.class, name = "tpch")})
 public interface TableHandle
 {
-    String getHandleId();
     DataSourceType getDataSourceType();
 }
