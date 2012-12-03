@@ -245,7 +245,7 @@ public class Execute
     private String formatDataRate(long inputDataSize, Duration duration)
     {
         double rate = inputDataSize / duration.convertTo(TimeUnit.SECONDS);
-        if (Double.isNaN(rate)) {
+        if (Double.isNaN(rate) || Double.isInfinite(rate)) {
             return "0Bps";
         }
         DataSize dataSize = new DataSize(rate, Unit.BYTE).convertToMostSuccinctDataSize();
