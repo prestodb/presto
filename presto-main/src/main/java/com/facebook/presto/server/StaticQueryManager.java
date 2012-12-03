@@ -21,8 +21,8 @@ import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.Analyzer;
 import com.facebook.presto.sql.compiler.SessionMetadata;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.DistributedExecutionPlanner;
 import com.facebook.presto.sql.planner.FragmentPlanner;
-import com.facebook.presto.sql.planner.PhysicalPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanNode;
 import com.facebook.presto.sql.planner.Planner;
@@ -233,8 +233,8 @@ public class StaticQueryManager
                 List<PlanFragment> fragments = fragmentPlanner.createFragments(plan, analysis.getSymbolAllocator(), false);
 
                 // plan the execution on the active nodes
-                PhysicalPlanner physicalPlanner = new PhysicalPlanner(nodeManager, splitManager);
-                outputStage = physicalPlanner.plan(fragments);
+                DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(nodeManager, splitManager);
+                outputStage = distributedPlanner.plan(fragments);
 
             }
             catch (Exception e) {
