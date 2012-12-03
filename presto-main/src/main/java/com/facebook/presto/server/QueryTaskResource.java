@@ -30,6 +30,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+/**
+ * Manages tasks on this worker node
+ */
 @Path("/v1/presto/task")
 public class QueryTaskResource
 {
@@ -62,8 +65,7 @@ public class QueryTaskResource
             QueryTaskInfo queryTaskInfo = queryTaskManager.createQueryTask(queryFragmentRequest.getFragment(),
                     queryFragmentRequest.getSplits(),
                     queryFragmentRequest.getExchangeSources(),
-                    queryFragmentRequest.getOutputIds()
-            );
+                    queryFragmentRequest.getOutputIds());
 
             URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryTaskInfo.getTaskId()).build();
             return Response.created(pagesUri).entity(queryTaskInfo).build();

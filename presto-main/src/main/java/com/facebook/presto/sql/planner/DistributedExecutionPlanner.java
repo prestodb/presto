@@ -41,8 +41,7 @@ public class DistributedExecutionPlanner
         return plan(rootPlanFragment, fragments);
     }
 
-    private Stage plan(final PlanFragment currentFragment,
-            List<PlanFragment> allFragments)
+    private Stage plan(final PlanFragment currentFragment, List<PlanFragment> allFragments)
     {
         // get partitions for this fragment
         List<Partition> partitions;
@@ -59,7 +58,7 @@ public class DistributedExecutionPlanner
             partitions = ImmutableList.of(new Partition(node, ImmutableList.<PlanFragmentSource>of()));
         }
 
-        // schedule the child fragments with an output for each partition
+        // create child stages
         ImmutableList.Builder<Stage> dependencies = ImmutableList.builder();
         for (PlanFragment childPlanFragment : getChildPlanFragments(currentFragment.getRoot(), allFragments)) {
             Stage dependency = plan(childPlanFragment, allFragments);
@@ -105,7 +104,7 @@ public class DistributedExecutionPlanner
             List<Partition> leftPartitions = getPartitions(joinNode.getLeft());
             List<Partition> rightPartitions = getPartitions(joinNode.getRight());
             if (!leftPartitions.isEmpty() && !rightPartitions.isEmpty()) {
-                throw new IllegalArgumentException("Both left and right join nodes are partitioned");
+                throw new IllegalArgumentException("Both left and right join nodes are partitioned"); // TODO: "partitioned" may not be the right term
             }
             if (!leftPartitions.isEmpty()) {
                 return leftPartitions;

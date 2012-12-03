@@ -220,7 +220,7 @@ public class StaticQueryManager
                 // parse query
                 Statement statement = SqlParser.createStatement(sql);
 
-                // analyse query
+                // analyze query
                 Analyzer analyzer = new Analyzer(this.sessionMetadata);
                 AnalysisResult analysis = analyzer.analyze(statement);
 
@@ -330,6 +330,8 @@ public class StaticQueryManager
         {
             try {
                 taskScheduler.schedule(outputStage, stages);
+
+                // mark it as finished if there will never be any output TODO: think about this more -- shouldn't have stages with no tasks?
                 if (stages.get(outputStage.getStageId()).isEmpty()) {
                     queryState.set(State.FINISHED);
                 }
