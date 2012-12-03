@@ -13,7 +13,7 @@ import java.util.List;
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.util.SqlUtils.runIgnoringConstraintViolation;
 
 public class NativeMetadata
         implements Metadata
@@ -78,23 +78,27 @@ public class NativeMetadata
     @Override
     public void createTable(final TableMetadata table)
     {
-        checkArgument(!dao.tableExists(table), "Table '%s.%s.%s' already defined",
-                table.getSchemaName(), table.getCatalogName(), table.getTableName());
-
-        // TODO: handle already exists SQLException (SQLState = 23505)
         dbi.inTransaction(new VoidTransactionCallback()
         {
             @Override
-            protected void execute(Handle handle, TransactionStatus status)
+            protected void execute(final Handle handle, TransactionStatus status)
                     throws Exception
             {
-                MetadataDao dao = handle.attach(MetadataDao.class);
-                long tableId = dao.insertTable(table);
-                int position = 1;
-                for (ColumnMetadata column : table.getColumns()) {
-                    dao.insertColumn(tableId, column.getName(), position, column.getType().getName());
-                    position++;
-                }
+                // Ignore exception if table already exists
+                runIgnoringConstraintViolation(new Runnable()
+                {
+                    @Override
+                    public void run()
+                    {
+                        MetadataDao dao = handle.attach(MetadataDao.class);
+                        long tableId = dao.insertTable(table);
+                        int position = 1;
+                        for (ColumnMetadata column : table.getColumns()) {
+                            dao.insertColumn(tableId, column.getName(), position, column.getType().getName());
+                            position++;
+                        }
+                    }
+                });
             }
         });
     }

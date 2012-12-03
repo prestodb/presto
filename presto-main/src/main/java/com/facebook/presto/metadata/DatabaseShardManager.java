@@ -9,13 +9,12 @@ import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionCallback;
 import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.VoidTransactionCallback;
-import org.skife.jdbi.v2.exceptions.UnableToExecuteStatementException;
 
 import javax.inject.Inject;
-import java.sql.SQLException;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.util.SqlUtils.runIgnoringConstraintViolation;
 import static com.google.common.base.Preconditions.checkState;
 
 public class DatabaseShardManager
@@ -132,21 +131,5 @@ public class DatabaseShardManager
         dao.createTableImportTables();
         dao.createTableImportPartitions();
         dao.createTableImportPartitionShards();
-    }
-
-    private static void runIgnoringConstraintViolation(Runnable runnable)
-    {
-        try {
-            runnable.run();
-        }
-        catch (UnableToExecuteStatementException e) {
-            if (e.getCause() instanceof SQLException) {
-                String state = ((SQLException) e.getCause()).getSQLState();
-                if (state.startsWith("23")) {
-                    return;
-                }
-            }
-            throw e;
-        }
     }
 }
