@@ -102,7 +102,7 @@ public class TaskScheduler
             Preconditions.checkState(!nodes.isEmpty(), "Cluster does not have any active nodes");
             Collections.shuffle(nodes, random);
             Node node = nodes.get(0);
-            partitions = ImmutableList.of(new Partition(node, String.valueOf(currentFragment.getId()), ImmutableList.<PlanFragmentSource>of()));
+            partitions = ImmutableList.of(new Partition(node, ImmutableList.<PlanFragmentSource>of()));
         }
 
         // schedule the child fragments with an output for each partition
@@ -117,24 +117,14 @@ public class TaskScheduler
             public HttpTaskClient apply(Partition partition)
             {
                 // get fragment sources
-                Map<String, PlanFragmentSource> fragmentSources = getExchangeSources(partition, currentFragment.getRoot(), stages);
-                Preconditions.checkState(fragmentSources.size() <= 1, "Expected single source");
+                Map<String, ExchangePlanFragmentSource> exchangeSources = getExchangeSources(partition, currentFragment.getRoot(), stages);
+                Preconditions.checkState(exchangeSources.size() <= 1, "Expected single source");
 
-
-                // convert splits to table scan sources
                 Node node = partition.getNode();
-                ImmutableMap.Builder<String,List<PlanFragmentSource>> partitionSources = ImmutableMap.builder();
-                if (!partition.getSources().isEmpty()) {
-                    partitionSources.put(partition.getSourceId(), partition.getSources());
-                }
-                for (Entry<String, PlanFragmentSource> entry : fragmentSources.entrySet()) {
-                    partitionSources.put(entry.getKey(), ImmutableList.of(entry.getValue()));
-                }
-
                 Request request = preparePost()
                         .setUri(uriBuilderFrom(node.getHttpUri()).replacePath("/v1/presto/task").build())
                         .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
-                        .setBodyGenerator(jsonBodyGenerator(queryFragmentRequestCodec, new QueryFragmentRequest(currentFragment, outputIds, partitionSources.build())))
+                        .setBodyGenerator(jsonBodyGenerator(queryFragmentRequestCodec, new QueryFragmentRequest(currentFragment, partition.getSplits(), exchangeSources, outputIds)))
                         .build();
 
                 JsonResponse<QueryTaskInfo> response = httpClient.execute(request, createFullJsonResponseHandler(jsonCodec(QueryTaskInfo.class)));
@@ -190,13 +180,26 @@ public class TaskScheduler
                         return new TableScanPlanFragmentSource(split);
                     }
                 }));
-                partitions.add(new Partition(entry.getKey(), tableScan.getTable().getHandleId(), sources));
+                partitions.add(new Partition(entry.getKey(), sources));
             }
             return partitions.build();
         }
         else if (plan instanceof ExchangeNode) {
             // exchange node is not partitioned
             return ImmutableList.of();
+        }
+        else if (plan instanceof JoinNode) {
+            JoinNode joinNode = (JoinNode) plan;
+            List<Partition> leftPartitions = getPartitions(joinNode.getLeft());
+            List<Partition> rightPartitions = getPartitions(joinNode.getRight());
+            if (!leftPartitions.isEmpty() && !rightPartitions.isEmpty()) {
+                throw new IllegalArgumentException("Both left and right join nodes are partitioned");
+            }
+            if (!leftPartitions.isEmpty()) {
+                return leftPartitions;
+            } else {
+                return rightPartitions;
+            }
         }
         else if (plan instanceof ProjectNode) {
             return getPartitions(((ProjectNode) plan).getSource());
@@ -227,6 +230,12 @@ public class TaskScheduler
             int sourceFragmentId = ((ExchangeNode) plan).getSourceFragmentId();
             return ImmutableList.of(fragments.get(sourceFragmentId));
         }
+        else if (plan instanceof JoinNode) {
+            JoinNode joinNode = (JoinNode) plan;
+            List<PlanFragment> leftChildPlanFragments = getChildPlanFragments(joinNode.getLeft(), fragments);
+            List<PlanFragment> rightChildPlanFragments = getChildPlanFragments(joinNode.getRight(), fragments);
+            return ImmutableList.<PlanFragment>builder().addAll(leftChildPlanFragments).addAll(rightChildPlanFragments).build();
+        }
         else if (plan instanceof ProjectNode) {
             return getChildPlanFragments(((ProjectNode) plan).getSource(), fragments);
         }
@@ -253,7 +262,7 @@ public class TaskScheduler
         }
     }
 
-    private Map<String, PlanFragmentSource> getExchangeSources(Partition partition, PlanNode plan, ConcurrentMap<Integer, List<HttpTaskClient>> stages)
+    private Map<String, ExchangePlanFragmentSource> getExchangeSources(Partition partition, PlanNode plan, ConcurrentMap<Integer, List<HttpTaskClient>> stages)
     {
         if (plan instanceof ExchangeNode) {
             int sourceFragmentId = ((ExchangeNode) plan).getSourceFragmentId();
@@ -266,10 +275,16 @@ public class TaskScheduler
             }
 
             // create a single exchange source
-            PlanFragmentSource exchangeSource = new ExchangePlanFragmentSource(sources.build(),
+            ExchangePlanFragmentSource exchangeSource = new ExchangePlanFragmentSource(sources.build(),
                     partition.getNode().getNodeIdentifier(),
                     queryTasks.get(0).getTupleInfos());
             return ImmutableMap.of(String.valueOf(sourceFragmentId), exchangeSource);
+        }
+        else if (plan instanceof JoinNode) {
+            JoinNode joinNode = (JoinNode) plan;
+            Map<String, ExchangePlanFragmentSource> leftExchangeSources = getExchangeSources(partition, joinNode.getLeft(), stages);
+            Map<String, ExchangePlanFragmentSource> rightExchangeSources = getExchangeSources(partition, joinNode.getRight(), stages);
+            return ImmutableMap.<String, ExchangePlanFragmentSource>builder().putAll(leftExchangeSources).putAll(rightExchangeSources).build();
         }
         else if (plan instanceof ProjectNode) {
             return getExchangeSources(partition, ((ProjectNode) plan).getSource(), stages);
@@ -332,14 +347,12 @@ public class TaskScheduler
     private static class Partition
     {
         private final Node node;
-        private final String sourceId;
-        private final List<PlanFragmentSource> sources;
+        private final List<PlanFragmentSource> splits;
 
-        private Partition(Node node, String sourceId, List<PlanFragmentSource> sources)
+        private Partition(Node node, List<PlanFragmentSource> splits)
         {
             this.node = node;
-            this.sourceId = sourceId;
-            this.sources = sources;
+            this.splits = splits;
         }
 
         public Node getNode()
@@ -347,14 +360,9 @@ public class TaskScheduler
             return node;
         }
 
-        public String getSourceId()
+        public List<PlanFragmentSource> getSplits()
         {
-            return sourceId;
-        }
-
-        public List<PlanFragmentSource> getSources()
-        {
-            return sources;
+            return splits;
         }
     }
 

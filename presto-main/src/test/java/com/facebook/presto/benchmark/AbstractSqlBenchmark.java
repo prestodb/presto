@@ -1,6 +1,8 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.SourceHashProviderFactory;
+import com.facebook.presto.server.ExchangePlanFragmentSource;
 import com.facebook.presto.server.HackPlanFragmentSourceProvider;
 import com.facebook.presto.server.QueryTaskInfo;
 import com.facebook.presto.server.TableScanPlanFragmentSource;
@@ -65,10 +67,14 @@ public abstract class AbstractSqlBenchmark
         TpchTableHandle table = (TpchTableHandle) ((TableScan) Iterables.getOnlyElement(fragment.getSources())).getTable();
 
         PlanFragmentSource tableScanSource = new TableScanPlanFragmentSource(new TpchSplit(table));
+
         ExecutionPlanner executionPlanner = new ExecutionPlanner(sessionMetadata,
                 new HackPlanFragmentSourceProvider(new TpchDataStreamProvider(provider), jsonCodec(QueryTaskInfo.class)),
                 analysis.getTypes(),
-                ImmutableMap.<String, PlanFragmentSource>of(table.getHandleId(), tableScanSource));
+                tableScanSource,
+                ImmutableMap.<String, ExchangePlanFragmentSource>of(),
+                new SourceHashProviderFactory());
+
         return executionPlanner.plan(fragment.getRoot());
     }
 }
