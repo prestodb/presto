@@ -281,6 +281,7 @@ public class SqlQueryTaskManager
                     sourceProvider,
                     fragment.getSymbols(),
                     split,
+                    null,
                     exchangeSources,
                     sourceHashProviderFactory);
 

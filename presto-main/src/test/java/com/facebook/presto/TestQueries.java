@@ -12,6 +12,7 @@ import com.facebook.presto.ingest.RecordProjection;
 import com.facebook.presto.ingest.RecordProjections;
 import com.facebook.presto.ingest.StringRecord;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.SourceHashProviderFactory;
@@ -28,7 +29,6 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExecutionPlanner;
 import com.facebook.presto.sql.planner.FragmentPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanNode;
 import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.Planner;
@@ -111,7 +111,7 @@ public class TestQueries
 
         ordersRecords = readRecords("tpch/orders.dat.gz", 15000);
         handle.execute("CREATE TABLE orders (\n" +
-                "  orderkey BIGINT NOT NULL,\n" +
+                "  orderkey BIGINT PRIMARY KEY,\n" +
                 "  custkey BIGINT NOT NULL,\n" +
                 "  orderstatus CHAR(1) NOT NULL,\n" +
                 "  totalprice DOUBLE NOT NULL,\n" +
@@ -125,10 +125,10 @@ public class TestQueries
 
         lineItemRecords = readRecords("tpch/lineitem.dat.gz", 60175);
         handle.execute("CREATE TABLE lineitem (\n" +
-                "  orderkey BIGINT NOT NULL,\n" +
+                "  orderkey BIGINT,\n" +
                 "  partkey BIGINT NOT NULL,\n" +
                 "  suppkey BIGINT NOT NULL,\n" +
-                "  linenumber BIGINT NOT NULL,\n" +
+                "  linenumber BIGINT,\n" +
                 "  quantity BIGINT NOT NULL,\n" +
                 "  extendedprice DOUBLE NOT NULL,\n" +
                 "  discount DOUBLE NOT NULL,\n" +
@@ -140,7 +140,8 @@ public class TestQueries
                 "  receiptdate CHAR(10) NOT NULL,\n" +
                 "  shipinstruct VARCHAR(25) NOT NULL,\n" +
                 "  shipmode VARCHAR(10) NOT NULL,\n" +
-                "  comment VARCHAR(44) NOT NULL\n" +
+                "  comment VARCHAR(44) NOT NULL,\n" +
+                "  PRIMARY KEY (orderkey, linenumber)" +
                 ")");
         insertRows("lineitem", handle, lineItemRecords);
 
@@ -481,6 +482,15 @@ public class TestQueries
         assertEqualsIgnoreOrder(actual, expected);
     }
 
+    @Test
+    public void testSimpleJoin()
+            throws Exception
+    {
+        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM lineitem join orders using (orderkey)");
+        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM lineitem join orders on lineitem.orderkey = orders.orderkey", FIXED_INT_64);
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
 
     private List<Tuple> computeExpected(@Language("SQL") final String sql, TupleInfo.Type... types)
     {
@@ -514,14 +524,19 @@ public class TestQueries
         FragmentPlanner fragmentPlanner = new FragmentPlanner(sessionMetadata);
         List<PlanFragment> fragments = fragmentPlanner.createFragments(plan, analysis.getSymbolAllocator(), true);
 
-        TableScan tableScan = (TableScan) Iterables.getOnlyElement(fragments).getSources().get(0);
-        TpchTableHandle table = (TpchTableHandle) tableScan.getTable();
+        ImmutableMap.Builder<TableHandle, TableScanPlanFragmentSource> builder = ImmutableMap.builder();
+        for (PlanNode source : Iterables.getOnlyElement(fragments).getSources()) {
+            TableScan tableScan = (TableScan) source;
+            TpchTableHandle handle = (TpchTableHandle) tableScan.getTable();
 
-        PlanFragmentSource tableScanSource = new TableScanPlanFragmentSource(new TpchSplit(table));
+            builder.put(handle, new TableScanPlanFragmentSource(new TpchSplit(handle)));
+        }
+
         ExecutionPlanner executionPlanner = new ExecutionPlanner(sessionMetadata,
                 new HackPlanFragmentSourceProvider(dataProvider, QUERY_TASK_INFO_CODEC),
                 analysis.getTypes(),
-                tableScanSource,
+                null,
+                builder.build(),
                 ImmutableMap.<String, ExchangePlanFragmentSource>of(),
                 new SourceHashProviderFactory());
         Operator operator = executionPlanner.plan(plan);

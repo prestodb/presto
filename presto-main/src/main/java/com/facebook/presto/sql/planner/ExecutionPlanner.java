@@ -2,6 +2,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionHandle;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.FilterAndProjectOperator;
@@ -21,10 +22,12 @@ import com.facebook.presto.operator.aggregation.AggregationFunctionStep;
 import com.facebook.presto.operator.aggregation.AggregationFunctions;
 import com.facebook.presto.operator.aggregation.Input;
 import com.facebook.presto.server.ExchangePlanFragmentSource;
+import com.facebook.presto.server.TableScanPlanFragmentSource;
 import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.SessionMetadata;
 import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.compiler.Type;
+import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -57,7 +60,10 @@ public class ExecutionPlanner
     private final SessionMetadata metadata;
     private final PlanFragmentSourceProvider sourceProvider;
     private final Map<Symbol, Type> types;
+
     private final PlanFragmentSource split;
+    private final Map<TableHandle, TableScanPlanFragmentSource> tableScans;
+
     private final Map<String, ExchangePlanFragmentSource> exchangeSources;
 
     private final SourceHashProviderFactory joinHashFactory;
@@ -69,9 +75,11 @@ public class ExecutionPlanner
             PlanFragmentSourceProvider sourceProvider,
             Map<Symbol, Type> types,
             PlanFragmentSource split,
+            Map<TableHandle, TableScanPlanFragmentSource> tableScans,
             Map<String, ExchangePlanFragmentSource> exchangeSources,
             SourceHashProviderFactory joinHashFactory)
     {
+        this.tableScans = tableScans;
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.sourceProvider = checkNotNull(sourceProvider, "sourceProvider is null");
         this.types = checkNotNull(types, "types is null");
@@ -284,9 +292,14 @@ public class ExecutionPlanner
                 .list();
 
         // table scan only works with a split
-        Preconditions.checkState(split != null, "This fragment does not have a split");
+        Preconditions.checkState(split != null || tableScans != null, "This fragment does not have a split");
 
-        Operator operator = sourceProvider.createDataStream(split, columns);
+        PlanFragmentSource tableSplit = split;
+        if (tableSplit == null) {
+            tableSplit = tableScans.get(node.getTable());
+        }
+
+        Operator operator = sourceProvider.createDataStream(tableSplit, columns);
         if (operator instanceof AlignmentOperator) {
             AlignmentOperator alignmentOperator = (AlignmentOperator) operator;
             inputDataSize = alignmentOperator.getDataSize();
@@ -297,9 +310,27 @@ public class ExecutionPlanner
 
     private Operator createJoinNode(JoinNode node)
     {
-        SourceHashProvider hashProvider = joinHashFactory.getSourceHashProvider(node, this);
+        ComparisonExpression comparison = (ComparisonExpression) node.getCriteria();
+        Symbol first = Symbol.fromQualifiedName(((QualifiedNameReference) comparison.getLeft()).getName());
+        Symbol second = Symbol.fromQualifiedName(((QualifiedNameReference) comparison.getRight()).getName());
+
+        Map<Symbol, Integer> probeMappings = mapSymbolsToChannels(node.getLeft().getOutputSymbols());
+        Map<Symbol, Integer> buildMappings = mapSymbolsToChannels(node.getRight().getOutputSymbols());
+
+        int probeChannel;
+        int buildChannel;
+        if (node.getLeft().getOutputSymbols().contains(first)) {
+            probeChannel = probeMappings.get(first);
+            buildChannel = buildMappings.get(second);
+        }
+        else {
+            probeChannel = probeMappings.get(second);
+            buildChannel = buildMappings.get(first);
+        }
+
+        SourceHashProvider hashProvider = joinHashFactory.getSourceHashProvider(node, this, buildChannel);
         Operator leftOperator = plan(node.getLeft());
-        HashJoinOperator operator = new HashJoinOperator(hashProvider, leftOperator, 0);
+        HashJoinOperator operator = new HashJoinOperator(hashProvider, leftOperator, probeChannel);
         return operator;
     }
 
