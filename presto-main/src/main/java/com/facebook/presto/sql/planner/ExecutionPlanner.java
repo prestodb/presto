@@ -2,6 +2,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionHandle;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.AlignmentOperator;
@@ -24,7 +25,6 @@ import com.facebook.presto.operator.aggregation.Input;
 import com.facebook.presto.server.ExchangePlanFragmentSource;
 import com.facebook.presto.server.TableScanPlanFragmentSource;
 import com.facebook.presto.sql.compiler.AnalysisResult;
-import com.facebook.presto.sql.compiler.SessionMetadata;
 import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.compiler.Type;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -57,7 +57,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ExecutionPlanner
 {
-    private final SessionMetadata metadata;
+    private final Metadata metadata;
     private final PlanFragmentSourceProvider sourceProvider;
     private final Map<Symbol, Type> types;
 
@@ -71,7 +71,7 @@ public class ExecutionPlanner
     private Optional<DataSize> inputDataSize = Optional.absent();
     private Optional<Integer> inputPositionCount = Optional.absent();
 
-    public ExecutionPlanner(SessionMetadata metadata,
+    public ExecutionPlanner(Metadata metadata,
             PlanFragmentSourceProvider sourceProvider,
             Map<Symbol, Type> types,
             PlanFragmentSource split,
