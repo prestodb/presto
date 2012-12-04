@@ -7,6 +7,7 @@ import com.facebook.presto.server.QueryState.State;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
@@ -15,23 +16,22 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 @Immutable
 public class QueryInfo
 {
     private final String queryId;
     private final List<TupleInfo> tupleInfos;
+    private final List<String> fieldNames;
     private final QueryState.State state;
     private final String outputStage;
     private final Map<String, List<QueryTaskInfo>> stages;
 
-    public QueryInfo(String queryId, List<TupleInfo> tupleInfos)
-    {
-        this(queryId, tupleInfos, State.PREPARING, null, ImmutableMap.<String, List<QueryTaskInfo>>of());
-    }
-
     @JsonCreator
     public QueryInfo(@JsonProperty("queryId") String queryId,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
+            @JsonProperty("fieldNames") List<String> fieldNames,
             @JsonProperty("state") State state,
             @JsonProperty("outputStage") String outputStage,
             @JsonProperty("stages") Map<String, List<QueryTaskInfo>> stages)
@@ -41,6 +41,7 @@ public class QueryInfo
         Preconditions.checkNotNull(stages, "stages is null");
         this.queryId = queryId;
         this.tupleInfos = tupleInfos;
+        this.fieldNames = ImmutableList.copyOf(checkNotNull(fieldNames, "fieldNames is null"));
         this.state = state;
         this.outputStage = outputStage;
         this.stages = ImmutableMap.copyOf(stages);
@@ -56,6 +57,12 @@ public class QueryInfo
     public List<TupleInfo> getTupleInfos()
     {
         return tupleInfos;
+    }
+
+    @JsonProperty
+    public List<String> getFieldNames()
+    {
+        return fieldNames;
     }
 
     @JsonProperty
