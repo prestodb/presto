@@ -17,6 +17,15 @@ import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PruneRedundantProjections;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -94,7 +103,7 @@ public class Planner
             assignments.put(name, field.getSymbol());
         }
 
-        return new OutputPlan(result, names, assignments.build());
+        return new OutputNode(result, names, assignments.build());
     }
 
     private PlanNode createQueryPlan(Query query, AnalysisResult analysis)
@@ -303,7 +312,7 @@ public class Planner
             columns.put(field.getSymbol(), field.getColumn().get());
         }
 
-        return new TableScan(metadata.getTableHandle().get(), columns.build());
+        return new TableScanNode(metadata.getTableHandle().get(), columns.build());
     }
 
     private NodeRewriter<Void> substitution(final Map<Expression, Symbol> substitutions)

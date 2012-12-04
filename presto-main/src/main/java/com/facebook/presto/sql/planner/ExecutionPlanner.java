@@ -27,6 +27,16 @@ import com.facebook.presto.server.TableScanPlanFragmentSource;
 import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.compiler.Type;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -90,8 +100,8 @@ public class ExecutionPlanner
 
     public Operator plan(PlanNode plan)
     {
-        if (plan instanceof TableScan) {
-            return createTableScan((TableScan) plan);
+        if (plan instanceof TableScanNode) {
+            return createTableScan((TableScanNode) plan);
         }
         else if (plan instanceof ProjectNode) {
             return createProjectNode((ProjectNode) plan);
@@ -99,8 +109,8 @@ public class ExecutionPlanner
         else if (plan instanceof FilterNode) {
             return createFilterNode((FilterNode) plan);
         }
-        else if (plan instanceof OutputPlan) {
-            return createOutputPlan((OutputPlan) plan);
+        else if (plan instanceof OutputNode) {
+            return createOutputPlan((OutputNode) plan);
         }
         else if (plan instanceof AggregationNode) {
             return createAggregationNode((AggregationNode) plan);
@@ -139,7 +149,7 @@ public class ExecutionPlanner
         return sourceProvider.createDataStream(source, ImmutableList.<ColumnHandle>of());
     }
 
-    private Operator createOutputPlan(OutputPlan node)
+    private Operator createOutputPlan(OutputNode node)
     {
         PlanNode source = node.getSource();
         Operator sourceOperator = plan(node.getSource());
@@ -284,7 +294,7 @@ public class ExecutionPlanner
         return new FilterAndProjectOperator(sourceOperator, FilterFunctions.TRUE_FUNCTION, projections);
     }
 
-    private Operator createTableScan(TableScan node)
+    private Operator createTableScan(TableScanNode node)
     {
         List<ColumnHandle> columns = IterableTransformer.on(node.getAssignments().entrySet())
                 .orderBy(Ordering.explicit(node.getOutputSymbols()).onResultOf(MoreFunctions.<Symbol, ColumnHandle>keyGetter()))

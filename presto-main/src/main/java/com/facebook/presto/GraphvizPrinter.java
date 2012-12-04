@@ -3,18 +3,18 @@ package com.facebook.presto;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.compiler.Symbol;
-import com.facebook.presto.sql.planner.AggregationNode;
-import com.facebook.presto.sql.planner.ExchangeNode;
-import com.facebook.presto.sql.planner.FilterNode;
-import com.facebook.presto.sql.planner.JoinNode;
-import com.facebook.presto.sql.planner.LimitNode;
-import com.facebook.presto.sql.planner.OutputPlan;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanNode;
-import com.facebook.presto.sql.planner.PlanVisitor;
-import com.facebook.presto.sql.planner.ProjectNode;
-import com.facebook.presto.sql.planner.TableScan;
-import com.facebook.presto.sql.planner.TopNNode;
+import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanVisitor;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -167,7 +167,7 @@ public class GraphvizPrinter
         }
 
         @Override
-        public Void visitOutput(OutputPlan node, Void context)
+        public Void visitOutput(OutputNode node, Void context)
         {
             printNode(node, format("Output[%s]", Joiner.on(", ").join(node.getColumnNames())));
 
@@ -183,7 +183,7 @@ public class GraphvizPrinter
         }
 
         @Override
-        public Void visitTableScan(TableScan node, Void context)
+        public Void visitTableScan(TableScanNode node, Void context)
         {
             StringBuilder builder = new StringBuilder();
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {

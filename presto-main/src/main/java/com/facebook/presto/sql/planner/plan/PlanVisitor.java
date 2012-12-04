@@ -1,4 +1,4 @@
-package com.facebook.presto.sql.planner;
+package com.facebook.presto.sql.planner.plan;
 
 public class PlanVisitor<C, R>
 {
@@ -32,7 +32,7 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
-    public R visitOutput(OutputPlan node, C context)
+    public R visitOutput(OutputNode node, C context)
     {
         return visitPlan(node, context);
     }
@@ -42,7 +42,7 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
-    public R visitTableScan(TableScan node, C context)
+    public R visitTableScan(TableScanNode node, C context)
     {
         return visitPlan(node, context);
     }

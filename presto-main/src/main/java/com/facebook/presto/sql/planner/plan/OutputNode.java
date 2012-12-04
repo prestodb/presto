@@ -1,4 +1,4 @@
-package com.facebook.presto.sql.planner;
+package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.compiler.Symbol;
 import com.google.common.base.Preconditions;
@@ -13,7 +13,7 @@ import java.util.Map;
 
 import static com.google.common.base.Functions.forMap;
 
-public class OutputPlan
+public class OutputNode
     extends PlanNode
 {
     private final PlanNode source;
@@ -21,7 +21,7 @@ public class OutputPlan
     private final Map<String, Symbol> assignments; // column name = symbol
 
     @JsonCreator
-    public OutputPlan(@JsonProperty("source") PlanNode source, @JsonProperty("columns") List<String> columnNames, @JsonProperty("assignments") Map<String, Symbol> assignments)
+    public OutputNode(@JsonProperty("source") PlanNode source, @JsonProperty("columns") List<String> columnNames, @JsonProperty("assignments") Map<String, Symbol> assignments)
     {
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkNotNull(columnNames, "columnNames is null");

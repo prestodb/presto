@@ -2,16 +2,16 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.compiler.Type;
-import com.facebook.presto.sql.planner.AggregationNode;
-import com.facebook.presto.sql.planner.FilterNode;
-import com.facebook.presto.sql.planner.JoinNode;
-import com.facebook.presto.sql.planner.LimitNode;
-import com.facebook.presto.sql.planner.OutputPlan;
-import com.facebook.presto.sql.planner.PlanNode;
-import com.facebook.presto.sql.planner.PlanVisitor;
-import com.facebook.presto.sql.planner.ProjectNode;
-import com.facebook.presto.sql.planner.TableScan;
-import com.facebook.presto.sql.planner.TopNNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanVisitor;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TopNNode;
 
 import java.util.Map;
 
@@ -56,7 +56,7 @@ public class CoalesceLimits
         }
 
         @Override
-        public PlanNode visitTableScan(TableScan node, Void context)
+        public PlanNode visitTableScan(TableScanNode node, Void context)
         {
             return node;
         }
@@ -76,10 +76,10 @@ public class CoalesceLimits
         }
 
         @Override
-        public PlanNode visitOutput(OutputPlan node, Void context)
+        public PlanNode visitOutput(OutputNode node, Void context)
         {
             PlanNode source = node.getSource().accept(this, context);
-            return new OutputPlan(source, node.getColumnNames(), node.getAssignments());
+            return new OutputNode(source, node.getColumnNames(), node.getAssignments());
         }
 
         @Override

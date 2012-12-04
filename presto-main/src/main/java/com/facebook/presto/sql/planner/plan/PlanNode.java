@@ -1,4 +1,4 @@
-package com.facebook.presto.sql.planner;
+package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.compiler.Symbol;
 import org.codehaus.jackson.annotate.JsonSubTypes;
@@ -11,9 +11,9 @@ import java.util.List;
         include = JsonTypeInfo.As.PROPERTY,
         property = "type")
 @JsonSubTypes({
-        @JsonSubTypes.Type(value = OutputPlan.class, name = "output"),
+        @JsonSubTypes.Type(value = OutputNode.class, name = "output"),
         @JsonSubTypes.Type(value = ProjectNode.class, name = "project"),
-        @JsonSubTypes.Type(value = TableScan.class, name = "tablescan"),
+        @JsonSubTypes.Type(value = TableScanNode.class, name = "tablescan"),
         @JsonSubTypes.Type(value = AggregationNode.class, name = "aggregation"),
         @JsonSubTypes.Type(value = FilterNode.class, name = "filter"),
         @JsonSubTypes.Type(value = LimitNode.class, name = "limit"),
