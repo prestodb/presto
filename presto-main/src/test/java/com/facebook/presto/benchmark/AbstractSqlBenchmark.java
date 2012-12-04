@@ -15,10 +15,10 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExecutionPlanner;
 import com.facebook.presto.sql.planner.FragmentPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.Planner;
-import com.facebook.presto.sql.planner.TableScan;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tpch.TpchBlocksProvider;
@@ -68,7 +68,7 @@ public abstract class AbstractSqlBenchmark
     {
         ImmutableMap.Builder<TableHandle, TableScanPlanFragmentSource> builder = ImmutableMap.builder();
         for (PlanNode source : fragment.getSources()) {
-            TableScan tableScan = (TableScan) source;
+            TableScanNode tableScan = (TableScanNode) source;
             TpchTableHandle handle = (TpchTableHandle) tableScan.getTable();
 
             builder.put(handle, new TableScanPlanFragmentSource(new TpchSplit(handle)));

@@ -1,6 +1,16 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.compiler.Symbol;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanVisitor;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.base.Preconditions;
@@ -86,7 +96,7 @@ public class PlanSanityChecker
         }
 
         @Override
-        public Void visitOutput(OutputPlan node, Void context)
+        public Void visitOutput(OutputNode node, Void context)
         {
             PlanNode source = node.getSource();
             source.accept(this, context); // visit child
@@ -120,7 +130,7 @@ public class PlanSanityChecker
         }
 
         @Override
-        public Void visitTableScan(TableScan node, Void context)
+        public Void visitTableScan(TableScanNode node, Void context)
         {
             return null;
         }

@@ -6,6 +6,17 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.compiler.SymbolAllocator;
 import com.facebook.presto.sql.compiler.Type;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanVisitor;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -17,9 +28,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.sql.planner.AggregationNode.Step.FINAL;
-import static com.facebook.presto.sql.planner.AggregationNode.Step.PARTIAL;
-import static com.facebook.presto.sql.planner.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 
 /**
  * Splits a logical plan into fragments that can be shipped and executed on distributed nodes
@@ -126,7 +137,7 @@ public class FragmentPlanner
         }
 
         @Override
-        public PlanFragmentBuilder visitOutput(OutputPlan node, Void context)
+        public PlanFragmentBuilder visitOutput(OutputNode node, Void context)
         {
             PlanFragmentBuilder current = node.getSource().accept(this, context);
 
@@ -135,7 +146,7 @@ public class FragmentPlanner
                 current = newPlanFragment(new ExchangeNode(current.getId(), current.getRoot().getOutputSymbols()), false);
             }
 
-            current.setRoot(new OutputPlan(current.getRoot(), node.getColumnNames(), node.getAssignments()));
+            current.setRoot(new OutputNode(current.getRoot(), node.getColumnNames(), node.getAssignments()));
 
             return current;
         }
@@ -158,7 +169,7 @@ public class FragmentPlanner
         }
 
         @Override
-        public PlanFragmentBuilder visitTableScan(TableScan node, Void context)
+        public PlanFragmentBuilder visitTableScan(TableScanNode node, Void context)
         {
             return newPlanFragment(node, !createSingleNodePlan);
         }

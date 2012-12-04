@@ -1,4 +1,4 @@
-package com.facebook.presto.sql.planner;
+package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.metadata.ColumnHandle;
@@ -12,14 +12,14 @@ import org.codehaus.jackson.annotate.JsonProperty;
 import java.util.List;
 import java.util.Map;
 
-public class TableScan
+public class TableScanNode
     extends PlanNode
 {
     private final TableHandle table;
     private final Map<Symbol, ColumnHandle> attributes; // symbol -> column
 
     @JsonCreator
-    public TableScan(@JsonProperty("table") TableHandle table, @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments)
+    public TableScanNode(@JsonProperty("table") TableHandle table, @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments)
     {
         Preconditions.checkNotNull(table, "table is null");
         Preconditions.checkNotNull(assignments, "assignments is null");

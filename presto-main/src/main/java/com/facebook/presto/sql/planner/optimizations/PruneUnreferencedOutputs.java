@@ -4,17 +4,17 @@ import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.compiler.Type;
-import com.facebook.presto.sql.planner.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.DependencyExtractor;
-import com.facebook.presto.sql.planner.FilterNode;
-import com.facebook.presto.sql.planner.JoinNode;
-import com.facebook.presto.sql.planner.LimitNode;
-import com.facebook.presto.sql.planner.OutputPlan;
-import com.facebook.presto.sql.planner.PlanNode;
-import com.facebook.presto.sql.planner.PlanVisitor;
-import com.facebook.presto.sql.planner.ProjectNode;
-import com.facebook.presto.sql.planner.TableScan;
-import com.facebook.presto.sql.planner.TopNNode;
+import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanVisitor;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
@@ -106,7 +106,7 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitTableScan(TableScan node, Set<Symbol> expectedOutputs)
+        public PlanNode visitTableScan(TableScanNode node, Set<Symbol> expectedOutputs)
         {
             Map<Symbol, ColumnHandle> assignments = new HashMap<>();
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
@@ -126,7 +126,7 @@ public class PruneUnreferencedOutputs
                 assignments.put(first.getKey(), first.getValue());
             }
 
-            return new TableScan(node.getTable(), assignments);
+            return new TableScanNode(node.getTable(), assignments);
         }
 
         @Override
@@ -171,11 +171,11 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitOutput(OutputPlan node, Set<Symbol> expectedOutputs)
+        public PlanNode visitOutput(OutputNode node, Set<Symbol> expectedOutputs)
         {
             Set<Symbol> expectedInputs = ImmutableSet.copyOf(node.getAssignments().values());
             PlanNode source = node.getSource().accept(this, expectedInputs);
-            return new OutputPlan(source, node.getColumnNames(), node.getAssignments());
+            return new OutputNode(source, node.getColumnNames(), node.getAssignments());
         }
 
         @Override

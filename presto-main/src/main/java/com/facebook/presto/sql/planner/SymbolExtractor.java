@@ -1,6 +1,17 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.compiler.Symbol;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanVisitor;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
@@ -77,7 +88,7 @@ public class SymbolExtractor
         }
 
         @Override
-        public Void visitOutput(OutputPlan node, Void context)
+        public Void visitOutput(OutputNode node, Void context)
         {
             node.getSource().accept(this, context);
 
@@ -93,7 +104,7 @@ public class SymbolExtractor
         }
 
         @Override
-        public Void visitTableScan(TableScan node, Void context)
+        public Void visitTableScan(TableScanNode node, Void context)
         {
             builder.addAll(node.getAssignments().keySet());
 

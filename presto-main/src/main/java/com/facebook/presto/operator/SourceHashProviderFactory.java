@@ -4,7 +4,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.sql.planner.ExecutionPlanner;
-import com.facebook.presto.sql.planner.JoinNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
 
 import java.util.IdentityHashMap;
 

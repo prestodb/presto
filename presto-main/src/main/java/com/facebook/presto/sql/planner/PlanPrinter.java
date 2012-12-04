@@ -4,6 +4,17 @@ import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.compiler.Type;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanVisitor;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -86,7 +97,7 @@ public class PlanPrinter
         }
 
         @Override
-        public Void visitTableScan(TableScan node, Integer indent)
+        public Void visitTableScan(TableScanNode node, Integer indent)
         {
             print(indent, "- TableScan[%s] => [%s]", node.getTable(), formatOutputs(node.getOutputSymbols()));
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
@@ -119,7 +130,7 @@ public class PlanPrinter
         }
 
         @Override
-        public Void visitOutput(OutputPlan node, Integer indent)
+        public Void visitOutput(OutputNode node, Integer indent)
         {
             print(indent, "- Output[%s]", Joiner.on(", ").join(node.getColumnNames()));
             for (int i = 0; i < node.getColumnNames().size(); i++) {

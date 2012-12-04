@@ -1,4 +1,4 @@
-package com.facebook.presto.sql.planner;
+package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.tree.SortItem;

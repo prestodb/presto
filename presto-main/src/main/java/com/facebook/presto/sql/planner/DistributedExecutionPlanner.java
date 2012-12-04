@@ -6,6 +6,16 @@ import com.facebook.presto.server.TableScanPlanFragmentSource;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitAssignments;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -71,8 +81,8 @@ public class DistributedExecutionPlanner
 
     private List<Partition> getPartitions(PlanNode plan)
     {
-        if (plan instanceof TableScan) {
-            final TableScan tableScan = (TableScan) plan;
+        if (plan instanceof TableScanNode) {
+            final TableScanNode tableScan = (TableScanNode) plan;
 
             // get splits for table
             Iterable<SplitAssignments> splitAssignments = splitManager.getSplitAssignments(tableScan.getTable());
@@ -119,8 +129,8 @@ public class DistributedExecutionPlanner
         else if (plan instanceof FilterNode) {
             return getPartitions(((FilterNode) plan).getSource());
         }
-        else if (plan instanceof OutputPlan) {
-            return getPartitions(((OutputPlan) plan).getSource());
+        else if (plan instanceof OutputNode) {
+            return getPartitions(((OutputNode) plan).getSource());
         }
         else if (plan instanceof AggregationNode) {
             return getPartitions(((AggregationNode) plan).getSource());
@@ -154,8 +164,8 @@ public class DistributedExecutionPlanner
         else if (plan instanceof FilterNode) {
             return getChildPlanFragments(((FilterNode) plan).getSource(), fragments);
         }
-        else if (plan instanceof OutputPlan) {
-            return getChildPlanFragments(((OutputPlan) plan).getSource(), fragments);
+        else if (plan instanceof OutputNode) {
+            return getChildPlanFragments(((OutputNode) plan).getSource(), fragments);
         }
         else if (plan instanceof AggregationNode) {
             return getChildPlanFragments(((AggregationNode) plan).getSource(), fragments);
@@ -166,7 +176,7 @@ public class DistributedExecutionPlanner
         else if (plan instanceof TopNNode) {
             return getChildPlanFragments(((TopNNode) plan).getSource(), fragments);
         }
-        else if (plan instanceof TableScan) {
+        else if (plan instanceof TableScanNode) {
             return ImmutableList.of();
         }
         else {
