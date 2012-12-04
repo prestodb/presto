@@ -12,6 +12,7 @@ import com.facebook.presto.ingest.RecordProjection;
 import com.facebook.presto.ingest.RecordProjections;
 import com.facebook.presto.ingest.StringRecord;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.SourceHashProviderFactory;
@@ -28,7 +29,6 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExecutionPlanner;
 import com.facebook.presto.sql.planner.FragmentPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanNode;
 import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.Planner;
@@ -515,14 +515,19 @@ public class TestQueries
         FragmentPlanner fragmentPlanner = new FragmentPlanner(sessionMetadata);
         List<PlanFragment> fragments = fragmentPlanner.createFragments(plan, analysis.getSymbolAllocator(), true);
 
-        TableScan tableScan = (TableScan) Iterables.getOnlyElement(fragments).getSources().get(0);
-        TpchTableHandle table = (TpchTableHandle) tableScan.getTable();
+        ImmutableMap.Builder<TableHandle, TableScanPlanFragmentSource> builder = ImmutableMap.builder();
+        for (PlanNode source : Iterables.getOnlyElement(fragments).getSources()) {
+            TableScan tableScan = (TableScan) source;
+            TpchTableHandle handle = (TpchTableHandle) tableScan.getTable();
 
-        PlanFragmentSource tableScanSource = new TableScanPlanFragmentSource(new TpchSplit(table));
+            builder.put(handle, new TableScanPlanFragmentSource(new TpchSplit(handle)));
+        }
+
         ExecutionPlanner executionPlanner = new ExecutionPlanner(sessionMetadata,
                 new HackPlanFragmentSourceProvider(dataProvider, QUERY_TASK_INFO_CODEC),
                 analysis.getTypes(),
-                tableScanSource,
+                null,
+                builder.build(),
                 ImmutableMap.<String, ExchangePlanFragmentSource>of(),
                 new SourceHashProviderFactory());
         Operator operator = executionPlanner.plan(plan);
