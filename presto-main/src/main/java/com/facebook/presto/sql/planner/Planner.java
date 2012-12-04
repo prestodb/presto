@@ -3,15 +3,29 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.sql.compiler.AnalysisResult;
-import com.facebook.presto.sql.compiler.AnalyzedAggregation;
-import com.facebook.presto.sql.compiler.AnalyzedExpression;
-import com.facebook.presto.sql.compiler.AnalyzedOrdering;
-import com.facebook.presto.sql.compiler.Field;
-import com.facebook.presto.sql.compiler.Symbol;
-import com.facebook.presto.sql.compiler.SymbolAllocator;
-import com.facebook.presto.sql.compiler.TupleDescriptor;
-import com.facebook.presto.sql.compiler.Type;
+import com.facebook.presto.sql.analyzer.AnalysisResult;
+import com.facebook.presto.sql.analyzer.AnalyzedAggregation;
+import com.facebook.presto.sql.analyzer.AnalyzedExpression;
+import com.facebook.presto.sql.analyzer.AnalyzedOrdering;
+import com.facebook.presto.sql.analyzer.Field;
+import com.facebook.presto.sql.analyzer.Symbol;
+import com.facebook.presto.sql.analyzer.SymbolAllocator;
+import com.facebook.presto.sql.analyzer.TupleDescriptor;
+import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.sql.planner.optimizations.CoalesceLimits;
+import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.planner.optimizations.PruneRedundantProjections;
+import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
+import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -42,8 +56,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.sql.compiler.AnalyzedAggregation.argumentGetter;
-import static com.facebook.presto.sql.compiler.AnalyzedOrdering.expressionGetter;
+import static com.facebook.presto.sql.analyzer.AnalyzedAggregation.argumentGetter;
+import static com.facebook.presto.sql.analyzer.AnalyzedOrdering.expressionGetter;
 import static com.google.common.collect.Iterables.concat;
 
 public class Planner
@@ -89,7 +103,7 @@ public class Planner
             assignments.put(name, field.getSymbol());
         }
 
-        return new OutputPlan(result, names, assignments.build());
+        return new OutputNode(result, names, assignments.build());
     }
 
     private PlanNode createQueryPlan(Query query, AnalysisResult analysis)
@@ -298,7 +312,7 @@ public class Planner
             columns.put(field.getSymbol(), field.getColumn().get());
         }
 
-        return new TableScan(metadata.getTableHandle().get(), columns.build());
+        return new TableScanNode(metadata.getTableHandle().get(), columns.build());
     }
 
     private NodeRewriter<Void> substitution(final Map<Expression, Symbol> substitutions)

@@ -22,17 +22,17 @@ import com.facebook.presto.server.HackPlanFragmentSourceProvider;
 import com.facebook.presto.server.QueryTaskInfo;
 import com.facebook.presto.server.TableScanPlanFragmentSource;
 import com.facebook.presto.slice.Slices;
-import com.facebook.presto.sql.compiler.AnalysisResult;
-import com.facebook.presto.sql.compiler.Analyzer;
-import com.facebook.presto.sql.compiler.Session;
+import com.facebook.presto.sql.analyzer.AnalysisResult;
+import com.facebook.presto.sql.analyzer.Analyzer;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.ExecutionPlanner;
+import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.FragmentPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.Planner;
-import com.facebook.presto.sql.planner.TableScan;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tpch.TpchBlocksProvider;
@@ -525,13 +525,13 @@ public class TestQueries
 
         ImmutableMap.Builder<TableHandle, TableScanPlanFragmentSource> builder = ImmutableMap.builder();
         for (PlanNode source : Iterables.getOnlyElement(fragments).getSources()) {
-            TableScan tableScan = (TableScan) source;
+            TableScanNode tableScan = (TableScanNode) source;
             TpchTableHandle handle = (TpchTableHandle) tableScan.getTable();
 
             builder.put(handle, new TableScanPlanFragmentSource(new TpchSplit(handle)));
         }
 
-        ExecutionPlanner executionPlanner = new ExecutionPlanner(metadata,
+        LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(metadata,
                 new HackPlanFragmentSourceProvider(dataProvider, QUERY_TASK_INFO_CODEC),
                 analysis.getTypes(),
                 null,
@@ -540,7 +540,7 @@ public class TestQueries
                 new SourceHashProviderFactory());
         Operator operator = executionPlanner.plan(plan);
 
-        TupleInfo outputTupleInfo = ExecutionPlanner.toTupleInfo(analysis, plan.getOutputSymbols());
+        TupleInfo outputTupleInfo = LocalExecutionPlanner.toTupleInfo(analysis, plan.getOutputSymbols());
 
         ImmutableList.Builder<Tuple> output = ImmutableList.builder();
 

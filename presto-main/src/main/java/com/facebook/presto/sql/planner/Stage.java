@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.IterableTransformer;
@@ -35,7 +36,7 @@ public class Stage
         stageId = String.valueOf(this.fragment.getId());
         tupleInfos = ImmutableList.copyOf(IterableTransformer.on(fragment.getRoot().getOutputSymbols())
                 .transform(Functions.forMap(fragment.getSymbols()))
-                .transform(com.facebook.presto.sql.compiler.Type.toRaw())
+                .transform(com.facebook.presto.sql.analyzer.Type.toRaw())
                 .transform(new Function<Type, TupleInfo>()
                 {
                     @Override
@@ -45,8 +46,8 @@ public class Stage
                     }
                 })
                 .list());
-        fieldNames = (fragment.getRoot() instanceof OutputPlan) ?
-                Optional.<List<String>>of(ImmutableList.copyOf(((OutputPlan) fragment.getRoot()).getColumnNames())) :
+        fieldNames = (fragment.getRoot() instanceof OutputNode) ?
+                Optional.<List<String>>of(ImmutableList.copyOf(((OutputNode) fragment.getRoot()).getColumnNames())) :
                 Optional.<List<String>>absent();
     }
 

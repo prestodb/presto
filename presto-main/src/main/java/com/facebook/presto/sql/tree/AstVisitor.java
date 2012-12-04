@@ -1,8 +1,5 @@
 package com.facebook.presto.sql.tree;
 
-import com.facebook.presto.sql.compiler.Symbol;
-import com.google.common.collect.ImmutableSet;
-
 import javax.annotation.Nullable;
 
 public abstract class AstVisitor<R, C>
