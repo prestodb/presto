@@ -52,15 +52,9 @@ public abstract class AbstractOperatorBenchmark
 
     protected abstract Operator createBenchmarkedOperator(TpchBlocksProvider blocksProvider);
 
-    @Override
-    protected Map<String, Long> runOnce()
+    protected long execute(TpchBlocksProvider blocksProvider)
     {
-        long start = System.nanoTime();
-
-        StatsTpchBlocksProvider statsTpchBlocksProvider = new StatsTpchBlocksProvider(TPCH_DATA_PROVIDER);
-        MetricRecordingTpchBlocksProvider metricRecordingTpchBlocksProvider = new MetricRecordingTpchBlocksProvider(statsTpchBlocksProvider);
-
-        Operator operator = createBenchmarkedOperator(metricRecordingTpchBlocksProvider);
+        Operator operator = createBenchmarkedOperator(blocksProvider);
 
         long outputRows = 0;
         for (Page page : operator) {
@@ -69,6 +63,18 @@ public abstract class AbstractOperatorBenchmark
                 outputRows++;
             }
         }
+        return outputRows;
+    }
+
+    @Override
+    protected Map<String, Long> runOnce()
+    {
+        long start = System.nanoTime();
+
+        StatsTpchBlocksProvider statsTpchBlocksProvider = new StatsTpchBlocksProvider(TPCH_DATA_PROVIDER);
+        MetricRecordingTpchBlocksProvider metricRecordingTpchBlocksProvider = new MetricRecordingTpchBlocksProvider(statsTpchBlocksProvider);
+
+        long outputRows = execute(metricRecordingTpchBlocksProvider);
 
         Duration totalDuration = Duration.nanosSince(start);
         Duration dataGenerationDuration = metricRecordingTpchBlocksProvider.getDataFetchElapsedTime();
@@ -81,7 +87,7 @@ public abstract class AbstractOperatorBenchmark
         double executionSeconds = executionMillis / TimeUnit.SECONDS.toMillis(1);
 
         DataSize totalDataSize = metricRecordingTpchBlocksProvider.getCumulativeDataSize();
-        
+
         checkState(!statsTpchBlocksProvider.getStats().isEmpty(), "no columns were fetched");
         // Use the first column fetched as the indicator of the number of rows
         long inputRows = statsTpchBlocksProvider.getStats().get(0).getRowCount();
@@ -96,5 +102,4 @@ public abstract class AbstractOperatorBenchmark
                 .put("input_megabytes_per_second", (long) (totalDataSize.getValue(DataSize.Unit.MEGABYTE) / executionSeconds))
                 .build();
     }
-
 }

@@ -1,8 +1,10 @@
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.TopNOperator;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchBlocksProvider;
@@ -31,6 +33,21 @@ public class Top100Benchmark
         BlockIterable blockIterable = blocksProvider.getBlocks(orders, totalprice, BlocksFileEncoding.RAW);
         AlignmentOperator alignmentOperator = new AlignmentOperator(blockIterable);
         return new TopNOperator(alignmentOperator, 100, 0, ImmutableList.of(singleColumn(TupleInfo.Type.DOUBLE, 0, 0)));
+    }
+
+    @Override
+    protected long execute(TpchBlocksProvider blocksProvider)
+    {
+        Operator operator = createBenchmarkedOperator(blocksProvider);
+
+        long outputRows = 0;
+        for (Page page : operator) {
+            BlockCursor cursor = page.getBlock(0).cursor();
+            while (cursor.advanceNextPosition()) {
+                outputRows++;
+            }
+        }
+        return outputRows;
     }
 
     public static void main(String[] args)

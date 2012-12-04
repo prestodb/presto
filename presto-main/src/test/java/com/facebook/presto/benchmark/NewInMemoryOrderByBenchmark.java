@@ -1,10 +1,12 @@
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.LimitOperator;
 import com.facebook.presto.operator.NewInMemoryOrderByOperator;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 
@@ -32,6 +34,21 @@ public class NewInMemoryOrderByBenchmark
         LimitOperator limitOperator = new LimitOperator(alignmentOperator, rows);
         NewInMemoryOrderByOperator orderByOperator = new NewInMemoryOrderByOperator(limitOperator, 0, new int[]{1}, rows);
         return orderByOperator;
+    }
+
+    @Override
+    protected long execute(TpchBlocksProvider blocksProvider)
+    {
+        Operator operator = createBenchmarkedOperator(blocksProvider);
+
+        long outputRows = 0;
+        for (Page page : operator) {
+            BlockCursor cursor = page.getBlock(0).cursor();
+            while (cursor.advanceNextPosition()) {
+                outputRows++;
+            }
+        }
+        return outputRows;
     }
 
     public static void main(String[] args)

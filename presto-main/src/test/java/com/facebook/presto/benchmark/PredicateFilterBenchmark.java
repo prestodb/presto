@@ -1,10 +1,12 @@
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchColumnHandle;
@@ -32,6 +34,21 @@ public class PredicateFilterBenchmark
         BlockIterable blockIterable = blocksProvider.getBlocks(orders, totalprice, BlocksFileEncoding.RAW);
         AlignmentOperator alignmentOperator = new AlignmentOperator(blockIterable);
         return new FilterAndProjectOperator(alignmentOperator, new DoubleFilter(50000.00), singleColumn(Type.DOUBLE, 0, 0) );
+    }
+
+    @Override
+    protected long execute(TpchBlocksProvider blocksProvider)
+    {
+        Operator operator = createBenchmarkedOperator(blocksProvider);
+
+        long outputRows = 0;
+        for (Page page : operator) {
+            BlockCursor cursor = page.getBlock(0).cursor();
+            while (cursor.advanceNextPosition()) {
+                outputRows++;
+            }
+        }
+        return outputRows;
     }
 
     public static class DoubleFilter implements FilterFunction {
