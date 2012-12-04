@@ -108,6 +108,7 @@ public class SimpleQueryManager implements QueryManager
 
             return new QueryInfo(queryId,
                     outputTask.getTupleInfos(),
+                    ImmutableList.of("out"),
                     outputTask.getState(),
                     "out",
                     ImmutableMap.<String, List<QueryTaskInfo>>of("out", ImmutableList.of(outputTask)));

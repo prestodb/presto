@@ -322,7 +322,7 @@ public class StaticQueryManager
                 }
             }
 
-            return new QueryInfo(queryId, outputStage.getTupleInfos(), overallState, outputStage.getStageId(), stages);
+            return new QueryInfo(queryId, outputStage.getTupleInfos(), outputStage.getFieldNames(), overallState, outputStage.getStageId(), stages);
         }
 
         @Override
@@ -347,7 +347,8 @@ public class StaticQueryManager
     private static class ImportTableWorker
             implements QueryWorker
     {
-        private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_LONG);
+        private static final List<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_LONG);
+        private static final List<String> FIELD_NAMES = ImmutableList.of("dummy");
 
         private final String queryId;
         private final ImportClientFactory importClientFactory;
@@ -384,7 +385,7 @@ public class StaticQueryManager
         @Override
         public QueryInfo getQueryInfo()
         {
-            return new QueryInfo(queryId, TUPLE_INFOS, State.FINISHED, null, ImmutableMap.<String, List<QueryTaskInfo>>of());
+            return new QueryInfo(queryId, TUPLE_INFOS, FIELD_NAMES, State.FINISHED, null, ImmutableMap.<String, List<QueryTaskInfo>>of());
         }
 
         @Override
