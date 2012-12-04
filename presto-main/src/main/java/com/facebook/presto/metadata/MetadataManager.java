@@ -18,7 +18,7 @@ public class MetadataManager
     private final Map<DataSourceType, Metadata> metadataSourceMap;
 
     @Inject
-    public MetadataManager(DatabaseMetadata nativeMetadata, ImportMetadata importMetadata)
+    public MetadataManager(NativeMetadata nativeMetadata, ImportMetadata importMetadata)
     {
         metadataSourceMap = ImmutableMap.<DataSourceType, Metadata>builder()
                 .put(DataSourceType.NATIVE, checkNotNull(nativeMetadata, "nativeMetadata is null"))
