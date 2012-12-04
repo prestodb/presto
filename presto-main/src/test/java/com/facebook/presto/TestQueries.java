@@ -111,7 +111,7 @@ public class TestQueries
 
         ordersRecords = readRecords("tpch/orders.dat.gz", 15000);
         handle.execute("CREATE TABLE orders (\n" +
-                "  orderkey BIGINT NOT NULL,\n" +
+                "  orderkey BIGINT PRIMARY KEY,\n" +
                 "  custkey BIGINT NOT NULL,\n" +
                 "  orderstatus CHAR(1) NOT NULL,\n" +
                 "  totalprice DOUBLE NOT NULL,\n" +
@@ -125,10 +125,10 @@ public class TestQueries
 
         lineItemRecords = readRecords("tpch/lineitem.dat.gz", 60175);
         handle.execute("CREATE TABLE lineitem (\n" +
-                "  orderkey BIGINT NOT NULL,\n" +
+                "  orderkey BIGINT,\n" +
                 "  partkey BIGINT NOT NULL,\n" +
                 "  suppkey BIGINT NOT NULL,\n" +
-                "  linenumber BIGINT NOT NULL,\n" +
+                "  linenumber BIGINT,\n" +
                 "  quantity BIGINT NOT NULL,\n" +
                 "  extendedprice DOUBLE NOT NULL,\n" +
                 "  discount DOUBLE NOT NULL,\n" +
@@ -140,7 +140,8 @@ public class TestQueries
                 "  receiptdate CHAR(10) NOT NULL,\n" +
                 "  shipinstruct VARCHAR(25) NOT NULL,\n" +
                 "  shipmode VARCHAR(10) NOT NULL,\n" +
-                "  comment VARCHAR(44) NOT NULL\n" +
+                "  comment VARCHAR(44) NOT NULL,\n" +
+                "  PRIMARY KEY (orderkey, linenumber)" +
                 ")");
         insertRows("lineitem", handle, lineItemRecords);
 
