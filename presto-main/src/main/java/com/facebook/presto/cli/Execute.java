@@ -59,8 +59,9 @@ public class Execute
             printInitialStatusUpdates(queryClient, start);
 
             Operator operator = queryClient.getResultsOperator();
+            List<String> fieldNames = queryClient.getQueryInfo().getFieldNames();
 
-            OutputProcessor processor = new OutputProcessor(operator, new DelimitedTuplePrinter());
+            OutputProcessor processor = new OutputProcessor(operator, new AlignedTuplePrinter(fieldNames));
             OutputStats stats = processor.process();
 
             System.err.println(toFinalInfo(queryClient.getQueryInfo(), start, stats.getRows(), stats.getBytes()));
