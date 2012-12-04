@@ -11,6 +11,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class OutputProcessor
 {
+    private final OutputHandler handler;
     private final OutputSink sink;
 
     public OutputProcessor(Operator source, OutputHandler handler)
@@ -18,6 +19,7 @@ public class OutputProcessor
         checkNotNull(source, "source is null");
         checkNotNull(handler, "handler is null");
 
+        this.handler = handler;
         this.sink = new OutputSink(source, createOutputSinkHandler(handler));
     }
 
@@ -29,12 +31,15 @@ public class OutputProcessor
             rows += page.getPositionCount();
             bytes = page.getDataSize().toBytes();
         }
+        handler.finish();
         return new OutputStats(rows, bytes);
     }
 
-    public interface OutputHandler
+    public abstract static class OutputHandler
     {
-        void process(List<Object> values);
+        public abstract void process(List<Object> values);
+
+        public void finish() {}
     }
 
     public static class OutputStats

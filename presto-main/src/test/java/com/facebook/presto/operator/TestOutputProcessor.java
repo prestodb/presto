@@ -68,7 +68,7 @@ public class TestOutputProcessor
     }
 
     private static class CollectingHandler
-            implements OutputHandler
+            extends OutputHandler
     {
         private final List<List<Object>> rows = new ArrayList<>();
 
