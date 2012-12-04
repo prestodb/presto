@@ -25,6 +25,7 @@ import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.SessionMetadata;
 import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.compiler.Type;
+import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -297,9 +298,27 @@ public class ExecutionPlanner
 
     private Operator createJoinNode(JoinNode node)
     {
-        SourceHashProvider hashProvider = joinHashFactory.getSourceHashProvider(node, this);
+        ComparisonExpression comparison = (ComparisonExpression) node.getCriteria();
+        Symbol first = Symbol.fromQualifiedName(((QualifiedNameReference) comparison.getLeft()).getName());
+        Symbol second = Symbol.fromQualifiedName(((QualifiedNameReference) comparison.getRight()).getName());
+
+        Map<Symbol, Integer> probeMappings = mapSymbolsToChannels(node.getLeft().getOutputSymbols());
+        Map<Symbol, Integer> buildMappings = mapSymbolsToChannels(node.getRight().getOutputSymbols());
+
+        int probeChannel;
+        int buildChannel;
+        if (node.getLeft().getOutputSymbols().contains(first)) {
+            probeChannel = probeMappings.get(first);
+            buildChannel = buildMappings.get(second);
+        }
+        else {
+            probeChannel = probeMappings.get(second);
+            buildChannel = buildMappings.get(first);
+        }
+
+        SourceHashProvider hashProvider = joinHashFactory.getSourceHashProvider(node, this, buildChannel);
         Operator leftOperator = plan(node.getLeft());
-        HashJoinOperator operator = new HashJoinOperator(hashProvider, leftOperator, 0);
+        HashJoinOperator operator = new HashJoinOperator(hashProvider, leftOperator, probeChannel);
         return operator;
     }
 
