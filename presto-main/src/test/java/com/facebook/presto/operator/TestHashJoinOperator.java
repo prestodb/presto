@@ -29,6 +29,7 @@ public class TestHashJoinOperator
                 createStringSequenceBlock(20, 30),
                 createLongSequenceBlock(1020, 1030),
                 createLongSequenceBlock(2020, 2030),
+                createStringSequenceBlock(20, 30),
                 createLongSequenceBlock(30, 40),
                 createLongSequenceBlock(40, 50)));
 
