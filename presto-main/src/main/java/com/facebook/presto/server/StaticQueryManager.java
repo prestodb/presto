@@ -19,7 +19,7 @@ import com.facebook.presto.split.ImportClientFactory;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.Analyzer;
-import com.facebook.presto.sql.compiler.SessionMetadata;
+import com.facebook.presto.sql.compiler.Session;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedExecutionPlanner;
 import com.facebook.presto.sql.planner.FragmentPlanner;
@@ -152,7 +152,8 @@ public class StaticQueryManager
             queryWorker = new SqlQueryWorker(String.valueOf(nextQueryId.getAndIncrement()),
                     sql,
                     taskScheduler,
-                    new SessionMetadata(metadata),
+                    new Session(),
+                    metadata,
                     nodeManager,
                     splitManager);
         }
@@ -204,23 +205,23 @@ public class StaticQueryManager
     {
         private final String queryId;
         private final TaskScheduler taskScheduler;
-        private final SessionMetadata sessionMetadata;
+        private final Metadata metadata;
         private final ConcurrentHashMap<String, List<HttpTaskClient>> stages = new ConcurrentHashMap<>();
         private final AtomicReference<State> queryState = new AtomicReference<>(State.PREPARING);
         private final Stage outputStage;
 
-        public SqlQueryWorker(String queryId, String sql, TaskScheduler taskScheduler, SessionMetadata sessionMetadata, NodeManager nodeManager, SplitManager splitManager)
+        public SqlQueryWorker(String queryId, String sql, TaskScheduler taskScheduler, Session session, Metadata metadata, NodeManager nodeManager, SplitManager splitManager)
         {
             this.queryId = queryId;
             this.taskScheduler = taskScheduler;
-            this.sessionMetadata = sessionMetadata;
+            this.metadata = metadata;
 
             try {
                 // parse query
                 Statement statement = SqlParser.createStatement(sql);
 
                 // analyze query
-                Analyzer analyzer = new Analyzer(this.sessionMetadata);
+                Analyzer analyzer = new Analyzer(session, metadata);
                 AnalysisResult analysis = analyzer.analyze(statement);
 
                 // plan query
@@ -228,7 +229,7 @@ public class StaticQueryManager
                 PlanNode plan = planner.plan((Query) statement, analysis);
 
                 // fragment the plan
-                FragmentPlanner fragmentPlanner = new FragmentPlanner(this.sessionMetadata);
+                FragmentPlanner fragmentPlanner = new FragmentPlanner(metadata);
                 List<PlanFragment> fragments = fragmentPlanner.createFragments(plan, analysis.getSymbolAllocator(), false);
 
                 // plan the execution on the active nodes

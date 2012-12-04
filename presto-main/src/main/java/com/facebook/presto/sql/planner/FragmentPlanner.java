@@ -2,7 +2,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.sql.compiler.SessionMetadata;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.compiler.SymbolAllocator;
 import com.facebook.presto.sql.compiler.Type;
@@ -26,9 +26,9 @@ import static com.facebook.presto.sql.planner.AggregationNode.Step.SINGLE;
  */
 public class FragmentPlanner
 {
-    private final SessionMetadata metadata;
+    private final Metadata metadata;
 
-    public FragmentPlanner(SessionMetadata metadata)
+    public FragmentPlanner(Metadata metadata)
     {
         this.metadata = metadata;
     }
