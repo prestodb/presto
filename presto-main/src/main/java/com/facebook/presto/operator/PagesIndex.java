@@ -124,7 +124,7 @@ public class PagesIndex
             int leftOffset = (int) leftSliceAddress;
 
             long rightSliceAddress = sliceAddresses[rightPosition];
-            Slice :rightSlice = slices[((int) (rightSliceAddress >> 32))];
+            Slice rightSlice = slices[((int) (rightSliceAddress >> 32))];
             int rightOffset = (int) rightSliceAddress;
 
             for (int i = 0; i < sortFields.length; i++) {
