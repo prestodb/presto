@@ -1,6 +1,6 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.compiler.Symbol;
+import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;

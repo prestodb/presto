@@ -1,9 +1,7 @@
-package com.facebook.presto.sql.compiler;
+package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.sql.tree.SortItem;
 import com.google.common.base.Function;
-
-import javax.annotation.Nullable;
 
 public class AnalyzedOrdering
 {

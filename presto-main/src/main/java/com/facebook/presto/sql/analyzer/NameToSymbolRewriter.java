@@ -1,4 +1,4 @@
-package com.facebook.presto.sql.compiler;
+package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRewriter;
@@ -6,7 +6,6 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.TreeRewriter;
 import com.google.common.collect.Iterables;
 
-import java.util.List;
 import java.util.Map;
 
 public class NameToSymbolRewriter

@@ -2,7 +2,7 @@ package com.facebook.presto;
 
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.sql.ExpressionFormatter;
-import com.facebook.presto.sql.compiler.Symbol;
+import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;

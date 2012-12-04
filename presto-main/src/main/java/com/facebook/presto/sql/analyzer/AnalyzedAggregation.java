@@ -1,4 +1,4 @@
-package com.facebook.presto.sql.compiler;
+package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -7,7 +7,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.Nullable;
 import java.util.List;
 
 public class AnalyzedAggregation

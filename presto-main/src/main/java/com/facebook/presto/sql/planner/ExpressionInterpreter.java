@@ -2,8 +2,8 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
-import com.facebook.presto.sql.compiler.Symbol;
-import com.facebook.presto.sql.compiler.Type;
+import com.facebook.presto.sql.analyzer.Symbol;
+import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.CoalesceExpression;
