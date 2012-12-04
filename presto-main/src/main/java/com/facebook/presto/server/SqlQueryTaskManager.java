@@ -7,7 +7,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.SourceHashProviderFactory;
-import com.facebook.presto.sql.compiler.SessionMetadata;
+import com.facebook.presto.sql.compiler.Session;
 import com.facebook.presto.sql.planner.ExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
@@ -277,7 +277,7 @@ public class SqlQueryTaskManager
         {
             this.taskOutput = taskOutput;
 
-            ExecutionPlanner planner = new ExecutionPlanner(new SessionMetadata(metadata),
+            ExecutionPlanner planner = new ExecutionPlanner(metadata,
                     sourceProvider,
                     fragment.getSymbols(),
                     split,

@@ -24,7 +24,7 @@ import com.facebook.presto.server.TableScanPlanFragmentSource;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.Analyzer;
-import com.facebook.presto.sql.compiler.SessionMetadata;
+import com.facebook.presto.sql.compiler.Session;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExecutionPlanner;
 import com.facebook.presto.sql.planner.FragmentPlanner;
@@ -510,10 +510,9 @@ public class TestQueries
             throw Throwables.propagate(e);
         }
 
-        SessionMetadata sessionMetadata = new SessionMetadata(metadata);
-        sessionMetadata.using(TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
+        Session session = new Session(TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
 
-        Analyzer analyzer = new Analyzer(sessionMetadata);
+        Analyzer analyzer = new Analyzer(session, metadata);
 
         AnalysisResult analysis = analyzer.analyze(statement);
 
@@ -521,7 +520,7 @@ public class TestQueries
         PlanNode plan = planner.plan((Query) statement, analysis);
         new PlanPrinter().print(plan, analysis.getTypes());
 
-        FragmentPlanner fragmentPlanner = new FragmentPlanner(sessionMetadata);
+        FragmentPlanner fragmentPlanner = new FragmentPlanner(metadata);
         List<PlanFragment> fragments = fragmentPlanner.createFragments(plan, analysis.getSymbolAllocator(), true);
 
         ImmutableMap.Builder<TableHandle, TableScanPlanFragmentSource> builder = ImmutableMap.builder();
@@ -532,7 +531,7 @@ public class TestQueries
             builder.put(handle, new TableScanPlanFragmentSource(new TpchSplit(handle)));
         }
 
-        ExecutionPlanner executionPlanner = new ExecutionPlanner(sessionMetadata,
+        ExecutionPlanner executionPlanner = new ExecutionPlanner(metadata,
                 new HackPlanFragmentSourceProvider(dataProvider, QUERY_TASK_INFO_CODEC),
                 analysis.getTypes(),
                 null,

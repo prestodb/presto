@@ -2,6 +2,7 @@ package com.facebook.presto.sql.compiler;
 
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.tree.AliasedExpression;
@@ -34,6 +35,7 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,16 +52,18 @@ import static com.google.common.collect.Iterables.transform;
 
 public class Analyzer
 {
-    private final SessionMetadata metadata;
+    private final Metadata metadata;
+    private final Session session;
 
-    public Analyzer(SessionMetadata metadata)
+    public Analyzer(Session session, Metadata metadata)
     {
+        this.session = session;
         this.metadata = metadata;
     }
 
     public AnalysisResult analyze(Node node)
     {
-        return analyze(node, new AnalysisContext());
+        return analyze(node, new AnalysisContext(session));
     }
 
     private AnalysisResult analyze(Node node, AnalysisContext context)
@@ -71,9 +75,9 @@ public class Analyzer
     private static class StatementAnalyzer
             extends AstVisitor<AnalysisResult, AnalysisContext>
     {
-        private final SessionMetadata metadata;
+        private final Metadata metadata;
 
-        private StatementAnalyzer(SessionMetadata metadata)
+        private StatementAnalyzer(Metadata metadata)
         {
             this.metadata = metadata;
         }
@@ -95,7 +99,7 @@ public class Analyzer
 
             // analyze FROM clause
             Relation relation = Iterables.getOnlyElement(query.getFrom());
-            TupleDescriptor sourceDescriptor = new RelationAnalyzer(metadata).process(relation, context);
+            TupleDescriptor sourceDescriptor = new RelationAnalyzer(metadata, context.getSession()).process(relation, context);
 
             AnalyzedExpression predicate = null;
             if (query.getWhere() != null) {
@@ -263,13 +267,13 @@ public class Analyzer
     private static class AggregateAnalyzer
             extends DefaultTraversalVisitor<Void, FunctionCall>
     {
-        private final SessionMetadata metadata;
+        private final Metadata metadata;
         private final TupleDescriptor descriptor;
         private final Map<Symbol, Type> symbols;
 
         private List<AnalyzedAggregation> aggregations;
 
-        public AggregateAnalyzer(SessionMetadata metadata, TupleDescriptor descriptor, Map<Symbol, Type> symbols)
+        public AggregateAnalyzer(Metadata metadata, TupleDescriptor descriptor, Map<Symbol, Type> symbols)
         {
             this.metadata = metadata;
             this.descriptor = descriptor;
@@ -295,7 +299,7 @@ public class Analyzer
                 argumentTypes.add(analysis.getType());
             }
 
-            FunctionInfo info = metadata.getFunction(node.getName(), argumentTypes.build());
+            FunctionInfo info = metadata.getFunction(node.getName(), Lists.transform(argumentTypes.build(), Type.toRaw()));
 
             if (info != null && info.isAggregate()) {
                 if (enclosingAggregate != null) {
@@ -314,20 +318,32 @@ public class Analyzer
     private static class RelationAnalyzer
             extends DefaultTraversalVisitor<TupleDescriptor, AnalysisContext>
     {
-        private final SessionMetadata metadata;
+        private final Metadata metadata;
+        private final Session session;
 
-        private RelationAnalyzer(SessionMetadata metadata)
+        private RelationAnalyzer(Metadata metadata, Session session)
         {
             this.metadata = metadata;
+            this.session = session;
         }
 
         @Override
         protected TupleDescriptor visitTable(Table table, AnalysisContext context)
         {
-            TableMetadata tableMetadata = metadata.getTable(table.getName());
+            QualifiedName name = table.getName();
 
+            if (name.getParts().size() > 3) {
+                throw new SemanticException(table, "Too many dots in table name: %s", name);
+            }
+
+            List<String> parts = Lists.reverse(name.getParts());
+            String tableName = parts.get(0);
+            String schemaName = (parts.size() > 1) ? parts.get(1) : session.getCurrentSchema();
+            String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCurrentCatalog();
+
+            TableMetadata tableMetadata = metadata.getTable(catalogName, schemaName, tableName);
             if (tableMetadata == null) {
-                throw new SemanticException(table, "Cannot resolve table '%s'", table.getName());
+                throw new SemanticException(table, "Table %s does not exist", name);
             }
 
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
@@ -366,7 +382,7 @@ public class Analyzer
         protected TupleDescriptor visitSubquery(Subquery node, AnalysisContext context)
         {
             // Analyze the subquery recursively
-            AnalysisResult analysis = new Analyzer(metadata).analyze(node.getQuery(), new AnalysisContext(context.getSymbolAllocator()));
+            AnalysisResult analysis = new Analyzer(context.getSession(), metadata).analyze(node.getQuery(), new AnalysisContext(context.getSession(), context.getSymbolAllocator()));
 
             context.registerInlineView(node, analysis);
 

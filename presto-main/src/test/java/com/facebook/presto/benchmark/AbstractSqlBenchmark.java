@@ -1,5 +1,6 @@
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.SourceHashProviderFactory;
@@ -9,12 +10,11 @@ import com.facebook.presto.server.QueryTaskInfo;
 import com.facebook.presto.server.TableScanPlanFragmentSource;
 import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.Analyzer;
-import com.facebook.presto.sql.compiler.SessionMetadata;
+import com.facebook.presto.sql.compiler.Session;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExecutionPlanner;
 import com.facebook.presto.sql.planner.FragmentPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanNode;
 import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.Planner;
@@ -38,7 +38,7 @@ public abstract class AbstractSqlBenchmark
         extends AbstractOperatorBenchmark
 {
     private final PlanFragment fragment;
-    private final SessionMetadata sessionMetadata;
+    private final Metadata metadata;
     private final AnalysisResult analysis;
 
     protected AbstractSqlBenchmark(String benchmarkName, int warmupIterations, int measuredIterations, @Language("SQL") String query)
@@ -48,12 +48,13 @@ public abstract class AbstractSqlBenchmark
         try {
             Statement statement = SqlParser.createStatement(query);
 
-            sessionMetadata = new SessionMetadata(TpchSchema.createMetadata());
-            sessionMetadata.using(TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
-            analysis = new Analyzer(sessionMetadata).analyze(statement);
+            metadata = TpchSchema.createMetadata();
+
+            Session session = new Session(TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
+            analysis = new Analyzer(session, metadata).analyze(statement);
 
             PlanNode plan = new Planner().plan((Query) statement, analysis);
-            fragment = Iterables.getOnlyElement(new FragmentPlanner(sessionMetadata).createFragments(plan, analysis.getSymbolAllocator(), true));
+            fragment = Iterables.getOnlyElement(new FragmentPlanner(metadata).createFragments(plan, analysis.getSymbolAllocator(), true));
 
             new PlanPrinter().print(fragment.getRoot(), analysis.getTypes());
         }
@@ -73,7 +74,7 @@ public abstract class AbstractSqlBenchmark
             builder.put(handle, new TableScanPlanFragmentSource(new TpchSplit(handle)));
         }
 
-        ExecutionPlanner executionPlanner = new ExecutionPlanner(sessionMetadata,
+        ExecutionPlanner executionPlanner = new ExecutionPlanner(metadata,
                 new HackPlanFragmentSourceProvider(new TpchDataStreamProvider(provider), jsonCodec(QueryTaskInfo.class)),
                 analysis.getTypes(),
                 null,

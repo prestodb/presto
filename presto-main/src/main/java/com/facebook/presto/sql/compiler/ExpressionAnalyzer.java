@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.compiler;
 
 import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
@@ -24,6 +25,7 @@ import com.facebook.presto.sql.tree.TreeRewriter;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,10 +36,10 @@ import static com.google.common.base.Predicates.equalTo;
 
 public class ExpressionAnalyzer
 {
-    private final SessionMetadata metadata;
+    private final Metadata metadata;
     private final Map<Symbol, Type> symbols;
 
-    public ExpressionAnalyzer(SessionMetadata metadata, Map<Symbol, Type> symbols)
+    public ExpressionAnalyzer(Metadata metadata, Map<Symbol, Type> symbols)
     {
         this.metadata = metadata;
         this.symbols = symbols;
@@ -55,11 +57,11 @@ public class ExpressionAnalyzer
     private static class Visitor
             extends AstVisitor<Type, Void>
     {
-        private final SessionMetadata metadata;
+        private final Metadata metadata;
         private final TupleDescriptor descriptor;
         private final Map<Symbol, Type> symbols;
 
-        private Visitor(SessionMetadata metadata, Map<Symbol, Type> symbols, TupleDescriptor descriptor)
+        private Visitor(Metadata metadata, Map<Symbol, Type> symbols, TupleDescriptor descriptor)
         {
             this.metadata = metadata;
             this.descriptor = descriptor;
@@ -242,7 +244,7 @@ public class ExpressionAnalyzer
                 argumentTypes.add(process(expression, context));
             }
 
-            FunctionInfo function = metadata.getFunction(node.getName(), argumentTypes.build());
+            FunctionInfo function = metadata.getFunction(node.getName(), Lists.transform(argumentTypes.build(), Type.toRaw()));
             return Type.fromRaw(function.getReturnType());
         }
 

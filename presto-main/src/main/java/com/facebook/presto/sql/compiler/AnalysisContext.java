@@ -11,6 +11,7 @@ import java.util.Map;
 
 class AnalysisContext
 {
+    private final Session session;
     private final SymbolAllocator symbolAllocator;
 
     private final IdentityHashMap<Subquery, AnalysisResult> inlineViews = new IdentityHashMap<>();
@@ -18,13 +19,14 @@ class AnalysisContext
     private final IdentityHashMap<Relation, TableMetadata> tableMetadata = new IdentityHashMap<>();
     private final IdentityHashMap<Join, AnalyzedExpression> joinCriteria = new IdentityHashMap<>();
 
-    public AnalysisContext()
+    public AnalysisContext(Session session)
     {
-        this(new SymbolAllocator());
+        this(session, new SymbolAllocator());
     }
 
-    public AnalysisContext(SymbolAllocator symbolAllocator)
+    public AnalysisContext(Session session, SymbolAllocator symbolAllocator)
     {
+        this.session = session;
         this.symbolAllocator = symbolAllocator;
     }
 
@@ -88,5 +90,10 @@ class AnalysisContext
     public void registerJoin(Join node, AnalyzedExpression criteria)
     {
         joinCriteria.put(node, criteria);
+    }
+
+    public Session getSession()
+    {
+        return session;
     }
 }
