@@ -15,6 +15,7 @@ import io.airlift.http.client.HttpClientConfig;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 
+import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.Immutable;
 import javax.inject.Inject;
 import java.net.URI;
@@ -34,10 +35,12 @@ public class HackPlanFragmentSourceProvider
         implements PlanFragmentSourceProvider
 {
     private final DataStreamProvider dataStreamProvider;
-    private final HttpClient httpClient;
     private final ExecutorService executor;
     private final JsonCodec<QueryTaskInfo> queryTaskInfoCodec;
     private final int pageBufferMax;
+
+    @GuardedBy("this")
+    private HttpClient httpClient;
 
     @Inject
     public HackPlanFragmentSourceProvider(DataStreamProvider dataStreamProvider, JsonCodec<QueryTaskInfo> queryTaskInfoCodec)
@@ -54,10 +57,6 @@ public class HackPlanFragmentSourceProvider
                 new ThreadPoolExecutor.CallerRunsPolicy());
 
 
-        httpClient = new ApacheHttpClient(new HttpClientConfig()
-                .setConnectTimeout(new Duration(5, TimeUnit.SECONDS))
-                .setReadTimeout(new Duration(5, TimeUnit.SECONDS)));
-
         this.pageBufferMax = 10;
     }
 
@@ -66,8 +65,19 @@ public class HackPlanFragmentSourceProvider
     {
         checkNotNull(source, "source is null");
         if (source instanceof ExchangePlanFragmentSource) {
+            final HttpClient httpClient;
+            synchronized (this) {
+                if (this.httpClient == null) {
+                    this.httpClient = new ApacheHttpClient(new HttpClientConfig()
+                            .setConnectTimeout(new Duration(5, TimeUnit.SECONDS))
+                            .setReadTimeout(new Duration(5, TimeUnit.SECONDS)));
+                }
+                httpClient = this.httpClient;
+            }
+
             final ExchangePlanFragmentSource exchangeSource = (ExchangePlanFragmentSource) source;
-            return new QueryDriversOperator(pageBufferMax, transform(exchangeSource.getSources().entrySet(), new Function<Entry<String, URI>, QueryDriverProvider>() {
+            return new QueryDriversOperator(pageBufferMax, transform(exchangeSource.getSources().entrySet(), new Function<Entry<String, URI>, QueryDriverProvider>()
+            {
                 @Override
                 public QueryDriverProvider apply(Entry<String, URI> source)
                 {
