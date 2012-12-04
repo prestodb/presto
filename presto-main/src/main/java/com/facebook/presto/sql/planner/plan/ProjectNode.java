@@ -1,8 +1,6 @@
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.sql.compiler.Symbol;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
+import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import org.codehaus.jackson.annotate.JsonCreator;

@@ -1,4 +1,4 @@
-package com.facebook.presto.sql.compiler;
+package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;

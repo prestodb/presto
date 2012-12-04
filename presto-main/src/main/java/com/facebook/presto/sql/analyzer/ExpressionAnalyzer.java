@@ -1,4 +1,4 @@
-package com.facebook.presto.sql.compiler;
+package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
@@ -31,7 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.sql.compiler.Field.nameGetter;
+import static com.facebook.presto.sql.analyzer.Field.nameGetter;
 import static com.google.common.base.Predicates.equalTo;
 
 public class ExpressionAnalyzer

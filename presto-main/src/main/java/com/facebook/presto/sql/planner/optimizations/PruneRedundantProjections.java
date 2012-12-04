@@ -1,7 +1,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.sql.compiler.Symbol;
-import com.facebook.presto.sql.compiler.Type;
+import com.facebook.presto.sql.analyzer.Symbol;
+import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;

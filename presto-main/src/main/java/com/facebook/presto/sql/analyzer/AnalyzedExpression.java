@@ -1,9 +1,7 @@
-package com.facebook.presto.sql.compiler;
+package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.base.Preconditions;
-
-import java.util.Set;
 
 public class AnalyzedExpression
 {

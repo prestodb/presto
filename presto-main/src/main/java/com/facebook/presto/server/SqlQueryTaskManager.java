@@ -130,7 +130,7 @@ public class SqlQueryTaskManager
         // create output buffers
         List<TupleInfo> tupleInfos = ImmutableList.copyOf(IterableTransformer.on(fragment.getRoot().getOutputSymbols())
                 .transform(Functions.forMap(fragment.getSymbols()))
-                .transform(com.facebook.presto.sql.compiler.Type.toRaw())
+                .transform(com.facebook.presto.sql.analyzer.Type.toRaw())
                 .transform(new Function<Type, TupleInfo>()
                 {
                     @Override
