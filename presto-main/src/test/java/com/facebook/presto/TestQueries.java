@@ -26,7 +26,7 @@ import com.facebook.presto.sql.compiler.AnalysisResult;
 import com.facebook.presto.sql.compiler.Analyzer;
 import com.facebook.presto.sql.compiler.Session;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.ExecutionPlanner;
+import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.FragmentPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -531,7 +531,7 @@ public class TestQueries
             builder.put(handle, new TableScanPlanFragmentSource(new TpchSplit(handle)));
         }
 
-        ExecutionPlanner executionPlanner = new ExecutionPlanner(metadata,
+        LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(metadata,
                 new HackPlanFragmentSourceProvider(dataProvider, QUERY_TASK_INFO_CODEC),
                 analysis.getTypes(),
                 null,
@@ -540,7 +540,7 @@ public class TestQueries
                 new SourceHashProviderFactory());
         Operator operator = executionPlanner.plan(plan);
 
-        TupleInfo outputTupleInfo = ExecutionPlanner.toTupleInfo(analysis, plan.getOutputSymbols());
+        TupleInfo outputTupleInfo = LocalExecutionPlanner.toTupleInfo(analysis, plan.getOutputSymbols());
 
         ImmutableList.Builder<Tuple> output = ImmutableList.builder();
 
