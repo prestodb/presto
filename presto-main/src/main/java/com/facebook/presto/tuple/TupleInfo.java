@@ -519,28 +519,37 @@ public class TupleInfo
         {
             // TODO: optimization - single copy of block of fixed length fields
 
-            int field = 0;
-            for (TupleInfo.Type type : tuple.getTupleInfo().getTypes()) {
-                if (tuple.isNull(field)) {
-                    appendNull();
-                }
-                else {
-                    switch (type) {
-                        case FIXED_INT_64:
-                            append(tuple.getLong(field));
-                            break;
-                        case DOUBLE:
-                            append(tuple.getDouble(field));
-                            break;
-                        case VARIABLE_BINARY:
-                            append(tuple.getSlice(field));
-                            break;
-                        default:
-                            throw new IllegalStateException("Type not yet supported: " + type);
-                    }
-                }
-                field++;
+            for (int field = 0; field < tuple.getTupleInfo().getFieldCount(); field++) {
+                append(tuple, field);
             }
+            return this;
+        }
+
+        public Builder append(Tuple tuple, int index)
+        {
+            Type type = TupleInfo.this.getTypes().get(currentField);
+            checkArgument(type == tuple.getTupleInfo().getTypes().get(index), "Current field (%s) type (%s) does not match tuple field (%s) type (%s)",
+                    currentField, type, index, tuple.getTupleInfo().getTypes().get(index));
+
+            if (tuple.isNull(index)) {
+                appendNull();
+            }
+            else {
+                switch (type) {
+                    case FIXED_INT_64:
+                        append(tuple.getLong(index));
+                        break;
+                    case DOUBLE:
+                        append(tuple.getDouble(index));
+                        break;
+                    case VARIABLE_BINARY:
+                        append(tuple.getSlice(index));
+                        break;
+                    default:
+                        throw new IllegalStateException("Type not yet supported: " + type);
+                }
+            }
+
             return this;
         }
 
