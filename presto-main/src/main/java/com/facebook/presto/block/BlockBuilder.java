@@ -108,6 +108,13 @@ public class BlockBuilder
         return this;
     }
 
+    public BlockBuilder append(Tuple tuple, int index)
+    {
+        tupleBuilder.append(tuple, index);
+        flushTupleIfNecessary();
+        return this;
+    }
+
     public BlockBuilder appendTuple(Slice slice, int offset)
     {
         checkState(!tupleBuilder.isPartial(), "Tuple is not complete");
