@@ -7,7 +7,7 @@ import com.facebook.presto.importer.ForImportManager;
 import com.facebook.presto.importer.ImportManager;
 import com.facebook.presto.importer.NodeWorkerQueue;
 import com.facebook.presto.importer.ShardImporter;
-import com.facebook.presto.metadata.DatabaseMetadata;
+import com.facebook.presto.metadata.NativeMetadata;
 import com.facebook.presto.metadata.DatabaseShardManager;
 import com.facebook.presto.metadata.DatabaseStorageManager;
 import com.facebook.presto.metadata.ForMetadata;
@@ -82,7 +82,7 @@ public class ServerMainModule
         binder.bind(ImportDataStreamProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
-        binder.bind(DatabaseMetadata.class).in(Scopes.SINGLETON);
+        binder.bind(NativeMetadata.class).in(Scopes.SINGLETON);
 
         binder.bind(ImportClientFactory.class).in(Scopes.SINGLETON);
         binder.bind(ImportMetadata.class).in(Scopes.SINGLETON);

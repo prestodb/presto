@@ -12,7 +12,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class DatabaseMetadata
+public class NativeMetadata
         implements Metadata
 {
     private final IDBI dbi;
@@ -20,7 +20,7 @@ public class DatabaseMetadata
     private final FunctionRegistry functions = new FunctionRegistry();
 
     @Inject
-    public DatabaseMetadata(@ForMetadata IDBI dbi)
+    public NativeMetadata(@ForMetadata IDBI dbi)
     {
         this.dbi = dbi;
         this.dao = dbi.onDemand(MetadataDao.class);

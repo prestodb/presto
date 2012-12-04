@@ -27,7 +27,7 @@ public class TestDatabaseMetadata
     {
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
-        metadata = new DatabaseMetadata(dbi);
+        metadata = new NativeMetadata(dbi);
     }
 
     @AfterMethod
