@@ -8,7 +8,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
-class DependencyExtractor
+public class DependencyExtractor
 {
     public Set<Symbol> extract(Expression expression)
     {
