@@ -1,7 +1,17 @@
-package com.facebook.presto.sql.planner;
+package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.sql.compiler.Symbol;
 import com.facebook.presto.sql.compiler.Type;
+import com.facebook.presto.sql.planner.AggregationNode;
+import com.facebook.presto.sql.planner.FilterNode;
+import com.facebook.presto.sql.planner.JoinNode;
+import com.facebook.presto.sql.planner.LimitNode;
+import com.facebook.presto.sql.planner.OutputPlan;
+import com.facebook.presto.sql.planner.PlanNode;
+import com.facebook.presto.sql.planner.PlanVisitor;
+import com.facebook.presto.sql.planner.ProjectNode;
+import com.facebook.presto.sql.planner.TableScan;
+import com.facebook.presto.sql.planner.TopNNode;
 
 import java.util.Map;
 
