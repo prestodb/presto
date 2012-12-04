@@ -40,7 +40,8 @@ public class BenchmarkSuite
             new GroupByAggregationSqlBenchmark(),
             new PredicateFilterSqlBenchmark(),
             new RawStreamingSqlBenchmark(),
-            new Top100SqlBenchmark()
+            new Top100SqlBenchmark(),
+            new SqlHashJoinBenchmark()
     );
 
     private final String outputDirectory;
