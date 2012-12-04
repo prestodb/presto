@@ -65,7 +65,7 @@ import java.util.Map;
 import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class ExecutionPlanner
+public class LocalExecutionPlanner
 {
     private final Metadata metadata;
     private final PlanFragmentSourceProvider sourceProvider;
@@ -81,7 +81,7 @@ public class ExecutionPlanner
     private Optional<DataSize> inputDataSize = Optional.absent();
     private Optional<Integer> inputPositionCount = Optional.absent();
 
-    public ExecutionPlanner(Metadata metadata,
+    public LocalExecutionPlanner(Metadata metadata,
             PlanFragmentSourceProvider sourceProvider,
             Map<Symbol, Type> types,
             PlanFragmentSource split,
