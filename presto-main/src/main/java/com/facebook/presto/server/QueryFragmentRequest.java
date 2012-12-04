@@ -1,8 +1,8 @@
 package com.facebook.presto.server;
 
-import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.google.common.base.Function;
+import com.facebook.presto.sql.planner.PlanFragmentSource;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -12,39 +12,63 @@ import org.codehaus.jackson.annotate.JsonProperty;
 import java.util.List;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Maps.transformValues;
-
-// Request sent to worker to run a plan fragment on given split
 public class QueryFragmentRequest
 {
-    private final Map<String, List<Split>> sourceSplits;
-    private final PlanFragment planFragment;
+    private final PlanFragment fragment;
+    private final List<PlanFragmentSource> splits;
+    private final Map<String, ExchangePlanFragmentSource> exchangeSources;
+    private final List<String> outputIds;
 
     @JsonCreator
-    public QueryFragmentRequest(@JsonProperty("sourceSplits") Map<String, List<Split>> sourceSplits, @JsonProperty("planFragment") PlanFragment planFragment)
+    public QueryFragmentRequest(
+            @JsonProperty("fragment") PlanFragment fragment,
+            @JsonProperty("splits") List<PlanFragmentSource> splits,
+            @JsonProperty("exchangeSources") Map<String, ExchangePlanFragmentSource> exchangeSources,
+            @JsonProperty("outputIds") List<String> outputIds)
     {
-        Preconditions.checkNotNull(sourceSplits, "sourceSplits is null");
-        this.sourceSplits = ImmutableMap.copyOf(transformValues(sourceSplits, new Function<List<Split>, List<Split>>()
-        {
-            @Override
-            public List<Split> apply(List<Split> input)
-            {
-                return ImmutableList.copyOf(input);
-            }
-        }));
-        this.planFragment = checkNotNull(planFragment, "planFragment is null");
+        Preconditions.checkNotNull(fragment, "fragment is null");
+        Preconditions.checkNotNull(splits, "splits is null");
+        Preconditions.checkNotNull(exchangeSources, "exchangeSources is null");
+        Preconditions.checkNotNull(outputIds, "outputIds is null");
+
+        this.fragment = fragment;
+        this.splits = ImmutableList.copyOf(splits);
+        this.exchangeSources = ImmutableMap.copyOf(exchangeSources);
+        this.outputIds = ImmutableList.copyOf(outputIds);
     }
 
     @JsonProperty
-    public Map<String, List<Split>> getSourceSplits()
+    public PlanFragment getFragment()
     {
-        return sourceSplits;
+        return fragment;
     }
 
     @JsonProperty
-    public PlanFragment getPlanFragment()
+    public List<PlanFragmentSource> getSplits()
     {
-        return planFragment;
+        return splits;
+    }
+
+    @JsonProperty
+    public Map<String, ExchangePlanFragmentSource> getExchangeSources()
+    {
+        return exchangeSources;
+    }
+
+    @JsonProperty
+    public List<String> getOutputIds()
+    {
+        return outputIds;
+    }
+
+    @Override
+    public String toString()
+    {
+        return Objects.toStringHelper(this)
+                .add("fragment", fragment)
+                .add("splits", splits)
+                .add("exchangeSources", exchangeSources)
+                .add("outputIds", outputIds)
+                .toString();
     }
 }

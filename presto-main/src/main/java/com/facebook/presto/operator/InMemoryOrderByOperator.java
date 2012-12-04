@@ -24,7 +24,7 @@ import static com.google.common.base.Preconditions.checkState;
 public class InMemoryOrderByOperator
         implements Operator
 {
-    private static final int MAX_IN_MEMORY_SORT_SIZE = 1_000_000;
+    private static final int MAX_IN_MEMORY_SORT_SIZE = 2_000_000;
     
     private final Operator source;
     private final int keyChannelIndex;
