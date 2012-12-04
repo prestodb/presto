@@ -482,6 +482,15 @@ public class TestQueries
         assertEqualsIgnoreOrder(actual, expected);
     }
 
+    @Test
+    public void testSimpleJoin()
+            throws Exception
+    {
+        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM lineitem join orders using (orderkey)");
+        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM lineitem join orders on lineitem.orderkey = orders.orderkey", FIXED_INT_64);
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
 
     private List<Tuple> computeExpected(@Language("SQL") final String sql, TupleInfo.Type... types)
     {
