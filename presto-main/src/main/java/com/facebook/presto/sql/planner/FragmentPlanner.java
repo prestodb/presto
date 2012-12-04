@@ -176,7 +176,11 @@ public class FragmentPlanner
                 return left;
             }
             else {
-                throw new UnsupportedOperationException("not yet implemented");
+                // temporary hack to "merge" fragments TODO make fragments a proper tree
+                fragments.remove(left);
+                fragments.remove(right);
+                JoinNode join = new JoinNode(left.getRoot(), right.getRoot(), node.getCriteria());
+                return newPlanFragment(join, false);
             }
         }
 
