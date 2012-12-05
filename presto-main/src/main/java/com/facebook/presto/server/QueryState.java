@@ -7,6 +7,7 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -23,6 +24,8 @@ import java.util.concurrent.TimeUnit;
 @ThreadSafe
 public class QueryState
 {
+    private static final Logger log = Logger.get(QueryState.class);
+
     public static enum State
     {
         PREPARING,
@@ -147,6 +150,7 @@ public class QueryState
      */
     public void queryFailed(Throwable cause)
     {
+        log.error(cause, "Query buffer failed");
         synchronized (pageBuffer) {
             // if query is already done, nothing can be done here
             if (isDone()) {
