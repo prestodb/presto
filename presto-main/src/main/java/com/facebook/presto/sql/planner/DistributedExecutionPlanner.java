@@ -44,15 +44,10 @@ public class DistributedExecutionPlanner
         this.splitManager = splitManager;
     }
 
-    public Stage plan(List<PlanFragment> fragments)
+    public Stage plan(SubPlan root)
     {
-        // todo find root
-        PlanFragment rootPlanFragment = fragments.get(fragments.size() - 1);
-        return plan(rootPlanFragment, fragments);
-    }
+        PlanFragment currentFragment = root.getFragment();
 
-    private Stage plan(final PlanFragment currentFragment, List<PlanFragment> allFragments)
-    {
         // get partitions for this fragment
         List<Partition> partitions;
         if (currentFragment.isPartitioned()) {
@@ -70,8 +65,8 @@ public class DistributedExecutionPlanner
 
         // create child stages
         ImmutableList.Builder<Stage> dependencies = ImmutableList.builder();
-        for (PlanFragment childPlanFragment : getChildPlanFragments(currentFragment.getRoot(), allFragments)) {
-            Stage dependency = plan(childPlanFragment, allFragments);
+        for (SubPlan childPlan : root.getChildren()) {
+            Stage dependency = plan(childPlan);
             dependencies.add(dependency);
         }
 
@@ -140,44 +135,6 @@ public class DistributedExecutionPlanner
         }
         else if (plan instanceof TopNNode) {
             return getPartitions(((TopNNode) plan).getSource());
-        }
-        else {
-            throw new UnsupportedOperationException("not yet implemented: " + plan.getClass().getName());
-        }
-    }
-
-    private List<PlanFragment> getChildPlanFragments(PlanNode plan, List<PlanFragment> fragments)
-    {
-        if (plan instanceof ExchangeNode) {
-            int sourceFragmentId = ((ExchangeNode) plan).getSourceFragmentId();
-            return ImmutableList.of(fragments.get(sourceFragmentId));
-        }
-        else if (plan instanceof JoinNode) {
-            JoinNode joinNode = (JoinNode) plan;
-            List<PlanFragment> leftChildPlanFragments = getChildPlanFragments(joinNode.getLeft(), fragments);
-            List<PlanFragment> rightChildPlanFragments = getChildPlanFragments(joinNode.getRight(), fragments);
-            return ImmutableList.<PlanFragment>builder().addAll(leftChildPlanFragments).addAll(rightChildPlanFragments).build();
-        }
-        else if (plan instanceof ProjectNode) {
-            return getChildPlanFragments(((ProjectNode) plan).getSource(), fragments);
-        }
-        else if (plan instanceof FilterNode) {
-            return getChildPlanFragments(((FilterNode) plan).getSource(), fragments);
-        }
-        else if (plan instanceof OutputNode) {
-            return getChildPlanFragments(((OutputNode) plan).getSource(), fragments);
-        }
-        else if (plan instanceof AggregationNode) {
-            return getChildPlanFragments(((AggregationNode) plan).getSource(), fragments);
-        }
-        else if (plan instanceof LimitNode) {
-            return getChildPlanFragments(((LimitNode) plan).getSource(), fragments);
-        }
-        else if (plan instanceof TopNNode) {
-            return getChildPlanFragments(((TopNNode) plan).getSource(), fragments);
-        }
-        else if (plan instanceof TableScanNode) {
-            return ImmutableList.of();
         }
         else {
             throw new UnsupportedOperationException("not yet implemented: " + plan.getClass().getName());
