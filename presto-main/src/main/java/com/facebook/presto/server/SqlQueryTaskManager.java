@@ -165,6 +165,19 @@ public class SqlQueryTaskManager
     }
 
     @Override
+    public void abortQueryTaskResults(String taskId, String outputId)
+    {
+        Preconditions.checkNotNull(taskId, "taskId is null");
+        Preconditions.checkNotNull(outputId, "outputId is null");
+
+        TaskOutput taskOutput = tasks.get(taskId);
+        if (taskOutput == null) {
+            throw new NoSuchElementException();
+        }
+        taskOutput.abortResults(outputId);
+    }
+
+    @Override
     public void cancelQueryTask(String taskId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");

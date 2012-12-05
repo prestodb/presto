@@ -202,7 +202,7 @@ public class TestQueryDriversOperator
         }
 
         @Override
-        public synchronized void cancel()
+        public synchronized void abort()
         {
             jobFuture.cancel(true);
         }
@@ -228,19 +228,23 @@ public class TestQueryDriversOperator
         @Override
         public void run()
         {
-            for (Page page : pages) {
-                try {
-                    if (queryState.addPage(page)) {
-                        pagesAdded.incrementAndGet();
+            try {
+                for (Page page : pages) {
+                    try {
+                        if (queryState.addPage(page)) {
+                            pagesAdded.incrementAndGet();
+                        }
+                    }
+                    catch (InterruptedException e) {
+                        queryState.queryFailed(e);
+                        Thread.currentThread().interrupt();
+                        throw Throwables.propagate(e);
                     }
                 }
-                catch (InterruptedException e) {
-                    queryState.queryFailed(e);
-                    Thread.currentThread().interrupt();
-                    throw Throwables.propagate(e);
-                }
             }
-            queryState.sourceFinished();
+            finally {
+                queryState.sourceFinished();
+            }
         }
     }
 }

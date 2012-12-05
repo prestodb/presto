@@ -22,5 +22,7 @@ public interface QueryTaskManager
     List<Page> getQueryTaskResults(String taskId, String outputName, int maxPageCount, Duration maxWaitTime)
             throws InterruptedException;
 
+    void abortQueryTaskResults(String taskId, String outputId);
+
     void cancelQueryTask(String taskId);
 }

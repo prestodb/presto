@@ -25,7 +25,9 @@ import java.util.concurrent.Future;
 
 import static com.facebook.presto.server.PrestoMediaTypes.PRESTO_PAGES_TYPE;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
+import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 
 @ThreadSafe
 public class HttpQuery
@@ -68,7 +70,7 @@ public class HttpQuery
     }
 
     @Override
-    public synchronized void cancel()
+    public synchronized void abort()
     {
         if (!done) {
             queryState.sourceFinished();
@@ -77,6 +79,8 @@ public class HttpQuery
                 currentRequest.cancel(true);
                 currentRequest = null;
             }
+            // abort the output buffer on the remote node; response of delete is ignored
+            httpClient.execute(prepareDelete().setUri(location).build(), createStatusResponseHandler());
         }
     }
 

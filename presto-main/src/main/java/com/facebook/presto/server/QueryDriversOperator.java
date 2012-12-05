@@ -69,7 +69,7 @@ public class QueryDriversOperator
         }
         catch (Throwable e) {
             for (QueryDriver queryDriver : queries.build()) {
-                queryDriver.cancel();
+                queryDriver.abort();
             }
             throw Throwables.propagate(e);
         }
@@ -115,7 +115,7 @@ public class QueryDriversOperator
             queryState.finish();
             for (QueryDriver queryDriver : queryDrivers) {
                 try {
-                    queryDriver.cancel();
+                    queryDriver.abort();
                 }
                 catch (Exception e) {
                     log.warn("Error canceling query driver", e);

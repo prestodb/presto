@@ -99,17 +99,30 @@ public class SimpleQueryTaskManager
     }
 
     @Override
-    public List<Page> getQueryTaskResults(String taskId, String outputName, int maxPageCount, Duration maxWaitTime)
+    public List<Page> getQueryTaskResults(String taskId, String outputId, int maxPageCount, Duration maxWaitTime)
             throws InterruptedException
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
-        Preconditions.checkNotNull(outputName, "outputName is null");
+        Preconditions.checkNotNull(outputId, "outputId is null");
 
         TaskOutput taskOutput = tasks.get(taskId);
         if (taskOutput == null) {
             throw new NoSuchElementException();
         }
-        return taskOutput.getNextPages(outputName, maxPageCount, maxWaitTime);
+        return taskOutput.getNextPages(outputId, maxPageCount, maxWaitTime);
+    }
+
+    @Override
+    public void abortQueryTaskResults(String taskId, String outputId)
+    {
+        Preconditions.checkNotNull(taskId, "taskId is null");
+        Preconditions.checkNotNull(outputId, "outputId is null");
+
+        TaskOutput taskOutput = tasks.get(taskId);
+        if (taskOutput == null) {
+            throw new NoSuchElementException();
+        }
+        taskOutput.abortResults(outputId);
     }
 
     @Override
