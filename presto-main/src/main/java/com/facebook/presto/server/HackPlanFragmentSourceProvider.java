@@ -61,6 +61,8 @@ public class HackPlanFragmentSourceProvider
             synchronized (this) {
                 if (this.httpClient == null) {
                     this.httpClient = new ApacheHttpClient(new HttpClientConfig()
+                            .setMaxConnections(1000)
+                            .setMaxConnectionsPerServer(1000)
                             .setConnectTimeout(new Duration(5, TimeUnit.SECONDS))
                             .setReadTimeout(new Duration(5, TimeUnit.SECONDS)));
                 }
