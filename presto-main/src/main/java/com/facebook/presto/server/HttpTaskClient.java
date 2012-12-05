@@ -4,6 +4,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
@@ -107,5 +108,15 @@ public class HttpTaskClient
         }
         catch (RuntimeException ignored) {
         }
+    }
+
+    @Override
+    public String toString()
+    {
+        return Objects.toStringHelper(this)
+                .add("taskId", taskId)
+                .add("location", location)
+                .add("outputId", outputId)
+                .toString();
     }
 }

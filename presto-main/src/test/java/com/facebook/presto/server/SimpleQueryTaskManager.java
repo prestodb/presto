@@ -11,24 +11,29 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import io.airlift.http.server.HttpServerInfo;
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;
+import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 
 public class SimpleQueryTaskManager
         implements QueryTaskManager
 {
     private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_VARBINARY);
+    private final HttpServerInfo httpServerInfo;
     private final int pageBufferMax;
     private final int initialPages;
 
@@ -36,16 +41,18 @@ public class SimpleQueryTaskManager
     private final ConcurrentMap<String, TaskOutput> tasks = new ConcurrentHashMap<>();
 
     @Inject
-    public SimpleQueryTaskManager()
+    public SimpleQueryTaskManager(HttpServerInfo httpServerInfo)
     {
-        this(20, 12);
+        this(httpServerInfo, 20, 12);
     }
 
-    public SimpleQueryTaskManager(int pageBufferMax, int initialPages)
+    public SimpleQueryTaskManager(HttpServerInfo httpServerInfo, int pageBufferMax, int initialPages)
     {
+        Preconditions.checkNotNull(httpServerInfo, "httpServerInfo is null");
         Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
         Preconditions.checkArgument(initialPages >= 0, "initialPages is negative");
         Preconditions.checkArgument(initialPages <= pageBufferMax, "initialPages is greater than pageBufferMax");
+        this.httpServerInfo = httpServerInfo;
         this.pageBufferMax = pageBufferMax;
         this.initialPages = initialPages;
     }
@@ -77,8 +84,9 @@ public class SimpleQueryTaskManager
             List<PlanFragmentSource> splits,
             Map<String, ExchangePlanFragmentSource> exchangeSources, List<String> outputIds)
     {
-        String taskId = String.valueOf(nextTaskId.getAndIncrement());
-        TaskOutput taskOutput = new TaskOutput(taskId, ImmutableList.copyOf(outputIds), TUPLE_INFOS, pageBufferMax, 0);
+        String taskId = UUID.randomUUID().toString();
+        URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/presto/task").appendPath(taskId).build();
+        TaskOutput taskOutput = new TaskOutput(taskId, location, ImmutableList.copyOf(outputIds), TUPLE_INFOS, pageBufferMax, 0);
         tasks.put(taskId, taskOutput);
 
         List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");

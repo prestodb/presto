@@ -9,6 +9,7 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
@@ -16,6 +17,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -28,6 +30,7 @@ import static com.google.common.collect.Iterables.transform;
 public class TaskOutput
 {
     private final String taskId;
+    private final URI location;
     private final List<TupleInfo> tupleInfos;
     private final Map<String, QueryState> outputBuffers;
 
@@ -45,10 +48,10 @@ public class TaskOutput
     private final AtomicLong completedDataSize = new AtomicLong();
     private final AtomicLong completedPositions = new AtomicLong();
 
-
-    public TaskOutput(String taskId, List<String> outputIds, List<TupleInfo> tupleInfos, int pageBufferMax, int splits)
+    public TaskOutput(String taskId, URI location, List<String> outputIds, List<TupleInfo> tupleInfos, int pageBufferMax, int splits)
     {
         this.taskId = taskId;
+        this.location = location;
         this.tupleInfos = tupleInfos;
         this.splits = splits;
         ImmutableMap.Builder<String, QueryState> builder = ImmutableMap.builder();
@@ -183,6 +186,8 @@ public class TaskOutput
     {
         updateState();
         return new QueryTaskInfo(taskId,
+                location,
+                ImmutableList.copyOf(outputBuffers.keySet()),
                 getTupleInfos(),
                 getState(),
                 getBufferedPageCount(),
