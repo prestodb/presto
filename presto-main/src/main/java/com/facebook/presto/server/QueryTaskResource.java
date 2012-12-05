@@ -126,7 +126,6 @@ public class QueryTaskResource
     @Path("{taskId}/results/{outputId}")
     @Produces(PrestoMediaTypes.PRESTO_PAGES)
     public Response abortResults(@PathParam("taskId") String taskId, @PathParam("outputId") String outputId)
-            throws InterruptedException
     {
         checkNotNull(taskId, "taskId is null");
         checkNotNull(outputId, "outputId is null");
