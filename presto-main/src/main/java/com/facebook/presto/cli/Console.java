@@ -22,6 +22,9 @@ public class Console
     @Option(name = "-s", title = "server")
     public URI server = URI.create("http://localhost:8080/v1/presto/query");
 
+    @Option(name = "--debug", title = "debug")
+    public boolean debug = false;
+
     @Override
     public void run()
     {
@@ -44,6 +47,9 @@ public class Console
                 }
                 catch (Exception e) {
                     System.out.println("error running command");
+                    if (debug) {
+                        e.printStackTrace();
+                    }
                 }
             }
         }
