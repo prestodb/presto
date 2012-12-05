@@ -172,6 +172,13 @@ public class TaskOutput
         return outputBuffer.getNextPages(maxPageCount, maxWait);
     }
 
+    public void abortResults(String outputId)
+    {
+        QueryState outputBuffer = outputBuffers.get(outputId);
+        Preconditions.checkArgument(outputBuffer != null, "Unknown output %s: available outputs %s", outputId, outputBuffers.keySet());
+        outputBuffer.finish();
+    }
+
     public QueryTaskInfo getQueryTaskInfo()
     {
         updateState();

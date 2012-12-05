@@ -9,5 +9,5 @@ public interface QueryDriver
 
     boolean isDone();
 
-    void cancel();
+    void abort();
 }
