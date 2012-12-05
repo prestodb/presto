@@ -39,11 +39,14 @@ public class PagesIndex
         }
 
         int positionCount = 0;
-        for (Page page : source) {
-            positionCount += page.getPositionCount();
-            Block[] blocks = page.getBlocks();
-            for (int channel = 0; channel < indexes.length; channel++) {
-                indexes[channel].indexBlock((UncompressedBlock) blocks[channel]);
+        try (PageIterator pageIterator = source.iterator()) {
+            while (pageIterator.hasNext()) {
+                Page page = pageIterator.next();
+                positionCount += page.getPositionCount();
+                Block[] blocks = page.getBlocks();
+                for (int channel = 0; channel < indexes.length; channel++) {
+                    indexes[channel].indexBlock((UncompressedBlock) blocks[channel]);
+                }
             }
         }
 

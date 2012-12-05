@@ -22,8 +22,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.util.Threads.threadsNamed;
@@ -48,14 +47,7 @@ public class HackPlanFragmentSourceProvider
         this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
         this.queryTaskInfoCodec = checkNotNull(queryTaskInfoCodec, "queryTaskInfoCodec is null");
 
-        int processors = Runtime.getRuntime().availableProcessors();
-        executor = new ThreadPoolExecutor(processors,
-                processors,
-                1, TimeUnit.MINUTES,
-                new SynchronousQueue<Runnable>(),
-                threadsNamed("shard-query-processor-%d"),
-                new ThreadPoolExecutor.CallerRunsPolicy());
-
+        executor = Executors.newCachedThreadPool(threadsNamed("http-exchange-worker-%d"));
 
         this.pageBufferMax = 10;
     }

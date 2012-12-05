@@ -9,10 +9,8 @@ import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.block.BlockIterables;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
 import io.airlift.units.DataSize;
 
 import java.util.Iterator;
@@ -74,7 +72,7 @@ public class AlignmentOperator implements Operator
     }
 
     @Override
-    public Iterator<Page> iterator()
+    public PageIterator iterator()
     {
         Iterator<? extends Block>[] iterators = new Iterator[channels.length];
         for (int i = 0; i < iterators.length; i++) {
@@ -86,19 +84,22 @@ public class AlignmentOperator implements Operator
             for (Iterator<? extends Block> iterator : iterators) {
                 checkState(!iterator.hasNext(), "iterators are not aligned");
             }
-            return Iterators.emptyIterator();
+            return PageIterators.emptyIterator(tupleInfos);
         }
 
-        return new AlignmentIterator(iterators);
+        return new AlignmentIterator(tupleInfos, iterators);
     }
 
-    public static class AlignmentIterator extends AbstractIterator<Page>
+    public static class AlignmentIterator
+            extends AbstractPageIterator
     {
         private final Iterator<? extends Block>[] iterators;
         private final BlockCursor[] cursors;
 
-        public AlignmentIterator(Iterator<? extends Block>[] iterators)
+        public AlignmentIterator(List<TupleInfo> tupleInfos, Iterator<? extends Block>[] iterators)
         {
+            super(tupleInfos);
+
             this.iterators = iterators;
             cursors = new BlockCursor[iterators.length];
             for (int i = 0; i < iterators.length; i++) {
@@ -137,6 +138,11 @@ public class AlignmentOperator implements Operator
             }
 
             return new Page(blocks);
+        }
+
+        @Override
+        protected void doClose()
+        {
         }
     }
 }

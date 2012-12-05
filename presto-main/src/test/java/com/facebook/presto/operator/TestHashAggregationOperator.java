@@ -65,7 +65,7 @@ public class TestHashAggregationOperator
                         singleColumn(FIXED_INT_64, 2, 0),
                         singleColumn(DOUBLE, 3, 0))));
 
-        Iterator<Page> pages = actual.iterator();
+        PageIterator pages = actual.iterator();
 
         Page page = pages.next();
         assertEquals(page.getChannelCount(), 1);

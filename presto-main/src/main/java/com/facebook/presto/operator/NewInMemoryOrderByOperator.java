@@ -1,11 +1,9 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.booleans.BooleanArrays;
 
-import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -61,13 +59,13 @@ public class NewInMemoryOrderByOperator
     }
 
     @Override
-    public Iterator<Page> iterator()
+    public PageIterator iterator()
     {
         return new NewInMemoryOrderByOperatorIterator(source, orderByChannel, tupleInfos, outputChannels, expectedPositions, sortFields, sortOrder);
     }
 
     private static class NewInMemoryOrderByOperatorIterator
-            extends AbstractIterator<Page>
+            extends AbstractPageIterator
     {
         private final List<TupleInfo> tupleInfos;
         private final int[] outputChannels;
@@ -82,6 +80,8 @@ public class NewInMemoryOrderByOperator
                 int[] sortFields,
                 boolean[] sortOrder)
         {
+            super(source.getTupleInfos());
+
             this.tupleInfos = tupleInfos;
             this.outputChannels = outputChannels;
 
@@ -114,6 +114,11 @@ public class NewInMemoryOrderByOperator
             }
             Page page = pageBuilder.build();
             return page;
+        }
+
+        @Override
+        protected void doClose()
+        {
         }
     }
 

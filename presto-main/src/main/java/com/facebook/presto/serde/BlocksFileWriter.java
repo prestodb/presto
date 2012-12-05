@@ -51,6 +51,7 @@ public class BlocksFileWriter implements Closeable
     private final StatsBuilder statsBuilder = new StatsBuilder();
     private Encoder encoder;
     private SliceOutput sliceOutput;
+    private boolean closed;
 
     public BlocksFileWriter(BlocksFileEncoding encoding, OutputSupplier<? extends OutputStream> outputSupplier)
     {
@@ -92,7 +93,7 @@ public class BlocksFileWriter implements Closeable
 
     public void close()
     {
-        if (encoder != null) {
+        if (!closed && encoder != null) {
             BlockEncoding blockEncoding = encoder.finish();
 
             int startingIndex = sliceOutput.size();
@@ -114,6 +115,8 @@ public class BlocksFileWriter implements Closeable
             catch (IOException e) {
                 throw Throwables.propagate(e);
             }
+
+            closed = true;
         }
     }
 

@@ -8,8 +8,8 @@ import com.facebook.presto.spi.PartitionChunk;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.Closeables;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.Callable;
 
@@ -71,9 +71,8 @@ public class ImportPartition
 
         @Override
         public void close()
-                throws IOException
         {
-            importRecords.close();
+            Closeables.closeQuietly(importRecords);
         }
     }
 

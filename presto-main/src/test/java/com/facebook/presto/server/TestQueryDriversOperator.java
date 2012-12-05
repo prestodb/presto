@@ -94,7 +94,7 @@ public class TestQueryDriversOperator
             }
 
             // cancel the iterator
-            iterator.cancel();
+            iterator.close();
 
             // verify all producers are finished, and no additional pages have been added
             for (StaticQueryDriver driver : provider.getCreatedDrivers()) {

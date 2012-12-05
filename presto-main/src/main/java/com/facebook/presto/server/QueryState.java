@@ -28,11 +28,22 @@ public class QueryState
 
     public static enum State
     {
-        PREPARING,
-        RUNNING,
-        FINISHED,
-        CANCELED,
-        FAILED
+        PREPARING(false),
+        RUNNING(false),
+        FINISHED(true),
+        CANCELED(true),
+        FAILED(true);
+
+        private final boolean doneState;
+
+        private State(boolean doneState)
+        {
+            this.doneState = doneState;
+        }
+
+        public boolean isDone() {
+            return doneState;
+        }
     }
 
     private final List<TupleInfo> tupleInfos;

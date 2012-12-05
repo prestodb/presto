@@ -3,12 +3,12 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.operator.AbstractPageIterator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
@@ -75,28 +75,16 @@ public class QueryDriversOperator
         }
     }
 
-    public static class QueryDriversIterator extends AbstractIterator<Page>
+    public static class QueryDriversIterator extends AbstractPageIterator
     {
         private final QueryState queryState;
         private final List<QueryDriver> queryDrivers;
 
         private QueryDriversIterator(QueryState queryState, Iterable<QueryDriver> queries)
         {
+            super(queryState.getTupleInfos());
             this.queryState = queryState;
             this.queryDrivers = ImmutableList.copyOf(queries);
-        }
-
-        public void cancel()
-        {
-            queryState.cancel();
-            for (QueryDriver queryDriver : queryDrivers) {
-                try {
-                    queryDriver.cancel();
-                }
-                catch (Exception e) {
-                    log.warn("Error canceling query driver", e);
-                }
-            }
         }
 
         @Override
@@ -120,6 +108,19 @@ public class QueryDriversOperator
                 throw Throwables.propagate(e);
             }
         }
-    }
 
+        @Override
+        protected void doClose()
+        {
+            queryState.cancel();
+            for (QueryDriver queryDriver : queryDrivers) {
+                try {
+                    queryDriver.cancel();
+                }
+                catch (Exception e) {
+                    log.warn("Error canceling query driver", e);
+                }
+            }
+        }
+    }
 }

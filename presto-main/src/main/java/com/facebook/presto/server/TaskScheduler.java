@@ -52,6 +52,8 @@ public class TaskScheduler
         this.queryTaskInfoCodec = queryTaskInfoCodec;
 
         httpClient = new ApacheHttpClient(new HttpClientConfig()
+                .setMaxConnections(1000)
+                .setMaxConnectionsPerServer(1000)
                 .setConnectTimeout(new Duration(5, TimeUnit.MINUTES))
                 .setReadTimeout(new Duration(5, TimeUnit.MINUTES)));
     }
