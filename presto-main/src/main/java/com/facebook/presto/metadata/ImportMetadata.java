@@ -4,7 +4,6 @@ import com.facebook.presto.ingest.ImportSchemaUtil;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.SchemaField;
 import com.facebook.presto.split.ImportClientFactory;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.collect.Lists;
@@ -17,7 +16,7 @@ import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ImportMetadata
-        implements Metadata
+        extends AbstractMetadata
 {
     private final ImportClientFactory importClientFactory;
 
@@ -25,18 +24,6 @@ public class ImportMetadata
     public ImportMetadata(ImportClientFactory importClientFactory)
     {
         this.importClientFactory = checkNotNull(importClientFactory, "importClientFactory is null");
-    }
-
-    @Override
-    public FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public FunctionInfo getFunction(FunctionHandle handle)
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -76,11 +63,5 @@ public class ImportMetadata
                 return new ColumnMetadata(schemaField.getFieldName(), type, columnHandle);
             }
         });
-    }
-
-    @Override
-    public void createTable(TableMetadata table)
-    {
-        throw new UnsupportedOperationException();
     }
 }
