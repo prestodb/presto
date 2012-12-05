@@ -4,6 +4,8 @@ import org.skife.jdbi.v2.sqlobject.Bind;
 import org.skife.jdbi.v2.sqlobject.SqlQuery;
 import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 
+import java.util.List;
+
 public interface StorageManagerDao
 {
     @SqlUpdate("CREATE TABLE IF NOT EXISTS columns (\n" +
@@ -29,8 +31,17 @@ public interface StorageManagerDao
             @Bind("shardId") long shardId,
             @Bind("columnId") long columnId);
 
+    @SqlQuery("SELECT filename\n" +
+            "FROM columns\n" +
+            "WHERE shard_id = :shardId\n")
+    List<String> getShardFiles(@Bind("shardId") long shardId);
+
     @SqlQuery("SELECT COUNT(*) > 0\n" +
             "FROM columns\n" +
             "WHERE shard_id = :shardId")
     boolean shardExists(@Bind("shardId") long shardId);
+
+    @SqlUpdate("DELETE FROM columns\n" +
+            "WHERE shard_id = :shardId")
+    void dropShard(@Bind("shardId") long shardId);
 }
