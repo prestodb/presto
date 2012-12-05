@@ -4,16 +4,18 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.collect.PeekingIterator;
 
+import java.io.Closeable;
 import java.util.List;
 
-public interface Operator
-        extends Iterable<Page>
+public interface PageIterator
+        extends PeekingIterator<Page>, Closeable
 {
     int getChannelCount();
 
     List<TupleInfo> getTupleInfos();
 
     @Override
-    PageIterator iterator();
+    void close();
 }

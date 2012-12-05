@@ -4,14 +4,14 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.Page;
+import com.facebook.presto.operator.PageIterator;
+import com.facebook.presto.operator.PageIterators;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
@@ -20,7 +20,6 @@ import io.airlift.json.JsonCodec;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.ws.rs.core.Response.Status;
 import java.net.URI;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
@@ -41,6 +40,7 @@ public class HttpQueryClient
     private final URI queryLocation;
     private final JsonCodec<QueryInfo> queryInfoCodec;
     private final JsonCodec<QueryTaskInfo> queryTaskInfoCodec;
+    private final List<TupleInfo> tupleInfos;
 
     public HttpQueryClient(String query,
             URI coordinatorLocation,
@@ -74,6 +74,8 @@ public class HttpQueryClient
                 response.getStatusMessage());
         String location = response.getHeader("Location");
         Preconditions.checkState(location != null);
+        QueryInfo queryInfo = response.getValue();
+        tupleInfos = queryInfo.getTupleInfos();
 
         this.queryLocation = URI.create(location);
     }
@@ -116,9 +118,9 @@ public class HttpQueryClient
                 }
 
                 @Override
-                public Iterator<Page> iterator()
+                public PageIterator iterator()
                 {
-                    return Iterators.emptyIterator();
+                    return PageIterators.emptyIterator(tupleInfos);
                 }
             };
         }

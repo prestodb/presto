@@ -7,10 +7,8 @@ import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterators;
 
 import javax.inject.Provider;
-import java.util.Iterator;
 import java.util.List;
 
 public class AggregationOperator
@@ -53,7 +51,7 @@ public class AggregationOperator
     }
 
     @Override
-    public Iterator<Page> iterator()
+    public PageIterator iterator()
     {
         // create the aggregation functions
         AggregationFunctionStep[] functions = new AggregationFunctionStep[functionProviders.size()];
@@ -82,6 +80,6 @@ public class AggregationOperator
             blocks[i] = output.build();
         }
 
-        return Iterators.singletonIterator(new Page(blocks));
+        return PageIterators.singletonIterator(new Page(blocks));
     }
 }

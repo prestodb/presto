@@ -8,6 +8,7 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.Closeables;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.LineReader;
 
@@ -74,9 +75,8 @@ public class DelimitedRecordIterable
 
         @Override
         public void close()
-                throws IOException
         {
-            reader.close();
+            Closeables.closeQuietly(reader);
         }
     }
 }

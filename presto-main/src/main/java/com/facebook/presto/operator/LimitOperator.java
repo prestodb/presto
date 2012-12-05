@@ -2,9 +2,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.collect.AbstractIterator;
 
-import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -38,19 +36,20 @@ public class LimitOperator
     }
 
     @Override
-    public Iterator<Page> iterator()
+    public PageIterator iterator()
     {
         return new LimitIterator(source.iterator(), limit);
     }
 
     private static class LimitIterator
-            extends AbstractIterator<Page>
+            extends AbstractPageIterator
     {
-        private final Iterator<Page> sourceIterator;
+        private final PageIterator sourceIterator;
         private long remainingLimit;
 
-        private LimitIterator(Iterator<Page> sourceIterator, long limit)
+        private LimitIterator(PageIterator sourceIterator, long limit)
         {
+            super(sourceIterator.getTupleInfos());
             this.sourceIterator = sourceIterator;
             this.remainingLimit = limit;
         }
@@ -65,6 +64,9 @@ public class LimitOperator
             Page page = sourceIterator.next();
             if (page.getPositionCount() <= remainingLimit) {
                 remainingLimit -= page.getPositionCount();
+                if (remainingLimit == 0) {
+                    sourceIterator.close();
+                }
                 return page;
             }
             else {
@@ -74,8 +76,15 @@ public class LimitOperator
                     blocks[channel] = block.getRegion(0, (int) remainingLimit);
                 }
                 remainingLimit = 0;
+                sourceIterator.close();
                 return new Page(blocks);
             }
+        }
+
+        @Override
+        protected void doClose()
+        {
+            sourceIterator.close();
         }
     }
 }
