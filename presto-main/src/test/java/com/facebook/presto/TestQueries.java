@@ -532,7 +532,7 @@ public class TestQueries
         }
 
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(metadata,
-                new HackPlanFragmentSourceProvider(dataProvider, QUERY_TASK_INFO_CODEC),
+                new HackPlanFragmentSourceProvider(dataProvider, null, QUERY_TASK_INFO_CODEC),
                 analysis.getTypes(),
                 null,
                 builder.build(),

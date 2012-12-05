@@ -19,6 +19,8 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.StorageManager;
+import com.facebook.presto.operator.ForExchange;
+import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.ImportClientFactory;
@@ -35,6 +37,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import io.airlift.http.client.HttpClientBinder;
 import io.airlift.json.JsonBinder;
 import org.antlr.runtime.RecognitionException;
 import org.codehaus.jackson.JsonGenerator;
@@ -68,6 +71,9 @@ public class ServerMainModule
         binder.bind(TaskScheduler.class).in(Scopes.SINGLETON);
 
         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
+
+        HttpClientBinder.httpClientBinder(binder).bindHttpClient("exchange", ForExchange.class).withTracing();
+        HttpClientBinder.httpClientBinder(binder).bindHttpClient("scheduler", ForScheduler.class).withTracing();
         binder.bind(PlanFragmentSourceProvider.class).to(HackPlanFragmentSourceProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(StorageManager.class).to(DatabaseStorageManager.class).in(Scopes.SINGLETON);
