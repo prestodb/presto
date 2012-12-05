@@ -10,7 +10,6 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 import static com.facebook.presto.block.BlockAssertions.assertBlocksEquals;
@@ -63,9 +62,9 @@ public final class OperatorAssertions
         }
 
         @Override
-        public Iterator<Page> iterator()
+        public PageIterator iterator()
         {
-            return pages.iterator();
+            return PageIterators.createPageIterator(pages);
         }
     }
 

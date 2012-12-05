@@ -4,21 +4,22 @@
 package com.facebook.presto.ingest;
 
 import com.facebook.presto.block.Block;
+import com.facebook.presto.operator.AbstractPageIterator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.serde.BlocksFileWriter;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
-import java.util.Iterator;
 import java.util.List;
 
 import static com.facebook.presto.block.BlockUtils.toTupleIterable;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class ImportingOperator implements Operator
+public class ImportingOperator
+        implements Operator
 {
     public static long importData(Operator source, BlocksFileWriter... fileWriters)
     {
@@ -65,40 +66,51 @@ public class ImportingOperator implements Operator
     }
 
     @Override
-    public Iterator<Page> iterator()
+    public PageIterator iterator()
     {
         Preconditions.checkState(!used, "Import operator can only be used once");
         used = true;
 
-        return new AbstractIterator<Page>()
+        return new ImportingIterator(source.iterator(), fileWriters);
+    }
+
+    private static class ImportingIterator
+            extends AbstractPageIterator
+    {
+        private final PageIterator source;
+        private final List<? extends BlocksFileWriter> fileWriters;
+
+        private ImportingIterator(PageIterator source, List<? extends BlocksFileWriter> fileWriters)
         {
-            private final Iterator<Page> iterator = source.iterator();
+            super(source.getTupleInfos());
+            this.source = source;
+            this.fileWriters = fileWriters;
+        }
 
-            @Override
-            protected Page computeNext()
-            {
-                if (!iterator.hasNext()) {
-                    close();
-                    return endOfData();
-                }
-
-                Page page = iterator.next();
-                Block[] blocks = page.getBlocks();
-                for (int i = 0; i < blocks.length; i++) {
-                    Block block = blocks[i];
-                    fileWriters.get(i).append(toTupleIterable(block));
-                }
-
-                return page;
+        @Override
+        protected Page computeNext()
+        {
+            if (!source.hasNext()) {
+                return endOfData();
             }
 
-            public void close()
-            {
-                for (BlocksFileWriter fileWriter : fileWriters) {
-                    fileWriter.close();
-                }
-                endOfData();
+            Page page = source.next();
+            Block[] blocks = page.getBlocks();
+            for (int i = 0; i < blocks.length; i++) {
+                Block block = blocks[i];
+                fileWriters.get(i).append(toTupleIterable(block));
             }
-        };
+
+            return page;
+        }
+
+        @Override
+        protected void doClose()
+        {
+            for (BlocksFileWriter fileWriter : fileWriters) {
+                fileWriter.close();
+            }
+            source.close();
+        }
     }
 }

@@ -48,7 +48,6 @@ import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestHttpQueryProvider
@@ -167,12 +166,7 @@ public class TestHttpQueryProvider
         assertTrue(iterator.hasNext());
 
         // cancel the iterator
-        iterator.cancel();
-
-        // due to buffering in the iterator, we still have one more element, so read it and
-        // verify there are no more elements
-        assertTrue(iterator.hasNext());
-        assertNotNull(iterator.next());
+        iterator.close();
         assertFalse(iterator.hasNext());
     }
 

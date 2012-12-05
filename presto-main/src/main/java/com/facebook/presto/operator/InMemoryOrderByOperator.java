@@ -7,7 +7,6 @@ import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
@@ -69,29 +68,25 @@ public class InMemoryOrderByOperator
     }
 
     @Override
-    public Iterator<Page> iterator()
+    public PageIterator iterator()
     {
-        return new InMemoryOrderByIterator(source.iterator());
+        return new InMemoryOrderByIterator(source);
     }
 
     private class InMemoryOrderByIterator
-            extends AbstractIterator<Page>
+            extends AbstractPageIterator
     {
-        private final Iterator<Page> pageIterator;
-        private Iterator<KeyAndTuples> outputIterator;
+        private final Iterator<KeyAndTuples> outputIterator;
 
-        private InMemoryOrderByIterator(Iterator<Page> pageIterator)
+        private InMemoryOrderByIterator(Operator source)
         {
-            this.pageIterator = pageIterator;
+            super(source.getTupleInfos());
+            outputIterator = materializeTuplesAndSort(source).iterator();
         }
 
         @Override
         protected Page computeNext()
         {
-            if (outputIterator == null) {
-                outputIterator = materializeTuplesAndSort().iterator();
-            }
-
             if (!outputIterator.hasNext()) {
                 return endOfData();
             }
@@ -117,22 +112,29 @@ public class InMemoryOrderByOperator
             return page;
         }
 
-        private List<KeyAndTuples> materializeTuplesAndSort() {
+        @Override
+        protected void doClose()
+        {
+        }
+
+        private List<KeyAndTuples> materializeTuplesAndSort(Operator source) {
             List<KeyAndTuples> keyAndTuplesList = Lists.newArrayList();
-            while (pageIterator.hasNext()) {
-                Page page = pageIterator.next();
-                Block[] blocks = page.getBlocks();
-                BlockCursor[] cursors = new BlockCursor[blocks.length];
-                for (int i = 0; i < cursors.length; i++) {
-                    cursors[i] = blocks[i].cursor();
-                }
-                for (int position = 0; position < page.getPositionCount(); position++) {
-                    for (BlockCursor cursor : cursors) {
-                        checkState(cursor.advanceNextPosition());
+            try (PageIterator pageIterator = source.iterator()) {
+                while (pageIterator.hasNext()) {
+                    Page page = pageIterator.next();
+                    Block[] blocks = page.getBlocks();
+                    BlockCursor[] cursors = new BlockCursor[blocks.length];
+                    for (int i = 0; i < cursors.length; i++) {
+                        cursors[i] = blocks[i].cursor();
                     }
-                    keyAndTuplesList.add(getKeyAndTuples(cursors));
+                    for (int position = 0; position < page.getPositionCount(); position++) {
+                        for (BlockCursor cursor : cursors) {
+                            checkState(cursor.advanceNextPosition());
+                        }
+                        keyAndTuplesList.add(getKeyAndTuples(cursors));
+                    }
+                    checkState(keyAndTuplesList.size() <= MAX_IN_MEMORY_SORT_SIZE, "Too many tuples for in memory sort");
                 }
-                checkState(keyAndTuplesList.size() <= MAX_IN_MEMORY_SORT_SIZE, "Too many tuples for in memory sort");
             }
             Collections.sort(keyAndTuplesList, KeyAndTuples.keyComparator(ordering));
             return keyAndTuplesList;

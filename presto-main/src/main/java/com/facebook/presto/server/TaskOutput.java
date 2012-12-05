@@ -70,36 +70,36 @@ public class TaskOutput
 
     public State getState()
     {
-        // TODO: this method should not have side-effects. Move that logic to a background thread or something
-        State overallState = taskState.get();
-        Iterable<State> taskStates = transform(outputBuffers.values(), new Function<QueryState, State>()
-        {
-            @Override
-            public State apply(QueryState outputBuffer)
-            {
-                return outputBuffer.getState();
-            }
-        });
+        return taskState.get();
+    }
 
-        if (overallState == State.PREPARING || overallState == State.RUNNING) {
+    private void updateState()
+    {
+        State overallState = taskState.get();
+        if (!overallState.isDone()) {
+            Iterable<State> taskStates = transform(outputBuffers.values(), new Function<QueryState, State>()
+            {
+                @Override
+                public State apply(QueryState outputBuffer)
+                {
+                    return outputBuffer.getState();
+                }
+            });
+
             if (Iterables.any(taskStates, Predicates.equalTo(State.FAILED))) {
-                // this shouldn't happen, but be safe
-                overallState = State.FAILED;
-                taskState.set(overallState);
-                cancel();
+                taskState.set(State.FAILED);
+                // this shouldn't be necessary, but be safe
+                cancelAllBuffers();
             }
             else if (Iterables.any(taskStates, Predicates.equalTo(State.CANCELED))) {
-                // this shouldn't happen, but be safe
-                overallState = State.CANCELED;
-                taskState.set(overallState);
-                cancel();
+                taskState.set(State.CANCELED);
+                // this shouldn't be necessary, but be safe
+                cancelAllBuffers();
             }
             else if (Iterables.all(taskStates, Predicates.equalTo(State.FINISHED))) {
-                overallState = State.FINISHED;
-                taskState.set(overallState);
+                taskState.set(State.FINISHED);
             }
         }
-        return overallState;
     }
 
     /**
@@ -107,24 +107,24 @@ public class TaskOutput
      */
     public void finish()
     {
+        // finish all buffers
         for (QueryState outputBuffer : outputBuffers.values()) {
             outputBuffer.sourceFinished();
         }
-        // update overall state
-        getState();
+        // the output will only transition to finished if it isn't already marked as failed or cancel
+        updateState();
     }
 
     public void cancel()
     {
-        while (true) {
-            State state = taskState.get();
-            if (state != State.PREPARING && state != State.RUNNING) {
-                break;
-            }
-            if (taskState.compareAndSet(state, State.CANCELED)) {
-                break;
-            }
-        }
+        // cancel all buffers
+        cancelAllBuffers();
+        // the output will only transition to cancel if it isn't already marked as failed
+        updateState();
+    }
+
+    private void cancelAllBuffers()
+    {
         for (QueryState outputBuffer : outputBuffers.values()) {
             outputBuffer.cancel();
         }
@@ -147,15 +147,21 @@ public class TaskOutput
         return bufferedPageCount;
     }
 
-    public void addPage(Page page)
+    public boolean addPage(Page page)
             throws InterruptedException
     {
         // transition from preparing to running when first page is produced
         taskState.compareAndSet(State.PREPARING, State.RUNNING);
 
         for (QueryState outputBuffer : outputBuffers.values()) {
-            outputBuffer.addPage(page);
+            if (!outputBuffer.addPage(page)) {
+                updateState();
+                State state = getState();
+                Preconditions.checkState(state.isDone(), "Expected a done state but state is %s", state);
+                return false;
+            }
         }
+        return true;
     }
 
     public List<Page> getNextPages(String outputName, int maxPageCount, Duration maxWait)
@@ -168,6 +174,7 @@ public class TaskOutput
 
     public QueryTaskInfo getQueryTaskInfo()
     {
+        updateState();
         return new QueryTaskInfo(taskId,
                 getTupleInfos(),
                 getState(),
