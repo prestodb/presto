@@ -48,12 +48,11 @@ public class HackPlanFragmentSourceProvider
         this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
         this.queryTaskInfoCodec = checkNotNull(queryTaskInfoCodec, "queryTaskInfoCodec is null");
 
-        int processors = Runtime.getRuntime().availableProcessors();
-        executor = new ThreadPoolExecutor(processors,
-                processors,
+        executor = new ThreadPoolExecutor(1000,
+                1000,
                 1, TimeUnit.MINUTES,
                 new SynchronousQueue<Runnable>(),
-                threadsNamed("shard-query-processor-%d"),
+                threadsNamed("http-exchange-worker-%d"),
                 new ThreadPoolExecutor.CallerRunsPolicy());
 
 
@@ -69,6 +68,8 @@ public class HackPlanFragmentSourceProvider
             synchronized (this) {
                 if (this.httpClient == null) {
                     this.httpClient = new ApacheHttpClient(new HttpClientConfig()
+                            .setMaxConnections(1000)
+                            .setMaxConnectionsPerServer(1000)
                             .setConnectTimeout(new Duration(5, TimeUnit.SECONDS))
                             .setReadTimeout(new Duration(5, TimeUnit.SECONDS)));
                 }
