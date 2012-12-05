@@ -14,6 +14,7 @@ import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -23,6 +24,7 @@ import com.google.common.io.Files;
 import com.google.common.io.OutputSupplier;
 import com.google.common.primitives.Ints;
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -38,6 +40,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
@@ -45,7 +48,9 @@ import static java.lang.String.format;
 public class DatabaseStorageManager
         implements StorageManager
 {
-    private static final boolean enableOptimization = Boolean.valueOf("false");
+    private final static Logger log = Logger.get(DatabaseStorageManager.class);
+
+    private static final boolean ENABLE_OPTIMIZATION = Boolean.valueOf("false");
 
     private static final File DEFAULT_BASE_STORAGE_DIR = new File("var/presto-data/storage");
     private static final File DEFAULT_BASE_STAGING_DIR = new File("var/presto-data/staging");
@@ -90,6 +95,7 @@ public class DatabaseStorageManager
             throws IOException
     {
         checkArgument(source.getChannelCount() == columnIds.size(), "channel count does not match columnId list");
+        checkState(!shardExists(shardId), "shard %d has already been imported", shardId);
 
         // Locally stage the imported data
         List<File> files = stagingImport(shardId, columnIds, source);
@@ -103,6 +109,8 @@ public class DatabaseStorageManager
         // Delete empty staging directory
         deleteStagingDirectory(shardId);
     }
+
+
 
     private List<File> stagingImport(long shardId, List<Long> columnIds, Operator source)
             throws IOException
@@ -178,7 +186,7 @@ public class DatabaseStorageManager
             else if (rleEncode) {
                 encoding = BlocksFileEncoding.RLE;
             }
-            if (!enableOptimization) {
+            if (!ENABLE_OPTIMIZATION) {
                 encoding = BlocksFileEncoding.RAW;
             }
 
@@ -256,6 +264,7 @@ public class DatabaseStorageManager
     @Override
     public BlockIterable getBlocks(long shardId, long columnId)
     {
+        checkState(shardExists(shardId), "shard %d has not yet been imported", shardId);
         String filename = dao.getColumnFilename(shardId, columnId);
         File file = new File(getShardPath(baseStorageDir, shardId), filename);
 
@@ -294,5 +303,18 @@ public class DatabaseStorageManager
     public boolean shardExists(long shardId)
     {
         return dao.shardExists(shardId);
+    }
+
+    @Override
+    public void dropShard(long shardId)
+            throws IOException
+    {
+        // TODO: dropping needs to be globally coordinated with read queries
+        List<String> shardFiles = dao.getShardFiles(shardId);
+        for (String shardFile : shardFiles) {
+            File file = new File(getShardPath(baseStorageDir, shardId), shardFile);
+            java.nio.file.Files.deleteIfExists(file.toPath());
+        }
+        dao.dropShard(shardId);
     }
 }

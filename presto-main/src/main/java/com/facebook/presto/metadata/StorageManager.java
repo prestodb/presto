@@ -14,4 +14,7 @@ public interface StorageManager
     BlockIterable getBlocks(long shardId, long columnId);
 
     boolean shardExists(long shardId);
+
+    void dropShard(long shardId)
+        throws IOException;
 }

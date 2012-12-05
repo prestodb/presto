@@ -5,8 +5,8 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.importer.ForImportManager;
 import com.facebook.presto.importer.ImportManager;
+import com.facebook.presto.importer.LocalShardManager;
 import com.facebook.presto.importer.NodeWorkerQueue;
-import com.facebook.presto.importer.ShardImporter;
 import com.facebook.presto.metadata.DatabaseShardManager;
 import com.facebook.presto.metadata.DatabaseStorageManager;
 import com.facebook.presto.metadata.ForMetadata;
@@ -151,7 +151,7 @@ public class ServerMainModule
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
         binder.bind(ImportManager.class).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindHttpClient("importer", ForImportManager.class).withFilter(NodeIdUserAgentRequestFilter.class);
-        binder.bind(ShardImporter.class).in(Scopes.SINGLETON);
+        binder.bind(LocalShardManager.class).in(Scopes.SINGLETON);
         binder.bind(ShardResource.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(ShardImport.class);
 
