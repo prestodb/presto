@@ -21,11 +21,9 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
+import com.google.common.collect.Iterables;
 
 import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
@@ -35,28 +33,30 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 /**
  * Splits a logical plan into fragments that can be shipped and executed on distributed nodes
  */
-public class FragmentPlanner
+public class DistributedLogicalPlanner
 {
     private final Metadata metadata;
 
-    public FragmentPlanner(Metadata metadata)
+    public DistributedLogicalPlanner(Metadata metadata)
     {
         this.metadata = metadata;
     }
 
-    public List<PlanFragment> createFragments(PlanNode plan, SymbolAllocator allocator, boolean createSingleNodePlan)
+    public SubPlan createSubplans(PlanNode plan, SymbolAllocator allocator, boolean createSingleNodePlan)
     {
         Visitor visitor = new Visitor(allocator, createSingleNodePlan);
-        plan.accept(visitor, null);
+        SubPlanBuilder builder = plan.accept(visitor, null);
 
-        return Lists.transform(visitor.getFragments(), PlanFragmentBuilder.buildFragmentFunction(allocator.getTypes()));
+        SubPlan subplan = builder.build();
+        subplan.sanityCheck();
+
+        return subplan;
     }
 
     private class Visitor
-            extends PlanVisitor<Void, PlanFragmentBuilder>
+            extends PlanVisitor<Void, SubPlanBuilder>
     {
         private int fragmentId = 0;
-        private final LinkedList<PlanFragmentBuilder> fragments = new LinkedList<>();
 
         private final SymbolAllocator allocator;
         private final boolean createSingleNodePlan;
@@ -68,9 +68,9 @@ public class FragmentPlanner
         }
 
         @Override
-        public PlanFragmentBuilder visitAggregation(AggregationNode node, Void context)
+        public SubPlanBuilder visitAggregation(AggregationNode node, Void context)
         {
-            PlanFragmentBuilder current = node.getSource().accept(this, context);
+            SubPlanBuilder current = node.getSource().accept(this, context);
 
             if (!current.isPartitioned()) {
                 // add the aggregation node as the root of the current fragment
@@ -98,31 +98,33 @@ public class FragmentPlanner
             // create merge + aggregation plan
             ExchangeNode source = new ExchangeNode(current.getId(), current.getRoot().getOutputSymbols());
             AggregationNode merged = new AggregationNode(source, node.getGroupBy(), finalCalls, node.getFunctions(), FINAL);
-            current = newPlanFragment(merged, false);
+            current = newSubPlan(merged)
+                    .setPartitioned(false)
+                    .setChildren(ImmutableList.of(current.build()));
 
             return current;
         }
 
         @Override
-        public PlanFragmentBuilder visitFilter(FilterNode node, Void context)
+        public SubPlanBuilder visitFilter(FilterNode node, Void context)
         {
-            PlanFragmentBuilder current = node.getSource().accept(this, context);
+            SubPlanBuilder current = node.getSource().accept(this, context);
             current.setRoot(new FilterNode(current.getRoot(), node.getPredicate(), node.getOutputSymbols()));
             return current;
         }
 
         @Override
-        public PlanFragmentBuilder visitProject(ProjectNode node, Void context)
+        public SubPlanBuilder visitProject(ProjectNode node, Void context)
         {
-            PlanFragmentBuilder current = node.getSource().accept(this, context);
+            SubPlanBuilder current = node.getSource().accept(this, context);
             current.setRoot(new ProjectNode(current.getRoot(), node.getOutputMap()));
             return current;
         }
 
         @Override
-        public PlanFragmentBuilder visitTopN(TopNNode node, Void context)
+        public SubPlanBuilder visitTopN(TopNNode node, Void context)
         {
-            PlanFragmentBuilder current = node.getSource().accept(this, context);
+            SubPlanBuilder current = node.getSource().accept(this, context);
 
             current.setRoot(new TopNNode(current.getRoot(), node.getCount(), node.getOrderBy(), node.getOrderings()));
 
@@ -130,20 +132,24 @@ public class FragmentPlanner
                 // create merge plan fragment
                 PlanNode source = new ExchangeNode(current.getId(), current.getRoot().getOutputSymbols());
                 TopNNode merge = new TopNNode(source, node.getCount(), node.getOrderBy(), node.getOrderings());
-                current = newPlanFragment(merge, false);
+                current = newSubPlan(merge)
+                        .setPartitioned(false)
+                        .setChildren(ImmutableList.of(current.build()));
             }
 
             return current;
         }
 
         @Override
-        public PlanFragmentBuilder visitOutput(OutputNode node, Void context)
+        public SubPlanBuilder visitOutput(OutputNode node, Void context)
         {
-            PlanFragmentBuilder current = node.getSource().accept(this, context);
+            SubPlanBuilder current = node.getSource().accept(this, context);
 
             if (current.isPartitioned()) {
                 // create a new non-partitioned fragment
-                current = newPlanFragment(new ExchangeNode(current.getId(), current.getRoot().getOutputSymbols()), false);
+                current = newSubPlan(new ExchangeNode(current.getId(), current.getRoot().getOutputSymbols()))
+                        .setPartitioned(false)
+                        .setChildren(ImmutableList.of(current.build()));
             }
 
             current.setRoot(new OutputNode(current.getRoot(), node.getColumnNames(), node.getAssignments()));
@@ -152,9 +158,9 @@ public class FragmentPlanner
         }
 
         @Override
-        public PlanFragmentBuilder visitLimit(LimitNode node, Void context)
+        public SubPlanBuilder visitLimit(LimitNode node, Void context)
         {
-            PlanFragmentBuilder current = node.getSource().accept(this, context);
+            SubPlanBuilder current = node.getSource().accept(this, context);
 
             current.setRoot(new LimitNode(current.getRoot(), node.getCount()));
 
@@ -162,23 +168,26 @@ public class FragmentPlanner
                 // create merge plan fragment
                 PlanNode source = new ExchangeNode(current.getId(), current.getRoot().getOutputSymbols());
                 LimitNode merge = new LimitNode(source, node.getCount());
-                current = newPlanFragment(merge, false);
+                current = newSubPlan(merge)
+                        .setPartitioned(false)
+                        .setChildren(ImmutableList.of(current.build()));
             }
 
             return current;
         }
 
         @Override
-        public PlanFragmentBuilder visitTableScan(TableScanNode node, Void context)
+        public SubPlanBuilder visitTableScan(TableScanNode node, Void context)
         {
-            return newPlanFragment(node, !createSingleNodePlan);
+            return newSubPlan(node)
+                    .setPartitioned(!createSingleNodePlan);
         }
 
         @Override
-        public PlanFragmentBuilder visitJoin(JoinNode node, Void context)
+        public SubPlanBuilder visitJoin(JoinNode node, Void context)
         {
-            PlanFragmentBuilder left = node.getLeft().accept(this, context);
-            PlanFragmentBuilder right = node.getRight().accept(this, context);
+            SubPlanBuilder left = node.getLeft().accept(this, context);
+            SubPlanBuilder right = node.getRight().accept(this, context);
 
             if (left.isPartitioned() || right.isPartitioned()) {
                 ExchangeNode exchange = new ExchangeNode(right.getId(), right.getRoot().getOutputSymbols());
@@ -187,34 +196,22 @@ public class FragmentPlanner
                 return left;
             }
             else {
-                // temporary hack to "merge" fragments TODO make fragments a proper tree
-                fragments.remove(left);
-                fragments.remove(right);
                 JoinNode join = new JoinNode(left.getRoot(), right.getRoot(), node.getCriteria());
-                return newPlanFragment(join, false);
+                return newSubPlan(join)
+                        .setPartitioned(false)
+                        .setChildren(Iterables.concat(left.getChildren(), right.getChildren()));
             }
         }
 
         @Override
-        protected PlanFragmentBuilder visitPlan(PlanNode node, Void context)
+        protected SubPlanBuilder visitPlan(PlanNode node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented");
         }
 
-        private PlanFragmentBuilder newPlanFragment(PlanNode root, boolean partitioned)
+        private SubPlanBuilder newSubPlan(PlanNode root)
         {
-            PlanFragmentBuilder builder = new PlanFragmentBuilder(fragmentId++)
-                    .setRoot(root)
-                    .setPartitioned(partitioned);
-
-            fragments.add(builder);
-
-            return builder;
-        }
-
-        private List<PlanFragmentBuilder> getFragments()
-        {
-            return fragments;
+            return new SubPlanBuilder(fragmentId++, allocator, root);
         }
     }
 
