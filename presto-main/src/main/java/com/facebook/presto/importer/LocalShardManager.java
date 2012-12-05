@@ -8,37 +8,36 @@ import com.facebook.presto.server.ShardImport;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.split.ImportClientFactory;
+import com.facebook.presto.util.ShardBoundedExecutor;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.facebook.presto.ingest.RecordProjections.createProjection;
+import static com.facebook.presto.util.RetryDriver.runWithRetry;
+import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
-public class ShardImporter
+public class LocalShardManager
 {
-    private static final Logger log = Logger.get(ShardImporter.class);
+    private static final Logger log = Logger.get(LocalShardManager.class);
 
-    private static final int tasksPerNode = 32;
-    private static final int importAttempts = 10;
+    private static final int TASKS_PER_NODE = 32;
 
-    private final ExecutorService executor = newFixedThreadPool(tasksPerNode, threadsNamed("shard-importer-%s"));
-    private final Set<Long> importingShards = Collections.newSetFromMap(new ConcurrentHashMap<Long, Boolean>());
+    private final ExecutorService executor = newFixedThreadPool(TASKS_PER_NODE, threadsNamed("local-shard-manager-%s"));
+    private final ShardBoundedExecutor<Long> shardBoundedExecutor = new ShardBoundedExecutor<>(executor);
     private final ImportClientFactory importClientFactory;
     private final StorageManager storageManager;
 
     @Inject
-    public ShardImporter(ImportClientFactory importClientFactory, StorageManager storageManager)
+    public LocalShardManager(ImportClientFactory importClientFactory, StorageManager storageManager)
     {
         this.importClientFactory = checkNotNull(importClientFactory, "importClientFactory is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
@@ -52,14 +51,17 @@ public class ShardImporter
 
     public void importShard(long shardId, ShardImport shardImport)
     {
-        if (importingShards.add(shardId)) {
-            executor.execute(new ImportJob(shardId, shardImport));
-        }
+        shardBoundedExecutor.execute(shardId, new ImportJob(shardId, shardImport));
     }
 
-    public boolean isShardImporting(long shardId)
+    public void dropShard(long shardId)
     {
-        return importingShards.contains(shardId);
+        shardBoundedExecutor.execute(shardId, new DropJob(shardId));
+    }
+
+    public boolean isShardActive(long shardId)
+    {
+        return shardBoundedExecutor.isActive(shardId);
     }
 
     private class ImportJob
@@ -78,25 +80,19 @@ public class ShardImporter
         public void run()
         {
             try {
-                importWithRetry();
+                runWithRetry(new Callable<Void>()
+                {
+                    @Override
+                    public Void call()
+                            throws Exception
+                    {
+                        importShard();
+                        return null;
+                    }
+                });
+            } catch (Exception e) {
+                log.error(e, "shard import failed");
             }
-            finally {
-                importingShards.remove(shardId);
-            }
-        }
-
-        private void importWithRetry()
-        {
-            for (int i = 0; i < importAttempts; i++) {
-                try {
-                    importShard();
-                    return;
-                }
-                catch (IOException e) {
-                    log.warn(e, "error importing shard");
-                }
-            }
-            log.error("shard import failed");
         }
 
         private void importShard()
@@ -113,6 +109,36 @@ public class ShardImporter
             RecordProjectOperator source = new RecordProjectOperator(importPartition, projections);
 
             storageManager.importShard(shardId, columnIds, source);
+        }
+    }
+
+    private class DropJob
+            implements Runnable
+    {
+        private final long shardId;
+
+        private DropJob(long shardId)
+        {
+            this.shardId = shardId;
+        }
+
+        @Override
+        public void run()
+        {
+            try {
+                runWithRetry(new Callable<Void>()
+                {
+                    @Override
+                    public Void call()
+                            throws Exception
+                    {
+                        storageManager.dropShard(shardId);
+                        return null;
+                    }
+                });
+            } catch (Exception e) {
+                log.error(e, "shard drop failed");
+            }
         }
     }
 
