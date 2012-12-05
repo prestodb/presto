@@ -4,18 +4,15 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
 import com.google.common.base.Function;
-import io.airlift.http.client.ApacheHttpClient;
 import io.airlift.http.client.HttpClient;
-import io.airlift.http.client.HttpClientConfig;
 import io.airlift.json.JsonCodec;
-import io.airlift.units.Duration;
 
-import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.Immutable;
 import javax.inject.Inject;
 import java.net.URI;
@@ -23,7 +20,6 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -38,13 +34,13 @@ public class HackPlanFragmentSourceProvider
     private final JsonCodec<QueryTaskInfo> queryTaskInfoCodec;
     private final int pageBufferMax;
 
-    @GuardedBy("this")
-    private HttpClient httpClient;
+    private final HttpClient httpClient;
 
     @Inject
-    public HackPlanFragmentSourceProvider(DataStreamProvider dataStreamProvider, JsonCodec<QueryTaskInfo> queryTaskInfoCodec)
+    public HackPlanFragmentSourceProvider(DataStreamProvider dataStreamProvider, @ForExchange HttpClient httpClient, JsonCodec<QueryTaskInfo> queryTaskInfoCodec)
     {
         this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
+        this.httpClient = httpClient;
         this.queryTaskInfoCodec = checkNotNull(queryTaskInfoCodec, "queryTaskInfoCodec is null");
 
         executor = Executors.newCachedThreadPool(threadsNamed("http-exchange-worker-%d"));
@@ -57,18 +53,6 @@ public class HackPlanFragmentSourceProvider
     {
         checkNotNull(source, "source is null");
         if (source instanceof ExchangePlanFragmentSource) {
-            final HttpClient httpClient;
-            synchronized (this) {
-                if (this.httpClient == null) {
-                    this.httpClient = new ApacheHttpClient(new HttpClientConfig()
-                            .setMaxConnections(1000)
-                            .setMaxConnectionsPerServer(1000)
-                            .setConnectTimeout(new Duration(5, TimeUnit.SECONDS))
-                            .setReadTimeout(new Duration(5, TimeUnit.SECONDS)));
-                }
-                httpClient = this.httpClient;
-            }
-
             final ExchangePlanFragmentSource exchangeSource = (ExchangePlanFragmentSource) source;
             return new QueryDriversOperator(pageBufferMax, transform(exchangeSource.getSources().entrySet(), new Function<Entry<String, URI>, QueryDriverProvider>()
             {

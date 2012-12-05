@@ -1,18 +1,17 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.metadata.Node;
+import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.server.QueryState.State;
 import com.facebook.presto.sql.planner.Partition;
 import com.facebook.presto.sql.planner.Stage;
 import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.http.client.ApacheHttpClient;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
-import io.airlift.http.client.HttpClientConfig;
+import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
@@ -26,8 +25,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
@@ -40,22 +40,18 @@ public class TaskScheduler
 {
     private static final String ROOT_OUTPUT_BUFFER_NAME = "out";
     private final ExecutorService executor;
-    private final ApacheHttpClient httpClient;
+    private final HttpClient httpClient;
     private final JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec;
     private final JsonCodec<QueryTaskInfo> queryTaskInfoCodec;
 
     @Inject
-    public TaskScheduler(JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec, JsonCodec<QueryTaskInfo> queryTaskInfoCodec)
+    public TaskScheduler(@ForScheduler HttpClient httpClient, JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec, JsonCodec<QueryTaskInfo> queryTaskInfoCodec)
     {
         this.executor = Executors.newCachedThreadPool(); // todo remove this... pool is never really used
-        this.queryFragmentRequestCodec = queryFragmentRequestCodec;
-        this.queryTaskInfoCodec = queryTaskInfoCodec;
+        this.queryFragmentRequestCodec = checkNotNull(queryFragmentRequestCodec, "queryFragmentRequestCodec is null");
+        this.queryTaskInfoCodec = checkNotNull(queryTaskInfoCodec, "queryTaskInfoCodec is null");
+        this.httpClient = checkNotNull(httpClient, "httpClient is null");
 
-        httpClient = new ApacheHttpClient(new HttpClientConfig()
-                .setMaxConnections(1000)
-                .setMaxConnectionsPerServer(1000)
-                .setConnectTimeout(new Duration(5, TimeUnit.MINUTES))
-                .setReadTimeout(new Duration(5, TimeUnit.MINUTES)));
     }
 
     public void schedule(Stage stage, ConcurrentMap<String, List<HttpTaskClient>> stageTasks)
@@ -80,7 +76,7 @@ public class TaskScheduler
             {
                 // get fragment sources
                 Map<String, ExchangePlanFragmentSource> exchangeSources = getExchangeSources(partition.getNode(), stage, stages);
-                Preconditions.checkState(exchangeSources.size() <= 1, "Expected single source");
+                checkState(exchangeSources.size() <= 1, "Expected single source");
 
                 Node node = partition.getNode();
                 QueryFragmentRequest queryFragmentRequest = new QueryFragmentRequest(stage.getFragment(), partition.getSplits(), exchangeSources, outputIds);
@@ -91,13 +87,13 @@ public class TaskScheduler
                         .build();
 
                 JsonResponse<QueryTaskInfo> response = httpClient.execute(request, createFullJsonResponseHandler(jsonCodec(QueryTaskInfo.class)));
-                Preconditions.checkState(response.getStatusCode() == 201,
+                checkState(response.getStatusCode() == 201,
                         "Expected response code from %s to be 201, but was %d: %s",
                         request.getUri(),
                         response.getStatusCode(),
                         response.getStatusMessage());
                 String location = response.getHeader("Location");
-                Preconditions.checkState(location != null);
+                checkState(location != null);
 
                 QueryTaskInfo queryTaskInfo = response.getValue();
 

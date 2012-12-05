@@ -75,7 +75,7 @@ public abstract class AbstractSqlBenchmark
         }
 
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(metadata,
-                new HackPlanFragmentSourceProvider(new TpchDataStreamProvider(provider), jsonCodec(QueryTaskInfo.class)),
+                new HackPlanFragmentSourceProvider(new TpchDataStreamProvider(provider), null, jsonCodec(QueryTaskInfo.class)),
                 analysis.getTypes(),
                 null,
                 builder.build(),
