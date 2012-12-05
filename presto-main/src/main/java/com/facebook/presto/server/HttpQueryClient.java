@@ -131,9 +131,15 @@ public class HttpQueryClient
             @Override
             public QueryDriverProvider apply(QueryTaskInfo taskInfo)
             {
+                Preconditions.checkState(taskInfo.getOutputIds().size() == 1,
+                        "Expected a single output buffer for task %s, but found %s",
+                        taskInfo.getTaskId(),
+                        taskInfo.getOutputIds());
+
+                URI taskUri = uriBuilderFrom(taskInfo.getSelf()).replacePath("/v1/presto/task").appendPath(taskInfo.getTaskId()).build();
                 return new HttpTaskClient(taskInfo.getTaskId(),
-                        uriBuilderFrom(queryLocation).replacePath("/v1/presto/task").appendPath(taskInfo.getTaskId()).build(),
-                        "out",
+                        taskUri,
+                        taskInfo.getOutputIds().get(0),
                         taskInfo.getTupleInfos(),
                         httpClient,
                         executor,

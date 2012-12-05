@@ -5,17 +5,21 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.server.QueryState.State;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
+import java.net.URI;
 import java.util.List;
 
 @Immutable
 public class QueryTaskInfo
 {
     private final String taskId;
+    private final URI self;
+    private final List<String> outputIds;
     private final List<TupleInfo> tupleInfos;
     private final QueryState.State state;
     private final int bufferedPages;
@@ -30,13 +34,10 @@ public class QueryTaskInfo
     private final long outputDataSize;
     private final long outputPositionCount;
 
-    public QueryTaskInfo(String taskId, List<TupleInfo> tupleInfos)
-    {
-        this(taskId, tupleInfos, State.PREPARING, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-    }
-
     @JsonCreator
     public QueryTaskInfo(@JsonProperty("taskId") String taskId,
+            @JsonProperty("self") URI self,
+            @JsonProperty("outputIds") List<String> outputIds,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
             @JsonProperty("state") State state,
             @JsonProperty("bufferedPages") int bufferedPages,
@@ -51,9 +52,12 @@ public class QueryTaskInfo
             @JsonProperty("outputDataSize") long outputDataSize,
             @JsonProperty("outputPositionCount") long outputPositionCount)
     {
+        this.self = self;
         Preconditions.checkNotNull(taskId, "taskId is null");
+        Preconditions.checkNotNull(outputIds, "outputIds is null");
         Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
         this.taskId = taskId;
+        this.outputIds = outputIds;
         this.tupleInfos = tupleInfos;
         this.state = state;
         this.bufferedPages = bufferedPages;
@@ -73,6 +77,18 @@ public class QueryTaskInfo
     public String getTaskId()
     {
         return taskId;
+    }
+
+    @JsonProperty
+    public URI getSelf()
+    {
+        return self;
+    }
+
+    @JsonProperty
+    public List<String> getOutputIds()
+    {
+        return outputIds;
     }
 
     @JsonProperty
@@ -151,5 +167,14 @@ public class QueryTaskInfo
     public long getOutputPositionCount()
     {
         return outputPositionCount;
+    }
+
+    @Override
+    public String toString()
+    {
+        return Objects.toStringHelper(this)
+                .add("taskId", taskId)
+                .add("state", state)
+                .toString();
     }
 }

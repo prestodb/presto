@@ -189,6 +189,8 @@ public class StaticQueryManager
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
 
+        log.debug("Cancel query %s", queryId);
+
         QueryWorker query = queries.remove(queryId);
         if (query != null) {
             query.cancel();
@@ -311,7 +313,7 @@ public class StaticQueryManager
                     if (Iterables.any(taskStates, equalTo(State.FAILED))) {
                         overallState = State.FAILED;
                         queryState.set(overallState);
-                        log.debug("A task for query %s failed: canceling all tasks");
+                        log.debug("A task for query %s failed, canceling all tasks: stages %s", queryId, this.stages);
                         cancel();
                     }
                     else if (Iterables.all(taskStates, Predicates.in(EnumSet.of(State.FINISHED, State.CANCELED)))) {
@@ -337,6 +339,7 @@ public class StaticQueryManager
             }
             catch (Exception e) {
                 queryState.set(State.FAILED);
+                log.debug(e, "Query %s failed to start", queryId);
                 cancel();
                 throw Throwables.propagate(e);
             }

@@ -24,14 +24,17 @@ import com.google.common.base.Predicates;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import io.airlift.http.server.HttpServerInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -42,11 +45,11 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 
 public class SqlQueryTaskManager
         implements QueryTaskManager
@@ -57,15 +60,17 @@ public class SqlQueryTaskManager
     private final ExecutorService shardExecutor;
     private final Metadata metadata;
     private final PlanFragmentSourceProvider sourceProvider;
+    private final HttpServerInfo httpServerInfo;
 
-    private final AtomicInteger nextTaskId = new AtomicInteger();
     private final ConcurrentMap<String, TaskOutput> tasks = new ConcurrentHashMap<>();
 
     @Inject
     public SqlQueryTaskManager(
             Metadata metadata,
-            PlanFragmentSourceProvider sourceProvider)
+            PlanFragmentSourceProvider sourceProvider,
+            HttpServerInfo httpServerInfo)
     {
+        this.httpServerInfo = httpServerInfo;
         this.pageBufferMax = 20;
 
         int processors = Runtime.getRuntime().availableProcessors();
@@ -126,7 +131,8 @@ public class SqlQueryTaskManager
         Preconditions.checkNotNull(splits, "splits is null");
         Preconditions.checkNotNull(exchangeSources, "exchangeSources is null");
 
-        String taskId = String.valueOf(nextTaskId.getAndIncrement());
+        String taskId = UUID.randomUUID().toString();
+        URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/presto/task").appendPath(taskId).build();
 
         // create output buffers
         List<TupleInfo> tupleInfos = ImmutableList.copyOf(IterableTransformer.on(fragment.getRoot().getOutputSymbols())
@@ -141,7 +147,8 @@ public class SqlQueryTaskManager
                     }
                 })
                 .list());
-        TaskOutput taskOutput = new TaskOutput(taskId, outputIds, tupleInfos, pageBufferMax, splits.size());
+
+        TaskOutput taskOutput = new TaskOutput(taskId, location, outputIds, tupleInfos, pageBufferMax, splits.size());
 
         SqlQueryTask queryTask = new SqlQueryTask(taskId, fragment, taskOutput, splits, exchangeSources, sourceProvider, metadata, shardExecutor);
         taskExecutor.submit(queryTask);
