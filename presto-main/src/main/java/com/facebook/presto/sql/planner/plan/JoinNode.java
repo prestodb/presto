@@ -8,8 +8,10 @@ import com.google.common.collect.Iterables;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
+import javax.annotation.concurrent.Immutable;
 import java.util.List;
 
+@Immutable
 public class JoinNode
     extends PlanNode
 {
