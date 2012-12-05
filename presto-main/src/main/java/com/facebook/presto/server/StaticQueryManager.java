@@ -210,7 +210,6 @@ public class StaticQueryManager
     {
         private final String queryId;
         private final TaskScheduler taskScheduler;
-        private final Metadata metadata;
         private final ConcurrentHashMap<String, List<HttpTaskClient>> stages = new ConcurrentHashMap<>();
         private final AtomicReference<State> queryState = new AtomicReference<>(State.PREPARING);
         private final Stage outputStage;
@@ -219,7 +218,6 @@ public class StaticQueryManager
         {
             this.queryId = queryId;
             this.taskScheduler = taskScheduler;
-            this.metadata = metadata;
 
             try {
                 // parse query
