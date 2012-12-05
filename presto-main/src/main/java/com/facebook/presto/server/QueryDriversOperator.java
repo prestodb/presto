@@ -91,7 +91,7 @@ public class QueryDriversOperator
         protected Page computeNext()
         {
             try {
-                if (queryState.isCanceled()) {
+                if (queryState.isDone()) {
                     return endOfData();
                 }
                 // wait forever for the next page to show up
@@ -112,7 +112,7 @@ public class QueryDriversOperator
         @Override
         protected void doClose()
         {
-            queryState.cancel();
+            queryState.finish();
             for (QueryDriver queryDriver : queryDrivers) {
                 try {
                     queryDriver.cancel();

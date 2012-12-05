@@ -89,12 +89,12 @@ public class TaskOutput
             if (Iterables.any(taskStates, Predicates.equalTo(State.FAILED))) {
                 taskState.set(State.FAILED);
                 // this shouldn't be necessary, but be safe
-                cancelAllBuffers();
+                finishAllBuffers();
             }
             else if (Iterables.any(taskStates, Predicates.equalTo(State.CANCELED))) {
                 taskState.set(State.CANCELED);
                 // this shouldn't be necessary, but be safe
-                cancelAllBuffers();
+                finishAllBuffers();
             }
             else if (Iterables.all(taskStates, Predicates.equalTo(State.FINISHED))) {
                 taskState.set(State.FINISHED);
@@ -118,15 +118,15 @@ public class TaskOutput
     public void cancel()
     {
         // cancel all buffers
-        cancelAllBuffers();
+        finishAllBuffers();
         // the output will only transition to cancel if it isn't already marked as failed
         updateState();
     }
 
-    private void cancelAllBuffers()
+    private void finishAllBuffers()
     {
         for (QueryState outputBuffer : outputBuffers.values()) {
-            outputBuffer.cancel();
+            outputBuffer.finish();
         }
     }
 
@@ -164,11 +164,11 @@ public class TaskOutput
         return true;
     }
 
-    public List<Page> getNextPages(String outputName, int maxPageCount, Duration maxWait)
+    public List<Page> getNextPages(String outputId, int maxPageCount, Duration maxWait)
             throws InterruptedException
     {
-        QueryState outputBuffer = outputBuffers.get(outputName);
-        Preconditions.checkArgument(outputBuffer != null, "Unknown output %s: available outputs %s", outputName, outputBuffers.keySet());
+        QueryState outputBuffer = outputBuffers.get(outputId);
+        Preconditions.checkArgument(outputBuffer != null, "Unknown output %s: available outputs %s", outputId, outputBuffers.keySet());
         return outputBuffer.getNextPages(maxPageCount, maxWait);
     }
 

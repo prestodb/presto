@@ -38,9 +38,11 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import io.airlift.log.Logger;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
@@ -55,6 +57,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.util.Threads.threadsNamed;
+import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
@@ -63,6 +66,8 @@ import static com.google.common.collect.Iterables.transform;
 public class StaticQueryManager
         implements QueryManager
 {
+    private static final Logger log = Logger.get(StaticQueryManager.class);
+
     private final TaskScheduler taskScheduler;
     private final ExecutorService queryExecutor;
     private final ImportClientFactory importClientFactory;
@@ -305,17 +310,13 @@ public class StaticQueryManager
                         }
                     });
 
-                    if (Iterables.any(taskStates, Predicates.equalTo(State.FAILED))) {
+                    if (Iterables.any(taskStates, equalTo(State.FAILED))) {
                         overallState = State.FAILED;
                         queryState.set(overallState);
+                        log.debug("A task for query %s failed: canceling all tasks");
                         cancel();
                     }
-                    else if (Iterables.any(taskStates, Predicates.equalTo(State.CANCELED))) {
-                        overallState = State.CANCELED;
-                        queryState.set(overallState);
-                        cancel();
-                    }
-                    else if (Iterables.all(taskStates, Predicates.equalTo(State.FINISHED))) {
+                    else if (Iterables.all(taskStates, Predicates.in(EnumSet.of(State.FINISHED, State.CANCELED)))) {
                         overallState = State.FINISHED;
                         queryState.set(overallState);
                     }
