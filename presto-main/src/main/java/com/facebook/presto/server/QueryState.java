@@ -91,7 +91,7 @@ public class QueryState
     public boolean isDone()
     {
         synchronized (pageBuffer) {
-            return state == State.FINISHED || state == State.CANCELED || state == State.FAILED;
+            return state.isDone();
         }
     }
 
@@ -99,13 +99,6 @@ public class QueryState
     {
         synchronized (pageBuffer) {
             return state == State.FAILED;
-        }
-    }
-
-    public boolean isCanceled()
-    {
-        synchronized (pageBuffer) {
-            return state == State.CANCELED;
         }
     }
 
@@ -119,14 +112,14 @@ public class QueryState
     /**
      * Marks a source as finished and drop all buffered pages.  Once all sources are finished, no more pages can be added to the buffer.
      */
-    public void cancel()
+    public void finish()
     {
         synchronized (pageBuffer) {
             if (isDone()) {
                 return;
             }
 
-            state = State.CANCELED;
+            state = State.FINISHED;
             sourceCount = 0;
             pageBuffer.clear();
             // free up threads quickly
@@ -184,7 +177,6 @@ public class QueryState
      *
      * @return true if the page was added; false if the query has already been canceled or failed
      * @throws InterruptedException if the thread is interrupted while waiting for buffer space to be freed
-     * @throws IllegalStateException if the query is finished
      */
     public boolean addPage(Page page)
             throws InterruptedException
@@ -195,20 +187,13 @@ public class QueryState
 
         synchronized (pageBuffer) {
             // don't throw an exception if the query was canceled or failed as the caller may not be aware of this
-            if (state == State.CANCELED || state == State.FAILED) {
+            if (state.isDone()) {
                 // release an additional thread blocked in the code above
                 // all blocked threads will be release due to the chain reaction
                 notFull.release();
                 return false;
             }
 
-            // if all sources are finished throw an exception
-            if (sourceCount == 0) {
-                // release an additional thread blocked in the code above
-                // all blocked threads will be release due to the chain reaction
-                notFull.release();
-                throw new IllegalStateException("All sources are finished");
-            }
             state = State.RUNNING;
             pageBuffer.addLast(page);
             notEmpty.release();
@@ -240,13 +225,6 @@ public class QueryState
         }
 
         synchronized (pageBuffer) {
-            // verify state
-            if (state == State.CANCELED || state == State.FINISHED) {
-                // release an additional thread blocked in the code above
-                // all blocked threads will be release due to the chain reaction
-                notEmpty.release();
-                return ImmutableList.of();
-            }
             if (state == State.FAILED) {
                 // release an additional thread blocked in the code above
                 // all blocked threads will be release due to the chain reaction
@@ -255,6 +233,14 @@ public class QueryState
                 FailedQueryException failedQueryException = new FailedQueryException(causes);
                 failedQueryException.printStackTrace(System.err);
                 throw failedQueryException;
+            }
+
+            // verify state
+            if (state.isDone()) {
+                // release an additional thread blocked in the code above
+                // all blocked threads will be release due to the chain reaction
+                notEmpty.release();
+                return ImmutableList.of();
             }
 
             // acquire all available pages up to the limit
