@@ -11,7 +11,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public final class RecordProjections {
+public final class RecordProjections
+{
     private RecordProjections()
     {
     }
@@ -37,7 +38,8 @@ public final class RecordProjections {
         return list.build();
     }
 
-    private static class SimpleRecordProjection implements RecordProjection
+    private static class SimpleRecordProjection
+            implements RecordProjection
     {
         private final Type type;
         private final int field;
@@ -59,7 +61,8 @@ public final class RecordProjections {
         {
             if (record.isNull(field)) {
                 output.appendNull();
-            } else {
+            }
+            else {
                 switch (type) {
                     case FIXED_INT_64: {
                         long value = record.getLong(field);
@@ -79,5 +82,14 @@ public final class RecordProjections {
                 }
             }
         }
+    }
+
+    public static List<TupleInfo> toTupleInfos(Iterable<? extends RecordProjection> projections)
+    {
+        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
+        for (RecordProjection projection : projections) {
+            tupleInfos.add(projection.getTupleInfo());
+        }
+        return tupleInfos.build();
     }
 }

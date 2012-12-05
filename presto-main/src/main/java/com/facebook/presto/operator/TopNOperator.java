@@ -7,7 +7,6 @@ import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 
@@ -72,37 +71,26 @@ public class TopNOperator
     }
 
     @Override
-    public Iterator<Page> iterator()
+    public PageIterator iterator()
     {
-        return new TopNIterator(source.iterator());
+        return new TopNIterator(source);
     }
 
     private class TopNIterator
-            extends AbstractIterator<Page>
+            extends AbstractPageIterator
     {
-        private final Iterator<Page> pageIterator;
-        private Iterator<KeyAndTuples> outputIterator;
+        private final Iterator<KeyAndTuples> outputIterator;
 
-        private TopNIterator(Iterator<Page> pageIterator)
+        private TopNIterator(Operator source)
         {
-            this.pageIterator = pageIterator;
+            super(source.getTupleInfos());
+            outputIterator = selectTopN(source);
         }
 
         @Override
         protected Page computeNext()
         {
             if (outputIterator == null) {
-                PriorityQueue<KeyAndTuples> globalCandidates = new PriorityQueue<>(n, KeyAndTuples.keyComparator(ordering));
-                while(pageIterator.hasNext()) {
-                    Page page = pageIterator.next();
-                    Iterable<KeyAndPosition> keyAndPositions = computePageCandidatePositions(globalCandidates, page);
-                    mergeWithGlobalCandidates(globalCandidates, page, keyAndPositions);
-                }
-                ImmutableList.Builder<KeyAndTuples> minSortedGlobalCandidates = ImmutableList.builder();
-                while (!globalCandidates.isEmpty()) {
-                    minSortedGlobalCandidates.add(globalCandidates.remove());
-                }
-                outputIterator = minSortedGlobalCandidates.build().reverse().iterator();
             }
 
             if (!outputIterator.hasNext()) {
@@ -128,6 +116,28 @@ public class TopNOperator
 
             Page page = new Page(blocks);
             return page;
+        }
+
+        @Override
+        protected void doClose()
+        {
+        }
+
+        private Iterator<KeyAndTuples> selectTopN(Operator source)
+        {
+            PriorityQueue<KeyAndTuples> globalCandidates = new PriorityQueue<>(n, KeyAndTuples.keyComparator(ordering));
+            try (PageIterator pageIterator = source.iterator()) {
+                while (pageIterator.hasNext()) {
+                    Page page = pageIterator.next();
+                    Iterable<KeyAndPosition> keyAndPositions = computePageCandidatePositions(globalCandidates, page);
+                    mergeWithGlobalCandidates(globalCandidates, page, keyAndPositions);
+                }
+            }
+            ImmutableList.Builder<KeyAndTuples> minSortedGlobalCandidates = ImmutableList.builder();
+            while (!globalCandidates.isEmpty()) {
+                minSortedGlobalCandidates.add(globalCandidates.remove());
+            }
+            return minSortedGlobalCandidates.build().reverse().iterator();
         }
 
         private Iterable<KeyAndPosition> computePageCandidatePositions(PriorityQueue<KeyAndTuples> globalCandidates, Page page)

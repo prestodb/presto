@@ -4,10 +4,8 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
-import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -50,17 +48,15 @@ public class HashJoinOperator
     }
 
     @Override
-    public Iterator<Page> iterator()
+    public PageIterator iterator()
     {
         return new HashJoinIterator(tupleInfos, probeSource, probeJoinChannel, sourceHashProvider);
     }
 
     private static class HashJoinIterator
-            extends AbstractIterator<Page>
+            extends AbstractPageIterator
     {
-        private final List<TupleInfo> tupleInfos;
-
-        private final Iterator<Page> probeIterator;
+        private final PageIterator probeIterator;
         private final int probeJoinChannel;
 
         private final SourceHash hash;
@@ -70,7 +66,7 @@ public class HashJoinOperator
 
         private HashJoinIterator(List<TupleInfo> tupleInfos, Operator probeSource, int probeJoinChannel, SourceHashProvider sourceHashProvider)
         {
-            this.tupleInfos = tupleInfos;
+            super(tupleInfos);
             probeIterator = probeSource.iterator();
             this.probeJoinChannel = probeJoinChannel;
 
@@ -81,7 +77,7 @@ public class HashJoinOperator
         protected Page computeNext()
         {
             // create output
-            PageBuilder pageBuilder = new PageBuilder(tupleInfos);
+            PageBuilder pageBuilder = new PageBuilder(getTupleInfos());
 
             // join probe pages with the hash
             while (joinCurrentPosition(pageBuilder)) {
@@ -114,6 +110,12 @@ public class HashJoinOperator
             }
             Page page = pageBuilder.build();
             return page;
+        }
+
+        @Override
+        protected void doClose()
+        {
+            probeIterator.close();
         }
 
         private boolean joinCurrentPosition(PageBuilder pageBuilder)

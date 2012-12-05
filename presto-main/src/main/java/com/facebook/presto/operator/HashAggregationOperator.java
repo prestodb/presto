@@ -7,8 +7,6 @@ import com.facebook.presto.operator.aggregation.AggregationFunctionStep;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.ImmutableList;
 
 import javax.inject.Provider;
 import java.util.HashMap;
@@ -17,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import static com.facebook.presto.operator.ProjectionFunctions.toTupleInfos;
 import static com.google.common.base.Preconditions.checkState;
 
 /**
@@ -45,11 +44,7 @@ public class HashAggregationOperator
         this.functionProviders = functionProviders;
         this.projections = projections;
 
-        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
-        for (ProjectionFunction projection : projections) {
-            tupleInfos.add(projection.getTupleInfo());
-        }
-        this.tupleInfos = tupleInfos.build();
+        this.tupleInfos = toTupleInfos(projections);
     }
 
     @Override
@@ -65,110 +60,130 @@ public class HashAggregationOperator
     }
 
     @Override
-    public Iterator<Page> iterator()
+    public PageIterator iterator()
     {
-        return new AbstractIterator<Page>()
+        return new HashAggregationIterator(source, groupByChannel, functionProviders, projections);
+    }
+
+    private static class HashAggregationIterator
+            extends AbstractPageIterator
+    {
+        private final List<ProjectionFunction> projections;
+
+        private final Iterator<Entry<Tuple, AggregationFunctionStep[]>> aggregations;
+        private final int aggregationFunctionCount;
+
+        private HashAggregationIterator(Operator source,
+                int groupByChannel,
+                List<Provider<AggregationFunctionStep>> functionProviders,
+                List<ProjectionFunction> projections)
         {
-            private final Map<Tuple, AggregationFunctionStep[]> aggregationMap = new HashMap<>();
-            private Iterator<Entry<Tuple, AggregationFunctionStep[]>> aggregations;
+            super(toTupleInfos(projections));
+            this.projections = projections;
+            Map<Tuple, AggregationFunctionStep[]> aggregate = aggregate(source, groupByChannel, functionProviders);
+            this.aggregations = aggregate.entrySet().iterator();
+            this.aggregationFunctionCount = functionProviders.size();
+        }
 
-            @Override
-            protected Page computeNext()
-            {
-                // process all data ahead of time
-                if (aggregations == null) {
-                    aggregate();
+        @Override
+        protected Page computeNext()
+        {
+            // if no more data, return null
+            if (!aggregations.hasNext()) {
+                endOfData();
+                return null;
+            }
+
+            // todo convert to page builder
+            BlockBuilder[] outputs = new BlockBuilder[projections.size()];
+            for (int i = 0; i < outputs.length; i++) {
+                outputs[i] = new BlockBuilder(projections.get(i).getTupleInfo());
+            }
+
+            while (!isFull(outputs) && aggregations.hasNext()) {
+                // get next aggregation
+                Entry<Tuple, AggregationFunctionStep[]> aggregation = aggregations.next();
+
+                // get result tuples
+                Tuple[] results = new Tuple[aggregationFunctionCount + 1];
+                results[0] = aggregation.getKey();
+                AggregationFunctionStep[] aggregations = aggregation.getValue();
+                for (int i = 1; i < results.length; i++) {
+                    results[i] = aggregations[i - 1].evaluate();
                 }
 
-                // if no more data, return null
-                if (!aggregations.hasNext()) {
-                    endOfData();
-                    return null;
+                // project results into output blocks
+                for (int i = 0; i < projections.size(); i++) {
+                    projections.get(i).project(results, outputs[i]);
                 }
+            }
 
-                BlockBuilder[] outputs = new BlockBuilder[projections.size()];
-                for (int i = 0; i < outputs.length; i++) {
-                    outputs[i] = new BlockBuilder(projections.get(i).getTupleInfo());
+            if (outputs[0].isEmpty()) {
+                return endOfData();
+            }
+
+            Block[] blocks = new Block[projections.size()];
+            for (int i = 0; i < blocks.length; i++) {
+                blocks[i] = outputs[i].build();
+            }
+
+            Page page = new Page(blocks);
+            return page;
+        }
+
+        @Override
+        protected void doClose()
+        {
+        }
+
+        private boolean isFull(BlockBuilder... outputs)
+        {
+            for (BlockBuilder output : outputs) {
+                if (output.isFull()) {
+                    return true;
                 }
+            }
+            return false;
+        }
 
-                while (!isFull(outputs) && aggregations.hasNext()) {
-                    // get next aggregation
-                    Entry<Tuple, AggregationFunctionStep[]> aggregation = aggregations.next();
+        private Map<Tuple, AggregationFunctionStep[]> aggregate(Operator source, int groupByChannel, List<Provider<AggregationFunctionStep>> functionProviders)
+        {
+            Map<Tuple, AggregationFunctionStep[]> aggregationMap = new HashMap<>();
 
-                    // get result tuples
-                    Tuple[] results = new Tuple[functionProviders.size() + 1];
-                    results[0] = aggregation.getKey();
-                    AggregationFunctionStep[] aggregations = aggregation.getValue();
-                    for (int i = 1; i < results.length; i++) {
-                        results[i] = aggregations[i - 1].evaluate();
-                    }
-
-                    // project results into output blocks
-                    for (int i = 0; i < projections.size(); i++) {
-                        projections.get(i).project(results, outputs[i]);
-                    }
-                }
-
-                if (outputs[0].isEmpty()) {
-                    return endOfData();
-                }
-
-                Block[] blocks = new Block[projections.size()];
+            BlockCursor[] cursors = new BlockCursor[source.getChannelCount()];
+            for (Page page : source) {
+                Block[] blocks = page.getBlocks();
                 for (int i = 0; i < blocks.length; i++) {
-                    blocks[i] = outputs[i].build();
+                    cursors[i] = blocks[i].cursor();
                 }
 
-                Page page = new Page(blocks);
-                return page;
-            }
-
-            private boolean isFull(BlockBuilder... outputs)
-            {
-                for (BlockBuilder output : outputs) {
-                    if (output.isFull()) {
-                        return true;
-                    }
-                }
-                return false;
-            }
-
-            private void aggregate()
-            {
-                BlockCursor[] cursors = new BlockCursor[source.getChannelCount()];
-                for (Page page : source) {
-                    Block[] blocks = page.getBlocks();
-                    for (int i = 0; i < blocks.length; i++) {
-                        cursors[i] = blocks[i].cursor();
-                    }
-
-                    int rows = page.getPositionCount();
-                    for (int position = 0; position < rows; position++) {
-                        for (BlockCursor cursor : cursors) {
-                            checkState(cursor.advanceNextPosition());
-                        }
-
-                        Tuple key = cursors[groupByChannel].getTuple();
-                        AggregationFunctionStep[] functions = aggregationMap.get(key);
-                        if (functions == null) {
-                            functions = new AggregationFunctionStep[functionProviders.size()];
-                            for (int i = 0; i < functions.length; i++) {
-                                functions[i]= functionProviders.get(i).get();
-                            }
-                            aggregationMap.put(key, functions);
-                        }
-
-                        for (AggregationFunctionStep function : functions) {
-                            function.add(cursors);
-                        }
-                    }
-
+                int rows = page.getPositionCount();
+                for (int position = 0; position < rows; position++) {
                     for (BlockCursor cursor : cursors) {
-                        checkState(!cursor.advanceNextPosition());
+                        checkState(cursor.advanceNextPosition());
+                    }
+
+                    Tuple key = cursors[groupByChannel].getTuple();
+                    AggregationFunctionStep[] functions = aggregationMap.get(key);
+                    if (functions == null) {
+                        functions = new AggregationFunctionStep[functionProviders.size()];
+                        for (int i = 0; i < functions.length; i++) {
+                            functions[i]= functionProviders.get(i).get();
+                        }
+                        aggregationMap.put(key, functions);
+                    }
+
+                    for (AggregationFunctionStep function : functions) {
+                        function.add(cursors);
                     }
                 }
 
-                this.aggregations = aggregationMap.entrySet().iterator();
+                for (BlockCursor cursor : cursors) {
+                    checkState(!cursor.advanceNextPosition());
+                }
             }
-        };
+
+            return aggregationMap;
+        }
     }
 }

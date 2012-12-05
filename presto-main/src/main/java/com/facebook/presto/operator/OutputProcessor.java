@@ -27,9 +27,12 @@ public class OutputProcessor
     {
         long rows = 0;
         long bytes = 0;
-        for (Page page : sink) {
-            rows += page.getPositionCount();
-            bytes = page.getDataSize().toBytes();
+        try (PageIterator pages = sink.iterator()) {
+            while (pages.hasNext()) {
+                Page page = pages.next();
+                rows += page.getPositionCount();
+                bytes = page.getDataSize().toBytes();
+            }
         }
         handler.finish();
         return new OutputStats(rows, bytes);

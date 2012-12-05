@@ -6,6 +6,7 @@ package com.facebook.presto.server;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -302,9 +303,12 @@ public class SqlQueryTaskManager
         {
             taskOutput.splitStarted();
             long startTime = System.nanoTime();
-            try {
-                for (Page page : operator) {
-                    taskOutput.addPage(page);
+            try (PageIterator pages = operator.iterator()) {
+                while (pages.hasNext()) {
+                    Page page = pages.next();
+                    if (!taskOutput.addPage(page)) {
+                        pages.close();
+                    }
                 }
                 return null;
             }
