@@ -41,11 +41,6 @@ public interface MetadataDao
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 
-    @SqlQuery("SELECT catalog_name, schema_name, table_name FROM tables\n" +
-            "WHERE table_id = :tableId")
-    @Mapper(TableNamespaceMapper.class)
-    TableNamespace getTableNamespace(@Bind("tableId") long tableId);
-
     @SqlQuery("SELECT column_id, column_name, data_type\n" +
             "FROM columns\n" +
             "WHERE table_id = :tableId\n" +
