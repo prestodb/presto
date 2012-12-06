@@ -73,7 +73,7 @@ public class SplitManager
     private Iterable<SplitAssignments> getInternalSplitAssignments(InternalTableHandle handle)
     {
         Split split = new InternalSplit(handle);
-        List<Node> nodes = limit(shuffle(nodeManager.getActiveNodes()), 3);
+        List<Node> nodes = ImmutableList.of(nodeManager.getCurrentNode());
         return ImmutableList.of(new SplitAssignments(split, nodes));
     }
 
