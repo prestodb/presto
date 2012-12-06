@@ -41,17 +41,27 @@ public interface MetadataDao
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 
-    @SqlQuery("SELECT catalog_name, schema_name, table_name FROM tables\n" +
-            "WHERE table_id = :tableId")
-    @Mapper(TableNamespaceMapper.class)
-    TableNamespace getTableNamespace(@Bind("tableId") long tableId);
-
     @SqlQuery("SELECT column_id, column_name, data_type\n" +
             "FROM columns\n" +
             "WHERE table_id = :tableId\n" +
             "ORDER BY ordinal_position")
     @Mapper(ColumnMetadataMapper.class)
     List<ColumnMetadata> getTableColumnMetaData(@Bind("tableId") long tableId);
+
+    @SqlQuery("SELECT catalog_name, schema_name, table_name\n" +
+            "FROM tables\n" +
+            "WHERE catalog_name = :catalogName")
+    @Mapper(QualifiedTableNameMapper.class)
+    List<QualifiedTableName> listTables(@Bind("catalogName") String catalogName);
+
+    @SqlQuery("SELECT catalog_name, schema_name, table_name\n" +
+            "FROM tables\n" +
+            "WHERE catalog_name = :catalogName\n" +
+            "  AND schema_name = :schemaName")
+    @Mapper(QualifiedTableNameMapper.class)
+    List<QualifiedTableName> listTables(
+            @Bind("catalogName") String catalogName,
+            @Bind("schemaName") String schemaName);
 
     @SqlQuery("SELECT COUNT(*) > 0 FROM tables\n" +
             "WHERE catalog_name = :catalogName\n" +

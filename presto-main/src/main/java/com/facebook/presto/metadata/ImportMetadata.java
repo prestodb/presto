@@ -4,7 +4,6 @@ import com.facebook.presto.ingest.ImportSchemaUtil;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.SchemaField;
 import com.facebook.presto.split.ImportClientFactory;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.collect.Lists;
@@ -13,11 +12,12 @@ import com.google.inject.Inject;
 import java.util.List;
 import java.util.concurrent.Callable;
 
+import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ImportMetadata
-        implements Metadata
+        extends AbstractMetadata
 {
     private final ImportClientFactory importClientFactory;
 
@@ -28,23 +28,9 @@ public class ImportMetadata
     }
 
     @Override
-    public FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public FunctionInfo getFunction(FunctionHandle handle)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public TableMetadata getTable(String catalogName, final String schemaName, final String tableName)
     {
-        checkNotNull(catalogName, "catalogName is null");
-        checkNotNull(schemaName, "schemaName is null");
-        checkNotNull(tableName, "tableName is null");
+        checkTableName(catalogName, schemaName, tableName);
 
         final ImportClient client = importClientFactory.getClient(catalogName);
         List<SchemaField> tableSchema = runWithRetryUnchecked(new Callable<List<SchemaField>>()
@@ -76,11 +62,5 @@ public class ImportMetadata
                 return new ColumnMetadata(schemaField.getFieldName(), type, columnHandle);
             }
         });
-    }
-
-    @Override
-    public void createTable(TableMetadata table)
-    {
-        throw new UnsupportedOperationException();
     }
 }

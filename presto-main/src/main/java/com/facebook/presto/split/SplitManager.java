@@ -2,6 +2,7 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.facebook.presto.metadata.ImportTableHandle;
+import com.facebook.presto.metadata.InternalTableHandle;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
@@ -47,6 +48,8 @@ public class SplitManager
         switch (handle.getDataSourceType()) {
             case NATIVE:
                 return getNativeSplitAssignments((NativeTableHandle) handle);
+            case INTERNAL:
+                return getInternalSplitAssignments((InternalTableHandle) handle);
             case IMPORT:
                 return getImportSplitAssignments((ImportTableHandle) handle);
         }
@@ -65,6 +68,13 @@ public class SplitManager
             splitAssignments.add(new SplitAssignments(split, nodes));
         }
         return splitAssignments.build();
+    }
+
+    private Iterable<SplitAssignments> getInternalSplitAssignments(InternalTableHandle handle)
+    {
+        Split split = new InternalSplit(handle);
+        List<Node> nodes = limit(shuffle(nodeManager.getActiveNodes()), 3);
+        return ImmutableList.of(new SplitAssignments(split, nodes));
     }
 
     private static List<Node> getNodes(Map<String, Node> nodeMap, Iterable<String> nodeIdentifiers)
