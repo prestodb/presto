@@ -9,6 +9,7 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
@@ -16,6 +17,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -28,6 +30,7 @@ import static com.google.common.collect.Iterables.transform;
 public class TaskOutput
 {
     private final String taskId;
+    private final URI location;
     private final List<TupleInfo> tupleInfos;
     private final Map<String, QueryState> outputBuffers;
 
@@ -45,10 +48,18 @@ public class TaskOutput
     private final AtomicLong completedDataSize = new AtomicLong();
     private final AtomicLong completedPositions = new AtomicLong();
 
-
-    public TaskOutput(String taskId, List<String> outputIds, List<TupleInfo> tupleInfos, int pageBufferMax, int splits)
+    public TaskOutput(String taskId, URI location, List<String> outputIds, List<TupleInfo> tupleInfos, int pageBufferMax, int splits)
     {
+        Preconditions.checkNotNull(taskId, "taskId is null");
+        Preconditions.checkNotNull(location, "location is null");
+        Preconditions.checkNotNull(outputIds, "outputIds is null");
+        Preconditions.checkArgument(!outputIds.isEmpty(), "outputIds is empty");
+        Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
+        Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
+        Preconditions.checkArgument(splits >= 0, "splits is negative");
+
         this.taskId = taskId;
+        this.location = location;
         this.tupleInfos = tupleInfos;
         this.splits = splits;
         ImmutableMap.Builder<String, QueryState> builder = ImmutableMap.builder();
@@ -89,12 +100,12 @@ public class TaskOutput
             if (Iterables.any(taskStates, Predicates.equalTo(State.FAILED))) {
                 taskState.set(State.FAILED);
                 // this shouldn't be necessary, but be safe
-                cancelAllBuffers();
+                finishAllBuffers();
             }
             else if (Iterables.any(taskStates, Predicates.equalTo(State.CANCELED))) {
                 taskState.set(State.CANCELED);
                 // this shouldn't be necessary, but be safe
-                cancelAllBuffers();
+                finishAllBuffers();
             }
             else if (Iterables.all(taskStates, Predicates.equalTo(State.FINISHED))) {
                 taskState.set(State.FINISHED);
@@ -118,15 +129,15 @@ public class TaskOutput
     public void cancel()
     {
         // cancel all buffers
-        cancelAllBuffers();
+        finishAllBuffers();
         // the output will only transition to cancel if it isn't already marked as failed
         updateState();
     }
 
-    private void cancelAllBuffers()
+    private void finishAllBuffers()
     {
         for (QueryState outputBuffer : outputBuffers.values()) {
-            outputBuffer.cancel();
+            outputBuffer.finish();
         }
     }
 
@@ -164,18 +175,27 @@ public class TaskOutput
         return true;
     }
 
-    public List<Page> getNextPages(String outputName, int maxPageCount, Duration maxWait)
+    public List<Page> getNextPages(String outputId, int maxPageCount, Duration maxWait)
             throws InterruptedException
     {
-        QueryState outputBuffer = outputBuffers.get(outputName);
-        Preconditions.checkArgument(outputBuffer != null, "Unknown output %s: available outputs %s", outputName, outputBuffers.keySet());
+        QueryState outputBuffer = outputBuffers.get(outputId);
+        Preconditions.checkArgument(outputBuffer != null, "Unknown output %s: available outputs %s", outputId, outputBuffers.keySet());
         return outputBuffer.getNextPages(maxPageCount, maxWait);
+    }
+
+    public void abortResults(String outputId)
+    {
+        QueryState outputBuffer = outputBuffers.get(outputId);
+        Preconditions.checkArgument(outputBuffer != null, "Unknown output %s: available outputs %s", outputId, outputBuffers.keySet());
+        outputBuffer.finish();
     }
 
     public QueryTaskInfo getQueryTaskInfo()
     {
         updateState();
         return new QueryTaskInfo(taskId,
+                location,
+                ImmutableList.copyOf(outputBuffers.keySet()),
                 getTupleInfos(),
                 getState(),
                 getBufferedPageCount(),

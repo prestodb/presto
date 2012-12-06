@@ -69,7 +69,7 @@ public class QueryDriversOperator
         }
         catch (Throwable e) {
             for (QueryDriver queryDriver : queries.build()) {
-                queryDriver.cancel();
+                queryDriver.abort();
             }
             throw Throwables.propagate(e);
         }
@@ -91,7 +91,7 @@ public class QueryDriversOperator
         protected Page computeNext()
         {
             try {
-                if (queryState.isCanceled()) {
+                if (queryState.isDone()) {
                     return endOfData();
                 }
                 // wait forever for the next page to show up
@@ -112,10 +112,10 @@ public class QueryDriversOperator
         @Override
         protected void doClose()
         {
-            queryState.cancel();
+            queryState.finish();
             for (QueryDriver queryDriver : queryDrivers) {
                 try {
-                    queryDriver.cancel();
+                    queryDriver.abort();
                 }
                 catch (Exception e) {
                     log.warn("Error canceling query driver", e);
