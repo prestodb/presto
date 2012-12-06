@@ -8,7 +8,6 @@ import com.google.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -21,13 +20,16 @@ public class DataStreamManager
     @Inject
     public DataStreamManager(
             NativeDataStreamProvider nativeProvider,
+            InternalDataStreamProvider internalProvider,
             ImportDataStreamProvider importProvider)
     {
         checkNotNull(nativeProvider, "nativeProvider is null");
+        checkNotNull(internalProvider, "internalProvider is null");
         checkNotNull(importProvider, "importProvider is null");
 
         dataStreamProviderMap = ImmutableMap.<DataSourceType, DataStreamProvider>builder()
                 .put(DataSourceType.NATIVE, nativeProvider)
+                .put(DataSourceType.INTERNAL, internalProvider)
                 .put(DataSourceType.IMPORT, importProvider)
                 .build();
     }

@@ -490,6 +490,11 @@ public class TupleInfo
             return this;
         }
 
+        public Builder append(String value)
+        {
+            return append(Slices.copiedBuffer(value, Charsets.UTF_8));
+        }
+
         public Builder append(Slice value)
         {
             checkState(TupleInfo.this.getTypes().get(currentField) == VARIABLE_BINARY, "Cannot append binary. Current field (%s) is of type %s", currentField, TupleInfo.this.getTypes().get(currentField));

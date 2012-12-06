@@ -10,6 +10,8 @@ import org.skife.jdbi.v2.VoidTransactionCallback;
 import javax.inject.Inject;
 import java.util.List;
 
+import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
+import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -57,6 +59,20 @@ public class NativeMetadata
         }
 
         return new TableMetadata(catalogName, schemaName, tableName, columns, tableHandle);
+    }
+
+    @Override
+    public List<QualifiedTableName> listTables(String catalogName)
+    {
+        checkCatalogName(catalogName);
+        return dao.listTables(catalogName);
+    }
+
+    @Override
+    public List<QualifiedTableName> listTables(String catalogName, String schemaName)
+    {
+        checkSchemaName(catalogName, schemaName);
+        return dao.listTables(catalogName, schemaName);
     }
 
     @Override

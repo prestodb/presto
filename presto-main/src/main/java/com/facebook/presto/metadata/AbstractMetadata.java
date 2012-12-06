@@ -24,6 +24,18 @@ public abstract class AbstractMetadata
     public abstract TableMetadata getTable(String catalogName, String schemaName, String tableName);
 
     @Override
+    public List<QualifiedTableName> listTables(String catalogName, String schemaName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<QualifiedTableName> listTables(String catalogName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void createTable(TableMetadata table)
     {
         throw new UnsupportedOperationException();

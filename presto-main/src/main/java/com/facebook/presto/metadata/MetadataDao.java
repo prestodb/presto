@@ -48,6 +48,21 @@ public interface MetadataDao
     @Mapper(ColumnMetadataMapper.class)
     List<ColumnMetadata> getTableColumnMetaData(@Bind("tableId") long tableId);
 
+    @SqlQuery("SELECT catalog_name, schema_name, table_name\n" +
+            "FROM tables\n" +
+            "WHERE catalog_name = :catalogName")
+    @Mapper(QualifiedTableNameMapper.class)
+    List<QualifiedTableName> listTables(@Bind("catalogName") String catalogName);
+
+    @SqlQuery("SELECT catalog_name, schema_name, table_name\n" +
+            "FROM tables\n" +
+            "WHERE catalog_name = :catalogName\n" +
+            "  AND schema_name = :schemaName")
+    @Mapper(QualifiedTableNameMapper.class)
+    List<QualifiedTableName> listTables(
+            @Bind("catalogName") String catalogName,
+            @Bind("schemaName") String schemaName);
+
     @SqlQuery("SELECT COUNT(*) > 0 FROM tables\n" +
             "WHERE catalog_name = :catalogName\n" +
             "  AND schema_name = :schemaName\n" +
