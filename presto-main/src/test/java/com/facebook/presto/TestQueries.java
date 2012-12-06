@@ -334,6 +334,16 @@ public class TestQueries
     }
 
     @Test
+    public void testGroupByWithAlias()
+            throws Exception
+    {
+        List<Tuple> expected = computeExpected("SELECT orderdate x, CAST(COUNT(*) AS INTEGER) FROM orders GROUP BY orderdate", VARIABLE_BINARY, FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT orderdate x, COUNT(*) FROM orders GROUP BY orderdate");
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
     public void testGroupBySum()
     {
         List<Tuple> expected = computeExpected("SELECT orderstatus, SUM(totalprice) FROM orders GROUP BY orderstatus", VARIABLE_BINARY, DOUBLE);
