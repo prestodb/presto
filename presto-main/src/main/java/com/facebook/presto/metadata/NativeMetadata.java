@@ -10,6 +10,7 @@ import org.skife.jdbi.v2.VoidTransactionCallback;
 import javax.inject.Inject;
 import java.util.List;
 
+import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class NativeMetadata
@@ -42,9 +43,7 @@ public class NativeMetadata
     @Override
     public TableMetadata getTable(String catalogName, String schemaName, String tableName)
     {
-        checkArgument(catalogName.equals(catalogName.toLowerCase()), "catalogName is not lowercase");
-        checkArgument(schemaName.equals(schemaName.toLowerCase()), "schemaName is not lowercase");
-        checkArgument(tableName.equals(tableName.toLowerCase()), "tableName is not lowercase");
+        checkTableName(catalogName, schemaName, tableName);
 
         Long tableId = dao.getTableId(catalogName, schemaName, tableName);
         if (tableId == null) {
