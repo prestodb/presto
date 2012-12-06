@@ -7,6 +7,7 @@ import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
 
 import java.util.List;
+import java.util.Set;
 
 public interface ShardManagerDao
 {
@@ -53,21 +54,12 @@ public interface ShardManagerDao
     @SqlUpdate("CREATE TABLE IF NOT EXISTS import_partition_shards (\n" +
             "  import_partition_id BIGINT,\n" +
             "  shard_id BIGINT NOT NULL,\n" +
-            "  PRIMARY KEY (import_partition_id, shard_id),\n" +
-            "  FOREIGN KEY (import_partition_id) REFERENCES import_partitions,\n" +
-            "  FOREIGN KEY (shard_id) REFERENCES shards\n" +
-            ")")
-    void createTableImportPartitionShards();
-
-    @SqlUpdate("CREATE TABLE IF NOT EXISTS import_partition_chunks (\n" +
-            "  import_partition_id BIGINT,\n" +
-            "  shard_id BIGINT NOT NULL,\n" +
             "  partition_chunk VARBINARY(65535) NOT NULL,\n" +
             "  PRIMARY KEY (import_partition_id, shard_id),\n" +
             "  FOREIGN KEY (import_partition_id) REFERENCES import_partitions,\n" +
             "  FOREIGN KEY (shard_id) REFERENCES shards\n" +
             ")")
-    void createTableImportPartitionChunks();
+    void createTableImportPartitionShards();
 
     @SqlUpdate("INSERT INTO nodes (node_identifier) VALUES (:nodeIdentifier)")
     void insertNode(@Bind("nodeIdentifier") String nodeIdentifier);
@@ -103,16 +95,9 @@ public interface ShardManagerDao
             @Bind("partitionName") String partitionName);
 
     @SqlUpdate("INSERT INTO import_partition_shards\n" +
-            "(import_partition_id, shard_id)\n" +
-            "VALUES (:importPartitionId, :shardId)")
-    void insertImportPartitionShard(
-            @Bind("importPartitionId") long importPartitionId,
-            @Bind("shardId") long shardId);
-
-    @SqlUpdate("INSERT INTO import_partition_chunks\n" +
             "(import_partition_id, shard_id, partition_chunk)\n" +
             "VALUES (:importPartitionId, :shardId, :partitionChunk)")
-    void insertImportPartitionChunk(
+    void insertImportPartitionShard(
             @Bind("importPartitionId") long importPartitionId,
             @Bind("shardId") long shardId,
             @Bind("partitionChunk") byte[] partitionChunk);
@@ -126,6 +111,21 @@ public interface ShardManagerDao
     @SqlQuery("SELECT COUNT(*) > 0 FROM import_tables WHERE table_id = :tableId")
     boolean importTableExists(@Bind("tableId") long tableId);
 
+    @SqlQuery("SELECT partition_name\n" +
+            "FROM import_partitions\n" +
+            "WHERE table_id = :tableId\n")
+    Set<String> getAllPartitions(@Bind("tableId") long tableId);
+
+    @SqlQuery("SELECT ip.partition_name\n" +
+            "FROM import_partitions ip\n" +
+            "WHERE ip.table_id = :tableId\n" +
+            "  AND TRUE = ALL (\n" +
+            "    SELECT committed\n" +
+            "    FROM shards s\n" +
+            "    JOIN import_partition_shards ips ON (ips.shard_id = s.shard_id)\n" +
+            "    WHERE ip.import_partition_id = ips.import_partition_id)\n")
+    Set<String> getCommittedPartitions(@Bind("tableId") long tableId);
+
     @SqlQuery("SELECT s.shard_id, n.node_identifier\n" +
             "FROM shard_nodes sn\n" +
             "JOIN shards s ON (sn.shard_id = s.shard_id)\n" +
@@ -133,5 +133,39 @@ public interface ShardManagerDao
             "WHERE s.committed = true\n" +
             "  AND s.table_id = :tableId\n")
     @Mapper(ShardNode.Mapper.class)
-    List<ShardNode> getShardNodes(@Bind("tableId") long tableId);
+    List<ShardNode> getCommittedShardNodes(@Bind("tableId") long tableId);
+
+    @SqlQuery("SELECT sn.shard_id, n.node_identifier\n" +
+            "FROM import_partitions ip\n" +
+            "JOIN import_partition_shards ips ON (ip.import_partition_id = ips.import_partition_id)\n" +
+            "JOIN shard_nodes sn ON (ips.shard_id = sn.shard_id)\n" +
+            "JOIN nodes n ON (sn.node_id = n.node_id)\n" +
+            "WHERE ip.table_id = :tableId\n" +
+            "  AND ip.partition_name = :partitionName\n")
+    @Mapper(ShardNode.Mapper.class)
+    List<ShardNode> getAllShardNodes(@Bind("tableId") long tableId, @Bind("partitionName") String partitionName);
+
+    @SqlQuery("SELECT ips.shard_id\n" +
+            "FROM import_partitions ip\n" +
+            "JOIN import_partition_shards ips ON (ip.import_partition_id = ips.import_partition_id)\n" +
+            "WHERE ip.table_id = :tableId\n" +
+            "  AND ip.partition_name = :partitionName\n")
+    List<Long> getAllShards(@Bind("tableId") long tableId, @Bind("partitionName") String partitionName);
+
+    @SqlUpdate("DELETE FROM shard_nodes\n" +
+            "WHERE shard_id = :shardId\n")
+    void deleteShardFromShardNodes(@Bind("shardId") long shardId);
+
+    @SqlUpdate("DELETE FROM import_partition_shards\n" +
+            "WHERE shard_id = :shardId\n")
+    void deleteShardFromImportPartitionShards(@Bind("shardId") long shardId);
+
+    @SqlUpdate("DELETE FROM shards\n" +
+            "WHERE shard_id = :shardId\n")
+    void deleteShard(@Bind("shardId") long shardId);
+
+    @SqlUpdate("DELETE FROM import_partitions\n" +
+            "WHERE table_id = :tableId\n" +
+            "  AND partition_name = :partitionName\n")
+    void dropPartition(@Bind("tableId") long tableId, @Bind("partitionName") String partitionName);
 }

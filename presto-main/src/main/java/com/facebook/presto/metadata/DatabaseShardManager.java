@@ -9,12 +9,12 @@ import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionCallback;
 import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.VoidTransactionCallback;
-import org.skife.jdbi.v2.exceptions.UnableToExecuteStatementException;
 
 import javax.inject.Inject;
-import java.sql.SQLException;
 import java.util.List;
+import java.util.Set;
 
+import static com.facebook.presto.util.SqlUtils.runIgnoringConstraintViolation;
 import static com.google.common.base.Preconditions.checkState;
 
 public class DatabaseShardManager
@@ -47,7 +47,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public List<Long> createImportPartition(final long tableId, final String partitionName, final List<SerializedPartitionChunk> partitionChunks)
+    public List<Long> createImportPartition(final long tableId, final String partitionName, final Iterable<SerializedPartitionChunk> partitionChunks)
     {
         return dbi.inTransaction(new TransactionCallback<List<Long>>()
         {
@@ -59,8 +59,7 @@ public class DatabaseShardManager
                 long importPartitionId = dao.insertImportPartition(tableId, partitionName);
                 for (SerializedPartitionChunk chunk : partitionChunks) {
                     long shardId = dao.insertShard(tableId, false);
-                    dao.insertImportPartitionChunk(importPartitionId, shardId, chunk.getBytes());
-                    dao.insertImportPartitionShard(importPartitionId, shardId);
+                    dao.insertImportPartitionShard(importPartitionId, shardId, chunk.getBytes());
                     shardIds.add(shardId);
                 }
                 return shardIds.build();
@@ -85,13 +84,56 @@ public class DatabaseShardManager
     }
 
     @Override
-    public Multimap<Long, String> getShardNodes(long tableId)
+    public Set<String> getAllPartitions(long tableId)
+    {
+        return dao.getAllPartitions(tableId);
+    }
+
+    @Override
+    public Set<String> getCommittedPartitions(long tableId)
+    {
+        return dao.getCommittedPartitions(tableId);
+    }
+
+    @Override
+    public Multimap<Long, String> getCommittedShardNodes(long tableId)
     {
         ImmutableMultimap.Builder<Long, String> map = ImmutableMultimap.builder();
-        for (ShardNode sn : dao.getShardNodes(tableId)) {
-            map.put(sn.getShardId(), sn.getNodeIdentifier());
+        for (ShardNode shardNode : dao.getCommittedShardNodes(tableId)) {
+            map.put(shardNode.getShardId(), shardNode.getNodeIdentifier());
         }
         return map.build();
+    }
+
+    @Override
+    public Multimap<Long, String> getShardNodes(long tableId, String partitionName)
+    {
+        ImmutableMultimap.Builder<Long, String> map = ImmutableMultimap.builder();
+        for (ShardNode shardNode : dao.getAllShardNodes(tableId, partitionName)) {
+            map.put(shardNode.getShardId(), shardNode.getNodeIdentifier());
+        }
+        return map.build();
+    }
+
+    @Override
+    public void dropPartition(final long tableId, final String partitionName)
+    {
+        dbi.inTransaction(new VoidTransactionCallback()
+        {
+            @Override
+            protected void execute(Handle handle, TransactionStatus status)
+                    throws Exception
+            {
+                ShardManagerDao dao = handle.attach(ShardManagerDao.class);
+                List<Long> shardIds = dao.getAllShards(tableId, partitionName);
+                for (Long shardId : shardIds) {
+                    dao.deleteShardFromShardNodes(shardId);
+                    dao.deleteShardFromImportPartitionShards(shardId);
+                    dao.deleteShard(shardId);
+                }
+                dao.dropPartition(tableId, partitionName);
+            }
+        });
     }
 
     private long getOrCreateNodeId(final String nodeIdentifier)
@@ -126,22 +168,5 @@ public class DatabaseShardManager
         dao.createTableImportTables();
         dao.createTableImportPartitions();
         dao.createTableImportPartitionShards();
-        dao.createTableImportPartitionChunks();
-    }
-
-    private static void runIgnoringConstraintViolation(Runnable runnable)
-    {
-        try {
-            runnable.run();
-        }
-        catch (UnableToExecuteStatementException e) {
-            if (e.getCause() instanceof SQLException) {
-                String state = ((SQLException) e.getCause()).getSQLState();
-                if (state.startsWith("23")) {
-                    return;
-                }
-            }
-            throw e;
-        }
     }
 }

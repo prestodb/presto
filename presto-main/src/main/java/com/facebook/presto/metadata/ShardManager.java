@@ -4,6 +4,7 @@ import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.google.common.collect.Multimap;
 
 import java.util.List;
+import java.util.Set;
 
 public interface ShardManager
 {
@@ -17,7 +18,7 @@ public interface ShardManager
      *
      * @return list of shard IDs corresponding to partition chunks
      */
-    List<Long> createImportPartition(long tableId, String partitionName, List<SerializedPartitionChunk> partitionChunks);
+    List<Long> createImportPartition(long tableId, String partitionName, Iterable<SerializedPartitionChunk> partitionChunks);
 
     /**
      * Mark shard as complete with data residing on given node
@@ -25,9 +26,35 @@ public interface ShardManager
     void commitShard(long shardId, String nodeIdentifier);
 
     /**
+     * Get the names of all current partitions that have started importing for table (and possibly finished or errored out).
+     *
+     * @return list of partition names
+     */
+    Set<String> getAllPartitions(long tableId);
+
+    /**
+     * Get all complete partitions in table
+     *
+     * @return list of partition names
+     */
+    Set<String> getCommittedPartitions(long tableId);
+
+    /**
      * Get all complete shards in table
      *
      * @return mapping of shard ID to node identifier
      */
-    Multimap<Long, String> getShardNodes(long tableId);
+    Multimap<Long, String> getCommittedShardNodes(long tableId);
+
+    /**
+     * Get all complete shards in table partition
+     *
+     * @return mapping of shard ID to node identifier
+     */
+    Multimap<Long, String> getShardNodes(long tableId, String partitionName);
+
+    /**
+     * Drop all record of the specified partition
+     */
+    void dropPartition(long tableId, String partitionName);
 }
