@@ -76,7 +76,6 @@ public class TaskScheduler
             {
                 // get fragment sources
                 Map<String, ExchangePlanFragmentSource> exchangeSources = getExchangeSources(partition.getNode(), stage, stages);
-                checkState(exchangeSources.size() <= 1, "Expected single source");
 
                 Node node = partition.getNode();
                 QueryFragmentRequest queryFragmentRequest = new QueryFragmentRequest(stage.getFragment(), partition.getSplits(), exchangeSources, outputIds);
@@ -97,7 +96,6 @@ public class TaskScheduler
 
                 QueryTaskInfo queryTaskInfo = response.getValue();
 
-                // schedule table scan task on remote node
                 // todo we don't need a QueryDriverProvider
                 return new HttpTaskClient(queryTaskInfo.getTaskId(),
                         URI.create(location),
