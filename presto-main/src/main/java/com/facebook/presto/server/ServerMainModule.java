@@ -7,15 +7,18 @@ import com.facebook.presto.importer.ForImportManager;
 import com.facebook.presto.importer.ImportManager;
 import com.facebook.presto.importer.NodeWorkerQueue;
 import com.facebook.presto.importer.ShardImporter;
-import com.facebook.presto.metadata.NativeMetadata;
 import com.facebook.presto.metadata.DatabaseShardManager;
 import com.facebook.presto.metadata.DatabaseStorageManager;
 import com.facebook.presto.metadata.ForMetadata;
 import com.facebook.presto.metadata.ForShardManager;
 import com.facebook.presto.metadata.ForStorageManager;
 import com.facebook.presto.metadata.ImportMetadata;
+import com.facebook.presto.metadata.InformationSchemaData;
+import com.facebook.presto.metadata.InformationSchemaMetadata;
+import com.facebook.presto.metadata.InternalMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.NativeMetadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.StorageManager;
@@ -25,6 +28,7 @@ import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.ImportClientFactory;
 import com.facebook.presto.split.ImportDataStreamProvider;
+import com.facebook.presto.split.InternalDataStreamProvider;
 import com.facebook.presto.split.NativeDataStreamProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.ExpressionFormatter;
@@ -83,6 +87,11 @@ public class ServerMainModule
 
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(NativeMetadata.class).in(Scopes.SINGLETON);
+
+        binder.bind(InternalMetadata.class).in(Scopes.SINGLETON);
+        binder.bind(InternalDataStreamProvider.class).in(Scopes.SINGLETON);
+        binder.bind(InformationSchemaMetadata.class).in(Scopes.SINGLETON);
+        binder.bind(InformationSchemaData.class).in(Scopes.SINGLETON);
 
         binder.bind(ImportClientFactory.class).in(Scopes.SINGLETON);
         binder.bind(ImportMetadata.class).in(Scopes.SINGLETON);
