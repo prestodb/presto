@@ -100,7 +100,7 @@ public class DistributedLogicalPlanner
             AggregationNode merged = new AggregationNode(source, node.getGroupBy(), finalCalls, node.getFunctions(), FINAL);
             current = newSubPlan(merged)
                     .setPartitioned(false)
-                    .setChildren(ImmutableList.of(current.build()));
+                    .addChild(current.build());
 
             return current;
         }
@@ -134,7 +134,7 @@ public class DistributedLogicalPlanner
                 TopNNode merge = new TopNNode(source, node.getCount(), node.getOrderBy(), node.getOrderings());
                 current = newSubPlan(merge)
                         .setPartitioned(false)
-                        .setChildren(ImmutableList.of(current.build()));
+                        .addChild(current.build());
             }
 
             return current;
@@ -149,7 +149,7 @@ public class DistributedLogicalPlanner
                 // create a new non-partitioned fragment
                 current = newSubPlan(new ExchangeNode(current.getId(), current.getRoot().getOutputSymbols()))
                         .setPartitioned(false)
-                        .setChildren(ImmutableList.of(current.build()));
+                        .addChild(current.build());
             }
 
             current.setRoot(new OutputNode(current.getRoot(), node.getColumnNames(), node.getAssignments()));
@@ -170,7 +170,7 @@ public class DistributedLogicalPlanner
                 LimitNode merge = new LimitNode(source, node.getCount());
                 current = newSubPlan(merge)
                         .setPartitioned(false)
-                        .setChildren(ImmutableList.of(current.build()));
+                        .addChild(current.build());
             }
 
             return current;
