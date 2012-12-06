@@ -28,6 +28,7 @@ import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Subquery;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TreeRewriter;
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.BiMap;
@@ -37,6 +38,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -224,7 +226,7 @@ public class Analyzer
             List<Expression> scalarTerms = new ArrayList<>();
             ImmutableSet.Builder<AnalyzedAggregation> aggregateTermsBuilder = ImmutableSet.builder();
             // analyze select and order by terms
-            for (Expression term : concat(select.getSelectItems(), transform(orderBy, sortKeyGetter()))) {
+            for (Expression term : concat(transform(select.getSelectItems(), unaliasFunction()), transform(orderBy, sortKeyGetter()))) {
                 // TODO: this doesn't currently handle queries like 'SELECT k + sum(v) FROM T GROUP BY k' correctly
                 AggregateAnalyzer analyzer = new AggregateAnalyzer(metadata, descriptor, symbols);
 
@@ -313,6 +315,22 @@ public class Analyzer
 
             return super.visitFunctionCall(node, null);
         }
+    }
+
+    private static Function<Expression, Expression> unaliasFunction()
+    {
+        return new Function<Expression, Expression>()
+        {
+            @Override
+            public Expression apply(Expression input)
+            {
+                if (input instanceof AliasedExpression) {
+                    return ((AliasedExpression) input).getExpression();
+                }
+
+                return input;
+            }
+        };
     }
 
     private static class RelationAnalyzer
