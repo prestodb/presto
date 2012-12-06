@@ -99,8 +99,8 @@ public class DatabaseShardManager
     public Multimap<Long, String> getCommittedShardNodes(long tableId)
     {
         ImmutableMultimap.Builder<Long, String> map = ImmutableMultimap.builder();
-        for (ShardNode sn : dao.getCommittedShardNodes(tableId)) {
-            map.put(sn.getShardId(), sn.getNodeIdentifier());
+        for (ShardNode shardNode : dao.getCommittedShardNodes(tableId)) {
+            map.put(shardNode.getShardId(), shardNode.getNodeIdentifier());
         }
         return map.build();
     }
@@ -109,8 +109,8 @@ public class DatabaseShardManager
     public Multimap<Long, String> getShardNodes(long tableId, String partitionName)
     {
         ImmutableMultimap.Builder<Long, String> map = ImmutableMultimap.builder();
-        for (ShardNode sn : dao.getAllShardNodes(tableId, partitionName)) {
-            map.put(sn.getShardId(), sn.getNodeIdentifier());
+        for (ShardNode shardNode : dao.getAllShardNodes(tableId, partitionName)) {
+            map.put(shardNode.getShardId(), shardNode.getNodeIdentifier());
         }
         return map.build();
     }
