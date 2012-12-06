@@ -24,7 +24,7 @@ public class SubPlanBuilder
     public SubPlanBuilder(int id, SymbolAllocator allocator, PlanNode root)
     {
         Preconditions.checkArgument(id >= 0, "id must be >= 0");
-        Preconditions.checkNotNull(allocator, "symbols is null");
+        Preconditions.checkNotNull(allocator, "allocator is null");
         Preconditions.checkNotNull(root, "root is null");
 
         this.allocator = allocator;

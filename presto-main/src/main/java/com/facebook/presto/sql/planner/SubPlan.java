@@ -1,9 +1,11 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.util.IterableTransformer;
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Multiset;
 
 import javax.annotation.concurrent.Immutable;
 import java.util.List;
@@ -37,15 +39,33 @@ public class SubPlan
 
     public void sanityCheck()
     {
-        if (Iterables.any(fragment.getSources(), instanceOf(ExchangeNode.class)) && children.isEmpty()) {
-            throw new IllegalStateException("Subplan has remote exchanges but no child subplans");
-        }
-        else if (!Iterables.any(fragment.getSources(), instanceOf(ExchangeNode.class)) && !children.isEmpty()) {
-            throw new IllegalStateException("Subplan has no remote exchanges but has child subplans");
-        }
+        Multiset<Integer> exchangeIds = IterableTransformer.on(fragment.getSources())
+                .select(instanceOf(ExchangeNode.class))
+                .cast(ExchangeNode.class)
+                .transform(ExchangeNode.sourceFragmentIdGetter())
+                .bag();
+
+        Multiset<Integer> childrenIds = IterableTransformer.on(children)
+                .transform(SubPlan.fragmentGetter())
+                .transform(PlanFragment.idGetter())
+                .bag();
+
+        Preconditions.checkState(exchangeIds.equals(childrenIds), "Subplan exchange ids don't match child fragment ids (%s vs %s)", exchangeIds, childrenIds);
 
         for (SubPlan child : children) {
             child.sanityCheck();
         }
+    }
+
+    public static Function<SubPlan, PlanFragment> fragmentGetter()
+    {
+        return new Function<SubPlan, PlanFragment>()
+        {
+            @Override
+            public PlanFragment apply(SubPlan input)
+            {
+                return input.getFragment();
+            }
+        };
     }
 }

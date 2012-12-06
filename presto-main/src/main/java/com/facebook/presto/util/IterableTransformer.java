@@ -3,9 +3,11 @@ package com.facebook.presto.util;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Multiset;
 import com.google.common.collect.Ordering;
 
 import java.util.Comparator;
@@ -91,6 +93,11 @@ public class IterableTransformer<E>
     public Set<E> set()
     {
         return ImmutableSet.copyOf(iterable);
+    }
+
+    public Multiset<E> bag()
+    {
+        return ImmutableMultiset.copyOf(iterable);
     }
 
     public Iterable<E> all()

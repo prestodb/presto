@@ -3,11 +3,13 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import org.codehaus.jackson.annotate.JsonProperty;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Map;
@@ -81,5 +83,17 @@ public class PlanFragment
                 .add("id", id)
                 .add("partitioned", partitioned)
                 .toString();
+    }
+
+    public static Function<PlanFragment, Integer> idGetter()
+    {
+        return new Function<PlanFragment, Integer>()
+        {
+            @Override
+            public Integer apply(PlanFragment input)
+            {
+                return input.getId();
+            }
+        };
     }
 }
