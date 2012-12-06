@@ -139,7 +139,7 @@ public class HttpQueryClient
                 URI taskUri = uriBuilderFrom(taskInfo.getSelf()).replacePath("/v1/presto/task").appendPath(taskInfo.getTaskId()).build();
                 return new HttpTaskClient(taskInfo.getTaskId(),
                         taskUri,
-                        taskInfo.getOutputIds().get(0),
+                        Iterables.getOnlyElement(taskInfo.getOutputIds()),
                         taskInfo.getTupleInfos(),
                         httpClient,
                         executor,

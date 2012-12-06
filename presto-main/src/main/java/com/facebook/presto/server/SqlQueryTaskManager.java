@@ -70,6 +70,12 @@ public class SqlQueryTaskManager
             PlanFragmentSourceProvider sourceProvider,
             HttpServerInfo httpServerInfo)
     {
+        Preconditions.checkNotNull(metadata, "metadata is null");
+        Preconditions.checkNotNull(sourceProvider, "sourceProvider is null");
+        Preconditions.checkNotNull(httpServerInfo, "httpServerInfo is null");
+
+        this.metadata = metadata;
+        this.sourceProvider = sourceProvider;
         this.httpServerInfo = httpServerInfo;
         this.pageBufferMax = 20;
 
@@ -85,9 +91,6 @@ public class SqlQueryTaskManager
                 new SynchronousQueue<Runnable>(),
                 threadsNamed("shard-processor-%d"),
                 new ThreadPoolExecutor.CallerRunsPolicy());
-
-        this.metadata = metadata;
-        this.sourceProvider = sourceProvider;
     }
 
     @Override
