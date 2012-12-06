@@ -45,6 +45,7 @@ options {
 
 statement returns [Statement value]
     : query        { $value = $query.value; }
+    | showTables   { $value = $showTables.value; }
     ;
 
 query returns [Query value]
@@ -314,4 +315,8 @@ caseExpression returns [Expression value]
 
 whenList returns [List<WhenClause> value = new ArrayList<>()]
     : ( ^(WHEN a=expr b=expr) { $value.add(new WhenClause($a.value, $b.value)); } )+
+    ;
+
+showTables returns [Query value]
+    : ^(SHOW_TABLES qname?) { $value = ShowTables.create($qname.value); }
     ;
