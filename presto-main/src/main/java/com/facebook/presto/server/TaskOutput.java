@@ -50,6 +50,14 @@ public class TaskOutput
 
     public TaskOutput(String taskId, URI location, List<String> outputIds, List<TupleInfo> tupleInfos, int pageBufferMax, int splits)
     {
+        Preconditions.checkNotNull(taskId, "taskId is null");
+        Preconditions.checkNotNull(location, "location is null");
+        Preconditions.checkNotNull(outputIds, "outputIds is null");
+        Preconditions.checkArgument(!outputIds.isEmpty(), "outputIds is empty");
+        Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
+        Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
+        Preconditions.checkArgument(splits >= 0, "splits is negative");
+
         this.taskId = taskId;
         this.location = location;
         this.tupleInfos = tupleInfos;

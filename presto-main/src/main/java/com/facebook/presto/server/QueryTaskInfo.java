@@ -7,6 +7,7 @@ import com.facebook.presto.server.QueryState.State;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
@@ -52,12 +53,13 @@ public class QueryTaskInfo
             @JsonProperty("outputDataSize") long outputDataSize,
             @JsonProperty("outputPositionCount") long outputPositionCount)
     {
-        this.self = self;
         Preconditions.checkNotNull(taskId, "taskId is null");
+        Preconditions.checkNotNull(self, "self is null");
         Preconditions.checkNotNull(outputIds, "outputIds is null");
         Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
         this.taskId = taskId;
-        this.outputIds = outputIds;
+        this.self = self;
+        this.outputIds = ImmutableList.copyOf(outputIds);
         this.tupleInfos = tupleInfos;
         this.state = state;
         this.bufferedPages = bufferedPages;
