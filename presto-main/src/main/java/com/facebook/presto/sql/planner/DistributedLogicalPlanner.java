@@ -192,7 +192,9 @@ public class DistributedLogicalPlanner
             if (left.isPartitioned() || right.isPartitioned()) {
                 ExchangeNode exchange = new ExchangeNode(right.getId(), right.getRoot().getOutputSymbols());
                 JoinNode join = new JoinNode(left.getRoot(), exchange, node.getCriteria());
-                left.setRoot(join);
+                left.setRoot(join)
+                    .addChild(right.build());
+
                 return left;
             }
             else {
