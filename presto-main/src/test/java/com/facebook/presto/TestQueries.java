@@ -443,6 +443,15 @@ public class TestQueries
     }
 
     @Test
+    public void testCountWithInlineView()
+    {
+        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM (SELECT orderkey FROM lineitem) x;", FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM (SELECT orderkey FROM lineitem) x");
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
     public void testAggregationWithProjection()
             throws Exception
     {
