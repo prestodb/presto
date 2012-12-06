@@ -26,7 +26,8 @@ public class SqlParser
         return createExpression(parseExpression(expression));
     }
 
-    public static Statement createStatement(CommonTree tree)
+    @VisibleForTesting
+    static Statement createStatement(CommonTree tree)
             throws RecognitionException
     {
         TreeNodeStream stream = new BufferedTreeNodeStream(tree);
@@ -34,7 +35,7 @@ public class SqlParser
         return builder.statement().value;
     }
 
-    public static Expression createExpression(CommonTree tree)
+    private static Expression createExpression(CommonTree tree)
             throws RecognitionException
     {
         TreeNodeStream stream = new BufferedTreeNodeStream(tree);
@@ -43,7 +44,7 @@ public class SqlParser
     }
 
     @VisibleForTesting
-    public static CommonTree parseStatement(String sql)
+    static CommonTree parseStatement(String sql)
             throws RecognitionException
     {
         return (CommonTree) getParser(sql).singleStatement().getTree();
