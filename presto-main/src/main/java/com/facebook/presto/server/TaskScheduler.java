@@ -113,7 +113,7 @@ public class TaskScheduler
         stages.put(stage.getStageId(), taskClients);
 
         // todo if this is a blocking task
-        waitForRunning(taskClients);
+        // waitForRunning(taskClients);
     }
 
     private Map<String, ExchangePlanFragmentSource> getExchangeSources(Node node, Stage stage, ConcurrentMap<String, List<HttpTaskClient>> stages)
