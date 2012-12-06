@@ -80,13 +80,14 @@ public class FilterAndProjectOperator implements Operator
 
             }
 
+            int outputCount = 0;
             while (!isFull(outputs) && pageIterator.hasNext()) {
                 Page page = pageIterator.next();
                 Block[] blocks = page.getBlocks();
-                filterAndProjectRowOriented(blocks, outputs);
+                outputCount += filterAndProjectRowOriented(blocks, outputs);
             }
 
-            if (outputs[0].isEmpty()) {
+            if (outputCount == 0) {
                 return endOfData();
             }
 
@@ -95,7 +96,7 @@ public class FilterAndProjectOperator implements Operator
                 blocks[i] = outputs[i].build();
             }
 
-            Page page = new Page(blocks);
+            Page page = new Page(outputCount, blocks);
             return page;
         }
 
@@ -115,7 +116,7 @@ public class FilterAndProjectOperator implements Operator
             return false;
         }
 
-        private void filterAndProjectRowOriented(Block[] blocks, BlockBuilder[] outputs)
+        private int filterAndProjectRowOriented(Block[] blocks, BlockBuilder[] outputs)
         {
             int rows = blocks[0].getPositionCount();
 
@@ -124,6 +125,7 @@ public class FilterAndProjectOperator implements Operator
                 cursors[i] = blocks[i].cursor();
             }
 
+            int outputCount = 0;
             for (int position = 0; position < rows; position++) {
                 for (BlockCursor cursor : cursors) {
                     checkState(cursor.advanceNextPosition());
@@ -133,12 +135,15 @@ public class FilterAndProjectOperator implements Operator
                     for (int i = 0; i < projections.size(); i++) {
                         projections.get(i).project(cursors, outputs[i]);
                     }
+                    ++outputCount;
                 }
             }
 
             for (BlockCursor cursor : cursors) {
                 checkState(!cursor.advanceNextPosition());
             }
+
+            return outputCount;
         }
     }
 }

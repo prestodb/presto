@@ -13,12 +13,18 @@ import java.util.Arrays;
 public class Page
 {
     private final Block[] blocks;
+    private final int positionCount;
 
     public Page(Block... blocks)
     {
+        this(blocks[0].getPositionCount(), blocks);
+    }
+
+    public Page(int positionCount, Block... blocks)
+    {
         Preconditions.checkNotNull(blocks, "blocks is null");
-        Preconditions.checkArgument(blocks.length > 0, "blocks is empty");
         this.blocks = Arrays.copyOf(blocks, blocks.length);
+        this.positionCount = positionCount;
     }
 
     public int getChannelCount()
@@ -28,7 +34,7 @@ public class Page
 
     public int getPositionCount()
     {
-        return blocks[0].getPositionCount();
+        return positionCount;
     }
 
     public DataSize getDataSize()
