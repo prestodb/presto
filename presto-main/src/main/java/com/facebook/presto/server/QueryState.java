@@ -5,7 +5,10 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Function;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -43,6 +46,18 @@ public class QueryState
 
         public boolean isDone() {
             return doneState;
+        }
+
+        public static Predicate<State> inDoneState()
+        {
+            return new Predicate<State>()
+            {
+                @Override
+                public boolean apply(State state)
+                {
+                    return state.isDone();
+                }
+            };
         }
     }
 
@@ -275,5 +290,31 @@ public class QueryState
 
             return pages;
         }
+    }
+
+    public static Function<QueryState, State> stateGetter()
+    {
+        return new Function<QueryState, State>()
+        {
+            @Override
+            public State apply(QueryState queryState)
+            {
+                return queryState.getState();
+            }
+        };
+    }
+
+    @Override
+    public String toString()
+    {
+        return Objects.toStringHelper(this)
+                .add("state", state)
+                .add("pageBuffer", pageBuffer.size())
+                .add("sourceCount", sourceCount)
+                .add("causes", causes)
+                .add("notFull", notFull.availablePermits())
+                .add("notEmpty", notEmpty.availablePermits())
+                .add("tupleInfos", tupleInfos)
+                .toString();
     }
 }
