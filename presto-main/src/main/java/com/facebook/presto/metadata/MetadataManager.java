@@ -2,13 +2,13 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -39,7 +39,7 @@ public class MetadataManager
     @Override
     public FunctionInfo getFunction(FunctionHandle handle)
     {
-        Preconditions.checkNotNull(handle, "handle is null");
+        checkNotNull(handle, "handle is null");
 
         return metadataSourceMap.get(DataSourceType.NATIVE).getFunction(handle);
     }
@@ -47,10 +47,7 @@ public class MetadataManager
     @Override
     public TableMetadata getTable(String catalogName, String schemaName, String tableName)
     {
-        checkNotNull(catalogName, "catalogName is null");
-        checkNotNull(schemaName, "schemaName is null");
-        checkNotNull(tableName, "tableName is null");
-
+        checkTableName(catalogName, schemaName, tableName);
         DataSourceType dataSourceType = convertCatalogToDataSourceType(catalogName);
         return lookup(dataSourceType).getTable(catalogName, schemaName, tableName);
     }

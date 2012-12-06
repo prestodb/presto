@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class TestingMetadata
@@ -31,10 +32,7 @@ public class TestingMetadata
     @Override
     public TableMetadata getTable(String catalogName, String schemaName, String tableName)
     {
-        checkArgument(catalogName.equals(catalogName.toLowerCase()), "catalogName is not lowercase");
-        checkArgument(schemaName.equals(schemaName.toLowerCase()), "schemaName is not lowercase");
-        checkArgument(tableName.equals(tableName.toLowerCase()), "tableName is not lowercase");
-
+        checkTableName(catalogName, schemaName, tableName);
         List<String> key = tableKey(catalogName, schemaName, tableName);
         return tables.get(key);
     }

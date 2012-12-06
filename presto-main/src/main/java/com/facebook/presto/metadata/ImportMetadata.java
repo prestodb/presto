@@ -12,6 +12,7 @@ import com.google.inject.Inject;
 import java.util.List;
 import java.util.concurrent.Callable;
 
+import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -29,9 +30,7 @@ public class ImportMetadata
     @Override
     public TableMetadata getTable(String catalogName, final String schemaName, final String tableName)
     {
-        checkNotNull(catalogName, "catalogName is null");
-        checkNotNull(schemaName, "schemaName is null");
-        checkNotNull(tableName, "tableName is null");
+        checkTableName(catalogName, schemaName, tableName);
 
         final ImportClient client = importClientFactory.getClient(catalogName);
         List<SchemaField> tableSchema = runWithRetryUnchecked(new Callable<List<SchemaField>>()
