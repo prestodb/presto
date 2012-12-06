@@ -112,7 +112,12 @@ public class QueryTaskResource
         try {
             List<Page> pages = queryTaskManager.getQueryTaskResults(taskId, outputId, DEFAULT_MAX_PAGE_COUNT, DEFAULT_MAX_WAIT_TIME);
             if (pages.isEmpty()) {
-                return Response.status(Status.GONE).build();
+                if (queryTaskManager.getQueryTaskInfo(taskId).getState().isDone()) {
+                    return Response.status(Status.GONE).build();
+                }
+                else {
+                    return Response.status(Status.NO_CONTENT).build();
+                }
             }
             GenericEntity<?> entity = new GenericEntity<>(pages, new TypeToken<List<Page>>() {}.getType());
             return Response.ok(entity).build();
