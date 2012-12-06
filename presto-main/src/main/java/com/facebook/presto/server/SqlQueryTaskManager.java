@@ -86,7 +86,7 @@ public class SqlQueryTaskManager
                 new LinkedBlockingQueue<Runnable>(),
                 threadsNamed("task-processor-%d"));
         shardExecutor = new ThreadPoolExecutor(8 * processors,
-                processors,
+                8 * processors,
                 1, TimeUnit.MINUTES,
                 new SynchronousQueue<Runnable>(),
                 threadsNamed("shard-processor-%d"),
