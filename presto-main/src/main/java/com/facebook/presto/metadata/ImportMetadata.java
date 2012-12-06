@@ -45,12 +45,12 @@ public class ImportMetadata
 
         ImportTableHandle importTableHandle = new ImportTableHandle(catalogName, schemaName, tableName);
 
-        List<ColumnMetadata> columns = convertToMetadata(catalogName, importTableHandle, tableSchema);
+        List<ColumnMetadata> columns = convertToMetadata(catalogName, tableSchema);
 
         return new TableMetadata(catalogName, schemaName, tableName, columns, importTableHandle);
     }
 
-    private List<ColumnMetadata> convertToMetadata(final String sourceName, final ImportTableHandle importTableHandle, List<SchemaField> schemaFields)
+    private List<ColumnMetadata> convertToMetadata(final String sourceName, List<SchemaField> schemaFields)
     {
         return Lists.transform(schemaFields, new Function<SchemaField, ColumnMetadata>()
         {
