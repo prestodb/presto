@@ -2,7 +2,11 @@ package com.facebook.presto.metadata;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.discovery.client.ServiceDescriptor;
+import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.testing.StaticServiceSelector;
+import io.airlift.node.NodeConfig;
+import io.airlift.node.NodeInfo;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -13,15 +17,18 @@ import java.util.UUID;
 
 import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotSame;
 
 public class TestNodeManager
 {
-    @Test
-    public void testGetActiveNodes()
-            throws Exception
+    private List<Node> nodes;
+    private ServiceSelector selector;
+
+    @BeforeMethod
+    public void setup()
     {
-        List<Node> nodes = ImmutableList.of(
+        nodes = ImmutableList.of(
                 new Node(UUID.randomUUID().toString(), URI.create("http://192.0.2.1:8080")),
                 new Node(UUID.randomUUID().toString(), URI.create("http://192.0.2.3")),
                 new Node(UUID.randomUUID().toString(), URI.create("https://192.0.2.8")));
@@ -34,7 +41,14 @@ public class TestNodeManager
                     .build());
         }
 
-        NodeManager manager = new NodeManager(new StaticServiceSelector(descriptors));
+        selector = new StaticServiceSelector(descriptors);
+    }
+
+    @Test
+    public void testGetActiveNodes()
+            throws Exception
+    {
+        NodeManager manager = new NodeManager(selector, new NodeInfo("test"));
         Set<Node> activeNodes = manager.getActiveNodes();
 
         assertEqualsIgnoreOrder(activeNodes, nodes);
@@ -44,5 +58,26 @@ public class TestNodeManager
                 assertNotSame(actual, expected);
             }
         }
+    }
+
+    @Test
+    public void testGetCurrentNode()
+    {
+        Node expected = nodes.get(0);
+
+        NodeInfo nodeInfo = new NodeInfo(new NodeConfig()
+                .setEnvironment("test")
+                .setNodeId(expected.getNodeIdentifier()));
+
+        NodeManager manager = new NodeManager(selector, nodeInfo);
+
+        assertEquals(manager.getCurrentNode(), expected);
+    }
+
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "current node is not in active set")
+    public void testGetCurrentNodeNotActive()
+    {
+        NodeManager manager = new NodeManager(selector, new NodeInfo("test"));
+        manager.getCurrentNode();
     }
 }

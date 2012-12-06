@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.ServiceType;
+import io.airlift.node.NodeInfo;
 
 import javax.inject.Inject;
 import java.net.URI;
@@ -11,16 +12,19 @@ import java.net.URISyntaxException;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Arrays.asList;
 
 public class NodeManager
 {
     private final ServiceSelector serviceSelector;
+    private final NodeInfo nodeInfo;
 
     @Inject
-    public NodeManager(@ServiceType("presto") ServiceSelector serviceSelector)
+    public NodeManager(@ServiceType("presto") ServiceSelector serviceSelector, NodeInfo nodeInfo)
     {
-        this.serviceSelector = serviceSelector;
+        this.serviceSelector = checkNotNull(serviceSelector, "serviceSelector is null");
+        this.nodeInfo = checkNotNull(nodeInfo, "nodeInfo is null");
     }
 
     public Set<Node> getActiveNodes()
@@ -36,6 +40,16 @@ public class NodeManager
             }
         }
         return nodes.build();
+    }
+
+    public Node getCurrentNode()
+    {
+        for (Node node : getActiveNodes()) {
+            if (node.getNodeIdentifier().equals(nodeInfo.getNodeId())) {
+                return node;
+            }
+        }
+        throw new IllegalStateException("current node is not in active set");
     }
 
     private static Node nodeFromServiceDescriptor(ServiceDescriptor descriptor)
