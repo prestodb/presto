@@ -35,7 +35,6 @@ public class HashAggregationOperator
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkArgument(groupByChannel >= 0, "groupByChannel is negative");
         Preconditions.checkNotNull(functionProviders, "functionProviders is null");
-        Preconditions.checkArgument(!functionProviders.isEmpty(), "functionProviders is empty");
         Preconditions.checkNotNull(projections, "projections is null");
         Preconditions.checkArgument(!projections.isEmpty(), "projections is empty");
 

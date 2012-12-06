@@ -452,6 +452,16 @@ public class TestQueries
     }
 
     @Test
+    public void testNestedCount()
+            throws Exception
+    {
+        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM (SELECT orderkey, COUNT(*) FROM lineitem GROUP BY orderkey) x;", FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM (SELECT orderkey, COUNT(*) FROM lineitem GROUP BY orderkey) x");
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
     public void testAggregationWithProjection()
             throws Exception
     {
