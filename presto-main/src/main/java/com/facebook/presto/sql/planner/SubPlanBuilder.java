@@ -4,9 +4,10 @@ import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -17,7 +18,7 @@ public class SubPlanBuilder
     private final int id;
     private PlanNode root;
     private boolean isPartitioned;
-    private List<SubPlan> children = ImmutableList.of();
+    private List<SubPlan> children = new ArrayList<>();
 
     private final SymbolAllocator allocator;
 
@@ -62,7 +63,13 @@ public class SubPlanBuilder
 
     public SubPlanBuilder setChildren(Iterable<SubPlan> children)
     {
-        this.children = ImmutableList.copyOf(children);
+        this.children = Lists.newArrayList(children);
+        return this;
+    }
+
+    public SubPlanBuilder addChild(SubPlan child)
+    {
+        this.children.add(child);
         return this;
     }
 
