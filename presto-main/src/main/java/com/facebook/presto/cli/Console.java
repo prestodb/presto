@@ -46,7 +46,7 @@ public class Console
                     }
                 }
                 catch (Exception e) {
-                    System.out.println("error running command");
+                    System.out.println("error running command: " + e.getMessage());
                     if (debug) {
                         e.printStackTrace();
                     }
