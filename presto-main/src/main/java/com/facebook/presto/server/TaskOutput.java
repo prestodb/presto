@@ -6,10 +6,7 @@ package com.facebook.presto.server;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.server.QueryState.State;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
@@ -25,7 +22,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.collect.Iterables.transform;
+import static com.facebook.presto.server.QueryState.stateGetter;
+import static com.google.common.base.Predicates.equalTo;
+import static com.google.common.collect.Maps.transformValues;
 
 public class TaskOutput
 {
@@ -84,30 +83,23 @@ public class TaskOutput
         return taskState.get();
     }
 
+    public Map<String, State> getOutputBufferStates()
+    {
+        return ImmutableMap.copyOf(transformValues(outputBuffers, stateGetter()));
+    }
+
     private void updateState()
     {
         State overallState = taskState.get();
         if (!overallState.isDone()) {
-            Iterable<State> taskStates = transform(outputBuffers.values(), new Function<QueryState, State>()
-            {
-                @Override
-                public State apply(QueryState outputBuffer)
-                {
-                    return outputBuffer.getState();
-                }
-            });
+            Map<String, State> outputBufferStates = getOutputBufferStates();
 
-            if (Iterables.any(taskStates, Predicates.equalTo(State.FAILED))) {
+            if (Iterables.any(outputBufferStates.values(), equalTo(State.FAILED))) {
                 taskState.set(State.FAILED);
                 // this shouldn't be necessary, but be safe
                 finishAllBuffers();
             }
-            else if (Iterables.any(taskStates, Predicates.equalTo(State.CANCELED))) {
-                taskState.set(State.CANCELED);
-                // this shouldn't be necessary, but be safe
-                finishAllBuffers();
-            }
-            else if (Iterables.all(taskStates, Predicates.equalTo(State.FINISHED))) {
+            else if (Iterables.all(outputBufferStates.values(), equalTo(State.FINISHED))) {
                 taskState.set(State.FINISHED);
             }
         }
@@ -195,7 +187,7 @@ public class TaskOutput
         updateState();
         return new QueryTaskInfo(taskId,
                 location,
-                ImmutableList.copyOf(outputBuffers.keySet()),
+                getOutputBufferStates(),
                 getTupleInfos(),
                 getState(),
                 getBufferedPageCount(),

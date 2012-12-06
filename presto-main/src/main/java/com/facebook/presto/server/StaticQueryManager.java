@@ -23,10 +23,10 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedExecutionPlanner;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
-import com.facebook.presto.sql.planner.SubPlan;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.Planner;
 import com.facebook.presto.sql.planner.Stage;
+import com.facebook.presto.sql.planner.SubPlan;
+import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tuple.TupleInfo;
@@ -42,7 +42,6 @@ import io.airlift.log.Logger;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
@@ -55,9 +54,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.server.QueryState.State.inDoneState;
+import static com.facebook.presto.server.QueryTaskInfo.stateGetter;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Predicates.equalTo;
+import static com.google.common.collect.Iterables.all;
+import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
@@ -302,23 +305,17 @@ public class StaticQueryManager
                 }
 
                 if (overallState == State.RUNNING) {
-                    Iterable<State> taskStates = transform(concat(stages.values()), new Function<QueryTaskInfo, State>() {
-                        @Override
-                        public State apply(QueryTaskInfo queryTaskInfo)
-                        {
-                            return queryTaskInfo.getState();
-                        }
-                    });
-
-                    if (Iterables.any(taskStates, equalTo(State.FAILED))) {
+                    // if all output tasks are finished, the query is finished
+                    List<QueryTaskInfo> outputTasks = stages.get(outputStage.getStageId());
+                    if (outputTasks != null && !outputTasks.isEmpty() && all(transform(outputTasks, stateGetter()), inDoneState())) {
+                        overallState = State.FINISHED;
+                        queryState.set(overallState);
+                    } else if (any(transform(concat(stages.values()), stateGetter()), equalTo(State.FAILED))) {
+                        // if any task is failed, the query has failed
                         overallState = State.FAILED;
                         queryState.set(overallState);
                         log.debug("A task for query %s failed, canceling all tasks: stages %s", queryId, this.stages);
                         cancel();
-                    }
-                    else if (Iterables.all(taskStates, Predicates.in(EnumSet.of(State.FINISHED, State.CANCELED)))) {
-                        overallState = State.FINISHED;
-                        queryState.set(overallState);
                     }
                 }
             }

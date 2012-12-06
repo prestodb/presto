@@ -5,22 +5,24 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.server.QueryState.State;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 
 @Immutable
 public class QueryTaskInfo
 {
     private final String taskId;
     private final URI self;
-    private final List<String> outputIds;
+    private final Map<String, State> outputBufferStates;
     private final List<TupleInfo> tupleInfos;
     private final QueryState.State state;
     private final int bufferedPages;
@@ -38,7 +40,7 @@ public class QueryTaskInfo
     @JsonCreator
     public QueryTaskInfo(@JsonProperty("taskId") String taskId,
             @JsonProperty("self") URI self,
-            @JsonProperty("outputIds") List<String> outputIds,
+            @JsonProperty("outputBufferStates") Map<String, State> outputBufferStates,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
             @JsonProperty("state") State state,
             @JsonProperty("bufferedPages") int bufferedPages,
@@ -55,11 +57,11 @@ public class QueryTaskInfo
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(self, "self is null");
-        Preconditions.checkNotNull(outputIds, "outputIds is null");
+        Preconditions.checkNotNull(outputBufferStates, "outputIds is null");
         Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
         this.taskId = taskId;
         this.self = self;
-        this.outputIds = ImmutableList.copyOf(outputIds);
+        this.outputBufferStates = ImmutableMap.copyOf(outputBufferStates);
         this.tupleInfos = tupleInfos;
         this.state = state;
         this.bufferedPages = bufferedPages;
@@ -88,9 +90,9 @@ public class QueryTaskInfo
     }
 
     @JsonProperty
-    public List<String> getOutputIds()
+    public Map<String, State> getOutputBufferStates()
     {
-        return outputIds;
+        return outputBufferStates;
     }
 
     @JsonProperty
@@ -178,5 +180,18 @@ public class QueryTaskInfo
                 .add("taskId", taskId)
                 .add("state", state)
                 .toString();
+    }
+
+
+    public static Function<QueryTaskInfo, State> stateGetter()
+    {
+        return new Function<QueryTaskInfo, State>()
+        {
+            @Override
+            public State apply(QueryTaskInfo queryState)
+            {
+                return queryState.getState();
+            }
+        };
     }
 }
