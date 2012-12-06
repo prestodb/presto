@@ -37,8 +37,8 @@ public class QueryDriversOperator
 
         this.pageBufferMax = pageBufferMax;
         this.driverProviders = ImmutableList.copyOf(driverProviders);
-        tupleInfos = this.driverProviders.get(0).getTupleInfos();
         Preconditions.checkArgument(!this.driverProviders.isEmpty(), "driverProviders is empty");
+        tupleInfos = this.driverProviders.get(0).getTupleInfos();
     }
 
     @Override
@@ -91,17 +91,15 @@ public class QueryDriversOperator
         protected Page computeNext()
         {
             try {
-                if (queryState.isDone()) {
-                    return endOfData();
+                // get the next page
+                while (!queryState.isDone()) {
+                    List<Page> nextPages = queryState.getNextPages(1, new Duration(1, TimeUnit.SECONDS));
+                    if (!nextPages.isEmpty()) {
+                        Page page = Iterables.getOnlyElement(nextPages);
+                        return page;
+                    }
                 }
-                // wait forever for the next page to show up
-                List<Page> nextPages = queryState.getNextPages(1, new Duration(365, TimeUnit.DAYS));
-                if (nextPages.isEmpty()) {
-                    return endOfData();
-                }
-
-                Page page = Iterables.getOnlyElement(nextPages);
-                return page;
+                return endOfData();
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -118,7 +116,7 @@ public class QueryDriversOperator
                     queryDriver.abort();
                 }
                 catch (Exception e) {
-                    log.warn("Error canceling query driver", e);
+                    log.warn(e, "Error canceling query driver");
                 }
             }
         }
