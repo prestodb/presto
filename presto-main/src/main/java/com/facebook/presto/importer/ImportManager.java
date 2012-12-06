@@ -38,6 +38,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.presto.util.RetryDriver.runWithRetry;
 import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -202,7 +203,7 @@ public class ImportManager
         public void run()
         {
             try {
-                runWithRetryUnchecked(new Callable<Void>()
+                runWithRetry(new Callable<Void>()
                 {
                     @Override
                     public Void call()
@@ -233,7 +234,7 @@ public class ImportManager
                 response = httpClient.execute(request, createStatusResponseHandler());
             }
             catch (RuntimeException e) {
-                log.warn(e, "drop request failed: %s", shardId);
+                log.warn("drop request failed: %s. Cause: %s", shardId, e.getMessage());
                 return false;
             }
 
@@ -304,7 +305,7 @@ public class ImportManager
         public void run()
         {
             try {
-                runWithRetryUnchecked(new Callable<Void>()
+                runWithRetry(new Callable<Void>()
                 {
                     @Override
                     public Void call()
@@ -349,7 +350,7 @@ public class ImportManager
                 response = httpClient.execute(request, createStatusResponseHandler());
             }
             catch (RuntimeException e) {
-                log.warn(e, "request failed: %s", shardId);
+                log.warn("request failed: %s. Cause: %s", shardId, e.getMessage());
                 return false;
             }
 
@@ -397,7 +398,7 @@ public class ImportManager
                 status = shardStatus();
             }
             catch (RuntimeException e) {
-                log.warn(e, "Failed to get shard status: %s", shardId);
+                log.warn("Failed to get shard status: %s. Cause: %s", shardId, e.getMessage());
                 return false;
             }
 
@@ -412,7 +413,7 @@ public class ImportManager
                         shardManager.commitShard(shardId, worker.getNodeIdentifier());
                     }
                     catch (UnableToExecuteStatementException e) {
-                        log.warn(e, "Shard commit error: %s", shardId);
+                        log.warn("Shard commit error: %s. Cause: %s", shardId, e.getMessage());
                         return false;
                     }
 
@@ -461,7 +462,9 @@ public class ImportManager
         {
             ImmutableSet.Builder<String> builder = ImmutableSet.builder();
             for (PartitionMarker partitionMarker : importingPartitions.keySet()) {
-                builder.add(partitionMarker.getPartitionName());
+                if (partitionMarker.getTableId() == tableId) {
+                    builder.add(partitionMarker.getPartitionName());
+                }
             }
             return builder.build();
         }

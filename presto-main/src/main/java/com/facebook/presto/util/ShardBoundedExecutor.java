@@ -53,7 +53,7 @@ public class ShardBoundedExecutor<T>
     {
         CountedReference<BoundedExecutor> reference = shardExecutors.get(shard);
         if (reference == null) {
-            reference = new CountedReference<>(new BoundedExecutor(executorService));
+            reference = new CountedReference<>(new BoundedExecutor(executorService, 1));
             shardExecutors.put(shard, reference);
         }
         else {
@@ -88,13 +88,13 @@ public class ShardBoundedExecutor<T>
 
         public void increment()
         {
-            checkState(isReferenced());
+            checkState(isReferenced(), "Reference counter misused: %d", count);
             count++;
         }
 
         public void decrement()
         {
-            checkState(isReferenced());
+            checkState(isReferenced(), "Reference counter misused: %d", count);
             count--;
         }
 

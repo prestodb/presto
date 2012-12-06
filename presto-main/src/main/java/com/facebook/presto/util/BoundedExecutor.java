@@ -1,12 +1,18 @@
 package com.facebook.presto.util;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.Queue;
+import java.util.Random;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Guarantees that no more than maxThreads will be used to execute tasks submitted
@@ -23,8 +29,19 @@ import java.util.concurrent.atomic.AtomicInteger;
 @ThreadSafe
 public class BoundedExecutor
 {
+    private final static Logger log = Logger.get(BoundedExecutor.class);
+
     private final Queue<Runnable> queue = new LinkedBlockingQueue<>();
     private final AtomicInteger queueSize = new AtomicInteger(0);
+    private final Runnable triggerTask = new Runnable()
+    {
+        @Override
+        public void run()
+        {
+            executeOrMerge();
+        }
+    };
+
     private final ExecutorService coreExecutor;
     private final int maxThreads;
 
@@ -36,23 +53,11 @@ public class BoundedExecutor
         this.maxThreads = maxThreads;
     }
 
-    public BoundedExecutor(ExecutorService coreExecutor)
-    {
-        this(coreExecutor, 1);
-    }
-
     public void execute(Runnable task)
     {
         queue.add(task);
-        coreExecutor.execute(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                executeOrMerge();
-            }
-        });
-        // INVARIANT: every enqueued task is matched with an executeOrMerge()
+        coreExecutor.execute(triggerTask);
+        // INVARIANT: every enqueued task is matched with an executeOrMerge() triggerTask
     }
 
     private void executeOrMerge()
@@ -60,7 +65,12 @@ public class BoundedExecutor
         int size = queueSize.incrementAndGet();
         if (size <= maxThreads) {
             do {
-                queue.poll().run();
+                try {
+                    queue.poll().run();
+                }
+                catch (Throwable e) {
+                    log.error(e, "Task failed");
+                }
             } while (queueSize.getAndDecrement() > maxThreads);
         }
     }
