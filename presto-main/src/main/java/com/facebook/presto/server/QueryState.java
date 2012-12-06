@@ -217,10 +217,10 @@ public class QueryState
     }
 
     /**
-     * Gets the next pages from the buffer.  The caller will page until at least one page is available, the
-     * query is canceled, or the query fails.
+     * Gets the next pages from the buffer.  The caller will block until at least one page is available, the
+     * query is canceled, the query fails or the max wait period elapses.
      *
-     * @return one to masPageCount pages if the query is not done; no page if the query is done
+     * @return between 0 and {@code maxPageCount} pages if the query is not done
      * @throws FailedQueryException if the query failed
      * @throws InterruptedException if the thread is interrupted while waiting for pages to be buffered
      */

@@ -112,6 +112,7 @@ public class QueryTaskResource
         try {
             List<Page> pages = queryTaskManager.getQueryTaskResults(taskId, outputId, DEFAULT_MAX_PAGE_COUNT, DEFAULT_MAX_WAIT_TIME);
             if (pages.isEmpty()) {
+                // this is a safe race condition, because is done will only be true if the task is failed or if all results have been consumed
                 if (queryTaskManager.getQueryTaskInfo(taskId).getState().isDone()) {
                     return Response.status(Status.GONE).build();
                 }
