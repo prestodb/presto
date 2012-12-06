@@ -68,9 +68,7 @@ public class Console
             return false;
         }
 
-        if (line.toLowerCase().startsWith("select ")) {
-            line = "sql:" + line;
-        }
+        line = "sql:" + line;
 
         Execute query = new Execute();
         query.server = server;

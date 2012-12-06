@@ -51,6 +51,7 @@ tokens {
     FUNCTION_CALL;
     NEGATIVE;
     QNAME;
+    SHOW_TABLES;
     CREATE_TABLE;
     TABLE_ELEMENT_LIST;
     COLUMN_DEF;
@@ -108,7 +109,8 @@ statementList
 
 statement
     : selectStmt      -> ^(QUERY selectStmt)
-    | createTableStmt -> ^(CREATE_TABLE createTableStmt)
+    | showTablesStmt
+    | createTableStmt
     ;
 
 selectStmt
@@ -351,8 +353,12 @@ function
     | qname '(' setQuant? expr? (',' expr)* ')' -> ^(FUNCTION_CALL qname setQuant? expr*)
     ;
 
+showTablesStmt
+    : SHOW TABLES ((FROM | IN) qname)? -> ^(SHOW_TABLES qname?)
+    ;
+
 createTableStmt
-    : CREATE TABLE qname tableElementList -> qname tableElementList
+    : CREATE TABLE qname tableElementList -> ^(CREATE_TABLE qname tableElementList)
     ;
 
 tableElementList
@@ -483,6 +489,8 @@ FULL: 'FULL';
 NATURAL: 'NATURAL';
 USING: 'USING';
 ON: 'ON';
+SHOW: 'SHOW';
+TABLES: 'TABLES';
 CREATE: 'CREATE';
 TABLE: 'TABLE';
 CHAR: 'CHAR';

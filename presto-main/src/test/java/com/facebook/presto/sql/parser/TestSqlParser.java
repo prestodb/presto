@@ -27,6 +27,9 @@ public class TestSqlParser
                 "left join zoo on (a.x = zoo.y) " +
                 "cross join (d natural inner join e)");
 
+        printStatement("show tables");
+        printStatement("show tables from information_schema");
+
         for (int i = 1; i <= 22; i++) {
             if (i != 15) {
                 printStatement(getTpchQuery(i));
