@@ -28,10 +28,10 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
+import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.PlanPrinter;
-import com.facebook.presto.sql.planner.Planner;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
@@ -580,8 +580,7 @@ public class TestQueries
 
         AnalysisResult analysis = analyzer.analyze(statement);
 
-        Planner planner = new Planner();
-        PlanNode plan = planner.plan((Query) statement, analysis);
+        PlanNode plan = new LogicalPlanner().plan((Query) statement, analysis);
         new PlanPrinter().print(plan, analysis.getTypes());
 
         SubPlan subplan = new DistributedLogicalPlanner(metadata).createSubplans(plan, analysis.getSymbolAllocator(), true);

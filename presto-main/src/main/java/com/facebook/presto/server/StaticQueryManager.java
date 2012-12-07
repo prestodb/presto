@@ -23,7 +23,7 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedExecutionPlanner;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
-import com.facebook.presto.sql.planner.Planner;
+import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Stage;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -233,7 +233,7 @@ public class StaticQueryManager
                 AnalysisResult analysis = analyzer.analyze(statement);
 
                 // plan query
-                Planner planner = new Planner();
+                LogicalPlanner planner = new LogicalPlanner();
                 PlanNode plan = planner.plan((Query) statement, analysis);
 
                 // fragment the plan
