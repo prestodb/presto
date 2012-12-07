@@ -3,7 +3,7 @@ package com.facebook.presto.server;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.sql.planner.Partition;
-import com.facebook.presto.sql.planner.Stage;
+import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
@@ -53,31 +53,31 @@ public class TaskScheduler
 
     }
 
-    public void schedule(Stage stage, ConcurrentMap<String, List<HttpTaskClient>> stageTasks)
+    public void schedule(StageExecutionPlan stageExecutionPlan, ConcurrentMap<String, List<HttpTaskClient>> stageTasks)
     {
-        scheduleFragment(stage, ImmutableList.of(ROOT_OUTPUT_BUFFER_NAME), stageTasks);
+        scheduleFragment(stageExecutionPlan, ImmutableList.of(ROOT_OUTPUT_BUFFER_NAME), stageTasks);
     }
 
-    private void scheduleFragment(final Stage stage,
+    private void scheduleFragment(final StageExecutionPlan stageExecutionPlan,
             final List<String> outputIds,
             final ConcurrentMap<String, List<HttpTaskClient>> stages)
     {
         // schedule the child fragments with an output for each partition
-        for (Stage dependency : stage.getDependencies()) {
-            scheduleFragment(dependency, toOutputIds(stage.getPartitions()), stages);
+        for (StageExecutionPlan dependency : stageExecutionPlan.getDependencies()) {
+            scheduleFragment(dependency, toOutputIds(stageExecutionPlan.getPartitions()), stages);
         }
 
         // create a task for each partition
-        List<HttpTaskClient> taskClients = ImmutableList.copyOf(transform(stage.getPartitions(), new Function<Partition, HttpTaskClient>()
+        List<HttpTaskClient> taskClients = ImmutableList.copyOf(transform(stageExecutionPlan.getPartitions(), new Function<Partition, HttpTaskClient>()
         {
             @Override
             public HttpTaskClient apply(Partition partition)
             {
                 // get fragment sources
-                Map<String, ExchangePlanFragmentSource> exchangeSources = getExchangeSources(partition.getNode(), stage, stages);
+                Map<String, ExchangePlanFragmentSource> exchangeSources = getExchangeSources(partition.getNode(), stageExecutionPlan, stages);
 
                 Node node = partition.getNode();
-                QueryFragmentRequest queryFragmentRequest = new QueryFragmentRequest(stage.getFragment(), partition.getSplits(), exchangeSources, outputIds);
+                QueryFragmentRequest queryFragmentRequest = new QueryFragmentRequest(stageExecutionPlan.getFragment(), partition.getSplits(), exchangeSources, outputIds);
                 Request request = preparePost()
                         .setUri(uriBuilderFrom(node.getHttpUri()).replacePath("/v1/presto/task").build())
                         .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
@@ -107,16 +107,16 @@ public class TaskScheduler
         }));
 
         // record the stage
-        stages.put(stage.getStageId(), taskClients);
+        stages.put(stageExecutionPlan.getStageId(), taskClients);
 
         // todo if this is a blocking task
         // waitForRunning(taskClients);
     }
 
-    private Map<String, ExchangePlanFragmentSource> getExchangeSources(Node node, Stage stage, ConcurrentMap<String, List<HttpTaskClient>> stages)
+    private Map<String, ExchangePlanFragmentSource> getExchangeSources(Node node, StageExecutionPlan stageExecutionPlan, ConcurrentMap<String, List<HttpTaskClient>> stages)
     {
         ImmutableMap.Builder<String, ExchangePlanFragmentSource> exchangeSources = ImmutableMap.builder();
-        for (Stage dependency : stage.getDependencies()) {
+        for (StageExecutionPlan dependency : stageExecutionPlan.getDependencies()) {
             // get locations for the dependent stage
             List<HttpTaskClient> tasks = stages.get(dependency.getStageId());
             ImmutableMap.Builder<String, URI> sources = ImmutableMap.builder();
