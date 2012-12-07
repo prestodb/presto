@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.server.PageBuffer.State;
+import com.facebook.presto.server.PageBuffer.BufferState;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -22,9 +22,9 @@ public class TaskInfo
 {
     private final String taskId;
     private final URI self;
-    private final Map<String, State> outputBufferStates;
+    private final Map<String, BufferState> outputBufferStates;
     private final List<TupleInfo> tupleInfos;
-    private final PageBuffer.State state;
+    private final TaskState state;
     private final int bufferedPages;
     private final int splits;
     private final int startedSplits;
@@ -40,9 +40,9 @@ public class TaskInfo
     @JsonCreator
     public TaskInfo(@JsonProperty("taskId") String taskId,
             @JsonProperty("self") URI self,
-            @JsonProperty("outputBufferStates") Map<String, State> outputBufferStates,
+            @JsonProperty("outputBufferStates") Map<String, BufferState> outputBufferStates,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
-            @JsonProperty("state") State state,
+            @JsonProperty("state") TaskState state,
             @JsonProperty("bufferedPages") int bufferedPages,
             @JsonProperty("splits") int splits,
             @JsonProperty("startedSplits") int startedSplits,
@@ -90,7 +90,7 @@ public class TaskInfo
     }
 
     @JsonProperty
-    public Map<String, State> getOutputBufferStates()
+    public Map<String, BufferState> getOutputBufferStates()
     {
         return outputBufferStates;
     }
@@ -102,7 +102,7 @@ public class TaskInfo
     }
 
     @JsonProperty
-    public State getState()
+    public TaskState getState()
     {
         return state;
     }
@@ -183,12 +183,12 @@ public class TaskInfo
     }
 
 
-    public static Function<TaskInfo, State> stateGetter()
+    public static Function<TaskInfo, TaskState> taskStateGetter()
     {
-        return new Function<TaskInfo, State>()
+        return new Function<TaskInfo, TaskState>()
         {
             @Override
-            public State apply(TaskInfo taskInfo)
+            public TaskState apply(TaskInfo taskInfo)
             {
                 return taskInfo.getState();
             }

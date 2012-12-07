@@ -2,7 +2,6 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.operator.ForScheduler;
-import com.facebook.presto.server.PageBuffer.State;
 import com.facebook.presto.sql.planner.Partition;
 import com.facebook.presto.sql.planner.Stage;
 import com.google.common.base.Function;
@@ -138,19 +137,27 @@ public class TaskScheduler
         while (true) {
             long start = System.nanoTime();
 
+            // remove tasks that have started running
             taskClients = ImmutableList.copyOf(filter(taskClients, new Predicate<HttpTaskClient>()
             {
                 @Override
                 public boolean apply(HttpTaskClient taskClient)
                 {
                     TaskInfo taskInfo = taskClient.getTaskInfo();
-                    return taskInfo != null && taskInfo.getState() == State.PREPARING;
+                    if (taskInfo == null) {
+                        return false;
+                    }
+                    TaskState state = taskInfo.getState();
+                    return state == TaskState.PLANNED || state == TaskState.QUEUED;
                 }
             }));
+
+            // if no tasks are left, the stage has started
             if (taskClients.isEmpty()) {
                 return;
             }
 
+            // sleep for 100ms (minus the time we spent fetching the task states)
             Duration duration = Duration.nanosSince(start);
             long waitTime = (long) (100 - duration.toMillis());
             if (waitTime > 0) {

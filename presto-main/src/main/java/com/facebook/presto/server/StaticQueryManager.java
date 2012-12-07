@@ -12,7 +12,6 @@ import com.facebook.presto.metadata.NativeColumnHandle;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.server.PageBuffer.State;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.SchemaField;
 import com.facebook.presto.split.ImportClientFactory;
@@ -54,8 +53,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.server.PageBuffer.State.inDoneState;
-import static com.facebook.presto.server.TaskInfo.stateGetter;
+import static com.facebook.presto.server.TaskInfo.taskStateGetter;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Predicates.equalTo;
@@ -216,7 +214,7 @@ public class StaticQueryManager
         private final String queryId;
         private final TaskScheduler taskScheduler;
         private final ConcurrentHashMap<String, List<HttpTaskClient>> stages = new ConcurrentHashMap<>();
-        private final AtomicReference<State> queryState = new AtomicReference<>(State.PREPARING);
+        private final AtomicReference<QueryState> queryState = new AtomicReference<>(QueryState.QUEUED);
         private final Stage outputStage;
 
         public SqlQueryWorker(String queryId, String sql, TaskScheduler taskScheduler, Session session, Metadata metadata, NodeManager nodeManager, SplitManager splitManager)
@@ -260,11 +258,11 @@ public class StaticQueryManager
         public void cancel()
         {
             while (true) {
-                State state = queryState.get();
-                if (state != State.PREPARING && state != State.RUNNING) {
+                QueryState queryState = this.queryState.get();
+                if (queryState.isDone()) {
                     break;
                 }
-                if (queryState.compareAndSet(state, State.CANCELED)) {
+                if (this.queryState.compareAndSet(queryState, QueryState.CANCELED)) {
                     break;
                 }
             }
@@ -297,30 +295,31 @@ public class StaticQueryManager
             }
             ImmutableMap<String, List<TaskInfo>> stages = map.build();
 
-            State overallState = queryState.get();
+            QueryState queryState = this.queryState.get();
             if (!stages.isEmpty()) {
-                if (overallState == State.PREPARING) {
-                    overallState = State.RUNNING;
-                    queryState.set(overallState);
+                if (queryState == QueryState.QUEUED) {
+                    queryState = QueryState.RUNNING;
+                    this.queryState.set(queryState);
                 }
 
-                if (overallState == State.RUNNING) {
+                if (queryState == QueryState.RUNNING) {
                     // if all output tasks are finished, the query is finished
+                    // todo this is no longer correct
                     List<TaskInfo> outputTasks = stages.get(outputStage.getStageId());
-                    if (outputTasks != null && !outputTasks.isEmpty() && all(transform(outputTasks, stateGetter()), inDoneState())) {
-                        overallState = State.FINISHED;
-                        queryState.set(overallState);
-                    } else if (any(transform(concat(stages.values()), stateGetter()), equalTo(State.FAILED))) {
+                    if (outputTasks != null && !outputTasks.isEmpty() && all(transform(outputTasks, taskStateGetter()), TaskState.inDoneState())) {
+                        queryState = QueryState.FINISHED;
+                        this.queryState.set(queryState);
+                    } else if (any(transform(concat(stages.values()), taskStateGetter()), equalTo(TaskState.FAILED))) {
                         // if any task is failed, the query has failed
-                        overallState = State.FAILED;
-                        queryState.set(overallState);
+                        queryState = QueryState.FAILED;
+                        this.queryState.set(queryState);
                         log.debug("A task for query %s failed, canceling all tasks: stages %s", queryId, this.stages);
                         cancel();
                     }
                 }
             }
 
-            return new QueryInfo(queryId, outputStage.getTupleInfos(), outputStage.getFieldNames(), overallState, outputStage.getStageId(), stages);
+            return new QueryInfo(queryId, outputStage.getTupleInfos(), outputStage.getFieldNames(), queryState, outputStage.getStageId(), stages);
         }
 
         @Override
@@ -331,11 +330,11 @@ public class StaticQueryManager
 
                 // mark it as finished if there will never be any output TODO: think about this more -- shouldn't have stages with no tasks?
                 if (stages.get(outputStage.getStageId()).isEmpty()) {
-                    queryState.set(State.FINISHED);
+                    queryState.set(QueryState.FINISHED);
                 }
             }
             catch (Exception e) {
-                queryState.set(State.FAILED);
+                queryState.set(QueryState.FAILED);
                 log.debug(e, "Query %s failed to start", queryId);
                 cancel();
                 throw Throwables.propagate(e);
@@ -384,7 +383,7 @@ public class StaticQueryManager
         @Override
         public QueryInfo getQueryInfo()
         {
-            return new QueryInfo(queryId, TUPLE_INFOS, FIELD_NAMES, State.FINISHED, null, ImmutableMap.<String, List<TaskInfo>>of());
+            return new QueryInfo(queryId, TUPLE_INFOS, FIELD_NAMES, QueryState.FINISHED, null, ImmutableMap.<String, List<TaskInfo>>of());
         }
 
         @Override
