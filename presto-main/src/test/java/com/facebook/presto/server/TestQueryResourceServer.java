@@ -3,9 +3,13 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.PagesSerde;
-import com.facebook.presto.server.QueryState.State;
 import com.facebook.presto.slice.InputStreamSliceInput;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
@@ -77,10 +81,10 @@ public class TestQueryResourceServer
                     public void configure(Binder binder)
                     {
                         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
-                        binder.bind(QueryTaskResource.class).in(Scopes.SINGLETON);
-                        binder.bind(QueryManager.class).to(SimpleQueryManager.class).in(Scopes.SINGLETON);
-                        binder.bind(SimpleQueryTaskManager.class).in(Scopes.SINGLETON);
-                        binder.bind(QueryTaskManager.class).to(Key.get(SimpleQueryTaskManager.class)).in(Scopes.SINGLETON);
+                        binder.bind(TaskResource.class).in(Scopes.SINGLETON);
+                        binder.bind(QueryManager.class).to(MockQueryManager.class).in(Scopes.SINGLETON);
+                        binder.bind(MockTaskManager.class).in(Scopes.SINGLETON);
+                        binder.bind(TaskManager.class).to(Key.get(MockTaskManager.class)).in(Scopes.SINGLETON);
                         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
                     }
                 },
@@ -105,33 +109,33 @@ public class TestQueryResourceServer
             throws Exception
     {
         URI location = client.execute(preparePost().setUri(uriFor("/v1/presto/query")).build(), new CreatedResponseHandler());
-        assertQueryStatus(location, State.RUNNING);
+        assertQueryStatus(location, QueryState.RUNNING);
 
         QueryInfo queryInfo = client.execute(prepareGet().setUri(location).build(), createJsonResponseHandler(jsonCodec(QueryInfo.class)));
-        QueryTaskInfo outQueryTask = queryInfo.getStages().get("out").get(0);
-        URI outputLocation = uriFor("/v1/presto/task/" + outQueryTask.getTaskId() + "/results/out");
+        TaskInfo taskInfo = queryInfo.getStages().get("out").get(0);
+        URI outputLocation = uriFor("/v1/presto/task/" + taskInfo.getTaskId() + "/results/out");
 
         assertEquals(loadData(outputLocation), 220);
-        assertQueryStatus(location, State.RUNNING);
+        assertQueryStatus(location, QueryState.RUNNING);
 
         assertEquals(loadData(outputLocation), 44 + 48);
-        assertQueryStatus(location, State.FINISHED);
+        assertQueryStatus(location, QueryState.FINISHED);
 
         StatusResponse response = client.execute(prepareDelete().setUri(location).build(), createStatusResponseHandler());
-        assertQueryStatus(location, State.FINISHED);
+        assertQueryStatus(location, QueryState.FINISHED);
         assertEquals(response.getStatusCode(), Status.NO_CONTENT.getStatusCode());
     }
 
-    private void assertQueryStatus(URI location, State expectedState)
+    private void assertQueryStatus(URI location, QueryState expectedQueryState)
     {
         URI statusUri = uriBuilderFrom(location).build();
         JsonResponse<QueryInfo> response = client.execute(prepareGet().setUri(statusUri).build(), createFullJsonResponseHandler(jsonCodec(QueryInfo.class)));
-        if (expectedState == State.FINISHED && response.getStatusCode() == Status.GONE.getStatusCode()) {
+        if (expectedQueryState == QueryState.FINISHED && response.getStatusCode() == Status.GONE.getStatusCode()) {
             // when query finishes the server may delete it
             return;
         }
         QueryInfo queryInfo = response.getValue();
-        assertEquals(queryInfo.getState(), expectedState);
+        assertEquals(queryInfo.getState(), expectedQueryState);
     }
 
     private int loadData(URI location)

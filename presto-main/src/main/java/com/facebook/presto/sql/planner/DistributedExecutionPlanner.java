@@ -2,7 +2,6 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
-import com.facebook.presto.server.TableScanPlanFragmentSource;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitAssignments;
 import com.facebook.presto.split.SplitManager;
@@ -46,7 +45,7 @@ public class DistributedExecutionPlanner
         this.splitManager = splitManager;
     }
 
-    public Stage plan(SubPlan root)
+    public StageExecutionPlan plan(SubPlan root)
     {
         PlanFragment currentFragment = root.getFragment();
 
@@ -66,13 +65,13 @@ public class DistributedExecutionPlanner
         }
 
         // create child stages
-        ImmutableList.Builder<Stage> dependencies = ImmutableList.builder();
+        ImmutableList.Builder<StageExecutionPlan> dependencies = ImmutableList.builder();
         for (SubPlan childPlan : root.getChildren()) {
-            Stage dependency = plan(childPlan);
+            StageExecutionPlan dependency = plan(childPlan);
             dependencies.add(dependency);
         }
 
-        return new Stage(currentFragment, partitions, dependencies.build());
+        return new StageExecutionPlan(currentFragment, partitions, dependencies.build());
     }
 
     private final class Visitor

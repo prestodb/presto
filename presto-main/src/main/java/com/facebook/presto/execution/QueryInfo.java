@@ -1,9 +1,8 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.execution;
 
-import com.facebook.presto.server.QueryState.State;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -24,17 +23,17 @@ public class QueryInfo
     private final String queryId;
     private final List<TupleInfo> tupleInfos;
     private final List<String> fieldNames;
-    private final QueryState.State state;
+    private final QueryState state;
     private final String outputStage;
-    private final Map<String, List<QueryTaskInfo>> stages;
+    private final Map<String, List<TaskInfo>> stages;
 
     @JsonCreator
     public QueryInfo(@JsonProperty("queryId") String queryId,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
             @JsonProperty("fieldNames") List<String> fieldNames,
-            @JsonProperty("state") State state,
+            @JsonProperty("state") QueryState state,
             @JsonProperty("outputStage") String outputStage,
-            @JsonProperty("stages") Map<String, List<QueryTaskInfo>> stages)
+            @JsonProperty("stages") Map<String, List<TaskInfo>> stages)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
@@ -66,7 +65,7 @@ public class QueryInfo
     }
 
     @JsonProperty
-    public State getState()
+    public QueryState getState()
     {
         return state;
     }
@@ -78,7 +77,7 @@ public class QueryInfo
     }
 
     @JsonProperty
-    public Map<String, List<QueryTaskInfo>> getStages()
+    public Map<String, List<TaskInfo>> getStages()
     {
         return stages;
     }

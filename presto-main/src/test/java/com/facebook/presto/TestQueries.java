@@ -20,10 +20,10 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.serde.BlocksFileEncoding;
-import com.facebook.presto.server.ExchangePlanFragmentSource;
+import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.server.HackPlanFragmentSourceProvider;
-import com.facebook.presto.server.QueryTaskInfo;
-import com.facebook.presto.server.TableScanPlanFragmentSource;
+import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.sql.analyzer.AnalysisResult;
 import com.facebook.presto.sql.analyzer.Analyzer;
@@ -98,7 +98,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestQueries
 {
-    private static final JsonCodec<QueryTaskInfo> QUERY_TASK_INFO_CODEC = JsonCodec.jsonCodec(QueryTaskInfo.class);
+    private static final JsonCodec<TaskInfo> QUERY_TASK_INFO_CODEC = JsonCodec.jsonCodec(TaskInfo.class);
 
     private Handle handle;
     private RecordIterable ordersRecords;

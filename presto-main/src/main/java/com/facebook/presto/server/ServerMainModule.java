@@ -3,6 +3,12 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.SqlQueryManager;
+import com.facebook.presto.execution.SqlTaskManager;
+import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.execution.TaskScheduler;
 import com.facebook.presto.importer.ForImportManager;
 import com.facebook.presto.importer.ImportManager;
 import com.facebook.presto.importer.LocalShardManager;
@@ -67,11 +73,11 @@ public class ServerMainModule
     public void configure(Binder binder)
     {
         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
-        binder.bind(QueryManager.class).to(StaticQueryManager.class).in(Scopes.SINGLETON);
+        binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
 
-        binder.bind(QueryTaskResource.class).in(Scopes.SINGLETON);
-        binder.bind(QueryTaskManager.class).to(SqlQueryTaskManager.class).in(Scopes.SINGLETON);
-        jsonCodecBinder(binder).bindJsonCodec(QueryTaskInfo.class);
+        binder.bind(TaskResource.class).in(Scopes.SINGLETON);
+        binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
+        jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         binder.bind(TaskScheduler.class).in(Scopes.SINGLETON);
 
         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);

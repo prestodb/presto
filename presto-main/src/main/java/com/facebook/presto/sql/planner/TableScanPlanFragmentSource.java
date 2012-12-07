@@ -1,10 +1,9 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.split.Split;
-import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.google.common.base.Objects;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;

@@ -1,9 +1,9 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.execution;
 
-import com.facebook.presto.server.QueryState.State;
+import com.facebook.presto.execution.PageBuffer.BufferState;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -18,13 +18,13 @@ import java.util.List;
 import java.util.Map;
 
 @Immutable
-public class QueryTaskInfo
+public class TaskInfo
 {
     private final String taskId;
     private final URI self;
-    private final Map<String, State> outputBufferStates;
+    private final Map<String, BufferState> outputBufferStates;
     private final List<TupleInfo> tupleInfos;
-    private final QueryState.State state;
+    private final TaskState state;
     private final int bufferedPages;
     private final int splits;
     private final int startedSplits;
@@ -38,11 +38,11 @@ public class QueryTaskInfo
     private final long outputPositionCount;
 
     @JsonCreator
-    public QueryTaskInfo(@JsonProperty("taskId") String taskId,
+    public TaskInfo(@JsonProperty("taskId") String taskId,
             @JsonProperty("self") URI self,
-            @JsonProperty("outputBufferStates") Map<String, State> outputBufferStates,
+            @JsonProperty("outputBufferStates") Map<String, BufferState> outputBufferStates,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
-            @JsonProperty("state") State state,
+            @JsonProperty("state") TaskState state,
             @JsonProperty("bufferedPages") int bufferedPages,
             @JsonProperty("splits") int splits,
             @JsonProperty("startedSplits") int startedSplits,
@@ -90,7 +90,7 @@ public class QueryTaskInfo
     }
 
     @JsonProperty
-    public Map<String, State> getOutputBufferStates()
+    public Map<String, BufferState> getOutputBufferStates()
     {
         return outputBufferStates;
     }
@@ -102,7 +102,7 @@ public class QueryTaskInfo
     }
 
     @JsonProperty
-    public State getState()
+    public TaskState getState()
     {
         return state;
     }
@@ -183,14 +183,14 @@ public class QueryTaskInfo
     }
 
 
-    public static Function<QueryTaskInfo, State> stateGetter()
+    public static Function<TaskInfo, TaskState> taskStateGetter()
     {
-        return new Function<QueryTaskInfo, State>()
+        return new Function<TaskInfo, TaskState>()
         {
             @Override
-            public State apply(QueryTaskInfo queryState)
+            public TaskState apply(TaskInfo taskInfo)
             {
-                return queryState.getState();
+                return taskInfo.getState();
             }
         };
     }

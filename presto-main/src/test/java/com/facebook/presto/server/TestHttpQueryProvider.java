@@ -4,6 +4,10 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.execution.ExchangePlanFragmentSource;
+import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.server.QueryDriversOperator.QueryDriversIterator;
 import com.facebook.presto.sql.analyzer.Symbol;
@@ -89,10 +93,10 @@ public class TestHttpQueryProvider
                     public void configure(Binder binder)
                     {
                         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
-                        binder.bind(QueryTaskResource.class).in(Scopes.SINGLETON);
-                        binder.bind(QueryManager.class).to(SimpleQueryManager.class).in(Scopes.SINGLETON);
-                        binder.bind(SimpleQueryTaskManager.class).in(Scopes.SINGLETON);
-                        binder.bind(QueryTaskManager.class).to(Key.get(SimpleQueryTaskManager.class)).in(Scopes.SINGLETON);
+                        binder.bind(TaskResource.class).in(Scopes.SINGLETON);
+                        binder.bind(QueryManager.class).to(MockQueryManager.class).in(Scopes.SINGLETON);
+                        binder.bind(MockTaskManager.class).in(Scopes.SINGLETON);
+                        binder.bind(TaskManager.class).to(Key.get(MockTaskManager.class)).in(Scopes.SINGLETON);
                         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
                     }
                 },
@@ -186,7 +190,7 @@ public class TestHttpQueryProvider
                 .setBodyGenerator(jsonBodyGenerator(jsonCodec(QueryFragmentRequest.class), fragmentRequest))
                 .build();
 
-        JsonResponse<QueryTaskInfo> response = httpClient.execute(request, createFullJsonResponseHandler(jsonCodec(QueryTaskInfo.class)));
+        JsonResponse<TaskInfo> response = httpClient.execute(request, createFullJsonResponseHandler(jsonCodec(TaskInfo.class)));
         Preconditions.checkState(response.getStatusCode() == 201,
                 "Expected response code from %s to be 201, but was %d: %s",
                 request.getUri(),
@@ -195,16 +199,16 @@ public class TestHttpQueryProvider
         String location = response.getHeader("Location");
         Preconditions.checkState(location != null);
 
-        QueryTaskInfo queryTaskInfo = response.getValue();
+        TaskInfo taskInfo = response.getValue();
 
         // schedule table scan task on remote node
         // todo we don't need a QueryDriverProvider
-        return new HttpTaskClient(queryTaskInfo.getTaskId(),
+        return new HttpTaskClient(taskInfo.getTaskId(),
                 URI.create(location),
                 "out",
-                queryTaskInfo.getTupleInfos(),
+                taskInfo.getTupleInfos(),
                 httpClient,
                 executor,
-                jsonCodec(QueryTaskInfo.class));
+                jsonCodec(TaskInfo.class));
     }
 }

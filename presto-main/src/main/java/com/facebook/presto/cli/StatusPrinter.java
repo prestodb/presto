@@ -1,9 +1,9 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.server.HttpQueryClient;
-import com.facebook.presto.server.QueryInfo;
-import com.facebook.presto.server.QueryState;
-import com.facebook.presto.server.QueryTaskInfo;
+import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.execution.TaskInfo;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -36,14 +36,14 @@ public class StatusPrinter
                         return;
                     }
                     // if query is no longer running, finish
-                    if ((queryInfo.getState() != QueryState.State.PREPARING) && (queryInfo.getState() != QueryState.State.RUNNING)) {
+                    if (queryInfo.getState().isDone()) {
                         return;
                     }
 
                     // check if there is there is pending output
                     if (queryInfo.getOutputStage() != null) {
-                        List<QueryTaskInfo> outStage = queryInfo.getStages().get(queryInfo.getOutputStage());
-                        for (QueryTaskInfo outputTask : outStage) {
+                        List<TaskInfo> outStage = queryInfo.getStages().get(queryInfo.getOutputStage());
+                        for (TaskInfo outputTask : outStage) {
                             if (outputTask.getBufferedPages() > 0) {
                                 return;
                             }
@@ -84,7 +84,7 @@ public class StatusPrinter
         long inputPositions = 0;
         long completedDataSize = 0;
         long completedPositions = 0;
-        for (QueryTaskInfo info : concat(queryInfo.getStages().values())) {
+        for (TaskInfo info : concat(queryInfo.getStages().values())) {
             totalSplits += info.getSplits();
             startedSplits += info.getStartedSplits();
             completedSplits += info.getCompletedSplits();
@@ -95,11 +95,11 @@ public class StatusPrinter
             completedPositions += info.getCompletedPositionCount();
         }
 
-        QueryState.State overallState = queryInfo.getState();
+        QueryState queryState = queryInfo.getState();
         Duration cpuTime = new Duration(splitCpuTime, TimeUnit.MILLISECONDS);
         String infoString = String.format(
                 "%s QueryId %s: Stages [%,d of %,d]: Splits [%,d total, %,d pending, %,d running, %,d finished]: Input [%,d rows %s]: CPU Time %s %s: Elapsed %s %s",
-                overallState,
+                queryState,
                 queryInfo.getQueryId(),
                 completeStages,
                 stages,
@@ -130,7 +130,7 @@ public class StatusPrinter
         long splitCpuTime = 0;
         long inputDataSize = 0;
         long inputPositions = 0;
-        for (QueryTaskInfo info : concat(queryInfo.getStages().values())) {
+        for (TaskInfo info : concat(queryInfo.getStages().values())) {
             totalSplits += info.getSplits();
             splitCpuTime += info.getSplitCpuTime();
             inputDataSize += info.getInputDataSize();

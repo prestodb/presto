@@ -18,16 +18,16 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-public class Stage
+public class StageExecutionPlan
 {
     private final String stageId;
     private final PlanFragment fragment;
     private final List<Partition> partitions;
-    private final List<Stage> dependencies;
+    private final List<StageExecutionPlan> dependencies;
     private final List<TupleInfo> tupleInfos;
     private final Optional<List<String>> fieldNames;
 
-    public Stage(PlanFragment fragment, List<Partition> partitions, List<Stage> dependencies)
+    public StageExecutionPlan(PlanFragment fragment, List<Partition> partitions, List<StageExecutionPlan> dependencies)
     {
         this.fragment = checkNotNull(fragment, "fragment is null");
         this.partitions = ImmutableList.copyOf(checkNotNull(partitions, "partitions is null"));
@@ -77,7 +77,7 @@ public class Stage
         return partitions;
     }
 
-    public List<Stage> getDependencies()
+    public List<StageExecutionPlan> getDependencies()
     {
         return dependencies;
     }

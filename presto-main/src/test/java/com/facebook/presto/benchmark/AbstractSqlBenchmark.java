@@ -4,10 +4,10 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.SourceHashProviderFactory;
-import com.facebook.presto.server.ExchangePlanFragmentSource;
+import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.server.HackPlanFragmentSourceProvider;
-import com.facebook.presto.server.QueryTaskInfo;
-import com.facebook.presto.server.TableScanPlanFragmentSource;
+import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
 import com.facebook.presto.sql.analyzer.AnalysisResult;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.Session;
@@ -76,7 +76,7 @@ public abstract class AbstractSqlBenchmark
         }
 
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(metadata,
-                new HackPlanFragmentSourceProvider(new TpchDataStreamProvider(provider), null, jsonCodec(QueryTaskInfo.class)),
+                new HackPlanFragmentSourceProvider(new TpchDataStreamProvider(provider), null, jsonCodec(TaskInfo.class)),
                 analysis.getTypes(),
                 null,
                 builder.build(),

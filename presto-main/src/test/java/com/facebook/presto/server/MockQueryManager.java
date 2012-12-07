@@ -3,6 +3,11 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.ExchangePlanFragmentSource;
+import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -22,17 +27,18 @@ import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 
 @ThreadSafe
-public class SimpleQueryManager implements QueryManager
+public class MockQueryManager
+        implements QueryManager
 {
-    private final SimpleQueryTaskManager simpleQueryTaskManager;
+    private final MockTaskManager mockTaskManager;
     private final AtomicInteger nextQueryId = new AtomicInteger();
     private final ConcurrentMap<String, SimpleQuery> queries = new ConcurrentHashMap<>();
 
     @Inject
-    public SimpleQueryManager(SimpleQueryTaskManager simpleQueryTaskManager)
+    public MockQueryManager(MockTaskManager mockTaskManager)
     {
-        Preconditions.checkNotNull(simpleQueryTaskManager, "simpleQueryTaskManager is null");
-        this.simpleQueryTaskManager = simpleQueryTaskManager;
+        Preconditions.checkNotNull(mockTaskManager, "simpleTaskManager is null");
+        this.mockTaskManager = mockTaskManager;
     }
 
     @Override
@@ -72,13 +78,13 @@ public class SimpleQueryManager implements QueryManager
 
         String queryId = String.valueOf(nextQueryId.getAndIncrement());
 
-        QueryTaskInfo outputTask = simpleQueryTaskManager.createQueryTask(null,
+        TaskInfo outputTask = mockTaskManager.createTask(null,
                 ImmutableList.<PlanFragmentSource>of(),
                 ImmutableMap.<String, ExchangePlanFragmentSource>of(),
                 ImmutableList.<String>of("out")
         );
 
-        SimpleQuery simpleQuery = new SimpleQuery(queryId, outputTask.getTaskId(), simpleQueryTaskManager);
+        SimpleQuery simpleQuery = new SimpleQuery(queryId, outputTask.getTaskId(), mockTaskManager);
         queries.put(queryId, simpleQuery);
         return simpleQuery.getQueryInfo();
     }
@@ -93,25 +99,44 @@ public class SimpleQueryManager implements QueryManager
     {
         private final String queryId;
         private final String outputTaskId;
-        private final SimpleQueryTaskManager simpleQueryTaskManager;
+        private final MockTaskManager mockTaskManager;
 
-        private SimpleQuery(String queryId, String outputTaskId, SimpleQueryTaskManager simpleQueryTaskManager)
+        private SimpleQuery(String queryId, String outputTaskId, MockTaskManager mockTaskManager)
         {
             this.queryId = queryId;
             this.outputTaskId = outputTaskId;
-            this.simpleQueryTaskManager = simpleQueryTaskManager;
+            this.mockTaskManager = mockTaskManager;
         }
 
         private QueryInfo getQueryInfo()
         {
-            QueryTaskInfo outputTask = simpleQueryTaskManager.getQueryTaskInfo(outputTaskId);
+            TaskInfo outputTask = mockTaskManager.getTaskInfo(outputTaskId);
 
+            QueryState state;
+            switch (outputTask.getState()) {
+                case PLANNED:
+                case QUEUED:
+                case RUNNING:
+                    state = QueryState.RUNNING;
+                    break;
+                case FINISHED:
+                    state = QueryState.FINISHED;
+                    break;
+                case CANCELED:
+                    state = QueryState.CANCELED;
+                    break;
+                case FAILED:
+                    state = QueryState.FAILED;
+                    break;
+                default:
+                    throw new IllegalStateException("Unknown task state " + outputTask.getState());
+            }
             return new QueryInfo(queryId,
                     outputTask.getTupleInfos(),
                     ImmutableList.of("out"),
-                    outputTask.getState(),
+                    state,
                     "out",
-                    ImmutableMap.<String, List<QueryTaskInfo>>of("out", ImmutableList.of(outputTask)));
+                    ImmutableMap.<String, List<TaskInfo>>of("out", ImmutableList.of(outputTask)));
         }
     }
 }

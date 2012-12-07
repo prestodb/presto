@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.PageBuffer;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.PagesSerde;
 import com.facebook.presto.slice.InputStreamSliceInput;
@@ -35,7 +36,7 @@ public class HttpQuery
 {
     private static final Logger log = Logger.get(HttpQuery.class);
     private final URI location;
-    private final QueryState queryState;
+    private final PageBuffer outputBuffer;
     private final AsyncHttpClient httpClient;
 
     @GuardedBy("this")
@@ -44,14 +45,14 @@ public class HttpQuery
     @GuardedBy("this")
     private Future<Void> currentRequest;
 
-    public HttpQuery(URI location, QueryState queryState, AsyncHttpClient httpClient)
+    public HttpQuery(URI location, PageBuffer outputBuffer, AsyncHttpClient httpClient)
     {
         checkNotNull(location, "location is null");
-        checkNotNull(queryState, "queryState is null");
+        checkNotNull(outputBuffer, "outputBuffer is null");
         checkNotNull(httpClient, "httpClient is null");
 
         this.location = location;
-        this.queryState = queryState;
+        this.outputBuffer = outputBuffer;
         this.httpClient = httpClient;
     }
 
@@ -73,7 +74,7 @@ public class HttpQuery
     public synchronized void abort()
     {
         if (!done) {
-            queryState.sourceFinished();
+            outputBuffer.sourceFinished();
             done = true;
             if (currentRequest != null) {
                 currentRequest.cancel(true);
@@ -87,7 +88,7 @@ public class HttpQuery
     private synchronized void done()
     {
         if (!done) {
-            queryState.sourceFinished();
+            outputBuffer.sourceFinished();
             done = true;
             currentRequest = null;
         }
@@ -96,7 +97,7 @@ public class HttpQuery
     private synchronized void fail(Throwable throwable)
     {
         done = true;
-        queryState.queryFailed(throwable);
+        outputBuffer.queryFailed(throwable);
     }
 
     private synchronized void setCurrentRequest(Future<Void> currentRequest)
@@ -157,7 +158,7 @@ public class HttpQuery
                     Iterator<Page> pageIterator = PagesSerde.readPages(sliceInput);
                     while (pageIterator.hasNext()) {
                         Page page = pageIterator.next();
-                        queryState.addPage(page);
+                        outputBuffer.addPage(page);
                     }
                 }
             }

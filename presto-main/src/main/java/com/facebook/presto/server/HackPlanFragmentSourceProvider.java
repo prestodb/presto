@@ -3,6 +3,9 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.ExchangePlanFragmentSource;
+import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
+import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.Operator;
@@ -31,17 +34,17 @@ public class HackPlanFragmentSourceProvider
 {
     private final DataStreamProvider dataStreamProvider;
     private final ExecutorService executor;
-    private final JsonCodec<QueryTaskInfo> queryTaskInfoCodec;
+    private final JsonCodec<TaskInfo> taskInfoCodec;
     private final int pageBufferMax;
 
     private final HttpClient httpClient;
 
     @Inject
-    public HackPlanFragmentSourceProvider(DataStreamProvider dataStreamProvider, @ForExchange HttpClient httpClient, JsonCodec<QueryTaskInfo> queryTaskInfoCodec)
+    public HackPlanFragmentSourceProvider(DataStreamProvider dataStreamProvider, @ForExchange HttpClient httpClient, JsonCodec<TaskInfo> taskInfoCodec)
     {
         this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
         this.httpClient = httpClient;
-        this.queryTaskInfoCodec = checkNotNull(queryTaskInfoCodec, "queryTaskInfoCodec is null");
+        this.taskInfoCodec = checkNotNull(taskInfoCodec, "taskInfoCodec is null");
 
         executor = Executors.newCachedThreadPool(threadsNamed("http-exchange-worker-%d"));
 
@@ -66,7 +69,7 @@ public class HackPlanFragmentSourceProvider
                             exchangeSource.getTupleInfos(),
                             httpClient,
                             executor,
-                            queryTaskInfoCodec
+                            taskInfoCodec
                     );
                 }
             }));

@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.PageBuffer;
 import com.facebook.presto.tuple.TupleInfo;
 
 import java.util.List;
@@ -13,5 +14,5 @@ public interface QueryDriverProvider
 
     List<TupleInfo> getTupleInfos();
 
-    QueryDriver create(QueryState queryState);
+    QueryDriver create(PageBuffer outputBuffer);
 }
