@@ -370,15 +370,6 @@ public class LocalExecutionPlanner
         return operator;
     }
 
-    public static TupleInfo toTupleInfo(AnalysisResult analysis, Iterable<Symbol> symbols)
-    {
-        ImmutableList.Builder<TupleInfo.Type> types = ImmutableList.builder();
-        for (Symbol symbol : symbols) {
-            types.add(analysis.getType(symbol).getRawType());
-        }
-        return new TupleInfo(types.build());
-    }
-
     private Map<Symbol, Integer> mapSymbolsToChannels(List<Symbol> outputs)
     {
         Map<Symbol, Integer> symbolToChannelMappings = new HashMap<>();

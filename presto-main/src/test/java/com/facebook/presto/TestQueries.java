@@ -13,8 +13,11 @@ import com.facebook.presto.ingest.RecordProjections;
 import com.facebook.presto.ingest.StringRecord;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.operator.FilterAndProjectOperator;
+import com.facebook.presto.operator.FilterFunctions;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.server.ExchangePlanFragmentSource;
@@ -29,9 +32,9 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
@@ -43,13 +46,13 @@ import com.facebook.presto.tpch.TpchSplit;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
-import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -77,6 +80,7 @@ import java.net.URL;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -84,14 +88,12 @@ import java.util.zip.GZIPInputStream;
 
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.isEmpty;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestQueries
@@ -103,6 +105,320 @@ public class TestQueries
     private RecordIterable lineItemRecords;
     private Metadata metadata;
     private TpchDataStreamProvider dataProvider;
+
+    @Test
+    public void testOrderByLimit()
+            throws Exception
+    {
+        assertQueryOrdered("SELECT custkey, orderstatus FROM ORDERS ORDER BY orderkey desc LIMIT 10");
+    }
+
+    @Test
+    public void testOrderByExpressionWithLimit()
+            throws Exception
+    {
+        assertQueryOrdered("SELECT custkey, orderstatus FROM ORDERS ORDER BY orderkey + 1 desc LIMIT 10");
+    }
+
+    @Test
+    public void testGroupByOrderByLimit()
+            throws Exception
+    {
+        assertQueryOrdered("SELECT custkey, sum(totalprice) FROM ORDERS GROUP BY custkey ORDER BY sum(totalprice) desc LIMIT 10");
+    }
+
+    @Test
+    public void testRepeatedAggregations()
+            throws Exception
+    {
+        assertQuery("SELECT sum(orderkey), sum(orderkey) FROM ORDERS");
+    }
+
+    @Test
+    public void testRepeatedOutputs()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey a, orderkey b FROM ORDERS WHERE orderstatus = 'F'");
+    }
+
+    @Test
+    public void testLimit()
+            throws Exception
+    {
+        List<Tuple> all = computeExpected("SELECT orderkey FROM ORDERS", FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT orderkey FROM ORDERS LIMIT 10");
+
+        assertEquals(actual.size(), 10);
+        assertTrue(all.containsAll(actual));
+    }
+
+    @Test
+    public void testAggregationWithLimit()
+            throws Exception
+    {
+        List<Tuple> all = computeExpected("SELECT custkey, sum(totalprice) FROM ORDERS GROUP BY custkey", FIXED_INT_64, DOUBLE);
+        List<Tuple> actual = computeActual("SELECT custkey, sum(totalprice) FROM ORDERS GROUP BY custkey LIMIT 10");
+
+        assertEquals(actual.size(), 10);
+        assertTrue(all.containsAll(actual));
+    }
+
+    @Test
+    public void testLimitInInlineView()
+            throws Exception
+    {
+        List<Tuple> all = computeExpected("SELECT orderkey FROM ORDERS", FIXED_INT_64);
+        List<Tuple> actual = computeActual("SELECT orderkey FROM (SELECT orderkey FROM ORDERS LIMIT 100) T LIMIT 10");
+
+        assertEquals(actual.size(), 10);
+        assertTrue(all.containsAll(actual));
+    }
+
+    @Test
+    public void testCountAll()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM ORDERS");
+    }
+
+    @Test
+    public void testWildcard()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM ORDERS");
+    }
+
+    @Test
+    public void testQualifiedWildcardFromAlias()
+            throws Exception
+    {
+        assertQuery("SELECT T.* FROM ORDERS T");
+    }
+
+    @Test
+    public void testQualifiedWildcardFromInlineView()
+            throws Exception
+    {
+        assertQuery("SELECT T.* FROM (SELECT orderkey + custkey FROM ORDERS) T");
+    }
+
+    @Test
+    public void testQualifiedWildcard()
+            throws Exception
+    {
+        assertQuery("SELECT ORDERS.* FROM ORDERS");
+    }
+
+    @Test
+    public void testAverageAll()
+            throws Exception
+    {
+        assertQuery("SELECT AVG(totalprice) FROM ORDERS");
+    }
+
+    @Test
+    public void testCountAllWithPredicate()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM ORDERS WHERE orderstatus = 'F'");
+    }
+
+    @Test
+    public void testGroupByNoAggregations()
+            throws Exception
+    {
+        assertQuery("SELECT custkey FROM ORDERS GROUP BY custkey");
+    }
+
+    @Test
+    public void testGroupByCount()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT orderstatus, COUNT(*) FROM ORDERS GROUP BY orderstatus",
+                "SELECT orderstatus, CAST(COUNT(*) AS INTEGER) FROM orders GROUP BY orderstatus"
+        );
+    }
+
+    @Test
+    public void testGroupByWithAlias()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT orderdate x, COUNT(*) FROM orders GROUP BY orderdate",
+                "SELECT orderdate x, CAST(COUNT(*) AS INTEGER) FROM orders GROUP BY orderdate"
+        );
+    }
+
+    @Test
+    public void testGroupBySum()
+            throws Exception
+    {
+        assertQuery("SELECT orderstatus, SUM(totalprice) FROM ORDERS GROUP BY orderstatus");
+    }
+
+    @Test
+    public void testCountAllWithComparison()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem WHERE tax < discount");
+    }
+
+    @Test
+    public void testSelectWithComparison()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey FROM lineitem WHERE tax < discount");
+    }
+
+    @Test
+    public void testCountWithNotPredicate()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem WHERE NOT tax < discount");
+    }
+
+    @Test
+    public void testCountWithNullPredicate()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem WHERE NULL");
+    }
+
+    @Test
+    public void testCountWithIsNullPredicate()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT COUNT(*) FROM orders WHERE NULLIF(orderstatus, 'F') IS NULL",
+                "SELECT COUNT(*) FROM orders WHERE orderstatus = 'F' "
+        );
+    }
+
+    @Test
+    public void testCountWithIsNotNullPredicate()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT COUNT(*) FROM orders WHERE NULLIF(orderstatus, 'F') IS NOT NULL",
+                "SELECT COUNT(*) FROM orders WHERE orderstatus <> 'F' "
+        );
+    }
+
+    @Test
+    public void testCountWithNullIfPredicate()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM orders WHERE NULLIF(orderstatus, 'F') = orderstatus ");
+    }
+
+    @Test
+    public void testCountWithCoalescePredicate()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT COUNT(*) FROM orders WHERE COALESCE(NULLIF(orderstatus, 'F'), 'bar') = 'bar'",
+                "SELECT COUNT(*) FROM orders WHERE orderstatus = 'F'"
+        );
+    }
+
+    @Test
+    public void testCountWithAndPredicate()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem WHERE tax < discount AND tax > 0.01 AND discount < 0.05");
+    }
+
+    @Test
+    public void testCountWithOrPredicate()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem WHERE tax < 0.01 OR discount > 0.05");
+    }
+
+    @Test
+    public void testCountWithInlineView()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM (SELECT orderkey FROM lineitem) x");
+    }
+
+    @Test
+    public void testNestedCount()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM (SELECT orderkey, COUNT(*) FROM lineitem GROUP BY orderkey) x");
+    }
+
+    @Test
+    public void testAggregationWithProjection()
+            throws Exception
+    {
+        assertQuery("SELECT sum(totalprice * 2) - sum(totalprice) FROM orders");
+    }
+
+    @Test
+    public void testAggregationWithProjection2()
+            throws Exception
+    {
+        assertQuery("SELECT sum(totalprice * 2) + sum(totalprice * 2) FROM orders");
+    }
+
+    @Test
+    public void testInlineView()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey, custkey FROM (SELECT orderkey, custkey FROM ORDERS) U");
+    }
+
+    @Test
+    public void testAliasedInInlineView()
+            throws Exception
+    {
+        assertQuery("SELECT x, y FROM (SELECT orderkey x, custkey y FROM ORDERS) U");
+    }
+
+    @Test
+    public void testGroupByWithoutAggregation()
+            throws Exception
+    {
+        assertQuery("SELECT orderstatus FROM orders GROUP BY orderstatus");
+    }
+
+    @Test
+    public void testHistogram()
+            throws Exception
+    {
+        assertQuery("SELECT lines, COUNT(*) FROM (SELECT orderkey, COUNT(*) lines FROM lineitem GROUP BY orderkey) U GROUP BY lines");
+    }
+
+    @Test
+    public void testSimpleJoin()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT COUNT(*) FROM lineitem join orders using (orderkey)",
+                "SELECT COUNT(*) FROM lineitem join orders on lineitem.orderkey = orders.orderkey"
+        );
+    }
+
+    @Test(enabled = false) // TODO: doesn't work because the underlying table appears twice in the same fragment
+    public void testJoinAggregations()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT x + y FROM (" +
+                        "   SELECT orderdate, COUNT(*) x FROM orders GROUP BY orderdate) a JOIN (" +
+                        "   SELECT orderdate, COUNT(*) y FROM orders GROUP BY orderdate) b USING (orderdate)");
+    }
+
+    @Test
+    public void testOrderBy()
+            throws Exception
+    {
+        assertQueryOrdered("SELECT orderstatus FROM orders ORDER BY orderstatus");
+    }
+
 
     @BeforeSuite
     public void setupDatabase()
@@ -165,414 +481,77 @@ public class TestQueries
         handle.close();
     }
 
-    @Test
-    public void testOrderByLimit()
-    {
-        List<Tuple> expected = computeExpected("SELECT custkey, orderstatus FROM ORDERS ORDER BY orderkey desc LIMIT 10", FIXED_INT_64, VARIABLE_BINARY);
-        List<Tuple> actual = computeActual("SELECT custkey, orderstatus FROM ORDERS ORDER BY orderkey desc LIMIT 10");
-
-        assertEquals(actual, expected);
-    }
-
-    @Test
-    public void testOrderByExpressionWithLimit()
+    private void assertQuery(@Language("SQL") String sql)
             throws Exception
     {
-        List<Tuple> expected = computeExpected("SELECT custkey, orderstatus FROM ORDERS ORDER BY orderkey + 1 desc LIMIT 10", FIXED_INT_64, VARIABLE_BINARY);
-        List<Tuple> actual = computeActual("SELECT custkey, orderstatus FROM ORDERS ORDER BY orderkey + 1 desc LIMIT 10");
-
-        assertEquals(actual, expected);
+        assertQuery(sql, sql, false);
     }
 
-    @Test
-    public void testGroupByOrderByLimit()
+    private void assertQueryOrdered(@Language("SQL") String sql)
             throws Exception
     {
-        List<Tuple> expected = computeExpected("SELECT custkey, sum(totalprice) FROM ORDERS GROUP BY custkey ORDER BY sum(totalprice) desc LIMIT 10", FIXED_INT_64, DOUBLE);
-        List<Tuple> actual = computeActual("SELECT custkey, sum(totalprice) FROM ORDERS GROUP BY custkey ORDER BY sum(totalprice) desc LIMIT 10");
-
-        assertEquals(actual, expected);
+        assertQuery(sql, sql, true);
     }
 
-    @Test
-    public void testRepeatedAggregations()
+    private void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected)
             throws Exception
     {
-        List<Tuple> expected = computeExpected("SELECT sum(orderkey), sum(orderkey) FROM ORDERS", FIXED_INT_64, FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT sum(orderkey), sum(orderkey) FROM ORDERS");
-
-        assertEqualsIgnoreOrder(actual, expected);
+        assertQuery(actual, expected, false);
     }
 
-    @Test
-    public void testRepeatedOutputs()
+    private void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected, boolean ensureOrdering)
             throws Exception
     {
-        List<Tuple> expected = computeExpected("SELECT orderkey a, orderkey b FROM ORDERS WHERE orderstatus = 'F'", FIXED_INT_64, FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT orderkey a, orderkey b FROM ORDERS WHERE orderstatus = 'F'");
+        Operator operator = plan(actual);
 
-        assertEqualsIgnoreOrder(actual, expected);
+        List<Tuple> actualResults = getTuples(operator);
+        List<Tuple> expectedResults = computeExpected(expected, Iterables.getOnlyElement(operator.getTupleInfos()));
+
+        if (ensureOrdering) {
+            assertEquals(actualResults, expectedResults);
+        }
+        else {
+            assertEqualsIgnoreOrder(actualResults, expectedResults);
+        }
     }
 
-    @Test
-    public void testLimit()
-            throws Exception
+    private List<Tuple> computeExpected(@Language("SQL") final String sql, TupleInfo tupleInfo)
     {
-        List<Tuple> all = computeExpected("SELECT orderkey FROM ORDERS", FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT orderkey FROM ORDERS LIMIT 10");
-
-        assertEquals(actual.size(), 10);
-        assertTrue(all.containsAll(actual));
-    }
-
-    @Test
-    public void testAggregationWithLimit()
-            throws Exception
-    {
-        List<Tuple> all = computeExpected("SELECT custkey, sum(totalprice) FROM ORDERS GROUP BY custkey", FIXED_INT_64, DOUBLE);
-        List<Tuple> actual = computeActual("SELECT custkey, sum(totalprice) FROM ORDERS GROUP BY custkey LIMIT 10");
-
-        assertEquals(actual.size(), 10);
-        assertTrue(all.containsAll(actual));
-    }
-
-    @Test
-    public void testLimitInInlineView()
-            throws Exception
-    {
-        List<Tuple> all = computeExpected("SELECT orderkey FROM ORDERS", FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT orderkey FROM (SELECT orderkey FROM ORDERS LIMIT 100) T LIMIT 10");
-
-        assertEquals(actual.size(), 10);
-        assertTrue(all.containsAll(actual));
-    }
-
-    @Test
-    public void testCountAll()
-    {
-        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM ORDERS", FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM ORDERS");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testWildcard()
-    {
-        List<Tuple> expected = computeExpected("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment FROM ORDERS",
-                FIXED_INT_64, FIXED_INT_64, VARIABLE_BINARY, DOUBLE, VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY);
-        List<Tuple> actual = computeActual("SELECT * FROM ORDERS");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testQualifiedWildcardFromAlias()
-    {
-        List<Tuple> expected = computeExpected("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment FROM ORDERS",
-                FIXED_INT_64, FIXED_INT_64, VARIABLE_BINARY, DOUBLE, VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY);
-        List<Tuple> actual = computeActual("SELECT T.* FROM ORDERS T");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testQualifiedWildcardFromInlineView()
-            throws Exception
-    {
-        List<Tuple> expected = computeExpected("SELECT T.* FROM (SELECT orderkey + custkey FROM ORDERS) T", FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT T.* FROM (SELECT orderkey + custkey FROM ORDERS) T");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testQualifiedWildcard()
-    {
-        List<Tuple> expected = computeExpected("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment FROM ORDERS",
-                FIXED_INT_64, FIXED_INT_64, VARIABLE_BINARY, DOUBLE, VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY,  VARIABLE_BINARY);
-        List<Tuple> actual = computeActual("SELECT ORDERS.* FROM ORDERS");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testAverageAll()
-    {
-        List<Tuple> expected = computeExpected("SELECT AVG(totalprice) FROM ORDERS", DOUBLE);
-        List<Tuple> actual = computeActual("SELECT AVG(totalprice) FROM ORDERS");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testCountAllWithPredicate()
-    {
-        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM ORDERS WHERE orderstatus = 'F'", FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM ORDERS WHERE orderstatus = 'F'");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-
-    @Test(enabled = false)
-    public void testGroupByNoAggregations()
-    {
-        List<Tuple> expected = computeExpected("SELECT custkey FROM ORDERS group by custkey", FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT custkey FROM ORDERS group by custkey");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testGroupByCount()
-    {
-        List<Tuple> expected = computeExpected("SELECT orderstatus, CAST(COUNT(*) AS INTEGER) FROM orders GROUP BY orderstatus", VARIABLE_BINARY, FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT orderstatus, COUNT(*) FROM ORDERS GROUP BY orderstatus");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testGroupByWithAlias()
-            throws Exception
-    {
-        List<Tuple> expected = computeExpected("SELECT orderdate x, CAST(COUNT(*) AS INTEGER) FROM orders GROUP BY orderdate", VARIABLE_BINARY, FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT orderdate x, COUNT(*) FROM orders GROUP BY orderdate");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testGroupBySum()
-    {
-        List<Tuple> expected = computeExpected("SELECT orderstatus, SUM(totalprice) FROM orders GROUP BY orderstatus", VARIABLE_BINARY, DOUBLE);
-        List<Tuple> actual = computeActual("SELECT orderstatus, SUM(totalprice) FROM ORDERS GROUP BY orderstatus");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testCountAllWithComparison()
-    {
-        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM lineitem WHERE tax < discount", FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM lineitem WHERE tax < discount");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testSelectWithComparison()
-    {
-        List<Tuple> expected = computeExpected("SELECT orderkey FROM lineitem WHERE tax < discount", FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT orderkey FROM lineitem WHERE tax < discount");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testCountWithNotPredicate()
-    {
-        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM lineitem WHERE NOT tax < discount", FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM lineitem WHERE NOT tax < discount");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testCountWithNullPredicate()
-    {
-        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM lineitem WHERE NULL", FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM lineitem WHERE NULL");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testCountWithIsNullPredicate()
-    {
-        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM orders WHERE orderstatus = 'F' ", FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM orders WHERE NULLIF(orderstatus, 'F') IS NULL");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testCountWithIsNotNullPredicate()
-    {
-        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM orders WHERE orderstatus <> 'F' ", FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM orders WHERE NULLIF(orderstatus, 'F') IS NOT NULL");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testCountWithNullIfPredicate()
-    {
-        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM orders WHERE NULLIF(orderstatus, 'F') = orderstatus", FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM orders WHERE NULLIF(orderstatus, 'F') = orderstatus ");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testCountWithCoalescePredicate()
-    {
-        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM orders WHERE orderstatus = 'F'", FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM orders WHERE COALESCE(NULLIF(orderstatus, 'F'), 'bar') = 'bar'");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testCountWithAndPredicate()
-    {
-        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM lineitem WHERE tax < discount AND tax > 0.01 AND discount < 0.05", FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM lineitem WHERE tax < discount AND tax > 0.01 AND discount < 0.05");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testCountWithOrPredicate()
-    {
-        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM lineitem WHERE tax < 0.01 OR discount > 0.05", FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM lineitem WHERE tax < 0.01 OR discount > 0.05");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testCountWithInlineView()
-    {
-        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM (SELECT orderkey FROM lineitem) x;", FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM (SELECT orderkey FROM lineitem) x");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testNestedCount()
-            throws Exception
-    {
-        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM (SELECT orderkey, COUNT(*) FROM lineitem GROUP BY orderkey) x;", FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM (SELECT orderkey, COUNT(*) FROM lineitem GROUP BY orderkey) x");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testAggregationWithProjection()
-            throws Exception
-    {
-        List<Tuple> expected = computeExpected("SELECT sum(totalprice * 2) - sum(totalprice) FROM orders", DOUBLE);
-        List<Tuple> actual = computeActual("SELECT sum(totalprice * 2) - sum(totalprice) FROM orders");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-
-    @Test
-    public void testAggregationWithProjection2()
-            throws Exception
-    {
-        List<Tuple> expected = computeExpected("SELECT sum(totalprice * 2) + sum(totalprice * 2) FROM orders", DOUBLE);
-        List<Tuple> actual = computeActual("SELECT sum(totalprice * 2) + sum(totalprice * 2) FROM orders");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testInlineView()
-    {
-        List<Tuple> expected = computeExpected("SELECT orderkey, custkey FROM (SELECT orderkey, custkey FROM ORDERS) U", FIXED_INT_64, FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT orderkey, custkey FROM (SELECT orderkey, custkey FROM ORDERS) U");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testAliasedInInlineView()
-            throws Exception
-    {
-        List<Tuple> expected = computeExpected("SELECT x, y FROM (SELECT orderkey x, custkey y FROM ORDERS) U", FIXED_INT_64, FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT x, y FROM (SELECT orderkey x, custkey y FROM ORDERS) U");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testGroupByWithoutAggregation()
-            throws Exception
-    {
-        List<Tuple> expected = computeExpected("SELECT orderstatus FROM orders GROUP BY orderstatus", VARIABLE_BINARY);
-        List<Tuple> actual = computeActual("SELECT orderstatus FROM orders GROUP BY orderstatus");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testHistogram()
-            throws Exception
-    {
-        List<Tuple> expected = computeExpected("SELECT lines, COUNT(*) FROM (SELECT orderkey, COUNT(*) lines FROM lineitem GROUP BY orderkey) U GROUP BY lines", FIXED_INT_64, FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT lines, COUNT(*) FROM (SELECT orderkey, COUNT(*) lines FROM lineitem GROUP BY orderkey) U GROUP BY lines");
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testSimpleJoin()
-            throws Exception
-    {
-        List<Tuple> actual = computeActual("SELECT COUNT(*) FROM lineitem join orders using (orderkey)");
-        List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM lineitem join orders on lineitem.orderkey = orders.orderkey", FIXED_INT_64);
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test(enabled = false)
-    public void testJoinAggregations()
-            throws Exception
-    {
-        List<Tuple> actual = computeActual("SELECT x + y FROM (" +
-                "   SELECT orderdate, COUNT(*) x FROM orders GROUP BY orderdate) a JOIN (" +
-                "   SELECT orderdate, COUNT(*) y FROM orders GROUP BY orderdate) b USING (orderdate)");
-
-        List<Tuple> expected = computeExpected("SELECT x + y FROM (" +
-                "   SELECT orderdate, COUNT(*) x FROM orders GROUP BY orderdate) a JOIN (" +
-                "   SELECT orderdate, COUNT(*) y FROM orders GROUP BY orderdate) b ON a.orderdate = b.orderdate", FIXED_INT_64);
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    @Test
-    public void testOrderBy()
-            throws Exception
-    {
-        List<Tuple> actual = computeActual("SELECT orderkey FROM orders ORDER BY orderstatus");
-        List<Tuple> expected = computeExpected("SELECT orderkey FROM orders ORDER BY orderstatus", FIXED_INT_64);
-
-        assertEqualsIgnoreOrder(actual, expected);
-    }
-
-    private List<Tuple> computeExpected(@Language("SQL") final String sql, TupleInfo.Type... types)
-    {
-        TupleInfo tupleInfo = new TupleInfo(types);
         return handle.createQuery(sql)
                 .map(tupleMapper(tupleInfo))
                 .list();
     }
 
-    private List<Tuple> computeActual(@Language("SQL") String sql)
+    private List<Tuple> computeExpected(@Language("SQL") final String sql, TupleInfo.Type... types)
     {
-        Statement statement;
-        try {
-            statement = SqlParser.createStatement(sql);
+        return computeExpected(sql, new TupleInfo(types));
+    }
+
+    private List<Tuple> computeActual(@Language("SQL") String sql)
+            throws Exception
+    {
+        return getTuples(plan(sql));
+    }
+
+    private List<Tuple> getTuples(Operator root)
+    {
+        ImmutableList.Builder<Tuple> output = ImmutableList.builder();
+        for (Page page : root) {
+            Preconditions.checkState(page.getChannelCount() == 1, "Expected result to produce 1 channel");
+
+            BlockCursor cursor = Iterables.getOnlyElement(Arrays.asList(page.getBlocks())).cursor();
+            while (cursor.advanceNextPosition()) {
+                output.add(cursor.getTuple());
+            }
         }
-        catch (RecognitionException e) {
-            throw Throwables.propagate(e);
-        }
+
+        return output.build();
+    }
+
+    private Operator plan(String sql)
+            throws RecognitionException
+    {
+        Statement statement = SqlParser.createStatement(sql);
 
         Session session = new Session(TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
 
@@ -601,40 +580,10 @@ public class TestQueries
                 builder.build(),
                 ImmutableMap.<String, ExchangePlanFragmentSource>of(),
                 new SourceHashProviderFactory());
-        Operator operator = executionPlanner.plan(plan);
 
-        TupleInfo outputTupleInfo = LocalExecutionPlanner.toTupleInfo(analysis, plan.getOutputSymbols());
-
-        ImmutableList.Builder<Tuple> output = ImmutableList.builder();
-
-        for (Page page : operator) {
-            ImmutableList.Builder<BlockCursor> cursorBuilder = ImmutableList.builder();
-            for (Block block : page.getBlocks()) {
-                cursorBuilder.add(block.cursor());
-            }
-
-            List<BlockCursor> cursors = cursorBuilder.build();
-
-            boolean done = false;
-            while (!done) {
-                TupleInfo.Builder outputBuilder = outputTupleInfo.builder();
-                done = true;
-                for (BlockCursor cursor : cursors) {
-                    if (!cursor.advanceNextPosition()) {
-                        break;
-                    }
-                    done = false;
-
-                    outputBuilder.append(cursor.getTuple());
-                }
-
-                if (!done) {
-                    output.add(outputBuilder.build());
-                }
-            }
-        }
-
-        return output.build();
+        return new FilterAndProjectOperator(executionPlanner.plan(plan),
+                FilterFunctions.TRUE_FUNCTION,
+                new Concat(executionPlanner.plan(plan).getTupleInfos()));
     }
 
     @SuppressWarnings("UnusedDeclaration")
@@ -754,7 +703,7 @@ public class TestQueries
     }
 
     private static class TestTpchBlocksProvider
-        implements TpchBlocksProvider
+            implements TpchBlocksProvider
     {
         private final Map<String, RecordIterable> data;
 
@@ -790,7 +739,8 @@ public class TestQueries
                 @Override
                 public Iterator<Block> iterator()
                 {
-                    return new AbstractIterator<Block>() {
+                    return new AbstractIterator<Block>()
+                    {
                         private final RecordIterator iterator = data.get(tableHandle.getTableName()).iterator();
                         private final RecordProjection projection = RecordProjections.createProjection(columnHandle.getFieldIndex(), columnHandle.getType());
 
@@ -819,6 +769,36 @@ public class TestQueries
         public DataSize getColumnDataSize(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding)
         {
             throw new UnsupportedOperationException();
+        }
+    }
+
+    private static class Concat
+            implements ProjectionFunction
+    {
+        private final TupleInfo tupleInfo;
+
+        private Concat(List<TupleInfo> infos)
+        {
+            List<TupleInfo.Type> types = new ArrayList<>();
+            for (TupleInfo info : infos) {
+                types.addAll(info.getTypes());
+            }
+
+            this.tupleInfo = new TupleInfo(types);
+        }
+
+        @Override
+        public TupleInfo getTupleInfo()
+        {
+            return tupleInfo;
+        }
+
+        @Override
+        public void project(TupleReadable[] cursors, BlockBuilder output)
+        {
+            for (TupleReadable cursor : cursors) {
+                output.append(cursor.getTuple());
+            }
         }
     }
 }
