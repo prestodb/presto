@@ -6,6 +6,7 @@ import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -290,6 +291,12 @@ class ExpressionInterpreter
         }
 
         throw new UnsupportedOperationException("not yet implemented");
+    }
+
+    @Override
+    protected Object visitBooleanLiteral(BooleanLiteral node, TupleReadable[] context)
+    {
+        return node.equals(BooleanLiteral.TRUE_LITERAL);
     }
 
     @Override

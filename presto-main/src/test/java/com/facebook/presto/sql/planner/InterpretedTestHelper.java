@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
@@ -21,13 +22,7 @@ public final class InterpretedTestHelper {
 
     public static Expression booleanLiteral(boolean value)
     {
-        Expression leftExpression;
-        if (value) {
-            leftExpression = new ComparisonExpression(EQUAL, new LongLiteral("1"), new LongLiteral("1"));
-        } else {
-            leftExpression = new ComparisonExpression(EQUAL, new LongLiteral("1"), new LongLiteral("2"));
-        }
-        return leftExpression;
+        return value ? BooleanLiteral.TRUE : BooleanLiteral.FALSE;
     }
 
     public static Expression longLiteral(long value)

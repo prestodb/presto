@@ -201,6 +201,8 @@ expr returns [Expression value]
     | string                { $value = new StringLiteral($string.value); }
     | integer               { $value = new LongLiteral($integer.value); }
     | decimal               { $value = new DoubleLiteral($decimal.value); }
+    | TRUE                  { $value = BooleanLiteral.TRUE_LITERAL; }
+    | FALSE                 { $value = BooleanLiteral.FALSE_LITERAL; }
     | intervalValue         { $value = $intervalValue.value; }
     | predicate             { $value = $predicate.value; }
     | ^(IN_LIST exprList)   { $value = new InListExpression($exprList.value); }
