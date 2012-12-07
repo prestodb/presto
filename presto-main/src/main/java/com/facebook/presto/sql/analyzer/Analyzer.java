@@ -90,7 +90,6 @@ public class Analyzer
             Preconditions.checkArgument(!query.getSelect().isDistinct(), "not yet implemented: DISTINCT");
             Preconditions.checkArgument(query.getHaving() == null, "not yet implemented: HAVING");
             Preconditions.checkArgument(query.getFrom().size() == 1, "not yet implemented: multiple FROM relations");
-            Preconditions.checkArgument(query.getLimit() != null && !query.getOrderBy().isEmpty() || query.getOrderBy().isEmpty(), "not yet implemented: ORDER BY without LIMIT");
 
             // prevent symbol allocator from picking symbols named the same as output aliases, since both share the same namespace for reference resolution
             for (Expression expression : query.getSelect().getSelectItems()) {

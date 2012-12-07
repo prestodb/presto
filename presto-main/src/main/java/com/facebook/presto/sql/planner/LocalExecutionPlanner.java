@@ -12,6 +12,7 @@ import com.facebook.presto.operator.FilterFunctions;
 import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.operator.HashJoinOperator;
 import com.facebook.presto.operator.LimitOperator;
+import com.facebook.presto.operator.NewInMemoryOrderByOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
@@ -35,6 +36,7 @@ import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -121,6 +123,9 @@ public class LocalExecutionPlanner
         else if (plan instanceof TopNNode) {
             return createTopNNode((TopNNode) plan);
         }
+        else if (plan instanceof SortNode) {
+            return createSortPlan((SortNode) plan);
+        }
         else if (plan instanceof ExchangeNode) {
             return createExchange((ExchangeNode) plan);
         }
@@ -196,6 +201,27 @@ public class LocalExecutionPlanner
         }
 
         return new TopNOperator(plan(source), (int) node.getCount(), symbolToChannelMappings.get(orderBySymbol), projections, ordering);
+    }
+
+    private Operator createSortPlan(SortNode node)
+    {
+        PlanNode source = node.getSource();
+
+        Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
+
+        int[] outputChannels = new int[node.getOutputSymbols().size()];
+        for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+            Symbol symbol = node.getOutputSymbols().get(i);
+            outputChannels[i] = symbolToChannelMappings.get(symbol);
+        }
+
+        Preconditions.checkArgument(node.getOrderBy().size() == 1, "Order by multiple fields not yet supported");
+
+        Symbol orderBySymbol = Iterables.getOnlyElement(node.getOrderBy());
+        int[] sortChannels = new int[] { symbolToChannelMappings.get(orderBySymbol) };
+        boolean[] sortOrder = new boolean[] { node.getOrderings().get(orderBySymbol) == SortItem.Ordering.ASCENDING};
+
+        return new NewInMemoryOrderByOperator(plan(source), symbolToChannelMappings.get(orderBySymbol), outputChannels, 1_000_000, sortChannels, sortOrder);
     }
 
     private Operator createLimitNode(LimitNode node)

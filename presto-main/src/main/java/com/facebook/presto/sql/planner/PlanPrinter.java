@@ -13,6 +13,7 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -156,6 +157,22 @@ public class PlanPrinter
             });
 
             print(indent, "- TopN[%s by (%s)] => [%s]", node.getCount(), Joiner.on(", ").join(keys), formatOutputs(node.getOutputSymbols()));
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
+        public Void visitSort(final SortNode node, Integer indent)
+        {
+            Iterable<String> keys = Iterables.transform(node.getOrderBy(), new Function<Symbol, String>()
+            {
+                @Override
+                public String apply(Symbol input)
+                {
+                    return input + " " + node.getOrderings().get(input);
+                }
+            });
+
+            print(indent, "- Sort[%s] => [%s]", Joiner.on(", ").join(keys), formatOutputs(node.getOutputSymbols()));
             return processChildren(node, indent + 1);
         }
 

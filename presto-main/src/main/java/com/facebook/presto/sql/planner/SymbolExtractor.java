@@ -10,6 +10,7 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.google.common.collect.ImmutableSet;
@@ -81,6 +82,14 @@ public class SymbolExtractor
 
         @Override
         public Void visitTopN(TopNNode node, Void context)
+        {
+            node.getSource().accept(this, context);
+
+            return null;
+        }
+
+        @Override
+        public Void visitSort(SortNode node, Void context)
         {
             node.getSource().accept(this, context);
 

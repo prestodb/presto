@@ -18,6 +18,7 @@ import java.util.List;
         @JsonSubTypes.Type(value = FilterNode.class, name = "filter"),
         @JsonSubTypes.Type(value = LimitNode.class, name = "limit"),
         @JsonSubTypes.Type(value = TopNNode.class, name = "topn"),
+        @JsonSubTypes.Type(value = SortNode.class, name = "sort"),
         @JsonSubTypes.Type(value = ExchangeNode.class, name = "exchange"),
         @JsonSubTypes.Type(value = JoinNode.class, name = "join")})
 public abstract class PlanNode
