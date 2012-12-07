@@ -116,7 +116,7 @@ public class Planner
 
         Map<Expression, Symbol> substitutions = new HashMap<>();
 
-        if (!analysis.getAggregations().isEmpty()) {
+        if (!analysis.getAggregations().isEmpty() || !analysis.getGroupByExpressions().isEmpty()) {
             root = createAggregatePlan(root,
                     ImmutableList.copyOf(analysis.getOutputExpressions().values()),
                     Lists.transform(analysis.getOrderBy(), expressionGetter()),

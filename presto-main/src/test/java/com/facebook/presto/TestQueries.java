@@ -501,6 +501,15 @@ public class TestQueries
         assertEqualsIgnoreOrder(actual, expected);
     }
 
+    @Test
+    public void testGroupByWithoutAggregation()
+            throws Exception
+    {
+        List<Tuple> expected = computeExpected("SELECT orderstatus FROM orders GROUP BY orderstatus", VARIABLE_BINARY);
+        List<Tuple> actual = computeActual("SELECT orderstatus FROM orders GROUP BY orderstatus");
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
 
     @Test
     public void testHistogram()
