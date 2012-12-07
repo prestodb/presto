@@ -2,7 +2,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.operator.ForScheduler;
-import com.facebook.presto.server.QueryState.State;
+import com.facebook.presto.server.PageBuffer.State;
 import com.facebook.presto.sql.planner.Partition;
 import com.facebook.presto.sql.planner.Stage;
 import com.google.common.base.Function;

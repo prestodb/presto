@@ -160,9 +160,9 @@ public class TestQueryDriversOperator
         }
 
         @Override
-        public QueryDriver create(QueryState queryState)
+        public QueryDriver create(PageBuffer outputBuffer)
         {
-            StaticQueryDriver driver = new StaticQueryDriver(executor, queryState, pages);
+            StaticQueryDriver driver = new StaticQueryDriver(executor, outputBuffer, pages);
             createdDrivers.add(driver);
             return driver;
         }
@@ -171,15 +171,15 @@ public class TestQueryDriversOperator
     private class StaticQueryDriver implements QueryDriver
     {
         private final ExecutorService executor;
-        private final QueryState queryState;
+        private final PageBuffer outputBuffer;
         private final List<Page> pages;
         private Future<?> jobFuture;
         private AddPagesJob job;
 
-        public StaticQueryDriver(ExecutorService executor, QueryState queryState, List<Page> pages)
+        public StaticQueryDriver(ExecutorService executor, PageBuffer outputBuffer, List<Page> pages)
         {
             this.executor = executor;
-            this.queryState = queryState;
+            this.outputBuffer = outputBuffer;
             this.pages = ImmutableList.copyOf(pages);
         }
 
@@ -191,7 +191,7 @@ public class TestQueryDriversOperator
         @Override
         public synchronized void start()
         {
-            job = new AddPagesJob(queryState, pages);
+            job = new AddPagesJob(outputBuffer, pages);
             jobFuture = executor.submit(job);
         }
 
@@ -210,13 +210,13 @@ public class TestQueryDriversOperator
 
     private static class AddPagesJob implements Runnable
     {
-        private final QueryState queryState;
+        private final PageBuffer outputBuffer;
         private final List<Page> pages;
         private final AtomicInteger pagesAdded = new AtomicInteger();
 
-        private AddPagesJob(QueryState queryState, List<Page> pages)
+        private AddPagesJob(PageBuffer outputBuffer, List<Page> pages)
         {
-            this.queryState = queryState;
+            this.outputBuffer = outputBuffer;
             this.pages = ImmutableList.copyOf(pages);
         }
 
@@ -231,19 +231,19 @@ public class TestQueryDriversOperator
             try {
                 for (Page page : pages) {
                     try {
-                        if (queryState.addPage(page)) {
+                        if (outputBuffer.addPage(page)) {
                             pagesAdded.incrementAndGet();
                         }
                     }
                     catch (InterruptedException e) {
-                        queryState.queryFailed(e);
+                        outputBuffer.queryFailed(e);
                         Thread.currentThread().interrupt();
                         throw Throwables.propagate(e);
                     }
                 }
             }
             finally {
-                queryState.sourceFinished();
+                outputBuffer.sourceFinished();
             }
         }
     }

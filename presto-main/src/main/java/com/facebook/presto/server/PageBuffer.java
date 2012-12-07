@@ -25,9 +25,9 @@ import java.util.concurrent.TimeUnit;
  * QueryState contains the current state of the query and output buffer.
  */
 @ThreadSafe
-public class QueryState
+public class PageBuffer
 {
-    private static final Logger log = Logger.get(QueryState.class);
+    private static final Logger log = Logger.get(PageBuffer.class);
 
     public static enum State
     {
@@ -78,7 +78,7 @@ public class QueryState
     private final Semaphore notFull;
     private final Semaphore notEmpty;
 
-    public QueryState(List<TupleInfo> tupleInfos, int sourceCount, int pageBufferMax)
+    public PageBuffer(List<TupleInfo> tupleInfos, int sourceCount, int pageBufferMax)
     {
         Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
         Preconditions.checkArgument(sourceCount > 0, "sourceCount must be at least 1");
@@ -292,14 +292,14 @@ public class QueryState
         }
     }
 
-    public static Function<QueryState, State> stateGetter()
+    public static Function<PageBuffer, State> stateGetter()
     {
-        return new Function<QueryState, State>()
+        return new Function<PageBuffer, State>()
         {
             @Override
-            public State apply(QueryState queryState)
+            public State apply(PageBuffer pageBuffer)
             {
-                return queryState.getState();
+                return pageBuffer.getState();
             }
         };
     }

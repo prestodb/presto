@@ -1,8 +1,8 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.server.HttpQueryClient;
+import com.facebook.presto.server.PageBuffer;
 import com.facebook.presto.server.QueryInfo;
-import com.facebook.presto.server.QueryState;
 import com.facebook.presto.server.QueryTaskInfo;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.units.DataSize;
@@ -36,7 +36,7 @@ public class StatusPrinter
                         return;
                     }
                     // if query is no longer running, finish
-                    if ((queryInfo.getState() != QueryState.State.PREPARING) && (queryInfo.getState() != QueryState.State.RUNNING)) {
+                    if ((queryInfo.getState() != PageBuffer.State.PREPARING) && (queryInfo.getState() != PageBuffer.State.RUNNING)) {
                         return;
                     }
 
@@ -95,7 +95,7 @@ public class StatusPrinter
             completedPositions += info.getCompletedPositionCount();
         }
 
-        QueryState.State overallState = queryInfo.getState();
+        PageBuffer.State overallState = queryInfo.getState();
         Duration cpuTime = new Duration(splitCpuTime, TimeUnit.MILLISECONDS);
         String infoString = String.format(
                 "%s QueryId %s: Stages [%,d of %,d]: Splits [%,d total, %,d pending, %,d running, %,d finished]: Input [%,d rows %s]: CPU Time %s %s: Elapsed %s %s",

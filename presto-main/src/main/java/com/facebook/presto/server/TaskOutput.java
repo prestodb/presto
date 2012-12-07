@@ -4,7 +4,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.server.QueryState.State;
+import com.facebook.presto.server.PageBuffer.State;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.server.QueryState.stateGetter;
+import static com.facebook.presto.server.PageBuffer.stateGetter;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.Maps.transformValues;
 
@@ -31,7 +31,7 @@ public class TaskOutput
     private final String taskId;
     private final URI location;
     private final List<TupleInfo> tupleInfos;
-    private final Map<String, QueryState> outputBuffers;
+    private final Map<String, PageBuffer> outputBuffers;
 
     private final AtomicReference<State> taskState = new AtomicReference<>(State.PREPARING);
 
@@ -61,9 +61,9 @@ public class TaskOutput
         this.location = location;
         this.tupleInfos = tupleInfos;
         this.splits = splits;
-        ImmutableMap.Builder<String, QueryState> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<String, PageBuffer> builder = ImmutableMap.builder();
         for (String outputId : outputIds) {
-            builder.put(outputId, new QueryState(tupleInfos, 1, pageBufferMax));
+            builder.put(outputId, new PageBuffer(tupleInfos, 1, pageBufferMax));
         }
         outputBuffers = builder.build();
     }
@@ -111,7 +111,7 @@ public class TaskOutput
     public void finish()
     {
         // finish all buffers
-        for (QueryState outputBuffer : outputBuffers.values()) {
+        for (PageBuffer outputBuffer : outputBuffers.values()) {
             outputBuffer.sourceFinished();
         }
         // the output will only transition to finished if it isn't already marked as failed or cancel
@@ -128,7 +128,7 @@ public class TaskOutput
 
     private void finishAllBuffers()
     {
-        for (QueryState outputBuffer : outputBuffers.values()) {
+        for (PageBuffer outputBuffer : outputBuffers.values()) {
             outputBuffer.finish();
         }
     }
@@ -136,7 +136,7 @@ public class TaskOutput
     public void queryFailed(Throwable cause)
     {
         taskState.set(State.FAILED);
-        for (QueryState outputBuffer : outputBuffers.values()) {
+        for (PageBuffer outputBuffer : outputBuffers.values()) {
             outputBuffer.queryFailed(cause);
         }
     }
@@ -144,7 +144,7 @@ public class TaskOutput
     public int getBufferedPageCount()
     {
         int bufferedPageCount = 0;
-        for (QueryState outputBuffer : outputBuffers.values()) {
+        for (PageBuffer outputBuffer : outputBuffers.values()) {
             bufferedPageCount = Math.max(outputBuffer.getBufferedPageCount(), bufferedPageCount);
         }
         return bufferedPageCount;
@@ -156,7 +156,7 @@ public class TaskOutput
         // transition from preparing to running when first page is produced
         taskState.compareAndSet(State.PREPARING, State.RUNNING);
 
-        for (QueryState outputBuffer : outputBuffers.values()) {
+        for (PageBuffer outputBuffer : outputBuffers.values()) {
             if (!outputBuffer.addPage(page)) {
                 updateState();
                 State state = getState();
@@ -170,14 +170,14 @@ public class TaskOutput
     public List<Page> getNextPages(String outputId, int maxPageCount, Duration maxWait)
             throws InterruptedException
     {
-        QueryState outputBuffer = outputBuffers.get(outputId);
+        PageBuffer outputBuffer = outputBuffers.get(outputId);
         Preconditions.checkArgument(outputBuffer != null, "Unknown output %s: available outputs %s", outputId, outputBuffers.keySet());
         return outputBuffer.getNextPages(maxPageCount, maxWait);
     }
 
     public void abortResults(String outputId)
     {
-        QueryState outputBuffer = outputBuffers.get(outputId);
+        PageBuffer outputBuffer = outputBuffers.get(outputId);
         Preconditions.checkArgument(outputBuffer != null, "Unknown output %s: available outputs %s", outputId, outputBuffers.keySet());
         outputBuffer.finish();
     }

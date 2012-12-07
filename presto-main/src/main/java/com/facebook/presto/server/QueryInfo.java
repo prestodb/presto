@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.server.QueryState.State;
+import com.facebook.presto.server.PageBuffer.State;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -24,7 +24,7 @@ public class QueryInfo
     private final String queryId;
     private final List<TupleInfo> tupleInfos;
     private final List<String> fieldNames;
-    private final QueryState.State state;
+    private final PageBuffer.State state;
     private final String outputStage;
     private final Map<String, List<QueryTaskInfo>> stages;
 

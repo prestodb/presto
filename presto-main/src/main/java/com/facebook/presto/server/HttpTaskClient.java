@@ -94,9 +94,9 @@ public class HttpTaskClient
     }
 
     @Override
-    public QueryDriver create(QueryState queryState)
+    public QueryDriver create(PageBuffer outputBuffer)
     {
-        HttpQuery httpQuery = new HttpQuery(uriBuilderFrom(location).appendPath("results").appendPath(outputId).build(), queryState, new AsyncHttpClient(httpClient, executor));
+        HttpQuery httpQuery = new HttpQuery(uriBuilderFrom(location).appendPath("results").appendPath(outputId).build(), outputBuffer, new AsyncHttpClient(httpClient, executor));
         return httpQuery;
     }
 
