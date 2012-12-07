@@ -23,7 +23,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedExecutionPlanner;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LogicalPlanner;
-import com.facebook.presto.sql.planner.Stage;
+import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.Query;
@@ -215,7 +215,7 @@ public class StaticQueryManager
         private final TaskScheduler taskScheduler;
         private final ConcurrentHashMap<String, List<HttpTaskClient>> stages = new ConcurrentHashMap<>();
         private final AtomicReference<QueryState> queryState = new AtomicReference<>(QueryState.QUEUED);
-        private final Stage outputStage;
+        private final StageExecutionPlan outputStageExecutionPlan;
 
         public SqlQueryWorker(String queryId, String sql, TaskScheduler taskScheduler, Session session, Metadata metadata, NodeManager nodeManager, SplitManager splitManager)
         {
@@ -239,7 +239,7 @@ public class StaticQueryManager
 
                 // plan the execution on the active nodes
                 DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(nodeManager, splitManager);
-                outputStage = distributedPlanner.plan(subplan);
+                outputStageExecutionPlan = distributedPlanner.plan(subplan);
 
             }
             catch (Exception e) {
@@ -305,7 +305,7 @@ public class StaticQueryManager
                 if (queryState == QueryState.RUNNING) {
                     // if all output tasks are finished, the query is finished
                     // todo this is no longer correct
-                    List<TaskInfo> outputTasks = stages.get(outputStage.getStageId());
+                    List<TaskInfo> outputTasks = stages.get(outputStageExecutionPlan.getStageId());
                     if (outputTasks != null && !outputTasks.isEmpty() && all(transform(outputTasks, taskStateGetter()), TaskState.inDoneState())) {
                         queryState = QueryState.FINISHED;
                         this.queryState.set(queryState);
@@ -319,17 +319,17 @@ public class StaticQueryManager
                 }
             }
 
-            return new QueryInfo(queryId, outputStage.getTupleInfos(), outputStage.getFieldNames(), queryState, outputStage.getStageId(), stages);
+            return new QueryInfo(queryId, outputStageExecutionPlan.getTupleInfos(), outputStageExecutionPlan.getFieldNames(), queryState, outputStageExecutionPlan.getStageId(), stages);
         }
 
         @Override
         public void run()
         {
             try {
-                taskScheduler.schedule(outputStage, stages);
+                taskScheduler.schedule(outputStageExecutionPlan, stages);
 
                 // mark it as finished if there will never be any output TODO: think about this more -- shouldn't have stages with no tasks?
-                if (stages.get(outputStage.getStageId()).isEmpty()) {
+                if (stages.get(outputStageExecutionPlan.getStageId()).isEmpty()) {
                     queryState.set(QueryState.FINISHED);
                 }
             }
