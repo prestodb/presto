@@ -5,6 +5,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.execution.PageBuffer;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.server.QueryDriversOperator.QueryDriversIterator;
 import com.facebook.presto.tuple.TupleInfo;

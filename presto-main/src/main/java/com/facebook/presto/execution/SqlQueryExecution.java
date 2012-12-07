@@ -1,10 +1,11 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.execution;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
+import com.facebook.presto.server.HttpTaskClient;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.AnalysisResult;
 import com.facebook.presto.sql.analyzer.Analyzer;
@@ -30,7 +31,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.server.TaskInfo.taskStateGetter;
+import static com.facebook.presto.execution.TaskInfo.taskStateGetter;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.Iterables.all;
 import static com.google.common.collect.Iterables.any;

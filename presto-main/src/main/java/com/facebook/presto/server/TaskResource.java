@@ -3,6 +3,8 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.operator.Page;
 import com.google.common.base.Throwables;
 import com.google.common.reflect.TypeToken;

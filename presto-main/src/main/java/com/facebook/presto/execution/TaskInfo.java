@@ -1,9 +1,9 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.execution;
 
-import com.facebook.presto.server.PageBuffer.BufferState;
+import com.facebook.presto.execution.PageBuffer.BufferState;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;

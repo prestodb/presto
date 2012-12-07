@@ -3,6 +3,9 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.ExchangePlanFragmentSource;
+import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
+import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.Operator;

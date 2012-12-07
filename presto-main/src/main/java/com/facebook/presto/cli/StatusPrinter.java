@@ -1,9 +1,9 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.server.HttpQueryClient;
-import com.facebook.presto.server.QueryInfo;
-import com.facebook.presto.server.QueryState;
-import com.facebook.presto.server.TaskInfo;
+import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.execution.TaskInfo;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;

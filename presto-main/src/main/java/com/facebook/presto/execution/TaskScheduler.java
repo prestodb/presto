@@ -1,7 +1,9 @@
-package com.facebook.presto.server;
+package com.facebook.presto.execution;
 
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.operator.ForScheduler;
+import com.facebook.presto.server.HttpTaskClient;
+import com.facebook.presto.server.QueryFragmentRequest;
 import com.facebook.presto.sql.planner.Partition;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.google.common.base.Function;

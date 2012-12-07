@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.PageBuffer;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.PagesSerde;
 import com.facebook.presto.slice.InputStreamSliceInput;

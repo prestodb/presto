@@ -3,6 +3,9 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.QueryManager;
+
 import javax.inject.Inject;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;

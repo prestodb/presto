@@ -3,6 +3,12 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.SqlQueryManager;
+import com.facebook.presto.execution.SqlTaskManager;
+import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.execution.TaskScheduler;
 import com.facebook.presto.importer.ForImportManager;
 import com.facebook.presto.importer.ImportManager;
 import com.facebook.presto.importer.LocalShardManager;

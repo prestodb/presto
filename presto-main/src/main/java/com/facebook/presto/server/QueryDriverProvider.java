@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.PageBuffer;
 import com.facebook.presto.tuple.TupleInfo;
 
 import java.util.List;

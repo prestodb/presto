@@ -1,10 +1,10 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.execution;
 
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.server.PageBuffer.BufferState;
+import com.facebook.presto.execution.PageBuffer.BufferState;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.server.PageBuffer.stateGetter;
+import static com.facebook.presto.execution.PageBuffer.stateGetter;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.Maps.transformValues;
 
