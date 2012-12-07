@@ -10,6 +10,7 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 
@@ -87,6 +88,13 @@ public class CoalesceLimits
         {
             PlanNode source = node.getSource().accept(this, context);
             return new TopNNode(source, node.getCount(), node.getOrderBy(), node.getOrderings());
+        }
+
+        @Override
+        public PlanNode visitSort(SortNode node, Void context)
+        {
+            PlanNode source = node.getSource().accept(this, context);
+            return new SortNode(source, node.getOrderBy(), node.getOrderings());
         }
 
         @Override

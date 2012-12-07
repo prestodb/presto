@@ -15,6 +15,7 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -139,6 +140,24 @@ public class DistributedLogicalPlanner
 
             return current;
         }
+
+        @Override
+        public SubPlanBuilder visitSort(SortNode node, Void context)
+        {
+            SubPlanBuilder current = node.getSource().accept(this, context);
+
+            if (current.isPartitioned()) {
+                // create a new non-partitioned fragment
+                current = newSubPlan(new ExchangeNode(current.getId(), current.getRoot().getOutputSymbols()))
+                        .setPartitioned(false)
+                        .addChild(current.build());
+            }
+
+            current.setRoot(new SortNode(current.getRoot(), node.getOrderBy(), node.getOrderings()));
+
+            return current;
+        }
+
 
         @Override
         public SubPlanBuilder visitOutput(OutputNode node, Void context)

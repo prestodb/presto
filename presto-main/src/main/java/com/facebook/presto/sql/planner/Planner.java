@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.AliasedRelation;
@@ -126,8 +127,13 @@ public class Planner
                     substitutions);
         }
 
-        if (analysis.getLimit() != null && !analysis.getOrderBy().isEmpty()) {
-            root = createTopNPlan(root, analysis.getLimit(), analysis.getOrderBy(), analysis.getSymbolAllocator(), substitutions);
+        if (!analysis.getOrderBy().isEmpty()) {
+            if (analysis.getLimit() != null) {
+                root = createTopNPlan(root, analysis.getLimit(), analysis.getOrderBy(), analysis.getSymbolAllocator(), substitutions);
+            }
+            else {
+                root = createSortPlan(root, analysis.getOrderBy(), analysis.getSymbolAllocator(), substitutions);
+            }
         }
 
         root = createProjectPlan(root, analysis.getOutputExpressions(), substitutions); // project query outputs
@@ -174,6 +180,31 @@ public class Planner
 
         ProjectNode preProject = new ProjectNode(source, preProjectAssignments);
         return new TopNNode(preProject, limit, orderBySymbols, orderings);
+    }
+
+    private PlanNode createSortPlan(PlanNode source, List<AnalyzedOrdering> orderBy, SymbolAllocator allocator, Map<Expression, Symbol> substitutions)
+    {
+        Map<Symbol, Expression> preProjectAssignments = new HashMap<>();
+        for (Symbol symbol : source.getOutputSymbols()) {
+            // propagate all output symbols from underlying operator
+            QualifiedNameReference expression = new QualifiedNameReference(symbol.toQualifiedName());
+            preProjectAssignments.put(symbol, expression);
+        }
+
+        List<Symbol> orderBySymbols = new ArrayList<>();
+        Map<Symbol,SortItem.Ordering> orderings = new HashMap<>();
+        for (AnalyzedOrdering item : orderBy) {
+            Expression rewritten = TreeRewriter.rewriteWith(substitution(substitutions), item.getExpression().getRewrittenExpression());
+
+            Symbol symbol = allocator.newSymbol(rewritten, item.getExpression().getType());
+
+            orderBySymbols.add(symbol);
+            preProjectAssignments.put(symbol, rewritten);
+            orderings.put(symbol, item.getOrdering());
+        }
+
+        ProjectNode preProject = new ProjectNode(source, preProjectAssignments);
+        return new SortNode(preProject, orderBySymbols, orderings);
     }
 
     private PlanNode createAggregatePlan(PlanNode source,

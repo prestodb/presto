@@ -12,6 +12,7 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -155,6 +156,22 @@ public class UnaliasSymbolReferences
             }
 
             return new TopNNode(source, node.getCount(), symbols.build(), orderings.build());
+        }
+
+        @Override
+        public PlanNode visitSort(SortNode node, Void context)
+        {
+            PlanNode source = node.getSource().accept(this, context);
+
+            ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
+            ImmutableMap.Builder<Symbol, SortItem.Ordering> orderings = ImmutableMap.builder();
+            for (Symbol symbol : node.getOrderBy()) {
+                Symbol canonical = canonicalize(symbol);
+                symbols.add(canonical);
+                orderings.put(canonical, node.getOrderings().get(symbol));
+            }
+
+            return new SortNode(source, symbols.build(), orderings.build());
         }
 
         @Override

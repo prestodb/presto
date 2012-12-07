@@ -546,6 +546,16 @@ public class TestQueries
         assertEqualsIgnoreOrder(actual, expected);
     }
 
+    @Test
+    public void testOrderBy()
+            throws Exception
+    {
+        List<Tuple> actual = computeActual("SELECT orderkey FROM orders ORDER BY orderstatus");
+        List<Tuple> expected = computeExpected("SELECT orderkey FROM orders ORDER BY orderstatus", FIXED_INT_64);
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
     private List<Tuple> computeExpected(@Language("SQL") final String sql, TupleInfo.Type... types)
     {
         TupleInfo tupleInfo = new TupleInfo(types);
