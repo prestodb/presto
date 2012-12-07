@@ -90,9 +90,9 @@ public class TestHttpQueryProvider
                     {
                         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
                         binder.bind(TaskResource.class).in(Scopes.SINGLETON);
-                        binder.bind(QueryManager.class).to(SimpleQueryManager.class).in(Scopes.SINGLETON);
-                        binder.bind(SimpleTaskManager.class).in(Scopes.SINGLETON);
-                        binder.bind(TaskManager.class).to(Key.get(SimpleTaskManager.class)).in(Scopes.SINGLETON);
+                        binder.bind(QueryManager.class).to(MockQueryManager.class).in(Scopes.SINGLETON);
+                        binder.bind(MockTaskManager.class).in(Scopes.SINGLETON);
+                        binder.bind(TaskManager.class).to(Key.get(MockTaskManager.class)).in(Scopes.SINGLETON);
                         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
                     }
                 },

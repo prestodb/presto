@@ -67,7 +67,7 @@ public class ServerMainModule
     public void configure(Binder binder)
     {
         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
-        binder.bind(QueryManager.class).to(StaticQueryManager.class).in(Scopes.SINGLETON);
+        binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
 
         binder.bind(TaskResource.class).in(Scopes.SINGLETON);
         binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);

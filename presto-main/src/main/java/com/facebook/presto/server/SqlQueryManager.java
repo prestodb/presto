@@ -33,10 +33,10 @@ import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 
 @ThreadSafe
-public class StaticQueryManager
+public class SqlQueryManager
         implements QueryManager
 {
-    private static final Logger log = Logger.get(StaticQueryManager.class);
+    private static final Logger log = Logger.get(SqlQueryManager.class);
 
     private final TaskScheduler taskScheduler;
     private final ExecutorService queryExecutor;
@@ -50,7 +50,7 @@ public class StaticQueryManager
     private final ConcurrentMap<String, QueryExecution> queries = new ConcurrentHashMap<>();
 
     @Inject
-    public StaticQueryManager(
+    public SqlQueryManager(
             TaskScheduler taskScheduler,
             ImportClientFactory importClientFactory,
             ImportManager importManager,

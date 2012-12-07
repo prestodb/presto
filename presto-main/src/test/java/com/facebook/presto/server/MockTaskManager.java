@@ -28,7 +28,7 @@ import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 
-public class SimpleTaskManager
+public class MockTaskManager
         implements TaskManager
 {
     private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_VARBINARY);
@@ -39,12 +39,12 @@ public class SimpleTaskManager
     private final ConcurrentMap<String, TaskOutput> tasks = new ConcurrentHashMap<>();
 
     @Inject
-    public SimpleTaskManager(HttpServerInfo httpServerInfo)
+    public MockTaskManager(HttpServerInfo httpServerInfo)
     {
         this(httpServerInfo, 20, 12);
     }
 
-    public SimpleTaskManager(HttpServerInfo httpServerInfo, int pageBufferMax, int initialPages)
+    public MockTaskManager(HttpServerInfo httpServerInfo, int pageBufferMax, int initialPages)
     {
         Preconditions.checkNotNull(httpServerInfo, "httpServerInfo is null");
         Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
