@@ -54,7 +54,7 @@ public class MetadataManager
     public List<QualifiedTableName> listTables(String catalogName)
     {
         checkCatalogName(catalogName);
-        DataSourceType dataSourceType = lookupDataSource(catalogName, "__hack__");
+        DataSourceType dataSourceType = lookupDataSource(catalogName);
         return lookup(dataSourceType).listTables(catalogName);
     }
 
@@ -62,8 +62,16 @@ public class MetadataManager
     public List<QualifiedTableName> listTables(String catalogName, String schemaName)
     {
         checkSchemaName(catalogName, schemaName);
-        DataSourceType dataSourceType = lookupDataSource(catalogName, "__hack__");
+        DataSourceType dataSourceType = lookupDataSource(catalogName);
         return lookup(dataSourceType).listTables(catalogName);
+    }
+
+    @Override
+    public List<TableColumn> listTableColumns(String catalogName)
+    {
+        checkCatalogName(catalogName);
+        DataSourceType dataSourceType = lookupDataSource(catalogName);
+        return lookup(dataSourceType).listTableColumns(catalogName);
     }
 
     @Override
@@ -72,6 +80,12 @@ public class MetadataManager
         DataSourceType dataSourceType = lookupDataSource(table.getCatalogName(), table.getSchemaName());
         checkArgument(dataSourceType == DataSourceType.NATIVE, "table creation is only supported for native tables");
         metadataSourceMap.get(dataSourceType).createTable(table);
+    }
+
+    private static DataSourceType lookupDataSource(String catalogName)
+    {
+        // use a schema name that won't match any real or special schemas
+        return lookupDataSource(catalogName, "$dummy_schema$");
     }
 
     private static DataSourceType lookupDataSource(String catalogName, String schemaName)

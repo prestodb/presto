@@ -76,6 +76,13 @@ public class NativeMetadata
     }
 
     @Override
+    public List<TableColumn> listTableColumns(String catalogName)
+    {
+        checkCatalogName(catalogName);
+        return dao.listTableColumns(catalogName);
+    }
+
+    @Override
     public void createTable(final TableMetadata table)
     {
         dbi.inTransaction(new VoidTransactionCallback()
