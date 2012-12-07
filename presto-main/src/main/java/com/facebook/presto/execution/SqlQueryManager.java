@@ -121,37 +121,25 @@ public class SqlQueryManager
         Preconditions.checkArgument(query.length() > 0, "query must not be empty string");
 
         QueryExecution queryExecution;
-        if (query.startsWith("sql:")) {
-            // e.g.: sql:select count(*) from hivedba_query_stats
-            String sql = query.substring("sql:".length());
+        if (query.startsWith("import-table:")) {
+            // todo this is a hack until we have language support for import or create table as select
+            ImmutableList<String> strings = ImmutableList.copyOf(Splitter.on(":").split(query));
+            queryExecution = new ImportTableExecution(String.valueOf(nextQueryId.getAndIncrement()),
+                    importClientFactory,
+                    importManager,
+                    metadata,
+                    strings.get(1),
+                    strings.get(2),
+                    strings.get(3));
+        }
+        else {
             queryExecution = new SqlQueryExecution(String.valueOf(nextQueryId.getAndIncrement()),
-                    sql,
+                    query,
                     taskScheduler,
                     new Session(),
                     metadata,
                     nodeManager,
                     splitManager);
-        }
-        else {
-            // todo this is a hack until we have language support for import or create table as select
-            ImmutableList<String> strings = ImmutableList.copyOf(Splitter.on(":").split(query));
-            String queryBase = strings.get(0);
-
-            switch (queryBase) {
-                // e.g.: import-table:hive:default:hivedba_query_stats
-                case "import-table":
-                    queryExecution = new ImportTableExecution(String.valueOf(nextQueryId.getAndIncrement()),
-                            importClientFactory,
-                            importManager,
-                            metadata,
-                            strings.get(1),
-                            strings.get(2),
-                            strings.get(3));
-                    break;
-
-                default:
-                    throw new IllegalArgumentException("Unsupported query " + query);
-            }
         }
         queries.put(queryExecution.getQueryId(), queryExecution);
 
