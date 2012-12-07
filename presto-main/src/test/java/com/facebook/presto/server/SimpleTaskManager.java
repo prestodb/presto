@@ -23,7 +23,6 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
@@ -37,7 +36,6 @@ public class SimpleTaskManager
     private final int pageBufferMax;
     private final int initialPages;
 
-    private final AtomicInteger nextTaskId = new AtomicInteger();
     private final ConcurrentMap<String, TaskOutput> tasks = new ConcurrentHashMap<>();
 
     @Inject
@@ -61,8 +59,8 @@ public class SimpleTaskManager
     public List<TaskInfo> getAllTaskInfo()
     {
         ImmutableList.Builder<TaskInfo> builder = ImmutableList.builder();
-        for (TaskOutput task : tasks.values()) {
-            builder.add(task.getTaskInfo());
+        for (TaskOutput taskOutput : tasks.values()) {
+            builder.add(taskOutput.getTaskInfo());
         }
         return builder.build();
     }
@@ -72,11 +70,11 @@ public class SimpleTaskManager
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 
-        TaskOutput queryState = tasks.get(taskId);
-        if (queryState == null) {
+        TaskOutput taskOutput = tasks.get(taskId);
+        if (taskOutput == null) {
             throw new NoSuchElementException();
         }
-        return queryState.getTaskInfo();
+        return taskOutput.getTaskInfo();
     }
 
     @Override
@@ -117,7 +115,7 @@ public class SimpleTaskManager
         if (taskOutput == null) {
             throw new NoSuchElementException();
         }
-        return taskOutput.getNextPages(outputId, maxPageCount, maxWaitTime);
+        return taskOutput.getResults(outputId, maxPageCount, maxWaitTime);
     }
 
     @Override

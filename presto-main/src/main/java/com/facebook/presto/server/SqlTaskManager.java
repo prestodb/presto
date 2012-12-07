@@ -4,43 +4,26 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.operator.PageIterator;
-import com.facebook.presto.operator.SourceHashProviderFactory;
-import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
-import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
-import com.google.common.base.Functions;
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import io.airlift.http.server.HttpServerInfo;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
-import javax.annotation.Nullable;
 import javax.inject.Inject;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -62,7 +45,7 @@ public class SqlTaskManager
     private final PlanFragmentSourceProvider sourceProvider;
     private final HttpServerInfo httpServerInfo;
 
-    private final ConcurrentMap<String, TaskOutput> tasks = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, TaskExecution> tasks = new ConcurrentHashMap<>();
 
     @Inject
     public SqlTaskManager(
@@ -96,13 +79,13 @@ public class SqlTaskManager
     @Override
     public List<TaskInfo> getAllTaskInfo()
     {
-        return ImmutableList.copyOf(filter(transform(tasks.values(), new Function<TaskOutput, TaskInfo>()
+        return ImmutableList.copyOf(filter(transform(tasks.values(), new Function<TaskExecution, TaskInfo>()
         {
             @Override
-            public TaskInfo apply(TaskOutput taskOutput)
+            public TaskInfo apply(TaskExecution taskExecution)
             {
                 try {
-                    return taskOutput.getTaskInfo();
+                    return taskExecution.getTaskInfo();
                 }
                 catch (Exception ignored) {
                     return null;
@@ -116,11 +99,11 @@ public class SqlTaskManager
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 
-        TaskOutput taskOutput = tasks.get(taskId);
-        if (taskOutput == null) {
+        TaskExecution taskExecution = tasks.get(taskId);
+        if (taskExecution == null) {
             throw new NoSuchElementException("Unknown query task " + taskId);
         }
-        return taskOutput.getTaskInfo();
+        return taskExecution.getTaskInfo();
     }
 
     @Override
@@ -137,27 +120,11 @@ public class SqlTaskManager
         String taskId = UUID.randomUUID().toString();
         URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/presto/task").appendPath(taskId).build();
 
-        // create output buffers
-        List<TupleInfo> tupleInfos = ImmutableList.copyOf(IterableTransformer.on(fragment.getRoot().getOutputSymbols())
-                .transform(Functions.forMap(fragment.getSymbols()))
-                .transform(com.facebook.presto.sql.analyzer.Type.toRaw())
-                .transform(new Function<Type, TupleInfo>()
-                {
-                    @Override
-                    public TupleInfo apply(Type input)
-                    {
-                        return new TupleInfo(input);
-                    }
-                })
-                .list());
+        SqlTaskExecution taskExecution = new SqlTaskExecution(taskId, location, fragment, splits, exchangeSources,  outputIds, pageBufferMax, sourceProvider, metadata, shardExecutor);
+        taskExecutor.submit(new TaskStarter(taskExecution));
 
-        TaskOutput taskOutput = new TaskOutput(taskId, location, outputIds, tupleInfos, pageBufferMax, splits.size());
-
-        SqlTask task = new SqlTask(taskId, fragment, taskOutput, splits, exchangeSources, sourceProvider, metadata, shardExecutor);
-        taskExecutor.submit(task);
-
-        tasks.put(taskId, taskOutput);
-        return taskOutput.getTaskInfo();
+        tasks.put(taskId, taskExecution);
+        return taskExecution.getTaskInfo();
     }
 
     @Override
@@ -167,11 +134,11 @@ public class SqlTaskManager
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(outputName, "outputName is null");
 
-        TaskOutput taskOutput = tasks.get(taskId);
-        if (taskOutput == null) {
+        TaskExecution taskExecution = tasks.get(taskId);
+        if (taskExecution == null) {
             throw new NoSuchElementException("Unknown query task " + taskId);
         }
-        return taskOutput.getNextPages(outputName, maxPageCount, maxWaitTime);
+        return taskExecution.getResults(outputName, maxPageCount, maxWaitTime);
     }
 
     @Override
@@ -180,11 +147,11 @@ public class SqlTaskManager
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(outputId, "outputId is null");
 
-        TaskOutput taskOutput = tasks.get(taskId);
-        if (taskOutput == null) {
+        TaskExecution taskExecution = tasks.get(taskId);
+        if (taskExecution == null) {
             throw new NoSuchElementException();
         }
-        taskOutput.abortResults(outputId);
+        taskExecution.abortResults(outputId);
     }
 
     @Override
@@ -192,185 +159,26 @@ public class SqlTaskManager
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 
-        TaskOutput taskOutput = tasks.remove(taskId);
-        if (taskOutput != null) {
-            taskOutput.cancel();
+        TaskExecution taskExecution = tasks.remove(taskId);
+        if (taskExecution != null) {
+            taskExecution.cancel();
         }
     }
 
-    private static class SqlTask
+    private static class TaskStarter
             implements Runnable
     {
-        private final String taskId;
-        private final TaskOutput taskOutput;
-        private final List<PlanFragmentSource> splits;
-        private final Map<String, ExchangePlanFragmentSource> exchangeSources;
-        private final PlanFragmentSourceProvider sourceProvider;
-        private final ExecutorService shardExecutor;
-        private final PlanFragment fragment;
-        private final Metadata metadata;
+        private final TaskExecution taskExecution;
 
-        private SqlTask(String taskId,
-                PlanFragment fragment,
-                TaskOutput taskOutput,
-                List<PlanFragmentSource> splits,
-                Map<String, ExchangePlanFragmentSource> exchangeSources,
-                PlanFragmentSourceProvider sourceProvider,
-                Metadata metadata,
-                ExecutorService shardExecutor)
+        public TaskStarter(TaskExecution taskExecution)
         {
-            this.taskId = taskId;
-            this.fragment = fragment;
-            this.taskOutput = taskOutput;
-            this.splits = splits;
-            this.exchangeSources = exchangeSources;
-            this.sourceProvider = sourceProvider;
-            this.shardExecutor = shardExecutor;
-            this.metadata = metadata;
-        }
-
-        public String getTaskId()
-        {
-            return taskId;
+            this.taskExecution = taskExecution;
         }
 
         @Override
         public void run()
         {
-            try {
-                // if we have a single split, just execute in the current thread; otherwise use the thread pool
-                final SourceHashProviderFactory sourceHashProviderFactory = new SourceHashProviderFactory();
-                if (splits.size() <= 1) {
-                    PlanFragmentSource split = splits.isEmpty() ? null : splits.get(0);
-                    SplitWorker worker = new SplitWorker(taskOutput, fragment, split, exchangeSources, sourceHashProviderFactory, sourceProvider, metadata);
-                    worker.call();
-                }
-                else {
-                    List<Future<Void>> results = shardExecutor.invokeAll(Lists.transform(splits, new Function<PlanFragmentSource, Callable<Void>>()
-                    {
-                        @Override
-                        public Callable<Void> apply(PlanFragmentSource split)
-                        {
-                            return new SplitWorker(taskOutput, fragment, split, exchangeSources, sourceHashProviderFactory, sourceProvider, metadata);
-                        }
-                    }));
-
-                    checkQueryResults(results);
-                }
-
-                taskOutput.finish();
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                taskOutput.queryFailed(e);
-                throw Throwables.propagate(e);
-            }
-            catch (Exception e) {
-                taskOutput.queryFailed(e);
-                throw Throwables.propagate(e);
-            }
-        }
-
-        @Override
-        public String toString()
-        {
-            return Objects.toStringHelper(this)
-                    .add("taskId", taskId)
-                    .add("splits", exchangeSources)
-                    .add("taskOutput", taskOutput)
-                    .toString();
-        }
-    }
-
-    private static class SplitWorker
-            implements Callable<Void>
-    {
-        private final TaskOutput taskOutput;
-        private final Operator operator;
-        private final Optional<DataSize> inputDataSize;
-        private final Optional<Integer> inputPositionCount;
-
-        private SplitWorker(TaskOutput taskOutput,
-                PlanFragment fragment,
-                @Nullable PlanFragmentSource split,
-                Map<String, ExchangePlanFragmentSource> exchangeSources,
-                SourceHashProviderFactory sourceHashProviderFactory,
-                PlanFragmentSourceProvider sourceProvider,
-                Metadata metadata)
-        {
-            this.taskOutput = taskOutput;
-
-            LocalExecutionPlanner planner = new LocalExecutionPlanner(metadata,
-                    sourceProvider,
-                    fragment.getSymbols(),
-                    split,
-                    null,
-                    exchangeSources,
-                    sourceHashProviderFactory);
-
-            operator = planner.plan(fragment.getRoot());
-
-            inputDataSize = planner.getInputDataSize();
-            if (inputDataSize.isPresent()) {
-                taskOutput.addInputDataSize(inputDataSize.get());
-            }
-            inputPositionCount = planner.getInputPositionCount();
-            if (inputPositionCount.isPresent()) {
-                taskOutput.addInputPositions(inputPositionCount.get());
-            }
-        }
-
-        @Override
-        public Void call()
-                throws Exception
-        {
-            taskOutput.splitStarted();
-            long startTime = System.nanoTime();
-            try (PageIterator pages = operator.iterator()) {
-                while (pages.hasNext()) {
-                    Page page = pages.next();
-                    if (!taskOutput.addPage(page)) {
-                        pages.close();
-                    }
-                }
-                return null;
-            }
-            catch (Exception e) {
-                taskOutput.queryFailed(e);
-                throw Throwables.propagate(e);
-            }
-            finally {
-                taskOutput.addSplitCpuTime(Duration.nanosSince(startTime));
-                taskOutput.splitCompleted();
-                if (inputDataSize.isPresent()) {
-                    taskOutput.addCompletedDataSize(inputDataSize.get());
-                }
-                if (inputPositionCount.isPresent()) {
-                    taskOutput.addCompletedPositions(inputPositionCount.get());
-                }
-
-            }
-        }
-    }
-
-    private static void checkQueryResults(Iterable<Future<Void>> results)
-            throws InterruptedException
-    {
-        RuntimeException queryFailedException = null;
-        for (Future<Void> result : results) {
-            try {
-                result.get();
-            }
-            catch (ExecutionException e) {
-                if (queryFailedException == null) {
-                    queryFailedException = new RuntimeException("Query failed");
-                }
-                Throwable cause = e.getCause();
-                queryFailedException.addSuppressed(cause);
-            }
-        }
-        if (queryFailedException != null) {
-            throw queryFailedException;
+            taskExecution.start();
         }
     }
 }
