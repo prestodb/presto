@@ -5,7 +5,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.PagesSerde;
-import com.facebook.presto.server.QueryState.State;
+import com.facebook.presto.server.PageBuffer.State;
 import com.facebook.presto.slice.InputStreamSliceInput;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;

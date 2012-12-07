@@ -58,14 +58,14 @@ public class QueryDriversOperator
     {
         ImmutableList.Builder<QueryDriver> queries = ImmutableList.builder();
         try {
-            QueryState queryState = new QueryState(tupleInfos, driverProviders.size(), pageBufferMax);
+            PageBuffer outputBuffer = new PageBuffer(tupleInfos, driverProviders.size(), pageBufferMax);
             for (QueryDriverProvider provider : driverProviders) {
-                QueryDriver queryDriver = provider.create(queryState);
+                QueryDriver queryDriver = provider.create(outputBuffer);
                 queries.add(queryDriver);
                 queryDriver.start();
             }
 
-            return new QueryDriversIterator(queryState, queries.build());
+            return new QueryDriversIterator(outputBuffer, queries.build());
         }
         catch (Throwable e) {
             for (QueryDriver queryDriver : queries.build()) {
@@ -77,13 +77,13 @@ public class QueryDriversOperator
 
     public static class QueryDriversIterator extends AbstractPageIterator
     {
-        private final QueryState queryState;
+        private final PageBuffer pageBuffer;
         private final List<QueryDriver> queryDrivers;
 
-        private QueryDriversIterator(QueryState queryState, Iterable<QueryDriver> queries)
+        private QueryDriversIterator(PageBuffer pageBuffer, Iterable<QueryDriver> queries)
         {
-            super(queryState.getTupleInfos());
-            this.queryState = queryState;
+            super(pageBuffer.getTupleInfos());
+            this.pageBuffer = pageBuffer;
             this.queryDrivers = ImmutableList.copyOf(queries);
         }
 
@@ -92,8 +92,8 @@ public class QueryDriversOperator
         {
             try {
                 // get the next page
-                while (!queryState.isDone()) {
-                    List<Page> nextPages = queryState.getNextPages(1, new Duration(1, TimeUnit.SECONDS));
+                while (!pageBuffer.isDone()) {
+                    List<Page> nextPages = pageBuffer.getNextPages(1, new Duration(1, TimeUnit.SECONDS));
                     if (!nextPages.isEmpty()) {
                         Page page = Iterables.getOnlyElement(nextPages);
                         return page;
@@ -110,7 +110,7 @@ public class QueryDriversOperator
         @Override
         protected void doClose()
         {
-            queryState.finish();
+            pageBuffer.finish();
             for (QueryDriver queryDriver : queryDrivers) {
                 try {
                     queryDriver.abort();

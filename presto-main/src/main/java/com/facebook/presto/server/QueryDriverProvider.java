@@ -13,5 +13,5 @@ public interface QueryDriverProvider
 
     List<TupleInfo> getTupleInfos();
 
-    QueryDriver create(QueryState queryState);
+    QueryDriver create(PageBuffer outputBuffer);
 }

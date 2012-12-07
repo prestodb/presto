@@ -12,7 +12,7 @@ import com.facebook.presto.metadata.NativeColumnHandle;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.server.QueryState.State;
+import com.facebook.presto.server.PageBuffer.State;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.SchemaField;
 import com.facebook.presto.split.ImportClientFactory;
@@ -54,7 +54,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.server.QueryState.State.inDoneState;
+import static com.facebook.presto.server.PageBuffer.State.inDoneState;
 import static com.facebook.presto.server.QueryTaskInfo.stateGetter;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.util.Threads.threadsNamed;

@@ -60,14 +60,14 @@ public class TestQueryState
             throws Exception
     {
         try {
-            new QueryState(TUPLE_INFOS, 0, 4);
+            new PageBuffer(TUPLE_INFOS, 0, 4);
             fail("Expected IllegalArgumentException");
         }
         catch (IllegalArgumentException e) {
 
         }
         try {
-            new QueryState(ImmutableList.of(SINGLE_LONG), 4, 0);
+            new PageBuffer(ImmutableList.of(SINGLE_LONG), 4, 0);
             fail("Expected IllegalArgumentException");
         }
         catch (IllegalArgumentException e) {
@@ -79,67 +79,67 @@ public class TestQueryState
     public void testNormalExecution()
             throws Exception
     {
-        QueryState queryState = new QueryState(ImmutableList.of(SINGLE_LONG), 1, 20);
-        assertRunning(queryState);
+        PageBuffer outputBuffer = new PageBuffer(ImmutableList.of(SINGLE_LONG), 1, 20);
+        assertRunning(outputBuffer);
 
         // fill the buffer
         for (int i = 0; i < 5; i++) {
-            queryState.addPage(createLongPage(i));
+            outputBuffer.addPage(createLongPage(i));
         }
 
         // verify pages are in correct order
-        assertRunning(queryState);
+        assertRunning(outputBuffer);
 
-        List<Page> nextPages = queryState.getNextPages(2, MAX_WAIT);
+        List<Page> nextPages = outputBuffer.getNextPages(2, MAX_WAIT);
         assertEquals(nextPages.size(), 2);
         assertEquals(getPageOnlyValue(nextPages.get(0)), 0);
         assertEquals(getPageOnlyValue(nextPages.get(1)), 1);
 
-        assertRunning(queryState);
+        assertRunning(outputBuffer);
 
-        nextPages = queryState.getNextPages(2, MAX_WAIT);
+        nextPages = outputBuffer.getNextPages(2, MAX_WAIT);
         assertEquals(nextPages.size(), 2);
         assertEquals(getPageOnlyValue(nextPages.get(0)), 2);
         assertEquals(getPageOnlyValue(nextPages.get(1)), 3);
 
-        assertRunning(queryState);
+        assertRunning(outputBuffer);
 
-        nextPages = queryState.getNextPages(2, MAX_WAIT);
+        nextPages = outputBuffer.getNextPages(2, MAX_WAIT);
         assertEquals(nextPages.size(), 1);
         assertEquals(getPageOnlyValue(nextPages.get(0)), 4);
 
-        assertRunning(queryState);
+        assertRunning(outputBuffer);
 
         // add one more page
         int value = 9;
-        queryState.addPage(createLongPage(value));
+        outputBuffer.addPage(createLongPage(value));
 
         // mark source as finished
-        queryState.sourceFinished();
+        outputBuffer.sourceFinished();
 
-        assertRunning(queryState);
+        assertRunning(outputBuffer);
 
         // get the last page and assure the query is finished
-        nextPages = queryState.getNextPages(2, MAX_WAIT);
+        nextPages = outputBuffer.getNextPages(2, MAX_WAIT);
         assertEquals(nextPages.size(), 1);
         assertEquals(getPageOnlyValue(nextPages.get(0)), 9);
-        assertFinished(queryState);
+        assertFinished(outputBuffer);
 
         // attempt to add more pages
-        assertFalse(queryState.addPage(createLongPage(22)));
-        assertFinished(queryState);
+        assertFalse(outputBuffer.addPage(createLongPage(22)));
+        assertFinished(outputBuffer);
 
         // mark source as finished again
-        queryState.sourceFinished();
-        assertFinished(queryState);
+        outputBuffer.sourceFinished();
+        assertFinished(outputBuffer);
 
         // try to fail the query and verify it doesn't work
-        queryState.queryFailed(new RuntimeException());
-        assertFinished(queryState);
+        outputBuffer.queryFailed(new RuntimeException());
+        assertFinished(outputBuffer);
 
         // try to finish the query and verify it doesn't work
-        queryState.finish();
-        assertFinished(queryState);
+        outputBuffer.finish();
+        assertFinished(outputBuffer);
     }
 
     private Page createLongPage(int value)
@@ -151,175 +151,175 @@ public class TestQueryState
     public void testFailedExecution()
             throws Exception
     {
-        QueryState queryState = new QueryState(ImmutableList.of(SINGLE_LONG), 1, 20);
-        assertRunning(queryState);
+        PageBuffer pageBuffer = new PageBuffer(ImmutableList.of(SINGLE_LONG), 1, 20);
+        assertRunning(pageBuffer);
 
         // fill the buffer
         for (int i = 0; i < 5; i++) {
-            queryState.addPage(createLongPage(i));
+            pageBuffer.addPage(createLongPage(i));
         }
 
         // verify pages are in correct order
-        assertRunning(queryState);
+        assertRunning(pageBuffer);
 
-        List<Page> nextPages = queryState.getNextPages(2, MAX_WAIT);
+        List<Page> nextPages = pageBuffer.getNextPages(2, MAX_WAIT);
         assertEquals(nextPages.size(), 2);
         assertEquals(getPageOnlyValue(nextPages.get(0)), 0);
         assertEquals(getPageOnlyValue(nextPages.get(1)), 1);
 
-        assertRunning(queryState);
+        assertRunning(pageBuffer);
 
-        nextPages = queryState.getNextPages(2, MAX_WAIT);
+        nextPages = pageBuffer.getNextPages(2, MAX_WAIT);
         assertEquals(nextPages.size(), 2);
         assertEquals(getPageOnlyValue(nextPages.get(0)), 2);
         assertEquals(getPageOnlyValue(nextPages.get(1)), 3);
 
-        assertRunning(queryState);
+        assertRunning(pageBuffer);
 
         // Fail query with one page in the buffer
         RuntimeException exception = new RuntimeException("failed");
-        queryState.queryFailed(exception);
-        assertFailed(queryState, exception);
+        pageBuffer.queryFailed(exception);
+        assertFailed(pageBuffer, exception);
 
         // attempt to add more pages
-        queryState.addPage(createLongPage(22));
-        assertFailed(queryState, exception);
+        pageBuffer.addPage(createLongPage(22));
+        assertFailed(pageBuffer, exception);
 
         // fail the query again
         RuntimeException anotherException = new RuntimeException("failed again");
-        queryState.queryFailed(anotherException);
-        assertFailed(queryState, exception, anotherException);
+        pageBuffer.queryFailed(anotherException);
+        assertFailed(pageBuffer, exception, anotherException);
 
         // try to finish the finished query and verify it doesn't work
-        queryState.finish();
-        assertFailed(queryState, exception, anotherException);
+        pageBuffer.finish();
+        assertFailed(pageBuffer, exception, anotherException);
 
         // try to finish the query again and verify it doesn't work
-        queryState.finish();
-        assertFailed(queryState, exception, anotherException);
+        pageBuffer.finish();
+        assertFailed(pageBuffer, exception, anotherException);
 
         // try to finish the query and verify it doesn't work
-        queryState.sourceFinished();
-        assertFailed(queryState, exception, anotherException);
+        pageBuffer.sourceFinished();
+        assertFailed(pageBuffer, exception, anotherException);
     }
 
     @Test
     public void testEarlyFinishExecution()
             throws Exception
     {
-        QueryState queryState = new QueryState(TUPLE_INFOS, 1, 20);
-        assertRunning(queryState);
+        PageBuffer pageBuffer = new PageBuffer(TUPLE_INFOS, 1, 20);
+        assertRunning(pageBuffer);
 
         // fill the buffer
         for (int i = 0; i < 5; i++) {
-            queryState.addPage(createLongPage(i));
+            pageBuffer.addPage(createLongPage(i));
         }
 
         // verify pages are in correct order
-        assertRunning(queryState);
+        assertRunning(pageBuffer);
 
-        List<Page> nextPages = queryState.getNextPages(2, MAX_WAIT);
+        List<Page> nextPages = pageBuffer.getNextPages(2, MAX_WAIT);
         assertEquals(nextPages.size(), 2);
         assertEquals(getPageOnlyValue(nextPages.get(0)), 0);
         assertEquals(getPageOnlyValue(nextPages.get(1)), 1);
 
-        assertRunning(queryState);
+        assertRunning(pageBuffer);
 
-        nextPages = queryState.getNextPages(2, MAX_WAIT);
+        nextPages = pageBuffer.getNextPages(2, MAX_WAIT);
         assertEquals(nextPages.size(), 2);
         assertEquals(getPageOnlyValue(nextPages.get(0)), 2);
         assertEquals(getPageOnlyValue(nextPages.get(1)), 3);
 
-        assertRunning(queryState);
+        assertRunning(pageBuffer);
 
         // Finish query with one page in the buffer
-        queryState.finish();
-        assertFinished(queryState);
+        pageBuffer.finish();
+        assertFinished(pageBuffer);
 
         // attempt to add more pages
-        queryState.addPage(createLongPage(22));
-        assertFinished(queryState);
+        pageBuffer.addPage(createLongPage(22));
+        assertFinished(pageBuffer);
 
         // finish the query again
-        queryState.finish();
-        assertFinished(queryState);
+        pageBuffer.finish();
+        assertFinished(pageBuffer);
 
         // try to fail the finished query and verify it doesn't work
-        queryState.queryFailed(new RuntimeException());
-        assertFinished(queryState);
+        pageBuffer.queryFailed(new RuntimeException());
+        assertFinished(pageBuffer);
 
         // try to finish the query and verify it doesn't work
-        queryState.sourceFinished();
-        assertFinished(queryState);
+        pageBuffer.sourceFinished();
+        assertFinished(pageBuffer);
     }
 
     @Test
     public void testMultiSourceNormalExecution()
             throws Exception
     {
-        QueryState queryState = new QueryState(TUPLE_INFOS, 3, 20);
-        assertRunning(queryState);
+        PageBuffer pageBuffer = new PageBuffer(TUPLE_INFOS, 3, 20);
+        assertRunning(pageBuffer);
 
         // add some pages
-        queryState.addPage(createLongPage(0));
-        queryState.addPage(createLongPage(1));
+        pageBuffer.addPage(createLongPage(0));
+        pageBuffer.addPage(createLongPage(1));
 
         // verify pages are in correct order
-        assertRunning(queryState);
+        assertRunning(pageBuffer);
 
-        List<Page> nextPages = queryState.getNextPages(2, MAX_WAIT);
+        List<Page> nextPages = pageBuffer.getNextPages(2, MAX_WAIT);
         assertEquals(nextPages.size(), 2);
         assertEquals(getPageOnlyValue(nextPages.get(0)), 0);
         assertEquals(getPageOnlyValue(nextPages.get(1)), 1);
-        assertRunning(queryState);
+        assertRunning(pageBuffer);
 
         // finish first sources
-        queryState.sourceFinished();
-        assertRunning(queryState);
+        pageBuffer.sourceFinished();
+        assertRunning(pageBuffer);
 
         // add one more page
-        queryState.addPage(createLongPage(9));
+        pageBuffer.addPage(createLongPage(9));
 
         // finish second source
-        queryState.sourceFinished();
-        assertRunning(queryState);
+        pageBuffer.sourceFinished();
+        assertRunning(pageBuffer);
 
         // the page
-        nextPages = queryState.getNextPages(2, MAX_WAIT);
+        nextPages = pageBuffer.getNextPages(2, MAX_WAIT);
         assertEquals(nextPages.size(), 1);
         assertEquals(getPageOnlyValue(nextPages.get(0)), 9);
-        assertRunning(queryState);
+        assertRunning(pageBuffer);
 
         // finish last source, and verify the query is finished since there are no buffered pages
-        queryState.sourceFinished();
-        assertFinished(queryState);
+        pageBuffer.sourceFinished();
+        assertFinished(pageBuffer);
 
         // attempt to add more pages
-        assertFalse(queryState.addPage(createLongPage(22)));
-        assertFinished(queryState);
+        assertFalse(pageBuffer.addPage(createLongPage(22)));
+        assertFinished(pageBuffer);
 
         // mark source as finished again
-        queryState.sourceFinished();
-        assertFinished(queryState);
+        pageBuffer.sourceFinished();
+        assertFinished(pageBuffer);
 
         // try to fail the query and verify it doesn't work
-        queryState.queryFailed(new RuntimeException());
-        assertFinished(queryState);
+        pageBuffer.queryFailed(new RuntimeException());
+        assertFinished(pageBuffer);
 
         // try to finish the query and verify it doesn't work
-        queryState.finish();
-        assertFinished(queryState);
+        pageBuffer.finish();
+        assertFinished(pageBuffer);
     }
 
     @Test
     public void testBufferSizeNormal()
             throws Exception
     {
-        QueryState queryState = new QueryState(TUPLE_INFOS, 1, 5);
-        assertRunning(queryState);
+        PageBuffer pageBuffer = new PageBuffer(TUPLE_INFOS, 1, 5);
+        assertRunning(pageBuffer);
 
         // exec thread to get two pages
-        GetPagesJob getPagesJob = new GetPagesJob(queryState, 2, 1);
+        GetPagesJob getPagesJob = new GetPagesJob(pageBuffer, 2, 1);
         executor.submit(getPagesJob);
         getPagesJob.waitForStarted();
 
@@ -327,13 +327,13 @@ public class TestQueryState
         getPagesJob.assertBlockedWithCount(0);
 
         // add one page
-        queryState.addPage(createLongPage(0));
+        pageBuffer.addPage(createLongPage(0));
 
         // verify thread got one page and is blocked
         getPagesJob.assertBlockedWithCount(1);
 
         // add one page
-        queryState.addPage(createLongPage(1));
+        pageBuffer.addPage(createLongPage(1));
 
         // verify thread is released
         getPagesJob.waitForFinished();
@@ -343,11 +343,11 @@ public class TestQueryState
 
         // fill the buffer
         for (int i = 0; i < 5; i++) {
-            queryState.addPage(createLongPage(i));
+            pageBuffer.addPage(createLongPage(i));
         }
 
         // exec thread to add two more pages
-        AddPagesJob addPagesJob = new AddPagesJob(queryState, createLongPage(2), createLongPage(3));
+        AddPagesJob addPagesJob = new AddPagesJob(pageBuffer, createLongPage(2), createLongPage(3));
         executor.submit(addPagesJob);
         addPagesJob.waitForStarted();
 
@@ -355,13 +355,13 @@ public class TestQueryState
         addPagesJob.assertBlockedWithCount(2);
 
         // get one page
-        assertEquals(queryState.getNextPages(1, MAX_WAIT).size(), 1);
+        assertEquals(pageBuffer.getNextPages(1, MAX_WAIT).size(), 1);
 
         // "verify" thread is blocked again with one remaining page
         addPagesJob.assertBlockedWithCount(1);
 
         // get one page
-        assertEquals(queryState.getNextPages(1, MAX_WAIT).size(), 1);
+        assertEquals(pageBuffer.getNextPages(1, MAX_WAIT).size(), 1);
 
         // verify thread is released
         addPagesJob.waitForFinished();
@@ -374,13 +374,13 @@ public class TestQueryState
     public void testFinishFreesReader()
             throws Exception
     {
-        QueryState queryState = new QueryState(TUPLE_INFOS, 1, 5);
-        assertRunning(queryState);
+        PageBuffer pageBuffer = new PageBuffer(TUPLE_INFOS, 1, 5);
+        assertRunning(pageBuffer);
 
         ExecutorService executor = Executors.newCachedThreadPool();
 
         // exec thread to get two pages
-        GetPagesJob getPagesJob = new GetPagesJob(queryState, 2, 1);
+        GetPagesJob getPagesJob = new GetPagesJob(pageBuffer, 2, 1);
         executor.submit(getPagesJob);
         getPagesJob.waitForStarted();
 
@@ -388,14 +388,14 @@ public class TestQueryState
         getPagesJob.assertBlockedWithCount(0);
 
         // add one page
-        queryState.addPage(createLongPage(0));
+        pageBuffer.addPage(createLongPage(0));
 
         // verify thread got one page and is blocked
         getPagesJob.assertBlockedWithCount(1);
 
         // finish the query
-        queryState.finish();
-        assertFinished(queryState);
+        pageBuffer.finish();
+        assertFinished(pageBuffer);
 
         // verify thread is released
         getPagesJob.waitForFinished();
@@ -408,18 +408,18 @@ public class TestQueryState
     public void testFinishFreesWriter()
             throws Exception
     {
-        QueryState queryState = new QueryState(TUPLE_INFOS, 1, 5);
-        assertRunning(queryState);
+        PageBuffer pageBuffer = new PageBuffer(TUPLE_INFOS, 1, 5);
+        assertRunning(pageBuffer);
 
         ExecutorService executor = Executors.newCachedThreadPool();
 
         // fill the buffer
         for (int i = 0; i < 5; i++) {
-            queryState.addPage(createLongPage(i));
+            pageBuffer.addPage(createLongPage(i));
         }
 
         // exec thread to add two pages
-        AddPagesJob addPagesJob = new AddPagesJob(queryState, createLongPage(2), createLongPage(3));
+        AddPagesJob addPagesJob = new AddPagesJob(pageBuffer, createLongPage(2), createLongPage(3));
         executor.submit(addPagesJob);
         addPagesJob.waitForStarted();
 
@@ -427,14 +427,14 @@ public class TestQueryState
         addPagesJob.assertBlockedWithCount(2);
 
         // get one page
-        assertEquals(queryState.getNextPages(1, MAX_WAIT).size(), 1);
+        assertEquals(pageBuffer.getNextPages(1, MAX_WAIT).size(), 1);
 
         // "verify" thread is blocked again with one remaining page
         addPagesJob.assertBlockedWithCount(1);
 
         // finish the query
-        queryState.finish();
-        assertFinished(queryState);
+        pageBuffer.finish();
+        assertFinished(pageBuffer);
 
         // verify thread is released
         addPagesJob.waitForFinished();
@@ -444,13 +444,13 @@ public class TestQueryState
     public void testFailFreesReader()
             throws Exception
     {
-        QueryState queryState = new QueryState(TUPLE_INFOS, 1, 5);
-        assertRunning(queryState);
+        PageBuffer pageBuffer = new PageBuffer(TUPLE_INFOS, 1, 5);
+        assertRunning(pageBuffer);
 
         ExecutorService executor = Executors.newCachedThreadPool();
 
         // exec thread to get two pages
-        GetPagesJob getPagesJob = new GetPagesJob(queryState, 2, 1);
+        GetPagesJob getPagesJob = new GetPagesJob(pageBuffer, 2, 1);
         executor.submit(getPagesJob);
         getPagesJob.waitForStarted();
 
@@ -458,15 +458,15 @@ public class TestQueryState
         getPagesJob.assertBlockedWithCount(0);
 
         // add one page
-        queryState.addPage(createLongPage(0));
+        pageBuffer.addPage(createLongPage(0));
 
         // verify thread got one page and is blocked
         getPagesJob.assertBlockedWithCount(1);
 
         // fail the query
         RuntimeException exception = new RuntimeException("failed");
-        queryState.queryFailed(exception);
-        assertFailed(queryState, exception);
+        pageBuffer.queryFailed(exception);
+        assertFailed(pageBuffer, exception);
 
         // verify thread is released
         getPagesJob.waitForFinished();
@@ -480,18 +480,18 @@ public class TestQueryState
     public void testFailFreesWriter()
             throws Exception
     {
-        QueryState queryState = new QueryState(TUPLE_INFOS, 1, 5);
-        assertRunning(queryState);
+        PageBuffer pageBuffer = new PageBuffer(TUPLE_INFOS, 1, 5);
+        assertRunning(pageBuffer);
 
         ExecutorService executor = Executors.newCachedThreadPool();
 
         // fill the buffer
         for (int i = 0; i < 5; i++) {
-            queryState.addPage(createLongPage(i));
+            pageBuffer.addPage(createLongPage(i));
         }
 
         // exec thread to add two page
-        AddPagesJob addPagesJob = new AddPagesJob(queryState, createLongPage(2), createLongPage(3));
+        AddPagesJob addPagesJob = new AddPagesJob(pageBuffer, createLongPage(2), createLongPage(3));
         executor.submit(addPagesJob);
         addPagesJob.waitForStarted();
 
@@ -499,15 +499,15 @@ public class TestQueryState
         addPagesJob.assertBlockedWithCount(2);
 
         // get one page
-        assertEquals(queryState.getNextPages(1, MAX_WAIT).size(), 1);
+        assertEquals(pageBuffer.getNextPages(1, MAX_WAIT).size(), 1);
 
         // "verify" thread is blocked again with one remaining page
         addPagesJob.assertBlockedWithCount(1);
 
         // fail the query
         RuntimeException exception = new RuntimeException("failed");
-        queryState.queryFailed(exception);
-        assertFailed(queryState, exception);
+        pageBuffer.queryFailed(exception);
+        assertFailed(pageBuffer, exception);
 
         // verify thread is released
         addPagesJob.waitForFinished();
@@ -515,7 +515,7 @@ public class TestQueryState
 
     private static class GetPagesJob implements Runnable
     {
-        private final QueryState queryState;
+        private final PageBuffer pageBuffer;
         private final int pagesToGet;
         private final int batchSize;
 
@@ -525,9 +525,9 @@ public class TestQueryState
         private final CountDownLatch started = new CountDownLatch(1);
         private final CountDownLatch finished = new CountDownLatch(1);
 
-        private GetPagesJob(QueryState queryState, int pagesToGet, int batchSize)
+        private GetPagesJob(PageBuffer pageBuffer, int pagesToGet, int batchSize)
         {
-            this.queryState = queryState;
+            this.pageBuffer = pageBuffer;
             this.pagesToGet = pagesToGet;
             this.batchSize = batchSize;
         }
@@ -588,7 +588,7 @@ public class TestQueryState
             try {
                 while (pages.size() < pagesToGet) {
                     try {
-                        List<Page> pages = queryState.getNextPages(batchSize, MAX_WAIT);
+                        List<Page> pages = pageBuffer.getNextPages(batchSize, MAX_WAIT);
                         assertTrue(!pages.isEmpty());
                         this.pages.addAll(pages);
                     }
@@ -610,15 +610,15 @@ public class TestQueryState
 
     private static class AddPagesJob implements Runnable
     {
-        private final QueryState queryState;
+        private final PageBuffer pageBuffer;
         private final ArrayBlockingQueue<Page> pages;
 
         private final CountDownLatch started = new CountDownLatch(1);
         private final CountDownLatch finished = new CountDownLatch(1);
 
-        private AddPagesJob(QueryState queryState, Page... pages)
+        private AddPagesJob(PageBuffer pageBuffer, Page... pages)
         {
-            this.queryState = queryState;
+            this.pageBuffer = pageBuffer;
             this.pages = new ArrayBlockingQueue<>(pages.length);
             Collections.addAll(this.pages, pages);
         }
@@ -674,7 +674,7 @@ public class TestQueryState
             try {
                 for (Page page = pages.peek(); page != null; page = pages.peek()) {
                     try {
-                        queryState.addPage(page);
+                        pageBuffer.addPage(page);
                         assertNotNull(pages.poll());
                     }
                     catch (InterruptedException e) {
@@ -689,36 +689,36 @@ public class TestQueryState
         }
     }
 
-    private void assertRunning(QueryState queryState)
+    private void assertRunning(PageBuffer pageBuffer)
     {
-        assertFalse(queryState.isDone());
-        assertFalse(queryState.isFailed());
+        assertFalse(pageBuffer.isDone());
+        assertFalse(pageBuffer.isFailed());
     }
 
-    private void assertFinished(QueryState queryState)
+    private void assertFinished(PageBuffer pageBuffer)
             throws Exception
     {
-        assertTrue(queryState.isDone());
-        assertFalse(queryState.isFailed());
+        assertTrue(pageBuffer.isDone());
+        assertFalse(pageBuffer.isFailed());
 
         // getNextPages should return an empty list
         for (int loop = 0; loop < 5; loop++) {
-            List<Page> nextPages = queryState.getNextPages(2, MAX_WAIT);
+            List<Page> nextPages = pageBuffer.getNextPages(2, MAX_WAIT);
             assertNotNull(nextPages);
             assertEquals(nextPages.size(), 0);
         }
     }
 
-    private void assertFailed(QueryState queryState, Throwable... expectedCauses)
+    private void assertFailed(PageBuffer pageBuffer, Throwable... expectedCauses)
             throws Exception
     {
-        assertTrue(queryState.isDone());
-        assertTrue(queryState.isFailed());
+        assertTrue(pageBuffer.isDone());
+        assertTrue(pageBuffer.isFailed());
 
         // getNextPages should throw an exception
         for (int loop = 0; loop < 5; loop++) {
             try {
-                queryState.getNextPages(2, MAX_WAIT);
+                pageBuffer.getNextPages(2, MAX_WAIT);
                 fail("expected FailedQueryException");
             }
             catch (FailedQueryException e) {
