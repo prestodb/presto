@@ -29,8 +29,8 @@ import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 
-public class SimpleQueryTaskManager
-        implements QueryTaskManager
+public class SimpleTaskManager
+        implements TaskManager
 {
     private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_VARBINARY);
     private final HttpServerInfo httpServerInfo;
@@ -41,12 +41,12 @@ public class SimpleQueryTaskManager
     private final ConcurrentMap<String, TaskOutput> tasks = new ConcurrentHashMap<>();
 
     @Inject
-    public SimpleQueryTaskManager(HttpServerInfo httpServerInfo)
+    public SimpleTaskManager(HttpServerInfo httpServerInfo)
     {
         this(httpServerInfo, 20, 12);
     }
 
-    public SimpleQueryTaskManager(HttpServerInfo httpServerInfo, int pageBufferMax, int initialPages)
+    public SimpleTaskManager(HttpServerInfo httpServerInfo, int pageBufferMax, int initialPages)
     {
         Preconditions.checkNotNull(httpServerInfo, "httpServerInfo is null");
         Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
@@ -58,17 +58,17 @@ public class SimpleQueryTaskManager
     }
 
     @Override
-    public List<QueryTaskInfo> getAllQueryTaskInfo()
+    public List<TaskInfo> getAllTaskInfo()
     {
-        ImmutableList.Builder<QueryTaskInfo> builder = ImmutableList.builder();
-        for (TaskOutput queryTask : tasks.values()) {
-            builder.add(queryTask.getQueryTaskInfo());
+        ImmutableList.Builder<TaskInfo> builder = ImmutableList.builder();
+        for (TaskOutput task : tasks.values()) {
+            builder.add(task.getTaskInfo());
         }
         return builder.build();
     }
 
     @Override
-    public QueryTaskInfo getQueryTaskInfo(String taskId)
+    public TaskInfo getTaskInfo(String taskId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 
@@ -76,11 +76,11 @@ public class SimpleQueryTaskManager
         if (queryState == null) {
             throw new NoSuchElementException();
         }
-        return queryState.getQueryTaskInfo();
+        return queryState.getTaskInfo();
     }
 
     @Override
-    public QueryTaskInfo createQueryTask(PlanFragment fragment,
+    public TaskInfo createTask(PlanFragment fragment,
             List<PlanFragmentSource> splits,
             Map<String, ExchangePlanFragmentSource> exchangeSources, List<String> outputIds)
     {
@@ -103,11 +103,11 @@ public class SimpleQueryTaskManager
         }
         taskOutput.finish();
 
-        return taskOutput.getQueryTaskInfo();
+        return taskOutput.getTaskInfo();
     }
 
     @Override
-    public List<Page> getQueryTaskResults(String taskId, String outputId, int maxPageCount, Duration maxWaitTime)
+    public List<Page> getTaskResults(String taskId, String outputId, int maxPageCount, Duration maxWaitTime)
             throws InterruptedException
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
@@ -121,7 +121,7 @@ public class SimpleQueryTaskManager
     }
 
     @Override
-    public void abortQueryTaskResults(String taskId, String outputId)
+    public void abortTaskResults(String taskId, String outputId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(outputId, "outputId is null");
@@ -134,7 +134,7 @@ public class SimpleQueryTaskManager
     }
 
     @Override
-    public void cancelQueryTask(String taskId)
+    public void cancelTask(String taskId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 

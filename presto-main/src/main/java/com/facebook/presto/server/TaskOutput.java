@@ -182,10 +182,10 @@ public class TaskOutput
         outputBuffer.finish();
     }
 
-    public QueryTaskInfo getQueryTaskInfo()
+    public TaskInfo getTaskInfo()
     {
         updateState();
-        return new QueryTaskInfo(taskId,
+        return new TaskInfo(taskId,
                 location,
                 getOutputBufferStates(),
                 getTupleInfos(),

@@ -51,8 +51,8 @@ import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 
-public class SqlQueryTaskManager
-        implements QueryTaskManager
+public class SqlTaskManager
+        implements TaskManager
 {
     private final int pageBufferMax;
 
@@ -65,7 +65,7 @@ public class SqlQueryTaskManager
     private final ConcurrentMap<String, TaskOutput> tasks = new ConcurrentHashMap<>();
 
     @Inject
-    public SqlQueryTaskManager(
+    public SqlTaskManager(
             Metadata metadata,
             PlanFragmentSourceProvider sourceProvider,
             HttpServerInfo httpServerInfo)
@@ -94,15 +94,15 @@ public class SqlQueryTaskManager
     }
 
     @Override
-    public List<QueryTaskInfo> getAllQueryTaskInfo()
+    public List<TaskInfo> getAllTaskInfo()
     {
-        return ImmutableList.copyOf(filter(transform(tasks.values(), new Function<TaskOutput, QueryTaskInfo>()
+        return ImmutableList.copyOf(filter(transform(tasks.values(), new Function<TaskOutput, TaskInfo>()
         {
             @Override
-            public QueryTaskInfo apply(TaskOutput taskOutput)
+            public TaskInfo apply(TaskOutput taskOutput)
             {
                 try {
-                    return taskOutput.getQueryTaskInfo();
+                    return taskOutput.getTaskInfo();
                 }
                 catch (Exception ignored) {
                     return null;
@@ -112,7 +112,7 @@ public class SqlQueryTaskManager
     }
 
     @Override
-    public QueryTaskInfo getQueryTaskInfo(String taskId)
+    public TaskInfo getTaskInfo(String taskId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 
@@ -120,11 +120,11 @@ public class SqlQueryTaskManager
         if (taskOutput == null) {
             throw new NoSuchElementException("Unknown query task " + taskId);
         }
-        return taskOutput.getQueryTaskInfo();
+        return taskOutput.getTaskInfo();
     }
 
     @Override
-    public QueryTaskInfo createQueryTask(PlanFragment fragment,
+    public TaskInfo createTask(PlanFragment fragment,
             List<PlanFragmentSource> splits,
             Map<String, ExchangePlanFragmentSource> exchangeSources,
             List<String> outputIds)
@@ -153,15 +153,15 @@ public class SqlQueryTaskManager
 
         TaskOutput taskOutput = new TaskOutput(taskId, location, outputIds, tupleInfos, pageBufferMax, splits.size());
 
-        SqlQueryTask queryTask = new SqlQueryTask(taskId, fragment, taskOutput, splits, exchangeSources, sourceProvider, metadata, shardExecutor);
-        taskExecutor.submit(queryTask);
+        SqlTask task = new SqlTask(taskId, fragment, taskOutput, splits, exchangeSources, sourceProvider, metadata, shardExecutor);
+        taskExecutor.submit(task);
 
         tasks.put(taskId, taskOutput);
-        return taskOutput.getQueryTaskInfo();
+        return taskOutput.getTaskInfo();
     }
 
     @Override
-    public List<Page> getQueryTaskResults(String taskId, String outputName, int maxPageCount, Duration maxWaitTime)
+    public List<Page> getTaskResults(String taskId, String outputName, int maxPageCount, Duration maxWaitTime)
             throws InterruptedException
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
@@ -175,7 +175,7 @@ public class SqlQueryTaskManager
     }
 
     @Override
-    public void abortQueryTaskResults(String taskId, String outputId)
+    public void abortTaskResults(String taskId, String outputId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(outputId, "outputId is null");
@@ -188,7 +188,7 @@ public class SqlQueryTaskManager
     }
 
     @Override
-    public void cancelQueryTask(String taskId)
+    public void cancelTask(String taskId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 
@@ -198,7 +198,7 @@ public class SqlQueryTaskManager
         }
     }
 
-    private static class SqlQueryTask
+    private static class SqlTask
             implements Runnable
     {
         private final String taskId;
@@ -210,7 +210,7 @@ public class SqlQueryTaskManager
         private final PlanFragment fragment;
         private final Metadata metadata;
 
-        private SqlQueryTask(String taskId,
+        private SqlTask(String taskId,
                 PlanFragment fragment,
                 TaskOutput taskOutput,
                 List<PlanFragmentSource> splits,

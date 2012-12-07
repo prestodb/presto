@@ -24,15 +24,15 @@ import static com.google.common.collect.Iterables.transform;
 @ThreadSafe
 public class SimpleQueryManager implements QueryManager
 {
-    private final SimpleQueryTaskManager simpleQueryTaskManager;
+    private final SimpleTaskManager simpleTaskManager;
     private final AtomicInteger nextQueryId = new AtomicInteger();
     private final ConcurrentMap<String, SimpleQuery> queries = new ConcurrentHashMap<>();
 
     @Inject
-    public SimpleQueryManager(SimpleQueryTaskManager simpleQueryTaskManager)
+    public SimpleQueryManager(SimpleTaskManager simpleTaskManager)
     {
-        Preconditions.checkNotNull(simpleQueryTaskManager, "simpleQueryTaskManager is null");
-        this.simpleQueryTaskManager = simpleQueryTaskManager;
+        Preconditions.checkNotNull(simpleTaskManager, "simpleTaskManager is null");
+        this.simpleTaskManager = simpleTaskManager;
     }
 
     @Override
@@ -72,13 +72,13 @@ public class SimpleQueryManager implements QueryManager
 
         String queryId = String.valueOf(nextQueryId.getAndIncrement());
 
-        QueryTaskInfo outputTask = simpleQueryTaskManager.createQueryTask(null,
+        TaskInfo outputTask = simpleTaskManager.createTask(null,
                 ImmutableList.<PlanFragmentSource>of(),
                 ImmutableMap.<String, ExchangePlanFragmentSource>of(),
                 ImmutableList.<String>of("out")
         );
 
-        SimpleQuery simpleQuery = new SimpleQuery(queryId, outputTask.getTaskId(), simpleQueryTaskManager);
+        SimpleQuery simpleQuery = new SimpleQuery(queryId, outputTask.getTaskId(), simpleTaskManager);
         queries.put(queryId, simpleQuery);
         return simpleQuery.getQueryInfo();
     }
@@ -93,25 +93,25 @@ public class SimpleQueryManager implements QueryManager
     {
         private final String queryId;
         private final String outputTaskId;
-        private final SimpleQueryTaskManager simpleQueryTaskManager;
+        private final SimpleTaskManager simpleTaskManager;
 
-        private SimpleQuery(String queryId, String outputTaskId, SimpleQueryTaskManager simpleQueryTaskManager)
+        private SimpleQuery(String queryId, String outputTaskId, SimpleTaskManager simpleTaskManager)
         {
             this.queryId = queryId;
             this.outputTaskId = outputTaskId;
-            this.simpleQueryTaskManager = simpleQueryTaskManager;
+            this.simpleTaskManager = simpleTaskManager;
         }
 
         private QueryInfo getQueryInfo()
         {
-            QueryTaskInfo outputTask = simpleQueryTaskManager.getQueryTaskInfo(outputTaskId);
+            TaskInfo outputTask = simpleTaskManager.getTaskInfo(outputTaskId);
 
             return new QueryInfo(queryId,
                     outputTask.getTupleInfos(),
                     ImmutableList.of("out"),
                     outputTask.getState(),
                     "out",
-                    ImmutableMap.<String, List<QueryTaskInfo>>of("out", ImmutableList.of(outputTask)));
+                    ImmutableMap.<String, List<TaskInfo>>of("out", ImmutableList.of(outputTask)));
         }
     }
 }

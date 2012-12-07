@@ -77,10 +77,10 @@ public class TestQueryResourceServer
                     public void configure(Binder binder)
                     {
                         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
-                        binder.bind(QueryTaskResource.class).in(Scopes.SINGLETON);
+                        binder.bind(TaskResource.class).in(Scopes.SINGLETON);
                         binder.bind(QueryManager.class).to(SimpleQueryManager.class).in(Scopes.SINGLETON);
-                        binder.bind(SimpleQueryTaskManager.class).in(Scopes.SINGLETON);
-                        binder.bind(QueryTaskManager.class).to(Key.get(SimpleQueryTaskManager.class)).in(Scopes.SINGLETON);
+                        binder.bind(SimpleTaskManager.class).in(Scopes.SINGLETON);
+                        binder.bind(TaskManager.class).to(Key.get(SimpleTaskManager.class)).in(Scopes.SINGLETON);
                         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
                     }
                 },
@@ -108,8 +108,8 @@ public class TestQueryResourceServer
         assertQueryStatus(location, State.RUNNING);
 
         QueryInfo queryInfo = client.execute(prepareGet().setUri(location).build(), createJsonResponseHandler(jsonCodec(QueryInfo.class)));
-        QueryTaskInfo outQueryTask = queryInfo.getStages().get("out").get(0);
-        URI outputLocation = uriFor("/v1/presto/task/" + outQueryTask.getTaskId() + "/results/out");
+        TaskInfo taskInfo = queryInfo.getStages().get("out").get(0);
+        URI outputLocation = uriFor("/v1/presto/task/" + taskInfo.getTaskId() + "/results/out");
 
         assertEquals(loadData(outputLocation), 220);
         assertQueryStatus(location, State.RUNNING);

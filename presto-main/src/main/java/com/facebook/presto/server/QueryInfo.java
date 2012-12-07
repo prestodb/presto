@@ -26,7 +26,7 @@ public class QueryInfo
     private final List<String> fieldNames;
     private final PageBuffer.State state;
     private final String outputStage;
-    private final Map<String, List<QueryTaskInfo>> stages;
+    private final Map<String, List<TaskInfo>> stages;
 
     @JsonCreator
     public QueryInfo(@JsonProperty("queryId") String queryId,
@@ -34,7 +34,7 @@ public class QueryInfo
             @JsonProperty("fieldNames") List<String> fieldNames,
             @JsonProperty("state") State state,
             @JsonProperty("outputStage") String outputStage,
-            @JsonProperty("stages") Map<String, List<QueryTaskInfo>> stages)
+            @JsonProperty("stages") Map<String, List<TaskInfo>> stages)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
@@ -78,7 +78,7 @@ public class QueryInfo
     }
 
     @JsonProperty
-    public Map<String, List<QueryTaskInfo>> getStages()
+    public Map<String, List<TaskInfo>> getStages()
     {
         return stages;
     }

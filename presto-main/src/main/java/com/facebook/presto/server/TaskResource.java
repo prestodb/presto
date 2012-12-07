@@ -34,24 +34,24 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  * Manages tasks on this worker node
  */
 @Path("/v1/presto/task")
-public class QueryTaskResource
+public class TaskResource
 {
     private static final int DEFAULT_MAX_PAGE_COUNT = 10;
     private static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(1, SECONDS);
 
-    private final QueryTaskManager queryTaskManager;
+    private final TaskManager taskManager;
 
     @Inject
-    public QueryTaskResource(QueryTaskManager queryTaskManager)
+    public TaskResource(TaskManager taskManager)
     {
-        this.queryTaskManager = checkNotNull(queryTaskManager, "queryTaskManager is null");
+        this.taskManager = checkNotNull(taskManager, "taskManager is null");
     }
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public List<QueryTaskInfo> getAllQueryTaskInfo()
+    public List<TaskInfo> getAllTaskInfo()
     {
-        return queryTaskManager.getAllQueryTaskInfo();
+        return taskManager.getAllTaskInfo();
     }
 
     @POST
@@ -62,13 +62,13 @@ public class QueryTaskResource
         try {
             checkNotNull(queryFragmentRequest, "queryFragmentRequest is null");
 
-            QueryTaskInfo queryTaskInfo = queryTaskManager.createQueryTask(queryFragmentRequest.getFragment(),
+            TaskInfo taskInfo = taskManager.createTask(queryFragmentRequest.getFragment(),
                     queryFragmentRequest.getSplits(),
                     queryFragmentRequest.getExchangeSources(),
                     queryFragmentRequest.getOutputIds());
 
-            URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryTaskInfo.getTaskId()).build();
-            return Response.created(pagesUri).entity(queryTaskInfo).build();
+            URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(taskInfo.getTaskId()).build();
+            return Response.created(pagesUri).entity(taskInfo).build();
         }
         catch (Exception e) {
             throw Throwables.propagate(e);
@@ -78,13 +78,13 @@ public class QueryTaskResource
     @GET
     @Path("{taskId}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getQueryTaskInfo(@PathParam("taskId") String taskId)
+    public Response getTaskInfo(@PathParam("taskId") String taskId)
     {
         checkNotNull(taskId, "taskId is null");
 
         try {
-            QueryTaskInfo queryTaskInfo = queryTaskManager.getQueryTaskInfo(taskId);
-            return Response.ok(queryTaskInfo).build();
+            TaskInfo taskInfo = taskManager.getTaskInfo(taskId);
+            return Response.ok(taskInfo).build();
         }
         catch (NoSuchElementException e) {
             return Response.status(Status.GONE).build();
@@ -93,11 +93,11 @@ public class QueryTaskResource
 
     @DELETE
     @Path("{taskId}")
-    public void cancelQueryTask(@PathParam("taskId") String taskId)
+    public void cancelTask(@PathParam("taskId") String taskId)
     {
         checkNotNull(taskId, "taskId is null");
 
-        queryTaskManager.cancelQueryTask(taskId);
+        taskManager.cancelTask(taskId);
     }
 
     @GET
@@ -110,10 +110,10 @@ public class QueryTaskResource
         checkNotNull(outputId, "outputId is null");
 
         try {
-            List<Page> pages = queryTaskManager.getQueryTaskResults(taskId, outputId, DEFAULT_MAX_PAGE_COUNT, DEFAULT_MAX_WAIT_TIME);
+            List<Page> pages = taskManager.getTaskResults(taskId, outputId, DEFAULT_MAX_PAGE_COUNT, DEFAULT_MAX_WAIT_TIME);
             if (pages.isEmpty()) {
                 // this is a safe race condition, because is done will only be true if the task is failed or if all results have been consumed
-                if (queryTaskManager.getQueryTaskInfo(taskId).getState().isDone()) {
+                if (taskManager.getTaskInfo(taskId).getState().isDone()) {
                     return Response.status(Status.GONE).build();
                 }
                 else {
@@ -137,7 +137,7 @@ public class QueryTaskResource
         checkNotNull(outputId, "outputId is null");
 
         try {
-            queryTaskManager.abortQueryTaskResults(taskId, outputId);
+            taskManager.abortTaskResults(taskId, outputId);
             return Response.noContent().build();
         }
         catch (NoSuchElementException e) {

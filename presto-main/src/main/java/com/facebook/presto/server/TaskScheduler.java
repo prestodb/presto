@@ -42,14 +42,14 @@ public class TaskScheduler
     private final ExecutorService executor;
     private final HttpClient httpClient;
     private final JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec;
-    private final JsonCodec<QueryTaskInfo> queryTaskInfoCodec;
+    private final JsonCodec<TaskInfo> taskInfoCodec;
 
     @Inject
-    public TaskScheduler(@ForScheduler HttpClient httpClient, JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec, JsonCodec<QueryTaskInfo> queryTaskInfoCodec)
+    public TaskScheduler(@ForScheduler HttpClient httpClient, JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec, JsonCodec<TaskInfo> taskInfoCodec)
     {
         this.executor = Executors.newCachedThreadPool(); // todo remove this... pool is never really used
         this.queryFragmentRequestCodec = checkNotNull(queryFragmentRequestCodec, "queryFragmentRequestCodec is null");
-        this.queryTaskInfoCodec = checkNotNull(queryTaskInfoCodec, "queryTaskInfoCodec is null");
+        this.taskInfoCodec = checkNotNull(taskInfoCodec, "taskInfoCodec is null");
         this.httpClient = checkNotNull(httpClient, "httpClient is null");
 
     }
@@ -85,7 +85,7 @@ public class TaskScheduler
                         .setBodyGenerator(jsonBodyGenerator(queryFragmentRequestCodec, queryFragmentRequest))
                         .build();
 
-                JsonResponse<QueryTaskInfo> response = httpClient.execute(request, createFullJsonResponseHandler(jsonCodec(QueryTaskInfo.class)));
+                JsonResponse<TaskInfo> response = httpClient.execute(request, createFullJsonResponseHandler(jsonCodec(TaskInfo.class)));
                 checkState(response.getStatusCode() == 201,
                         "Expected response code from %s to be 201, but was %d: %s",
                         request.getUri(),
@@ -94,16 +94,16 @@ public class TaskScheduler
                 String location = response.getHeader("Location");
                 checkState(location != null);
 
-                QueryTaskInfo queryTaskInfo = response.getValue();
+                TaskInfo taskInfo = response.getValue();
 
                 // todo we don't need a QueryDriverProvider
-                return new HttpTaskClient(queryTaskInfo.getTaskId(),
+                return new HttpTaskClient(taskInfo.getTaskId(),
                         URI.create(location),
                         "unused",
-                        queryTaskInfo.getTupleInfos(),
+                        taskInfo.getTupleInfos(),
                         httpClient,
                         executor,
-                        queryTaskInfoCodec);
+                        taskInfoCodec);
             }
         }));
 
@@ -119,15 +119,15 @@ public class TaskScheduler
         ImmutableMap.Builder<String, ExchangePlanFragmentSource> exchangeSources = ImmutableMap.builder();
         for (Stage dependency : stage.getDependencies()) {
             // get locations for the dependent stage
-            List<HttpTaskClient> queryTasks = stages.get(dependency.getStageId());
+            List<HttpTaskClient> tasks = stages.get(dependency.getStageId());
             ImmutableMap.Builder<String, URI> sources = ImmutableMap.builder();
-            for (HttpTaskClient provider : queryTasks) {
+            for (HttpTaskClient provider : tasks) {
                 sources.put(provider.getTaskId(), provider.getLocation());
             }
 
             ExchangePlanFragmentSource exchangeSource = new ExchangePlanFragmentSource(sources.build(),
                     node.getNodeIdentifier(),
-                    queryTasks.get(0).getTupleInfos());
+                    tasks.get(0).getTupleInfos());
             exchangeSources.put(dependency.getStageId(), exchangeSource);
         }
         return exchangeSources.build();
@@ -143,8 +143,8 @@ public class TaskScheduler
                 @Override
                 public boolean apply(HttpTaskClient taskClient)
                 {
-                    QueryTaskInfo queryInfo = taskClient.getQueryTaskInfo();
-                    return queryInfo != null && queryInfo.getState() == State.PREPARING;
+                    TaskInfo taskInfo = taskClient.getTaskInfo();
+                    return taskInfo != null && taskInfo.getState() == State.PREPARING;
                 }
             }));
             if (taskClients.isEmpty()) {

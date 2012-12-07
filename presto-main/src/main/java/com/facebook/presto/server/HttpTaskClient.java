@@ -33,7 +33,7 @@ public class HttpTaskClient
     private final ExecutorService executor;
     private final URI location;
     private final List<TupleInfo> tupleInfos;
-    private final JsonCodec<QueryTaskInfo> queryTaskInfoCodec;
+    private final JsonCodec<TaskInfo> taskInfoCodec;
     private final String outputId;
 
     public HttpTaskClient(String taskId,
@@ -41,14 +41,14 @@ public class HttpTaskClient
             String outputId,
             List<TupleInfo> tupleInfos, HttpClient httpClient,
             ExecutorService executor,
-            JsonCodec<QueryTaskInfo> queryTaskInfoCodec)
+            JsonCodec<TaskInfo> taskInfoCodec)
     {
         this.taskId = taskId;
         this.httpClient = httpClient;
         this.executor = executor;
         this.location = location;
         this.tupleInfos = tupleInfos;
-        this.queryTaskInfoCodec = queryTaskInfoCodec;
+        this.taskInfoCodec = taskInfoCodec;
         this.outputId = outputId;
     }
 
@@ -62,10 +62,10 @@ public class HttpTaskClient
         return location;
     }
 
-    public QueryTaskInfo getQueryTaskInfo()
+    public TaskInfo getTaskInfo()
     {
         URI statusUri = uriBuilderFrom(location).build();
-        JsonResponse<QueryTaskInfo> response = httpClient.execute(prepareGet().setUri(statusUri).build(), createFullJsonResponseHandler(queryTaskInfoCodec));
+        JsonResponse<TaskInfo> response = httpClient.execute(prepareGet().setUri(statusUri).build(), createFullJsonResponseHandler(taskInfoCodec));
 
         if (response.getStatusCode() == Status.GONE.getStatusCode()) {
             // query has failed, been deleted, or something, and is no longer being tracked by the server
@@ -77,8 +77,8 @@ public class HttpTaskClient
                 response.getStatusCode(),
                 response.getStatusMessage());
 
-        QueryTaskInfo queryTaskInfo = response.getValue();
-        return queryTaskInfo;
+        TaskInfo taskInfo = response.getValue();
+        return taskInfo;
     }
 
     @Override
