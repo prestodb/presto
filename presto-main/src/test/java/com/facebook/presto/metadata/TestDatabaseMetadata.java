@@ -55,6 +55,14 @@ public class TestDatabaseMetadata
         assertEquals(((NativeColumnHandle) columnHandle).getColumnId(), 1);
     }
 
+    @Test
+    public void testListTables()
+    {
+        metadata.createTable(getOrdersTable());
+        List<QualifiedTableName> tables = metadata.listTables("default");
+        assertEquals(tables, ImmutableList.of(new QualifiedTableName("default", "default", "orders")));
+    }
+
     private static TableMetadata getOrdersTable()
     {
         return new TableMetadata("default", "default", "ORDERS", ImmutableList.of(
