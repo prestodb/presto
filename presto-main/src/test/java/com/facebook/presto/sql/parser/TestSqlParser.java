@@ -27,6 +27,8 @@ public class TestSqlParser
                 "left join zoo on (a.x = zoo.y) " +
                 "cross join (d natural inner join e)");
 
+        printStatement("select * from information_schema.tables");
+
         printStatement("show tables");
         printStatement("show tables from information_schema");
 

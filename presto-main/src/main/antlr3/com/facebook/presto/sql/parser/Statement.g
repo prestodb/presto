@@ -51,7 +51,6 @@ tokens {
     FUNCTION_CALL;
     NEGATIVE;
     QNAME;
-    SHOW_TABLES;
     CREATE_TABLE;
     TABLE_ELEMENT_LIST;
     COLUMN_DEF;
@@ -355,7 +354,7 @@ function
     ;
 
 showTablesStmt
-    : SHOW TABLES ((FROM | IN) qname)? -> ^(SHOW_TABLES qname?)
+    : SHOW_TABLES ((FROM | IN) qname)? -> ^(SHOW_TABLES qname?)
     ;
 
 createTableStmt
@@ -497,8 +496,6 @@ FULL: 'FULL';
 NATURAL: 'NATURAL';
 USING: 'USING';
 ON: 'ON';
-SHOW: 'SHOW';
-TABLES: 'TABLES';
 CREATE: 'CREATE';
 TABLE: 'TABLE';
 CHAR: 'CHAR';
@@ -512,6 +509,7 @@ DEC: 'DEC';
 INTEGER: 'INTEGER';
 INT: 'INT';
 CONSTRAINT: 'CONSTRAINT';
+SHOW_TABLES: 'SHOW' WS 'TABLES';
 
 EQ  : '=';
 NEQ : '<>' | '!=';
