@@ -3,6 +3,8 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.PageIterators;

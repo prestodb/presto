@@ -4,6 +4,10 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.execution.ExchangePlanFragmentSource;
+import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.server.QueryDriversOperator.QueryDriversIterator;
 import com.facebook.presto.sql.analyzer.Symbol;

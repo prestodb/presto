@@ -3,6 +3,10 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.ExchangePlanFragmentSource;
+import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.execution.TaskOutput;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;

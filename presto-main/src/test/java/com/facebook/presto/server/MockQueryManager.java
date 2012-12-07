@@ -3,6 +3,11 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.ExchangePlanFragmentSource;
+import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;

@@ -3,8 +3,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.server.ExchangePlanFragmentSource;
-import com.facebook.presto.server.TableScanPlanFragmentSource;
+import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import org.codehaus.jackson.annotate.JsonSubTypes;
 import org.codehaus.jackson.annotate.JsonTypeInfo;
 

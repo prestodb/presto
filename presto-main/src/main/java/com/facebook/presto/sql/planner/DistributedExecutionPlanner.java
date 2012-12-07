@@ -2,7 +2,6 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
-import com.facebook.presto.server.TableScanPlanFragmentSource;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitAssignments;
 import com.facebook.presto.split.SplitManager;

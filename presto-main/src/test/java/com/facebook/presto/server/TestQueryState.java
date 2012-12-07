@@ -4,6 +4,8 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.execution.FailedQueryException;
+import com.facebook.presto.execution.PageBuffer;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Throwables;

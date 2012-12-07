@@ -1,7 +1,7 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.execution;
 
 import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.tuple.TupleInfo;
