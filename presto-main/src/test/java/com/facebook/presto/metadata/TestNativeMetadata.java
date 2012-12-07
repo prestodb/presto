@@ -16,7 +16,7 @@ import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
-public class TestDatabaseMetadata
+public class TestNativeMetadata
 {
     private Handle dummyHandle;
     private Metadata metadata;
