@@ -69,9 +69,9 @@ public class ServerMainModule
         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(StaticQueryManager.class).in(Scopes.SINGLETON);
 
-        binder.bind(QueryTaskResource.class).in(Scopes.SINGLETON);
-        binder.bind(QueryTaskManager.class).to(SqlQueryTaskManager.class).in(Scopes.SINGLETON);
-        jsonCodecBinder(binder).bindJsonCodec(QueryTaskInfo.class);
+        binder.bind(TaskResource.class).in(Scopes.SINGLETON);
+        binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
+        jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         binder.bind(TaskScheduler.class).in(Scopes.SINGLETON);
 
         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);

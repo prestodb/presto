@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 @Immutable
-public class QueryTaskInfo
+public class TaskInfo
 {
     private final String taskId;
     private final URI self;
@@ -38,7 +38,7 @@ public class QueryTaskInfo
     private final long outputPositionCount;
 
     @JsonCreator
-    public QueryTaskInfo(@JsonProperty("taskId") String taskId,
+    public TaskInfo(@JsonProperty("taskId") String taskId,
             @JsonProperty("self") URI self,
             @JsonProperty("outputBufferStates") Map<String, State> outputBufferStates,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
@@ -183,14 +183,14 @@ public class QueryTaskInfo
     }
 
 
-    public static Function<QueryTaskInfo, State> stateGetter()
+    public static Function<TaskInfo, State> stateGetter()
     {
-        return new Function<QueryTaskInfo, State>()
+        return new Function<TaskInfo, State>()
         {
             @Override
-            public State apply(QueryTaskInfo queryState)
+            public State apply(TaskInfo taskInfo)
             {
-                return queryState.getState();
+                return taskInfo.getState();
             }
         };
     }

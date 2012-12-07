@@ -5,7 +5,7 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OutputProcessor;
 import com.facebook.presto.server.HttpQueryClient;
 import com.facebook.presto.server.QueryInfo;
-import com.facebook.presto.server.QueryTaskInfo;
+import com.facebook.presto.server.TaskInfo;
 import io.airlift.command.Command;
 import io.airlift.command.Option;
 import io.airlift.http.client.ApacheHttpClient;
@@ -47,7 +47,7 @@ public class Execute
                     httpClient,
                     executor,
                     jsonCodec(QueryInfo.class),
-                    jsonCodec(QueryTaskInfo.class));
+                    jsonCodec(TaskInfo.class));
 
             StatusPrinter statusPrinter = new StatusPrinter(queryClient);
             statusPrinter.printInitialStatusUpdates(System.err);

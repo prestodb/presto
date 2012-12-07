@@ -55,7 +55,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.server.PageBuffer.State.inDoneState;
-import static com.facebook.presto.server.QueryTaskInfo.stateGetter;
+import static com.facebook.presto.server.TaskInfo.stateGetter;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Predicates.equalTo;
@@ -277,14 +277,14 @@ public class StaticQueryManager
         @Override
         public QueryInfo getQueryInfo()
         {
-            ImmutableMap.Builder<String, List<QueryTaskInfo>> map = ImmutableMap.builder();
+            ImmutableMap.Builder<String, List<TaskInfo>> map = ImmutableMap.builder();
             for (Entry<String, List<HttpTaskClient>> stage : stages.entrySet()) {
-                map.put(String.valueOf(stage.getKey()), ImmutableList.copyOf(Iterables.transform(stage.getValue(), new Function<HttpTaskClient, QueryTaskInfo>()
+                map.put(String.valueOf(stage.getKey()), ImmutableList.copyOf(Iterables.transform(stage.getValue(), new Function<HttpTaskClient, TaskInfo>()
                 {
                     @Override
-                    public QueryTaskInfo apply(HttpTaskClient taskClient)
+                    public TaskInfo apply(HttpTaskClient taskClient)
                     {
-                        QueryTaskInfo taskInfo = taskClient.getQueryTaskInfo();
+                        TaskInfo taskInfo = taskClient.getTaskInfo();
                         if (taskInfo == null) {
                             // task was not found, so we mark the master as failed
                             RuntimeException exception = new RuntimeException(String.format("Query %s task %s has been deleted", queryId, taskClient.getTaskId()));
@@ -295,7 +295,7 @@ public class StaticQueryManager
                     }
                 })));
             }
-            ImmutableMap<String, List<QueryTaskInfo>> stages = map.build();
+            ImmutableMap<String, List<TaskInfo>> stages = map.build();
 
             State overallState = queryState.get();
             if (!stages.isEmpty()) {
@@ -306,7 +306,7 @@ public class StaticQueryManager
 
                 if (overallState == State.RUNNING) {
                     // if all output tasks are finished, the query is finished
-                    List<QueryTaskInfo> outputTasks = stages.get(outputStage.getStageId());
+                    List<TaskInfo> outputTasks = stages.get(outputStage.getStageId());
                     if (outputTasks != null && !outputTasks.isEmpty() && all(transform(outputTasks, stateGetter()), inDoneState())) {
                         overallState = State.FINISHED;
                         queryState.set(overallState);
@@ -384,7 +384,7 @@ public class StaticQueryManager
         @Override
         public QueryInfo getQueryInfo()
         {
-            return new QueryInfo(queryId, TUPLE_INFOS, FIELD_NAMES, State.FINISHED, null, ImmutableMap.<String, List<QueryTaskInfo>>of());
+            return new QueryInfo(queryId, TUPLE_INFOS, FIELD_NAMES, State.FINISHED, null, ImmutableMap.<String, List<TaskInfo>>of());
         }
 
         @Override

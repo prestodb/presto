@@ -39,7 +39,7 @@ public class HttpQueryClient
     private final ExecutorService executor;
     private final URI queryLocation;
     private final JsonCodec<QueryInfo> queryInfoCodec;
-    private final JsonCodec<QueryTaskInfo> queryTaskInfoCodec;
+    private final JsonCodec<TaskInfo> taskInfoCodec;
     private final List<TupleInfo> tupleInfos;
 
     public HttpQueryClient(String query,
@@ -47,19 +47,19 @@ public class HttpQueryClient
             HttpClient httpClient,
             ExecutorService executor,
             JsonCodec<QueryInfo> queryInfoCodec,
-            JsonCodec<QueryTaskInfo> queryTaskInfoCodec)
+            JsonCodec<TaskInfo> taskInfoCodec)
     {
         checkNotNull(query, "query is null");
         checkNotNull(coordinatorLocation, "coordinatorLocation is null");
         checkNotNull(httpClient, "httpClient is null");
         checkNotNull(executor, "executor is null");
         checkNotNull(queryInfoCodec, "queryInfoCodec is null");
-        checkNotNull(queryTaskInfoCodec, "queryTaskInfoCodec is null");
+        checkNotNull(taskInfoCodec, "taskInfoCodec is null");
 
         this.httpClient = httpClient;
         this.executor = executor;
         this.queryInfoCodec = queryInfoCodec;
-        this.queryTaskInfoCodec = queryTaskInfoCodec;
+        this.taskInfoCodec = taskInfoCodec;
 
         Request.Builder requestBuilder = preparePost()
                 .setUri(coordinatorLocation)
@@ -125,11 +125,11 @@ public class HttpQueryClient
             };
         }
 
-        List<QueryTaskInfo> outputStage = queryInfo.getStages().get(queryInfo.getOutputStage());
-        return new QueryDriversOperator(10, Iterables.transform(outputStage, new Function<QueryTaskInfo, QueryDriverProvider>()
+        List<TaskInfo> outputStage = queryInfo.getStages().get(queryInfo.getOutputStage());
+        return new QueryDriversOperator(10, Iterables.transform(outputStage, new Function<TaskInfo, QueryDriverProvider>()
         {
             @Override
-            public QueryDriverProvider apply(QueryTaskInfo taskInfo)
+            public QueryDriverProvider apply(TaskInfo taskInfo)
             {
                 Preconditions.checkState(taskInfo.getOutputBufferStates().size() == 1,
                         "Expected a single output buffer for task %s, but found %s",
@@ -143,7 +143,7 @@ public class HttpQueryClient
                         taskInfo.getTupleInfos(),
                         httpClient,
                         executor,
-                        queryTaskInfoCodec);
+                        taskInfoCodec);
             }
         }));
     }
