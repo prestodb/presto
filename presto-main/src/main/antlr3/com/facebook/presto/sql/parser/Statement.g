@@ -261,6 +261,7 @@ exprPrimary
     | function
     | specialFunction
     | number
+    | bool
     | STRING
     | dateValue
     | intervalValue
@@ -424,6 +425,11 @@ number
     | INTEGER_VALUE
     ;
 
+bool
+    : TRUE
+    | FALSE
+    ;
+
 integer
     : INTEGER_VALUE
     ;
@@ -448,6 +454,8 @@ BETWEEN: 'BETWEEN';
 LIKE: 'LIKE';
 IS: 'IS';
 NULL: 'NULL';
+TRUE: 'TRUE';
+FALSE: 'FALSE';
 NULLS: 'NULLS';
 FIRST: 'FIRST';
 LAST: 'LAST';

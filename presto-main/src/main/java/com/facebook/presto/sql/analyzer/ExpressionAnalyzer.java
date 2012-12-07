@@ -5,6 +5,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
+import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -228,6 +229,12 @@ public class ExpressionAnalyzer
         protected Type visitDoubleLiteral(DoubleLiteral node, Void context)
         {
             return Type.DOUBLE;
+        }
+
+        @Override
+        protected Type visitBooleanLiteral(BooleanLiteral node, Void context)
+        {
+            return Type.BOOLEAN;
         }
 
         @Override
