@@ -22,17 +22,18 @@ import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 
 @ThreadSafe
-public class SimpleQueryManager implements QueryManager
+public class MockQueryManager
+        implements QueryManager
 {
-    private final SimpleTaskManager simpleTaskManager;
+    private final MockTaskManager mockTaskManager;
     private final AtomicInteger nextQueryId = new AtomicInteger();
     private final ConcurrentMap<String, SimpleQuery> queries = new ConcurrentHashMap<>();
 
     @Inject
-    public SimpleQueryManager(SimpleTaskManager simpleTaskManager)
+    public MockQueryManager(MockTaskManager mockTaskManager)
     {
-        Preconditions.checkNotNull(simpleTaskManager, "simpleTaskManager is null");
-        this.simpleTaskManager = simpleTaskManager;
+        Preconditions.checkNotNull(mockTaskManager, "simpleTaskManager is null");
+        this.mockTaskManager = mockTaskManager;
     }
 
     @Override
@@ -72,13 +73,13 @@ public class SimpleQueryManager implements QueryManager
 
         String queryId = String.valueOf(nextQueryId.getAndIncrement());
 
-        TaskInfo outputTask = simpleTaskManager.createTask(null,
+        TaskInfo outputTask = mockTaskManager.createTask(null,
                 ImmutableList.<PlanFragmentSource>of(),
                 ImmutableMap.<String, ExchangePlanFragmentSource>of(),
                 ImmutableList.<String>of("out")
         );
 
-        SimpleQuery simpleQuery = new SimpleQuery(queryId, outputTask.getTaskId(), simpleTaskManager);
+        SimpleQuery simpleQuery = new SimpleQuery(queryId, outputTask.getTaskId(), mockTaskManager);
         queries.put(queryId, simpleQuery);
         return simpleQuery.getQueryInfo();
     }
@@ -93,18 +94,18 @@ public class SimpleQueryManager implements QueryManager
     {
         private final String queryId;
         private final String outputTaskId;
-        private final SimpleTaskManager simpleTaskManager;
+        private final MockTaskManager mockTaskManager;
 
-        private SimpleQuery(String queryId, String outputTaskId, SimpleTaskManager simpleTaskManager)
+        private SimpleQuery(String queryId, String outputTaskId, MockTaskManager mockTaskManager)
         {
             this.queryId = queryId;
             this.outputTaskId = outputTaskId;
-            this.simpleTaskManager = simpleTaskManager;
+            this.mockTaskManager = mockTaskManager;
         }
 
         private QueryInfo getQueryInfo()
         {
-            TaskInfo outputTask = simpleTaskManager.getTaskInfo(outputTaskId);
+            TaskInfo outputTask = mockTaskManager.getTaskInfo(outputTaskId);
 
             QueryState state;
             switch (outputTask.getState()) {
