@@ -501,6 +501,15 @@ public class TestQueries
         assertEqualsIgnoreOrder(actual, expected);
     }
 
+    @Test
+    public void testGroupByWithoutAggregation()
+            throws Exception
+    {
+        List<Tuple> expected = computeExpected("SELECT orderstatus FROM orders GROUP BY orderstatus", VARIABLE_BINARY);
+        List<Tuple> actual = computeActual("SELECT orderstatus FROM orders GROUP BY orderstatus");
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
 
     @Test
     public void testHistogram()
@@ -518,6 +527,21 @@ public class TestQueries
     {
         List<Tuple> actual = computeActual("SELECT COUNT(*) FROM lineitem join orders using (orderkey)");
         List<Tuple> expected = computeExpected("SELECT COUNT(*) FROM lineitem join orders on lineitem.orderkey = orders.orderkey", FIXED_INT_64);
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test(enabled = false)
+    public void testJoinAggregations()
+            throws Exception
+    {
+        List<Tuple> actual = computeActual("SELECT x + y FROM (" +
+                "   SELECT orderdate, COUNT(*) x FROM orders GROUP BY orderdate) a JOIN (" +
+                "   SELECT orderdate, COUNT(*) y FROM orders GROUP BY orderdate) b USING (orderdate)");
+
+        List<Tuple> expected = computeExpected("SELECT x + y FROM (" +
+                "   SELECT orderdate, COUNT(*) x FROM orders GROUP BY orderdate) a JOIN (" +
+                "   SELECT orderdate, COUNT(*) y FROM orders GROUP BY orderdate) b ON a.orderdate = b.orderdate", FIXED_INT_64);
 
         assertEqualsIgnoreOrder(actual, expected);
     }
