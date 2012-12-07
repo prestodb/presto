@@ -106,10 +106,29 @@ public class SimpleQueryManager implements QueryManager
         {
             TaskInfo outputTask = simpleTaskManager.getTaskInfo(outputTaskId);
 
+            QueryState state;
+            switch (outputTask.getState()) {
+                case PLANNED:
+                case QUEUED:
+                case RUNNING:
+                    state = QueryState.RUNNING;
+                    break;
+                case FINISHED:
+                    state = QueryState.FINISHED;
+                    break;
+                case CANCELED:
+                    state = QueryState.CANCELED;
+                    break;
+                case FAILED:
+                    state = QueryState.FAILED;
+                    break;
+                default:
+                    throw new IllegalStateException("Unknown task state " + outputTask.getState());
+            }
             return new QueryInfo(queryId,
                     outputTask.getTupleInfos(),
                     ImmutableList.of("out"),
-                    outputTask.getState(),
+                    state,
                     "out",
                     ImmutableMap.<String, List<TaskInfo>>of("out", ImmutableList.of(outputTask)));
         }

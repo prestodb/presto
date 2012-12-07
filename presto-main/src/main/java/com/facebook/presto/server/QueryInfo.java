@@ -3,7 +3,6 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.server.PageBuffer.State;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -24,7 +23,7 @@ public class QueryInfo
     private final String queryId;
     private final List<TupleInfo> tupleInfos;
     private final List<String> fieldNames;
-    private final PageBuffer.State state;
+    private final QueryState state;
     private final String outputStage;
     private final Map<String, List<TaskInfo>> stages;
 
@@ -32,7 +31,7 @@ public class QueryInfo
     public QueryInfo(@JsonProperty("queryId") String queryId,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
             @JsonProperty("fieldNames") List<String> fieldNames,
-            @JsonProperty("state") State state,
+            @JsonProperty("state") QueryState state,
             @JsonProperty("outputStage") String outputStage,
             @JsonProperty("stages") Map<String, List<TaskInfo>> stages)
     {
@@ -66,7 +65,7 @@ public class QueryInfo
     }
 
     @JsonProperty
-    public State getState()
+    public QueryState getState()
     {
         return state;
     }

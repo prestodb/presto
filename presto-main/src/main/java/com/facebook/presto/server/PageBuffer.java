@@ -29,7 +29,7 @@ public class PageBuffer
 {
     private static final Logger log = Logger.get(PageBuffer.class);
 
-    public static enum State
+    public static enum BufferState
     {
         PREPARING(false),
         RUNNING(false),
@@ -39,7 +39,7 @@ public class PageBuffer
 
         private final boolean doneState;
 
-        private State(boolean doneState)
+        private BufferState(boolean doneState)
         {
             this.doneState = doneState;
         }
@@ -48,14 +48,14 @@ public class PageBuffer
             return doneState;
         }
 
-        public static Predicate<State> inDoneState()
+        public static Predicate<BufferState> inDoneState()
         {
-            return new Predicate<State>()
+            return new Predicate<BufferState>()
             {
                 @Override
-                public boolean apply(State state)
+                public boolean apply(BufferState bufferState)
                 {
-                    return state.isDone();
+                    return bufferState.isDone();
                 }
             };
         }
@@ -67,7 +67,7 @@ public class PageBuffer
     private final ArrayDeque<Page> pageBuffer;
 
     @GuardedBy("pageBuffer")
-    private State state = State.PREPARING;
+    private BufferState bufferState = BufferState.PREPARING;
 
     @GuardedBy("pageBuffer")
     private final List<Throwable> causes = new ArrayList<>();
@@ -96,24 +96,24 @@ public class PageBuffer
         return tupleInfos;
     }
 
-    public State getState()
+    public BufferState getState()
     {
         synchronized (pageBuffer) {
-            return state;
+            return bufferState;
         }
     }
 
     public boolean isDone()
     {
         synchronized (pageBuffer) {
-            return state.isDone();
+            return bufferState.isDone();
         }
     }
 
     public boolean isFailed()
     {
         synchronized (pageBuffer) {
-            return state == State.FAILED;
+            return bufferState == BufferState.FAILED;
         }
     }
 
@@ -134,7 +134,7 @@ public class PageBuffer
                 return;
             }
 
-            state = State.FINISHED;
+            bufferState = BufferState.FINISHED;
             sourceCount = 0;
             pageBuffer.clear();
             // free up threads quickly
@@ -155,7 +155,7 @@ public class PageBuffer
             sourceCount--;
             if (sourceCount == 0) {
                 if (pageBuffer.isEmpty()) {
-                    state = State.FINISHED;
+                    bufferState = BufferState.FINISHED;
                 }
                 // free up threads quickly
                 notEmpty.release();
@@ -176,7 +176,7 @@ public class PageBuffer
                 causes.add(cause);
                 return;
             }
-            state = State.FAILED;
+            bufferState = BufferState.FAILED;
             causes.add(cause);
             sourceCount = 0;
             pageBuffer.clear();
@@ -202,14 +202,14 @@ public class PageBuffer
 
         synchronized (pageBuffer) {
             // don't throw an exception if the query was canceled or failed as the caller may not be aware of this
-            if (state.isDone()) {
+            if (bufferState.isDone()) {
                 // release an additional thread blocked in the code above
                 // all blocked threads will be release due to the chain reaction
                 notFull.release();
                 return false;
             }
 
-            state = State.RUNNING;
+            bufferState = BufferState.RUNNING;
             pageBuffer.addLast(page);
             notEmpty.release();
         }
@@ -240,7 +240,7 @@ public class PageBuffer
         }
 
         synchronized (pageBuffer) {
-            if (state == State.FAILED) {
+            if (bufferState == BufferState.FAILED) {
                 // release an additional thread blocked in the code above
                 // all blocked threads will be release due to the chain reaction
                 notEmpty.release();
@@ -251,7 +251,7 @@ public class PageBuffer
             }
 
             // verify state
-            if (state.isDone()) {
+            if (bufferState.isDone()) {
                 // release an additional thread blocked in the code above
                 // all blocked threads will be release due to the chain reaction
                 notEmpty.release();
@@ -285,19 +285,19 @@ public class PageBuffer
             // check for end condition
             List<Page> pages = nextPages.build();
             if (sourceCount == 0 && pageBuffer.isEmpty()) {
-                state = State.FINISHED;
+                bufferState = BufferState.FINISHED;
             }
 
             return pages;
         }
     }
 
-    public static Function<PageBuffer, State> stateGetter()
+    public static Function<PageBuffer, BufferState> stateGetter()
     {
-        return new Function<PageBuffer, State>()
+        return new Function<PageBuffer, BufferState>()
         {
             @Override
-            public State apply(PageBuffer pageBuffer)
+            public BufferState apply(PageBuffer pageBuffer)
             {
                 return pageBuffer.getState();
             }
@@ -308,7 +308,7 @@ public class PageBuffer
     public String toString()
     {
         return Objects.toStringHelper(this)
-                .add("state", state)
+                .add("state", bufferState)
                 .add("pageBuffer", pageBuffer.size())
                 .add("sourceCount", sourceCount)
                 .add("causes", causes)

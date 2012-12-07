@@ -4,7 +4,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.server.PageBuffer.State;
+import com.facebook.presto.server.PageBuffer.BufferState;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -33,7 +33,7 @@ public class TaskOutput
     private final List<TupleInfo> tupleInfos;
     private final Map<String, PageBuffer> outputBuffers;
 
-    private final AtomicReference<State> taskState = new AtomicReference<>(State.PREPARING);
+    private final AtomicReference<TaskState> taskState = new AtomicReference<>(TaskState.RUNNING);
 
     private final int splits;
     private final AtomicInteger startedSplits = new AtomicInteger();
@@ -78,29 +78,29 @@ public class TaskOutput
         return tupleInfos;
     }
 
-    public State getState()
+    public TaskState getState()
     {
         return taskState.get();
     }
 
-    public Map<String, State> getOutputBufferStates()
+    public Map<String, BufferState> getOutputBufferStates()
     {
         return ImmutableMap.copyOf(transformValues(outputBuffers, stateGetter()));
     }
 
     private void updateState()
     {
-        State overallState = taskState.get();
+        TaskState overallState = taskState.get();
         if (!overallState.isDone()) {
-            Map<String, State> outputBufferStates = getOutputBufferStates();
+            Map<String, BufferState> outputBufferStates = getOutputBufferStates();
 
-            if (Iterables.any(outputBufferStates.values(), equalTo(State.FAILED))) {
-                taskState.set(State.FAILED);
+            if (Iterables.any(outputBufferStates.values(), equalTo(BufferState.FAILED))) {
+                taskState.set(TaskState.FAILED);
                 // this shouldn't be necessary, but be safe
                 finishAllBuffers();
             }
-            else if (Iterables.all(outputBufferStates.values(), equalTo(State.FINISHED))) {
-                taskState.set(State.FINISHED);
+            else if (Iterables.all(outputBufferStates.values(), equalTo(BufferState.FINISHED))) {
+                taskState.set(TaskState.FINISHED);
             }
         }
     }
@@ -135,7 +135,7 @@ public class TaskOutput
 
     public void queryFailed(Throwable cause)
     {
-        taskState.set(State.FAILED);
+        taskState.set(TaskState.FAILED);
         for (PageBuffer outputBuffer : outputBuffers.values()) {
             outputBuffer.queryFailed(cause);
         }
@@ -153,13 +153,10 @@ public class TaskOutput
     public boolean addPage(Page page)
             throws InterruptedException
     {
-        // transition from preparing to running when first page is produced
-        taskState.compareAndSet(State.PREPARING, State.RUNNING);
-
         for (PageBuffer outputBuffer : outputBuffers.values()) {
             if (!outputBuffer.addPage(page)) {
                 updateState();
-                State state = getState();
+                TaskState state = getState();
                 Preconditions.checkState(state.isDone(), "Expected a done state but state is %s", state);
                 return false;
             }
