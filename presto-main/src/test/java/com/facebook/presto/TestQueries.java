@@ -419,6 +419,13 @@ public class TestQueries
         assertQueryOrdered("SELECT orderstatus FROM orders ORDER BY orderstatus");
     }
 
+    @Test
+    public void testOrderBy2()
+            throws Exception
+    {
+        assertQueryOrdered("SELECT orderstatus FROM orders ORDER BY orderkey DESC");
+    }
+
 
     @BeforeSuite
     public void setupDatabase()
