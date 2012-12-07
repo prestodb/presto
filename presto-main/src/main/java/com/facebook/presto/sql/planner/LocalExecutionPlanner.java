@@ -218,10 +218,10 @@ public class LocalExecutionPlanner
         Preconditions.checkArgument(node.getOrderBy().size() == 1, "Order by multiple fields not yet supported");
 
         Symbol orderBySymbol = Iterables.getOnlyElement(node.getOrderBy());
-        int[] sortChannels = new int[] { symbolToChannelMappings.get(orderBySymbol) };
+        int[] sortFields = new int[] { 0 };
         boolean[] sortOrder = new boolean[] { node.getOrderings().get(orderBySymbol) == SortItem.Ordering.ASCENDING};
 
-        return new NewInMemoryOrderByOperator(plan(source), symbolToChannelMappings.get(orderBySymbol), outputChannels, 1_000_000, sortChannels, sortOrder);
+        return new NewInMemoryOrderByOperator(plan(source), symbolToChannelMappings.get(orderBySymbol), outputChannels, 1_000_000, sortFields, sortOrder);
     }
 
     private Operator createLimitNode(LimitNode node)
