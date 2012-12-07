@@ -61,7 +61,7 @@ import static com.facebook.presto.sql.analyzer.AnalyzedAggregation.argumentGette
 import static com.facebook.presto.sql.analyzer.AnalyzedOrdering.expressionGetter;
 import static com.google.common.collect.Iterables.concat;
 
-public class Planner
+public class LogicalPlanner
 {
     private final static List<PlanOptimizer> OPTIMIZATIONS = ImmutableList.of(
             new PruneUnreferencedOutputs(),
