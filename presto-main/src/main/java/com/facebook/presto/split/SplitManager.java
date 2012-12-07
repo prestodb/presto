@@ -1,6 +1,7 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.ingest.SerializedPartitionChunk;
+import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ImportTableHandle;
 import com.facebook.presto.metadata.InternalTableHandle;
 import com.facebook.presto.metadata.NativeTableHandle;
@@ -10,6 +11,8 @@ import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
+import com.facebook.presto.sql.analyzer.Symbol;
+import com.facebook.presto.sql.tree.Expression;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
@@ -43,7 +46,7 @@ public class SplitManager
         this.importClientFactory = checkNotNull(importClientFactory, "importClientFactory is null");
     }
 
-    public Iterable<SplitAssignments> getSplitAssignments(TableHandle handle)
+    public Iterable<SplitAssignments> getSplitAssignments(TableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
     {
         switch (handle.getDataSourceType()) {
             case NATIVE:

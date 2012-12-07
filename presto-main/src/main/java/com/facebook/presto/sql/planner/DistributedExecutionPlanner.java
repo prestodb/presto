@@ -17,6 +17,9 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -53,7 +56,7 @@ public class DistributedExecutionPlanner
         List<Partition> partitions;
         if (currentFragment.isPartitioned()) {
             // partitioned plan is based on an underlying table scan or distributed aggregation
-            partitions = currentFragment.getRoot().accept(new Visitor(), null);
+            partitions = currentFragment.getRoot().accept(new Visitor(), BooleanLiteral.TRUE_LITERAL);
         }
         else {
             // create a single partition on a random node for this fragment
@@ -75,13 +78,13 @@ public class DistributedExecutionPlanner
     }
 
     private final class Visitor
-        extends PlanVisitor<Void, List<Partition>>
+        extends PlanVisitor<Expression, List<Partition>>
     {
         @Override
-        public List<Partition> visitTableScan(TableScanNode node, Void context)
+        public List<Partition> visitTableScan(TableScanNode node, Expression inheritedPredicate)
         {
             // get splits for table
-            Iterable<SplitAssignments> splitAssignments = splitManager.getSplitAssignments(node.getTable());
+            Iterable<SplitAssignments> splitAssignments = splitManager.getSplitAssignments(node.getTable(), inheritedPredicate, node.getAssignments());
 
             // divide splits amongst the nodes
             Multimap<Node, Split> nodeSplits = SplitAssignments.randomNodeAssignment(random, splitAssignments);
@@ -103,10 +106,10 @@ public class DistributedExecutionPlanner
         }
 
         @Override
-        public List<Partition> visitJoin(JoinNode node, Void context)
+        public List<Partition> visitJoin(JoinNode node, Expression inheritedPredicate)
         {
-            List<Partition> leftPartitions = node.getLeft().accept(this, context);
-            List<Partition> rightPartitions = node.getRight().accept(this, context);
+            List<Partition> leftPartitions = node.getLeft().accept(this, BooleanLiteral.TRUE_LITERAL);
+            List<Partition> rightPartitions = node.getRight().accept(this, BooleanLiteral.TRUE_LITERAL);
             if (!leftPartitions.isEmpty() && !rightPartitions.isEmpty()) {
                 throw new IllegalArgumentException("Both left and right join nodes are partitioned"); // TODO: "partitioned" may not be the right term
             }
@@ -119,56 +122,61 @@ public class DistributedExecutionPlanner
         }
 
         @Override
-        public List<Partition> visitExchange(ExchangeNode node, Void context)
+        public List<Partition> visitExchange(ExchangeNode node, Expression inheritedPredicate)
         {
             // exchange node is unpartitioned
             return ImmutableList.of();
         }
 
         @Override
-        public List<Partition> visitAggregation(AggregationNode node, Void context)
+        public List<Partition> visitFilter(FilterNode node, Expression inheritedPredicate)
         {
-            return node.getSource().accept(this, context);
+            Expression predicate = node.getPredicate();
+            if (!inheritedPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
+                predicate = new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND, predicate, inheritedPredicate);
+            }
+
+            return node.getSource().accept(this, predicate);
         }
 
         @Override
-        public List<Partition> visitFilter(FilterNode node, Void context)
+        public List<Partition> visitAggregation(AggregationNode node, Expression inheritedPredicate)
         {
-            return node.getSource().accept(this, context);
+            return node.getSource().accept(this, BooleanLiteral.TRUE_LITERAL);
         }
 
         @Override
-        public List<Partition> visitProject(ProjectNode node, Void context)
+        public List<Partition> visitProject(ProjectNode node, Expression inheritedPredicate)
         {
-            return node.getSource().accept(this, context);
+            return node.getSource().accept(this, inheritedPredicate);
         }
 
         @Override
-        public List<Partition> visitTopN(TopNNode node, Void context)
+        public List<Partition> visitTopN(TopNNode node, Expression inheritedPredicate)
         {
-            return node.getSource().accept(this, context);
+            return node.getSource().accept(this, inheritedPredicate);
         }
 
         @Override
-        public List<Partition> visitOutput(OutputNode node, Void context)
+        public List<Partition> visitOutput(OutputNode node, Expression inheritedPredicate)
         {
-            return node.getSource().accept(this, context);
+            return node.getSource().accept(this, inheritedPredicate);
         }
 
         @Override
-        public List<Partition> visitLimit(LimitNode node, Void context)
+        public List<Partition> visitLimit(LimitNode node, Expression inheritedPredicate)
         {
-            return node.getSource().accept(this, context);
+            return node.getSource().accept(this, inheritedPredicate);
         }
 
         @Override
-        public List<Partition> visitSort(SortNode node, Void context)
+        public List<Partition> visitSort(SortNode node, Expression inheritedPredicate)
         {
-            return node.getSource().accept(this, context);
+            return node.getSource().accept(this, inheritedPredicate);
         }
 
         @Override
-        protected List<Partition> visitPlan(PlanNode node, Void context)
+        protected List<Partition> visitPlan(PlanNode node, Expression inheritedPredicate)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
