@@ -45,15 +45,22 @@ public class TestingMetadata
     @Override
     public List<QualifiedTableName> listTables(String catalogName)
     {
-        Iterable<TableMetadata> values = Maps.filterKeys(tables, catalogPredicate(catalogName)).values();
+        Iterable<TableMetadata> values = Maps.filterKeys(tables, catalogMatches(catalogName)).values();
         return ImmutableList.copyOf(Iterables.transform(values, toQualifiedTableName()));
     }
 
     @Override
     public List<QualifiedTableName> listTables(String catalogName, String schemaName)
     {
-        Iterable<TableMetadata> values = Maps.filterKeys(tables, schemaPredicate(catalogName, schemaName)).values();
+        Iterable<TableMetadata> values = Maps.filterKeys(tables, schemaMatches(catalogName, schemaName)).values();
         return ImmutableList.copyOf(Iterables.transform(values, toQualifiedTableName()));
+    }
+
+    @Override
+    public List<TableColumn> listTableColumns(String catalogName)
+    {
+        Iterable<TableMetadata> values = Maps.filterKeys(tables, catalogMatches(catalogName)).values();
+        return ImmutableList.copyOf(Iterables.concat(Iterables.transform(values, toTableColumns())));
     }
 
     @Override
@@ -65,7 +72,7 @@ public class TestingMetadata
         tables.put(key, table);
     }
 
-    private static Predicate<List<String>> catalogPredicate(final String catalogName)
+    private static Predicate<List<String>> catalogMatches(final String catalogName)
     {
         checkCatalogName(catalogName);
         return new Predicate<List<String>>()
@@ -78,7 +85,7 @@ public class TestingMetadata
         };
     }
 
-    private static Predicate<List<String>> schemaPredicate(final String catalogName, final String schemaName)
+    private static Predicate<List<String>> schemaMatches(final String catalogName, final String schemaName)
     {
         checkSchemaName(catalogName, schemaName);
         return new Predicate<List<String>>()
@@ -109,6 +116,26 @@ public class TestingMetadata
             public QualifiedTableName apply(TableMetadata input)
             {
                 return new QualifiedTableName(input.getCatalogName(), input.getSchemaName(), input.getTableName());
+            }
+        };
+    }
+
+    private static Function<TableMetadata, List<TableColumn>> toTableColumns()
+    {
+        return new Function<TableMetadata, List<TableColumn>>()
+        {
+            @Override
+            public List<TableColumn> apply(TableMetadata input)
+            {
+                ImmutableList.Builder<TableColumn> columns = ImmutableList.builder();
+                int position = 1;
+                for (ColumnMetadata column : input.getColumns()) {
+                    columns.add(new TableColumn(
+                            input.getCatalogName(), input.getSchemaName(), input.getTableName(),
+                            column.getName(), position, column.getType()));
+                    position++;
+                }
+                return columns.build();
             }
         };
     }

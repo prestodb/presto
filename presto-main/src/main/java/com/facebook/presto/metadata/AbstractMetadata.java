@@ -36,6 +36,12 @@ public abstract class AbstractMetadata
     }
 
     @Override
+    public List<TableColumn> listTableColumns(String catalogName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void createTable(TableMetadata table)
     {
         throw new UnsupportedOperationException();

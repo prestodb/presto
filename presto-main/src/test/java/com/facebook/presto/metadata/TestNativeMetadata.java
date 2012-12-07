@@ -1,6 +1,5 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -12,6 +11,9 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.List;
 
+import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
+import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -63,13 +65,26 @@ public class TestNativeMetadata
         assertEquals(tables, ImmutableList.of(new QualifiedTableName("default", "default", "orders")));
     }
 
+    @Test
+    public void testListTableColumns()
+    {
+        metadata.createTable(getOrdersTable());
+        List<TableColumn> columns = metadata.listTableColumns("default");
+        assertEquals(columns, ImmutableList.<TableColumn>builder()
+                .add(new TableColumn("default", "default", "orders", "orderkey", 1, FIXED_INT_64))
+                .add(new TableColumn("default", "default", "orders", "custkey", 2, FIXED_INT_64))
+                .add(new TableColumn("default", "default", "orders", "totalprice", 3, DOUBLE))
+                .add(new TableColumn("default", "default", "orders", "orderdate", 4, VARIABLE_BINARY))
+                .build());
+    }
+
     private static TableMetadata getOrdersTable()
     {
         return new TableMetadata("default", "default", "ORDERS", ImmutableList.of(
-                new ColumnMetadata("orderkey", TupleInfo.Type.FIXED_INT_64),
-                new ColumnMetadata("custkey", TupleInfo.Type.FIXED_INT_64),
-                new ColumnMetadata("totalprice", TupleInfo.Type.DOUBLE),
-                new ColumnMetadata("orderdate", TupleInfo.Type.VARIABLE_BINARY)));
+                new ColumnMetadata("orderkey", FIXED_INT_64),
+                new ColumnMetadata("custkey", FIXED_INT_64),
+                new ColumnMetadata("totalprice", DOUBLE),
+                new ColumnMetadata("orderdate", VARIABLE_BINARY)));
     }
 
     private static void assertTableEqual(TableMetadata actual, TableMetadata expected)
