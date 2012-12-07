@@ -13,7 +13,9 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.google.common.base.Function;
@@ -52,7 +54,7 @@ public class DistributedExecutionPlanner
         List<Partition> partitions;
         if (currentFragment.isPartitioned()) {
             // partitioned plan is based on an underlying table scan or distributed aggregation
-            partitions = getPartitions(currentFragment.getRoot());
+            partitions = currentFragment.getRoot().accept(new Visitor(), null);
         }
         else {
             // create a single partition on a random node for this fragment
@@ -73,14 +75,14 @@ public class DistributedExecutionPlanner
         return new Stage(currentFragment, partitions, dependencies.build());
     }
 
-
-    private List<Partition> getPartitions(PlanNode plan)
+    private final class Visitor
+        extends PlanVisitor<Void, List<Partition>>
     {
-        if (plan instanceof TableScanNode) {
-            final TableScanNode tableScan = (TableScanNode) plan;
-
+        @Override
+        public List<Partition> visitTableScan(TableScanNode node, Void context)
+        {
             // get splits for table
-            Iterable<SplitAssignments> splitAssignments = splitManager.getSplitAssignments(tableScan.getTable());
+            Iterable<SplitAssignments> splitAssignments = splitManager.getSplitAssignments(node.getTable());
 
             // divide splits amongst the nodes
             Multimap<Node, Split> nodeSplits = SplitAssignments.randomNodeAssignment(random, splitAssignments);
@@ -100,14 +102,12 @@ public class DistributedExecutionPlanner
             }
             return partitions.build();
         }
-        else if (plan instanceof ExchangeNode) {
-            // exchange node is not partitioned
-            return ImmutableList.of();
-        }
-        else if (plan instanceof JoinNode) {
-            JoinNode joinNode = (JoinNode) plan;
-            List<Partition> leftPartitions = getPartitions(joinNode.getLeft());
-            List<Partition> rightPartitions = getPartitions(joinNode.getRight());
+
+        @Override
+        public List<Partition> visitJoin(JoinNode node, Void context)
+        {
+            List<Partition> leftPartitions = node.getLeft().accept(this, context);
+            List<Partition> rightPartitions = node.getRight().accept(this, context);
             if (!leftPartitions.isEmpty() && !rightPartitions.isEmpty()) {
                 throw new IllegalArgumentException("Both left and right join nodes are partitioned"); // TODO: "partitioned" may not be the right term
             }
@@ -118,26 +118,60 @@ public class DistributedExecutionPlanner
                 return rightPartitions;
             }
         }
-        else if (plan instanceof ProjectNode) {
-            return getPartitions(((ProjectNode) plan).getSource());
+
+        @Override
+        public List<Partition> visitExchange(ExchangeNode node, Void context)
+        {
+            // exchange node is unpartitioned
+            return ImmutableList.of();
         }
-        else if (plan instanceof FilterNode) {
-            return getPartitions(((FilterNode) plan).getSource());
+
+        @Override
+        public List<Partition> visitAggregation(AggregationNode node, Void context)
+        {
+            return node.getSource().accept(this, context);
         }
-        else if (plan instanceof OutputNode) {
-            return getPartitions(((OutputNode) plan).getSource());
+
+        @Override
+        public List<Partition> visitFilter(FilterNode node, Void context)
+        {
+            return node.getSource().accept(this, context);
         }
-        else if (plan instanceof AggregationNode) {
-            return getPartitions(((AggregationNode) plan).getSource());
+
+        @Override
+        public List<Partition> visitProject(ProjectNode node, Void context)
+        {
+            return node.getSource().accept(this, context);
         }
-        else if (plan instanceof LimitNode) {
-            return getPartitions(((LimitNode) plan).getSource());
+
+        @Override
+        public List<Partition> visitTopN(TopNNode node, Void context)
+        {
+            return node.getSource().accept(this, context);
         }
-        else if (plan instanceof TopNNode) {
-            return getPartitions(((TopNNode) plan).getSource());
+
+        @Override
+        public List<Partition> visitOutput(OutputNode node, Void context)
+        {
+            return node.getSource().accept(this, context);
         }
-        else {
-            throw new UnsupportedOperationException("not yet implemented: " + plan.getClass().getName());
+
+        @Override
+        public List<Partition> visitLimit(LimitNode node, Void context)
+        {
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public List<Partition> visitSort(SortNode node, Void context)
+        {
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        protected List<Partition> visitPlan(PlanNode node, Void context)
+        {
+            throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
     }
 }
