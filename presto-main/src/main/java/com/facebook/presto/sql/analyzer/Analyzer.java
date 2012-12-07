@@ -242,11 +242,6 @@ public class Analyzer
             Set<AnalyzedAggregation> aggregateTerms = aggregateTermsBuilder.build();
 
             if (!groupBy.isEmpty()) {
-                if (aggregateTerms.isEmpty()) {
-                    // TODO: add support for "SELECT a FROM T GROUP BY a" -- effectively the same as "SELECT DISTINCT a FROM T"
-                    throw new SemanticException(groupBy.get(0), "GROUP BY without aggregations currently not supported");
-                }
-
                 Iterable<Expression> notInGroupBy = Iterables.filter(scalarTerms, not(in(groupBy)));
                 if (!Iterables.isEmpty(notInGroupBy)) {
                     throw new SemanticException(select, "Expressions must appear in GROUP BY clause or be used in an aggregate function: %s", Iterables.transform(notInGroupBy, ExpressionFormatter.expressionFormatterFunction()));
