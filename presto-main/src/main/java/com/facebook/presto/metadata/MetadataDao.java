@@ -63,6 +63,15 @@ public interface MetadataDao
             @Bind("catalogName") String catalogName,
             @Bind("schemaName") String schemaName);
 
+    @SqlQuery("SELECT t.catalog_name, t.schema_name, t.table_name,\n" +
+            "  c.column_name, c.ordinal_position, c.data_type\n" +
+            "FROM tables t\n" +
+            "JOIN columns c ON (t.table_id = c.table_id)\n" +
+            "WHERE catalog_name = :catalogName\n" +
+            "ORDER BY schema_name, table_name, ordinal_position")
+    @Mapper(TableColumnMapper.class)
+    List<TableColumn> listTableColumns(@Bind("catalogName") String catalogName);
+
     @SqlQuery("SELECT COUNT(*) > 0 FROM tables\n" +
             "WHERE catalog_name = :catalogName\n" +
             "  AND schema_name = :schemaName\n" +
