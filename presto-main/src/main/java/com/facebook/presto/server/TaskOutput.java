@@ -164,7 +164,7 @@ public class TaskOutput
         return true;
     }
 
-    public List<Page> getNextPages(String outputId, int maxPageCount, Duration maxWait)
+    public List<Page> getResults(String outputId, int maxPageCount, Duration maxWait)
             throws InterruptedException
     {
         PageBuffer outputBuffer = outputBuffers.get(outputId);
