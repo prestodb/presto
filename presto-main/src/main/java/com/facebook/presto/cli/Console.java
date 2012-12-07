@@ -68,8 +68,6 @@ public class Console
             return false;
         }
 
-        line = "sql:" + line;
-
         Execute query = new Execute();
         query.server = server;
         query.query = line;
