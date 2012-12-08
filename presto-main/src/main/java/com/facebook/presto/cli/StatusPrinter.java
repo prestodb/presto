@@ -31,6 +31,8 @@ public class StatusPrinter
         try {
             while (true) {
                 try {
+                    Uninterruptibles.sleepUninterruptibly(50, TimeUnit.MILLISECONDS);
+
                     QueryInfo queryInfo = queryClient.getQueryInfo();
                     if (queryInfo == null) {
                         return;
@@ -51,7 +53,7 @@ public class StatusPrinter
                     }
                     out.print("\r" + toInfoString(queryInfo, start));
                     out.flush();
-                    Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
+                    Uninterruptibles.sleepUninterruptibly(50, TimeUnit.MILLISECONDS);
                 }
                 catch (Exception ignored) {
                 }
