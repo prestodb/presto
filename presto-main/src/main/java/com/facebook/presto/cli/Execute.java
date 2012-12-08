@@ -1,23 +1,26 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.Main;
+import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OutputProcessor;
 import com.facebook.presto.server.HttpQueryClient;
-import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.execution.TaskInfo;
+import com.google.common.base.Charsets;
 import io.airlift.command.Command;
 import io.airlift.command.Option;
 import io.airlift.http.client.ApacheHttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.units.Duration;
 
+import java.io.OutputStreamWriter;
 import java.net.URI;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.operator.OutputProcessor.OutputHandler;
 import static com.facebook.presto.operator.OutputProcessor.OutputStats;
 import static io.airlift.json.JsonCodec.jsonCodec;
 
@@ -55,9 +58,9 @@ public class Execute
             Operator operator = queryClient.getResultsOperator();
             List<String> fieldNames = queryClient.getQueryInfo().getFieldNames();
 
-            OutputProcessor processor = new OutputProcessor(operator, new AlignedTuplePrinter(fieldNames));
-            OutputStats stats = processor.process();
+            OutputStats stats = pageOutput(operator, fieldNames);
 
+            // print final info after the user exits from the pager
             System.out.println(statusPrinter.getFinalInfo(stats));
         }
         finally {
@@ -65,6 +68,16 @@ public class Execute
                 queryClient.destroy();
             }
             executor.shutdownNow();
+        }
+    }
+
+    private static OutputStats pageOutput(Operator operator, List<String> fieldNames)
+    {
+        try (Pager pager = Pager.create(Pager.LESS)) {
+            OutputStreamWriter writer = new OutputStreamWriter(pager, Charsets.UTF_8);
+            OutputHandler outputHandler = new AlignedTuplePrinter(fieldNames, writer);
+            OutputProcessor processor = new OutputProcessor(operator, outputHandler);
+            return processor.process();
         }
     }
 }
