@@ -98,7 +98,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestQueries
 {
-    private static final JsonCodec<TaskInfo> QUERY_TASK_INFO_CODEC = JsonCodec.jsonCodec(TaskInfo.class);
+    private static final JsonCodec<TaskInfo> TASK_INFO_CODEC = JsonCodec.jsonCodec(TaskInfo.class);
 
     private Handle handle;
     private RecordIterable ordersRecords;
@@ -581,7 +581,7 @@ public class TestQueries
         }
 
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(metadata,
-                new HackPlanFragmentSourceProvider(dataProvider, null, QUERY_TASK_INFO_CODEC),
+                new HackPlanFragmentSourceProvider(dataProvider, null, TASK_INFO_CODEC),
                 analysis.getTypes(),
                 null,
                 builder.build(),
