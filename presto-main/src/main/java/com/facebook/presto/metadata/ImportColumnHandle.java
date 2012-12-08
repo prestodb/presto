@@ -1,8 +1,11 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Function;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
+
+import javax.annotation.Nullable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -46,5 +49,17 @@ public class ImportColumnHandle
     public TupleInfo.Type getColumnType()
     {
         return columnType;
+    }
+
+    public static Function<ImportColumnHandle, String> columnNameGetter()
+    {
+        return new Function<ImportColumnHandle, String>()
+        {
+            @Override
+            public String apply(ImportColumnHandle input)
+            {
+                return input.getColumnName();
+            }
+        };
     }
 }
