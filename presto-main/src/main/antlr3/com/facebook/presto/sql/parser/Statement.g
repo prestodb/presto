@@ -109,6 +109,7 @@ statementList
 statement
     : selectStmt      -> ^(QUERY selectStmt)
     | showTablesStmt
+    | showColumnsStmt
     | createTableStmt
     ;
 
@@ -357,6 +358,11 @@ showTablesStmt
     : SHOW_TABLES ((FROM | IN) qname)? -> ^(SHOW_TABLES qname?)
     ;
 
+showColumnsStmt
+    : SHOW_COLUMNS (FROM | IN) qname -> ^(SHOW_COLUMNS qname)
+    | DESCRIBE qname                 -> ^(SHOW_COLUMNS qname)
+    ;
+
 createTableStmt
     : CREATE TABLE qname tableElementList -> ^(CREATE_TABLE qname tableElementList)
     ;
@@ -510,6 +516,8 @@ INTEGER: 'INTEGER';
 INT: 'INT';
 CONSTRAINT: 'CONSTRAINT';
 SHOW_TABLES: 'SHOW' WS 'TABLES';
+SHOW_COLUMNS: 'SHOW' WS 'COLUMNS';
+DESCRIBE: 'DESCRIBE';
 
 EQ  : '=';
 NEQ : '<>' | '!=';
