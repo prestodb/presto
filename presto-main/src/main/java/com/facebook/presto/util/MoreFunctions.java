@@ -45,4 +45,15 @@ public class MoreFunctions
         };
     }
 
+    public static <I, T extends I> Function<I, T> cast(final Class<T> clazz)
+    {
+        return new Function<I, T>()
+        {
+            @Override
+            public T apply(I input)
+            {
+                return clazz.cast(input);
+            }
+        };
+    }
 }
