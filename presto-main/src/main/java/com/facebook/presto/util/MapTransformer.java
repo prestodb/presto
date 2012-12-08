@@ -1,6 +1,9 @@
 package com.facebook.presto.util;
 
+import com.facebook.presto.sql.analyzer.Symbol;
 import com.google.common.base.Function;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.Maps;
 
 import java.util.Map;
@@ -8,6 +11,11 @@ import java.util.Map;
 public class MapTransformer<K, V>
 {
     private final Map<K, V> map;
+
+    public static <K, V> MapTransformer<K, V> of(Map<K, V> map)
+    {
+        return new MapTransformer<>(map);
+    }
 
     public MapTransformer(Map<K, V> map)
     {
@@ -22,5 +30,15 @@ public class MapTransformer<K, V>
     public Map<K, V> map()
     {
         return map;
+    }
+
+    public MapTransformer<V, K> inverse()
+    {
+        return new MapTransformer<>(ImmutableBiMap.copyOf(map).inverse());
+    }
+
+    public BiMap<K, V> biMap()
+    {
+        return ImmutableBiMap.copyOf(map);
     }
 }
