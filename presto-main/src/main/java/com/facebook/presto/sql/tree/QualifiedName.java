@@ -25,6 +25,14 @@ public class QualifiedName
         return new QualifiedName(Iterables.concat(prefix.getParts(), ImmutableList.of(suffix)));
     }
 
+    public static QualifiedName of(String prefix, QualifiedName suffix)
+    {
+        Preconditions.checkNotNull(prefix, "prefix is null");
+        Preconditions.checkNotNull(suffix, "suffix is null");
+
+        return QualifiedName.of(Iterables.concat(ImmutableList.of(prefix), suffix.getParts()));
+    }
+
     public static QualifiedName of(String first, String... rest)
     {
         Preconditions.checkNotNull(first, "first is null");

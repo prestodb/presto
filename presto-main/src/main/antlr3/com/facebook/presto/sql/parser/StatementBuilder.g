@@ -46,6 +46,7 @@ options {
 statement returns [Statement value]
     : query        { $value = $query.value; }
     | showTables   { $value = $showTables.value; }
+    | showColumns  { $value = $showColumns.value; }
     ;
 
 query returns [Query value]
@@ -321,4 +322,8 @@ whenList returns [List<WhenClause> value = new ArrayList<>()]
 
 showTables returns [Query value]
     : ^(SHOW_TABLES qname?) { $value = ShowTables.create($qname.value); }
+    ;
+
+showColumns returns [Query value]
+    : ^(SHOW_COLUMNS qname) { $value = ShowColumns.create($qname.value); }
     ;
