@@ -40,14 +40,18 @@ public class HttpRemoteTaskFactory
     }
 
     @Override
-    public RemoteTask createRemoteTask(String taskId,
+    public RemoteTask createRemoteTask(String queryId,
+            String stageId,
+            String taskId,
             Node node,
             PlanFragment fragment,
             List<PlanFragmentSource> splits,
             Map<String, ExchangePlanFragmentSource> exchangeSources,
             List<String> outputIds)
     {
-        return new HttpRemoteTask(taskId,
+        return new HttpRemoteTask(queryId,
+                stageId,
+                taskId,
                 locationFactory.createTaskLocation(node, taskId),
                 fragment,
                 splits,

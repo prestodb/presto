@@ -85,7 +85,9 @@ public class MockQueryManager
 
         String queryId = String.valueOf(nextQueryId.getAndIncrement());
 
-        TaskInfo outputTask = mockTaskManager.createTask(queryId + "-0",
+        TaskInfo outputTask = mockTaskManager.createTask("queryId",
+                "stageId",
+                "queryId",
                 null,
                 ImmutableList.<PlanFragmentSource>of(),
                 ImmutableMap.<String, ExchangePlanFragmentSource>of(),

@@ -12,7 +12,9 @@ import java.util.Map;
 
 public interface RemoteTaskFactory
 {
-    RemoteTask createRemoteTask(String taskId,
+    RemoteTask createRemoteTask(String queryId,
+            String stageId,
+            String taskId,
             Node node,
             PlanFragment fragment,
             List<PlanFragmentSource> splits,

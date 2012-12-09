@@ -52,7 +52,9 @@ public class HttpRemoteTask
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec;
 
-    public HttpRemoteTask(String taskId,
+    public HttpRemoteTask(String queryId,
+            String stageId,
+            String taskId,
             URI location,
             PlanFragment planFragment,
             List<PlanFragmentSource> splits,
@@ -62,6 +64,8 @@ public class HttpRemoteTask
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec)
     {
+        Preconditions.checkNotNull(queryId, "queryId is null");
+        Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(planFragment, "planFragment is null");
         Preconditions.checkNotNull(splits, "splits is null");
@@ -80,7 +84,9 @@ public class HttpRemoteTask
         this.queryFragmentRequestCodec = queryFragmentRequestCodec;
 
         Map<String, BufferState> bufferStates = IterableTransformer.on(outputIds).toMap(Functions.constant(BufferState.CREATED)).map();
-        taskInfo.set(new TaskInfo(taskId,
+        taskInfo.set(new TaskInfo(queryId,
+                stageId,
+                taskId,
                 location,
                 bufferStates,
                 planFragment.getTupleInfos(),
@@ -104,7 +110,9 @@ public class HttpRemoteTask
     public void start()
     {
         TaskInfo taskInfo = this.taskInfo.get();
-        QueryFragmentRequest queryFragmentRequest = new QueryFragmentRequest(planFragment,
+        QueryFragmentRequest queryFragmentRequest = new QueryFragmentRequest(taskInfo.getQueryId(),
+                taskInfo.getStageId(),
+                planFragment,
                 splits,
                 exchangeSources,
                 ImmutableList.copyOf(taskInfo.getOutputBufferStates().keySet()));
@@ -142,7 +150,9 @@ public class HttpRemoteTask
         if (response.getStatusCode() == Status.GONE.getStatusCode()) {
             // query has failed, been deleted, or something, and is no longer being tracked by the server
             if (!currentState.isDone()) {
-                this.taskInfo.set(new TaskInfo(taskInfo.getTaskId(),
+                this.taskInfo.set(new TaskInfo(taskInfo.getQueryId(),
+                        taskInfo.getStageId(),
+                        taskInfo.getTaskId(),
                         taskInfo.getSelf(),
                         taskInfo.getOutputBufferStates(),
                         taskInfo.getTupleInfos(),
@@ -165,7 +175,9 @@ public class HttpRemoteTask
     {
         TaskInfo taskInfo = this.taskInfo.get();
         if (taskInfo.getSelf() == null) {
-            this.taskInfo.set(new TaskInfo(taskInfo.getTaskId(),
+            this.taskInfo.set(new TaskInfo(taskInfo.getQueryId(),
+                    taskInfo.getStageId(),
+                    taskInfo.getTaskId(),
                     taskInfo.getSelf(),
                     taskInfo.getOutputBufferStates(),
                     taskInfo.getTupleInfos(),

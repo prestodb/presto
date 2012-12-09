@@ -178,7 +178,9 @@ public class TestHttpQueryProvider
     {
         PlanFragment planFragment = new PlanFragment(32, false, ImmutableMap.<Symbol, Type>of(), new ExchangeNode(22, ImmutableList.<Symbol>of()));
 
-        QueryFragmentRequest fragmentRequest = new QueryFragmentRequest(planFragment,
+        QueryFragmentRequest fragmentRequest = new QueryFragmentRequest("queryId",
+                "stageId",
+                planFragment,
                 ImmutableList.<PlanFragmentSource>of(),
                 ImmutableMap.<String, ExchangePlanFragmentSource>of(),
                 ImmutableList.of("out"));

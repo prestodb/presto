@@ -106,12 +106,16 @@ public class SqlTaskManager
     }
 
     @Override
-    public TaskInfo createTask(String taskId,
+    public TaskInfo createTask(String queryId,
+            String stageId,
+            String taskId,
             PlanFragment fragment,
             List<PlanFragmentSource> splits,
             Map<String, ExchangePlanFragmentSource> exchangeSources,
             List<String> outputIds)
     {
+        Preconditions.checkNotNull(queryId, "queryId is null");
+        Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkArgument(!taskId.isEmpty(), "taskId is empty");
         Preconditions.checkNotNull(fragment, "fragment is null");
@@ -121,7 +125,7 @@ public class SqlTaskManager
 
         URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
 
-        SqlTaskExecution taskExecution = new SqlTaskExecution(taskId, location, fragment, splits, exchangeSources,  outputIds, pageBufferMax, sourceProvider, metadata, shardExecutor);
+        SqlTaskExecution taskExecution = new SqlTaskExecution(queryId, stageId, taskId, location, fragment, splits, exchangeSources,  outputIds, pageBufferMax, sourceProvider, metadata, shardExecutor);
         taskExecutor.submit(new TaskStarter(taskExecution));
 
         tasks.put(taskId, taskExecution);

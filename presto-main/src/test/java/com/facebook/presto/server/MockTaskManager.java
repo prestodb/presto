@@ -81,7 +81,9 @@ public class MockTaskManager
     }
 
     @Override
-    public TaskInfo createTask(String taskId,
+    public TaskInfo createTask(String queryId,
+            String stageId,
+            String taskId,
             PlanFragment fragment,
             List<PlanFragmentSource> splits,
             Map<String, ExchangePlanFragmentSource> exchangeSources,
@@ -91,7 +93,7 @@ public class MockTaskManager
         Preconditions.checkArgument(!taskId.isEmpty(), "taskId is empty");
 
         URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
-        TaskOutput taskOutput = new TaskOutput(taskId, location, ImmutableList.copyOf(outputIds), TUPLE_INFOS, pageBufferMax, 0);
+        TaskOutput taskOutput = new TaskOutput(queryId, stageId, taskId, location, ImmutableList.copyOf(outputIds), TUPLE_INFOS, pageBufferMax, 0);
         tasks.put(taskId, taskOutput);
 
         List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");
