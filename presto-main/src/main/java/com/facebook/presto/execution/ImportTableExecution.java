@@ -36,6 +36,7 @@ public class ImportTableExecution
     private final String sourceName;
     private final String databaseName;
     private final String tableName;
+    private String query;
 
     ImportTableExecution(
             String queryId,
@@ -44,7 +45,7 @@ public class ImportTableExecution
             Metadata metadata,
             String sourceName,
             String databaseName,
-            String tableName)
+            String tableName, String query)
     {
         this.queryId = queryId;
         this.self = self;
@@ -54,6 +55,7 @@ public class ImportTableExecution
         this.sourceName = sourceName;
         this.databaseName = databaseName;
         this.tableName = tableName;
+        this.query = query;
     }
 
     @Override
@@ -70,6 +72,7 @@ public class ImportTableExecution
                 self,
                 FIELD_NAMES,
                 TUPLE_INFOS,
+                query,
                 new StageInfo(queryId, queryId + "-0", StageState.FINISHED, null, ImmutableList.<TaskInfo>of(), ImmutableList.<StageInfo>of()));
     }
 

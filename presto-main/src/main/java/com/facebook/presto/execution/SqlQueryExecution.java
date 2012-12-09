@@ -114,6 +114,7 @@ public class SqlQueryExecution
                 locationFactory.createQueryLocation(queryId),
                 fieldNames,
                 tupleInfos,
+                sql,
                 stageInfo);
     }
 

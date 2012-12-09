@@ -152,7 +152,8 @@ public class SqlQueryManager
                     metadata,
                     strings.get(1),
                     strings.get(2),
-                    strings.get(3));
+                    strings.get(3),
+                    query);
         }
         else {
             queryExecution = new SqlQueryExecution(queryId,

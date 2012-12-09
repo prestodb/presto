@@ -151,6 +151,7 @@ public class MockQueryManager
                     self,
                     ImmutableList.of("out"),
                     outputTask.getTupleInfos(),
+                    "query",
                     new StageInfo(queryId,
                             stageId,
                             StageState.FINISHED,
