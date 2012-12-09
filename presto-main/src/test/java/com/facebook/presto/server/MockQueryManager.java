@@ -153,8 +153,8 @@ public class MockQueryManager
                     outputTask.getTupleInfos(),
                     new StageInfo(queryId,
                             stageId,
-                            locationFactory.createStageLocation(stageId),
                             StageState.FINISHED,
+                            locationFactory.createStageLocation(stageId),
                             ImmutableList.<TaskInfo>of(outputTask),
                             ImmutableList.<StageInfo>of()));
         }

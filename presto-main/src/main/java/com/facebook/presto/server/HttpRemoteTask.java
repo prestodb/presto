@@ -87,10 +87,10 @@ public class HttpRemoteTask
         taskInfo.set(new TaskInfo(queryId,
                 stageId,
                 taskId,
+                TaskState.PLANNED,
                 location,
                 bufferStates,
                 planFragment.getTupleInfos(),
-                TaskState.PLANNED,
                 new ExecutionStats()));
     }
 
@@ -153,10 +153,10 @@ public class HttpRemoteTask
                 this.taskInfo.set(new TaskInfo(taskInfo.getQueryId(),
                         taskInfo.getStageId(),
                         taskInfo.getTaskId(),
+                        TaskState.CANCELED,
                         taskInfo.getSelf(),
                         taskInfo.getOutputBufferStates(),
                         taskInfo.getTupleInfos(),
-                        TaskState.CANCELED,
                         taskInfo.getStats()));
             }
         }
@@ -178,10 +178,10 @@ public class HttpRemoteTask
             this.taskInfo.set(new TaskInfo(taskInfo.getQueryId(),
                     taskInfo.getStageId(),
                     taskInfo.getTaskId(),
+                    TaskState.CANCELED,
                     taskInfo.getSelf(),
                     taskInfo.getOutputBufferStates(),
                     taskInfo.getTupleInfos(),
-                    TaskState.CANCELED,
                     taskInfo.getStats()));
             return;
         }

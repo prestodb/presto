@@ -70,7 +70,7 @@ public class ImportTableExecution
                 self,
                 FIELD_NAMES,
                 TUPLE_INFOS,
-                new StageInfo(queryId, queryId + "-0", null, StageState.FINISHED, ImmutableList.<TaskInfo>of(), ImmutableList.<StageInfo>of()));
+                new StageInfo(queryId, queryId + "-0", StageState.FINISHED, null, ImmutableList.<TaskInfo>of(), ImmutableList.<StageInfo>of()));
     }
 
     @Override

@@ -92,8 +92,8 @@ public class SqlStageExecution
 
         return new StageInfo(queryId,
                 stageId,
-                location,
                 stageState.get(),
+                location,
                 taskInfos,
                 subStageInfos);
     }
