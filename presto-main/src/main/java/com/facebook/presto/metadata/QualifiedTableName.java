@@ -1,5 +1,7 @@
 package com.facebook.presto.metadata;
 
+import com.google.common.base.Objects;
+
 import javax.annotation.concurrent.Immutable;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
@@ -32,5 +34,36 @@ public class QualifiedTableName
     public String getTableName()
     {
         return tableName;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (obj == this) {
+            return true;
+        }
+        if ((obj == null) || (getClass() != obj.getClass())) {
+            return false;
+        }
+        QualifiedTableName o = (QualifiedTableName) obj;
+        return Objects.equal(catalogName, o.catalogName) &&
+                Objects.equal(schemaName, o.schemaName) &&
+                Objects.equal(tableName, o.tableName);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hashCode(catalogName, schemaName, tableName);
+    }
+
+    @Override
+    public String toString()
+    {
+        return Objects.toStringHelper(this)
+                .add("catalogName", catalogName)
+                .add("schemaName", schemaName)
+                .add("tableName", tableName)
+                .toString();
     }
 }

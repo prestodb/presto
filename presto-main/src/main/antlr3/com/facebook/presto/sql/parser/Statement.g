@@ -51,7 +51,6 @@ tokens {
     FUNCTION_CALL;
     NEGATIVE;
     QNAME;
-    SHOW_TABLES;
     CREATE_TABLE;
     TABLE_ELEMENT_LIST;
     COLUMN_DEF;
@@ -110,6 +109,7 @@ statementList
 statement
     : selectStmt      -> ^(QUERY selectStmt)
     | showTablesStmt
+    | showColumnsStmt
     | createTableStmt
     ;
 
@@ -355,7 +355,12 @@ function
     ;
 
 showTablesStmt
-    : SHOW TABLES ((FROM | IN) qname)? -> ^(SHOW_TABLES qname?)
+    : SHOW_TABLES ((FROM | IN) qname)? -> ^(SHOW_TABLES qname?)
+    ;
+
+showColumnsStmt
+    : SHOW_COLUMNS (FROM | IN) qname -> ^(SHOW_COLUMNS qname)
+    | DESCRIBE qname                 -> ^(SHOW_COLUMNS qname)
     ;
 
 createTableStmt
@@ -497,8 +502,6 @@ FULL: 'FULL';
 NATURAL: 'NATURAL';
 USING: 'USING';
 ON: 'ON';
-SHOW: 'SHOW';
-TABLES: 'TABLES';
 CREATE: 'CREATE';
 TABLE: 'TABLE';
 CHAR: 'CHAR';
@@ -512,6 +515,9 @@ DEC: 'DEC';
 INTEGER: 'INTEGER';
 INT: 'INT';
 CONSTRAINT: 'CONSTRAINT';
+SHOW_TABLES: 'SHOW' WS 'TABLES';
+SHOW_COLUMNS: 'SHOW' WS 'COLUMNS';
+DESCRIBE: 'DESCRIBE';
 
 EQ  : '=';
 NEQ : '<>' | '!=';
