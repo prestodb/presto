@@ -27,22 +27,22 @@ public class StageInfo
     @JsonCreator
     public StageInfo(@JsonProperty("queryId") String queryId,
             @JsonProperty("stageId") String stageId,
-            @JsonProperty("self") URI self,
             @JsonProperty("state") StageState state,
+            @JsonProperty("self") URI self,
             @JsonProperty("tasks") List<TaskInfo> tasks,
             @JsonProperty("subStages") List<StageInfo> subStages)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
-        Preconditions.checkNotNull(self, "self is null");
         Preconditions.checkNotNull(state, "state is null");
+        Preconditions.checkNotNull(self, "self is null");
         Preconditions.checkNotNull(tasks, "tasks is null");
         Preconditions.checkNotNull(subStages, "subStages is null");
         this.queryId = queryId;
         this.stageId = stageId;
+        this.state = state;
         this.self = self;
         this.tasks = ImmutableList.copyOf(tasks);
-        this.state = state;
         this.subStages = subStages;
     }
 
@@ -59,15 +59,15 @@ public class StageInfo
     }
 
     @JsonProperty
-    public URI getSelf()
-    {
-        return self;
-    }
-
-    @JsonProperty
     public StageState getState()
     {
         return state;
+    }
+
+    @JsonProperty
+    public URI getSelf()
+    {
+        return self;
     }
 
     @JsonProperty
@@ -86,7 +86,6 @@ public class StageInfo
     public String toString()
     {
         return Objects.toStringHelper(this)
-                .add("queryId", queryId)
                 .add("stageId", stageId)
                 .add("state", state)
                 .toString();

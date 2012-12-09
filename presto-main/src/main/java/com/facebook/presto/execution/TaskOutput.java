@@ -190,10 +190,10 @@ public class TaskOutput
         return new TaskInfo(queryId,
                 stageId,
                 taskId,
+                getState(),
                 location,
                 getOutputBufferStates(),
                 getTupleInfos(),
-                getState(),
                 stats);
     }
 }

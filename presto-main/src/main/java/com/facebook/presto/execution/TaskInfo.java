@@ -23,39 +23,39 @@ public class TaskInfo
     private final String queryId;
     private final String stageId;
     private final String taskId;
+    private final TaskState state;
     private final URI self;
     private final Map<String, BufferState> outputBufferStates;
     private final List<TupleInfo> tupleInfos;
-    private final TaskState state;
     private final ExecutionStats stats;
 
     @JsonCreator
     public TaskInfo(@JsonProperty("queryId") String queryId,
             @JsonProperty("stageId")String stageId,
             @JsonProperty("taskId") String taskId,
+            @JsonProperty("state") TaskState state,
             @JsonProperty("self") URI self,
             @JsonProperty("outputBufferStates") Map<String, BufferState> outputBufferStates,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
-            @JsonProperty("state") TaskState state,
             @JsonProperty("stats") ExecutionStats stats)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
+        Preconditions.checkNotNull(state, "state is null");
         Preconditions.checkNotNull(self, "self is null");
         Preconditions.checkNotNull(outputBufferStates, "outputBufferStates is null");
         Preconditions.checkArgument(!outputBufferStates.isEmpty(), "outputBufferStates is empty");
         Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
-        Preconditions.checkNotNull(state, "state is null");
         Preconditions.checkNotNull(stats, "stats is null");
 
         this.queryId = queryId;
         this.stageId = stageId;
         this.taskId = taskId;
+        this.state = state;
         this.self = self;
         this.outputBufferStates = ImmutableMap.copyOf(outputBufferStates);
         this.tupleInfos = tupleInfos;
-        this.state = state;
         this.stats = stats;
     }
 
@@ -78,6 +78,12 @@ public class TaskInfo
     }
 
     @JsonProperty
+    public TaskState getState()
+    {
+        return state;
+    }
+
+    @JsonProperty
     public URI getSelf()
     {
         return self;
@@ -93,12 +99,6 @@ public class TaskInfo
     public List<TupleInfo> getTupleInfos()
     {
         return tupleInfos;
-    }
-
-    @JsonProperty
-    public TaskState getState()
-    {
-        return state;
     }
 
     @JsonProperty
