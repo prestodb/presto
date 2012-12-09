@@ -140,11 +140,13 @@ public class SqlQueryManager
         Preconditions.checkNotNull(query, "query is null");
         Preconditions.checkArgument(query.length() > 0, "query must not be empty string");
 
+        String queryId = String.valueOf(nextQueryId.getAndIncrement());
         QueryExecution queryExecution;
         if (query.startsWith("import-table:")) {
             // todo this is a hack until we have language support for import or create table as select
             ImmutableList<String> strings = ImmutableList.copyOf(Splitter.on(":").split(query));
-            queryExecution = new ImportTableExecution(String.valueOf(nextQueryId.getAndIncrement()),
+            queryExecution = new ImportTableExecution(queryId,
+                    locationFactory.createQueryLocation(queryId),
                     importClientFactory,
                     importManager,
                     metadata,
@@ -153,7 +155,7 @@ public class SqlQueryManager
                     strings.get(3));
         }
         else {
-            queryExecution = new SqlQueryExecution(String.valueOf(nextQueryId.getAndIncrement()),
+            queryExecution = new SqlQueryExecution(queryId,
                     query,
                     new Session(),
                     metadata,

@@ -111,6 +111,7 @@ public class SqlQueryExecution
 
         return new QueryInfo(queryId,
                 queryState.get(),
+                locationFactory.createQueryLocation(queryId),
                 fieldNames,
                 tupleInfos,
                 stageInfo);

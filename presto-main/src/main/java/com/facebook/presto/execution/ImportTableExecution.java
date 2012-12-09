@@ -17,6 +17,7 @@ import com.facebook.presto.split.ImportClientFactory;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 
+import java.net.URI;
 import java.util.List;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
@@ -28,6 +29,7 @@ public class ImportTableExecution
     private static final List<String> FIELD_NAMES = ImmutableList.of("dummy");
 
     private final String queryId;
+    private final URI self;
     private final ImportClientFactory importClientFactory;
     private final ImportManager importManager;
     private final Metadata metadata;
@@ -37,7 +39,7 @@ public class ImportTableExecution
 
     ImportTableExecution(
             String queryId,
-            ImportClientFactory importClientFactory,
+            URI self, ImportClientFactory importClientFactory,
             ImportManager importManager,
             Metadata metadata,
             String sourceName,
@@ -45,6 +47,7 @@ public class ImportTableExecution
             String tableName)
     {
         this.queryId = queryId;
+        this.self = self;
         this.importClientFactory = importClientFactory;
         this.importManager = importManager;
         this.metadata = metadata;
@@ -64,6 +67,7 @@ public class ImportTableExecution
     {
         return new QueryInfo(queryId,
                 QueryState.FINISHED,
+                self,
                 FIELD_NAMES,
                 TUPLE_INFOS,
                 new StageInfo(queryId, queryId + "-0", null, StageState.FINISHED, ImmutableList.<TaskInfo>of(), ImmutableList.<StageInfo>of()));
