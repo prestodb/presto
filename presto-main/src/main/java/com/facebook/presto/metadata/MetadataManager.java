@@ -46,7 +46,7 @@ public class MetadataManager
     public TableMetadata getTable(String catalogName, String schemaName, String tableName)
     {
         checkTableName(catalogName, schemaName, tableName);
-        DataSourceType dataSourceType = lookupDataSource(catalogName, schemaName);
+        DataSourceType dataSourceType = lookupDataSource(catalogName, schemaName, tableName);
         return lookup(dataSourceType).getTable(catalogName, schemaName, tableName);
     }
 
@@ -90,7 +90,17 @@ public class MetadataManager
 
     private static DataSourceType lookupDataSource(String catalogName, String schemaName)
     {
-        checkSchemaName(catalogName, schemaName);
+        // use a table name that won't match any real or special tables
+        return lookupDataSource(catalogName, schemaName, "$dummy_table$");
+    }
+
+    private static DataSourceType lookupDataSource(String catalogName, String schemaName, String tableName)
+    {
+        checkTableName(catalogName, schemaName, tableName);
+
+        if (tableName.equals(DualTable.NAME)) {
+            return DataSourceType.INTERNAL;
+        }
 
         if (schemaName.equals(INFORMATION_SCHEMA)) {
             return DataSourceType.INTERNAL;

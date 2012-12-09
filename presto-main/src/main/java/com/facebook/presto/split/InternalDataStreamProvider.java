@@ -2,6 +2,7 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.DualTable;
 import com.facebook.presto.metadata.InformationSchemaData;
 import com.facebook.presto.metadata.InternalColumnHandle;
 import com.facebook.presto.metadata.InternalTable;
@@ -39,7 +40,13 @@ public class InternalDataStreamProvider
 
         InternalTableHandle handle = ((InternalSplit) split).getTableHandle();
 
-        InternalTable table = informationSchemaData.getInternalTable(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
+        InternalTable table;
+        if (handle.getTableName().equals(DualTable.NAME)) {
+            table = DualTable.getInternalTable(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
+        }
+        else {
+            table = informationSchemaData.getInternalTable(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
+        }
 
         ImmutableList.Builder<BlockIterable> list = ImmutableList.builder();
         for (ColumnHandle column : columns) {
