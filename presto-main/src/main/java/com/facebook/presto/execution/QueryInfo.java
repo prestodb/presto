@@ -22,6 +22,7 @@ public class QueryInfo
     private final URI self;
     private final List<String> fieldNames;
     private final List<TupleInfo> tupleInfos;
+    private final String query;
     private final StageInfo outputStage;
 
     @JsonCreator
@@ -30,6 +31,7 @@ public class QueryInfo
             @JsonProperty("self") URI self,
             @JsonProperty("fieldNames") List<String> fieldNames,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
+            @JsonProperty("query") String query,
             @JsonProperty("outputStage") StageInfo outputStage)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
@@ -37,12 +39,14 @@ public class QueryInfo
         Preconditions.checkNotNull(self, "self is null");
         Preconditions.checkNotNull(fieldNames, "fieldNames is null");
         Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
+        Preconditions.checkNotNull(query, "query is null");
 
         this.queryId = queryId;
         this.state = state;
         this.self = self;
         this.tupleInfos = ImmutableList.copyOf(tupleInfos);
         this.fieldNames = ImmutableList.copyOf(fieldNames);
+        this.query = query;
         this.outputStage = outputStage;
     }
 
@@ -74,6 +78,12 @@ public class QueryInfo
     public List<String> getFieldNames()
     {
         return fieldNames;
+    }
+
+    @JsonProperty
+    public String getQuery()
+    {
+        return query;
     }
 
     @JsonProperty
