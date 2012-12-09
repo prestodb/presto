@@ -11,6 +11,7 @@ import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
+import java.net.URI;
 import java.util.List;
 
 @Immutable
@@ -18,6 +19,7 @@ public class QueryInfo
 {
     private final String queryId;
     private final QueryState state;
+    private final URI self;
     private final List<String> fieldNames;
     private final List<TupleInfo> tupleInfos;
     private final StageInfo outputStage;
@@ -25,18 +27,22 @@ public class QueryInfo
     @JsonCreator
     public QueryInfo(@JsonProperty("queryId") String queryId,
             @JsonProperty("state") QueryState state,
+            @JsonProperty("self") URI self,
             @JsonProperty("fieldNames") List<String> fieldNames,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
             @JsonProperty("outputStage") StageInfo outputStage)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(state, "state is null");
+        Preconditions.checkNotNull(self, "self is null");
         Preconditions.checkNotNull(fieldNames, "fieldNames is null");
         Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
+
         this.queryId = queryId;
+        this.state = state;
+        this.self = self;
         this.tupleInfos = ImmutableList.copyOf(tupleInfos);
         this.fieldNames = ImmutableList.copyOf(fieldNames);
-        this.state = state;
         this.outputStage = outputStage;
     }
 
@@ -44,6 +50,18 @@ public class QueryInfo
     public String getQueryId()
     {
         return queryId;
+    }
+
+    @JsonProperty
+    public QueryState getState()
+    {
+        return state;
+    }
+
+    @JsonProperty
+    public URI getSelf()
+    {
+        return self;
     }
 
     @JsonProperty
@@ -56,12 +74,6 @@ public class QueryInfo
     public List<String> getFieldNames()
     {
         return fieldNames;
-    }
-
-    @JsonProperty
-    public QueryState getState()
-    {
-        return state;
     }
 
     @JsonProperty

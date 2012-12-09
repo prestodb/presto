@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
+import java.net.URI;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -91,7 +92,7 @@ public class MockQueryManager
                 ImmutableList.<String>of("out")
         );
 
-        SimpleQuery simpleQuery = new SimpleQuery(queryId, outputTask.getTaskId(), mockTaskManager, locationFactory);
+        SimpleQuery simpleQuery = new SimpleQuery(queryId, locationFactory.createQueryLocation(queryId), outputTask.getTaskId(), mockTaskManager, locationFactory);
         queries.put(queryId, simpleQuery);
         return simpleQuery.getQueryInfo();
     }
@@ -105,13 +106,15 @@ public class MockQueryManager
     private static class SimpleQuery
     {
         private final String queryId;
+        private final URI self;
         private final String outputTaskId;
         private final MockTaskManager mockTaskManager;
         private final LocationFactory locationFactory;
 
-        private SimpleQuery(String queryId, String outputTaskId, MockTaskManager mockTaskManager, LocationFactory locationFactory)
+        private SimpleQuery(String queryId, URI self, String outputTaskId, MockTaskManager mockTaskManager, LocationFactory locationFactory)
         {
             this.queryId = queryId;
+            this.self = self;
             this.outputTaskId = outputTaskId;
             this.mockTaskManager = mockTaskManager;
             this.locationFactory = locationFactory;
@@ -143,6 +146,7 @@ public class MockQueryManager
             String stageId = queryId + "-0";
             return new QueryInfo(queryId,
                     state,
+                    self,
                     ImmutableList.of("out"),
                     outputTask.getTupleInfos(),
                     new StageInfo(queryId,
