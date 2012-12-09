@@ -4,28 +4,15 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.analyzer.Symbol;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.IsNotNullPredicate;
-import com.facebook.presto.sql.tree.IsNullPredicate;
-import com.facebook.presto.sql.tree.LogicalBinaryExpression;
-import com.facebook.presto.sql.tree.NotExpression;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
+import org.antlr.runtime.RecognitionException;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.planner.InterpretedTestHelper.NULL_LITERAL;
-import static com.facebook.presto.sql.planner.InterpretedTestHelper.booleanLiteral;
-import static com.facebook.presto.sql.planner.InterpretedTestHelper.doubleLiteral;
-import static com.facebook.presto.sql.planner.InterpretedTestHelper.longLiteral;
-import static com.facebook.presto.sql.planner.InterpretedTestHelper.stringLiteral;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.NOT_EQUAL;
-import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Type.AND;
-import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Type.OR;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public class TestInterpretedFilterFunction
@@ -34,160 +21,167 @@ public class TestInterpretedFilterFunction
     @Test
     public void testNullLiteral()
     {
-        assertFilter(NULL_LITERAL, false);
+        assertFilter("null", false);
     }
 
     @Test
     public void testBooleanLiteral()
     {
-        assertFilter(booleanLiteral(true), true);
-        assertFilter(booleanLiteral(false), false);
+        assertFilter("true", true);
+        assertFilter("false", false);
     }
 
     @Test
     public void testNotExpression()
     {
-        assertFilter(new NotExpression(booleanLiteral(true)), false);
-        assertFilter(new NotExpression(booleanLiteral(false)), true);
-        assertFilter(new NotExpression(NULL_LITERAL), false);
+        assertFilter("not true", false);
+        assertFilter("not false", true);
+        assertFilter("not null", false);
     }
 
     @Test
     public void testAndExpression()
     {
-        assertFilter(new LogicalBinaryExpression(AND, booleanLiteral(true), booleanLiteral(true)), true);
-        assertFilter(new LogicalBinaryExpression(AND, booleanLiteral(true), booleanLiteral(false)), false);
-        assertFilter(new LogicalBinaryExpression(AND, booleanLiteral(true), NULL_LITERAL), false);
+        assertFilter("true and true", true);
+        assertFilter("true and false", false);
+        assertFilter("true and null", false);
 
-        assertFilter(new LogicalBinaryExpression(AND, booleanLiteral(false), booleanLiteral(true)), false);
-        assertFilter(new LogicalBinaryExpression(AND, booleanLiteral(false), booleanLiteral(false)), false);
-        assertFilter(new LogicalBinaryExpression(AND, booleanLiteral(false), NULL_LITERAL), false);
+        assertFilter("false and true", false);
+        assertFilter("false and false", false);
+        assertFilter("false and null", false);
 
-        assertFilter(new LogicalBinaryExpression(AND, NULL_LITERAL, booleanLiteral(true)), false);
-        assertFilter(new LogicalBinaryExpression(AND, NULL_LITERAL, booleanLiteral(false)), false);
-        assertFilter(new LogicalBinaryExpression(AND, NULL_LITERAL, NULL_LITERAL), false);
+        assertFilter("null and true", false);
+        assertFilter("null and false", false);
+        assertFilter("null and null", false);
     }
 
     @Test
     public void testORExpression()
     {
-        assertFilter(new LogicalBinaryExpression(OR, booleanLiteral(true), booleanLiteral(true)), true);
-        assertFilter(new LogicalBinaryExpression(OR, booleanLiteral(true), booleanLiteral(false)), true);
-        assertFilter(new LogicalBinaryExpression(OR, booleanLiteral(true), NULL_LITERAL), true);
+        assertFilter("true or true", true);
+        assertFilter("true or false", true);
+        assertFilter("true or null", true);
 
-        assertFilter(new LogicalBinaryExpression(OR, booleanLiteral(false), booleanLiteral(true)), true);
-        assertFilter(new LogicalBinaryExpression(OR, booleanLiteral(false), booleanLiteral(false)), false);
-        assertFilter(new LogicalBinaryExpression(OR, booleanLiteral(false), NULL_LITERAL), false);
+        assertFilter("false or true", true);
+        assertFilter("false or false", false);
+        assertFilter("false or null", false);
 
-        assertFilter(new LogicalBinaryExpression(OR, NULL_LITERAL, booleanLiteral(true)), true);
-        assertFilter(new LogicalBinaryExpression(OR, NULL_LITERAL, booleanLiteral(false)), false);
-        assertFilter(new LogicalBinaryExpression(OR, NULL_LITERAL, NULL_LITERAL), false);
+        assertFilter("null or true", true);
+        assertFilter("null or false", false);
+        assertFilter("null or null", false);
     }
 
     @Test
     public void testIsNullExpression()
     {
-        assertFilter(new IsNullPredicate(NULL_LITERAL), true);
-        assertFilter(new IsNullPredicate(longLiteral(42L)), false);
+        assertFilter("null is null", true);
+        assertFilter("42 is null", false);
     }
 
     @Test
     public void testIsNotNullExpression()
     {
-        assertFilter(new IsNotNullPredicate(longLiteral(42L)), true);
-        assertFilter(new IsNotNullPredicate(NULL_LITERAL), false);
+        assertFilter("42 is not null", true);
+        assertFilter("null is not null", false);
     }
 
     @Test
     public void testComparisonExpression()
     {
-        assertFilter(new ComparisonExpression(EQUAL, longLiteral(42L), longLiteral(42L)), true);
-        assertFilter(new ComparisonExpression(EQUAL, longLiteral(42L), doubleLiteral(42.0)), true);
-        assertFilter(new ComparisonExpression(EQUAL, doubleLiteral(42.42), doubleLiteral(42.42)), true);
-        assertFilter(new ComparisonExpression(EQUAL, stringLiteral("foo"), stringLiteral("foo")), true);
+        assertFilter("42 = 42", true);
+        assertFilter("42 = 42.0", true);
+        assertFilter("42.42 = 42.42", true);
+        assertFilter("'foo' = 'foo'", true);
 
-        assertFilter(new ComparisonExpression(EQUAL, longLiteral(42L), longLiteral(87L)), false);
-        assertFilter(new ComparisonExpression(EQUAL, longLiteral(42L), doubleLiteral(22.2)), false);
-        assertFilter(new ComparisonExpression(EQUAL, doubleLiteral(42.42), doubleLiteral(22.2)), false);
-        assertFilter(new ComparisonExpression(EQUAL, stringLiteral("foo"), stringLiteral("bar")), false);
+        assertFilter("42 = 87", false);
+        assertFilter("42 = 22.2", false);
+        assertFilter("42.42 = 22.2", false);
+        assertFilter("'foo' = 'bar'", false);
 
-        assertFilter(new ComparisonExpression(NOT_EQUAL, longLiteral(42L), longLiteral(87L)), true);
-        assertFilter(new ComparisonExpression(NOT_EQUAL, longLiteral(42L), doubleLiteral(22.2)), true);
-        assertFilter(new ComparisonExpression(NOT_EQUAL, doubleLiteral(42.42), doubleLiteral(22.2)), true);
-        assertFilter(new ComparisonExpression(NOT_EQUAL, stringLiteral("foo"), stringLiteral("bar")), true);
+        assertFilter("42 != 87", true);
+        assertFilter("42 != 22.2", true);
+        assertFilter("42.42 != 22.22", true);
+        assertFilter("'foo' != 'bar'", true);
 
-        assertFilter(new ComparisonExpression(NOT_EQUAL, longLiteral(42L), longLiteral(42L)), false);
-        assertFilter(new ComparisonExpression(NOT_EQUAL, longLiteral(42L), doubleLiteral(42.0)), false);
-        assertFilter(new ComparisonExpression(NOT_EQUAL, doubleLiteral(42.42), doubleLiteral(42.42)), false);
-        assertFilter(new ComparisonExpression(NOT_EQUAL, stringLiteral("foo"), stringLiteral("foo")), false);
+        assertFilter("42 != 42", false);
+        assertFilter("42 != 42.0", false);
+        assertFilter("42.42 != 42.42", false);
+        assertFilter("'foo' != 'foo'", false);
 
-        assertFilter(new ComparisonExpression(LESS_THAN, longLiteral(42L), longLiteral(88L)), true);
-        assertFilter(new ComparisonExpression(LESS_THAN, longLiteral(42L), doubleLiteral(88.8)), true);
-        assertFilter(new ComparisonExpression(LESS_THAN, doubleLiteral(42.42), doubleLiteral(88.8)), true);
-        assertFilter(new ComparisonExpression(LESS_THAN, stringLiteral("bar"), stringLiteral("foo")), true);
+        assertFilter("42 < 88", true);
+        assertFilter("42 < 88.8", true);
+        assertFilter("42.42 < 88.8", true);
+        assertFilter("'bar' < 'foo'", true);
 
-        assertFilter(new ComparisonExpression(LESS_THAN, longLiteral(88L), longLiteral(42L)), false);
-        assertFilter(new ComparisonExpression(LESS_THAN, longLiteral(88L), doubleLiteral(42.42)), false);
-        assertFilter(new ComparisonExpression(LESS_THAN, doubleLiteral(88.88), doubleLiteral(42.42)), false);
-        assertFilter(new ComparisonExpression(LESS_THAN, stringLiteral("foo"), stringLiteral("bar")), false);
+        assertFilter("88 < 42", false);
+        assertFilter("88 < 42.42", false);
+        assertFilter("88.8 < 42.42", false);
+        assertFilter("'foo' < 'bar'", false);
 
-        assertFilter(new ComparisonExpression(LESS_THAN_OR_EQUAL, longLiteral(42L), longLiteral(88L)), true);
-        assertFilter(new ComparisonExpression(LESS_THAN_OR_EQUAL, longLiteral(42L), doubleLiteral(88.8)), true);
-        assertFilter(new ComparisonExpression(LESS_THAN_OR_EQUAL, doubleLiteral(42.42), doubleLiteral(88.8)), true);
-        assertFilter(new ComparisonExpression(LESS_THAN_OR_EQUAL, stringLiteral("bar"), stringLiteral("foo")), true);
-        assertFilter(new ComparisonExpression(LESS_THAN_OR_EQUAL, longLiteral(42L), longLiteral(42L)), true);
-        assertFilter(new ComparisonExpression(LESS_THAN_OR_EQUAL, longLiteral(42L), doubleLiteral(42.0)), true);
-        assertFilter(new ComparisonExpression(LESS_THAN_OR_EQUAL, doubleLiteral(42.42), doubleLiteral(42.42)), true);
-        assertFilter(new ComparisonExpression(LESS_THAN_OR_EQUAL, stringLiteral("foo"), stringLiteral("foo")), true);
+        assertFilter("42 <= 88", true);
+        assertFilter("42 <= 88.8", true);
+        assertFilter("42.42 <= 88.8", true);
+        assertFilter("'bar' <= 'foo'", true);
 
-        assertFilter(new ComparisonExpression(LESS_THAN_OR_EQUAL, longLiteral(88L), longLiteral(42L)), false);
-        assertFilter(new ComparisonExpression(LESS_THAN_OR_EQUAL, longLiteral(88L), doubleLiteral(42.42)), false);
-        assertFilter(new ComparisonExpression(LESS_THAN_OR_EQUAL, doubleLiteral(88.88), doubleLiteral(42.42)), false);
-        assertFilter(new ComparisonExpression(LESS_THAN_OR_EQUAL, stringLiteral("foo"), stringLiteral("bar")), false);
+        assertFilter("42 <= 42", true);
+        assertFilter("42 <= 42.0", true);
+        assertFilter("42.42 <= 42.42", true);
+        assertFilter("'foo' <= 'foo'", true);
 
-        assertFilter(new ComparisonExpression(GREATER_THAN, longLiteral(88L), longLiteral(42L)), true);
-        assertFilter(new ComparisonExpression(GREATER_THAN, doubleLiteral(88.8), doubleLiteral((double) 42L)), true);
-        assertFilter(new ComparisonExpression(GREATER_THAN, doubleLiteral(88.8), doubleLiteral(42.42)), true);
-        assertFilter(new ComparisonExpression(GREATER_THAN, stringLiteral("foo"), stringLiteral("bar")), true);
+        assertFilter("88 <= 42", false);
+        assertFilter("88 <= 42.42", false);
+        assertFilter("88.8 <= 42.42", false);
+        assertFilter("'foo' <= 'bar'", false);
 
-        assertFilter(new ComparisonExpression(GREATER_THAN, longLiteral(42L), longLiteral(88L)), false);
-        assertFilter(new ComparisonExpression(GREATER_THAN, doubleLiteral(42.42), doubleLiteral((double) 88L)), false);
-        assertFilter(new ComparisonExpression(GREATER_THAN, doubleLiteral(42.42), doubleLiteral(88.88)), false);
-        assertFilter(new ComparisonExpression(GREATER_THAN, stringLiteral("bar"), stringLiteral("foo")), false);
+        assertFilter("88 >= 42", true);
+        assertFilter("88.8 >= 42.0", true);
+        assertFilter("88.8 >= 42.42", true);
+        assertFilter("'foo' >= 'bar'", true);
 
-        assertFilter(new ComparisonExpression(GREATER_THAN_OR_EQUAL, longLiteral(88L), longLiteral(42L)), true);
-        assertFilter(new ComparisonExpression(GREATER_THAN_OR_EQUAL, doubleLiteral(88.8), doubleLiteral((double) 42L)), true);
-        assertFilter(new ComparisonExpression(GREATER_THAN_OR_EQUAL, doubleLiteral(88.8), doubleLiteral(42.42)), true);
-        assertFilter(new ComparisonExpression(GREATER_THAN_OR_EQUAL, stringLiteral("foo"), stringLiteral("bar")), true);
-        assertFilter(new ComparisonExpression(GREATER_THAN_OR_EQUAL, longLiteral(42L), longLiteral(42L)), true);
-        assertFilter(new ComparisonExpression(GREATER_THAN_OR_EQUAL, longLiteral(42L), doubleLiteral(42.0)), true);
-        assertFilter(new ComparisonExpression(GREATER_THAN_OR_EQUAL, doubleLiteral(42.42), doubleLiteral(42.42)), true);
-        assertFilter(new ComparisonExpression(GREATER_THAN_OR_EQUAL, stringLiteral("foo"), stringLiteral("foo")), true);
+        assertFilter("42 >= 88", false);
+        assertFilter("42.42 >= 88.0", false);
+        assertFilter("42.42 >= 88.88", false);
+        assertFilter("'bar' >= 'foo'", false);
 
-        assertFilter(new ComparisonExpression(GREATER_THAN_OR_EQUAL, longLiteral(42L), longLiteral(88L)), false);
-        assertFilter(new ComparisonExpression(GREATER_THAN_OR_EQUAL, doubleLiteral(42.42), doubleLiteral((double) 88L)), false);
-        assertFilter(new ComparisonExpression(GREATER_THAN_OR_EQUAL, doubleLiteral(42.42), doubleLiteral(88.88)), false);
-        assertFilter(new ComparisonExpression(GREATER_THAN_OR_EQUAL, stringLiteral("bar"), stringLiteral("foo")), false);
+        assertFilter("88 >= 42",  true);
+        assertFilter("88.8 >= 42.0", true);
+        assertFilter("88.8 >= 42.42", true);
+        assertFilter("'foo' >= 'bar'", true);
+        assertFilter("42 >= 42", true);
+        assertFilter("42 >= 42.0", true);
+        assertFilter("42.42 >= 42.42", true);
+        assertFilter("'foo' >= 'foo'", true);
+
+        assertFilter("42 >= 88", false);
+        assertFilter("42.42 >= 88.0", false);
+        assertFilter("42.42 >= 88.88", false);
+        assertFilter("'bar' >= 'foo'", false);
     }
 
     @Test
     public void testComparisonExpressionWithNulls()
     {
         for (ComparisonExpression.Type type : ComparisonExpression.Type.values()) {
-            assertFilter(new ComparisonExpression(type, NULL_LITERAL, NULL_LITERAL), false);
+            assertFilter(format("NULL %s NULL", type.getValue()), false);
 
-            assertFilter(new ComparisonExpression(type, longLiteral(42L), NULL_LITERAL), false);
-            assertFilter(new ComparisonExpression(type, NULL_LITERAL, longLiteral(42L)), false);
+            assertFilter(format("42 %s NULL", type.getValue()), false);
+            assertFilter(format("NULL %s 42", type.getValue()), false);
 
-            assertFilter(new ComparisonExpression(type, doubleLiteral(11.1), NULL_LITERAL), false);
-            assertFilter(new ComparisonExpression(type, NULL_LITERAL, doubleLiteral(11.1)), false);
+            assertFilter(format("11.1 %s NULL", type.getValue()), false);
+            assertFilter(format("NULL %s 11.1", type.getValue()), false);
         }
     }
 
-    public static void assertFilter(Expression predicate, boolean expectedValue)
+    public static void assertFilter(String expression, boolean expectedValue)
     {
-        InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(predicate, ImmutableMap.<Symbol, Integer>of(), null);
-        boolean result = filterFunction.filter();
-        assertEquals(result, expectedValue);
+        try {
+            Expression parsed = SqlParser.createExpression(expression);
+            InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(parsed, ImmutableMap.<Symbol, Integer>of(), null);
+            boolean result = filterFunction.filter();
+            assertEquals(result, expectedValue);
+        }
+        catch (RecognitionException e) {
+            throw Throwables.propagate(e);
+        }
     }
 }

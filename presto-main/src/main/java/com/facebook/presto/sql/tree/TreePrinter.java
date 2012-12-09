@@ -138,6 +138,13 @@ public class TreePrinter
             }
 
             @Override
+            protected Void visitBooleanLiteral(BooleanLiteral node, Integer indentLevel)
+            {
+                print(indentLevel, "Boolean[" + node.getValue() + "]");
+                return null;
+            }
+
+            @Override
             protected Void visitLongLiteral(LongLiteral node, Integer indentLevel)
             {
                 print(indentLevel, "Long[" + node.getValue() + "]");
