@@ -20,6 +20,8 @@ import java.util.Map;
 @Immutable
 public class TaskInfo
 {
+    private final String queryId;
+    private final String stageId;
     private final String taskId;
     private final URI self;
     private final Map<String, BufferState> outputBufferStates;
@@ -28,13 +30,17 @@ public class TaskInfo
     private final ExecutionStats stats;
 
     @JsonCreator
-    public TaskInfo(@JsonProperty("taskId") String taskId,
+    public TaskInfo(@JsonProperty("queryId") String queryId,
+            @JsonProperty("stageId")String stageId,
+            @JsonProperty("taskId") String taskId,
             @JsonProperty("self") URI self,
             @JsonProperty("outputBufferStates") Map<String, BufferState> outputBufferStates,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
             @JsonProperty("state") TaskState state,
             @JsonProperty("stats") ExecutionStats stats)
     {
+        Preconditions.checkNotNull(queryId, "queryId is null");
+        Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(self, "self is null");
         Preconditions.checkNotNull(outputBufferStates, "outputBufferStates is null");
@@ -43,12 +49,26 @@ public class TaskInfo
         Preconditions.checkNotNull(state, "state is null");
         Preconditions.checkNotNull(stats, "stats is null");
 
+        this.queryId = queryId;
+        this.stageId = stageId;
         this.taskId = taskId;
         this.self = self;
         this.outputBufferStates = ImmutableMap.copyOf(outputBufferStates);
         this.tupleInfos = tupleInfos;
         this.state = state;
         this.stats = stats;
+    }
+
+    @JsonProperty
+    public String getQueryId()
+    {
+        return queryId;
+    }
+
+    @JsonProperty
+    public String getStageId()
+    {
+        return stageId;
     }
 
     @JsonProperty

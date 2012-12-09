@@ -47,7 +47,9 @@ public class SqlTaskExecution
     private final PlanFragment fragment;
     private final Metadata metadata;
 
-    public SqlTaskExecution(String taskId,
+    public SqlTaskExecution(String queryId,
+            String stageId,
+            String taskId,
             URI location,
             PlanFragment fragment,
             List<PlanFragmentSource> splits,
@@ -58,6 +60,8 @@ public class SqlTaskExecution
             Metadata metadata,
             ExecutorService shardExecutor)
     {
+        Preconditions.checkNotNull(queryId, "queryId is null");
+        Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(fragment, "fragment is null");
         Preconditions.checkNotNull(splits, "splits is null");
@@ -91,7 +95,7 @@ public class SqlTaskExecution
                 })
                 .list());
 
-        this.taskOutput = new TaskOutput(taskId, location, outputIds, tupleInfos, pageBufferMax, splits.size());
+        this.taskOutput = new TaskOutput(queryId, stageId, taskId, location, outputIds, tupleInfos, pageBufferMax, splits.size());
     }
 
     @Override

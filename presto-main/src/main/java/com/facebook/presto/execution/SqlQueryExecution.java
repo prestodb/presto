@@ -180,7 +180,9 @@ public class SqlQueryExecution
                 exchangeSources.put(entry.getKey(), entry.getValue().getExchangeSourceFor(nodeIdentifier));
             }
 
-            tasks.add(remoteTaskFactory.createRemoteTask(stageId + '.' + taskId++,
+            tasks.add(remoteTaskFactory.createRemoteTask(queryId,
+                    stageId,
+                    stageId + '.' + taskId++,
                     partition.getNode(),
                     stageExecutionPlan.getFragment(),
                     partition.getSplits(),

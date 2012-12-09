@@ -65,7 +65,9 @@ public class TaskResource
         try {
             checkNotNull(queryFragmentRequest, "queryFragmentRequest is null");
 
-            TaskInfo taskInfo = taskManager.createTask(taskId,
+            TaskInfo taskInfo = taskManager.createTask(queryFragmentRequest.getQueryId(),
+                    queryFragmentRequest.getStageId(),
+                    taskId,
                     queryFragmentRequest.getFragment(),
                     queryFragmentRequest.getSplits(),
                     queryFragmentRequest.getExchangeSources(),

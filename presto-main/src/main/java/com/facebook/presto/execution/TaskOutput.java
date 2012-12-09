@@ -22,6 +22,8 @@ import static com.google.common.collect.Maps.transformValues;
 
 public class TaskOutput
 {
+    private final String queryId;
+    private final String stageId;
     private final String taskId;
     private final URI location;
     private final List<TupleInfo> tupleInfos;
@@ -30,8 +32,10 @@ public class TaskOutput
     private final ExecutionStats stats = new ExecutionStats();
     private final AtomicReference<TaskState> taskState = new AtomicReference<>(TaskState.RUNNING);
 
-    public TaskOutput(String taskId, URI location, List<String> outputIds, List<TupleInfo> tupleInfos, int pageBufferMax, int splits)
+    public TaskOutput(String queryId, String stageId, String taskId, URI location, List<String> outputIds, List<TupleInfo> tupleInfos, int pageBufferMax, int splits)
     {
+        Preconditions.checkNotNull(queryId, "queryId is null");
+        Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(location, "location is null");
         Preconditions.checkNotNull(outputIds, "outputIds is null");
@@ -40,6 +44,8 @@ public class TaskOutput
         Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
         Preconditions.checkArgument(splits >= 0, "splits is negative");
 
+        this.queryId = queryId;
+        this.stageId = stageId;
         this.taskId = taskId;
         this.location = location;
         this.tupleInfos = tupleInfos;
@@ -181,7 +187,9 @@ public class TaskOutput
     public TaskInfo getTaskInfo()
     {
         updateState();
-        return new TaskInfo(taskId,
+        return new TaskInfo(queryId,
+                stageId,
+                taskId,
                 location,
                 getOutputBufferStates(),
                 getTupleInfos(),
