@@ -30,6 +30,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -49,6 +50,7 @@ import static com.facebook.presto.util.IterableUtils.limit;
 import static com.facebook.presto.util.IterableUtils.shuffle;
 import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Predicates.or;
 
@@ -226,13 +228,16 @@ public class SplitManager
         ImmutableList.Builder<PartitionInfo> builder = ImmutableList.builder();
         for (PartitionInfo partition : partitions) {
             // translate assignments from column->value to symbol->value
-            Map<Symbol, String> assignments = new HashMap<>();
-            for (Map.Entry<String, String> entry : partition.getKeyFields().entrySet()) {
+            // only bind partition keys that appear in the predicate
+            Map<String, String> relevantFields = Maps.filterKeys(partition.getKeyFields(), in(columnNameToSymbol.keySet()));
+
+            ImmutableMap.Builder<Symbol, String> assignments = ImmutableMap.builder();
+            for (Map.Entry<String, String> entry : relevantFields.entrySet()) {
                 Symbol symbol = columnNameToSymbol.get(entry.getKey());
                 assignments.put(symbol, entry.getValue());
             }
 
-            Expression optimized = new ExpressionOptimizer(assignments).optimize(predicate);
+            Expression optimized = new ExpressionOptimizer(assignments.build()).optimize(predicate);
             if (!optimized.equals(BooleanLiteral.FALSE_LITERAL) && !(optimized instanceof NullLiteral)) {
                 builder.add(partition);
             }
