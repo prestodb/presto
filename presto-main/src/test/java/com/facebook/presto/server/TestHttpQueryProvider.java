@@ -185,7 +185,7 @@ public class TestHttpQueryProvider
                 ImmutableList.of("out"));
 
         Request request = preparePost()
-                .setUri(httpServer.getBaseUrl().resolve("/v1/presto/task"))
+                .setUri(httpServer.getBaseUrl().resolve("/v1/task"))
                 .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
                 .setBodyGenerator(jsonBodyGenerator(jsonCodec(QueryFragmentRequest.class), fragmentRequest))
                 .build();

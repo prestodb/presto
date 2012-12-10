@@ -118,7 +118,7 @@ public class SqlTaskManager
         Preconditions.checkNotNull(exchangeSources, "exchangeSources is null");
 
         String taskId = UUID.randomUUID().toString();
-        URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/presto/task").appendPath(taskId).build();
+        URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
 
         SqlTaskExecution taskExecution = new SqlTaskExecution(taskId, location, fragment, splits, exchangeSources,  outputIds, pageBufferMax, sourceProvider, metadata, shardExecutor);
         taskExecutor.submit(new TaskStarter(taskExecution));

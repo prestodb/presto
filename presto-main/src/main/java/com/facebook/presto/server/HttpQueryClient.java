@@ -138,7 +138,7 @@ public class HttpQueryClient
                         taskInfo.getTaskId(),
                         taskInfo.getOutputBufferStates());
 
-                URI taskUri = uriBuilderFrom(taskInfo.getSelf()).replacePath("/v1/presto/task").appendPath(taskInfo.getTaskId()).build();
+                URI taskUri = uriBuilderFrom(taskInfo.getSelf()).replacePath("/v1/task").appendPath(taskInfo.getTaskId()).build();
                 return new HttpTaskClient(taskInfo.getTaskId(),
                         taskUri,
                         Iterables.getOnlyElement(taskInfo.getOutputBufferStates().keySet()),

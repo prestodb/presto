@@ -108,12 +108,12 @@ public class TestQueryResourceServer
     public void testQuery()
             throws Exception
     {
-        URI location = client.execute(preparePost().setUri(uriFor("/v1/presto/query")).build(), new CreatedResponseHandler());
+        URI location = client.execute(preparePost().setUri(uriFor("/v1/query")).build(), new CreatedResponseHandler());
         assertQueryStatus(location, QueryState.RUNNING);
 
         QueryInfo queryInfo = client.execute(prepareGet().setUri(location).build(), createJsonResponseHandler(jsonCodec(QueryInfo.class)));
         TaskInfo taskInfo = queryInfo.getStages().get("out").get(0);
-        URI outputLocation = uriFor("/v1/presto/task/" + taskInfo.getTaskId() + "/results/out");
+        URI outputLocation = uriFor("/v1/task/" + taskInfo.getTaskId() + "/results/out");
 
         assertEquals(loadData(outputLocation), 220);
         assertQueryStatus(location, QueryState.RUNNING);

@@ -35,7 +35,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 /**
  * Manages tasks on this worker node
  */
-@Path("/v1/presto/task")
+@Path("/v1/task")
 public class TaskResource
 {
     private static final int DEFAULT_MAX_PAGE_COUNT = 10;
