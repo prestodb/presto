@@ -8,6 +8,7 @@ import java.util.List;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.sql.tree.QueryUtil.aliasedName;
+import static com.facebook.presto.sql.tree.QueryUtil.ascending;
 import static com.facebook.presto.sql.tree.QueryUtil.equal;
 import static com.facebook.presto.sql.tree.QueryUtil.nameReference;
 import static com.facebook.presto.sql.tree.QueryUtil.selectList;
@@ -46,7 +47,7 @@ public class ShowTables
                 where,
                 ImmutableList.<Expression>of(),
                 null,
-                ImmutableList.<SortItem>of(),
+                ImmutableList.of(ascending("table_name")),
                 null
         );
     }
