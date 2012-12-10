@@ -142,7 +142,7 @@ public class HttpQuery
                     // otherwise we must have gotten an OK response, everything else is considered fatal
                     if (response.getStatusCode() != Status.OK.getStatusCode()) {
                         fail(new UnexpectedResponseException(
-                                String.format("Expected response code to be 200, but was %d: %s", response.getStatusCode(), response.getStatusMessage()),
+                                String.format("Expected response code to be 200, but was %s: %s", response.getStatusCode(), response.getStatusMessage()),
                                 request,
                                 response));
                         return null;
@@ -169,7 +169,7 @@ public class HttpQuery
             }
             catch (Exception e) {
                 // reschedule on error
-                log.warn(e, "Error fetching pages from  %s: status: %d %s", request.getUri(), response.getStatusCode(), response.getStatusMessage());
+                log.warn(e, "Error fetching pages from  %s: status: %s %s", request.getUri(), response.getStatusCode(), response.getStatusMessage());
             }
             rescheduleRequest();
             return null;

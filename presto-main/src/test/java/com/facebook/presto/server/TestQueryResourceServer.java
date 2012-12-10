@@ -169,7 +169,7 @@ public class TestQueryResourceServer
         {
             if (response.getStatusCode() != Status.CREATED.getStatusCode()) {
                 throw new UnexpectedResponseException(
-                        String.format("Expected response code to be 201 CREATED, but was %d %s", response.getStatusCode(), response.getStatusMessage()),
+                        String.format("Expected response code to be 201 CREATED, but was %s %s", response.getStatusCode(), response.getStatusMessage()),
                         request,
                         response);
             }
@@ -197,7 +197,7 @@ public class TestQueryResourceServer
                     return ImmutableList.of();
                 }
                 throw new UnexpectedResponseException(
-                        String.format("Expected response code to be 200, but was %d: %s", response.getStatusCode(), response.getStatusMessage()),
+                        String.format("Expected response code to be 200, but was %s: %s", response.getStatusCode(), response.getStatusMessage()),
                         request,
                         response);
             }

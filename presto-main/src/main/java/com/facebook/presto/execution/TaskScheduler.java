@@ -88,7 +88,7 @@ public class TaskScheduler
 
                 JsonResponse<TaskInfo> response = httpClient.execute(request, createFullJsonResponseHandler(jsonCodec(TaskInfo.class)));
                 checkState(response.getStatusCode() == 201,
-                        "Expected response code from %s to be 201, but was %d: %s",
+                        "Expected response code from %s to be 201, but was %s: %s",
                         request.getUri(),
                         response.getStatusCode(),
                         response.getStatusMessage());
