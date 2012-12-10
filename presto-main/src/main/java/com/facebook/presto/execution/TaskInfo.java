@@ -25,17 +25,7 @@ public class TaskInfo
     private final Map<String, BufferState> outputBufferStates;
     private final List<TupleInfo> tupleInfos;
     private final TaskState state;
-    private final int bufferedPages;
-    private final int splits;
-    private final int startedSplits;
-    private final int completedSplits;
-    private final long splitCpuTime;
-    private final long inputDataSize;
-    private final long inputPositionCount;
-    private final long completedDataSize;
-    private final long completedPositionCount;
-    private final long outputDataSize;
-    private final long outputPositionCount;
+    private final ExecutionStats stats;
 
     @JsonCreator
     public TaskInfo(@JsonProperty("taskId") String taskId,
@@ -43,38 +33,22 @@ public class TaskInfo
             @JsonProperty("outputBufferStates") Map<String, BufferState> outputBufferStates,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
             @JsonProperty("state") TaskState state,
-            @JsonProperty("bufferedPages") int bufferedPages,
-            @JsonProperty("splits") int splits,
-            @JsonProperty("startedSplits") int startedSplits,
-            @JsonProperty("completedSplits") int completedSplits,
-            @JsonProperty("splitCpuTime") long splitCpuTime,
-            @JsonProperty("inputDataSize") long inputDataSize,
-            @JsonProperty("inputPositionCount") long inputPositionCount,
-            @JsonProperty("completedDataSize") long completedDataSize,
-            @JsonProperty("completedPositionCount") long completedPositionCount,
-            @JsonProperty("outputDataSize") long outputDataSize,
-            @JsonProperty("outputPositionCount") long outputPositionCount)
+            @JsonProperty("stats") ExecutionStats stats)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(self, "self is null");
-        Preconditions.checkNotNull(outputBufferStates, "outputIds is null");
+        Preconditions.checkNotNull(outputBufferStates, "outputBufferStates is null");
+        Preconditions.checkArgument(!outputBufferStates.isEmpty(), "outputBufferStates is empty");
         Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
+        Preconditions.checkNotNull(state, "state is null");
+        Preconditions.checkNotNull(stats, "stats is null");
+
         this.taskId = taskId;
         this.self = self;
         this.outputBufferStates = ImmutableMap.copyOf(outputBufferStates);
         this.tupleInfos = tupleInfos;
         this.state = state;
-        this.bufferedPages = bufferedPages;
-        this.splits = splits;
-        this.startedSplits = startedSplits;
-        this.completedSplits = completedSplits;
-        this.splitCpuTime = splitCpuTime;
-        this.inputDataSize = inputDataSize;
-        this.inputPositionCount = inputPositionCount;
-        this.completedDataSize = completedDataSize;
-        this.completedPositionCount = completedPositionCount;
-        this.outputDataSize = outputDataSize;
-        this.outputPositionCount = outputPositionCount;
+        this.stats = stats;
     }
 
     @JsonProperty
@@ -108,69 +82,9 @@ public class TaskInfo
     }
 
     @JsonProperty
-    public int getBufferedPages()
+    public ExecutionStats getStats()
     {
-        return bufferedPages;
-    }
-
-    @JsonProperty
-    public int getSplits()
-    {
-        return splits;
-    }
-
-    @JsonProperty
-    public int getStartedSplits()
-    {
-        return startedSplits;
-    }
-
-    @JsonProperty
-    public int getCompletedSplits()
-    {
-        return completedSplits;
-    }
-
-    @JsonProperty
-    public long getSplitCpuTime()
-    {
-        return splitCpuTime;
-    }
-
-    @JsonProperty
-    public long getInputDataSize()
-    {
-        return inputDataSize;
-    }
-
-    @JsonProperty
-    public long getInputPositionCount()
-    {
-        return inputPositionCount;
-    }
-
-    @JsonProperty
-    public long getCompletedDataSize()
-    {
-        return completedDataSize;
-    }
-
-    @JsonProperty
-    public long getCompletedPositionCount()
-    {
-        return completedPositionCount;
-    }
-
-    @JsonProperty
-    public long getOutputDataSize()
-    {
-        return outputDataSize;
-    }
-
-    @JsonProperty
-    public long getOutputPositionCount()
-    {
-        return outputPositionCount;
+        return stats;
     }
 
     @Override

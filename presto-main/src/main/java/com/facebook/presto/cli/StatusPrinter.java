@@ -1,5 +1,6 @@
 package com.facebook.presto.cli;
 
+import com.facebook.presto.execution.ExecutionStats;
 import com.facebook.presto.server.HttpQueryClient;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
@@ -46,7 +47,7 @@ public class StatusPrinter
                     if (queryInfo.getOutputStage() != null) {
                         List<TaskInfo> outStage = queryInfo.getStages().get(queryInfo.getOutputStage());
                         for (TaskInfo outputTask : outStage) {
-                            if (outputTask.getBufferedPages() > 0) {
+                            if (outputTask.getStats().getBufferedPages() > 0) {
                                 return;
                             }
                         }
@@ -75,46 +76,32 @@ public class StatusPrinter
     {
         Duration elapsedTime = Duration.nanosSince(start);
 
-        int stages = queryInfo.getStages().size();
-        int completeStages = queryInfo.getStages().size();
-
-        int startedSplits = 0;
-        int completedSplits = 0;
-        int totalSplits = 0;
-        long splitCpuTime = 0;
-        long inputDataSize = 0;
-        long inputPositions = 0;
-        long completedDataSize = 0;
-        long completedPositions = 0;
+        ExecutionStats executionStats = new ExecutionStats();
         for (TaskInfo info : concat(queryInfo.getStages().values())) {
-            totalSplits += info.getSplits();
-            startedSplits += info.getStartedSplits();
-            completedSplits += info.getCompletedSplits();
-            splitCpuTime += info.getSplitCpuTime();
-            inputDataSize += info.getInputDataSize();
-            inputPositions += info.getInputPositionCount();
-            completedDataSize += info.getCompletedDataSize();
-            completedPositions += info.getCompletedPositionCount();
+            executionStats.add(info.getStats());
         }
 
         QueryState queryState = queryInfo.getState();
-        Duration cpuTime = new Duration(splitCpuTime, TimeUnit.MILLISECONDS);
+        Duration cpuTime = new Duration(executionStats.getSplitCpuTime(), TimeUnit.MILLISECONDS);
+        int completedStaged = 0;
+        int stages = 0;
+
         String infoString = String.format(
                 "%s QueryId %s: Stages [%,d of %,d]: Splits [%,d total, %,d pending, %,d running, %,d finished]: Input [%,d rows %s]: CPU Time %s %s: Elapsed %s %s",
                 queryState,
                 queryInfo.getQueryId(),
-                completeStages,
+                completedStaged,
                 stages,
-                totalSplits,
-                totalSplits - startedSplits,
-                startedSplits - completedSplits,
-                completedSplits,
-                inputPositions,
-                StatusPrinter.formatDataSize(inputDataSize),
+                executionStats.getSplits(),
+                executionStats.getSplits() - executionStats.getStartedSplits(),
+                executionStats.getStartedSplits() - executionStats.getCompletedSplits(),
+                executionStats.getCompletedSplits(),
+                executionStats.getInputPositionCount(),
+                StatusPrinter.formatDataSize(executionStats.getInputDataSize()),
                 cpuTime.toString(TimeUnit.SECONDS),
-                StatusPrinter.formatDataRate(completedDataSize, cpuTime),
+                StatusPrinter.formatDataRate(executionStats.getCompletedDataSize(), cpuTime),
                 elapsedTime.toString(TimeUnit.SECONDS),
-                StatusPrinter.formatDataRate(completedDataSize, elapsedTime));
+                StatusPrinter.formatDataRate(executionStats.getCompletedDataSize(), elapsedTime));
 
         if (infoString.length() < maxInfoString) {
             infoString = String.format("%-" + maxInfoString + "s", infoString);
@@ -128,30 +115,25 @@ public class StatusPrinter
     {
         Duration elapsedTime = Duration.nanosSince(start);
 
-        int totalSplits = 0;
-        long splitCpuTime = 0;
-        long inputDataSize = 0;
-        long inputPositions = 0;
+        ExecutionStats executionStats = new ExecutionStats();
         for (TaskInfo info : concat(queryInfo.getStages().values())) {
-            totalSplits += info.getSplits();
-            splitCpuTime += info.getSplitCpuTime();
-            inputDataSize += info.getInputDataSize();
-            inputPositions += info.getInputPositionCount();
+            executionStats.add(info.getStats());
         }
-        Duration cpuTime = new Duration(splitCpuTime, TimeUnit.MILLISECONDS);
+
+        Duration cpuTime = new Duration(executionStats.getSplitCpuTime(), TimeUnit.MILLISECONDS);
 
         return String.format("%s QueryId %s: Splits %,d: In %,d rows %s: Out %,d rows %s: CPU Time %s %s: Elapsed %s %s",
                 queryInfo.getState(),
                 queryInfo.getQueryId(),
-                totalSplits,
-                inputPositions,
-                StatusPrinter.formatDataSize(inputDataSize),
+                executionStats.getSplits(),
+                executionStats.getInputPositionCount(),
+                StatusPrinter.formatDataSize(executionStats.getInputDataSize()),
                 outputPositions,
                 StatusPrinter.formatDataSize(outputDataSize),
                 cpuTime.toString(TimeUnit.SECONDS),
-                StatusPrinter.formatDataRate(inputDataSize, cpuTime),
+                StatusPrinter.formatDataRate(executionStats.getInputDataSize(), cpuTime),
                 elapsedTime.toString(TimeUnit.SECONDS),
-                StatusPrinter.formatDataRate(inputDataSize, elapsedTime)
+                StatusPrinter.formatDataRate(executionStats.getInputDataSize(), elapsedTime)
         );
     }
 

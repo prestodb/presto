@@ -211,11 +211,11 @@ public class SqlTaskExecution
 
             inputDataSize = planner.getInputDataSize();
             if (inputDataSize.isPresent()) {
-                taskOutput.addInputDataSize(inputDataSize.get());
+                taskOutput.getStats().addInputDataSize(inputDataSize.get());
             }
             inputPositionCount = planner.getInputPositionCount();
             if (inputPositionCount.isPresent()) {
-                taskOutput.addInputPositions(inputPositionCount.get());
+                taskOutput.getStats().addInputPositions(inputPositionCount.get());
             }
         }
 
@@ -223,7 +223,7 @@ public class SqlTaskExecution
         public Void call()
                 throws Exception
         {
-            taskOutput.splitStarted();
+            taskOutput.getStats().splitStarted();
             long startTime = System.nanoTime();
             try (PageIterator pages = operator.iterator()) {
                 while (pages.hasNext()) {
@@ -239,13 +239,13 @@ public class SqlTaskExecution
                 throw Throwables.propagate(e);
             }
             finally {
-                taskOutput.addSplitCpuTime(Duration.nanosSince(startTime));
-                taskOutput.splitCompleted();
+                taskOutput.getStats().addSplitCpuTime(Duration.nanosSince(startTime));
+                taskOutput.getStats().splitCompleted();
                 if (inputDataSize.isPresent()) {
-                    taskOutput.addCompletedDataSize(inputDataSize.get());
+                    taskOutput.getStats().addCompletedDataSize(inputDataSize.get());
                 }
                 if (inputPositionCount.isPresent()) {
-                    taskOutput.addCompletedPositions(inputPositionCount.get());
+                    taskOutput.getStats().addCompletedPositions(inputPositionCount.get());
                 }
 
             }
