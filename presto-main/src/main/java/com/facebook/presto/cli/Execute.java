@@ -12,6 +12,7 @@ import io.airlift.command.Option;
 import io.airlift.http.client.ApacheHttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.units.Duration;
+import org.fusesource.jansi.AnsiConsole;
 
 import java.io.OutputStreamWriter;
 import java.net.URI;
@@ -23,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.operator.OutputProcessor.OutputHandler;
 import static com.facebook.presto.operator.OutputProcessor.OutputStats;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static org.fusesource.jansi.AnsiConsole.out;
 
 @Command(name = "execute", description = "Execute a query")
 public class Execute
@@ -36,6 +38,7 @@ public class Execute
 
     public void run()
     {
+        AnsiConsole.systemInstall();
         Main.initializeLogging(false);
 
         ExecutorService executor = Executors.newCachedThreadPool();
@@ -52,8 +55,10 @@ public class Execute
                     jsonCodec(QueryInfo.class),
                     jsonCodec(TaskInfo.class));
 
-            StatusPrinter statusPrinter = new StatusPrinter(queryClient);
-            statusPrinter.printInitialStatusUpdates(System.err);
+            out().print("\n");
+
+            StatusPrinter statusPrinter = new StatusPrinter(queryClient, out());
+            statusPrinter.printInitialStatusUpdates();
 
             Operator operator = queryClient.getResultsOperator();
             List<String> fieldNames = queryClient.getQueryInfo().getFieldNames();
@@ -61,7 +66,7 @@ public class Execute
             OutputStats stats = pageOutput(operator, fieldNames);
 
             // print final info after the user exits from the pager
-            System.out.println(statusPrinter.getFinalInfo(stats));
+            statusPrinter.printFinalInfo(stats);
         }
         finally {
             if (queryClient != null) {
