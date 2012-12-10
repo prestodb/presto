@@ -15,6 +15,9 @@ import static com.facebook.presto.metadata.InformationSchemaMetadata.listInforma
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
+import static com.facebook.presto.metadata.SystemTables.SYSTEM_SCHEMA;
+import static com.facebook.presto.metadata.SystemTables.listSystemTableColumns;
+import static com.facebook.presto.metadata.SystemTables.listSystemTables;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.concat;
@@ -61,7 +64,8 @@ public class MetadataManager
         DataSourceType dataSourceType = lookupDataSource(catalogName);
         List<QualifiedTableName> catalogTables = lookup(dataSourceType).listTables(catalogName);
         List<QualifiedTableName> informationSchemaTables = listInformationSchemaTables(catalogName);
-        return ImmutableList.copyOf(concat(catalogTables, informationSchemaTables));
+        List<QualifiedTableName> systemTables = listSystemTables(catalogName);
+        return ImmutableList.copyOf(concat(catalogTables, informationSchemaTables, systemTables));
     }
 
     @Override
@@ -79,7 +83,8 @@ public class MetadataManager
         DataSourceType dataSourceType = lookupDataSource(catalogName);
         List<TableColumn> catalogColumns = lookup(dataSourceType).listTableColumns(catalogName);
         List<TableColumn> informationSchemaColumns = listInformationSchemaTableColumns(catalogName);
-        return ImmutableList.copyOf(concat(catalogColumns, informationSchemaColumns));
+        List<TableColumn> systemColumns = listSystemTableColumns(catalogName);
+        return ImmutableList.copyOf(concat(catalogColumns, informationSchemaColumns, systemColumns));
     }
 
     @Override
@@ -110,7 +115,7 @@ public class MetadataManager
             return DataSourceType.INTERNAL;
         }
 
-        if (schemaName.equals(INFORMATION_SCHEMA)) {
+        if (schemaName.equals(INFORMATION_SCHEMA) || schemaName.equals(SYSTEM_SCHEMA)) {
             return DataSourceType.INTERNAL;
         }
 
