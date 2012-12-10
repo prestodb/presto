@@ -22,6 +22,10 @@ public class InternalMetadata
     {
         checkTableName(catalogName, schemaName, tableName);
 
+        if (tableName.equals(DualTable.NAME)) {
+            return DualTable.getMetadata(catalogName, schemaName, tableName);
+        }
+
         if (schemaName.equals(INFORMATION_SCHEMA)) {
             return informationSchema.getTableMetadata(catalogName, schemaName, tableName);
         }
