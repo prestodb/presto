@@ -1,7 +1,6 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -10,12 +9,14 @@ import java.util.Map;
 
 import static com.facebook.presto.metadata.MetadataUtil.ColumnMetadataListBuilder.columnsBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
+import static com.facebook.presto.metadata.MetadataUtil.getColumns;
+import static com.facebook.presto.metadata.MetadataUtil.getTable;
+import static com.facebook.presto.metadata.MetadataUtil.getType;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.transform;
-import static java.util.Map.Entry;
 
 public class InformationSchemaMetadata
 {
@@ -63,58 +64,13 @@ public class InformationSchemaMetadata
         return new TupleInfo(transform(METADATA.get(tableName), getType()));
     }
 
-    private static Function<ColumnMetadata, TupleInfo.Type> getType()
-    {
-        return new Function<ColumnMetadata, TupleInfo.Type>()
-        {
-            @Override
-            public TupleInfo.Type apply(ColumnMetadata column)
-            {
-                return column.getType();
-            }
-        };
-    }
-
     public static List<QualifiedTableName> listInformationSchemaTables(String catalogName)
     {
-        return ImmutableList.copyOf(transform(METADATA.keySet(), getTable(catalogName)));
-    }
-
-    private static Function<String, QualifiedTableName> getTable(final String catalogName)
-    {
-        return new Function<String, QualifiedTableName>()
-        {
-            @Override
-            public QualifiedTableName apply(String table)
-            {
-                return new QualifiedTableName(catalogName, INFORMATION_SCHEMA, table);
-            }
-        };
+        return ImmutableList.copyOf(transform(METADATA.keySet(), getTable(catalogName, INFORMATION_SCHEMA)));
     }
 
     public static List<TableColumn> listInformationSchemaTableColumns(String catalogName)
     {
-        return ImmutableList.copyOf(concat(transform(METADATA.entrySet(), getColumns(catalogName))));
-    }
-
-    private static Function<Entry<String, List<ColumnMetadata>>, List<TableColumn>> getColumns(final String catalogName)
-    {
-        return new Function<Entry<String, List<ColumnMetadata>>, List<TableColumn>>()
-        {
-            @Override
-            public List<TableColumn> apply(Entry<String, List<ColumnMetadata>> entry)
-            {
-                String table = entry.getKey();
-                ImmutableList.Builder<TableColumn> list = ImmutableList.builder();
-                int position = 1;
-                for (ColumnMetadata column : entry.getValue()) {
-                    list.add(new TableColumn(
-                            catalogName, INFORMATION_SCHEMA, table,
-                            column.getName(), position, column.getType()));
-                    position++;
-                }
-                return list.build();
-            }
-        };
+        return ImmutableList.copyOf(concat(transform(METADATA.entrySet(), getColumns(catalogName, INFORMATION_SCHEMA))));
     }
 }

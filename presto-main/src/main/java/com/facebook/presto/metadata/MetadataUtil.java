@@ -1,10 +1,12 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -33,6 +35,52 @@ class MetadataUtil
     {
         checkNotNull(s, "%s is null", name);
         checkArgument(s.equals(s.toLowerCase()), "%s is not lowercase", name);
+    }
+
+    public static Function<ColumnMetadata, TupleInfo.Type> getType()
+    {
+        return new Function<ColumnMetadata, TupleInfo.Type>()
+        {
+            @Override
+            public TupleInfo.Type apply(ColumnMetadata column)
+            {
+                return column.getType();
+            }
+        };
+    }
+
+    public static Function<Map.Entry<String, List<ColumnMetadata>>, List<TableColumn>> getColumns(
+            final String catalogName, final String schemaName)
+    {
+        return new Function<Map.Entry<String, List<ColumnMetadata>>, List<TableColumn>>()
+        {
+            @Override
+            public List<TableColumn> apply(Map.Entry<String, List<ColumnMetadata>> entry)
+            {
+                String tableName = entry.getKey();
+                ImmutableList.Builder<TableColumn> list = ImmutableList.builder();
+                int position = 1;
+                for (ColumnMetadata column : entry.getValue()) {
+                    list.add(new TableColumn(
+                            catalogName, schemaName, tableName,
+                            column.getName(), position, column.getType()));
+                    position++;
+                }
+                return list.build();
+            }
+        };
+    }
+
+    public static Function<String, QualifiedTableName> getTable(final String catalogName, final String schemaName)
+    {
+        return new Function<String, QualifiedTableName>()
+        {
+            @Override
+            public QualifiedTableName apply(String tableName)
+            {
+                return new QualifiedTableName(catalogName, schemaName, tableName);
+            }
+        };
     }
 
     public static class ColumnMetadataListBuilder
