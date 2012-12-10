@@ -28,6 +28,7 @@ import com.facebook.presto.metadata.NativeMetadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.StorageManager;
+import com.facebook.presto.metadata.SystemTables;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.split.DataStreamManager;
@@ -98,6 +99,7 @@ public class ServerMainModule
         binder.bind(InternalDataStreamProvider.class).in(Scopes.SINGLETON);
         binder.bind(InformationSchemaMetadata.class).in(Scopes.SINGLETON);
         binder.bind(InformationSchemaData.class).in(Scopes.SINGLETON);
+        binder.bind(SystemTables.class).in(Scopes.SINGLETON);
 
         binder.bind(ImportClientFactory.class).in(Scopes.SINGLETON);
         binder.bind(ImportMetadata.class).in(Scopes.SINGLETON);

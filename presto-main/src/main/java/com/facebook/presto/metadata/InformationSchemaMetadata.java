@@ -1,18 +1,22 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Function;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 
 import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.MetadataUtil.ColumnMetadataListBuilder.columnsBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
+import static com.facebook.presto.metadata.MetadataUtil.getColumns;
+import static com.facebook.presto.metadata.MetadataUtil.getTable;
+import static com.facebook.presto.metadata.MetadataUtil.getType;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Iterables.transform;
 
 public class InformationSchemaMetadata
 {
@@ -57,18 +61,16 @@ public class InformationSchemaMetadata
     static TupleInfo informationSchemaTupleInfo(String tableName)
     {
         checkArgument(METADATA.containsKey(tableName), "table does not exist: %s", tableName);
-        return new TupleInfo(Iterables.transform(METADATA.get(tableName), getType()));
+        return new TupleInfo(transform(METADATA.get(tableName), getType()));
     }
 
-    private static Function<ColumnMetadata, TupleInfo.Type> getType()
+    public static List<QualifiedTableName> listInformationSchemaTables(String catalogName)
     {
-        return new Function<ColumnMetadata, TupleInfo.Type>()
-        {
-            @Override
-            public TupleInfo.Type apply(ColumnMetadata column)
-            {
-                return column.getType();
-            }
-        };
+        return ImmutableList.copyOf(transform(METADATA.keySet(), getTable(catalogName, INFORMATION_SCHEMA)));
+    }
+
+    public static List<TableColumn> listInformationSchemaTableColumns(String catalogName)
+    {
+        return ImmutableList.copyOf(concat(transform(METADATA.entrySet(), getColumns(catalogName, INFORMATION_SCHEMA))));
     }
 }

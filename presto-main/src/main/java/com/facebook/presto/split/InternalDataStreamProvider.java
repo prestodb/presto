@@ -7,6 +7,7 @@ import com.facebook.presto.metadata.InformationSchemaData;
 import com.facebook.presto.metadata.InternalColumnHandle;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.InternalTableHandle;
+import com.facebook.presto.metadata.SystemTables;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
 import com.google.common.collect.ImmutableList;
@@ -14,18 +15,23 @@ import com.google.common.collect.ImmutableList;
 import javax.inject.Inject;
 import java.util.List;
 
+import static com.facebook.presto.metadata.InformationSchemaMetadata.INFORMATION_SCHEMA;
+import static com.facebook.presto.metadata.SystemTables.SYSTEM_SCHEMA;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
 
 public class InternalDataStreamProvider
         implements DataStreamProvider
 {
     private final InformationSchemaData informationSchemaData;
+    private final SystemTables systemTables;
 
     @Inject
-    public InternalDataStreamProvider(InformationSchemaData informationSchemaData)
+    public InternalDataStreamProvider(InformationSchemaData informationSchemaData, SystemTables systemTables)
     {
         this.informationSchemaData = checkNotNull(informationSchemaData, "informationSchemaData is null");
+        this.systemTables = checkNotNull(systemTables, "systemTables is null");
     }
 
     @Override
@@ -44,8 +50,15 @@ public class InternalDataStreamProvider
         if (handle.getTableName().equals(DualTable.NAME)) {
             table = DualTable.getInternalTable(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
         }
-        else {
+        else if (handle.getSchemaName().equals(INFORMATION_SCHEMA)) {
             table = informationSchemaData.getInternalTable(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
+        }
+        else if (handle.getSchemaName().equals(SYSTEM_SCHEMA)) {
+            table = systemTables.getInternalTable(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
+        }
+        else {
+            throw new IllegalArgumentException(format("table does not exist: %s.%s.%s",
+                    handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()));
         }
 
         ImmutableList.Builder<BlockIterable> list = ImmutableList.builder();

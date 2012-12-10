@@ -2,6 +2,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 
@@ -9,11 +10,17 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.InformationSchemaMetadata.INFORMATION_SCHEMA;
+import static com.facebook.presto.metadata.InformationSchemaMetadata.listInformationSchemaTableColumns;
+import static com.facebook.presto.metadata.InformationSchemaMetadata.listInformationSchemaTables;
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
+import static com.facebook.presto.metadata.SystemTables.SYSTEM_SCHEMA;
+import static com.facebook.presto.metadata.SystemTables.listSystemTableColumns;
+import static com.facebook.presto.metadata.SystemTables.listSystemTables;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Iterables.concat;
 
 public class MetadataManager
         implements Metadata
@@ -55,7 +62,10 @@ public class MetadataManager
     {
         checkCatalogName(catalogName);
         DataSourceType dataSourceType = lookupDataSource(catalogName);
-        return lookup(dataSourceType).listTables(catalogName);
+        List<QualifiedTableName> catalogTables = lookup(dataSourceType).listTables(catalogName);
+        List<QualifiedTableName> informationSchemaTables = listInformationSchemaTables(catalogName);
+        List<QualifiedTableName> systemTables = listSystemTables(catalogName);
+        return ImmutableList.copyOf(concat(catalogTables, informationSchemaTables, systemTables));
     }
 
     @Override
@@ -71,7 +81,10 @@ public class MetadataManager
     {
         checkCatalogName(catalogName);
         DataSourceType dataSourceType = lookupDataSource(catalogName);
-        return lookup(dataSourceType).listTableColumns(catalogName);
+        List<TableColumn> catalogColumns = lookup(dataSourceType).listTableColumns(catalogName);
+        List<TableColumn> informationSchemaColumns = listInformationSchemaTableColumns(catalogName);
+        List<TableColumn> systemColumns = listSystemTableColumns(catalogName);
+        return ImmutableList.copyOf(concat(catalogColumns, informationSchemaColumns, systemColumns));
     }
 
     @Override
@@ -102,7 +115,7 @@ public class MetadataManager
             return DataSourceType.INTERNAL;
         }
 
-        if (schemaName.equals(INFORMATION_SCHEMA)) {
+        if (schemaName.equals(INFORMATION_SCHEMA) || schemaName.equals(SYSTEM_SCHEMA)) {
             return DataSourceType.INTERNAL;
         }
 
