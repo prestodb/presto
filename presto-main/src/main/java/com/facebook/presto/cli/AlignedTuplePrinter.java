@@ -55,7 +55,6 @@ public class AlignedTuplePrinter
         flush();
         try {
             writer.append(format("(%s row%s)%n", rowCount, (rowCount != 1) ? "s" : ""));
-            writer.append('\n');
             writer.flush();
         }
         catch (IOException e) {
