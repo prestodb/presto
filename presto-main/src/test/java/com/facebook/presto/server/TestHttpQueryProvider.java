@@ -5,6 +5,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.execution.ExchangePlanFragmentSource;
+import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
@@ -12,9 +13,9 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.server.QueryDriversOperator.QueryDriversIterator;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -41,14 +42,12 @@ import org.testng.annotations.Test;
 
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
-import java.net.URI;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
-import static io.airlift.http.client.Request.Builder.preparePost;
+import static io.airlift.http.client.Request.Builder.preparePut;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -98,6 +97,7 @@ public class TestHttpQueryProvider
                         binder.bind(MockTaskManager.class).in(Scopes.SINGLETON);
                         binder.bind(TaskManager.class).to(Key.get(MockTaskManager.class)).in(Scopes.SINGLETON);
                         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
+                        binder.bind(LocationFactory.class).to(HttpLocationFactory.class).in(Scopes.SINGLETON);
                     }
                 },
                 new ConfigurationModule(new ConfigurationFactory(ImmutableMap.<String, String>of())));
@@ -176,7 +176,6 @@ public class TestHttpQueryProvider
 
     private HttpTaskClient createHttpQueryProvider(TestingHttpServer httpServer)
     {
-        ImmutableMap<String, List<PlanFragmentSource>> fragmentSources = ImmutableMap.of();
         PlanFragment planFragment = new PlanFragment(32, false, ImmutableMap.<Symbol, Type>of(), new ExchangeNode(22, ImmutableList.<Symbol>of()));
 
         QueryFragmentRequest fragmentRequest = new QueryFragmentRequest(planFragment,
@@ -184,8 +183,8 @@ public class TestHttpQueryProvider
                 ImmutableMap.<String, ExchangePlanFragmentSource>of(),
                 ImmutableList.of("out"));
 
-        Request request = preparePost()
-                .setUri(httpServer.getBaseUrl().resolve("/v1/task"))
+        Request request = preparePut()
+                .setUri(httpServer.getBaseUrl().resolve("/v1/task/foo-" + httpServer.getPort()))
                 .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
                 .setBodyGenerator(jsonBodyGenerator(jsonCodec(QueryFragmentRequest.class), fragmentRequest))
                 .build();
@@ -196,15 +195,11 @@ public class TestHttpQueryProvider
                 request.getUri(),
                 response.getStatusCode(),
                 response.getStatusMessage());
-        String location = response.getHeader("Location");
-        Preconditions.checkState(location != null);
-
         TaskInfo taskInfo = response.getValue();
 
         // schedule table scan task on remote node
-        // todo we don't need a QueryDriverProvider
         return new HttpTaskClient(taskInfo.getTaskId(),
-                URI.create(location),
+                taskInfo.getSelf(),
                 "out",
                 taskInfo.getTupleInfos(),
                 httpClient,

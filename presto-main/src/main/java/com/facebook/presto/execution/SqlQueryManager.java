@@ -22,9 +22,8 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -38,43 +37,64 @@ public class SqlQueryManager
 {
     private static final Logger log = Logger.get(SqlQueryManager.class);
 
-    private final TaskScheduler taskScheduler;
-    private final ExecutorService queryExecutor;
+    private final ScheduledExecutorService queryExecutor;
     private final ImportClientFactory importClientFactory;
     private final ImportManager importManager;
     private final Metadata metadata;
     private final NodeManager nodeManager;
     private final SplitManager splitManager;
+    private final StageManager stageManager;
+    private final RemoteTaskFactory remoteTaskFactory;
+    private final LocationFactory locationFactory;
 
     private final AtomicInteger nextQueryId = new AtomicInteger();
     private final ConcurrentMap<String, QueryExecution> queries = new ConcurrentHashMap<>();
 
     @Inject
-    public SqlQueryManager(
-            TaskScheduler taskScheduler,
-            ImportClientFactory importClientFactory,
+    public SqlQueryManager(ImportClientFactory importClientFactory,
             ImportManager importManager,
             Metadata metadata,
             NodeManager nodeManager,
-            SplitManager splitManager)
+            SplitManager splitManager,
+            StageManager stageManager,
+            RemoteTaskFactory remoteTaskFactory,
+            LocationFactory locationFactory)
     {
-        Preconditions.checkNotNull(taskScheduler, "taskScheduler is null");
         Preconditions.checkNotNull(importClientFactory, "importClientFactory is null");
         Preconditions.checkNotNull(importManager, "importManager is null");
         Preconditions.checkNotNull(metadata, "metadata is null");
+        Preconditions.checkNotNull(nodeManager, "nodeManager is null");
+        Preconditions.checkNotNull(splitManager, "splitManager is null");
+        Preconditions.checkNotNull(stageManager, "stageManager is null");
+        Preconditions.checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
+        Preconditions.checkNotNull(locationFactory, "locationFactory is null");
 
-        this.taskScheduler = taskScheduler;
-        this.queryExecutor = new ThreadPoolExecutor(1000,
-                1000,
-                1, TimeUnit.MINUTES,
-                new LinkedBlockingQueue<Runnable>(),
-                threadsNamed("query-processor-%d"));
+        this.queryExecutor = new ScheduledThreadPoolExecutor(1000, threadsNamed("query-processor-%d"));
 
         this.importClientFactory = importClientFactory;
         this.importManager = importManager;
         this.metadata = metadata;
         this.nodeManager = nodeManager;
         this.splitManager = splitManager;
+        this.stageManager = stageManager;
+        this.remoteTaskFactory = remoteTaskFactory;
+        this.locationFactory = locationFactory;
+
+        queryExecutor.scheduleAtFixedRate(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                for (QueryExecution queryExecution : queries.values()) {
+                    try {
+                        queryExecution.updateState();
+                    }
+                    catch (Throwable e) {
+                        log.warn(e, "Error updating state for query %s", queryExecution.getQueryId());
+                    }
+                }
+            }
+        }, 200, 200, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -135,11 +155,13 @@ public class SqlQueryManager
         else {
             queryExecution = new SqlQueryExecution(String.valueOf(nextQueryId.getAndIncrement()),
                     query,
-                    taskScheduler,
                     new Session(),
                     metadata,
                     nodeManager,
-                    splitManager);
+                    splitManager,
+                    stageManager,
+                    remoteTaskFactory,
+                    locationFactory);
         }
         queries.put(queryExecution.getQueryId(), queryExecution);
 

@@ -4,6 +4,7 @@ import com.facebook.presto.execution.ExecutionStats;
 import com.facebook.presto.server.HttpQueryClient;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.units.DataSize;
@@ -14,7 +15,6 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.operator.OutputProcessor.OutputStats;
-import static com.google.common.collect.Iterables.concat;
 
 public class StatusPrinter
 {
@@ -45,7 +45,7 @@ public class StatusPrinter
 
                     // check if there is there is pending output
                     if (queryInfo.getOutputStage() != null) {
-                        List<TaskInfo> outStage = queryInfo.getStages().get(queryInfo.getOutputStage());
+                        List<TaskInfo> outStage = queryInfo.getOutputStage().getTasks();
                         for (TaskInfo outputTask : outStage) {
                             if (outputTask.getStats().getBufferedPages() > 0) {
                                 return;
@@ -77,9 +77,7 @@ public class StatusPrinter
         Duration elapsedTime = Duration.nanosSince(start);
 
         ExecutionStats executionStats = new ExecutionStats();
-        for (TaskInfo info : concat(queryInfo.getStages().values())) {
-            executionStats.add(info.getStats());
-        }
+        sumStats(queryInfo.getOutputStage(), executionStats);
 
         QueryState queryState = queryInfo.getState();
         Duration cpuTime = new Duration(executionStats.getSplitCpuTime(), TimeUnit.MILLISECONDS);
@@ -111,14 +109,22 @@ public class StatusPrinter
         return infoString;
     }
 
+    public void sumStats(StageInfo stageInfo, ExecutionStats executionStats)
+    {
+        for (TaskInfo task : stageInfo.getTasks()) {
+            executionStats.add(task.getStats());
+        }
+        for (StageInfo subStage : stageInfo.getSubStages()) {
+            sumStats(subStage, executionStats);
+        }
+    }
+
     private String toFinalInfo(QueryInfo queryInfo, long start, long outputPositions, long outputDataSize)
     {
         Duration elapsedTime = Duration.nanosSince(start);
 
         ExecutionStats executionStats = new ExecutionStats();
-        for (TaskInfo info : concat(queryInfo.getStages().values())) {
-            executionStats.add(info.getStats());
-        }
+        sumStats(queryInfo.getOutputStage(), executionStats);
 
         Duration cpuTime = new Duration(executionStats.getSplitCpuTime(), TimeUnit.MILLISECONDS);
 

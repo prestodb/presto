@@ -109,6 +109,16 @@ public class TaskOutput
 
     public void cancel()
     {
+        while (true) {
+            TaskState taskState = this.taskState.get();
+            if (taskState.isDone()) {
+                return;
+            }
+            if (this.taskState.compareAndSet(taskState, TaskState.CANCELED)) {
+                break;
+            }
+        }
+
         // cancel all buffers
         finishAllBuffers();
         // the output will only transition to cancel if it isn't already marked as failed

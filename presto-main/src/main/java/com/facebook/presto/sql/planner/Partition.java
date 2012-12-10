@@ -4,6 +4,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.Node;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -27,5 +28,17 @@ public class Partition
     public List<PlanFragmentSource> getSplits()
     {
         return splits;
+    }
+
+    public static Function<Partition, String> nodeIdentifierGetter()
+    {
+        return new Function<Partition, String>()
+        {
+            @Override
+            public String apply(Partition partition)
+            {
+                return partition.getNode().getNodeIdentifier();
+            }
+        };
     }
 }

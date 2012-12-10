@@ -127,7 +127,7 @@ public class HttpQueryClient
             };
         }
 
-        List<TaskInfo> outputStage = queryInfo.getStages().get(queryInfo.getOutputStage());
+        List<TaskInfo> outputStage = queryInfo.getOutputStage().getTasks();
         return new QueryDriversOperator(10, Iterables.transform(outputStage, new Function<TaskInfo, QueryDriverProvider>()
         {
             @Override

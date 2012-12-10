@@ -24,7 +24,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -82,11 +81,15 @@ public class MockTaskManager
     }
 
     @Override
-    public TaskInfo createTask(PlanFragment fragment,
+    public TaskInfo createTask(String taskId,
+            PlanFragment fragment,
             List<PlanFragmentSource> splits,
-            Map<String, ExchangePlanFragmentSource> exchangeSources, List<String> outputIds)
+            Map<String, ExchangePlanFragmentSource> exchangeSources,
+            List<String> outputIds)
     {
-        String taskId = UUID.randomUUID().toString();
+        Preconditions.checkNotNull(taskId, "taskId is null");
+        Preconditions.checkArgument(!taskId.isEmpty(), "taskId is empty");
+
         URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
         TaskOutput taskOutput = new TaskOutput(taskId, location, ImmutableList.copyOf(outputIds), TUPLE_INFOS, pageBufferMax, 0);
         tasks.put(taskId, taskOutput);
