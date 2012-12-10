@@ -31,7 +31,7 @@ public class PageBuffer
 
     public static enum BufferState
     {
-        PREPARING(false),
+        CREATED(false),
         RUNNING(false),
         FINISHED(true),
         CANCELED(true),
@@ -67,7 +67,7 @@ public class PageBuffer
     private final ArrayDeque<Page> pageBuffer;
 
     @GuardedBy("pageBuffer")
-    private BufferState bufferState = BufferState.PREPARING;
+    private BufferState bufferState = BufferState.CREATED;
 
     @GuardedBy("pageBuffer")
     private final List<Throwable> causes = new ArrayList<>();
