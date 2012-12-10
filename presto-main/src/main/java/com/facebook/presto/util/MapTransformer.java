@@ -1,9 +1,9 @@
 package com.facebook.presto.util;
 
-import com.facebook.presto.sql.analyzer.Symbol;
 import com.google.common.base.Function;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
 import java.util.Map;
@@ -40,5 +40,10 @@ public class MapTransformer<K, V>
     public BiMap<K, V> biMap()
     {
         return ImmutableBiMap.copyOf(map);
+    }
+
+    public Map<K, V> immutableMap()
+    {
+        return ImmutableMap.copyOf(map);
     }
 }
