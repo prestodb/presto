@@ -481,7 +481,7 @@ public class ImportManager
             checkNotNull(partitionMarker, "partitionMarker is null");
             AtomicInteger chunkCount = importingPartitions.get(partitionMarker);
             checkArgument(chunkCount != null, "unknown partitionMarker: %s", partitionMarker);
-            checkState(chunkCount.get() > 0, "cannot decrement partitionMarker %s with count %d", partitionMarker, chunkCount.get());
+            checkState(chunkCount.get() > 0, "cannot decrement partitionMarker %s with count %s", partitionMarker, chunkCount.get());
             if (chunkCount.addAndGet(-1) == 0) {
                 checkState(importingPartitions.remove(partitionMarker, chunkCount));
                 log.info("Operation finished for: " + partitionMarker);

@@ -14,7 +14,6 @@ import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -95,7 +94,7 @@ public class DatabaseStorageManager
             throws IOException
     {
         checkArgument(source.getChannelCount() == columnIds.size(), "channel count does not match columnId list");
-        checkState(!shardExists(shardId), "shard %d has already been imported", shardId);
+        checkState(!shardExists(shardId), "shard %s has already been imported", shardId);
 
         // Locally stage the imported data
         List<File> files = stagingImport(shardId, columnIds, source);
@@ -264,7 +263,7 @@ public class DatabaseStorageManager
     @Override
     public BlockIterable getBlocks(long shardId, long columnId)
     {
-        checkState(shardExists(shardId), "shard %d has not yet been imported", shardId);
+        checkState(shardExists(shardId), "shard %s has not yet been imported", shardId);
         String filename = dao.getColumnFilename(shardId, columnId);
         File file = new File(getShardPath(baseStorageDir, shardId), filename);
 

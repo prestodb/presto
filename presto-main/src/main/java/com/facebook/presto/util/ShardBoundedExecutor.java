@@ -88,13 +88,13 @@ public class ShardBoundedExecutor<T>
 
         public void increment()
         {
-            checkState(isReferenced(), "Reference counter misused: %d", count);
+            checkState(isReferenced(), "Reference counter misused: %s", count);
             count++;
         }
 
         public void decrement()
         {
-            checkState(isReferenced(), "Reference counter misused: %d", count);
+            checkState(isReferenced(), "Reference counter misused: %s", count);
             count--;
         }
 
