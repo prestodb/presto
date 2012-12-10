@@ -81,7 +81,7 @@ public class TaskScheduler
                 Node node = partition.getNode();
                 QueryFragmentRequest queryFragmentRequest = new QueryFragmentRequest(stageExecutionPlan.getFragment(), partition.getSplits(), exchangeSources, outputIds);
                 Request request = preparePost()
-                        .setUri(uriBuilderFrom(node.getHttpUri()).replacePath("/v1/presto/task").build())
+                        .setUri(uriBuilderFrom(node.getHttpUri()).replacePath("/v1/task").build())
                         .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
                         .setBodyGenerator(jsonBodyGenerator(queryFragmentRequestCodec, queryFragmentRequest))
                         .build();

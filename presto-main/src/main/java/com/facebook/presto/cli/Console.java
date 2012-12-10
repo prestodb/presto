@@ -20,7 +20,7 @@ public class Console
         implements Runnable
 {
     @Option(name = "-s", title = "server")
-    public URI server = URI.create("http://localhost:8080/v1/presto/query");
+    public URI server = URI.create("http://localhost:8080/v1/query");
 
     @Option(name = "--debug", title = "debug")
     public boolean debug = false;

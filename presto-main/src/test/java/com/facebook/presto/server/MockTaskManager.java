@@ -87,7 +87,7 @@ public class MockTaskManager
             Map<String, ExchangePlanFragmentSource> exchangeSources, List<String> outputIds)
     {
         String taskId = UUID.randomUUID().toString();
-        URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/presto/task").appendPath(taskId).build();
+        URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
         TaskOutput taskOutput = new TaskOutput(taskId, location, ImmutableList.copyOf(outputIds), TUPLE_INFOS, pageBufferMax, 0);
         tasks.put(taskId, taskOutput);
 
