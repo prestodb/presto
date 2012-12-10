@@ -75,12 +75,12 @@ public class IterableTransformer<E>
         return Iterables.any(iterable, predicate);
     }
 
-    public <K> MapTransformer<K, E> uniqueIndex(Function<E, K> keyFunction)
+    public <K> MapTransformer<K, E> uniqueIndex(Function<? super E, K> keyFunction)
     {
         return new MapTransformer<>(Maps.uniqueIndex(iterable, keyFunction));
     }
 
-    public <V> MapTransformer<E, V> toMap(Function<E, V> valueFunction)
+    public <V> MapTransformer<E, V> toMap(Function<? super E, V> valueFunction)
     {
         return new MapTransformer<>(IterableUtils.toMap(iterable, valueFunction));
     }
