@@ -4,9 +4,12 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.execution.ExchangePlanFragmentSource;
+import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.execution.StageInfo;
+import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.google.common.base.Function;
@@ -31,14 +34,17 @@ public class MockQueryManager
         implements QueryManager
 {
     private final MockTaskManager mockTaskManager;
+    private final LocationFactory locationFactory;
     private final AtomicInteger nextQueryId = new AtomicInteger();
     private final ConcurrentMap<String, SimpleQuery> queries = new ConcurrentHashMap<>();
 
     @Inject
-    public MockQueryManager(MockTaskManager mockTaskManager)
+    public MockQueryManager(MockTaskManager mockTaskManager, LocationFactory locationFactory)
     {
-        Preconditions.checkNotNull(mockTaskManager, "simpleTaskManager is null");
+        Preconditions.checkNotNull(mockTaskManager, "mockTaskManager is null");
+        Preconditions.checkNotNull(locationFactory, "locationFactory is null");
         this.mockTaskManager = mockTaskManager;
+        this.locationFactory = locationFactory;
     }
 
     @Override
@@ -78,13 +84,14 @@ public class MockQueryManager
 
         String queryId = String.valueOf(nextQueryId.getAndIncrement());
 
-        TaskInfo outputTask = mockTaskManager.createTask(null,
+        TaskInfo outputTask = mockTaskManager.createTask(queryId + "-0",
+                null,
                 ImmutableList.<PlanFragmentSource>of(),
                 ImmutableMap.<String, ExchangePlanFragmentSource>of(),
                 ImmutableList.<String>of("out")
         );
 
-        SimpleQuery simpleQuery = new SimpleQuery(queryId, outputTask.getTaskId(), mockTaskManager);
+        SimpleQuery simpleQuery = new SimpleQuery(queryId, outputTask.getTaskId(), mockTaskManager, locationFactory);
         queries.put(queryId, simpleQuery);
         return simpleQuery.getQueryInfo();
     }
@@ -100,12 +107,14 @@ public class MockQueryManager
         private final String queryId;
         private final String outputTaskId;
         private final MockTaskManager mockTaskManager;
+        private final LocationFactory locationFactory;
 
-        private SimpleQuery(String queryId, String outputTaskId, MockTaskManager mockTaskManager)
+        private SimpleQuery(String queryId, String outputTaskId, MockTaskManager mockTaskManager, LocationFactory locationFactory)
         {
             this.queryId = queryId;
             this.outputTaskId = outputTaskId;
             this.mockTaskManager = mockTaskManager;
+            this.locationFactory = locationFactory;
         }
 
         private QueryInfo getQueryInfo()
@@ -131,12 +140,17 @@ public class MockQueryManager
                 default:
                     throw new IllegalStateException("Unknown task state " + outputTask.getState());
             }
+            String stageId = queryId + "-0";
             return new QueryInfo(queryId,
-                    outputTask.getTupleInfos(),
-                    ImmutableList.of("out"),
                     state,
-                    "out",
-                    ImmutableMap.<String, List<TaskInfo>>of("out", ImmutableList.of(outputTask)));
+                    ImmutableList.of("out"),
+                    outputTask.getTupleInfos(),
+                    new StageInfo(queryId,
+                            stageId,
+                            locationFactory.createStageLocation(stageId),
+                            StageState.FINISHED,
+                            ImmutableList.<TaskInfo>of(outputTask),
+                            ImmutableList.<StageInfo>of()));
         }
     }
 }

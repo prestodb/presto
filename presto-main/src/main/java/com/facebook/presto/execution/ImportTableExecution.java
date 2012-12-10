@@ -16,7 +16,6 @@ import com.facebook.presto.spi.SchemaField;
 import com.facebook.presto.split.ImportClientFactory;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 
@@ -63,7 +62,11 @@ public class ImportTableExecution
     @Override
     public QueryInfo getQueryInfo()
     {
-        return new QueryInfo(queryId, TUPLE_INFOS, FIELD_NAMES, QueryState.FINISHED, null, ImmutableMap.<String, List<TaskInfo>>of());
+        return new QueryInfo(queryId,
+                QueryState.FINISHED,
+                FIELD_NAMES,
+                TUPLE_INFOS,
+                new StageInfo(queryId, queryId + "-0", null, StageState.FINISHED, ImmutableList.<TaskInfo>of(), ImmutableList.<StageInfo>of()));
     }
 
     @Override
@@ -83,6 +86,11 @@ public class ImportTableExecution
         List<ImportField> fields = getImportFields(table.getColumns());
 
         importManager.importTable(tableId, sourceName, databaseName, tableName, fields);
+    }
+
+    @Override
+    public void updateState()
+    {
     }
 
     @Override

@@ -3,12 +3,15 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.SqlQueryManager;
+import com.facebook.presto.execution.SqlStageManager;
 import com.facebook.presto.execution.SqlTaskManager;
+import com.facebook.presto.execution.StageManager;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
-import com.facebook.presto.execution.TaskScheduler;
 import com.facebook.presto.importer.ForImportManager;
 import com.facebook.presto.importer.ImportManager;
 import com.facebook.presto.importer.LocalShardManager;
@@ -76,12 +79,16 @@ public class ServerMainModule
         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
 
+        binder.bind(StageResource.class).in(Scopes.SINGLETON);
+        binder.bind(StageManager.class).to(SqlStageManager.class).in(Scopes.SINGLETON);
+
         binder.bind(TaskResource.class).in(Scopes.SINGLETON);
         binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
-        binder.bind(TaskScheduler.class).in(Scopes.SINGLETON);
 
         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
+        binder.bind(LocationFactory.class).to(HttpLocationFactory.class).in(Scopes.SINGLETON);
+        binder.bind(RemoteTaskFactory.class).to(HttpRemoteTaskFactory.class).in(Scopes.SINGLETON);
 
         HttpClientBinder.httpClientBinder(binder).bindHttpClient("exchange", ForExchange.class).withTracing();
         HttpClientBinder.httpClientBinder(binder).bindHttpClient("scheduler", ForScheduler.class).withTracing();

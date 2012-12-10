@@ -15,7 +15,7 @@ public interface TaskManager
 {
     List<TaskInfo> getAllTaskInfo();
 
-    TaskInfo createTask(PlanFragment fragment, List<PlanFragmentSource> splits, Map<String, ExchangePlanFragmentSource> exchangeSources, List<String> outputIds);
+    TaskInfo createTask(String taskId, PlanFragment fragment, List<PlanFragmentSource> splits, Map<String, ExchangePlanFragmentSource> exchangeSources, List<String> outputIds);
 
     TaskInfo getTaskInfo(String taskId);
 

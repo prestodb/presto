@@ -19,6 +19,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -57,6 +58,17 @@ public class SqlTaskExecution
             Metadata metadata,
             ExecutorService shardExecutor)
     {
+        Preconditions.checkNotNull(taskId, "taskId is null");
+        Preconditions.checkNotNull(fragment, "fragment is null");
+        Preconditions.checkNotNull(splits, "splits is null");
+        Preconditions.checkNotNull(exchangeSources, "exchangeSources is null");
+        Preconditions.checkNotNull(outputIds, "outputIds is null");
+        Preconditions.checkArgument(!outputIds.isEmpty(), "outputIds is empty");
+        Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
+        Preconditions.checkNotNull(sourceProvider, "sourceProvider is null");
+        Preconditions.checkNotNull(metadata, "metadata is null");
+        Preconditions.checkNotNull(shardExecutor, "shardExecutor is null");
+
         this.taskId = taskId;
         this.fragment = fragment;
         this.splits = splits;

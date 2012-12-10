@@ -3,15 +3,15 @@
  */
 package com.facebook.presto.execution;
 
-public interface QueryExecution
+public interface RemoteTask
 {
-    String getQueryId();
+    String getTaskId();
 
-    QueryInfo getQueryInfo();
+    TaskInfo getTaskInfo();
 
     void start();
 
-    void updateState();
-
     void cancel();
+
+    void updateState();
 }

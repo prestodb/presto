@@ -3,13 +3,15 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import org.codehaus.jackson.annotate.JsonProperty;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +58,22 @@ public class PlanFragment
     public Map<Symbol, Type> getSymbols()
     {
         return symbols;
+    }
+
+    public List<TupleInfo> getTupleInfos()
+    {
+        return ImmutableList.copyOf(IterableTransformer.on(getRoot().getOutputSymbols())
+                .transform(Functions.forMap(getSymbols()))
+                .transform(com.facebook.presto.sql.analyzer.Type.toRaw())
+                .transform(new Function<TupleInfo.Type, TupleInfo>()
+                {
+                    @Override
+                    public TupleInfo apply(TupleInfo.Type input)
+                    {
+                        return new TupleInfo(input);
+                    }
+                })
+                .list());
     }
 
     public List<PlanNode> getSources()

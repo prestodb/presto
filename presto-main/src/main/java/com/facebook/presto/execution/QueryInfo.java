@@ -7,43 +7,37 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 import java.util.List;
-import java.util.Map;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 @Immutable
 public class QueryInfo
 {
     private final String queryId;
-    private final List<TupleInfo> tupleInfos;
-    private final List<String> fieldNames;
     private final QueryState state;
-    private final String outputStage;
-    private final Map<String, List<TaskInfo>> stages;
+    private final List<String> fieldNames;
+    private final List<TupleInfo> tupleInfos;
+    private final StageInfo outputStage;
 
     @JsonCreator
     public QueryInfo(@JsonProperty("queryId") String queryId,
-            @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
-            @JsonProperty("fieldNames") List<String> fieldNames,
             @JsonProperty("state") QueryState state,
-            @JsonProperty("outputStage") String outputStage,
-            @JsonProperty("stages") Map<String, List<TaskInfo>> stages)
+            @JsonProperty("fieldNames") List<String> fieldNames,
+            @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
+            @JsonProperty("outputStage") StageInfo outputStage)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
+        Preconditions.checkNotNull(state, "state is null");
+        Preconditions.checkNotNull(fieldNames, "fieldNames is null");
         Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
-        Preconditions.checkNotNull(stages, "stages is null");
         this.queryId = queryId;
-        this.tupleInfos = tupleInfos;
-        this.fieldNames = ImmutableList.copyOf(checkNotNull(fieldNames, "fieldNames is null"));
+        this.tupleInfos = ImmutableList.copyOf(tupleInfos);
+        this.fieldNames = ImmutableList.copyOf(fieldNames);
         this.state = state;
         this.outputStage = outputStage;
-        this.stages = ImmutableMap.copyOf(stages);
     }
 
     @JsonProperty
@@ -71,33 +65,18 @@ public class QueryInfo
     }
 
     @JsonProperty
-    public String getOutputStage()
+    public StageInfo getOutputStage()
     {
         return outputStage;
     }
 
-    @JsonProperty
-    public Map<String, List<TaskInfo>> getStages()
-    {
-        return stages;
-    }
-
     @Override
-    public int hashCode()
+    public String toString()
     {
-        return Objects.hashCode(queryId);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (obj == null) {
-            return false;
-        }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
-        final QueryInfo other = (QueryInfo) obj;
-        return Objects.equal(this.queryId, other.queryId);
+        return Objects.toStringHelper(this)
+                .add("queryId", queryId)
+                .add("state", state)
+                .add("fieldNames", fieldNames)
+                .toString();
     }
 }
