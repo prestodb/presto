@@ -29,6 +29,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
+import org.antlr.runtime.RecognitionException;
 
 import javax.annotation.Nullable;
 import java.net.URI;
@@ -57,7 +58,10 @@ public class SqlQueryExecution
     private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
 
+    private final QueryStats queryStats = new QueryStats();
+
     private final AtomicReference<StageExecution> outputStage = new AtomicReference<>();
+
     private List<String> fieldNames = ImmutableList.of();
     private List<TupleInfo> tupleInfos = ImmutableList.of();
 
@@ -115,6 +119,7 @@ public class SqlQueryExecution
                 fieldNames,
                 tupleInfos,
                 sql,
+                queryStats,
                 stageInfo);
     }
 
@@ -122,30 +127,17 @@ public class SqlQueryExecution
     public void start()
     {
         try {
-            // parse query
-            Statement statement = SqlParser.createStatement(sql);
+            // query is now running
+            queryStats.recordStart();
 
             // analyze query
-            Analyzer analyzer = new Analyzer(session, metadata);
-            AnalysisResult analysis = analyzer.analyze(statement);
+            SubPlan subplan = analyseQuery();
 
-            // plan query
-            LogicalPlanner logicalPlanner = new LogicalPlanner();
-            PlanNode plan = logicalPlanner.plan((Query) statement, analysis);
+            // plan distribution of query
+            planDistribution(subplan);
 
-            // fragment the plan
-            SubPlan subplan = new DistributedLogicalPlanner(metadata).createSubplans(plan, analysis.getSymbolAllocator(), false);
-
-            // plan the execution on the active nodes
-            DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(nodeManager, splitManager);
-            StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(subplan);
-
-            fieldNames = outputStageExecutionPlan.getFieldNames();
-            tupleInfos = outputStageExecutionPlan.getTupleInfos();
-
-            StageExecution outputStage = createStage(new AtomicInteger(), outputStageExecutionPlan, ImmutableList.of(ROOT_OUTPUT_BUFFER_NAME));
-            this.outputStage.set(outputStage);
-            startStage(outputStage);
+            // start the query execution
+            startStage(outputStage.get());
         }
         catch (Exception e) {
             e.printStackTrace();
@@ -153,8 +145,54 @@ public class SqlQueryExecution
         }
     }
 
+    private SubPlan analyseQuery()
+            throws RecognitionException
+    {
+        // time analysis phase
+        long analysisStart = System.nanoTime();
+
+        // parse query
+        Statement statement = SqlParser.createStatement(sql);
+
+        // analyze query
+        Analyzer analyzer = new Analyzer(session, metadata);
+        AnalysisResult analysis = analyzer.analyze(statement);
+
+        // plan query
+        LogicalPlanner logicalPlanner = new LogicalPlanner();
+        PlanNode plan = logicalPlanner.plan((Query) statement, analysis);
+
+        // fragment the plan
+        SubPlan subplan = new DistributedLogicalPlanner(metadata).createSubplans(plan, analysis.getSymbolAllocator(), false);
+
+        queryStats.recordAnalysisTime(analysisStart);
+        return subplan;
+    }
+
+    private void planDistribution(SubPlan subplan)
+    {
+        // time distribution planning
+        long distributedPlanningStart = System.nanoTime();
+
+        // plan the execution on the active nodes
+        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(nodeManager, splitManager);
+        StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(subplan);
+
+        // record field names and tuple infos
+        fieldNames = outputStageExecutionPlan.getFieldNames();
+        tupleInfos = outputStageExecutionPlan.getTupleInfos();
+
+        // build the stage execution objects (this doesn't schedule execution)
+        StageExecution outputStage = createStage(new AtomicInteger(), outputStageExecutionPlan, ImmutableList.of(ROOT_OUTPUT_BUFFER_NAME));
+        this.outputStage.set(outputStage);
+
+        // record planning time
+        queryStats.recordDistributedPlanningTime(distributedPlanningStart);
+    }
+
     private void startStage(StageExecution stage)
     {
+        // start all sub stages before starting the main stage
         for (StageExecution subStage : stage.getSubStages()) {
             startStage(subStage);
         }
@@ -239,9 +277,11 @@ public class SqlQueryExecution
                 break;
             case FINISHED:
                 this.queryState.set(QueryState.FINISHED);
+                queryStats.recordEnd();
                 break;
             case FAILED:
                 this.queryState.set(QueryState.FAILED);
+                queryStats.recordEnd();
                 break;
         }
     }
