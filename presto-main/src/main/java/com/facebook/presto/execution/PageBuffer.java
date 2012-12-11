@@ -61,6 +61,7 @@ public class PageBuffer
         }
     }
 
+    private final String bufferId;
     private final List<TupleInfo> tupleInfos;
 
     @GuardedBy("pageBuffer")
@@ -78,17 +79,24 @@ public class PageBuffer
     private final Semaphore notFull;
     private final Semaphore notEmpty;
 
-    public PageBuffer(List<TupleInfo> tupleInfos, int sourceCount, int pageBufferMax)
+    public PageBuffer(String bufferId, List<TupleInfo> tupleInfos, int sourceCount, int pageBufferMax)
     {
+        Preconditions.checkNotNull(bufferId, "bufferId is null");
         Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
         Preconditions.checkArgument(sourceCount > 0, "sourceCount must be at least 1");
         Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
 
+        this.bufferId = bufferId;
         this.tupleInfos = tupleInfos;
         this.sourceCount = sourceCount;
         this.pageBuffer = new ArrayDeque<>(pageBufferMax);
         this.notFull = new Semaphore(pageBufferMax);
         this.notEmpty = new Semaphore(0);
+    }
+
+    public PageBufferInfo getBufferInfo()
+    {
+        return new PageBufferInfo(bufferId, getState(), getBufferedPageCount());
     }
 
     public List<TupleInfo> getTupleInfos()
@@ -300,6 +308,18 @@ public class PageBuffer
             public BufferState apply(PageBuffer pageBuffer)
             {
                 return pageBuffer.getState();
+            }
+        };
+    }
+
+    public static Function<PageBuffer, PageBufferInfo> infoGetter()
+    {
+        return new Function<PageBuffer, PageBufferInfo>()
+        {
+            @Override
+            public PageBufferInfo apply(PageBuffer pageBuffer)
+            {
+                return pageBuffer.getBufferInfo();
             }
         };
     }
