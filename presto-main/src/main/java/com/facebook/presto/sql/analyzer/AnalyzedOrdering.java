@@ -3,15 +3,19 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.sql.tree.SortItem;
 import com.google.common.base.Function;
 
+import javax.annotation.Nullable;
+
 public class AnalyzedOrdering
 {
     private final AnalyzedExpression expression;
     private final SortItem.Ordering ordering;
+    private final SortItem node;
 
-    public AnalyzedOrdering(AnalyzedExpression expression, SortItem.Ordering ordering)
+    public AnalyzedOrdering(AnalyzedExpression expression, SortItem.Ordering ordering, SortItem node)
     {
         this.expression = expression;
         this.ordering = ordering;
+        this.node = node;
     }
 
     public AnalyzedExpression getExpression()
@@ -24,6 +28,11 @@ public class AnalyzedOrdering
         return ordering;
     }
 
+    public SortItem getNode()
+    {
+        return node;
+    }
+
     public static Function<AnalyzedOrdering, AnalyzedExpression> expressionGetter()
     {
         return new Function<AnalyzedOrdering, AnalyzedExpression>()
@@ -32,6 +41,18 @@ public class AnalyzedOrdering
             public AnalyzedExpression apply(AnalyzedOrdering input)
             {
                 return input.getExpression();
+            }
+        };
+    }
+
+    public static Function<AnalyzedOrdering, SortItem> nodeGetter()
+    {
+        return new Function<AnalyzedOrdering, SortItem>()
+        {
+            @Override
+            public SortItem apply(AnalyzedOrdering input)
+            {
+                return input.getNode();
             }
         };
     }
