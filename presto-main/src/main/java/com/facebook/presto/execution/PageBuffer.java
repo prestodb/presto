@@ -4,7 +4,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -62,7 +61,6 @@ public class PageBuffer
     }
 
     private final String bufferId;
-    private final List<TupleInfo> tupleInfos;
 
     @GuardedBy("pageBuffer")
     private final ArrayDeque<Page> pageBuffer;
@@ -79,15 +77,13 @@ public class PageBuffer
     private final Semaphore notFull;
     private final Semaphore notEmpty;
 
-    public PageBuffer(String bufferId, List<TupleInfo> tupleInfos, int sourceCount, int pageBufferMax)
+    public PageBuffer(String bufferId, int sourceCount, int pageBufferMax)
     {
         Preconditions.checkNotNull(bufferId, "bufferId is null");
-        Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
         Preconditions.checkArgument(sourceCount > 0, "sourceCount must be at least 1");
         Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
 
         this.bufferId = bufferId;
-        this.tupleInfos = tupleInfos;
         this.sourceCount = sourceCount;
         this.pageBuffer = new ArrayDeque<>(pageBufferMax);
         this.notFull = new Semaphore(pageBufferMax);
@@ -97,11 +93,6 @@ public class PageBuffer
     public PageBufferInfo getBufferInfo()
     {
         return new PageBufferInfo(bufferId, getState(), getBufferedPageCount());
-    }
-
-    public List<TupleInfo> getTupleInfos()
-    {
-        return tupleInfos;
     }
 
     public BufferState getState()
@@ -334,7 +325,6 @@ public class PageBuffer
                 .add("causes", causes)
                 .add("notFull", notFull.availablePermits())
                 .add("notEmpty", notEmpty.availablePermits())
-                .add("tupleInfos", tupleInfos)
                 .toString();
     }
 }

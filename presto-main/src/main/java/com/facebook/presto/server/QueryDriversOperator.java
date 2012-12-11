@@ -26,12 +26,12 @@ public class QueryDriversOperator
     private final int pageBufferMax;
     private final List<TupleInfo> tupleInfos;
 
-    public QueryDriversOperator(int pageBufferMax, QueryDriverProvider... driverProviders)
+    public QueryDriversOperator(int pageBufferMax, List<TupleInfo> tupleInfos, QueryDriverProvider... driverProviders)
     {
-        this(pageBufferMax, ImmutableList.copyOf(driverProviders));
+        this(pageBufferMax, tupleInfos, ImmutableList.copyOf(driverProviders));
     }
 
-    public QueryDriversOperator(int pageBufferMax, Iterable<? extends QueryDriverProvider> driverProviders)
+    public QueryDriversOperator(int pageBufferMax, List<TupleInfo> tupleInfos, Iterable<? extends QueryDriverProvider> driverProviders)
     {
         Preconditions.checkArgument(pageBufferMax > 0, "blockBufferMax must be at least 1");
         Preconditions.checkNotNull(driverProviders, "driverProviders is null");
@@ -39,13 +39,13 @@ public class QueryDriversOperator
         this.pageBufferMax = pageBufferMax;
         this.driverProviders = ImmutableList.copyOf(driverProviders);
         Preconditions.checkArgument(!this.driverProviders.isEmpty(), "driverProviders is empty");
-        tupleInfos = this.driverProviders.get(0).getTupleInfos();
+        this.tupleInfos = tupleInfos;
     }
 
     @Override
     public int getChannelCount()
     {
-        return driverProviders.get(0).getChannelCount();
+        return tupleInfos.size();
     }
 
     @Override
@@ -59,14 +59,14 @@ public class QueryDriversOperator
     {
         ImmutableList.Builder<QueryDriver> queries = ImmutableList.builder();
         try {
-            PageBuffer outputBuffer = new PageBuffer("out", tupleInfos, driverProviders.size(), pageBufferMax);
+            PageBuffer outputBuffer = new PageBuffer("out", driverProviders.size(), pageBufferMax);
             for (QueryDriverProvider provider : driverProviders) {
                 QueryDriver queryDriver = provider.create(outputBuffer);
                 queries.add(queryDriver);
                 queryDriver.start();
             }
 
-            return new QueryDriversIterator(outputBuffer, queries.build());
+            return new QueryDriversIterator(outputBuffer, queries.build(), tupleInfos);
         }
         catch (Throwable e) {
             for (QueryDriver queryDriver : queries.build()) {
@@ -81,9 +81,9 @@ public class QueryDriversOperator
         private final PageBuffer pageBuffer;
         private final List<QueryDriver> queryDrivers;
 
-        private QueryDriversIterator(PageBuffer pageBuffer, Iterable<QueryDriver> queries)
+        private QueryDriversIterator(PageBuffer pageBuffer, Iterable<QueryDriver> queries, List<TupleInfo> tupleInfos)
         {
-            super(pageBuffer.getTupleInfos());
+            super(tupleInfos);
             this.pageBuffer = pageBuffer;
             this.queryDrivers = ImmutableList.copyOf(queries);
         }

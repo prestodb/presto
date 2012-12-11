@@ -3,7 +3,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -24,17 +23,15 @@ public class TaskInfo
     private final TaskState state;
     private final URI self;
     private final List<PageBufferInfo> outputBuffers;
-    private final List<TupleInfo> tupleInfos;
     private final ExecutionStats stats;
 
     @JsonCreator
     public TaskInfo(@JsonProperty("queryId") String queryId,
-            @JsonProperty("stageId")String stageId,
+            @JsonProperty("stageId") String stageId,
             @JsonProperty("taskId") String taskId,
             @JsonProperty("state") TaskState state,
             @JsonProperty("self") URI self,
             @JsonProperty("outputBuffers") List<PageBufferInfo> outputBuffers,
-            @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
             @JsonProperty("stats") ExecutionStats stats)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
@@ -44,7 +41,6 @@ public class TaskInfo
         Preconditions.checkNotNull(self, "self is null");
         Preconditions.checkNotNull(outputBuffers, "outputBufferStates is null");
         Preconditions.checkArgument(!outputBuffers.isEmpty(), "outputBufferStates is empty");
-        Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
         Preconditions.checkNotNull(stats, "stats is null");
 
         this.queryId = queryId;
@@ -53,7 +49,6 @@ public class TaskInfo
         this.state = state;
         this.self = self;
         this.outputBuffers = ImmutableList.copyOf(outputBuffers);
-        this.tupleInfos = tupleInfos;
         this.stats = stats;
     }
 
@@ -91,12 +86,6 @@ public class TaskInfo
     public List<PageBufferInfo> getOutputBuffers()
     {
         return outputBuffers;
-    }
-
-    @JsonProperty
-    public List<TupleInfo> getTupleInfos()
-    {
-        return tupleInfos;
     }
 
     @JsonProperty

@@ -57,22 +57,22 @@ public class HackPlanFragmentSourceProvider
         checkNotNull(source, "source is null");
         if (source instanceof ExchangePlanFragmentSource) {
             final ExchangePlanFragmentSource exchangeSource = (ExchangePlanFragmentSource) source;
-            return new QueryDriversOperator(pageBufferMax, transform(exchangeSource.getSources().entrySet(), new Function<Entry<String, URI>, QueryDriverProvider>()
-            {
-                @Override
-                public QueryDriverProvider apply(Entry<String, URI> source)
-                {
-                    return new HttpTaskClient(
-                            source.getKey(),
-                            source.getValue(),
-                            exchangeSource.getOutputId(),
-                            exchangeSource.getTupleInfos(),
-                            httpClient,
-                            executor,
-                            taskInfoCodec
-                    );
-                }
-            }));
+            return new QueryDriversOperator(pageBufferMax, exchangeSource.getTupleInfos(), transform(exchangeSource.getSources().entrySet(),
+                    new Function<Entry<String, URI>, QueryDriverProvider>()
+                    {
+                        @Override
+                        public QueryDriverProvider apply(Entry<String, URI> source)
+                        {
+                            return new HttpTaskClient(
+                                    source.getKey(),
+                                    source.getValue(),
+                                    exchangeSource.getOutputId(),
+                                    httpClient,
+                                    executor,
+                                    taskInfoCodec
+                            );
+                        }
+                    }));
         }
         else if (source instanceof TableScanPlanFragmentSource) {
             TableScanPlanFragmentSource tableScanSource = (TableScanPlanFragmentSource) source;

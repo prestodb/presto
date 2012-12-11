@@ -20,7 +20,6 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -74,8 +73,6 @@ public class SqlQueryExecution
     private final AtomicReference<StageExecution> outputStage = new AtomicReference<>();
     @GuardedBy("this")
     private final AtomicReference<ImmutableList<String>> fieldNames = new AtomicReference<>(ImmutableList.<String>of());
-    @GuardedBy("this")
-    private final AtomicReference<ImmutableList<TupleInfo>> tupleInfos = new AtomicReference<>(ImmutableList.<TupleInfo>of());
 
     public SqlQueryExecution(String queryId,
             String sql,
@@ -128,7 +125,6 @@ public class SqlQueryExecution
                 queryState.get(),
                 locationFactory.createQueryLocation(queryId),
                 fieldNames.get(),
-                tupleInfos.get(),
                 sql,
                 queryStats,
                 stageInfo);
@@ -214,9 +210,8 @@ public class SqlQueryExecution
                     QueryState.PLANNING,
                     queryState);
 
-            // record field names and tuple infos
+            // record field names
             fieldNames.set(ImmutableList.copyOf(outputStageExecutionPlan.getFieldNames()));
-            tupleInfos.set(ImmutableList.copyOf(outputStageExecutionPlan.getTupleInfos()));
 
             // build the stage execution objects (this doesn't schedule execution)
             StageExecution outputStage = createStage(new AtomicInteger(), outputStageExecutionPlan, ImmutableList.of(ROOT_OUTPUT_BUFFER_NAME));

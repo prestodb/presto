@@ -5,7 +5,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.PageBuffer.BufferState;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -28,13 +27,12 @@ public class TaskOutput
     private final String stageId;
     private final String taskId;
     private final URI location;
-    private final List<TupleInfo> tupleInfos;
     private final Map<String, PageBuffer> outputBuffers;
 
     private final ExecutionStats stats = new ExecutionStats();
     private final AtomicReference<TaskState> taskState = new AtomicReference<>(TaskState.RUNNING);
 
-    public TaskOutput(String queryId, String stageId, String taskId, URI location, List<String> outputIds, List<TupleInfo> tupleInfos, int pageBufferMax, int splits)
+    public TaskOutput(String queryId, String stageId, String taskId, URI location, List<String> outputIds, int pageBufferMax, int splits)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
@@ -42,7 +40,6 @@ public class TaskOutput
         Preconditions.checkNotNull(location, "location is null");
         Preconditions.checkNotNull(outputIds, "outputIds is null");
         Preconditions.checkArgument(!outputIds.isEmpty(), "outputIds is empty");
-        Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
         Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
         Preconditions.checkArgument(splits >= 0, "splits is negative");
 
@@ -50,11 +47,10 @@ public class TaskOutput
         this.stageId = stageId;
         this.taskId = taskId;
         this.location = location;
-        this.tupleInfos = tupleInfos;
         stats.addSplits(splits);
         ImmutableMap.Builder<String, PageBuffer> builder = ImmutableMap.builder();
         for (String outputId : outputIds) {
-            builder.put(outputId, new PageBuffer(outputId, tupleInfos, 1, pageBufferMax));
+            builder.put(outputId, new PageBuffer(outputId, 1, pageBufferMax));
         }
         outputBuffers = builder.build();
     }
@@ -62,11 +58,6 @@ public class TaskOutput
     public String getTaskId()
     {
         return taskId;
-    }
-
-    public List<TupleInfo> getTupleInfos()
-    {
-        return tupleInfos;
     }
 
     public TaskState getState()
@@ -185,7 +176,6 @@ public class TaskOutput
                 getState(),
                 location,
                 getBufferInfos(),
-                getTupleInfos(),
                 stats);
     }
 }

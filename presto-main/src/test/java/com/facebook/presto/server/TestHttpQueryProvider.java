@@ -45,6 +45,7 @@ import javax.ws.rs.core.MediaType;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static com.facebook.presto.server.MockQueryManager.TUPLE_INFOS;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.preparePut;
@@ -130,6 +131,7 @@ public class TestHttpQueryProvider
             throws Exception
     {
         QueryDriversOperator operator = new QueryDriversOperator(10,
+                TUPLE_INFOS,
                 createHttpQueryProvider(server1),
                 createHttpQueryProvider(server2),
                 createHttpQueryProvider(server3)
@@ -150,6 +152,7 @@ public class TestHttpQueryProvider
             throws Exception
     {
         QueryDriversOperator operator = new QueryDriversOperator(10,
+                TUPLE_INFOS,
                 createHttpQueryProvider(server1),
                 createHttpQueryProvider(server2),
                 createHttpQueryProvider(server3)
@@ -203,7 +206,6 @@ public class TestHttpQueryProvider
         return new HttpTaskClient(taskInfo.getTaskId(),
                 taskInfo.getSelf(),
                 "out",
-                taskInfo.getTupleInfos(),
                 httpClient,
                 executor,
                 jsonCodec(TaskInfo.class));

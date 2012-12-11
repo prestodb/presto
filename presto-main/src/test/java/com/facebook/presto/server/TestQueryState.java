@@ -7,7 +7,6 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.execution.FailedQueryException;
 import com.facebook.presto.execution.PageBuffer;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -27,7 +26,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -37,8 +35,6 @@ import static org.testng.Assert.fail;
 
 public class TestQueryState
 {
-    private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_LONG);
-
     private static final Duration MAX_WAIT = new Duration(1, TimeUnit.SECONDS);
 
     private ExecutorService executor;
@@ -62,14 +58,14 @@ public class TestQueryState
             throws Exception
     {
         try {
-            new PageBuffer("bufferId", TUPLE_INFOS, 0, 4);
+            new PageBuffer("bufferId", 0, 4);
             fail("Expected IllegalArgumentException");
         }
         catch (IllegalArgumentException e) {
 
         }
         try {
-            new PageBuffer("bufferId", ImmutableList.of(SINGLE_LONG), 4, 0);
+            new PageBuffer("bufferId", 4, 0);
             fail("Expected IllegalArgumentException");
         }
         catch (IllegalArgumentException e) {
@@ -81,7 +77,7 @@ public class TestQueryState
     public void testNormalExecution()
             throws Exception
     {
-        PageBuffer outputBuffer = new PageBuffer("bufferId", ImmutableList.of(SINGLE_LONG), 1, 20);
+        PageBuffer outputBuffer = new PageBuffer("bufferId", 1, 20);
         assertRunning(outputBuffer);
 
         // fill the buffer
@@ -153,7 +149,7 @@ public class TestQueryState
     public void testFailedExecution()
             throws Exception
     {
-        PageBuffer pageBuffer = new PageBuffer("bufferId", ImmutableList.of(SINGLE_LONG), 1, 20);
+        PageBuffer pageBuffer = new PageBuffer("bufferId", 1, 20);
         assertRunning(pageBuffer);
 
         // fill the buffer
@@ -209,7 +205,7 @@ public class TestQueryState
     public void testEarlyFinishExecution()
             throws Exception
     {
-        PageBuffer pageBuffer = new PageBuffer("bufferId", TUPLE_INFOS, 1, 20);
+        PageBuffer pageBuffer = new PageBuffer("bufferId", 1, 20);
         assertRunning(pageBuffer);
 
         // fill the buffer
@@ -259,7 +255,7 @@ public class TestQueryState
     public void testMultiSourceNormalExecution()
             throws Exception
     {
-        PageBuffer pageBuffer = new PageBuffer("bufferId", TUPLE_INFOS, 3, 20);
+        PageBuffer pageBuffer = new PageBuffer("bufferId", 3, 20);
         assertRunning(pageBuffer);
 
         // add some pages
@@ -317,7 +313,7 @@ public class TestQueryState
     public void testBufferSizeNormal()
             throws Exception
     {
-        PageBuffer pageBuffer = new PageBuffer("bufferId", TUPLE_INFOS, 1, 5);
+        PageBuffer pageBuffer = new PageBuffer("bufferId", 1, 5);
         assertRunning(pageBuffer);
 
         // exec thread to get two pages
@@ -376,7 +372,7 @@ public class TestQueryState
     public void testFinishFreesReader()
             throws Exception
     {
-        PageBuffer pageBuffer = new PageBuffer("bufferId", TUPLE_INFOS, 1, 5);
+        PageBuffer pageBuffer = new PageBuffer("bufferId", 1, 5);
         assertRunning(pageBuffer);
 
         ExecutorService executor = Executors.newCachedThreadPool();
@@ -410,7 +406,7 @@ public class TestQueryState
     public void testFinishFreesWriter()
             throws Exception
     {
-        PageBuffer pageBuffer = new PageBuffer("bufferId", TUPLE_INFOS, 1, 5);
+        PageBuffer pageBuffer = new PageBuffer("bufferId", 1, 5);
         assertRunning(pageBuffer);
 
         ExecutorService executor = Executors.newCachedThreadPool();
@@ -446,7 +442,7 @@ public class TestQueryState
     public void testFailFreesReader()
             throws Exception
     {
-        PageBuffer pageBuffer = new PageBuffer("bufferId", TUPLE_INFOS, 1, 5);
+        PageBuffer pageBuffer = new PageBuffer("bufferId", 1, 5);
         assertRunning(pageBuffer);
 
         ExecutorService executor = Executors.newCachedThreadPool();
@@ -482,7 +478,7 @@ public class TestQueryState
     public void testFailFreesWriter()
             throws Exception
     {
-        PageBuffer pageBuffer = new PageBuffer("bufferId", TUPLE_INFOS, 1, 5);
+        PageBuffer pageBuffer = new PageBuffer("bufferId", 1, 5);
         assertRunning(pageBuffer);
 
         ExecutorService executor = Executors.newCachedThreadPool();

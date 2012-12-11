@@ -3,12 +3,10 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.execution.PageBuffer;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.server.QueryDriversOperator.QueryDriversIterator;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -24,6 +22,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
+import static com.facebook.presto.server.MockQueryManager.TUPLE_INFOS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -44,6 +43,7 @@ public class TestQueryDriversOperator
         try {
 
             QueryDriversOperator operator = new QueryDriversOperator(10,
+                    TUPLE_INFOS,
                     new StaticQueryDriverProvider(executor, pages),
                     new StaticQueryDriverProvider(executor, pages),
                     new StaticQueryDriverProvider(executor, pages)
@@ -71,7 +71,7 @@ public class TestQueryDriversOperator
         ExecutorService executor = Executors.newCachedThreadPool();
         try {
             StaticQueryDriverProvider provider = new StaticQueryDriverProvider(executor, pages);
-            QueryDriversOperator operator = new QueryDriversOperator(1, provider, provider, provider);
+            QueryDriversOperator operator = new QueryDriversOperator(1, TUPLE_INFOS, provider, provider, provider);
 
             int count = 0;
             QueryDriversIterator iterator = operator.iterator();
@@ -129,35 +129,16 @@ public class TestQueryDriversOperator
         private final ExecutorService executor;
         private final List<Page> pages;
         private final List<StaticQueryDriver> createdDrivers = new ArrayList<>();
-        private final List<TupleInfo> tupleInfos;
 
         private StaticQueryDriverProvider(ExecutorService executor, List<Page> pages)
         {
             this.executor = executor;
             this.pages = pages;
-
-            ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
-            for (Block block : pages.get(0).getBlocks()) {
-                tupleInfos.add(block.getTupleInfo()) ;
-            }
-            this.tupleInfos = tupleInfos.build();
         }
 
         public List<StaticQueryDriver> getCreatedDrivers()
         {
             return ImmutableList.copyOf(createdDrivers);
-        }
-
-        @Override
-        public int getChannelCount()
-        {
-            return pages.get(0).getBlocks().length;
-        }
-
-        @Override
-        public List<TupleInfo> getTupleInfos()
-        {
-            return tupleInfos;
         }
 
         @Override
