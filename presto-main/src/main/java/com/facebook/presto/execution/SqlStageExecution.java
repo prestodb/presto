@@ -4,8 +4,11 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -36,6 +39,7 @@ public class SqlStageExecution
     private final String stageId;
     private final URI location;
     private final PlanFragment plan;
+    private final List<TupleInfo> tupleInfos;
     private final List<RemoteTask> tasks;
     private final List<StageExecution> subStages;
 
@@ -65,6 +69,19 @@ public class SqlStageExecution
         this.plan = plan;
         this.subStages = ImmutableList.copyOf(subStages);
         this.tasks = ImmutableList.copyOf(tasks);
+
+        tupleInfos = ImmutableList.copyOf(IterableTransformer.on(plan.getRoot().getOutputSymbols())
+                .transform(Functions.forMap(plan.getSymbols()))
+                .transform(com.facebook.presto.sql.analyzer.Type.toRaw())
+                .transform(new Function<Type, TupleInfo>()
+                {
+                    @Override
+                    public TupleInfo apply(Type input)
+                    {
+                        return new TupleInfo(input);
+                    }
+                })
+                .list());
     }
 
     @Override
@@ -90,9 +107,7 @@ public class SqlStageExecution
             sources.put(task.getTaskId(), task.getTaskInfo().getSelf());
         }
 
-        return new ExchangePlanFragmentSource(sources.build(),
-                outputId,
-                tasks.get(0).getTaskInfo().getTupleInfos());
+        return new ExchangePlanFragmentSource(sources.build(), outputId, tupleInfos);
     }
 
     @Override
@@ -106,6 +121,7 @@ public class SqlStageExecution
                 stageState.get(),
                 location,
                 plan,
+                tupleInfos,
                 taskInfos,
                 subStageInfos);
     }

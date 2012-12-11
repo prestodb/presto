@@ -5,7 +5,6 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.execution.PageBuffer;
 import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import io.airlift.http.client.AsyncHttpClient;
@@ -17,7 +16,6 @@ import io.airlift.json.JsonCodec;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.ws.rs.core.Response.Status;
 import java.net.URI;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
@@ -34,14 +32,13 @@ public class HttpTaskClient
     private final HttpClient httpClient;
     private final ExecutorService executor;
     private final URI location;
-    private final List<TupleInfo> tupleInfos;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final String outputId;
 
     public HttpTaskClient(String taskId,
             URI location,
             String outputId,
-            List<TupleInfo> tupleInfos, HttpClient httpClient,
+            HttpClient httpClient,
             ExecutorService executor,
             JsonCodec<TaskInfo> taskInfoCodec)
     {
@@ -49,7 +46,6 @@ public class HttpTaskClient
         this.httpClient = httpClient;
         this.executor = executor;
         this.location = location;
-        this.tupleInfos = tupleInfos;
         this.taskInfoCodec = taskInfoCodec;
         this.outputId = outputId;
     }
@@ -81,18 +77,6 @@ public class HttpTaskClient
 
         TaskInfo taskInfo = response.getValue();
         return taskInfo;
-    }
-
-    @Override
-    public int getChannelCount()
-    {
-        return tupleInfos.size();
-    }
-
-    @Override
-    public List<TupleInfo> getTupleInfos()
-    {
-        return tupleInfos;
     }
 
     @Override

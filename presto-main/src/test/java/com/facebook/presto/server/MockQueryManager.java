@@ -13,6 +13,7 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -28,6 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 
@@ -35,6 +37,8 @@ import static com.google.common.collect.Iterables.transform;
 public class MockQueryManager
         implements QueryManager
 {
+    public static final List<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_VARBINARY);
+
     private final MockTaskManager mockTaskManager;
     private final LocationFactory locationFactory;
     private final AtomicInteger nextQueryId = new AtomicInteger();
@@ -151,7 +155,6 @@ public class MockQueryManager
                     state,
                     self,
                     ImmutableList.of("out"),
-                    outputTask.getTupleInfos(),
                     "query",
                     new QueryStats(),
                     new StageInfo(queryId,
@@ -159,6 +162,7 @@ public class MockQueryManager
                             StageState.FINISHED,
                             locationFactory.createStageLocation(stageId),
                             null,
+                            TUPLE_INFOS,
                             ImmutableList.<TaskInfo>of(outputTask),
                             ImmutableList.<StageInfo>of()));
         }

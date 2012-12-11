@@ -12,16 +12,11 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
-import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -82,20 +77,7 @@ public class SqlTaskExecution
         this.metadata = metadata;
 
         // create output buffers
-        List<TupleInfo> tupleInfos = ImmutableList.copyOf(IterableTransformer.on(fragment.getRoot().getOutputSymbols())
-                .transform(Functions.forMap(fragment.getSymbols()))
-                .transform(com.facebook.presto.sql.analyzer.Type.toRaw())
-                .transform(new Function<Type, TupleInfo>()
-                {
-                    @Override
-                    public TupleInfo apply(Type input)
-                    {
-                        return new TupleInfo(input);
-                    }
-                })
-                .list());
-
-        this.taskOutput = new TaskOutput(queryId, stageId, taskId, location, outputIds, tupleInfos, pageBufferMax, splits.size());
+        this.taskOutput = new TaskOutput(queryId, stageId, taskId, location, outputIds, pageBufferMax, splits.size());
     }
 
     @Override

@@ -99,7 +99,6 @@ public class HttpRemoteTask
                 TaskState.PLANNED,
                 location,
                 bufferStates,
-                planFragment.getTupleInfos(),
                 new ExecutionStats()));
     }
 
@@ -165,7 +164,6 @@ public class HttpRemoteTask
                         TaskState.CANCELED,
                         taskInfo.getSelf(),
                         taskInfo.getOutputBuffers(),
-                        taskInfo.getTupleInfos(),
                         taskInfo.getStats()));
             }
         }
@@ -190,7 +188,6 @@ public class HttpRemoteTask
                     TaskState.CANCELED,
                     taskInfo.getSelf(),
                     taskInfo.getOutputBuffers(),
-                    taskInfo.getTupleInfos(),
                     taskInfo.getStats()));
             return;
         }

@@ -4,6 +4,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -24,6 +25,7 @@ public class StageInfo
     private final StageState state;
     private final URI self;
     private final PlanFragment plan;
+    private final List<TupleInfo> tupleInfos;
     private final List<TaskInfo> tasks;
     private final List<StageInfo> subStages;
 
@@ -33,6 +35,7 @@ public class StageInfo
             @JsonProperty("state") StageState state,
             @JsonProperty("self") URI self,
             @JsonProperty("plan") @Nullable PlanFragment plan,
+            @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
             @JsonProperty("tasks") List<TaskInfo> tasks,
             @JsonProperty("subStages") List<StageInfo> subStages)
     {
@@ -47,6 +50,7 @@ public class StageInfo
         this.state = state;
         this.self = self;
         this.plan = plan;
+        this.tupleInfos = tupleInfos;
         this.tasks = ImmutableList.copyOf(tasks);
         this.subStages = subStages;
     }
@@ -80,6 +84,12 @@ public class StageInfo
     public PlanFragment getPlan()
     {
         return plan;
+    }
+
+    @JsonProperty
+    public List<TupleInfo> getTupleInfos()
+    {
+        return tupleInfos;
     }
 
     @JsonProperty

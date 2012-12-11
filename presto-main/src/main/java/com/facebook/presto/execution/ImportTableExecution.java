@@ -41,12 +41,14 @@ public class ImportTableExecution
 
     ImportTableExecution(
             String queryId,
-            URI self, ImportClientFactory importClientFactory,
+            URI self,
+            ImportClientFactory importClientFactory,
             ImportManager importManager,
             Metadata metadata,
             String sourceName,
             String databaseName,
-            String tableName, String query)
+            String tableName,
+            String query)
     {
         this.queryId = queryId;
         this.self = self;
@@ -72,10 +74,16 @@ public class ImportTableExecution
                 QueryState.FINISHED,
                 self,
                 FIELD_NAMES,
-                TUPLE_INFOS,
                 query,
                 queryStats,
-                new StageInfo(queryId, queryId + "-0", StageState.FINISHED, null, null, ImmutableList.<TaskInfo>of(), ImmutableList.<StageInfo>of()));
+                new StageInfo(queryId,
+                        queryId + "-0",
+                        StageState.FINISHED,
+                        URI.create("fake://"),
+                        null,
+                        TUPLE_INFOS,
+                        ImmutableList.<TaskInfo>of(),
+                        ImmutableList.<StageInfo>of()));
     }
 
     @Override
