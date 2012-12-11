@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -41,9 +42,14 @@ public class SqlStageManager
     }
 
     @Override
-    public StageExecution createStage(String queryId, String stageId, URI location, Iterable<? extends RemoteTask> tasks, Iterable<? extends StageExecution> subStages)
+    public StageExecution createStage(String queryId,
+            String stageId,
+            URI location,
+            PlanFragment plan,
+            Iterable<? extends RemoteTask> tasks,
+            Iterable<? extends StageExecution> subStages)
     {
-        SqlStageExecution stageExecution = new SqlStageExecution(queryId, stageId, location, tasks, subStages);
+        SqlStageExecution stageExecution = new SqlStageExecution(queryId, stageId, location, plan, tasks, subStages);
         stages.put(stageExecution.getStageId(), stageExecution);
         return stageExecution;
     }

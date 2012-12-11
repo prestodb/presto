@@ -75,7 +75,7 @@ public class ImportTableExecution
                 TUPLE_INFOS,
                 query,
                 queryStats,
-                new StageInfo(queryId, queryId + "-0", StageState.FINISHED, null, ImmutableList.<TaskInfo>of(), ImmutableList.<StageInfo>of()));
+                new StageInfo(queryId, queryId + "-0", StageState.FINISHED, null, null, ImmutableList.<TaskInfo>of(), ImmutableList.<StageInfo>of()));
     }
 
     @Override

@@ -158,6 +158,7 @@ public class MockQueryManager
                             stageId,
                             StageState.FINISHED,
                             locationFactory.createStageLocation(stageId),
+                            null,
                             ImmutableList.<TaskInfo>of(outputTask),
                             ImmutableList.<StageInfo>of()));
         }
