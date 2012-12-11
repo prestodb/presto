@@ -40,17 +40,10 @@ public class Console
                     continue;
                 }
 
-                try {
-                    if (!process(line)) {
-                        return;
-                    }
+                if (!process(line)) {
+                    return;
                 }
-                catch (Exception e) {
-                    System.out.println("error running command: " + e.getMessage());
-                    if (debug) {
-                        e.printStackTrace();
-                    }
-                }
+                reader.getHistory().add(line);
             }
         }
         catch (IOException e) {
@@ -64,14 +57,22 @@ public class Console
             line = line.substring(0, line.length() - 1);
         }
 
-        if (line.equalsIgnoreCase("quit")) {
+        if (line.equalsIgnoreCase("quit") || line.equalsIgnoreCase("exit")) {
             return false;
         }
 
-        Execute query = new Execute();
-        query.server = server;
-        query.query = line;
-        query.run();
+        try {
+            Execute query = new Execute();
+            query.server = server;
+            query.query = line;
+            query.run();
+        }
+        catch (Exception e) {
+            System.out.println("error running command: " + e.getMessage());
+            if (debug) {
+                e.printStackTrace();
+            }
+        }
 
         return true;
     }
@@ -100,9 +101,9 @@ public class Console
         private LineReader(History history)
                 throws IOException
         {
-            super();
             setExpandEvents(false);
             setHistory(history);
+            setHistoryEnabled(false);
         }
 
         @Override
