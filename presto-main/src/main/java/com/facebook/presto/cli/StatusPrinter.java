@@ -1,10 +1,11 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.execution.ExecutionStats;
-import com.facebook.presto.server.HttpQueryClient;
+import com.facebook.presto.execution.PageBufferInfo;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.server.HttpQueryClient;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.units.DataSize;
@@ -97,8 +98,10 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
                     if (queryInfo.getOutputStage() != null) {
                         List<TaskInfo> outStage = queryInfo.getOutputStage().getTasks();
                         for (TaskInfo outputTask : outStage) {
-                            if (outputTask.getStats().getBufferedPages() > 0) {
-                                return;
+                            for (PageBufferInfo outputBuffer : outputTask.getOutputBuffers()) {
+                                if (outputBuffer.getBufferedPages() > 0) {
+                                    return;
+                                }
                             }
                         }
                     }

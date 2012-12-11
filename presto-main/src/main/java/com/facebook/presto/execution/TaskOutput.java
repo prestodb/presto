@@ -7,6 +7,7 @@ import com.facebook.presto.execution.PageBuffer.BufferState;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.airlift.units.Duration;
@@ -16,9 +17,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.execution.PageBuffer.infoGetter;
 import static com.facebook.presto.execution.PageBuffer.stateGetter;
 import static com.google.common.base.Predicates.equalTo;
-import static com.google.common.collect.Maps.transformValues;
+import static com.google.common.collect.Iterables.transform;
 
 public class TaskOutput
 {
@@ -52,7 +54,7 @@ public class TaskOutput
         stats.addSplits(splits);
         ImmutableMap.Builder<String, PageBuffer> builder = ImmutableMap.builder();
         for (String outputId : outputIds) {
-            builder.put(outputId, new PageBuffer(tupleInfos, 1, pageBufferMax));
+            builder.put(outputId, new PageBuffer(outputId, tupleInfos, 1, pageBufferMax));
         }
         outputBuffers = builder.build();
     }
@@ -77,27 +79,26 @@ public class TaskOutput
         return stats;
     }
 
-    public Map<String, BufferState> getOutputBufferStates()
+    public List<PageBufferInfo> getBufferInfos()
     {
-        return ImmutableMap.copyOf(transformValues(outputBuffers, stateGetter()));
+        return ImmutableList.copyOf(transform(outputBuffers.values(), infoGetter()));
     }
 
     private void updateState()
     {
         TaskState overallState = taskState.get();
         if (!overallState.isDone()) {
-            Map<String, BufferState> outputBufferStates = getOutputBufferStates();
+            ImmutableList<BufferState> bufferStates = ImmutableList.copyOf(transform(outputBuffers.values(), stateGetter()));
 
-            if (Iterables.any(outputBufferStates.values(), equalTo(BufferState.FAILED))) {
+            if (Iterables.any(bufferStates, equalTo(BufferState.FAILED))) {
                 taskState.set(TaskState.FAILED);
                 // this shouldn't be necessary, but be safe
                 finishAllBuffers();
             }
-            else if (Iterables.all(outputBufferStates.values(), equalTo(BufferState.FINISHED))) {
+            else if (Iterables.all(bufferStates, equalTo(BufferState.FINISHED))) {
                 taskState.set(TaskState.FINISHED);
             }
         }
-        stats.setBufferedPages(getBufferedPageCount());
     }
 
     /**
@@ -146,15 +147,6 @@ public class TaskOutput
         }
     }
 
-    public int getBufferedPageCount()
-    {
-        int bufferedPageCount = 0;
-        for (PageBuffer outputBuffer : outputBuffers.values()) {
-            bufferedPageCount = Math.max(outputBuffer.getBufferedPageCount(), bufferedPageCount);
-        }
-        return bufferedPageCount;
-    }
-
     public boolean addPage(Page page)
             throws InterruptedException
     {
@@ -192,7 +184,7 @@ public class TaskOutput
                 taskId,
                 getState(),
                 location,
-                getOutputBufferStates(),
+                getBufferInfos(),
                 getTupleInfos(),
                 stats);
     }

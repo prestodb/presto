@@ -62,14 +62,14 @@ public class TestQueryState
             throws Exception
     {
         try {
-            new PageBuffer(TUPLE_INFOS, 0, 4);
+            new PageBuffer("bufferId", TUPLE_INFOS, 0, 4);
             fail("Expected IllegalArgumentException");
         }
         catch (IllegalArgumentException e) {
 
         }
         try {
-            new PageBuffer(ImmutableList.of(SINGLE_LONG), 4, 0);
+            new PageBuffer("bufferId", ImmutableList.of(SINGLE_LONG), 4, 0);
             fail("Expected IllegalArgumentException");
         }
         catch (IllegalArgumentException e) {
@@ -81,7 +81,7 @@ public class TestQueryState
     public void testNormalExecution()
             throws Exception
     {
-        PageBuffer outputBuffer = new PageBuffer(ImmutableList.of(SINGLE_LONG), 1, 20);
+        PageBuffer outputBuffer = new PageBuffer("bufferId", ImmutableList.of(SINGLE_LONG), 1, 20);
         assertRunning(outputBuffer);
 
         // fill the buffer
@@ -153,7 +153,7 @@ public class TestQueryState
     public void testFailedExecution()
             throws Exception
     {
-        PageBuffer pageBuffer = new PageBuffer(ImmutableList.of(SINGLE_LONG), 1, 20);
+        PageBuffer pageBuffer = new PageBuffer("bufferId", ImmutableList.of(SINGLE_LONG), 1, 20);
         assertRunning(pageBuffer);
 
         // fill the buffer
@@ -209,7 +209,7 @@ public class TestQueryState
     public void testEarlyFinishExecution()
             throws Exception
     {
-        PageBuffer pageBuffer = new PageBuffer(TUPLE_INFOS, 1, 20);
+        PageBuffer pageBuffer = new PageBuffer("bufferId", TUPLE_INFOS, 1, 20);
         assertRunning(pageBuffer);
 
         // fill the buffer
@@ -259,7 +259,7 @@ public class TestQueryState
     public void testMultiSourceNormalExecution()
             throws Exception
     {
-        PageBuffer pageBuffer = new PageBuffer(TUPLE_INFOS, 3, 20);
+        PageBuffer pageBuffer = new PageBuffer("bufferId", TUPLE_INFOS, 3, 20);
         assertRunning(pageBuffer);
 
         // add some pages
@@ -317,7 +317,7 @@ public class TestQueryState
     public void testBufferSizeNormal()
             throws Exception
     {
-        PageBuffer pageBuffer = new PageBuffer(TUPLE_INFOS, 1, 5);
+        PageBuffer pageBuffer = new PageBuffer("bufferId", TUPLE_INFOS, 1, 5);
         assertRunning(pageBuffer);
 
         // exec thread to get two pages
@@ -376,7 +376,7 @@ public class TestQueryState
     public void testFinishFreesReader()
             throws Exception
     {
-        PageBuffer pageBuffer = new PageBuffer(TUPLE_INFOS, 1, 5);
+        PageBuffer pageBuffer = new PageBuffer("bufferId", TUPLE_INFOS, 1, 5);
         assertRunning(pageBuffer);
 
         ExecutorService executor = Executors.newCachedThreadPool();
@@ -410,7 +410,7 @@ public class TestQueryState
     public void testFinishFreesWriter()
             throws Exception
     {
-        PageBuffer pageBuffer = new PageBuffer(TUPLE_INFOS, 1, 5);
+        PageBuffer pageBuffer = new PageBuffer("bufferId", TUPLE_INFOS, 1, 5);
         assertRunning(pageBuffer);
 
         ExecutorService executor = Executors.newCachedThreadPool();
@@ -446,7 +446,7 @@ public class TestQueryState
     public void testFailFreesReader()
             throws Exception
     {
-        PageBuffer pageBuffer = new PageBuffer(TUPLE_INFOS, 1, 5);
+        PageBuffer pageBuffer = new PageBuffer("bufferId", TUPLE_INFOS, 1, 5);
         assertRunning(pageBuffer);
 
         ExecutorService executor = Executors.newCachedThreadPool();
@@ -482,7 +482,7 @@ public class TestQueryState
     public void testFailFreesWriter()
             throws Exception
     {
-        PageBuffer pageBuffer = new PageBuffer(TUPLE_INFOS, 1, 5);
+        PageBuffer pageBuffer = new PageBuffer("bufferId", TUPLE_INFOS, 1, 5);
         assertRunning(pageBuffer);
 
         ExecutorService executor = Executors.newCachedThreadPool();

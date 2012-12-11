@@ -6,13 +6,13 @@ package com.facebook.presto.server;
 import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.execution.ExecutionStats;
 import com.facebook.presto.execution.PageBuffer.BufferState;
+import com.facebook.presto.execution.PageBufferInfo;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
-import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Functions;
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.transform;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
@@ -83,7 +84,15 @@ public class HttpRemoteTask
         this.taskInfoCodec = taskInfoCodec;
         this.queryFragmentRequestCodec = queryFragmentRequestCodec;
 
-        Map<String, BufferState> bufferStates = IterableTransformer.on(outputIds).toMap(Functions.constant(BufferState.CREATED)).map();
+        List<PageBufferInfo> bufferStates = ImmutableList.copyOf(transform(outputIds, new Function<String, PageBufferInfo>()
+        {
+            @Override
+            public PageBufferInfo apply(String outputId)
+            {
+                return new PageBufferInfo(outputId, BufferState.CREATED, 0);
+            }
+        }));
+
         taskInfo.set(new TaskInfo(queryId,
                 stageId,
                 taskId,
@@ -115,7 +124,7 @@ public class HttpRemoteTask
                 planFragment,
                 splits,
                 exchangeSources,
-                ImmutableList.copyOf(taskInfo.getOutputBufferStates().keySet()));
+                ImmutableList.copyOf(transform(taskInfo.getOutputBuffers(), PageBufferInfo.bufferIdGetter())));
 
         Request request = preparePut()
                 .setUri(taskInfo.getSelf())
@@ -155,7 +164,7 @@ public class HttpRemoteTask
                         taskInfo.getTaskId(),
                         TaskState.CANCELED,
                         taskInfo.getSelf(),
-                        taskInfo.getOutputBufferStates(),
+                        taskInfo.getOutputBuffers(),
                         taskInfo.getTupleInfos(),
                         taskInfo.getStats()));
             }
@@ -180,7 +189,7 @@ public class HttpRemoteTask
                     taskInfo.getTaskId(),
                     TaskState.CANCELED,
                     taskInfo.getSelf(),
-                    taskInfo.getOutputBufferStates(),
+                    taskInfo.getOutputBuffers(),
                     taskInfo.getTupleInfos(),
                     taskInfo.getStats()));
             return;

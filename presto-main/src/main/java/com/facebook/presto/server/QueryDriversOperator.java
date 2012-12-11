@@ -59,7 +59,7 @@ public class QueryDriversOperator
     {
         ImmutableList.Builder<QueryDriver> queries = ImmutableList.builder();
         try {
-            PageBuffer outputBuffer = new PageBuffer(tupleInfos, driverProviders.size(), pageBufferMax);
+            PageBuffer outputBuffer = new PageBuffer("out", tupleInfos, driverProviders.size(), pageBufferMax);
             for (QueryDriverProvider provider : driverProviders) {
                 QueryDriver queryDriver = provider.create(outputBuffer);
                 queries.add(queryDriver);

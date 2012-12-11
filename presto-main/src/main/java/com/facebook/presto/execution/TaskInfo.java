@@ -3,19 +3,17 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.execution.PageBuffer.BufferState;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 import java.net.URI;
 import java.util.List;
-import java.util.Map;
 
 @Immutable
 public class TaskInfo
@@ -25,7 +23,7 @@ public class TaskInfo
     private final String taskId;
     private final TaskState state;
     private final URI self;
-    private final Map<String, BufferState> outputBufferStates;
+    private final List<PageBufferInfo> outputBuffers;
     private final List<TupleInfo> tupleInfos;
     private final ExecutionStats stats;
 
@@ -35,7 +33,7 @@ public class TaskInfo
             @JsonProperty("taskId") String taskId,
             @JsonProperty("state") TaskState state,
             @JsonProperty("self") URI self,
-            @JsonProperty("outputBufferStates") Map<String, BufferState> outputBufferStates,
+            @JsonProperty("outputBuffers") List<PageBufferInfo> outputBuffers,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
             @JsonProperty("stats") ExecutionStats stats)
     {
@@ -44,8 +42,8 @@ public class TaskInfo
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(state, "state is null");
         Preconditions.checkNotNull(self, "self is null");
-        Preconditions.checkNotNull(outputBufferStates, "outputBufferStates is null");
-        Preconditions.checkArgument(!outputBufferStates.isEmpty(), "outputBufferStates is empty");
+        Preconditions.checkNotNull(outputBuffers, "outputBufferStates is null");
+        Preconditions.checkArgument(!outputBuffers.isEmpty(), "outputBufferStates is empty");
         Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
         Preconditions.checkNotNull(stats, "stats is null");
 
@@ -54,7 +52,7 @@ public class TaskInfo
         this.taskId = taskId;
         this.state = state;
         this.self = self;
-        this.outputBufferStates = ImmutableMap.copyOf(outputBufferStates);
+        this.outputBuffers = ImmutableList.copyOf(outputBuffers);
         this.tupleInfos = tupleInfos;
         this.stats = stats;
     }
@@ -90,9 +88,9 @@ public class TaskInfo
     }
 
     @JsonProperty
-    public Map<String, BufferState> getOutputBufferStates()
+    public List<PageBufferInfo> getOutputBuffers()
     {
-        return outputBufferStates;
+        return outputBuffers;
     }
 
     @JsonProperty

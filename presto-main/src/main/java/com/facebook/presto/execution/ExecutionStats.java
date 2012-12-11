@@ -13,8 +13,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class ExecutionStats
 {
-    private final AtomicInteger bufferedPages;
-
     private final AtomicInteger splits;
     private final AtomicInteger startedSplits;
     private final AtomicInteger completedSplits;
@@ -32,12 +30,11 @@ public class ExecutionStats
 
     public ExecutionStats()
     {
-        this(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        this(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     }
 
     @JsonCreator
     public ExecutionStats(
-            @JsonProperty("bufferedPages") int bufferedPages,
             @JsonProperty("splits") int splits,
             @JsonProperty("startedSplits") int startedSplits,
             @JsonProperty("completedSplits") int completedSplits,
@@ -49,7 +46,6 @@ public class ExecutionStats
             @JsonProperty("outputDataSize") long outputDataSize,
             @JsonProperty("outputPositionCount") long outputPositionCount)
     {
-        this.bufferedPages = new AtomicInteger(bufferedPages);
         this.splits = new AtomicInteger(splits);
         this.startedSplits = new AtomicInteger(startedSplits);
         this.completedSplits = new AtomicInteger(completedSplits);
@@ -60,12 +56,6 @@ public class ExecutionStats
         this.completedPositionCount = new AtomicLong(completedPositionCount);
         this.outputDataSize = new AtomicLong(outputDataSize);
         this.outputPositionCount = new AtomicLong(outputPositionCount);
-    }
-
-    @JsonProperty
-    public int getBufferedPages()
-    {
-        return bufferedPages.get();
     }
 
     @JsonProperty
@@ -128,11 +118,6 @@ public class ExecutionStats
         return outputPositionCount.get();
     }
 
-    public void setBufferedPages(int bufferedPages)
-    {
-        this.bufferedPages.set(bufferedPages);
-    }
-
     public void addSplits(int splits)
     {
         this.splits.addAndGet(splits);
@@ -174,7 +159,6 @@ public class ExecutionStats
     }
 
     public void add(ExecutionStats stats) {
-        bufferedPages.addAndGet(stats.getBufferedPages());
         splits.addAndGet(stats.getSplits());
         startedSplits.addAndGet(stats.getStartedSplits());
         completedSplits.addAndGet(stats.getCompletedSplits());
