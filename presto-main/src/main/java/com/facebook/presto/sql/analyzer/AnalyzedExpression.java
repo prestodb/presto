@@ -1,7 +1,10 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.sql.tree.Expression;
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+
+import javax.annotation.Nullable;
 
 public class AnalyzedExpression
 {
@@ -55,5 +58,17 @@ public class AnalyzedExpression
         int result = type.hashCode();
         result = 31 * result + rewritten.hashCode();
         return result;
+    }
+
+    public static Function<AnalyzedExpression, Expression> rewrittenExpressionGetter()
+    {
+        return new Function<AnalyzedExpression, Expression>()
+        {
+            @Override
+            public Expression apply(AnalyzedExpression input)
+            {
+                return input.getRewrittenExpression();
+            }
+        };
     }
 }

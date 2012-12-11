@@ -127,6 +127,11 @@ public class LogicalPlanner
                     substitutions);
         }
 
+        if (analysis.isDistinct()) {
+            root = createProjectPlan(root, analysis.getOutputExpressions(), substitutions); // project query outputs
+            root = createDistinctPlan(root);
+        }
+
         if (!analysis.getOrderBy().isEmpty()) {
             if (analysis.getLimit() != null) {
                 root = createTopNPlan(root, analysis.getLimit(), analysis.getOrderBy(), analysis.getSymbolAllocator(), substitutions);
@@ -136,13 +141,21 @@ public class LogicalPlanner
             }
         }
 
-        root = createProjectPlan(root, analysis.getOutputExpressions(), substitutions); // project query outputs
+        if (!analysis.isDistinct()) {
+            root = createProjectPlan(root, analysis.getOutputExpressions(), substitutions); // project query outputs
+        }
 
         if (analysis.getLimit() != null && analysis.getOrderBy().isEmpty()) {
             root = createLimitPlan(root, analysis.getLimit());
         }
 
         return root;
+    }
+
+    private PlanNode createDistinctPlan(PlanNode source)
+    {
+        AggregationNode aggregation = new AggregationNode(source, source.getOutputSymbols(), ImmutableMap.<Symbol, FunctionCall>of(), ImmutableMap.<Symbol, FunctionHandle>of());
+        return aggregation;
     }
 
     private PlanNode createLimitPlan(PlanNode source, long limit)

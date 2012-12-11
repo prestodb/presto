@@ -28,9 +28,12 @@ import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Subquery;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TreeRewriter;
+import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
@@ -39,13 +42,19 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.Immutable;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.sql.analyzer.AnalyzedExpression.rewrittenExpressionGetter;
+import static com.facebook.presto.sql.analyzer.AnalyzedOrdering.expressionGetter;
+import static com.facebook.presto.sql.analyzer.AnalyzedOrdering.nodeGetter;
 import static com.facebook.presto.sql.analyzer.Field.nameGetter;
 import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
+import static com.google.common.base.Predicates.compose;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Predicates.not;
@@ -87,7 +96,6 @@ public class Analyzer
         @Override
         protected AnalysisResult visitQuery(Query query, AnalysisContext context)
         {
-            Preconditions.checkArgument(!query.getSelect().isDistinct(), "not yet implemented: DISTINCT");
             Preconditions.checkArgument(query.getHaving() == null, "not yet implemented: HAVING");
             Preconditions.checkArgument(query.getFrom().size() == 1, "not yet implemented: multiple FROM relations");
 
@@ -112,12 +120,36 @@ public class Analyzer
             List<AnalyzedOrdering> orderBy = analyzeOrderBy(query.getOrderBy(), sourceDescriptor);
             AnalyzedOutput output = analyzeOutput(query.getSelect(), context.getSymbolAllocator(), sourceDescriptor);
 
+            if (query.getSelect().isDistinct()) {
+                analyzeDistinct(output, orderBy);
+            }
+
             Long limit = null;
             if (query.getLimit() != null) {
                 limit = Long.parseLong(query.getLimit());
             }
 
-            return AnalysisResult.newInstance(context, output, predicate, groupBy, aggregations, limit, orderBy);
+            return AnalysisResult.newInstance(context, query.getSelect().isDistinct(), output, predicate, groupBy, aggregations, limit, orderBy);
+        }
+
+        private void analyzeDistinct(AnalyzedOutput output, List<AnalyzedOrdering> orderBy)
+        {
+            Set<Expression> outputExpressions = ImmutableSet.copyOf(Iterables.transform(output.getExpressions().values(), rewrittenExpressionGetter()));
+
+            // get all order by expression that are not in the select clause
+            List<AnalyzedOrdering> missingOrderings = IterableTransformer.on(orderBy)
+                    .select(compose(not(in(outputExpressions)), Functions.compose(rewrittenExpressionGetter(), expressionGetter())))
+                    .list();
+
+            if (!missingOrderings.isEmpty()) {
+                List<String> expressions = IterableTransformer.on(missingOrderings)
+                        .transform(nodeGetter())
+                        .transform(SortItem.sortKeyGetter())
+                        .transform(ExpressionFormatter.expressionFormatterFunction())
+                        .list();
+
+                throw new SemanticException(missingOrderings.get(0).getNode(), "Expressions must appear in select list for SELECT DISTINCT, ORDER BY: %s", expressions);
+            }
         }
 
         private List<AnalyzedOrdering> analyzeOrderBy(List<SortItem> orderBy, TupleDescriptor descriptor)
@@ -129,7 +161,7 @@ public class Analyzer
                 }
 
                 AnalyzedExpression expression = new ExpressionAnalyzer(metadata, descriptor.getSymbols()).analyze(sortItem.getSortKey(), descriptor);
-                builder.add(new AnalyzedOrdering(expression, sortItem.getOrdering()));
+                builder.add(new AnalyzedOrdering(expression, sortItem.getOrdering(), sortItem));
             }
 
             return builder.build();
