@@ -15,7 +15,7 @@ public interface StageExecution
 
     ExchangePlanFragmentSource getExchangeSourceFor(String outputId);
 
-    void start();
+    void startTasks();
 
     void updateState();
 

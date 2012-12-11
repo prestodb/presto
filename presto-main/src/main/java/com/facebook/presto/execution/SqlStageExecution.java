@@ -14,6 +14,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
 
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 import java.net.URI;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -24,6 +26,7 @@ import static com.google.common.collect.Iterables.all;
 import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.transform;
 
+@ThreadSafe
 public class SqlStageExecution
         implements StageExecution
 {
@@ -36,6 +39,9 @@ public class SqlStageExecution
     private final List<RemoteTask> tasks;
     private final List<StageExecution> subStages;
 
+    // Changes to state must happen within a synchronized lock.
+    // The only reason we use an atomic reference here is so read-only threads don't have to block.
+    @GuardedBy("this")
     private final AtomicReference<StageState> stageState = new AtomicReference<>(StageState.PLANNED);
 
     public SqlStageExecution(String queryId,
@@ -104,15 +110,31 @@ public class SqlStageExecution
                 subStageInfos);
     }
 
-    public void start()
+    public void startTasks()
     {
+        Preconditions.checkState(!Thread.holdsLock(this), "Can not start while holding a lock on this");
+
+        // transition to scheduling
+        synchronized (this) {
+            Preconditions.checkState(stageState.compareAndSet(StageState.PLANNED, StageState.SCHEDULING), "Stage has already been started");
+        }
+
         try {
+            // start tasks out side of loop
             for (RemoteTask task : tasks) {
                 task.start();
             }
+
+            synchronized (this) {
+                // only transition to scheduled if still in the scheduling stage
+                // another thread may have canceled the execution while scheduling
+                stageState.compareAndSet(StageState.SCHEDULING, StageState.SCHEDULED);
+            }
         }
         catch (Throwable e) {
-            stageState.set(StageState.FAILED);
+            synchronized (this) {
+                stageState.set(StageState.FAILED);
+            }
             log.error(e, "Stage %s failed to start", stageId);
             cancel();
             throw Throwables.propagate(e);
@@ -122,42 +144,50 @@ public class SqlStageExecution
     @Override
     public void updateState()
     {
+        Preconditions.checkState(!Thread.holdsLock(this), "Can not update state while holding a lock on this");
+
+        // propagate update to tasks and stages
         for (RemoteTask task : tasks) {
             task.updateState();
         }
-
         for (StageExecution subStage : subStages) {
             subStage.updateState();
         }
 
-        if (stageState.get().isDone()) {
-            return;
+        synchronized (this) {
+            if (stageState.get().isDone()) {
+                return;
+            }
+
+            List<TaskState> taskStates = ImmutableList.copyOf(transform(transform(tasks, taskInfoGetter()), taskStateGetter()));
+            if (any(taskStates, equalTo(TaskState.FAILED))) {
+                stageState.set(StageState.FAILED);
+            } else if (all(taskStates, TaskState.inDoneState())) {
+                stageState.set(StageState.FINISHED);
+            } else if (any(taskStates, equalTo(TaskState.RUNNING))) {
+                stageState.set(StageState.RUNNING);
+            } else if (any(taskStates, equalTo(TaskState.QUEUED))) {
+                stageState.set(StageState.SCHEDULED);
+            }
         }
 
-        List<TaskState> taskStates = ImmutableList.copyOf(transform(transform(tasks, taskInfoGetter()), taskStateGetter()));
-        if (any(taskStates, equalTo(TaskState.FAILED))) {
-            stageState.set(StageState.FAILED);
+        if (stageState.get().isDone()) {
+            // finish tasks and stages
             cancelAll();
-        } else if (all(taskStates, TaskState.inDoneState())) {
-            stageState.set(StageState.FINISHED);
-        } else if (any(taskStates, equalTo(TaskState.RUNNING))) {
-            stageState.set(StageState.RUNNING);
-        } else if (any(taskStates, equalTo(TaskState.QUEUED))) {
-            stageState.set(StageState.SCHEDULED);
         }
     }
 
     @Override
     public void cancel()
     {
-        while (true) {
-            StageState stageState = this.stageState.get();
-            if (stageState.isDone()) {
+        Preconditions.checkState(!Thread.holdsLock(this), "Can not cancel while holding a lock on this");
+
+        // transition to canceled state, only if not already finished
+        synchronized (this) {
+            if (stageState.get().isDone()) {
                 return;
             }
-            if (this.stageState.compareAndSet(stageState, StageState.CANCELED)) {
-                break;
-            }
+            stageState.set(StageState.CANCELED);
         }
 
         cancelAll();
@@ -165,6 +195,9 @@ public class SqlStageExecution
 
     private void cancelAll()
     {
+        Preconditions.checkState(!Thread.holdsLock(this), "Can not cancel while holding a lock on this");
+
+        // propagate update to tasks and stages
         for (RemoteTask task : tasks) {
             task.cancel();
         }
