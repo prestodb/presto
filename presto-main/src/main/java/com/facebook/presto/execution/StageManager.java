@@ -3,6 +3,8 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.sql.planner.PlanFragment;
+
 import java.net.URI;
 import java.util.List;
 
@@ -12,7 +14,12 @@ public interface StageManager
 
     StageInfo getStage(String stageId);
 
-    StageExecution createStage(String queryId, String stageId, URI location, Iterable<? extends RemoteTask> tasks, Iterable<? extends StageExecution> subStages);
+    StageExecution createStage(String queryId,
+            String stageId,
+            URI location,
+            PlanFragment plan,
+            Iterable<? extends RemoteTask> tasks,
+            Iterable<? extends StageExecution> subStages);
 
     void cancelStage(String stageId);
 }

@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -10,6 +11,7 @@ import com.google.common.collect.ImmutableList;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import java.net.URI;
 import java.util.List;
@@ -19,8 +21,9 @@ public class StageInfo
 {
     private final String queryId;
     private final String stageId;
-    private final URI self;
     private final StageState state;
+    private final URI self;
+    private final PlanFragment plan;
     private final List<TaskInfo> tasks;
     private final List<StageInfo> subStages;
 
@@ -29,6 +32,7 @@ public class StageInfo
             @JsonProperty("stageId") String stageId,
             @JsonProperty("state") StageState state,
             @JsonProperty("self") URI self,
+            @JsonProperty("plan") @Nullable PlanFragment plan,
             @JsonProperty("tasks") List<TaskInfo> tasks,
             @JsonProperty("subStages") List<StageInfo> subStages)
     {
@@ -42,6 +46,7 @@ public class StageInfo
         this.stageId = stageId;
         this.state = state;
         this.self = self;
+        this.plan = plan;
         this.tasks = ImmutableList.copyOf(tasks);
         this.subStages = subStages;
     }
@@ -68,6 +73,13 @@ public class StageInfo
     public URI getSelf()
     {
         return self;
+    }
+
+    @JsonProperty
+    @Nullable
+    public PlanFragment getPlan()
+    {
+        return plan;
     }
 
     @JsonProperty

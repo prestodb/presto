@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -31,6 +32,7 @@ public class SqlStageExecution
     private final String queryId;
     private final String stageId;
     private final URI location;
+    private final PlanFragment plan;
     private final List<RemoteTask> tasks;
     private final List<StageExecution> subStages;
 
@@ -39,12 +41,14 @@ public class SqlStageExecution
     public SqlStageExecution(String queryId,
             String stageId,
             URI location,
+            PlanFragment plan,
             Iterable<? extends RemoteTask> tasks,
             Iterable<? extends StageExecution> subStages)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(location, "location is null");
+        Preconditions.checkNotNull(plan, "plan is null");
         Preconditions.checkNotNull(tasks, "tasks is null");
         Preconditions.checkArgument(!Iterables.isEmpty(tasks), "tasks is empty");
         Preconditions.checkNotNull(subStages, "subStages is null");
@@ -52,6 +56,7 @@ public class SqlStageExecution
         this.queryId = queryId;
         this.stageId = stageId;
         this.location = location;
+        this.plan = plan;
         this.subStages = ImmutableList.copyOf(subStages);
         this.tasks = ImmutableList.copyOf(tasks);
     }
@@ -94,6 +99,7 @@ public class SqlStageExecution
                 stageId,
                 stageState.get(),
                 location,
+                plan,
                 taskInfos,
                 subStageInfos);
     }

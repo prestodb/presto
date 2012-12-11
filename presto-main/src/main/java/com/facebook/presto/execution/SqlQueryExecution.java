@@ -229,7 +229,7 @@ public class SqlQueryExecution
                     outputIds));
         }
 
-        return stageManager.createStage(queryId, stageId, stageLocation, tasks.build(), subStages.values());
+        return stageManager.createStage(queryId, stageId, stageLocation, stageExecutionPlan.getFragment(), tasks.build(), subStages.values());
     }
 
     @Override
