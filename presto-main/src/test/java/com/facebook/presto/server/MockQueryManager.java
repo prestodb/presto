@@ -8,6 +8,7 @@ import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
@@ -152,6 +153,7 @@ public class MockQueryManager
                     ImmutableList.of("out"),
                     outputTask.getTupleInfos(),
                     "query",
+                    new QueryStats(),
                     new StageInfo(queryId,
                             stageId,
                             StageState.FINISHED,

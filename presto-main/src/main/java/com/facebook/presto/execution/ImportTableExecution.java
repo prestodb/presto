@@ -37,6 +37,7 @@ public class ImportTableExecution
     private final String databaseName;
     private final String tableName;
     private String query;
+    private final QueryStats queryStats = new QueryStats();
 
     ImportTableExecution(
             String queryId,
@@ -73,12 +74,15 @@ public class ImportTableExecution
                 FIELD_NAMES,
                 TUPLE_INFOS,
                 query,
+                queryStats,
                 new StageInfo(queryId, queryId + "-0", StageState.FINISHED, null, ImmutableList.<TaskInfo>of(), ImmutableList.<StageInfo>of()));
     }
 
     @Override
     public void start()
     {
+        queryStats.recordStart();
+
         String catalogName = "default";
         String schemaName = "default";
 
