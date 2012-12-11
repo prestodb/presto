@@ -32,6 +32,8 @@ import io.airlift.units.Duration;
 import org.antlr.runtime.RecognitionException;
 
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -39,9 +41,14 @@ import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.execution.StageInfo.getAllStages;
+import static com.facebook.presto.execution.StageInfo.stageStateGetter;
 import static com.facebook.presto.sql.planner.Partition.nodeIdentifierGetter;
+import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.filter;
+import static com.google.common.collect.Iterables.transform;
 
+@ThreadSafe
 public class SqlQueryExecution
         implements QueryExecution
 {
@@ -53,17 +60,22 @@ public class SqlQueryExecution
     private final Metadata metadata;
     private final NodeManager nodeManager;
     private final SplitManager splitManager;
-    private final AtomicReference<QueryState> queryState = new AtomicReference<>(QueryState.QUEUED);
     private final StageManager stageManager;
     private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
 
     private final QueryStats queryStats = new QueryStats();
 
+    // All state changes must occur within a synchronized lock.
+    // The only reason we use an atomic reference here is so read-only threads don't have to block.
+    @GuardedBy("this")
+    private final AtomicReference<QueryState> queryState = new AtomicReference<>(QueryState.QUEUED);
+    @GuardedBy("this")
     private final AtomicReference<StageExecution> outputStage = new AtomicReference<>();
-
-    private List<String> fieldNames = ImmutableList.of();
-    private List<TupleInfo> tupleInfos = ImmutableList.of();
+    @GuardedBy("this")
+    private final AtomicReference<ImmutableList<String>> fieldNames = new AtomicReference<>(ImmutableList.<String>of());
+    @GuardedBy("this")
+    private final AtomicReference<ImmutableList<TupleInfo>> tupleInfos = new AtomicReference<>(ImmutableList.<TupleInfo>of());
 
     public SqlQueryExecution(String queryId,
             String sql,
@@ -107,7 +119,6 @@ public class SqlQueryExecution
     public QueryInfo getQueryInfo()
     {
         StageExecution outputStage = this.outputStage.get();
-
         StageInfo stageInfo = null;
         if (outputStage != null) {
             stageInfo = outputStage.getStageInfo();
@@ -116,8 +127,8 @@ public class SqlQueryExecution
         return new QueryInfo(queryId,
                 queryState.get(),
                 locationFactory.createQueryLocation(queryId),
-                fieldNames,
-                tupleInfos,
+                fieldNames.get(),
+                tupleInfos.get(),
                 sql,
                 queryStats,
                 stageInfo);
@@ -126,8 +137,15 @@ public class SqlQueryExecution
     @Override
     public void start()
     {
+        Preconditions.checkState(!Thread.holdsLock(this), "Can not start while holding a lock on this");
+
+        // transition to scheduling
+        synchronized (this) {
+            Preconditions.checkState(queryState.compareAndSet(QueryState.QUEUED, QueryState.PLANNING), "Stage has already been started");
+        }
+
         try {
-            // query is now running
+            // query is now started
             queryStats.recordStart();
 
             // analyze query
@@ -135,6 +153,13 @@ public class SqlQueryExecution
 
             // plan distribution of query
             planDistribution(subplan);
+
+            // transition to starting
+            synchronized (this) {
+                Preconditions.checkState(queryState.compareAndSet(QueryState.PLANNING, QueryState.STARTING),
+                        "Expected query to be in state %s",
+                        QueryState.PLANNING);
+            }
 
             // start the query execution
             startStage(outputStage.get());
@@ -148,6 +173,8 @@ public class SqlQueryExecution
     private SubPlan analyseQuery()
             throws RecognitionException
     {
+        Preconditions.checkState(!Thread.holdsLock(this), "Can not analyse while holding a lock on this");
+
         // time analysis phase
         long analysisStart = System.nanoTime();
 
@@ -171,6 +198,8 @@ public class SqlQueryExecution
 
     private void planDistribution(SubPlan subplan)
     {
+        Preconditions.checkState(!Thread.holdsLock(this), "Can not perform distributed planning while holding a lock on this");
+
         // time distribution planning
         long distributedPlanningStart = System.nanoTime();
 
@@ -178,13 +207,21 @@ public class SqlQueryExecution
         DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(nodeManager, splitManager);
         StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(subplan);
 
-        // record field names and tuple infos
-        fieldNames = outputStageExecutionPlan.getFieldNames();
-        tupleInfos = outputStageExecutionPlan.getTupleInfos();
+        synchronized (this) {
+            QueryState queryState = this.queryState.get();
+            Preconditions.checkState(queryState == QueryState.PLANNING,
+                    "Expected query to be in state %s but was in state %s",
+                    QueryState.PLANNING,
+                    queryState);
 
-        // build the stage execution objects (this doesn't schedule execution)
-        StageExecution outputStage = createStage(new AtomicInteger(), outputStageExecutionPlan, ImmutableList.of(ROOT_OUTPUT_BUFFER_NAME));
-        this.outputStage.set(outputStage);
+            // record field names and tuple infos
+            fieldNames.set(ImmutableList.copyOf(outputStageExecutionPlan.getFieldNames()));
+            tupleInfos.set(ImmutableList.copyOf(outputStageExecutionPlan.getTupleInfos()));
+
+            // build the stage execution objects (this doesn't schedule execution)
+            StageExecution outputStage = createStage(new AtomicInteger(), outputStageExecutionPlan, ImmutableList.of(ROOT_OUTPUT_BUFFER_NAME));
+            this.outputStage.set(outputStage);
+        }
 
         // record planning time
         queryStats.recordDistributedPlanningTime(distributedPlanningStart);
@@ -192,6 +229,8 @@ public class SqlQueryExecution
 
     private void startStage(StageExecution stage)
     {
+        Preconditions.checkState(!Thread.holdsLock(this), "Can not start while holding a lock on this");
+
         // start all sub stages before starting the main stage
         for (StageExecution subStage : stage.getSubStages()) {
             startStage(subStage);
@@ -235,14 +274,14 @@ public class SqlQueryExecution
     @Override
     public void cancel()
     {
-        while (true) {
-            QueryState queryState = this.queryState.get();
-            if (queryState.isDone()) {
+        Preconditions.checkState(!Thread.holdsLock(this), "Can not cancel while holding a lock on this");
+
+        // transition to canceled state, only if not already finished
+        synchronized (this) {
+            if (queryState.get().isDone()) {
                 return;
             }
-            if (this.queryState.compareAndSet(queryState, QueryState.CANCELED)) {
-                break;
-            }
+            queryState.set(QueryState.CANCELED);
         }
 
         StageExecution stageExecution = outputStage.get();
@@ -253,45 +292,55 @@ public class SqlQueryExecution
 
     public void updateState()
     {
+        Preconditions.checkState(!Thread.holdsLock(this), "Can not update while holding a lock on this");
+
         StageExecution outputStage = this.outputStage.get();
         if (outputStage == null) {
             return;
         }
         outputStage.updateState();
 
-        StageInfo outputStageInfo = outputStage.getStageInfo();
-        if (queryState.get().isDone()) {
-            return;
-        }
+        synchronized (this) {
+            if (queryState.get().isDone()) {
+                return;
+            }
 
-        switch (outputStageInfo.getState()) {
-            case PLANNED:
-            case CANCELED:
-                // leave state unchanged
-                break;
-            case SCHEDULING:
-            case SCHEDULED:
-                this.queryState.set(QueryState.QUEUED);
-                break;
-            case RUNNING:
-                this.queryState.set(QueryState.RUNNING);
-                break;
-            case FINISHED:
-                this.queryState.set(QueryState.FINISHED);
+            // if output stage is done, transition to done
+            StageInfo outputStageInfo = outputStage.getStageInfo();
+            StageState outputStageState = outputStageInfo.getState();
+            if (outputStageState.isDone()) {
+                if (outputStageState == StageState.FAILED) {
+                    this.queryState.set(QueryState.FAILED);
+                } else {
+                    this.queryState.set(QueryState.FINISHED);
+                }
                 queryStats.recordEnd();
-                break;
-            case FAILED:
-                this.queryState.set(QueryState.FAILED);
-                queryStats.recordEnd();
-                break;
+            } else if (queryState.get() == QueryState.STARTING) {
+                // if any stage is running transition to running
+                if (any(transform(getAllStages(outputStage.getStageInfo()), stageStateGetter()), isStageRunningOrDone())) {
+                    this.queryState.set(QueryState.RUNNING);
+                }
+            }
         }
+    }
+
+    private static Predicate<StageState> isStageRunningOrDone()
+    {
+        return new Predicate<StageState>() {
+            @Override
+            public boolean apply(StageState stageState)
+            {
+                return stageState == StageState.RUNNING || stageState.isDone();
+            }
+        };
     }
 
     private Function<StageExecutionPlan, StageExecution> stageCreator(final AtomicInteger nextStageId, List<Partition> partitions)
     {
         // for each partition in stage create an outputBuffer
         final List<String> outputIds = IterableTransformer.on(partitions).transform(nodeIdentifierGetter()).list();
-        return new Function<StageExecutionPlan, StageExecution>() {
+        return new Function<StageExecutionPlan, StageExecution>()
+        {
             @Override
             public StageExecution apply(@Nullable StageExecutionPlan subStage)
             {
@@ -302,7 +351,8 @@ public class SqlQueryExecution
 
     private Function<StageExecutionPlan, String> fragmentIdGetter()
     {
-        return new Function<StageExecutionPlan, String>() {
+        return new Function<StageExecutionPlan, String>()
+        {
             @Override
             public String apply(@Nullable StageExecutionPlan input)
             {

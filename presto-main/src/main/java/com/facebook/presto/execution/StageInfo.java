@@ -104,6 +104,21 @@ public class StageInfo
     }
 
 
+    public static List<StageInfo> getAllStages(StageInfo stageInfo)
+    {
+        ImmutableList.Builder<StageInfo> collector = ImmutableList.builder();
+        addAllStages(stageInfo, collector);
+        return collector.build();
+    }
+
+    private static void addAllStages(StageInfo stageInfo, ImmutableList.Builder<StageInfo> collector)
+    {
+        collector.add(stageInfo);
+        for (StageInfo subStage : stageInfo.getSubStages()) {
+            addAllStages(subStage, collector);
+        }
+    }
+
     public static Function<StageInfo, StageState> stageStateGetter()
     {
         return new Function<StageInfo, StageState>()

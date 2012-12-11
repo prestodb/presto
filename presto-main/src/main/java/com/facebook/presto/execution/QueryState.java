@@ -12,6 +12,14 @@ public enum QueryState
      */
     QUEUED(false),
     /**
+     * Query is being planned.
+     */
+    PLANNING(false),
+    /**
+     * Query execution is being started.
+     */
+    STARTING(false),
+    /**
      * Query has at least one task running.
      */
     RUNNING(false),
