@@ -27,8 +27,9 @@ public class InterpretedFilterFunction
     @Override
     public boolean filter(TupleReadable... cursors)
     {
-        ExpressionInterpreter evaluator = new ExpressionInterpreter(symbolToChannelMapping, symbols);
-        Boolean result = (Boolean) evaluator.process(predicate, cursors);
+        ChannelSymbolResolver resolver = new ChannelSymbolResolver(symbols, symbolToChannelMapping, cursors);
+        ExpressionInterpreter evaluator = new ExpressionInterpreter(resolver);
+        Object result = evaluator.process(predicate, null);
         return result == TRUE;
     }
 }

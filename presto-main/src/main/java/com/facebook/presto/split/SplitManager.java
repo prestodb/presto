@@ -16,6 +16,9 @@ import com.facebook.presto.spi.PartitionInfo;
 import com.facebook.presto.spi.SchemaField;
 import com.facebook.presto.sql.ExpressionOptimizer;
 import com.facebook.presto.sql.analyzer.Symbol;
+import com.facebook.presto.sql.planner.ExpressionInterpreter;
+import com.facebook.presto.sql.planner.LookupSymbolResolver;
+import com.facebook.presto.sql.planner.SymbolResolver;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -231,14 +234,15 @@ public class SplitManager
             // only bind partition keys that appear in the predicate
             Map<String, String> relevantFields = Maps.filterKeys(partition.getKeyFields(), in(columnNameToSymbol.keySet()));
 
-            ImmutableMap.Builder<Symbol, String> assignments = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, Object> assignments = ImmutableMap.builder();
             for (Map.Entry<String, String> entry : relevantFields.entrySet()) {
                 Symbol symbol = columnNameToSymbol.get(entry.getKey());
                 assignments.put(symbol, entry.getValue());
             }
 
-            Expression optimized = new ExpressionOptimizer(assignments.build()).optimize(predicate);
-            if (!optimized.equals(BooleanLiteral.FALSE_LITERAL) && !(optimized instanceof NullLiteral)) {
+            SymbolResolver resolver = new LookupSymbolResolver(assignments.build());
+            Object optimized = new ExpressionInterpreter(resolver).process(predicate, null);
+            if (!Boolean.FALSE.equals(optimized) && optimized != null) {
                 builder.add(partition);
             }
         }

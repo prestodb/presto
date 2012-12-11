@@ -1,15 +1,18 @@
 package com.facebook.presto.sql;
 
+import com.facebook.presto.slice.Slices;
 import com.facebook.presto.sql.analyzer.Symbol;
-import com.facebook.presto.sql.tree.Expression;
-import com.google.common.collect.ImmutableMap;
+import com.facebook.presto.sql.planner.ExpressionInterpreter;
+import com.facebook.presto.sql.planner.SymbolResolver;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
 import org.antlr.runtime.RecognitionException;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
+import static com.google.common.base.Charsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 
-public class TestExpressionOptimizer
+public class TestExpressionInterpreter
 {
     @Test
     public void testAnd()
@@ -55,21 +58,41 @@ public class TestExpressionOptimizer
     public void testComparison()
             throws Exception
     {
-        assertOptimizedEquals("null = null", "false");
+        assertOptimizedEquals("null = null", "null");
 
         assertOptimizedEquals("'a' = 'b'", "false");
         assertOptimizedEquals("'a' = 'a'", "true");
-        assertOptimizedEquals("'a' = null", "false");
-        assertOptimizedEquals("null = 'a'", "false");
+        assertOptimizedEquals("'a' = null", "null");
+        assertOptimizedEquals("null = 'a'", "null");
+
+        assertOptimizedEquals("boundLong = 1234", "true");
+        assertOptimizedEquals("boundDouble = 12.34", "true");
+        assertOptimizedEquals("boundString = 'hello'", "true");
+        assertOptimizedEquals("boundLong = a", "1234 = a");
     }
 
-    private void assertOptimizedEquals(String expression, String expected)
+    private void assertOptimizedEquals(String actual, String expected)
             throws RecognitionException
     {
-        Expression actual = new ExpressionOptimizer(ImmutableMap.<Symbol, String>of())
-                .optimize(createExpression(expression));
+        ExpressionInterpreter interpreter = new ExpressionInterpreter(new SymbolResolver()
+        {
+            @Override
+            public Object getValue(Symbol symbol)
+            {
+                switch (symbol.getName().toLowerCase()) {
+                    case "boundlong":
+                        return 1234L;
+                    case "boundstring":
+                        return Slices.wrappedBuffer("hello".getBytes(UTF_8));
+                    case "bounddouble":
+                        return 12.34;
+                }
 
-        assertEquals(actual, createExpression(expected));
+                return new QualifiedNameReference(symbol.toQualifiedName());
+            }
+        });
+
+        assertEquals(interpreter.process(createExpression(actual), null), interpreter.process(createExpression(expected), null));
     }
 
 }

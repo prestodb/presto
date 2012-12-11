@@ -36,8 +36,9 @@ public class InterpretedProjectionFunction
     @Override
     public void project(TupleReadable[] cursors, BlockBuilder output)
     {
-        ExpressionInterpreter evaluator = new ExpressionInterpreter(symbolToChannelMapping, types);
-        Object value = evaluator.process(expression, cursors);
+        ChannelSymbolResolver resolver = new ChannelSymbolResolver(types, symbolToChannelMapping, cursors);
+        ExpressionInterpreter evaluator = new ExpressionInterpreter(resolver);
+        Object value = evaluator.process(expression, null);
 
         if (value == null) {
             output.appendNull();
