@@ -34,6 +34,7 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
@@ -336,6 +337,12 @@ public class LocalExecutionPlanner
             Operator leftOperator = plan(node.getLeft());
             HashJoinOperator operator = new HashJoinOperator(hashProvider, leftOperator, probeChannel);
             return operator;
+        }
+
+        @Override
+        public Operator visitSink(SinkNode node, Void context)
+        {
+            return plan(node.getSource());
         }
 
         @Override
