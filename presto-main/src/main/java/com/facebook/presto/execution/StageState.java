@@ -14,6 +14,10 @@ public enum StageState
      */
     PLANNED(false),
     /**
+     * Stage tasks are being scheduled on nodes.
+     */
+    SCHEDULING(false),
+    /**
      * Stage has been scheduled on nodes and ready to execute, but all tasks are still queued.
      */
     SCHEDULED(false),

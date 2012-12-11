@@ -196,7 +196,7 @@ public class SqlQueryExecution
         for (StageExecution subStage : stage.getSubStages()) {
             startStage(subStage);
         }
-        stage.start();
+        stage.startTasks();
     }
 
     private StageExecution createStage(AtomicInteger nextStageId, StageExecutionPlan stageExecutionPlan, List<String> outputIds)
@@ -269,6 +269,7 @@ public class SqlQueryExecution
             case CANCELED:
                 // leave state unchanged
                 break;
+            case SCHEDULING:
             case SCHEDULED:
                 this.queryState.set(QueryState.QUEUED);
                 break;
