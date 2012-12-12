@@ -6,15 +6,15 @@ import com.google.common.base.Preconditions;
 public class DoubleLiteral
         extends Literal
 {
-    private final String value;
+    private final double value;
 
     public DoubleLiteral(String value)
     {
         Preconditions.checkNotNull(value, "value is null");
-        this.value = value;
+        this.value = Double.parseDouble(value);
     }
 
-    public String getValue()
+    public double getValue()
     {
         return value;
     }
@@ -45,7 +45,7 @@ public class DoubleLiteral
 
         DoubleLiteral that = (DoubleLiteral) o;
 
-        if (!value.equals(that.value)) {
+        if (Double.compare(that.value, value) != 0) {
             return false;
         }
 
@@ -55,6 +55,7 @@ public class DoubleLiteral
     @Override
     public int hashCode()
     {
-        return value.hashCode();
+        long temp = value != +0.0d ? Double.doubleToLongBits(value) : 0L;
+        return (int) (temp ^ (temp >>> 32));
     }
 }

@@ -1,7 +1,6 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.Slices;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -22,7 +21,6 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.google.common.base.Charsets;
 
-import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ExpressionInterpreter
@@ -46,19 +44,19 @@ public class ExpressionInterpreter
     @Override
     protected Long visitLongLiteral(LongLiteral node, Void context)
     {
-        return Long.valueOf(node.getValue());
+        return node.getValue();
     }
 
     @Override
     protected Double visitDoubleLiteral(DoubleLiteral node, Void context)
     {
-        return Double.valueOf(node.getValue());
+        return node.getValue();
     }
 
     @Override
     protected Slice visitStringLiteral(StringLiteral node, Void context)
     {
-        return Slices.wrappedBuffer(node.getValue().getBytes(UTF_8));
+        return node.getSlice();
     }
 
     @Override
