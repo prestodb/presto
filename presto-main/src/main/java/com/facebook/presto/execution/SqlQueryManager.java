@@ -124,14 +124,7 @@ public class SqlQueryManager
         if (query == null) {
             throw new NoSuchElementException();
         }
-        try {
-            return query.getQueryInfo();
-        }
-        catch (RuntimeException e) {
-            // todo need better signal for a failed task
-            queries.remove(queryId);
-            throw e;
-        }
+        return query.getQueryInfo();
     }
 
     @Override

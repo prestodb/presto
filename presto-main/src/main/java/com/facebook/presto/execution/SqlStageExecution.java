@@ -21,8 +21,11 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import java.net.URI;
 import java.util.List;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.execution.FailureInfo.toFailures;
+import static com.facebook.presto.execution.StageInfo.stageStateGetter;
 import static com.facebook.presto.execution.TaskInfo.taskStateGetter;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.Iterables.all;
@@ -47,6 +50,8 @@ public class SqlStageExecution
     // The only reason we use an atomic reference here is so read-only threads don't have to block.
     @GuardedBy("this")
     private final AtomicReference<StageState> stageState = new AtomicReference<>(StageState.PLANNED);
+
+    private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
 
     public SqlStageExecution(String queryId,
             String stageId,
@@ -123,7 +128,8 @@ public class SqlStageExecution
                 plan,
                 tupleInfos,
                 taskInfos,
-                subStageInfos);
+                subStageInfos,
+                toFailures(failureCauses));
     }
 
     public void startTasks()
@@ -149,6 +155,7 @@ public class SqlStageExecution
         }
         catch (Throwable e) {
             synchronized (this) {
+                failureCauses.add(e);
                 stageState.set(StageState.FAILED);
             }
             log.error(e, "Stage %s failed to start", stageId);
@@ -175,15 +182,20 @@ public class SqlStageExecution
                 return;
             }
 
-            List<TaskState> taskStates = ImmutableList.copyOf(transform(transform(tasks, taskInfoGetter()), taskStateGetter()));
-            if (any(taskStates, equalTo(TaskState.FAILED))) {
+            List<StageState> subStageStates = ImmutableList.copyOf(transform(transform(subStages, stageInfoGetter()), stageStateGetter()));
+            if (any(subStageStates, equalTo(StageState.FAILED))) {
                 stageState.set(StageState.FAILED);
-            } else if (all(taskStates, TaskState.inDoneState())) {
-                stageState.set(StageState.FINISHED);
-            } else if (any(taskStates, equalTo(TaskState.RUNNING))) {
-                stageState.set(StageState.RUNNING);
-            } else if (any(taskStates, equalTo(TaskState.QUEUED))) {
-                stageState.set(StageState.SCHEDULED);
+            } else {
+                List<TaskState> taskStates = ImmutableList.copyOf(transform(transform(tasks, taskInfoGetter()), taskStateGetter()));
+                if (any(taskStates, equalTo(TaskState.FAILED))) {
+                    stageState.set(StageState.FAILED);
+                } else if (all(taskStates, TaskState.inDoneState())) {
+                    stageState.set(StageState.FINISHED);
+                } else if (any(taskStates, equalTo(TaskState.RUNNING))) {
+                    stageState.set(StageState.RUNNING);
+                } else if (any(taskStates, equalTo(TaskState.QUEUED))) {
+                    stageState.set(StageState.SCHEDULED);
+                }
             }
         }
 

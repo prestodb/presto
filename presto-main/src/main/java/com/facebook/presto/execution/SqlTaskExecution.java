@@ -93,7 +93,7 @@ public class SqlTaskExecution
     }
 
     @Override
-    public void start()
+    public void run()
     {
         try {
             // if we have a single split, just execute in the current thread; otherwise use the thread pool
@@ -123,7 +123,7 @@ public class SqlTaskExecution
             taskOutput.queryFailed(e);
             throw Throwables.propagate(e);
         }
-        catch (Exception e) {
+        catch (Throwable e) {
             taskOutput.queryFailed(e);
             throw Throwables.propagate(e);
         }
@@ -232,9 +232,9 @@ public class SqlTaskExecution
                 }
                 return null;
             }
-            catch (Exception e) {
+            catch (Throwable e) {
                 taskOutput.queryFailed(e);
-                throw Throwables.propagate(e);
+                throw e;
             }
             finally {
                 taskOutput.getStats().addSplitCpuTime(Duration.nanosSince(startTime));

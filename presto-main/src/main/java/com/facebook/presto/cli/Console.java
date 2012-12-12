@@ -65,6 +65,7 @@ public class Console
             Execute query = new Execute();
             query.server = server;
             query.query = line;
+            query.debug = debug;
             query.run();
         }
         catch (Exception e) {

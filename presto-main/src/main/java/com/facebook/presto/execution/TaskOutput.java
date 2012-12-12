@@ -14,8 +14,10 @@ import io.airlift.units.Duration;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.execution.FailureInfo.toFailures;
 import static com.facebook.presto.execution.PageBuffer.infoGetter;
 import static com.facebook.presto.execution.PageBuffer.stateGetter;
 import static com.google.common.base.Predicates.equalTo;
@@ -31,6 +33,8 @@ public class TaskOutput
 
     private final ExecutionStats stats = new ExecutionStats();
     private final AtomicReference<TaskState> taskState = new AtomicReference<>(TaskState.RUNNING);
+
+    private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
 
     public TaskOutput(String queryId, String stageId, String taskId, URI location, List<String> outputIds, int pageBufferMax, int splits)
     {
@@ -132,6 +136,7 @@ public class TaskOutput
 
     public void queryFailed(Throwable cause)
     {
+        failureCauses.add(cause);
         taskState.set(TaskState.FAILED);
         for (PageBuffer outputBuffer : outputBuffers.values()) {
             outputBuffer.queryFailed(cause);
@@ -176,6 +181,7 @@ public class TaskOutput
                 getState(),
                 location,
                 getBufferInfos(),
-                stats);
+                stats,
+                toFailures(failureCauses));
     }
 }

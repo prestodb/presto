@@ -23,6 +23,7 @@ public class QueryInfo
     private final String query;
     private final QueryStats queryStats;
     private final StageInfo outputStage;
+    private final List<FailureInfo> failures;
 
     @JsonCreator
     public QueryInfo(@JsonProperty("queryId") String queryId,
@@ -31,7 +32,8 @@ public class QueryInfo
             @JsonProperty("fieldNames") List<String> fieldNames,
             @JsonProperty("query") String query,
             @JsonProperty("queryStats") QueryStats queryStats,
-            @JsonProperty("outputStage") StageInfo outputStage)
+            @JsonProperty("outputStage") StageInfo outputStage,
+            @JsonProperty("failures") List<FailureInfo> failures)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(state, "state is null");
@@ -39,6 +41,7 @@ public class QueryInfo
         Preconditions.checkNotNull(fieldNames, "fieldNames is null");
         Preconditions.checkNotNull(queryStats, "queryStats is null");
         Preconditions.checkNotNull(query, "query is null");
+        Preconditions.checkNotNull(failures, "failures is null");
 
         this.queryId = queryId;
         this.state = state;
@@ -47,6 +50,7 @@ public class QueryInfo
         this.query = query;
         this.queryStats = queryStats;
         this.outputStage = outputStage;
+        this.failures = failures;
     }
 
     @JsonProperty
@@ -89,6 +93,12 @@ public class QueryInfo
     public StageInfo getOutputStage()
     {
         return outputStage;
+    }
+
+    @JsonProperty
+    public List<FailureInfo> getFailures()
+    {
+        return failures;
     }
 
     @Override

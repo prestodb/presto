@@ -5,6 +5,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.execution.ExecutionStats;
+import com.facebook.presto.execution.FailureInfo;
 import com.facebook.presto.execution.PageBuffer.BufferState;
 import com.facebook.presto.execution.PageBufferInfo;
 import com.facebook.presto.execution.RemoteTask;
@@ -99,7 +100,8 @@ public class HttpRemoteTask
                 TaskState.PLANNED,
                 location,
                 bufferStates,
-                new ExecutionStats()));
+                new ExecutionStats(),
+                ImmutableList.<FailureInfo>of()));
     }
 
     @Override
@@ -164,7 +166,8 @@ public class HttpRemoteTask
                         TaskState.CANCELED,
                         taskInfo.getSelf(),
                         taskInfo.getOutputBuffers(),
-                        taskInfo.getStats()));
+                        taskInfo.getStats(),
+                        ImmutableList.<FailureInfo>of()));
             }
         }
         else {
@@ -188,7 +191,8 @@ public class HttpRemoteTask
                     TaskState.CANCELED,
                     taskInfo.getSelf(),
                     taskInfo.getOutputBuffers(),
-                    taskInfo.getStats()));
+                    taskInfo.getStats(),
+                    ImmutableList.<FailureInfo>of()));
             return;
         }
         try {

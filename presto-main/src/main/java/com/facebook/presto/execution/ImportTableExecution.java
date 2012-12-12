@@ -83,7 +83,9 @@ public class ImportTableExecution
                         null,
                         TUPLE_INFOS,
                         ImmutableList.<TaskInfo>of(),
-                        ImmutableList.<StageInfo>of()));
+                        ImmutableList.<StageInfo>of(),
+                        ImmutableList.<FailureInfo>of()),
+                ImmutableList.<FailureInfo>of());
     }
 
     @Override
