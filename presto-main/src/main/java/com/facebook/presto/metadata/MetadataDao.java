@@ -28,7 +28,7 @@ public interface MetadataDao
             "  data_type VARCHAR(255) NOT NULL,\n" +
             "  UNIQUE (table_id, column_name),\n" +
             "  UNIQUE (table_id, ordinal_position),\n" +
-            "  FOREIGN KEY (table_id) REFERENCES tables\n" +
+            "  FOREIGN KEY (table_id) REFERENCES tables (table_id)\n" +
             ")")
     void createColumnsTable();
 
