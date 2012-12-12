@@ -27,7 +27,6 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.antlr.runtime.RecognitionException;
 
@@ -54,7 +53,6 @@ import static com.google.common.collect.Iterables.transform;
 public class SqlQueryExecution
         implements QueryExecution
 {
-    private static final Logger log = Logger.get(SqlQueryExecution.class);
     private static final String ROOT_OUTPUT_BUFFER_NAME = "out";
 
     private final String queryId;
@@ -149,7 +147,7 @@ public class SqlQueryExecution
 
         try {
             // query is now started
-            queryStats.recordStart();
+            queryStats.recordAnalysisStart();
 
             // analyze query
             SubPlan subplan = analyseQuery();
@@ -170,6 +168,7 @@ public class SqlQueryExecution
         catch (Exception e) {
             synchronized (this) {
                 failureCauses.add(e);
+                queryStats.recordEnd();
                 queryState.set(QueryState.FAILED);
             }
             cancel();
@@ -289,6 +288,7 @@ public class SqlQueryExecution
         // transition to canceled state, only if not already finished
         synchronized (this) {
             if (!queryState.get().isDone()) {
+                queryStats.recordEnd();
                 queryState.set(QueryState.CANCELED);
             }
         }
@@ -327,6 +327,7 @@ public class SqlQueryExecution
             } else if (queryState.get() == QueryState.STARTING) {
                 // if any stage is running transition to running
                 if (any(transform(getAllStages(outputStage.getStageInfo()), stageStateGetter()), isStageRunningOrDone())) {
+                    queryStats.recordExecutionStart();
                     this.queryState.set(QueryState.RUNNING);
                 }
             }
