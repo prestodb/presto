@@ -1,6 +1,5 @@
 package com.facebook.presto.cli;
 
-import com.facebook.presto.Main;
 import com.facebook.presto.server.ServerMainModule;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
@@ -23,10 +22,10 @@ import org.weakref.jmx.guice.MBeanModule;
 public class Server
         implements Runnable
 {
-
+    @Override
     public void run()
     {
-        Logger log = Logger.get(Main.class);
+        Logger log = Logger.get(Server.class);
         Bootstrap app = new Bootstrap(
                 new NodeModule(),
                 new DiscoveryModule(),
