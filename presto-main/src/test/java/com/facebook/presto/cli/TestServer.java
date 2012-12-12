@@ -1,9 +1,14 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.server.ServerMainModule;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Files;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+import com.google.inject.Module;
+import com.google.inject.Stage;
+import io.airlift.configuration.ConfigurationAwareModule;
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.configuration.ConfigurationModule;
 import io.airlift.discovery.client.testing.TestingDiscoveryModule;
@@ -19,12 +24,14 @@ import io.airlift.jmx.JmxModule;
 import io.airlift.json.JsonModule;
 import io.airlift.log.LogJmxModule;
 import io.airlift.node.testing.TestingNodeModule;
+import io.airlift.testing.FileUtils;
 import io.airlift.tracetoken.TraceTokenModule;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 import org.weakref.jmx.guice.MBeanModule;
 
+import java.io.File;
 import java.net.URI;
 import java.util.Map;
 
@@ -35,6 +42,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestServer
 {
+    private File databaseDir;
     private TestingHttpServer server;
     private HttpClient client;
 
@@ -42,12 +50,15 @@ public class TestServer
     public void setup()
             throws Exception
     {
+        databaseDir = Files.createTempDir();
+
         Map<String, String> serverProperties = ImmutableMap.<String, String>builder()
+                .put("presto-metastore.db.type", "h2")
+                .put("presto-metastore.db.filename", new File(databaseDir, "Metastore").getAbsolutePath())
                 .build();
 
         // TODO: wrap all this stuff in a TestBootstrap class
-        Injector serverInjector = Guice.createInjector(
-                new ConfigurationModule(new ConfigurationFactory(serverProperties)),
+        Injector serverInjector = createTestInjector(serverProperties,
                 new TestingNodeModule(),
                 new TestingDiscoveryModule(),
                 new TestingHttpServerModule(),
@@ -74,6 +85,7 @@ public class TestServer
         if (server != null) {
             server.stop();
         }
+        FileUtils.deleteRecursively(databaseDir);
     }
 
     @Test
@@ -90,5 +102,19 @@ public class TestServer
     private URI uriFor(String path)
     {
         return server.getBaseUrl().resolve(path);
+    }
+
+    private static Injector createTestInjector(Map<String, String> properties, Module... modules)
+    {
+        ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
+        for (Module module : modules) {
+            if (module instanceof ConfigurationAwareModule) {
+                ((ConfigurationAwareModule) module).setConfigurationFactory(configurationFactory);
+            }
+        }
+        ImmutableList.Builder<Module> moduleList = ImmutableList.builder();
+        moduleList.add(new ConfigurationModule(configurationFactory));
+        moduleList.add(modules);
+        return Guice.createInjector(Stage.DEVELOPMENT, moduleList.build());
     }
 }

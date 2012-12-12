@@ -29,8 +29,8 @@ public interface ShardManagerDao
             "  shard_id BIGINT NOT NULL,\n" +
             "  node_id BIGINT NOT NULL,\n" +
             "  PRIMARY KEY (shard_id, node_id),\n" +
-            "  FOREIGN KEY (shard_id) REFERENCES shards,\n" +
-            "  FOREIGN KEY (node_id) REFERENCES nodes\n" +
+            "  FOREIGN KEY (shard_id) REFERENCES shards (shard_id),\n" +
+            "  FOREIGN KEY (node_id) REFERENCES nodes (node_id)\n" +
             ")")
     void createTableShardNodes();
 
@@ -47,17 +47,17 @@ public interface ShardManagerDao
             "  table_id BIGINT NOT NULL,\n" +
             "  partition_name VARCHAR(255) NOT NULL,\n" +
             "  UNIQUE (table_id, partition_name),\n" +
-            "  FOREIGN KEY (table_id) REFERENCES import_tables\n" +
+            "  FOREIGN KEY (table_id) REFERENCES import_tables (table_id)\n" +
             ")")
     void createTableImportPartitions();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS import_partition_shards (\n" +
             "  import_partition_id BIGINT,\n" +
             "  shard_id BIGINT NOT NULL,\n" +
-            "  partition_chunk VARBINARY(65535) NOT NULL,\n" +
+            "  partition_chunk VARBINARY(32768) NOT NULL,\n" +
             "  PRIMARY KEY (import_partition_id, shard_id),\n" +
-            "  FOREIGN KEY (import_partition_id) REFERENCES import_partitions,\n" +
-            "  FOREIGN KEY (shard_id) REFERENCES shards\n" +
+            "  FOREIGN KEY (import_partition_id) REFERENCES import_partitions (import_partition_id),\n" +
+            "  FOREIGN KEY (shard_id) REFERENCES shards (shard_id)\n" +
             ")")
     void createTableImportPartitionShards();
 

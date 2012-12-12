@@ -47,10 +47,10 @@ import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.base.Throwables;
-import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import io.airlift.dbpool.H2EmbeddedDataSourceModule;
+import io.airlift.dbpool.MySqlDataSourceModule;
 import io.airlift.http.client.HttpClientBinder;
 import io.airlift.json.JsonBinder;
 import org.antlr.runtime.RecognitionException;
@@ -65,16 +65,19 @@ import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Singleton;
 import java.io.IOException;
+import java.lang.annotation.Annotation;
 
+import static com.facebook.presto.server.ConditionalModule.installIfPropertyEquals;
+import static com.facebook.presto.server.DbiProvider.bindDbiToDataSource;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 
 public class ServerMainModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    protected void configure()
     {
         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
@@ -112,7 +115,6 @@ public class ServerMainModule
         binder.bind(ImportMetadata.class).in(Scopes.SINGLETON);
 
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
-
 
         // fragment serialization
         jsonCodecBinder(binder).bindJsonCodec(QueryFragmentRequest.class);
@@ -157,7 +159,6 @@ public class ServerMainModule
             }
         });
 
-
         discoveryBinder(binder).bindSelector("presto");
         discoveryBinder(binder).bindSelector("hive-metastore");
 
@@ -171,6 +172,8 @@ public class ServerMainModule
         jsonCodecBinder(binder).bindJsonCodec(ShardImport.class);
 
         discoveryBinder(binder).bindHttpAnnouncement("presto");
+
+        bindDataSource("presto-metastore", ForMetadata.class, ForShardManager.class);
     }
 
     @Provides
@@ -182,21 +185,16 @@ public class ServerMainModule
         return new DBI("jdbc:h2:file:var/presto-data/db/StorageManager;DB_CLOSE_DELAY=-1;MVCC=TRUE");
     }
 
-    @Provides
-    @Singleton
-    @ForMetadata
-    public IDBI createMetadataDBI()
+    @SafeVarargs
+    private final void bindDataSource(String type, Class<? extends Annotation> annotation, Class<? extends Annotation>... aliases)
     {
-        // TODO: configuration
-        return new DBI("jdbc:h2:file:var/presto-data/db/Metadata;DB_CLOSE_DELAY=-1;MVCC=TRUE");
-    }
+        String property = type + ".db.type";
+        install(installIfPropertyEquals(new MySqlDataSourceModule(type, annotation, aliases), property, "mysql"));
+        install(installIfPropertyEquals(new H2EmbeddedDataSourceModule(type, annotation, aliases), property, "h2"));
 
-    @Provides
-    @Singleton
-    @ForShardManager
-    public IDBI createShardManagerDBI()
-    {
-        // TODO: configuration
-        return new DBI("jdbc:h2:file:var/presto-data/db/ShardManager;DB_CLOSE_DELAY=-1;MVCC=TRUE");
+        bindDbiToDataSource(binder, annotation);
+        for (Class<? extends Annotation> alias : aliases) {
+            bindDbiToDataSource(binder, alias);
+        }
     }
 }
