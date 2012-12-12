@@ -8,7 +8,6 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.util.List;
 
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
@@ -25,7 +24,7 @@ public class TestNativeMetadata
 
     @BeforeMethod
     public void setupDatabase()
-            throws IOException
+            throws Exception
     {
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();

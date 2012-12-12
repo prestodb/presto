@@ -2,13 +2,17 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
+import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.VoidTransactionCallback;
+import org.skife.jdbi.v2.exceptions.UnableToObtainConnectionException;
 
 import javax.inject.Inject;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
@@ -18,16 +22,21 @@ import static com.facebook.presto.util.SqlUtils.runIgnoringConstraintViolation;
 public class NativeMetadata
         implements Metadata
 {
+    private static final Logger log = Logger.get(NativeMetadata.class);
+
     private final IDBI dbi;
     private final MetadataDao dao;
     private final FunctionRegistry functions = new FunctionRegistry();
 
     @Inject
     public NativeMetadata(@ForMetadata IDBI dbi)
+            throws InterruptedException
     {
         this.dbi = dbi;
         this.dao = dbi.onDemand(MetadataDao.class);
-        createTables();
+
+        // keep retrying if database is unavailable when the server starts
+        createTablesWithRetry();
     }
 
     @Override
@@ -108,6 +117,22 @@ public class NativeMetadata
                 });
             }
         });
+    }
+
+    private void createTablesWithRetry()
+            throws InterruptedException
+    {
+        Duration delay = new Duration(10, TimeUnit.SECONDS);
+        while (true) {
+            try {
+                createTables();
+                return;
+            }
+            catch (UnableToObtainConnectionException e) {
+                log.warn("Failed to connect to database. Will retry again in %s. Exception: %s", delay, e.getMessage());
+                Thread.sleep((long) delay.toMillis());
+            }
+        }
     }
 
     private void createTables()
