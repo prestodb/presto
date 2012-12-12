@@ -2,7 +2,6 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.sql.analyzer.Symbol;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.tuple.TupleReadable;
 
@@ -17,10 +16,10 @@ public class InterpretedFilterFunction
     private final ChannelSymbolResolver resolver;
     private final ExpressionInterpreter evaluator;
 
-    public InterpretedFilterFunction(Expression predicate, Map<Symbol, Integer> symbolToChannelMapping, Map<Symbol, Type> symbols)
+    public InterpretedFilterFunction(Expression predicate, Map<Symbol, Integer> symbolToChannelMapping)
     {
         this.predicate = predicate;
-        resolver = new ChannelSymbolResolver(symbols, symbolToChannelMapping);
+        resolver = new ChannelSymbolResolver(symbolToChannelMapping);
         evaluator = new ExpressionInterpreter(resolver);
     }
 
