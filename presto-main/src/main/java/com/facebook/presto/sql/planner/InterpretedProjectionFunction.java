@@ -19,12 +19,12 @@ public class InterpretedProjectionFunction
     private final ChannelSymbolResolver resolver;
     private final ExpressionInterpreter evaluator;
 
-    public InterpretedProjectionFunction(Type type, Expression expression, Map<Symbol, Integer> symbolToChannelMapping, Map<Symbol, Type> types)
+    public InterpretedProjectionFunction(Type type, Expression expression, Map<Symbol, Integer> symbolToChannelMapping)
     {
         this.type = type;
         this.expression = expression;
 
-        resolver = new ChannelSymbolResolver(types, symbolToChannelMapping);
+        resolver = new ChannelSymbolResolver(symbolToChannelMapping);
         evaluator = new ExpressionInterpreter(resolver);
     }
 
