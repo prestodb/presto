@@ -74,13 +74,13 @@ public class ExpressionFormatter
         @Override
         protected String visitLongLiteral(LongLiteral node, Void context)
         {
-            return node.getValue();
+            return Long.toString(node.getValue());
         }
 
         @Override
         protected String visitDoubleLiteral(DoubleLiteral node, Void context)
         {
-            return node.getValue();
+            return Double.toString(node.getValue());
         }
 
         @Override

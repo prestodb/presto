@@ -1,22 +1,33 @@
 package com.facebook.presto.sql.tree;
 
+import com.facebook.presto.slice.Slice;
+import com.facebook.presto.slice.Slices;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+
+import static com.google.common.base.Charsets.UTF_8;
 
 public class StringLiteral
         extends Literal
 {
     private final String value;
+    private final Slice slice;
 
     public StringLiteral(String value)
     {
         Preconditions.checkNotNull(value, "value is null");
         this.value = value;
+        this.slice = Slices.wrappedBuffer(value.getBytes(UTF_8));
     }
 
     public String getValue()
     {
         return value;
+    }
+
+    public Slice getSlice()
+    {
+        return slice;
     }
 
     @Override

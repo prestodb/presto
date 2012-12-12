@@ -6,15 +6,15 @@ import com.google.common.base.Preconditions;
 public class LongLiteral
         extends Literal
 {
-    private final String value;
+    private final long value;
 
     public LongLiteral(String value)
     {
         Preconditions.checkNotNull(value, "value is null");
-        this.value = value;
+        this.value = Long.parseLong(value);
     }
 
-    public String getValue()
+    public long getValue()
     {
         return value;
     }
@@ -45,7 +45,7 @@ public class LongLiteral
 
         LongLiteral that = (LongLiteral) o;
 
-        if (!value.equals(that.value)) {
+        if (value != that.value) {
             return false;
         }
 
@@ -55,6 +55,6 @@ public class LongLiteral
     @Override
     public int hashCode()
     {
-        return value.hashCode();
+        return (int) (value ^ (value >>> 32));
     }
 }
