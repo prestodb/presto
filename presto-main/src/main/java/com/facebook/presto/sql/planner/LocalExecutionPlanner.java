@@ -33,6 +33,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -97,257 +98,248 @@ public class LocalExecutionPlanner
 
     public Operator plan(PlanNode plan)
     {
-        if (plan instanceof TableScanNode) {
-            return createTableScan((TableScanNode) plan);
-        }
-        else if (plan instanceof ProjectNode) {
-            return createProjectNode((ProjectNode) plan);
-        }
-        else if (plan instanceof FilterNode) {
-            return createFilterNode((FilterNode) plan);
-        }
-        else if (plan instanceof OutputNode) {
-            return createOutputPlan((OutputNode) plan);
-        }
-        else if (plan instanceof AggregationNode) {
-            return createAggregationNode((AggregationNode) plan);
-        }
-        else if (plan instanceof LimitNode) {
-            return createLimitNode((LimitNode) plan);
-        }
-        else if (plan instanceof TopNNode) {
-            return createTopNNode((TopNNode) plan);
-        }
-        else if (plan instanceof SortNode) {
-            return createSortPlan((SortNode) plan);
-        }
-        else if (plan instanceof ExchangeNode) {
-            return createExchange((ExchangeNode) plan);
-        }
-        else if (plan instanceof JoinNode) {
-            return createJoinNode((JoinNode) plan);
-        }
-
-        throw new UnsupportedOperationException("not yet implemented: " + plan.getClass().getName());
+        return plan.accept(new Visitor(), null);
     }
 
-    private Operator createExchange(ExchangeNode node)
+    private class Visitor
+            extends PlanVisitor<Void, Operator>
     {
-        int sourceFragmentId = node.getSourceFragmentId();
-        ExchangePlanFragmentSource source = exchangeSources.get(String.valueOf(sourceFragmentId));
-        Preconditions.checkState(source != null, "Exchange source for fragment %s was not found: available sources %s", sourceFragmentId, exchangeSources.keySet());
-        return sourceProvider.createDataStream(source, ImmutableList.<ColumnHandle>of());
-    }
-
-    private Operator createOutputPlan(OutputNode node)
-    {
-        PlanNode source = node.getSource();
-        Operator sourceOperator = plan(node.getSource());
-
-        Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
-
-        List<Symbol> resultSymbols = Lists.transform(node.getColumnNames(), forMap(node.getAssignments()));
-        if (resultSymbols.equals(source.getOutputSymbols())) {
-            // no need for a projection -- the output matches the result of the underlying operator
-            return sourceOperator;
+        @Override
+        public Operator visitExchange(ExchangeNode node, Void context)
+        {
+            int sourceFragmentId = node.getSourceFragmentId();
+            ExchangePlanFragmentSource source = exchangeSources.get(String.valueOf(sourceFragmentId));
+            Preconditions.checkState(source != null, "Exchange source for fragment %s was not found: available sources %s", sourceFragmentId, exchangeSources.keySet());
+            return sourceProvider.createDataStream(source, ImmutableList.<ColumnHandle>of());
         }
 
-        List<ProjectionFunction> projections = new ArrayList<>();
-        for (Symbol symbol : resultSymbols) {
-            ProjectionFunction function = new InterpretedProjectionFunction(types.get(symbol),
-                    new QualifiedNameReference(symbol.toQualifiedName()),
-                    symbolToChannelMappings);
+        @Override
+        public Operator visitOutput(OutputNode node, Void context)
+        {
+            PlanNode source = node.getSource();
+            Operator sourceOperator = plan(node.getSource());
 
-            projections.add(function);
-        }
+            Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
 
-        return new FilterAndProjectOperator(sourceOperator, FilterFunctions.TRUE_FUNCTION, projections);
-    }
-
-    private Operator createTopNNode(TopNNode node)
-    {
-        Preconditions.checkArgument(node.getOrderBy().size() == 1, "Order by multiple fields not yet supported");
-        Symbol orderBySymbol = Iterables.getOnlyElement(node.getOrderBy());
-
-        PlanNode source = node.getSource();
-
-        Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
-
-        List<ProjectionFunction> projections = new ArrayList<>();
-        for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-            Symbol symbol = node.getOutputSymbols().get(i);
-            ProjectionFunction function = ProjectionFunctions.singleColumn(types.get(symbol).getRawType(), symbolToChannelMappings.get(symbol), 0);
-            projections.add(function);
-        }
-
-        Ordering<TupleReadable> ordering = Ordering.from(FieldOrderedTupleComparator.INSTANCE);
-        if (node.getOrderings().get(orderBySymbol) == SortItem.Ordering.ASCENDING) {
-            ordering = ordering.reverse();
-        }
-
-        return new TopNOperator(plan(source), (int) node.getCount(), symbolToChannelMappings.get(orderBySymbol), projections, ordering);
-    }
-
-    private Operator createSortPlan(SortNode node)
-    {
-        PlanNode source = node.getSource();
-
-        Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
-
-        int[] outputChannels = new int[node.getOutputSymbols().size()];
-        for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-            Symbol symbol = node.getOutputSymbols().get(i);
-            outputChannels[i] = symbolToChannelMappings.get(symbol);
-        }
-
-        Preconditions.checkArgument(node.getOrderBy().size() == 1, "Order by multiple fields not yet supported");
-
-        Symbol orderBySymbol = Iterables.getOnlyElement(node.getOrderBy());
-        int[] sortFields = new int[] { 0 };
-        boolean[] sortOrder = new boolean[] { node.getOrderings().get(orderBySymbol) == SortItem.Ordering.ASCENDING};
-
-        return new NewInMemoryOrderByOperator(plan(source), symbolToChannelMappings.get(orderBySymbol), outputChannels, 1_000_000, sortFields, sortOrder);
-    }
-
-    private Operator createLimitNode(LimitNode node)
-    {
-        PlanNode source = node.getSource();
-        return new LimitOperator(plan(source), node.getCount());
-    }
-
-    private Operator createAggregationNode(AggregationNode node)
-    {
-        PlanNode source = node.getSource();
-        Operator sourceOperator = plan(source);
-
-        Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
-
-        List<Provider<AggregationFunctionStep>> aggregationFunctions = new ArrayList<>();
-        for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
-            List<Input> arguments = new ArrayList<>();
-            for (Expression argument : entry.getValue().getArguments()) {
-                int channel = symbolToChannelMappings.get(Symbol.fromQualifiedName(((QualifiedNameReference) argument).getName()));
-                int field = 0; // TODO: support composite channels
-
-                arguments.add(new Input(channel, field));
+            List<Symbol> resultSymbols = Lists.transform(node.getColumnNames(), forMap(node.getAssignments()));
+            if (resultSymbols.equals(source.getOutputSymbols())) {
+                // no need for a projection -- the output matches the result of the underlying operator
+                return sourceOperator;
             }
 
-            FunctionHandle functionHandle = node.getFunctions().get(entry.getKey());
-            Provider<AggregationFunction> boundFunction = metadata.getFunction(functionHandle).bind(arguments);
+            List<ProjectionFunction> projections = new ArrayList<>();
+            for (Symbol symbol : resultSymbols) {
+                ProjectionFunction function = new InterpretedProjectionFunction(types.get(symbol),
+                        new QualifiedNameReference(symbol.toQualifiedName()),
+                        symbolToChannelMappings);
 
-            Provider<AggregationFunctionStep> aggregation;
-            switch (node.getStep()) {
-                case PARTIAL:
-                    aggregation = AggregationFunctions.partialAggregation(boundFunction);
-                    break;
-                case FINAL:
-                    aggregation = AggregationFunctions.finalAggregation(boundFunction);
-                    break;
-                case SINGLE:
-                    aggregation = AggregationFunctions.singleNodeAggregation(boundFunction);
-                    break;
-                default:
-                    throw new UnsupportedOperationException("not yet implemented: " + node.getStep());
+                projections.add(function);
             }
 
-            aggregationFunctions.add(aggregation);
+            return new FilterAndProjectOperator(sourceOperator, FilterFunctions.TRUE_FUNCTION, projections);
         }
 
-        List<ProjectionFunction> projections = new ArrayList<>();
-        for (int i = 0; i < node.getOutputSymbols().size(); ++i) {
-            Symbol symbol = node.getOutputSymbols().get(i);
-            projections.add(ProjectionFunctions.singleColumn(types.get(symbol).getRawType(), i, 0));
+        @Override
+        public Operator visitTopN(TopNNode node, Void context)
+        {
+            Preconditions.checkArgument(node.getOrderBy().size() == 1, "Order by multiple fields not yet supported");
+            Symbol orderBySymbol = Iterables.getOnlyElement(node.getOrderBy());
+
+            PlanNode source = node.getSource();
+
+            Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
+
+            List<ProjectionFunction> projections = new ArrayList<>();
+            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                Symbol symbol = node.getOutputSymbols().get(i);
+                ProjectionFunction function = ProjectionFunctions.singleColumn(types.get(symbol).getRawType(), symbolToChannelMappings.get(symbol), 0);
+                projections.add(function);
+            }
+
+            Ordering<TupleReadable> ordering = Ordering.from(FieldOrderedTupleComparator.INSTANCE);
+            if (node.getOrderings().get(orderBySymbol) == SortItem.Ordering.ASCENDING) {
+                ordering = ordering.reverse();
+            }
+
+            return new TopNOperator(plan(source), (int) node.getCount(), symbolToChannelMappings.get(orderBySymbol), projections, ordering);
         }
 
-        if (node.getGroupBy().isEmpty()) {
-            return new AggregationOperator(sourceOperator, aggregationFunctions, projections);
+        @Override
+        public Operator visitSort(SortNode node, Void context)
+        {
+            PlanNode source = node.getSource();
+
+            Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
+
+            int[] outputChannels = new int[node.getOutputSymbols().size()];
+            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                Symbol symbol = node.getOutputSymbols().get(i);
+                outputChannels[i] = symbolToChannelMappings.get(symbol);
+            }
+
+            Preconditions.checkArgument(node.getOrderBy().size() == 1, "Order by multiple fields not yet supported");
+
+            Symbol orderBySymbol = Iterables.getOnlyElement(node.getOrderBy());
+            int[] sortFields = new int[] { 0 };
+            boolean[] sortOrder = new boolean[] { node.getOrderings().get(orderBySymbol) == SortItem.Ordering.ASCENDING};
+
+            return new NewInMemoryOrderByOperator(plan(source), symbolToChannelMappings.get(orderBySymbol), outputChannels, 1_000_000, sortFields, sortOrder);
         }
 
-        Preconditions.checkArgument(node.getGroupBy().size() <= 1, "Only single GROUP BY key supported at this time");
-        Symbol groupBySymbol = Iterables.getOnlyElement(node.getGroupBy());
-        return new HashAggregationOperator(sourceOperator, symbolToChannelMappings.get(groupBySymbol), aggregationFunctions, projections);
-    }
+        @Override
+        public Operator visitLimit(LimitNode node, Void context)
+        {
+            PlanNode source = node.getSource();
+            return new LimitOperator(plan(source), node.getCount());
+        }
 
-    private Operator createFilterNode(FilterNode node)
-    {
-        PlanNode source = node.getSource();
-        Operator sourceOperator = plan(source);
+        @Override
+        public Operator visitAggregation(AggregationNode node, Void context)
+        {
+            PlanNode source = node.getSource();
+            Operator sourceOperator = plan(source);
 
-        Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
+            Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
+
+            List<Provider<AggregationFunctionStep>> aggregationFunctions = new ArrayList<>();
+            for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
+                List<Input> arguments = new ArrayList<>();
+                for (Expression argument : entry.getValue().getArguments()) {
+                    int channel = symbolToChannelMappings.get(Symbol.fromQualifiedName(((QualifiedNameReference) argument).getName()));
+                    int field = 0; // TODO: support composite channels
+
+                    arguments.add(new Input(channel, field));
+                }
+
+                FunctionHandle functionHandle = node.getFunctions().get(entry.getKey());
+                Provider<AggregationFunction> boundFunction = metadata.getFunction(functionHandle).bind(arguments);
+
+                Provider<AggregationFunctionStep> aggregation;
+                switch (node.getStep()) {
+                    case PARTIAL:
+                        aggregation = AggregationFunctions.partialAggregation(boundFunction);
+                        break;
+                    case FINAL:
+                        aggregation = AggregationFunctions.finalAggregation(boundFunction);
+                        break;
+                    case SINGLE:
+                        aggregation = AggregationFunctions.singleNodeAggregation(boundFunction);
+                        break;
+                    default:
+                        throw new UnsupportedOperationException("not yet implemented: " + node.getStep());
+                }
+
+                aggregationFunctions.add(aggregation);
+            }
+
+            List<ProjectionFunction> projections = new ArrayList<>();
+            for (int i = 0; i < node.getOutputSymbols().size(); ++i) {
+                Symbol symbol = node.getOutputSymbols().get(i);
+                projections.add(ProjectionFunctions.singleColumn(types.get(symbol).getRawType(), i, 0));
+            }
+
+            if (node.getGroupBy().isEmpty()) {
+                return new AggregationOperator(sourceOperator, aggregationFunctions, projections);
+            }
+
+            Preconditions.checkArgument(node.getGroupBy().size() <= 1, "Only single GROUP BY key supported at this time");
+            Symbol groupBySymbol = Iterables.getOnlyElement(node.getGroupBy());
+            return new HashAggregationOperator(sourceOperator, symbolToChannelMappings.get(groupBySymbol), aggregationFunctions, projections);
+        }
+
+
+
+        @Override
+        public Operator visitFilter(FilterNode node, Void context)
+        {
+            PlanNode source = node.getSource();
+            Operator sourceOperator = plan(source);
+
+            Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
 
         FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), symbolToChannelMappings);
 
-        List<ProjectionFunction> projections = new ArrayList<>();
-        for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-            Symbol symbol = node.getOutputSymbols().get(i);
-            ProjectionFunction function = ProjectionFunctions.singleColumn(types.get(symbol).getRawType(), symbolToChannelMappings.get(symbol), 0);
-            projections.add(function);
+            List<ProjectionFunction> projections = new ArrayList<>();
+            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                Symbol symbol = node.getOutputSymbols().get(i);
+                ProjectionFunction function = ProjectionFunctions.singleColumn(types.get(symbol).getRawType(), symbolToChannelMappings.get(symbol), 0);
+                projections.add(function);
+            }
+
+            return new FilterAndProjectOperator(sourceOperator, filter, projections);
         }
 
-        return new FilterAndProjectOperator(sourceOperator, filter, projections);
-    }
+        @Override
+        public Operator visitProject(ProjectNode node, Void context)
+        {
+            PlanNode source = node.getSource();
+            Operator sourceOperator = plan(node.getSource());
 
-    private Operator createProjectNode(final ProjectNode node)
-    {
-        PlanNode source = node.getSource();
-        Operator sourceOperator = plan(node.getSource());
+            Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
 
-        Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
+            List<ProjectionFunction> projections = new ArrayList<>();
+            for (int i = 0; i < node.getExpressions().size(); i++) {
+                Symbol symbol = node.getOutputSymbols().get(i);
+                Expression expression = node.getExpressions().get(i);
+                ProjectionFunction function = new InterpretedProjectionFunction(types.get(symbol), expression, symbolToChannelMappings);
+                projections.add(function);
+            }
 
-        List<ProjectionFunction> projections = new ArrayList<>();
-        for (int i = 0; i < node.getExpressions().size(); i++) {
-            Symbol symbol = node.getOutputSymbols().get(i);
-            Expression expression = node.getExpressions().get(i);
-            ProjectionFunction function = new InterpretedProjectionFunction(types.get(symbol), expression, symbolToChannelMappings);
-            projections.add(function);
+            return new FilterAndProjectOperator(sourceOperator, FilterFunctions.TRUE_FUNCTION, projections);
         }
 
-        return new FilterAndProjectOperator(sourceOperator, FilterFunctions.TRUE_FUNCTION, projections);
-    }
+        @Override
+        public Operator visitTableScan(TableScanNode node, Void context)
+        {
+            List<ColumnHandle> columns = IterableTransformer.on(node.getAssignments().entrySet())
+                    .orderBy(Ordering.explicit(node.getOutputSymbols()).onResultOf(MoreFunctions.<Symbol, ColumnHandle>keyGetter()))
+                    .transform(MoreFunctions.<Symbol, ColumnHandle>valueGetter())
+                    .list();
 
-    private Operator createTableScan(TableScanNode node)
-    {
-        List<ColumnHandle> columns = IterableTransformer.on(node.getAssignments().entrySet())
-                .orderBy(Ordering.explicit(node.getOutputSymbols()).onResultOf(MoreFunctions.<Symbol, ColumnHandle>keyGetter()))
-                .transform(MoreFunctions.<Symbol, ColumnHandle>valueGetter())
-                .list();
+            // table scan only works with a split
+            Preconditions.checkState(split != null || tableScans != null, "This fragment does not have a split");
 
-        // table scan only works with a split
-        Preconditions.checkState(split != null || tableScans != null, "This fragment does not have a split");
+            PlanFragmentSource tableSplit = split;
+            if (tableSplit == null) {
+                tableSplit = tableScans.get(node.getTable());
+            }
 
-        PlanFragmentSource tableSplit = split;
-        if (tableSplit == null) {
-            tableSplit = tableScans.get(node.getTable());
+            Operator operator = sourceProvider.createDataStream(tableSplit, columns);
+            return operator;
         }
 
-        Operator operator = sourceProvider.createDataStream(tableSplit, columns);
-        return operator;
-    }
+        @Override
+        public Operator visitJoin(JoinNode node, Void context)
+        {
+            ComparisonExpression comparison = (ComparisonExpression) node.getCriteria();
+            Symbol first = Symbol.fromQualifiedName(((QualifiedNameReference) comparison.getLeft()).getName());
+            Symbol second = Symbol.fromQualifiedName(((QualifiedNameReference) comparison.getRight()).getName());
 
-    private Operator createJoinNode(JoinNode node)
-    {
-        ComparisonExpression comparison = (ComparisonExpression) node.getCriteria();
-        Symbol first = Symbol.fromQualifiedName(((QualifiedNameReference) comparison.getLeft()).getName());
-        Symbol second = Symbol.fromQualifiedName(((QualifiedNameReference) comparison.getRight()).getName());
+            Map<Symbol, Integer> probeMappings = mapSymbolsToChannels(node.getLeft().getOutputSymbols());
+            Map<Symbol, Integer> buildMappings = mapSymbolsToChannels(node.getRight().getOutputSymbols());
 
-        Map<Symbol, Integer> probeMappings = mapSymbolsToChannels(node.getLeft().getOutputSymbols());
-        Map<Symbol, Integer> buildMappings = mapSymbolsToChannels(node.getRight().getOutputSymbols());
+            int probeChannel;
+            int buildChannel;
+            if (node.getLeft().getOutputSymbols().contains(first)) {
+                probeChannel = probeMappings.get(first);
+                buildChannel = buildMappings.get(second);
+            }
+            else {
+                probeChannel = probeMappings.get(second);
+                buildChannel = buildMappings.get(first);
+            }
 
-        int probeChannel;
-        int buildChannel;
-        if (node.getLeft().getOutputSymbols().contains(first)) {
-            probeChannel = probeMappings.get(first);
-            buildChannel = buildMappings.get(second);
+            SourceHashProvider hashProvider = joinHashFactory.getSourceHashProvider(node, LocalExecutionPlanner.this, buildChannel, operatorStats);
+            Operator leftOperator = plan(node.getLeft());
+            HashJoinOperator operator = new HashJoinOperator(hashProvider, leftOperator, probeChannel);
+            return operator;
         }
-        else {
-            probeChannel = probeMappings.get(second);
-            buildChannel = buildMappings.get(first);
-        }
 
-        SourceHashProvider hashProvider = joinHashFactory.getSourceHashProvider(node, this, buildChannel, operatorStats);
-        Operator leftOperator = plan(node.getLeft());
-        HashJoinOperator operator = new HashJoinOperator(hashProvider, leftOperator, probeChannel);
-        return operator;
+        @Override
+        protected Operator visitPlan(PlanNode node, Void context)
+        {
+            throw new UnsupportedOperationException("not yet implemented");
+        }
     }
 
     private Map<Symbol, Integer> mapSymbolsToChannels(List<Symbol> outputs)
