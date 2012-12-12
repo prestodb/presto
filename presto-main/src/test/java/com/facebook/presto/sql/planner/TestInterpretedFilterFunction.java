@@ -4,7 +4,6 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.analyzer.Symbol;
-import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -177,7 +176,7 @@ public class TestInterpretedFilterFunction
     {
         try {
             Expression parsed = SqlParser.createExpression(expression);
-            InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(parsed, ImmutableMap.<Symbol, Integer>of(), ImmutableMap.<Symbol, Type>of());
+            InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(parsed, ImmutableMap.<Symbol, Integer>of());
             boolean result = filterFunction.filter();
             assertEquals(result, expectedValue);
         }

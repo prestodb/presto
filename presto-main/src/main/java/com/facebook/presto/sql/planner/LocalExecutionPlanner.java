@@ -24,7 +24,6 @@ import com.facebook.presto.operator.aggregation.AggregationFunctionStep;
 import com.facebook.presto.operator.aggregation.AggregationFunctions;
 import com.facebook.presto.operator.aggregation.Input;
 import com.facebook.presto.execution.ExchangePlanFragmentSource;
-import com.facebook.presto.sql.analyzer.AnalysisResult;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -44,7 +43,6 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.tuple.FieldOrderedTupleComparator;
-import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
 import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.MoreFunctions;
@@ -170,8 +168,8 @@ public class LocalExecutionPlanner
         for (Symbol symbol : resultSymbols) {
             ProjectionFunction function = new InterpretedProjectionFunction(types.get(symbol),
                     new QualifiedNameReference(symbol.toQualifiedName()),
-                    symbolToChannelMappings,
-                    types);
+                    symbolToChannelMappings);
+
             projections.add(function);
         }
 
@@ -289,7 +287,7 @@ public class LocalExecutionPlanner
 
         Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
 
-        FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), symbolToChannelMappings, types);
+        FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), symbolToChannelMappings);
 
         List<ProjectionFunction> projections = new ArrayList<>();
         for (int i = 0; i < node.getOutputSymbols().size(); i++) {
@@ -312,7 +310,7 @@ public class LocalExecutionPlanner
         for (int i = 0; i < node.getExpressions().size(); i++) {
             Symbol symbol = node.getOutputSymbols().get(i);
             Expression expression = node.getExpressions().get(i);
-            ProjectionFunction function = new InterpretedProjectionFunction(types.get(symbol), expression, symbolToChannelMappings, types);
+            ProjectionFunction function = new InterpretedProjectionFunction(types.get(symbol), expression, symbolToChannelMappings);
             projections.add(function);
         }
 
