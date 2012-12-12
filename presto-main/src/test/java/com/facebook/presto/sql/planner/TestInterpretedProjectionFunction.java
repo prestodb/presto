@@ -147,7 +147,7 @@ public class TestInterpretedProjectionFunction
 
     public static void assertProjection(Type outputType, Expression expression, @Nullable Object expectedValue, Map<Symbol, Integer> symbolToChannelMappings, Map<Symbol, Type> types, TupleReadable... channels)
     {
-        InterpretedProjectionFunction projectionFunction = new InterpretedProjectionFunction(outputType, expression, symbolToChannelMappings, types);
+        InterpretedProjectionFunction projectionFunction = new InterpretedProjectionFunction(outputType, expression, symbolToChannelMappings);
 
         // create output
         BlockBuilder builder = new BlockBuilder(new TupleInfo(outputType.getRawType()));

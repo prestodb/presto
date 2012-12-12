@@ -6,6 +6,7 @@ import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -14,16 +15,13 @@ import static com.google.common.base.Preconditions.checkState;
 public class ChannelSymbolResolver
         implements SymbolResolver
 {
-    private final Map<Symbol, Type> symbols;
     private final Map<Symbol, Integer> symbolToChannelMapping;
     private TupleReadable[] inputs;
 
-    public ChannelSymbolResolver(Map<Symbol, Type> symbols, Map<Symbol, Integer> symbolToChannelMapping)
+    public ChannelSymbolResolver(Map<Symbol, Integer> symbolToChannelMapping)
     {
-        checkNotNull(symbols, "symbols is null");
         Preconditions.checkNotNull(symbolToChannelMapping, "symbolToChannelMapping is null");
 
-        this.symbols = ImmutableMap.copyOf(symbols);
         this.symbolToChannelMapping = ImmutableMap.copyOf(symbolToChannelMapping);
     }
 
@@ -34,11 +32,7 @@ public class ChannelSymbolResolver
 
     public Object getValue(Symbol symbol)
     {
-        checkState(symbols.containsKey(symbol), "Unknown symbol: %s", symbol);
-
         Integer channel = symbolToChannelMapping.get(symbol);
-        checkState(channel != null, "Unknown channel for symbol: %s", symbol);
-
         TupleReadable input = inputs[channel];
 
         // TODO: support channels with composite tuples
@@ -46,15 +40,15 @@ public class ChannelSymbolResolver
             return null;
         }
 
-        switch (symbols.get(symbol)) {
-            case LONG:
+        switch (input.getTupleInfo().getTypes().get(0)) {
+            case FIXED_INT_64:
                 return input.getLong(0);
             case DOUBLE:
                 return input.getDouble(0);
-            case STRING:
+            case VARIABLE_BINARY:
                 return input.getSlice(0);
             default:
-                throw new UnsupportedOperationException("not yet implemented: " + symbols.get(symbol));
+                throw new UnsupportedOperationException("not yet implemented");
         }
     }
 }
