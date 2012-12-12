@@ -85,7 +85,7 @@ public class QueryStats
     public void recordAnalysisStart()
     {
         Preconditions.checkState(createNanos > 0, "Can not record analysis start");
-        queuedTime = System.nanoTime() - createNanos;
+        queuedTime = (long) Duration.nanosSince(createNanos).toMillis();
     }
 
     public void recordExecutionStart()
