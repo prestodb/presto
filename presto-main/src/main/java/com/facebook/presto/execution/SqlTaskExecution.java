@@ -12,15 +12,11 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
-import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -46,7 +42,9 @@ public class SqlTaskExecution
     private final PlanFragment fragment;
     private final Metadata metadata;
 
-    public SqlTaskExecution(String taskId,
+    public SqlTaskExecution(String queryId,
+            String stageId,
+            String taskId,
             URI location,
             PlanFragment fragment,
             List<PlanFragmentSource> splits,
@@ -57,6 +55,19 @@ public class SqlTaskExecution
             Metadata metadata,
             ExecutorService shardExecutor)
     {
+        Preconditions.checkNotNull(queryId, "queryId is null");
+        Preconditions.checkNotNull(stageId, "stageId is null");
+        Preconditions.checkNotNull(taskId, "taskId is null");
+        Preconditions.checkNotNull(fragment, "fragment is null");
+        Preconditions.checkNotNull(splits, "splits is null");
+        Preconditions.checkNotNull(exchangeSources, "exchangeSources is null");
+        Preconditions.checkNotNull(outputIds, "outputIds is null");
+        Preconditions.checkArgument(!outputIds.isEmpty(), "outputIds is empty");
+        Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
+        Preconditions.checkNotNull(sourceProvider, "sourceProvider is null");
+        Preconditions.checkNotNull(metadata, "metadata is null");
+        Preconditions.checkNotNull(shardExecutor, "shardExecutor is null");
+
         this.taskId = taskId;
         this.fragment = fragment;
         this.splits = splits;
@@ -66,20 +77,7 @@ public class SqlTaskExecution
         this.metadata = metadata;
 
         // create output buffers
-        List<TupleInfo> tupleInfos = ImmutableList.copyOf(IterableTransformer.on(fragment.getRoot().getOutputSymbols())
-                .transform(Functions.forMap(fragment.getSymbols()))
-                .transform(com.facebook.presto.sql.analyzer.Type.toRaw())
-                .transform(new Function<Type, TupleInfo>()
-                {
-                    @Override
-                    public TupleInfo apply(Type input)
-                    {
-                        return new TupleInfo(input);
-                    }
-                })
-                .list());
-
-        this.taskOutput = new TaskOutput(taskId, location, outputIds, tupleInfos, pageBufferMax, splits.size());
+        this.taskOutput = new TaskOutput(queryId, stageId, taskId, location, outputIds, pageBufferMax, splits.size());
     }
 
     @Override
@@ -95,7 +93,7 @@ public class SqlTaskExecution
     }
 
     @Override
-    public void start()
+    public void run()
     {
         try {
             // if we have a single split, just execute in the current thread; otherwise use the thread pool
@@ -125,7 +123,7 @@ public class SqlTaskExecution
             taskOutput.queryFailed(e);
             throw Throwables.propagate(e);
         }
-        catch (Exception e) {
+        catch (Throwable e) {
             taskOutput.queryFailed(e);
             throw Throwables.propagate(e);
         }
@@ -211,11 +209,11 @@ public class SqlTaskExecution
 
             inputDataSize = planner.getInputDataSize();
             if (inputDataSize.isPresent()) {
-                taskOutput.addInputDataSize(inputDataSize.get());
+                taskOutput.getStats().addInputDataSize(inputDataSize.get());
             }
             inputPositionCount = planner.getInputPositionCount();
             if (inputPositionCount.isPresent()) {
-                taskOutput.addInputPositions(inputPositionCount.get());
+                taskOutput.getStats().addInputPositions(inputPositionCount.get());
             }
         }
 
@@ -223,7 +221,7 @@ public class SqlTaskExecution
         public Void call()
                 throws Exception
         {
-            taskOutput.splitStarted();
+            taskOutput.getStats().splitStarted();
             long startTime = System.nanoTime();
             try (PageIterator pages = operator.iterator()) {
                 while (pages.hasNext()) {
@@ -234,18 +232,18 @@ public class SqlTaskExecution
                 }
                 return null;
             }
-            catch (Exception e) {
+            catch (Throwable e) {
                 taskOutput.queryFailed(e);
-                throw Throwables.propagate(e);
+                throw e;
             }
             finally {
-                taskOutput.addSplitCpuTime(Duration.nanosSince(startTime));
-                taskOutput.splitCompleted();
+                taskOutput.getStats().addSplitCpuTime(Duration.nanosSince(startTime));
+                taskOutput.getStats().splitCompleted();
                 if (inputDataSize.isPresent()) {
-                    taskOutput.addCompletedDataSize(inputDataSize.get());
+                    taskOutput.getStats().addCompletedDataSize(inputDataSize.get());
                 }
                 if (inputPositionCount.isPresent()) {
-                    taskOutput.addCompletedPositions(inputPositionCount.get());
+                    taskOutput.getStats().addCompletedPositions(inputPositionCount.get());
                 }
 
             }

@@ -14,7 +14,7 @@ import javax.inject.Inject;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
-import javax.ws.rs.POST;
+import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
@@ -35,7 +35,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 /**
  * Manages tasks on this worker node
  */
-@Path("/v1/presto/task")
+@Path("/v1/task")
 public class TaskResource
 {
     private static final int DEFAULT_MAX_PAGE_COUNT = 10;
@@ -56,15 +56,19 @@ public class TaskResource
         return taskManager.getAllTaskInfo();
     }
 
-    @POST
+    @PUT
+    @Path("{taskId}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response create(QueryFragmentRequest queryFragmentRequest, @Context UriInfo uriInfo)
+    public Response create(@PathParam("taskId") String taskId, QueryFragmentRequest queryFragmentRequest, @Context UriInfo uriInfo)
     {
         try {
             checkNotNull(queryFragmentRequest, "queryFragmentRequest is null");
 
-            TaskInfo taskInfo = taskManager.createTask(queryFragmentRequest.getFragment(),
+            TaskInfo taskInfo = taskManager.createTask(queryFragmentRequest.getQueryId(),
+                    queryFragmentRequest.getStageId(),
+                    taskId,
+                    queryFragmentRequest.getFragment(),
                     queryFragmentRequest.getSplits(),
                     queryFragmentRequest.getExchangeSources(),
                     queryFragmentRequest.getOutputIds());

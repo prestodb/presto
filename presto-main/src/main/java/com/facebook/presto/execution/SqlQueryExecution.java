@@ -14,70 +14,100 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedExecutionPlanner;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.planner.Partition;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import io.airlift.log.Logger;
+import io.airlift.units.Duration;
+import org.antlr.runtime.RecognitionException;
 
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
+import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.execution.TaskInfo.taskStateGetter;
-import static com.google.common.base.Predicates.equalTo;
-import static com.google.common.collect.Iterables.all;
+import static com.facebook.presto.execution.FailureInfo.toFailures;
+import static com.facebook.presto.execution.StageInfo.getAllStages;
+import static com.facebook.presto.execution.StageInfo.stageStateGetter;
+import static com.facebook.presto.sql.planner.Partition.nodeIdentifierGetter;
 import static com.google.common.collect.Iterables.any;
-import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 
+@ThreadSafe
 public class SqlQueryExecution
         implements QueryExecution
 {
-    private static final Logger log = Logger.get(SqlQueryExecution.class);
+    private static final String ROOT_OUTPUT_BUFFER_NAME = "out";
 
     private final String queryId;
-    private final TaskScheduler taskScheduler;
-    private final ConcurrentHashMap<String, List<HttpTaskClient>> stages = new ConcurrentHashMap<>();
+    private final String sql;
+    private final Session session;
+    private final Metadata metadata;
+    private final NodeManager nodeManager;
+    private final SplitManager splitManager;
+    private final StageManager stageManager;
+    private final RemoteTaskFactory remoteTaskFactory;
+    private final LocationFactory locationFactory;
+
+    private final QueryStats queryStats = new QueryStats();
+
+    // All state changes must occur within a synchronized lock.
+    // The only reason we use an atomic reference here is so read-only threads don't have to block.
+    @GuardedBy("this")
     private final AtomicReference<QueryState> queryState = new AtomicReference<>(QueryState.QUEUED);
-    private final StageExecutionPlan outputStageExecutionPlan;
+    @GuardedBy("this")
+    private final AtomicReference<StageExecution> outputStage = new AtomicReference<>();
+    @GuardedBy("this")
+    private final AtomicReference<ImmutableList<String>> fieldNames = new AtomicReference<>(ImmutableList.<String>of());
 
-    public SqlQueryExecution(String queryId, String sql, TaskScheduler taskScheduler, Session session, Metadata metadata, NodeManager nodeManager, SplitManager splitManager)
+    private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
+
+    public SqlQueryExecution(String queryId,
+            String sql,
+            Session session,
+            Metadata metadata,
+            NodeManager nodeManager,
+            SplitManager splitManager,
+            StageManager stageManager,
+            RemoteTaskFactory remoteTaskFactory,
+            LocationFactory locationFactory)
     {
+        Preconditions.checkNotNull(queryId, "queryId is null");
+        Preconditions.checkNotNull(sql, "sql is null");
+        Preconditions.checkNotNull(session, "session is null");
+        Preconditions.checkNotNull(metadata, "metadata is null");
+        Preconditions.checkNotNull(nodeManager, "nodeManager is null");
+        Preconditions.checkNotNull(splitManager, "splitManager is null");
+        Preconditions.checkNotNull(stageManager, "stageManager is null");
+        Preconditions.checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
+        Preconditions.checkNotNull(locationFactory, "locationFactory is null");
+
         this.queryId = queryId;
-        this.taskScheduler = taskScheduler;
+        this.sql = sql;
 
-        try {
-            // parse query
-            Statement statement = SqlParser.createStatement(sql);
-
-            // analyze query
-            Analyzer analyzer = new Analyzer(session, metadata);
-            AnalysisResult analysis = analyzer.analyze(statement);
-
-            // plan query
-            LogicalPlanner logicalPlanner = new LogicalPlanner();
-            PlanNode plan = logicalPlanner.plan((Query) statement, analysis);
-
-            // fragment the plan
-            SubPlan subplan = new DistributedLogicalPlanner(metadata).createSubplans(plan, analysis.getSymbolAllocator(), false);
-
-            // plan the execution on the active nodes
-            DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(nodeManager, splitManager);
-            outputStageExecutionPlan = distributedPlanner.plan(subplan);
-
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-
+        this.session = session;
+        this.metadata = metadata;
+        this.nodeManager = nodeManager;
+        this.splitManager = splitManager;
+        this.stageManager = stageManager;
+        this.remoteTaskFactory = remoteTaskFactory;
+        this.locationFactory = locationFactory;
     }
 
     @Override
@@ -87,89 +117,298 @@ public class SqlQueryExecution
     }
 
     @Override
-    public void cancel()
-    {
-        while (true) {
-            QueryState queryState = this.queryState.get();
-            if (queryState.isDone()) {
-                break;
-            }
-            if (this.queryState.compareAndSet(queryState, QueryState.CANCELED)) {
-                break;
-            }
-        }
-
-        for (HttpTaskClient taskClient : Iterables.concat(stages.values())) {
-            taskClient.cancel();
-        }
-    }
-
-    @Override
     public QueryInfo getQueryInfo()
     {
-        ImmutableMap.Builder<String, List<TaskInfo>> map = ImmutableMap.builder();
-        for (Entry<String, List<HttpTaskClient>> stage : stages.entrySet()) {
-            map.put(String.valueOf(stage.getKey()), ImmutableList.copyOf(Iterables.transform(stage.getValue(), new Function<HttpTaskClient, TaskInfo>()
-            {
-                @Override
-                public TaskInfo apply(HttpTaskClient taskClient)
-                {
-                    TaskInfo taskInfo = taskClient.getTaskInfo();
-                    if (taskInfo == null) {
-                        // task was not found, so we mark the master as failed
-                        RuntimeException exception = new RuntimeException(String.format("Query %s task %s has been deleted", queryId, taskClient.getTaskId()));
-                        cancel();
-                        throw exception;
-                    }
-                    return taskInfo;
-                }
-            })));
-        }
-        ImmutableMap<String, List<TaskInfo>> stages = map.build();
-
-        QueryState queryState = this.queryState.get();
-        if (!stages.isEmpty()) {
-            if (queryState == QueryState.QUEUED) {
-                queryState = QueryState.RUNNING;
-                this.queryState.set(queryState);
-            }
-
-            if (queryState == QueryState.RUNNING) {
-                // if all output tasks are finished, the query is finished
-                // todo this is no longer correct
-                List<TaskInfo> outputTasks = stages.get(outputStageExecutionPlan.getStageId());
-                if (outputTasks != null && !outputTasks.isEmpty() && all(transform(outputTasks, taskStateGetter()), TaskState.inDoneState())) {
-                    queryState = QueryState.FINISHED;
-                    this.queryState.set(queryState);
-                } else if (any(transform(concat(stages.values()), taskStateGetter()), equalTo(TaskState.FAILED))) {
-                    // if any task is failed, the query has failed
-                    queryState = QueryState.FAILED;
-                    this.queryState.set(queryState);
-                    log.debug("A task for query %s failed, canceling all tasks: stages %s", queryId, this.stages);
-                    cancel();
-                }
-            }
+        StageExecution outputStage = this.outputStage.get();
+        StageInfo stageInfo = null;
+        if (outputStage != null) {
+            stageInfo = outputStage.getStageInfo();
         }
 
-        return new QueryInfo(queryId, outputStageExecutionPlan.getTupleInfos(), outputStageExecutionPlan.getFieldNames(), queryState, outputStageExecutionPlan.getStageId(), stages);
+        return new QueryInfo(queryId,
+                queryState.get(),
+                locationFactory.createQueryLocation(queryId),
+                fieldNames.get(),
+                sql,
+                queryStats,
+                stageInfo,
+                toFailures(failureCauses));
     }
 
     @Override
     public void start()
     {
-        try {
-            taskScheduler.schedule(outputStageExecutionPlan, stages);
+        Preconditions.checkState(!Thread.holdsLock(this), "Can not start while holding a lock on this");
 
-            // mark it as finished if there will never be any output TODO: think about this more -- shouldn't have stages with no tasks?
-            if (stages.get(outputStageExecutionPlan.getStageId()).isEmpty()) {
-                queryState.set(QueryState.FINISHED);
+        // transition to scheduling
+        synchronized (this) {
+            Preconditions.checkState(queryState.compareAndSet(QueryState.QUEUED, QueryState.PLANNING), "Stage has already been started");
+        }
+
+        try {
+            // query is now started
+            queryStats.recordAnalysisStart();
+
+            // analyze query
+            SubPlan subplan = analyseQuery();
+
+            // plan distribution of query
+            planDistribution(subplan);
+
+            // transition to starting
+            synchronized (this) {
+                Preconditions.checkState(queryState.compareAndSet(QueryState.PLANNING, QueryState.STARTING),
+                        "Expected query to be in state %s",
+                        QueryState.PLANNING);
             }
+
+            // start the query execution
+            startStage(outputStage.get());
         }
         catch (Exception e) {
-            queryState.set(QueryState.FAILED);
-            log.debug(e, "Query %s failed to start", queryId);
+            synchronized (this) {
+                failureCauses.add(e);
+                queryStats.recordEnd();
+                queryState.set(QueryState.FAILED);
+            }
             cancel();
-            throw Throwables.propagate(e);
         }
     }
+
+    private SubPlan analyseQuery()
+            throws RecognitionException
+    {
+        Preconditions.checkState(!Thread.holdsLock(this), "Can not analyse while holding a lock on this");
+
+        // time analysis phase
+        long analysisStart = System.nanoTime();
+
+        // parse query
+        Statement statement = SqlParser.createStatement(sql);
+
+        // analyze query
+        Analyzer analyzer = new Analyzer(session, metadata);
+        AnalysisResult analysis = analyzer.analyze(statement);
+
+        // plan query
+        LogicalPlanner logicalPlanner = new LogicalPlanner();
+        PlanNode plan = logicalPlanner.plan((Query) statement, analysis);
+
+        // fragment the plan
+        SubPlan subplan = new DistributedLogicalPlanner(metadata).createSubplans(plan, analysis.getSymbolAllocator(), false);
+
+        queryStats.recordAnalysisTime(analysisStart);
+        return subplan;
+    }
+
+    private void planDistribution(SubPlan subplan)
+    {
+        Preconditions.checkState(!Thread.holdsLock(this), "Can not perform distributed planning while holding a lock on this");
+
+        // time distribution planning
+        long distributedPlanningStart = System.nanoTime();
+
+        // plan the execution on the active nodes
+        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(nodeManager, splitManager);
+        StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(subplan);
+
+        synchronized (this) {
+            QueryState queryState = this.queryState.get();
+            Preconditions.checkState(queryState == QueryState.PLANNING,
+                    "Expected query to be in state %s but was in state %s",
+                    QueryState.PLANNING,
+                    queryState);
+
+            // record field names
+            fieldNames.set(ImmutableList.copyOf(outputStageExecutionPlan.getFieldNames()));
+
+            // build the stage execution objects (this doesn't schedule execution)
+            StageExecution outputStage = createStage(new AtomicInteger(), outputStageExecutionPlan, ImmutableList.of(ROOT_OUTPUT_BUFFER_NAME));
+            this.outputStage.set(outputStage);
+        }
+
+        // record planning time
+        queryStats.recordDistributedPlanningTime(distributedPlanningStart);
+    }
+
+    private void startStage(StageExecution stage)
+    {
+        Preconditions.checkState(!Thread.holdsLock(this), "Can not start while holding a lock on this");
+
+        // start all sub stages before starting the main stage
+        for (StageExecution subStage : stage.getSubStages()) {
+            startStage(subStage);
+        }
+        // if query is not finished, start the stage, otherwise cancel it
+        if (!queryState.get().isDone()) {
+            stage.startTasks();
+        } else {
+            stage.cancel();
+        }
+    }
+
+    private StageExecution createStage(AtomicInteger nextStageId, StageExecutionPlan stageExecutionPlan, List<String> outputIds)
+    {
+        String stageId = queryId + "." + nextStageId.getAndIncrement();
+
+        Map<String, StageExecution> subStages = IterableTransformer.on(stageExecutionPlan.getSubStages())
+                .uniqueIndex(fragmentIdGetter())
+                .transformValues(stageCreator(nextStageId, stageExecutionPlan.getPartitions()))
+                .immutableMap();
+
+        URI stageLocation = locationFactory.createStageLocation(stageId);
+        int taskId = 0;
+        ImmutableList.Builder<RemoteTask> tasks = ImmutableList.builder();
+        for (Partition partition : stageExecutionPlan.getPartitions()) {
+            String nodeIdentifier = partition.getNode().getNodeIdentifier();
+
+            ImmutableMap.Builder<String, ExchangePlanFragmentSource> exchangeSources = ImmutableMap.builder();
+            for (Entry<String, StageExecution> entry : subStages.entrySet()) {
+                exchangeSources.put(entry.getKey(), entry.getValue().getExchangeSourceFor(nodeIdentifier));
+            }
+
+            tasks.add(remoteTaskFactory.createRemoteTask(queryId,
+                    stageId,
+                    stageId + '.' + taskId++,
+                    partition.getNode(),
+                    stageExecutionPlan.getFragment(),
+                    partition.getSplits(),
+                    exchangeSources.build(),
+                    outputIds));
+        }
+
+        return stageManager.createStage(queryId, stageId, stageLocation, stageExecutionPlan.getFragment(), tasks.build(), subStages.values());
+    }
+
+    @Override
+    public void cancel()
+    {
+        Preconditions.checkState(!Thread.holdsLock(this), "Can not cancel while holding a lock on this");
+
+        // transition to canceled state, only if not already finished
+        synchronized (this) {
+            if (!queryState.get().isDone()) {
+                queryStats.recordEnd();
+                queryState.set(QueryState.CANCELED);
+            }
+        }
+
+        StageExecution stageExecution = outputStage.get();
+        if (stageExecution != null) {
+            stageExecution.cancel();
+        }
+    }
+
+    public void updateState()
+    {
+        Preconditions.checkState(!Thread.holdsLock(this), "Can not update while holding a lock on this");
+
+        StageExecution outputStage = this.outputStage.get();
+        if (outputStage == null) {
+            return;
+        }
+        outputStage.updateState();
+
+        synchronized (this) {
+            if (queryState.get().isDone()) {
+                return;
+            }
+
+            // if output stage is done, transition to done
+            StageInfo outputStageInfo = outputStage.getStageInfo();
+            StageState outputStageState = outputStageInfo.getState();
+            if (outputStageState.isDone()) {
+                if (outputStageState == StageState.FAILED) {
+                    this.queryState.set(QueryState.FAILED);
+                } else {
+                    this.queryState.set(QueryState.FINISHED);
+                }
+                queryStats.recordEnd();
+            } else if (queryState.get() == QueryState.STARTING) {
+                // if any stage is running transition to running
+                if (any(transform(getAllStages(outputStage.getStageInfo()), stageStateGetter()), isStageRunningOrDone())) {
+                    queryStats.recordExecutionStart();
+                    this.queryState.set(QueryState.RUNNING);
+                }
+            }
+        }
+    }
+
+    private static Predicate<StageState> isStageRunningOrDone()
+    {
+        return new Predicate<StageState>() {
+            @Override
+            public boolean apply(StageState stageState)
+            {
+                return stageState == StageState.RUNNING || stageState.isDone();
+            }
+        };
+    }
+
+    private Function<StageExecutionPlan, StageExecution> stageCreator(final AtomicInteger nextStageId, List<Partition> partitions)
+    {
+        // for each partition in stage create an outputBuffer
+        final List<String> outputIds = IterableTransformer.on(partitions).transform(nodeIdentifierGetter()).list();
+        return new Function<StageExecutionPlan, StageExecution>()
+        {
+            @Override
+            public StageExecution apply(@Nullable StageExecutionPlan subStage)
+            {
+                return createStage(nextStageId, subStage, outputIds);
+            }
+        };
+    }
+
+    private Function<StageExecutionPlan, String> fragmentIdGetter()
+    {
+        return new Function<StageExecutionPlan, String>()
+        {
+            @Override
+            public String apply(@Nullable StageExecutionPlan input)
+            {
+                return String.valueOf(input.getFragment().getId());
+            }
+        };
+    }
+
+    private static void waitForRunning(List<HttpTaskClient> taskClients)
+    {
+        while (true) {
+            long start = System.nanoTime();
+
+            // remove tasks that have started running
+            taskClients = ImmutableList.copyOf(filter(taskClients, new Predicate<HttpTaskClient>()
+            {
+                @Override
+                public boolean apply(HttpTaskClient taskClient)
+                {
+                    TaskInfo taskInfo = taskClient.getTaskInfo();
+                    if (taskInfo == null) {
+                        return false;
+                    }
+                    TaskState state = taskInfo.getState();
+                    return state == TaskState.PLANNED || state == TaskState.QUEUED;
+                }
+            }));
+
+            // if no tasks are left, the stage has started
+            if (taskClients.isEmpty()) {
+                return;
+            }
+
+            // sleep for 100ms (minus the time we spent fetching the task states)
+            Duration duration = Duration.nanosSince(start);
+            long waitTime = (long) (100 - duration.toMillis());
+            if (waitTime > 0) {
+                try {
+                    Thread.sleep(waitTime);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw Throwables.propagate(e);
+                }
+            }
+        }
+    }
+
 }

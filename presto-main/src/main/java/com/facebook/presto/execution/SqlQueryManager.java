@@ -22,9 +22,8 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -38,43 +37,64 @@ public class SqlQueryManager
 {
     private static final Logger log = Logger.get(SqlQueryManager.class);
 
-    private final TaskScheduler taskScheduler;
-    private final ExecutorService queryExecutor;
+    private final ScheduledExecutorService queryExecutor;
     private final ImportClientFactory importClientFactory;
     private final ImportManager importManager;
     private final Metadata metadata;
     private final NodeManager nodeManager;
     private final SplitManager splitManager;
+    private final StageManager stageManager;
+    private final RemoteTaskFactory remoteTaskFactory;
+    private final LocationFactory locationFactory;
 
     private final AtomicInteger nextQueryId = new AtomicInteger();
     private final ConcurrentMap<String, QueryExecution> queries = new ConcurrentHashMap<>();
 
     @Inject
-    public SqlQueryManager(
-            TaskScheduler taskScheduler,
-            ImportClientFactory importClientFactory,
+    public SqlQueryManager(ImportClientFactory importClientFactory,
             ImportManager importManager,
             Metadata metadata,
             NodeManager nodeManager,
-            SplitManager splitManager)
+            SplitManager splitManager,
+            StageManager stageManager,
+            RemoteTaskFactory remoteTaskFactory,
+            LocationFactory locationFactory)
     {
-        Preconditions.checkNotNull(taskScheduler, "taskScheduler is null");
         Preconditions.checkNotNull(importClientFactory, "importClientFactory is null");
         Preconditions.checkNotNull(importManager, "importManager is null");
         Preconditions.checkNotNull(metadata, "metadata is null");
+        Preconditions.checkNotNull(nodeManager, "nodeManager is null");
+        Preconditions.checkNotNull(splitManager, "splitManager is null");
+        Preconditions.checkNotNull(stageManager, "stageManager is null");
+        Preconditions.checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
+        Preconditions.checkNotNull(locationFactory, "locationFactory is null");
 
-        this.taskScheduler = taskScheduler;
-        this.queryExecutor = new ThreadPoolExecutor(1000,
-                1000,
-                1, TimeUnit.MINUTES,
-                new LinkedBlockingQueue<Runnable>(),
-                threadsNamed("query-processor-%d"));
+        this.queryExecutor = new ScheduledThreadPoolExecutor(1000, threadsNamed("query-processor-%d"));
 
         this.importClientFactory = importClientFactory;
         this.importManager = importManager;
         this.metadata = metadata;
         this.nodeManager = nodeManager;
         this.splitManager = splitManager;
+        this.stageManager = stageManager;
+        this.remoteTaskFactory = remoteTaskFactory;
+        this.locationFactory = locationFactory;
+
+        queryExecutor.scheduleAtFixedRate(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                for (QueryExecution queryExecution : queries.values()) {
+                    try {
+                        queryExecution.updateState();
+                    }
+                    catch (Throwable e) {
+                        log.warn(e, "Error updating state for query %s", queryExecution.getQueryId());
+                    }
+                }
+            }
+        }, 200, 200, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -96,7 +116,7 @@ public class SqlQueryManager
     }
 
     @Override
-    public QueryInfo getQueryInfo(String queryId)
+    public QueryInfo getQueryInfo(String queryId, boolean forceRefresh)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
 
@@ -104,14 +124,10 @@ public class SqlQueryManager
         if (query == null) {
             throw new NoSuchElementException();
         }
-        try {
-            return query.getQueryInfo();
+        if (forceRefresh) {
+            query.updateState();
         }
-        catch (RuntimeException e) {
-            // todo need better signal for a failed task
-            queries.remove(queryId);
-            throw e;
-        }
+        return query.getQueryInfo();
     }
 
     @Override
@@ -120,26 +136,31 @@ public class SqlQueryManager
         Preconditions.checkNotNull(query, "query is null");
         Preconditions.checkArgument(query.length() > 0, "query must not be empty string");
 
+        String queryId = String.valueOf(nextQueryId.getAndIncrement());
         QueryExecution queryExecution;
         if (query.startsWith("import-table:")) {
             // todo this is a hack until we have language support for import or create table as select
             ImmutableList<String> strings = ImmutableList.copyOf(Splitter.on(":").split(query));
-            queryExecution = new ImportTableExecution(String.valueOf(nextQueryId.getAndIncrement()),
+            queryExecution = new ImportTableExecution(queryId,
+                    locationFactory.createQueryLocation(queryId),
                     importClientFactory,
                     importManager,
                     metadata,
                     strings.get(1),
                     strings.get(2),
-                    strings.get(3));
+                    strings.get(3),
+                    query);
         }
         else {
-            queryExecution = new SqlQueryExecution(String.valueOf(nextQueryId.getAndIncrement()),
+            queryExecution = new SqlQueryExecution(queryId,
                     query,
-                    taskScheduler,
                     new Session(),
                     metadata,
                     nodeManager,
-                    splitManager);
+                    splitManager,
+                    stageManager,
+                    remoteTaskFactory,
+                    locationFactory);
         }
         queries.put(queryExecution.getQueryId(), queryExecution);
 

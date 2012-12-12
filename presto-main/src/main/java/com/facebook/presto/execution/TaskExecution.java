@@ -14,7 +14,7 @@ public interface TaskExecution
 
     TaskInfo getTaskInfo();
 
-    void start();
+    void run();
 
     void cancel();
 

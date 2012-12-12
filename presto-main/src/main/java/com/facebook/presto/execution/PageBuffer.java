@@ -4,7 +4,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -31,7 +30,7 @@ public class PageBuffer
 
     public static enum BufferState
     {
-        PREPARING(false),
+        CREATED(false),
         RUNNING(false),
         FINISHED(true),
         CANCELED(true),
@@ -61,13 +60,13 @@ public class PageBuffer
         }
     }
 
-    private final List<TupleInfo> tupleInfos;
+    private final String bufferId;
 
     @GuardedBy("pageBuffer")
     private final ArrayDeque<Page> pageBuffer;
 
     @GuardedBy("pageBuffer")
-    private BufferState bufferState = BufferState.PREPARING;
+    private BufferState bufferState = BufferState.CREATED;
 
     @GuardedBy("pageBuffer")
     private final List<Throwable> causes = new ArrayList<>();
@@ -78,22 +77,22 @@ public class PageBuffer
     private final Semaphore notFull;
     private final Semaphore notEmpty;
 
-    public PageBuffer(List<TupleInfo> tupleInfos, int sourceCount, int pageBufferMax)
+    public PageBuffer(String bufferId, int sourceCount, int pageBufferMax)
     {
-        Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
+        Preconditions.checkNotNull(bufferId, "bufferId is null");
         Preconditions.checkArgument(sourceCount > 0, "sourceCount must be at least 1");
         Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
 
-        this.tupleInfos = tupleInfos;
+        this.bufferId = bufferId;
         this.sourceCount = sourceCount;
         this.pageBuffer = new ArrayDeque<>(pageBufferMax);
         this.notFull = new Semaphore(pageBufferMax);
         this.notEmpty = new Semaphore(0);
     }
 
-    public List<TupleInfo> getTupleInfos()
+    public PageBufferInfo getBufferInfo()
     {
-        return tupleInfos;
+        return new PageBufferInfo(bufferId, getState(), getBufferedPageCount());
     }
 
     public BufferState getState()
@@ -304,6 +303,18 @@ public class PageBuffer
         };
     }
 
+    public static Function<PageBuffer, PageBufferInfo> infoGetter()
+    {
+        return new Function<PageBuffer, PageBufferInfo>()
+        {
+            @Override
+            public PageBufferInfo apply(PageBuffer pageBuffer)
+            {
+                return pageBuffer.getBufferInfo();
+            }
+        };
+    }
+
     @Override
     public String toString()
     {
@@ -314,7 +325,6 @@ public class PageBuffer
                 .add("causes", causes)
                 .add("notFull", notFull.availablePermits())
                 .add("notEmpty", notEmpty.availablePermits())
-                .add("tupleInfos", tupleInfos)
                 .toString();
     }
 }

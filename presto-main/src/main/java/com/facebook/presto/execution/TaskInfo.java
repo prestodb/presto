@@ -3,78 +3,69 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.execution.PageBuffer.BufferState;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 import java.net.URI;
 import java.util.List;
-import java.util.Map;
 
 @Immutable
 public class TaskInfo
 {
+    private final String queryId;
+    private final String stageId;
     private final String taskId;
-    private final URI self;
-    private final Map<String, BufferState> outputBufferStates;
-    private final List<TupleInfo> tupleInfos;
     private final TaskState state;
-    private final int bufferedPages;
-    private final int splits;
-    private final int startedSplits;
-    private final int completedSplits;
-    private final long splitCpuTime;
-    private final long inputDataSize;
-    private final long inputPositionCount;
-    private final long completedDataSize;
-    private final long completedPositionCount;
-    private final long outputDataSize;
-    private final long outputPositionCount;
+    private final URI self;
+    private final List<PageBufferInfo> outputBuffers;
+    private final ExecutionStats stats;
+    private final List<FailureInfo> failures;
 
     @JsonCreator
-    public TaskInfo(@JsonProperty("taskId") String taskId,
-            @JsonProperty("self") URI self,
-            @JsonProperty("outputBufferStates") Map<String, BufferState> outputBufferStates,
-            @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
+    public TaskInfo(@JsonProperty("queryId") String queryId,
+            @JsonProperty("stageId") String stageId,
+            @JsonProperty("taskId") String taskId,
             @JsonProperty("state") TaskState state,
-            @JsonProperty("bufferedPages") int bufferedPages,
-            @JsonProperty("splits") int splits,
-            @JsonProperty("startedSplits") int startedSplits,
-            @JsonProperty("completedSplits") int completedSplits,
-            @JsonProperty("splitCpuTime") long splitCpuTime,
-            @JsonProperty("inputDataSize") long inputDataSize,
-            @JsonProperty("inputPositionCount") long inputPositionCount,
-            @JsonProperty("completedDataSize") long completedDataSize,
-            @JsonProperty("completedPositionCount") long completedPositionCount,
-            @JsonProperty("outputDataSize") long outputDataSize,
-            @JsonProperty("outputPositionCount") long outputPositionCount)
+            @JsonProperty("self") URI self,
+            @JsonProperty("outputBuffers") List<PageBufferInfo> outputBuffers,
+            @JsonProperty("stats") ExecutionStats stats,
+            @JsonProperty("failures") List<FailureInfo> failures)
     {
+        Preconditions.checkNotNull(queryId, "queryId is null");
+        Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
+        Preconditions.checkNotNull(state, "state is null");
         Preconditions.checkNotNull(self, "self is null");
-        Preconditions.checkNotNull(outputBufferStates, "outputIds is null");
-        Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
+        Preconditions.checkNotNull(outputBuffers, "outputBufferStates is null");
+        Preconditions.checkArgument(!outputBuffers.isEmpty(), "outputBufferStates is empty");
+        Preconditions.checkNotNull(stats, "stats is null");
+        Preconditions.checkNotNull(failures, "failures is null");
+
+        this.queryId = queryId;
+        this.stageId = stageId;
         this.taskId = taskId;
-        this.self = self;
-        this.outputBufferStates = ImmutableMap.copyOf(outputBufferStates);
-        this.tupleInfos = tupleInfos;
         this.state = state;
-        this.bufferedPages = bufferedPages;
-        this.splits = splits;
-        this.startedSplits = startedSplits;
-        this.completedSplits = completedSplits;
-        this.splitCpuTime = splitCpuTime;
-        this.inputDataSize = inputDataSize;
-        this.inputPositionCount = inputPositionCount;
-        this.completedDataSize = completedDataSize;
-        this.completedPositionCount = completedPositionCount;
-        this.outputDataSize = outputDataSize;
-        this.outputPositionCount = outputPositionCount;
+        this.self = self;
+        this.outputBuffers = ImmutableList.copyOf(outputBuffers);
+        this.stats = stats;
+        this.failures = failures;
+    }
+
+    @JsonProperty
+    public String getQueryId()
+    {
+        return queryId;
+    }
+
+    @JsonProperty
+    public String getStageId()
+    {
+        return stageId;
     }
 
     @JsonProperty
@@ -84,93 +75,33 @@ public class TaskInfo
     }
 
     @JsonProperty
-    public URI getSelf()
-    {
-        return self;
-    }
-
-    @JsonProperty
-    public Map<String, BufferState> getOutputBufferStates()
-    {
-        return outputBufferStates;
-    }
-
-    @JsonProperty
-    public List<TupleInfo> getTupleInfos()
-    {
-        return tupleInfos;
-    }
-
-    @JsonProperty
     public TaskState getState()
     {
         return state;
     }
 
     @JsonProperty
-    public int getBufferedPages()
+    public URI getSelf()
     {
-        return bufferedPages;
+        return self;
     }
 
     @JsonProperty
-    public int getSplits()
+    public List<PageBufferInfo> getOutputBuffers()
     {
-        return splits;
+        return outputBuffers;
     }
 
     @JsonProperty
-    public int getStartedSplits()
+    public ExecutionStats getStats()
     {
-        return startedSplits;
+        return stats;
     }
 
     @JsonProperty
-    public int getCompletedSplits()
+    public List<FailureInfo> getFailures()
     {
-        return completedSplits;
-    }
-
-    @JsonProperty
-    public long getSplitCpuTime()
-    {
-        return splitCpuTime;
-    }
-
-    @JsonProperty
-    public long getInputDataSize()
-    {
-        return inputDataSize;
-    }
-
-    @JsonProperty
-    public long getInputPositionCount()
-    {
-        return inputPositionCount;
-    }
-
-    @JsonProperty
-    public long getCompletedDataSize()
-    {
-        return completedDataSize;
-    }
-
-    @JsonProperty
-    public long getCompletedPositionCount()
-    {
-        return completedPositionCount;
-    }
-
-    @JsonProperty
-    public long getOutputDataSize()
-    {
-        return outputDataSize;
-    }
-
-    @JsonProperty
-    public long getOutputPositionCount()
-    {
-        return outputPositionCount;
+        return failures;
     }
 
     @Override

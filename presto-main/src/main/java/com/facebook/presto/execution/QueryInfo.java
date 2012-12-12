@@ -3,47 +3,54 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
+import java.net.URI;
 import java.util.List;
-import java.util.Map;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 @Immutable
 public class QueryInfo
 {
     private final String queryId;
-    private final List<TupleInfo> tupleInfos;
-    private final List<String> fieldNames;
     private final QueryState state;
-    private final String outputStage;
-    private final Map<String, List<TaskInfo>> stages;
+    private final URI self;
+    private final List<String> fieldNames;
+    private final String query;
+    private final QueryStats queryStats;
+    private final StageInfo outputStage;
+    private final List<FailureInfo> failures;
 
     @JsonCreator
     public QueryInfo(@JsonProperty("queryId") String queryId,
-            @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
-            @JsonProperty("fieldNames") List<String> fieldNames,
             @JsonProperty("state") QueryState state,
-            @JsonProperty("outputStage") String outputStage,
-            @JsonProperty("stages") Map<String, List<TaskInfo>> stages)
+            @JsonProperty("self") URI self,
+            @JsonProperty("fieldNames") List<String> fieldNames,
+            @JsonProperty("query") String query,
+            @JsonProperty("queryStats") QueryStats queryStats,
+            @JsonProperty("outputStage") StageInfo outputStage,
+            @JsonProperty("failures") List<FailureInfo> failures)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
-        Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
-        Preconditions.checkNotNull(stages, "stages is null");
+        Preconditions.checkNotNull(state, "state is null");
+        Preconditions.checkNotNull(self, "self is null");
+        Preconditions.checkNotNull(fieldNames, "fieldNames is null");
+        Preconditions.checkNotNull(queryStats, "queryStats is null");
+        Preconditions.checkNotNull(query, "query is null");
+        Preconditions.checkNotNull(failures, "failures is null");
+
         this.queryId = queryId;
-        this.tupleInfos = tupleInfos;
-        this.fieldNames = ImmutableList.copyOf(checkNotNull(fieldNames, "fieldNames is null"));
         this.state = state;
+        this.self = self;
+        this.fieldNames = ImmutableList.copyOf(fieldNames);
+        this.query = query;
+        this.queryStats = queryStats;
         this.outputStage = outputStage;
-        this.stages = ImmutableMap.copyOf(stages);
+        this.failures = failures;
     }
 
     @JsonProperty
@@ -53,9 +60,15 @@ public class QueryInfo
     }
 
     @JsonProperty
-    public List<TupleInfo> getTupleInfos()
+    public QueryState getState()
     {
-        return tupleInfos;
+        return state;
+    }
+
+    @JsonProperty
+    public URI getSelf()
+    {
+        return self;
     }
 
     @JsonProperty
@@ -65,39 +78,36 @@ public class QueryInfo
     }
 
     @JsonProperty
-    public QueryState getState()
+    public String getQuery()
     {
-        return state;
+        return query;
     }
 
     @JsonProperty
-    public String getOutputStage()
+    public QueryStats getQueryStats()
+    {
+        return queryStats;
+    }
+
+    @JsonProperty
+    public StageInfo getOutputStage()
     {
         return outputStage;
     }
 
     @JsonProperty
-    public Map<String, List<TaskInfo>> getStages()
+    public List<FailureInfo> getFailures()
     {
-        return stages;
+        return failures;
     }
 
     @Override
-    public int hashCode()
+    public String toString()
     {
-        return Objects.hashCode(queryId);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (obj == null) {
-            return false;
-        }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
-        final QueryInfo other = (QueryInfo) obj;
-        return Objects.equal(this.queryId, other.queryId);
+        return Objects.toStringHelper(this)
+                .add("queryId", queryId)
+                .add("state", state)
+                .add("fieldNames", fieldNames)
+                .toString();
     }
 }

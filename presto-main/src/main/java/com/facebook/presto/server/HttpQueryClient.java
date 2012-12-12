@@ -4,6 +4,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.PageIterator;
@@ -14,6 +15,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.net.HttpHeaders;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
@@ -42,7 +44,6 @@ public class HttpQueryClient
     private final URI queryLocation;
     private final JsonCodec<QueryInfo> queryInfoCodec;
     private final JsonCodec<TaskInfo> taskInfoCodec;
-    private final List<TupleInfo> tupleInfos;
 
     public HttpQueryClient(String query,
             URI coordinatorLocation,
@@ -76,16 +77,18 @@ public class HttpQueryClient
                 response.getStatusMessage());
         String location = response.getHeader("Location");
         Preconditions.checkState(location != null);
-        QueryInfo queryInfo = response.getValue();
-        tupleInfos = queryInfo.getTupleInfos();
 
         this.queryLocation = URI.create(location);
     }
 
-    public QueryInfo getQueryInfo()
+    public QueryInfo getQueryInfo(boolean forceRefresh)
     {
         URI statusUri = uriBuilderFrom(queryLocation).build();
-        JsonResponse<QueryInfo> response = httpClient.execute(prepareGet().setUri(statusUri).build(), createFullJsonResponseHandler(queryInfoCodec));
+        Request.Builder requestBuilder = prepareGet().setUri(statusUri);
+        if (forceRefresh) {
+            requestBuilder.addHeader(HttpHeaders.CACHE_CONTROL, "no-cache");
+        }
+        JsonResponse<QueryInfo> response = httpClient.execute(requestBuilder.build(), createFullJsonResponseHandler(queryInfoCodec));
 
         if (response.getStatusCode() == Status.GONE.getStatusCode()) {
             // query has failed, been deleted, or something, and is no longer being tracked by the server
@@ -103,7 +106,7 @@ public class HttpQueryClient
 
     public Operator getResultsOperator()
     {
-        QueryInfo queryInfo = getQueryInfo();
+        QueryInfo queryInfo = getQueryInfo(false);
         if (queryInfo == null || queryInfo.getOutputStage() == null) {
             return new Operator()
             {
@@ -122,27 +125,25 @@ public class HttpQueryClient
                 @Override
                 public PageIterator iterator()
                 {
-                    return PageIterators.emptyIterator(tupleInfos);
+                    return PageIterators.emptyIterator(ImmutableList.<TupleInfo>of());
                 }
             };
         }
 
-        List<TaskInfo> outputStage = queryInfo.getStages().get(queryInfo.getOutputStage());
-        return new QueryDriversOperator(10, Iterables.transform(outputStage, new Function<TaskInfo, QueryDriverProvider>()
+        StageInfo outputStage = queryInfo.getOutputStage();
+        return new QueryDriversOperator(10, outputStage.getTupleInfos(), Iterables.transform(outputStage.getTasks(), new Function<TaskInfo, QueryDriverProvider>()
         {
             @Override
             public QueryDriverProvider apply(TaskInfo taskInfo)
             {
-                Preconditions.checkState(taskInfo.getOutputBufferStates().size() == 1,
+                Preconditions.checkState(taskInfo.getOutputBuffers().size() == 1,
                         "Expected a single output buffer for task %s, but found %s",
                         taskInfo.getTaskId(),
-                        taskInfo.getOutputBufferStates());
+                        taskInfo.getOutputBuffers());
 
-                URI taskUri = uriBuilderFrom(taskInfo.getSelf()).replacePath("/v1/presto/task").appendPath(taskInfo.getTaskId()).build();
                 return new HttpTaskClient(taskInfo.getTaskId(),
-                        taskUri,
-                        Iterables.getOnlyElement(taskInfo.getOutputBufferStates().keySet()),
-                        taskInfo.getTupleInfos(),
+                        taskInfo.getSelf(),
+                        Iterables.getOnlyElement(taskInfo.getOutputBuffers()).getBufferId(),
                         httpClient,
                         executor,
                         taskInfoCodec);

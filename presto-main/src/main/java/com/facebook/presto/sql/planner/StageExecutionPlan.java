@@ -20,20 +20,18 @@ import static com.google.common.base.Preconditions.checkState;
 
 public class StageExecutionPlan
 {
-    private final String stageId;
     private final PlanFragment fragment;
     private final List<Partition> partitions;
-    private final List<StageExecutionPlan> dependencies;
+    private final List<StageExecutionPlan> subStages;
     private final List<TupleInfo> tupleInfos;
     private final Optional<List<String>> fieldNames;
 
-    public StageExecutionPlan(PlanFragment fragment, List<Partition> partitions, List<StageExecutionPlan> dependencies)
+    public StageExecutionPlan(PlanFragment fragment, List<Partition> partitions, List<StageExecutionPlan> subStages)
     {
         this.fragment = checkNotNull(fragment, "fragment is null");
         this.partitions = ImmutableList.copyOf(checkNotNull(partitions, "partitions is null"));
-        this.dependencies = ImmutableList.copyOf(checkNotNull(dependencies, "dependencies is null"));
+        this.subStages = ImmutableList.copyOf(checkNotNull(subStages, "dependencies is null"));
 
-        stageId = String.valueOf(this.fragment.getId());
         tupleInfos = ImmutableList.copyOf(IterableTransformer.on(fragment.getRoot().getOutputSymbols())
                 .transform(Functions.forMap(fragment.getSymbols()))
                 .transform(com.facebook.presto.sql.analyzer.Type.toRaw())
@@ -49,11 +47,6 @@ public class StageExecutionPlan
         fieldNames = (fragment.getRoot() instanceof OutputNode) ?
                 Optional.<List<String>>of(ImmutableList.copyOf(((OutputNode) fragment.getRoot()).getColumnNames())) :
                 Optional.<List<String>>absent();
-    }
-
-    public String getStageId()
-    {
-        return stageId;
     }
 
     public List<TupleInfo> getTupleInfos()
@@ -77,9 +70,9 @@ public class StageExecutionPlan
         return partitions;
     }
 
-    public List<StageExecutionPlan> getDependencies()
+    public List<StageExecutionPlan> getSubStages()
     {
-        return dependencies;
+        return subStages;
     }
 
     @Override
@@ -88,7 +81,7 @@ public class StageExecutionPlan
         return Objects.toStringHelper(this)
                 .add("fragment", fragment)
                 .add("partitions", partitions)
-                .add("dependencies", dependencies)
+                .add("subStages", subStages)
                 .toString();
     }
 }

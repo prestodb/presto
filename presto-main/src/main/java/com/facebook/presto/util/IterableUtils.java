@@ -33,7 +33,7 @@ public class IterableUtils
     }
 
     // TODO: replace with Maps.toMap when Guava 14 comes out (http://code.google.com/p/guava-libraries/issues/detail?id=56)
-    public static <K, V> Map<K, V> toMap(Iterable<K> keys, Function<K, V> valueFunction)
+    public static <K, V> Map<K, V> toMap(Iterable<K> keys, Function<? super K, V> valueFunction)
     {
         ImmutableMap.Builder<K, V> builder = ImmutableMap.builder();
         for (K key : ImmutableSet.copyOf(keys)) {

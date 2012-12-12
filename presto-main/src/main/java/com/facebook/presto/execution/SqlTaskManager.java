@@ -20,7 +20,6 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -107,20 +106,26 @@ public class SqlTaskManager
     }
 
     @Override
-    public TaskInfo createTask(PlanFragment fragment,
+    public TaskInfo createTask(String queryId,
+            String stageId,
+            String taskId,
+            PlanFragment fragment,
             List<PlanFragmentSource> splits,
             Map<String, ExchangePlanFragmentSource> exchangeSources,
             List<String> outputIds)
     {
+        Preconditions.checkNotNull(queryId, "queryId is null");
+        Preconditions.checkNotNull(stageId, "stageId is null");
+        Preconditions.checkNotNull(taskId, "taskId is null");
+        Preconditions.checkArgument(!taskId.isEmpty(), "taskId is empty");
         Preconditions.checkNotNull(fragment, "fragment is null");
         Preconditions.checkNotNull(outputIds, "outputIds is null");
         Preconditions.checkNotNull(splits, "splits is null");
         Preconditions.checkNotNull(exchangeSources, "exchangeSources is null");
 
-        String taskId = UUID.randomUUID().toString();
-        URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/presto/task").appendPath(taskId).build();
+        URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
 
-        SqlTaskExecution taskExecution = new SqlTaskExecution(taskId, location, fragment, splits, exchangeSources,  outputIds, pageBufferMax, sourceProvider, metadata, shardExecutor);
+        SqlTaskExecution taskExecution = new SqlTaskExecution(queryId, stageId, taskId, location, fragment, splits, exchangeSources,  outputIds, pageBufferMax, sourceProvider, metadata, shardExecutor);
         taskExecutor.submit(new TaskStarter(taskExecution));
 
         tasks.put(taskId, taskExecution);
@@ -178,7 +183,7 @@ public class SqlTaskManager
         @Override
         public void run()
         {
-            taskExecution.start();
+            taskExecution.run();
         }
     }
 }

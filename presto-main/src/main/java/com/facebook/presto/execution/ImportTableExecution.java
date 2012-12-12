@@ -16,8 +16,8 @@ import com.facebook.presto.spi.SchemaField;
 import com.facebook.presto.split.ImportClientFactory;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
+import java.net.URI;
 import java.util.List;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
@@ -29,29 +29,36 @@ public class ImportTableExecution
     private static final List<String> FIELD_NAMES = ImmutableList.of("dummy");
 
     private final String queryId;
+    private final URI self;
     private final ImportClientFactory importClientFactory;
     private final ImportManager importManager;
     private final Metadata metadata;
     private final String sourceName;
     private final String databaseName;
     private final String tableName;
+    private String query;
+    private final QueryStats queryStats = new QueryStats();
 
     ImportTableExecution(
             String queryId,
+            URI self,
             ImportClientFactory importClientFactory,
             ImportManager importManager,
             Metadata metadata,
             String sourceName,
             String databaseName,
-            String tableName)
+            String tableName,
+            String query)
     {
         this.queryId = queryId;
+        this.self = self;
         this.importClientFactory = importClientFactory;
         this.importManager = importManager;
         this.metadata = metadata;
         this.sourceName = sourceName;
         this.databaseName = databaseName;
         this.tableName = tableName;
+        this.query = query;
     }
 
     @Override
@@ -63,12 +70,29 @@ public class ImportTableExecution
     @Override
     public QueryInfo getQueryInfo()
     {
-        return new QueryInfo(queryId, TUPLE_INFOS, FIELD_NAMES, QueryState.FINISHED, null, ImmutableMap.<String, List<TaskInfo>>of());
+        return new QueryInfo(queryId,
+                QueryState.FINISHED,
+                self,
+                FIELD_NAMES,
+                query,
+                queryStats,
+                new StageInfo(queryId,
+                        queryId + "-0",
+                        StageState.FINISHED,
+                        URI.create("fake://"),
+                        null,
+                        TUPLE_INFOS,
+                        ImmutableList.<TaskInfo>of(),
+                        ImmutableList.<StageInfo>of(),
+                        ImmutableList.<FailureInfo>of()),
+                ImmutableList.<FailureInfo>of());
     }
 
     @Override
     public void start()
     {
+        queryStats.recordExecutionStart();
+
         String catalogName = "default";
         String schemaName = "default";
 
@@ -83,6 +107,11 @@ public class ImportTableExecution
         List<ImportField> fields = getImportFields(table.getColumns());
 
         importManager.importTable(tableId, sourceName, databaseName, tableName, fields);
+    }
+
+    @Override
+    public void updateState()
+    {
     }
 
     @Override

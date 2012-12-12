@@ -3,67 +3,58 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.operator.Page;
 import com.facebook.presto.execution.PageBuffer.BufferState;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.operator.Page;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.primitives.Ints;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.execution.FailureInfo.toFailures;
+import static com.facebook.presto.execution.PageBuffer.infoGetter;
 import static com.facebook.presto.execution.PageBuffer.stateGetter;
 import static com.google.common.base.Predicates.equalTo;
-import static com.google.common.collect.Maps.transformValues;
+import static com.google.common.collect.Iterables.transform;
 
 public class TaskOutput
 {
+    private final String queryId;
+    private final String stageId;
     private final String taskId;
     private final URI location;
-    private final List<TupleInfo> tupleInfos;
     private final Map<String, PageBuffer> outputBuffers;
 
+    private final ExecutionStats stats = new ExecutionStats();
     private final AtomicReference<TaskState> taskState = new AtomicReference<>(TaskState.RUNNING);
 
-    private final int splits;
-    private final AtomicInteger startedSplits = new AtomicInteger();
-    private final AtomicInteger completedSplits = new AtomicInteger();
+    private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
 
-    private final AtomicLong splitCpuMillis = new AtomicLong();
-
-    private final AtomicLong inputDataSize = new AtomicLong();
-    private final AtomicLong inputPositions = new AtomicLong();
-
-    private final AtomicLong completedDataSize = new AtomicLong();
-    private final AtomicLong completedPositions = new AtomicLong();
-
-    public TaskOutput(String taskId, URI location, List<String> outputIds, List<TupleInfo> tupleInfos, int pageBufferMax, int splits)
+    public TaskOutput(String queryId, String stageId, String taskId, URI location, List<String> outputIds, int pageBufferMax, int splits)
     {
+        Preconditions.checkNotNull(queryId, "queryId is null");
+        Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(location, "location is null");
         Preconditions.checkNotNull(outputIds, "outputIds is null");
         Preconditions.checkArgument(!outputIds.isEmpty(), "outputIds is empty");
-        Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
         Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
         Preconditions.checkArgument(splits >= 0, "splits is negative");
 
+        this.queryId = queryId;
+        this.stageId = stageId;
         this.taskId = taskId;
         this.location = location;
-        this.tupleInfos = tupleInfos;
-        this.splits = splits;
+        stats.addSplits(splits);
         ImmutableMap.Builder<String, PageBuffer> builder = ImmutableMap.builder();
         for (String outputId : outputIds) {
-            builder.put(outputId, new PageBuffer(tupleInfos, 1, pageBufferMax));
+            builder.put(outputId, new PageBuffer(outputId, 1, pageBufferMax));
         }
         outputBuffers = builder.build();
     }
@@ -73,33 +64,33 @@ public class TaskOutput
         return taskId;
     }
 
-    public List<TupleInfo> getTupleInfos()
-    {
-        return tupleInfos;
-    }
-
     public TaskState getState()
     {
         return taskState.get();
     }
 
-    public Map<String, BufferState> getOutputBufferStates()
+    public ExecutionStats getStats()
     {
-        return ImmutableMap.copyOf(transformValues(outputBuffers, stateGetter()));
+        return stats;
+    }
+
+    public List<PageBufferInfo> getBufferInfos()
+    {
+        return ImmutableList.copyOf(transform(outputBuffers.values(), infoGetter()));
     }
 
     private void updateState()
     {
         TaskState overallState = taskState.get();
         if (!overallState.isDone()) {
-            Map<String, BufferState> outputBufferStates = getOutputBufferStates();
+            ImmutableList<BufferState> bufferStates = ImmutableList.copyOf(transform(outputBuffers.values(), stateGetter()));
 
-            if (Iterables.any(outputBufferStates.values(), equalTo(BufferState.FAILED))) {
+            if (Iterables.any(bufferStates, equalTo(BufferState.FAILED))) {
                 taskState.set(TaskState.FAILED);
                 // this shouldn't be necessary, but be safe
                 finishAllBuffers();
             }
-            else if (Iterables.all(outputBufferStates.values(), equalTo(BufferState.FINISHED))) {
+            else if (Iterables.all(bufferStates, equalTo(BufferState.FINISHED))) {
                 taskState.set(TaskState.FINISHED);
             }
         }
@@ -120,6 +111,16 @@ public class TaskOutput
 
     public void cancel()
     {
+        while (true) {
+            TaskState taskState = this.taskState.get();
+            if (taskState.isDone()) {
+                return;
+            }
+            if (this.taskState.compareAndSet(taskState, TaskState.CANCELED)) {
+                break;
+            }
+        }
+
         // cancel all buffers
         finishAllBuffers();
         // the output will only transition to cancel if it isn't already marked as failed
@@ -135,19 +136,11 @@ public class TaskOutput
 
     public void queryFailed(Throwable cause)
     {
+        failureCauses.add(cause);
         taskState.set(TaskState.FAILED);
         for (PageBuffer outputBuffer : outputBuffers.values()) {
             outputBuffer.queryFailed(cause);
         }
-    }
-
-    public int getBufferedPageCount()
-    {
-        int bufferedPageCount = 0;
-        for (PageBuffer outputBuffer : outputBuffers.values()) {
-            bufferedPageCount = Math.max(outputBuffer.getBufferedPageCount(), bufferedPageCount);
-        }
-        return bufferedPageCount;
     }
 
     public boolean addPage(Page page)
@@ -182,96 +175,13 @@ public class TaskOutput
     public TaskInfo getTaskInfo()
     {
         updateState();
-        return new TaskInfo(taskId,
-                location,
-                getOutputBufferStates(),
-                getTupleInfos(),
+        return new TaskInfo(queryId,
+                stageId,
+                taskId,
                 getState(),
-                getBufferedPageCount(),
-                getSplits(),
-                getStartedSplits(),
-                getCompletedSplits(),
-                (long) getSplitCpu().toMillis(),
-                getInputDataSize().toBytes(),
-                getInputPositions(),
-                getCompletedDataSize().toBytes(),
-                getCompletedPositions(),
-                0,
-                0);
-    }
-
-    public int getSplits()
-    {
-        return splits;
-    }
-
-    public int getStartedSplits()
-    {
-        return Ints.min(startedSplits.get(), splits);
-    }
-
-    public int getCompletedSplits()
-    {
-        return Ints.min(completedSplits.get(), startedSplits.get(), splits);
-    }
-
-    public Duration getSplitCpu()
-    {
-        return new Duration(splitCpuMillis.get(), TimeUnit.MILLISECONDS);
-    }
-
-    public DataSize getInputDataSize()
-    {
-        return new DataSize(inputDataSize.get(), Unit.BYTE);
-    }
-
-    public long getInputPositions()
-    {
-        return inputPositions.get();
-    }
-
-    public DataSize getCompletedDataSize()
-    {
-        return new DataSize(completedDataSize.get(), Unit.BYTE);
-    }
-
-    public long getCompletedPositions()
-    {
-        return completedPositions.get();
-    }
-
-    public void splitStarted()
-    {
-        startedSplits.incrementAndGet();
-    }
-
-    public void splitCompleted()
-    {
-        completedSplits.incrementAndGet();
-    }
-
-    public void addSplitCpuTime(Duration duration)
-    {
-        splitCpuMillis.addAndGet((long) duration.toMillis());
-    }
-
-    public void addInputPositions(long inputPositions)
-    {
-        this.inputPositions.addAndGet(inputPositions);
-    }
-
-    public void addInputDataSize(DataSize inputDataSize)
-    {
-        this.inputDataSize.addAndGet(inputDataSize.toBytes());
-    }
-
-    public void addCompletedPositions(long completedPositions)
-    {
-        this.completedPositions.addAndGet(completedPositions);
-    }
-
-    public void addCompletedDataSize(DataSize completedDataSize)
-    {
-        this.completedDataSize.addAndGet(completedDataSize.toBytes());
+                location,
+                getBufferInfos(),
+                stats,
+                toFailures(failureCauses));
     }
 }

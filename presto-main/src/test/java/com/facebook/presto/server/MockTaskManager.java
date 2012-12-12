@@ -10,7 +10,6 @@ import com.facebook.presto.execution.TaskOutput;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -24,18 +23,15 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 
 public class MockTaskManager
         implements TaskManager
 {
-    private static final ImmutableList<TupleInfo> TUPLE_INFOS = ImmutableList.of(SINGLE_VARBINARY);
     private final HttpServerInfo httpServerInfo;
     private final int pageBufferMax;
     private final int initialPages;
@@ -82,13 +78,19 @@ public class MockTaskManager
     }
 
     @Override
-    public TaskInfo createTask(PlanFragment fragment,
+    public TaskInfo createTask(String queryId,
+            String stageId,
+            String taskId,
+            PlanFragment fragment,
             List<PlanFragmentSource> splits,
-            Map<String, ExchangePlanFragmentSource> exchangeSources, List<String> outputIds)
+            Map<String, ExchangePlanFragmentSource> exchangeSources,
+            List<String> outputIds)
     {
-        String taskId = UUID.randomUUID().toString();
-        URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/presto/task").appendPath(taskId).build();
-        TaskOutput taskOutput = new TaskOutput(taskId, location, ImmutableList.copyOf(outputIds), TUPLE_INFOS, pageBufferMax, 0);
+        Preconditions.checkNotNull(taskId, "taskId is null");
+        Preconditions.checkArgument(!taskId.isEmpty(), "taskId is empty");
+
+        URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
+        TaskOutput taskOutput = new TaskOutput(queryId, stageId, taskId, location, ImmutableList.copyOf(outputIds), pageBufferMax, 0);
         tasks.put(taskId, taskOutput);
 
         List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");

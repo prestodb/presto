@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
@@ -86,6 +87,7 @@ public class TestQueryResourceServer
                         binder.bind(MockTaskManager.class).in(Scopes.SINGLETON);
                         binder.bind(TaskManager.class).to(Key.get(MockTaskManager.class)).in(Scopes.SINGLETON);
                         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
+                        binder.bind(LocationFactory.class).to(HttpLocationFactory.class).in(Scopes.SINGLETON);
                     }
                 },
                 new ConfigurationModule(new ConfigurationFactory(ImmutableMap.<String, String>of())));
@@ -108,12 +110,12 @@ public class TestQueryResourceServer
     public void testQuery()
             throws Exception
     {
-        URI location = client.execute(preparePost().setUri(uriFor("/v1/presto/query")).build(), new CreatedResponseHandler());
+        URI location = client.execute(preparePost().setUri(uriFor("/v1/query")).build(), new CreatedResponseHandler());
         assertQueryStatus(location, QueryState.RUNNING);
 
         QueryInfo queryInfo = client.execute(prepareGet().setUri(location).build(), createJsonResponseHandler(jsonCodec(QueryInfo.class)));
-        TaskInfo taskInfo = queryInfo.getStages().get("out").get(0);
-        URI outputLocation = uriFor("/v1/presto/task/" + taskInfo.getTaskId() + "/results/out");
+        TaskInfo taskInfo = queryInfo.getOutputStage().getTasks().get(0);
+        URI outputLocation = uriFor("/v1/task/" + taskInfo.getTaskId() + "/results/out");
 
         assertEquals(loadData(outputLocation), 220);
         assertQueryStatus(location, QueryState.RUNNING);
@@ -169,7 +171,7 @@ public class TestQueryResourceServer
         {
             if (response.getStatusCode() != Status.CREATED.getStatusCode()) {
                 throw new UnexpectedResponseException(
-                        String.format("Expected response code to be 201 CREATED, but was %d %s", response.getStatusCode(), response.getStatusMessage()),
+                        String.format("Expected response code to be 201 CREATED, but was %s %s", response.getStatusCode(), response.getStatusMessage()),
                         request,
                         response);
             }
@@ -197,7 +199,7 @@ public class TestQueryResourceServer
                     return ImmutableList.of();
                 }
                 throw new UnexpectedResponseException(
-                        String.format("Expected response code to be 200, but was %d: %s", response.getStatusCode(), response.getStatusMessage()),
+                        String.format("Expected response code to be 200, but was %s: %s", response.getStatusCode(), response.getStatusMessage()),
                         request,
                         response);
             }
