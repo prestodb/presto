@@ -24,6 +24,7 @@ public class TaskInfo
     private final URI self;
     private final List<PageBufferInfo> outputBuffers;
     private final ExecutionStats stats;
+    private final List<FailureInfo> failures;
 
     @JsonCreator
     public TaskInfo(@JsonProperty("queryId") String queryId,
@@ -32,7 +33,8 @@ public class TaskInfo
             @JsonProperty("state") TaskState state,
             @JsonProperty("self") URI self,
             @JsonProperty("outputBuffers") List<PageBufferInfo> outputBuffers,
-            @JsonProperty("stats") ExecutionStats stats)
+            @JsonProperty("stats") ExecutionStats stats,
+            @JsonProperty("failures") List<FailureInfo> failures)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
@@ -42,6 +44,7 @@ public class TaskInfo
         Preconditions.checkNotNull(outputBuffers, "outputBufferStates is null");
         Preconditions.checkArgument(!outputBuffers.isEmpty(), "outputBufferStates is empty");
         Preconditions.checkNotNull(stats, "stats is null");
+        Preconditions.checkNotNull(failures, "failures is null");
 
         this.queryId = queryId;
         this.stageId = stageId;
@@ -50,6 +53,7 @@ public class TaskInfo
         this.self = self;
         this.outputBuffers = ImmutableList.copyOf(outputBuffers);
         this.stats = stats;
+        this.failures = failures;
     }
 
     @JsonProperty
@@ -92,6 +96,12 @@ public class TaskInfo
     public ExecutionStats getStats()
     {
         return stats;
+    }
+
+    @JsonProperty
+    public List<FailureInfo> getFailures()
+    {
+        return failures;
     }
 
     @Override

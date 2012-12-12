@@ -4,6 +4,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.execution.ExchangePlanFragmentSource;
+import com.facebook.presto.execution.FailureInfo;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
@@ -164,7 +165,9 @@ public class MockQueryManager
                             null,
                             TUPLE_INFOS,
                             ImmutableList.<TaskInfo>of(outputTask),
-                            ImmutableList.<StageInfo>of()));
+                            ImmutableList.<StageInfo>of(),
+                            ImmutableList.<FailureInfo>of()),
+                    ImmutableList.<FailureInfo>of());
         }
     }
 }

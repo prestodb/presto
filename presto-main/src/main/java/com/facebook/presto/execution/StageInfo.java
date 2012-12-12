@@ -28,6 +28,7 @@ public class StageInfo
     private final List<TupleInfo> tupleInfos;
     private final List<TaskInfo> tasks;
     private final List<StageInfo> subStages;
+    private final List<FailureInfo> failures;
 
     @JsonCreator
     public StageInfo(@JsonProperty("queryId") String queryId,
@@ -37,7 +38,8 @@ public class StageInfo
             @JsonProperty("plan") @Nullable PlanFragment plan,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
             @JsonProperty("tasks") List<TaskInfo> tasks,
-            @JsonProperty("subStages") List<StageInfo> subStages)
+            @JsonProperty("subStages") List<StageInfo> subStages,
+            @JsonProperty("failures") List<FailureInfo> failures)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
@@ -45,6 +47,8 @@ public class StageInfo
         Preconditions.checkNotNull(self, "self is null");
         Preconditions.checkNotNull(tasks, "tasks is null");
         Preconditions.checkNotNull(subStages, "subStages is null");
+        Preconditions.checkNotNull(failures, "failures is null");
+
         this.queryId = queryId;
         this.stageId = stageId;
         this.state = state;
@@ -53,6 +57,7 @@ public class StageInfo
         this.tupleInfos = tupleInfos;
         this.tasks = ImmutableList.copyOf(tasks);
         this.subStages = subStages;
+        this.failures = failures;
     }
 
     @JsonProperty
@@ -102,6 +107,12 @@ public class StageInfo
     public List<StageInfo> getSubStages()
     {
         return subStages;
+    }
+
+    @JsonProperty
+    public List<FailureInfo> getFailures()
+    {
+        return failures;
     }
 
     @Override

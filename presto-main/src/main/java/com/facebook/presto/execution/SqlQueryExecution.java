@@ -27,6 +27,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.antlr.runtime.RecognitionException;
 
@@ -37,9 +38,11 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.execution.FailureInfo.toFailures;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.execution.StageInfo.stageStateGetter;
 import static com.facebook.presto.sql.planner.Partition.nodeIdentifierGetter;
@@ -51,6 +54,7 @@ import static com.google.common.collect.Iterables.transform;
 public class SqlQueryExecution
         implements QueryExecution
 {
+    private static final Logger log = Logger.get(SqlQueryExecution.class);
     private static final String ROOT_OUTPUT_BUFFER_NAME = "out";
 
     private final String queryId;
@@ -73,6 +77,8 @@ public class SqlQueryExecution
     private final AtomicReference<StageExecution> outputStage = new AtomicReference<>();
     @GuardedBy("this")
     private final AtomicReference<ImmutableList<String>> fieldNames = new AtomicReference<>(ImmutableList.<String>of());
+
+    private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
 
     public SqlQueryExecution(String queryId,
             String sql,
@@ -127,7 +133,8 @@ public class SqlQueryExecution
                 fieldNames.get(),
                 sql,
                 queryStats,
-                stageInfo);
+                stageInfo,
+                toFailures(failureCauses));
     }
 
     @Override
@@ -161,8 +168,11 @@ public class SqlQueryExecution
             startStage(outputStage.get());
         }
         catch (Exception e) {
-            e.printStackTrace();
-            throw Throwables.propagate(e);
+            synchronized (this) {
+                failureCauses.add(e);
+                queryState.set(QueryState.FAILED);
+            }
+            cancel();
         }
     }
 
@@ -230,7 +240,12 @@ public class SqlQueryExecution
         for (StageExecution subStage : stage.getSubStages()) {
             startStage(subStage);
         }
-        stage.startTasks();
+        // if query is not finished, start the stage, otherwise cancel it
+        if (!queryState.get().isDone()) {
+            stage.startTasks();
+        } else {
+            stage.cancel();
+        }
     }
 
     private StageExecution createStage(AtomicInteger nextStageId, StageExecutionPlan stageExecutionPlan, List<String> outputIds)
@@ -273,10 +288,9 @@ public class SqlQueryExecution
 
         // transition to canceled state, only if not already finished
         synchronized (this) {
-            if (queryState.get().isDone()) {
-                return;
+            if (!queryState.get().isDone()) {
+                queryState.set(QueryState.CANCELED);
             }
-            queryState.set(QueryState.CANCELED);
         }
 
         StageExecution stageExecution = outputStage.get();

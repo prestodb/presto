@@ -183,7 +183,7 @@ public class SqlTaskManager
         @Override
         public void run()
         {
-            taskExecution.start();
+            taskExecution.run();
         }
     }
 }
