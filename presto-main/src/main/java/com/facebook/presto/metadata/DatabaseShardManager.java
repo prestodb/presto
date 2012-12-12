@@ -4,15 +4,19 @@ import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
+import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionCallback;
 import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.VoidTransactionCallback;
+import org.skife.jdbi.v2.exceptions.UnableToObtainConnectionException;
 
 import javax.inject.Inject;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.util.SqlUtils.runIgnoringConstraintViolation;
 import static com.google.common.base.Preconditions.checkState;
@@ -20,15 +24,20 @@ import static com.google.common.base.Preconditions.checkState;
 public class DatabaseShardManager
         implements ShardManager
 {
+    private static final Logger log = Logger.get(DatabaseShardManager.class);
+
     private final IDBI dbi;
     private final ShardManagerDao dao;
 
     @Inject
     public DatabaseShardManager(@ForShardManager IDBI dbi)
+            throws InterruptedException
     {
         this.dbi = dbi;
         this.dao = dbi.onDemand(ShardManagerDao.class);
-        createTables();
+
+        // keep retrying if database is unavailable when the server starts
+        createTablesWithRetry();
     }
 
     @Override
@@ -158,6 +167,22 @@ public class DatabaseShardManager
             throw new IllegalStateException("node does not exist after insert");
         }
         return id;
+    }
+
+    private void createTablesWithRetry()
+            throws InterruptedException
+    {
+        Duration delay = new Duration(10, TimeUnit.SECONDS);
+        while (true) {
+            try {
+                createTables();
+                return;
+            }
+            catch (UnableToObtainConnectionException e) {
+                log.warn("Failed to connect to database. Will retry again in %s. Exception: %s", delay, e.getMessage());
+                Thread.sleep((long) delay.toMillis());
+            }
+        }
     }
 
     private void createTables()
