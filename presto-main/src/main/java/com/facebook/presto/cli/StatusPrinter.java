@@ -87,7 +87,7 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
                 try {
                     Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
 
-                    QueryInfo queryInfo = queryClient.getQueryInfo();
+                    QueryInfo queryInfo = queryClient.getQueryInfo(false);
 
                     // if query is no longer running, finish
                     if (queryInfo == null || queryInfo.getState().isDone()) {
@@ -123,7 +123,7 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
     {
         Duration elapsedTime = Duration.nanosSince(start);
 
-        QueryInfo queryInfo = queryClient.getQueryInfo();
+        QueryInfo queryInfo = queryClient.getQueryInfo(true);
 
         ExecutionStats executionStats = new ExecutionStats();
         StageInfo outputStage = queryInfo.getOutputStage();

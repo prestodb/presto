@@ -5,10 +5,12 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
+import org.eclipse.jetty.http.HttpHeaders;
 
 import javax.inject.Inject;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
+import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -31,6 +33,7 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 @Path("/v1/query")
 public class QueryResource
 {
+    private static final String NO_CACHE = "no-cache";
     private final QueryManager queryManager;
 
     @Inject
@@ -48,13 +51,13 @@ public class QueryResource
 
     @GET
     @Path("{queryId}")
-    public Response getQueryInfo(@PathParam("queryId") String queryId)
+    public Response getQueryInfo(@PathParam("queryId") String queryId, @HeaderParam(HttpHeaders.CACHE_CONTROL) String cacheControl)
             throws InterruptedException
     {
         checkNotNull(queryId, "queryId is null");
 
         try {
-            QueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+            QueryInfo queryInfo = queryManager.getQueryInfo(queryId, NO_CACHE.equals(cacheControl));
             return Response.ok(queryInfo).build();
         }
         catch (NoSuchElementException e) {

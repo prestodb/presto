@@ -73,7 +73,7 @@ public class MockQueryManager
     }
 
     @Override
-    public QueryInfo getQueryInfo(String queryId)
+    public QueryInfo getQueryInfo(String queryId, boolean forceRefresh)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
 

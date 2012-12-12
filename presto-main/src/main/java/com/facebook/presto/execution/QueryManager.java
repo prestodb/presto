@@ -9,7 +9,7 @@ public interface QueryManager
 {
     List<QueryInfo> getAllQueryInfo();
 
-    QueryInfo getQueryInfo(String queryId);
+    QueryInfo getQueryInfo(String queryId, boolean forceRefresh);
 
     QueryInfo createQuery(String query);
 

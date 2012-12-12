@@ -123,7 +123,7 @@ public class Execute
             StatusPrinter statusPrinter = new StatusPrinter(queryClient, out());
             statusPrinter.printInitialStatusUpdates();
 
-            QueryInfo queryInfo = queryClient.getQueryInfo();
+            QueryInfo queryInfo = queryClient.getQueryInfo(false);
             if (queryInfo.getState().isDone()) {
                 if (queryInfo.getState() == QueryState.CANCELED) {
                     AnsiConsole.out().printf("Query %s was canceled\n", queryInfo.getQueryId());
