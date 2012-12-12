@@ -31,12 +31,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.util.RetryDriver.runWithRetry;
 import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
@@ -449,44 +446,5 @@ public class ImportManager
             builder.appendPath(additionalPath);
         }
         return builder.build();
-    }
-
-    // Tracks which partitions still have outstanding tasks
-    private static class PartitionOperationTracker
-    {
-        private final static Logger log = Logger.get(PartitionOperationTracker.class);
-
-        private final ConcurrentMap<PartitionMarker, AtomicInteger> importingPartitions = new ConcurrentHashMap<>();
-
-        public Set<String> getOperatingPartitions(long tableId)
-        {
-            ImmutableSet.Builder<String> builder = ImmutableSet.builder();
-            for (PartitionMarker partitionMarker : importingPartitions.keySet()) {
-                if (partitionMarker.getTableId() == tableId) {
-                    builder.add(partitionMarker.getPartitionName());
-                }
-            }
-            return builder.build();
-        }
-
-        public boolean claimPartition(PartitionMarker partitionMarker, int totalTasks)
-        {
-            checkNotNull(partitionMarker, "partitionMarker is null");
-            checkArgument(totalTasks > 0, "totalTasks must be greater than zero");
-            return importingPartitions.putIfAbsent(partitionMarker, new AtomicInteger(totalTasks)) == null;
-        }
-
-        public void decrementActiveTasks(PartitionMarker partitionMarker)
-        {
-            checkNotNull(partitionMarker, "partitionMarker is null");
-            AtomicInteger chunkCount = importingPartitions.get(partitionMarker);
-            checkArgument(chunkCount != null, "unknown partitionMarker: %s", partitionMarker);
-            checkState(chunkCount.get() > 0, "cannot decrement partitionMarker %s with count %s", partitionMarker, chunkCount.get());
-            if (chunkCount.addAndGet(-1) == 0) {
-                checkState(importingPartitions.remove(partitionMarker, chunkCount));
-                log.info("Operation finished for: " + partitionMarker);
-            }
-            checkState(chunkCount.get() >= 0);
-        }
     }
 }
