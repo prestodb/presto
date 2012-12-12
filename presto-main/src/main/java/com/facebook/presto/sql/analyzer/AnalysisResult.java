@@ -29,8 +29,10 @@ public class AnalysisResult
     private final Long limit;
     private final List<AnalyzedOrdering> orderBy;
     private final IdentityHashMap<Join, AnalyzedExpression> joinCriteria;
+    private final boolean distinct;
 
     public static AnalysisResult newInstance(AnalysisContext context,
+            boolean distinct,
             AnalyzedOutput output,
             AnalyzedExpression predicate,
             List<AnalyzedExpression> groupBy,
@@ -44,6 +46,7 @@ public class AnalysisResult
                 context.getTableMetadata(),
                 context.getInlineViews(),
                 context.getJoinCriteria(),
+                distinct,
                 aggregations,
                 predicate,
                 output,
@@ -58,6 +61,7 @@ public class AnalysisResult
             IdentityHashMap<Relation, TableMetadata> tableMetadata, 
             IdentityHashMap<Subquery, AnalysisResult> inlineViews,
             IdentityHashMap<Join, AnalyzedExpression> joinCriteria,
+            boolean distinct,
             Set<AnalyzedAggregation> aggregations,
             @Nullable AnalyzedExpression predicate,
             AnalyzedOutput output,
@@ -80,6 +84,7 @@ public class AnalysisResult
         this.tableMetadata = new IdentityHashMap<>(tableMetadata);
         this.inlineViews = new IdentityHashMap<>(inlineViews);
         this.joinCriteria = new IdentityHashMap<>(joinCriteria);
+        this.distinct = distinct;
         this.aggregations = ImmutableSet.copyOf(aggregations);
         this.predicate = predicate;
         this.output = output;
@@ -160,5 +165,10 @@ public class AnalysisResult
     public Map<Symbol, Type> getTypes()
     {
         return symbolAllocator.getTypes();
+    }
+
+    public boolean isDistinct()
+    {
+        return distinct;
     }
 }

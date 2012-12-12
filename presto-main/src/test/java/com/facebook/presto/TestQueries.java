@@ -23,6 +23,7 @@ import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.server.HackPlanFragmentSourceProvider;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.sql.analyzer.AnalysisResult;
@@ -105,6 +106,27 @@ public class TestQueries
     private RecordIterable lineItemRecords;
     private Metadata metadata;
     private TpchDataStreamProvider dataProvider;
+
+    @Test
+    public void testDistinct()
+            throws Exception
+    {
+        assertQuery("SELECT DISTINCT custkey FROM orders");
+    }
+
+    @Test
+    public void testDistinctWithOrderBy()
+            throws Exception
+    {
+        assertQuery("SELECT DISTINCT custkey FROM orders ORDER BY custkey LIMIT 10");
+    }
+
+    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = "Expressions must appear in select list for SELECT DISTINCT, ORDER BY.*")
+    public void testDistinctWithOrderByNotInSelect()
+            throws Exception
+    {
+        assertQuery("SELECT DISTINCT custkey FROM orders ORDER BY orderkey LIMIT 10");
+    }
 
     @Test
     public void testOrderByLimit()
