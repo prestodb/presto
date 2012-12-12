@@ -18,6 +18,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.net.HttpHeaders;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 
@@ -64,8 +65,9 @@ public class HttpQueryClient
         this.queryInfoCodec = queryInfoCodec;
         this.taskInfoCodec = taskInfoCodec;
 
+        URI queryUri = HttpUriBuilder.uriBuilderFrom(coordinatorLocation).appendPath("/v1/query").build();
         Request.Builder requestBuilder = preparePost()
-                .setUri(coordinatorLocation)
+                .setUri(queryUri)
                 .setBodyGenerator(createStaticBodyGenerator(query, Charsets.UTF_8));
 
         Request request = requestBuilder.build();
