@@ -14,21 +14,20 @@ public class InterpretedFilterFunction
         implements FilterFunction
 {
     private final Expression predicate;
-    private final Map<Symbol, Integer> symbolToChannelMapping;
-    private final Map<Symbol, Type> symbols;
+    private final ChannelSymbolResolver resolver;
+    private final ExpressionInterpreter evaluator;
 
     public InterpretedFilterFunction(Expression predicate, Map<Symbol, Integer> symbolToChannelMapping, Map<Symbol, Type> symbols)
     {
         this.predicate = predicate;
-        this.symbolToChannelMapping = symbolToChannelMapping;
-        this.symbols = symbols;
+        resolver = new ChannelSymbolResolver(symbols, symbolToChannelMapping);
+        evaluator = new ExpressionInterpreter(resolver);
     }
 
     @Override
     public boolean filter(TupleReadable... cursors)
     {
-        ChannelSymbolResolver resolver = new ChannelSymbolResolver(symbols, symbolToChannelMapping, cursors);
-        ExpressionInterpreter evaluator = new ExpressionInterpreter(resolver);
+        resolver.setInputs(cursors);
         Object result = evaluator.process(predicate, null);
         return result == TRUE;
     }

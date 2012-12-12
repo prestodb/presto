@@ -16,16 +16,19 @@ public class ChannelSymbolResolver
 {
     private final Map<Symbol, Type> symbols;
     private final Map<Symbol, Integer> symbolToChannelMapping;
-    private final TupleReadable[] inputs;
+    private TupleReadable[] inputs;
 
-    public ChannelSymbolResolver(Map<Symbol, Type> symbols, Map<Symbol, Integer> symbolToChannelMapping, TupleReadable[] inputs)
+    public ChannelSymbolResolver(Map<Symbol, Type> symbols, Map<Symbol, Integer> symbolToChannelMapping)
     {
         checkNotNull(symbols, "symbols is null");
         Preconditions.checkNotNull(symbolToChannelMapping, "symbolToChannelMapping is null");
-        Preconditions.checkNotNull(inputs, "inputs is null");
 
         this.symbols = ImmutableMap.copyOf(symbols);
         this.symbolToChannelMapping = ImmutableMap.copyOf(symbolToChannelMapping);
+    }
+
+    public void setInputs(TupleReadable[] inputs)
+    {
         this.inputs = inputs;
     }
 

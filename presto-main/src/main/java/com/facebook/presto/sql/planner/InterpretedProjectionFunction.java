@@ -16,15 +16,16 @@ public class InterpretedProjectionFunction
 {
     private final Type type;
     private final Expression expression;
-    private final Map<Symbol, Integer> symbolToChannelMapping;
-    private final Map<Symbol, Type> types;
+    private final ChannelSymbolResolver resolver;
+    private final ExpressionInterpreter evaluator;
 
     public InterpretedProjectionFunction(Type type, Expression expression, Map<Symbol, Integer> symbolToChannelMapping, Map<Symbol, Type> types)
     {
         this.type = type;
         this.expression = expression;
-        this.symbolToChannelMapping = symbolToChannelMapping;
-        this.types = types;
+
+        resolver = new ChannelSymbolResolver(types, symbolToChannelMapping);
+        evaluator = new ExpressionInterpreter(resolver);
     }
 
     @Override
@@ -36,8 +37,7 @@ public class InterpretedProjectionFunction
     @Override
     public void project(TupleReadable[] cursors, BlockBuilder output)
     {
-        ChannelSymbolResolver resolver = new ChannelSymbolResolver(types, symbolToChannelMapping, cursors);
-        ExpressionInterpreter evaluator = new ExpressionInterpreter(resolver);
+        resolver.setInputs(cursors);
         Object value = evaluator.process(expression, null);
 
         if (value == null) {
