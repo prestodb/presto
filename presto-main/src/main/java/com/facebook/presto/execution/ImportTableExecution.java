@@ -91,7 +91,7 @@ public class ImportTableExecution
     @Override
     public void start()
     {
-        queryStats.recordStart();
+        queryStats.recordExecutionStart();
 
         String catalogName = "default";
         String schemaName = "default";
