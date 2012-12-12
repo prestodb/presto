@@ -15,6 +15,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.net.HttpHeaders;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
@@ -80,10 +81,14 @@ public class HttpQueryClient
         this.queryLocation = URI.create(location);
     }
 
-    public QueryInfo getQueryInfo()
+    public QueryInfo getQueryInfo(boolean forceRefresh)
     {
         URI statusUri = uriBuilderFrom(queryLocation).build();
-        JsonResponse<QueryInfo> response = httpClient.execute(prepareGet().setUri(statusUri).build(), createFullJsonResponseHandler(queryInfoCodec));
+        Request.Builder requestBuilder = prepareGet().setUri(statusUri);
+        if (forceRefresh) {
+            requestBuilder.addHeader(HttpHeaders.CACHE_CONTROL, "no-cache");
+        }
+        JsonResponse<QueryInfo> response = httpClient.execute(requestBuilder.build(), createFullJsonResponseHandler(queryInfoCodec));
 
         if (response.getStatusCode() == Status.GONE.getStatusCode()) {
             // query has failed, been deleted, or something, and is no longer being tracked by the server
@@ -101,7 +106,7 @@ public class HttpQueryClient
 
     public Operator getResultsOperator()
     {
-        QueryInfo queryInfo = getQueryInfo();
+        QueryInfo queryInfo = getQueryInfo(false);
         if (queryInfo == null || queryInfo.getOutputStage() == null) {
             return new Operator()
             {

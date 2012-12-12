@@ -116,13 +116,16 @@ public class SqlQueryManager
     }
 
     @Override
-    public QueryInfo getQueryInfo(String queryId)
+    public QueryInfo getQueryInfo(String queryId, boolean forceRefresh)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
 
         QueryExecution query = queries.get(queryId);
         if (query == null) {
             throw new NoSuchElementException();
+        }
+        if (forceRefresh) {
+            query.updateState();
         }
         return query.getQueryInfo();
     }
