@@ -10,17 +10,9 @@ import static com.google.common.base.Charsets.UTF_8;
 
 public class Tuples
 {
-    public static final Tuple NULL_STRING_TUPLE = SINGLE_VARBINARY.builder()
-            .appendNull()
-            .build();
-
-    public static final Tuple NULL_LONG_TUPLE = SINGLE_LONG.builder()
-            .appendNull()
-            .build();
-
-    public static final Tuple NULL_DOUBLE_TUPLE = SINGLE_DOUBLE.builder()
-            .appendNull()
-            .build();
+    public static final Tuple NULL_STRING_TUPLE = nullTuple(SINGLE_VARBINARY);
+    public static final Tuple NULL_LONG_TUPLE = nullTuple(SINGLE_LONG);
+    public static final Tuple NULL_DOUBLE_TUPLE = nullTuple(SINGLE_DOUBLE);
 
     public static Tuple nullTuple(TupleInfo tupleInfo)
     {
