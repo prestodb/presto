@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SqlTaskExecution
@@ -120,9 +121,9 @@ public class SqlTaskExecution
                 // one thread is allocated to processing this task.
                 // SplitWorkers are designed to be "once-only" callables and become no-ops once someone
                 // invokes "call" on them. Therefore it is safe to invoke them here
-                List<Future<Void>> results = shardExecutor.processBatch(workers);
-                for (Callable<Void> worker : Lists.reverse(workers)) {
-                    worker.call();
+                List<FutureTask<Void>> results = shardExecutor.processBatch(workers);
+                for (FutureTask<Void> worker : Lists.reverse(results)) {
+                    worker.run();
                 }
 
                 checkQueryResults(results);
@@ -141,7 +142,7 @@ public class SqlTaskExecution
         }
     }
 
-    private static void checkQueryResults(Iterable<Future<Void>> results)
+    private static void checkQueryResults(Iterable<? extends Future<Void>> results)
             throws InterruptedException
     {
         RuntimeException queryFailedException = null;
