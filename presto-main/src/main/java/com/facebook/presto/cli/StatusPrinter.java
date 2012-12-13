@@ -3,6 +3,7 @@ package com.facebook.presto.cli;
 import com.facebook.presto.execution.ExecutionStats;
 import com.facebook.presto.execution.PageBufferInfo;
 import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.server.HttpQueryClient;
@@ -104,6 +105,7 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
         Duration elapsedTime = Duration.nanosSince(start);
 
         QueryInfo queryInfo = queryClient.getQueryInfo(true);
+        QueryStats queryStats = queryInfo.getQueryStats();
 
         StageInfo outputStage = queryInfo.getOutputStage();
 
@@ -125,7 +127,7 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
                 queryInfo.getQueryId(),
                 queryInfo.getState(),
                 nodes,
-                globalExecutionStats.getSplits());
+                queryStats.getSplits());
         out.println(querySummary);
 
         // CPU user: 11.45s 4.2MBps wall, 9.45s 8.2MBps user, 9.45s 8.2MBps wall/node
