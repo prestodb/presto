@@ -78,13 +78,13 @@ public class FairBatchExecutor
 
     // TODO: add shutdownNow
 
-    public <T> List<Future<T>> processBatch(Collection<? extends Callable<T>> tasks)
+    public <T> List<FutureTask<T>> processBatch(Collection<? extends Callable<T>> tasks)
     {
         Preconditions.checkState(!shutdown.get(), "Executor is already shut down");
 
         long priority = computeStartingPriority();
 
-        ImmutableList.Builder<Future<T>> result = ImmutableList.builder();
+        ImmutableList.Builder<FutureTask<T>> result = ImmutableList.builder();
         for (Callable<T> task : tasks) {
             PrioritizedFutureTask<T> future = new PrioritizedFutureTask<>(priority++, task);
 
