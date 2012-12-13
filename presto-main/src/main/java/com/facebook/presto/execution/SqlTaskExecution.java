@@ -128,8 +128,6 @@ public class SqlTaskExecution
 
                 checkQueryResults(results);
             }
-
-            taskOutput.finish();
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -139,6 +137,9 @@ public class SqlTaskExecution
         catch (Throwable e) {
             taskOutput.queryFailed(e);
             throw Throwables.propagate(e);
+        }
+        finally {
+            taskOutput.finish();
         }
     }
 
