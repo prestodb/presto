@@ -116,6 +116,12 @@ public class DictionaryEncodedBlockCursor implements BlockCursor
     }
 
     @Override
+    public Slice getRawSlice()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void appendTupleTo(BlockBuilder blockBuilder)
     {
         dictionary.appendTupleTo(getDictionaryKey(), blockBuilder);
