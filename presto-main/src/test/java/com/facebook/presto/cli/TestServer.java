@@ -42,7 +42,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestServer
 {
-    private File databaseDir;
+    private File baseDataDir;
     private TestingHttpServer server;
     private HttpClient client;
 
@@ -50,11 +50,12 @@ public class TestServer
     public void setup()
             throws Exception
     {
-        databaseDir = Files.createTempDir();
+        baseDataDir = Files.createTempDir();
 
         Map<String, String> serverProperties = ImmutableMap.<String, String>builder()
+                .put("storage-manager.data-directory", baseDataDir.getPath())
                 .put("presto-metastore.db.type", "h2")
-                .put("presto-metastore.db.filename", new File(databaseDir, "Metastore").getAbsolutePath())
+                .put("presto-metastore.db.filename", new File(baseDataDir, "db/MetaStore").getPath())
                 .build();
 
         // TODO: wrap all this stuff in a TestBootstrap class
@@ -85,7 +86,7 @@ public class TestServer
         if (server != null) {
             server.stop();
         }
-        FileUtils.deleteRecursively(databaseDir);
+        FileUtils.deleteRecursively(baseDataDir);
     }
 
     @Test
