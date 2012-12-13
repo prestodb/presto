@@ -5,7 +5,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -19,11 +19,11 @@ public class ShardBoundedExecutor<T>
     // Map shards to associated executors (single-threaded)
     @GuardedBy("this")
     private final Map<T, CountedReference<BoundedExecutor>> shardExecutors = new HashMap<>();
-    private final ExecutorService executorService;
+    private final Executor executor;
 
-    public ShardBoundedExecutor(ExecutorService executorService)
+    public ShardBoundedExecutor(Executor executor)
     {
-        this.executorService = checkNotNull(executorService, "executorService is null");
+        this.executor = checkNotNull(executor, "executor is null");
     }
 
     public synchronized boolean isActive(T shard)
@@ -53,7 +53,7 @@ public class ShardBoundedExecutor<T>
     {
         CountedReference<BoundedExecutor> reference = shardExecutors.get(shard);
         if (reference == null) {
-            reference = new CountedReference<>(new BoundedExecutor(executorService, 1));
+            reference = new CountedReference<>(new BoundedExecutor(executor, 1));
             shardExecutors.put(shard, reference);
         }
         else {
