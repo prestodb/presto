@@ -137,6 +137,12 @@ public class AlternatingNullsBlockCursor
     }
 
     @Override
+    public Slice getRawSlice()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void appendTupleTo(BlockBuilder blockBuilder)
     {
         if (isNullPosition()) {

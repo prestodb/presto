@@ -134,5 +134,7 @@ public interface BlockCursor
 
     int getRawOffset();
 
+    Slice getRawSlice();
+
     void appendTupleTo(BlockBuilder blockBuilder);
 }

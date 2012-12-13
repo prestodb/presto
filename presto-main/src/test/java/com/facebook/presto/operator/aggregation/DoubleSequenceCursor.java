@@ -132,6 +132,12 @@ public class DoubleSequenceCursor
     }
 
     @Override
+    public Slice getRawSlice()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void appendTupleTo(BlockBuilder blockBuilder)
     {
         blockBuilder.append((double) current);

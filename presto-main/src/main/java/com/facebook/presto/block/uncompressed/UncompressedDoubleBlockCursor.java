@@ -167,6 +167,12 @@ public class UncompressedDoubleBlockCursor
     }
 
     @Override
+    public Slice getRawSlice()
+    {
+        return slice;
+    }
+
+    @Override
     public void appendTupleTo(BlockBuilder blockBuilder)
     {
         blockBuilder.appendTuple(slice, offset, ENTRY_SIZE);
