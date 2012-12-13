@@ -7,6 +7,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.operator.AbstractPageIterator;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.tuple.TupleInfo;
@@ -51,9 +52,9 @@ public class RecordProjectOperator
     }
 
     @Override
-    public PageIterator iterator()
+    public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new RecordProjectionOperator(source.iterator(), projections);
+        return new RecordProjectionOperator(source.iterator(operatorStats), projections, operatorStats);
     }
 
     private static class RecordProjectionOperator
@@ -61,13 +62,15 @@ public class RecordProjectOperator
     {
         private final RecordIterator iterator;
         private final List<? extends RecordProjection> projections;
+        private final OperatorStats operatorStats;
 
 
-        public RecordProjectionOperator(RecordIterator iterator, List<? extends RecordProjection> projections)
+        public RecordProjectionOperator(RecordIterator iterator, List<? extends RecordProjection> projections, OperatorStats operatorStats)
         {
             super(RecordProjections.toTupleInfos(projections));
             this.iterator = iterator;
             this.projections = projections;
+            this.operatorStats = operatorStats;
         }
 
         protected Page computeNext()
@@ -95,7 +98,10 @@ public class RecordProjectOperator
                 blocks[i] = outputs[i].build();
             }
 
-            return new Page(blocks);
+            Page page = new Page(blocks);
+            operatorStats.addActualDataSize(page.getDataSize().toBytes());
+            operatorStats.addActualPositionCount(page.getPositionCount());
+            return page;
         }
 
         @Override

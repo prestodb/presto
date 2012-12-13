@@ -3,6 +3,7 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.server.HackPlanFragmentSourceProvider;
@@ -81,6 +82,7 @@ public abstract class AbstractSqlBenchmark
                 null,
                 builder.build(),
                 ImmutableMap.<String, ExchangePlanFragmentSource>of(),
+                new OperatorStats(),
                 new SourceHashProviderFactory());
 
         return executionPlanner.plan(fragment.getRoot());

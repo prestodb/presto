@@ -68,19 +68,21 @@ public class InMemoryOrderByOperator
     }
 
     @Override
-    public PageIterator iterator()
+    public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new InMemoryOrderByIterator(source);
+        return new InMemoryOrderByIterator(source, operatorStats);
     }
 
     private class InMemoryOrderByIterator
             extends AbstractPageIterator
     {
         private final Iterator<KeyAndTuples> outputIterator;
+        private final OperatorStats operatorStats;
 
-        private InMemoryOrderByIterator(Operator source)
+        private InMemoryOrderByIterator(Operator source, OperatorStats operatorStats)
         {
             super(source.getTupleInfos());
+            this.operatorStats = operatorStats;
             outputIterator = materializeTuplesAndSort(source).iterator();
         }
 
@@ -119,7 +121,7 @@ public class InMemoryOrderByOperator
 
         private List<KeyAndTuples> materializeTuplesAndSort(Operator source) {
             List<KeyAndTuples> keyAndTuplesList = Lists.newArrayList();
-            try (PageIterator pageIterator = source.iterator()) {
+            try (PageIterator pageIterator = source.iterator(operatorStats)) {
                 while (pageIterator.hasNext()) {
                     Page page = pageIterator.next();
                     Block[] blocks = page.getBlocks();
