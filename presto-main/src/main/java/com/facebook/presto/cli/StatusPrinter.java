@@ -170,8 +170,13 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
         int nodes = uniqueNodes(outputStage).size();
 
         if (REAL_TERMINAL) {
-            // Query 143: RUNNING, 39 nodes
-            String querySummary = String.format("Query %s: %s, %,d nodes", queryInfo.getQueryId(), queryInfo.getState(), nodes);
+            // Query 143: RUNNING, 39 nodes, 84.3s elapsed
+            Duration wallTime = new Duration(elapsedTime.toMillis() * nodes, MILLISECONDS);
+            String querySummary = String.format("Query %s: %s, %,d nodes, %.1fs elapsed",
+                    queryInfo.getQueryId(),
+                    queryInfo.getState(),
+                    nodes,
+                    wallTime.convertTo(SECONDS));
             reprintLine(querySummary);
 
             // Splits: 648 total, 252 pending, 16 running, 380 finished
@@ -193,7 +198,6 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
             reprintLine(cpuUserSummary);
 
             // CPU wall: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
-            Duration wallTime = new Duration(elapsedTime.toMillis() * nodes, MILLISECONDS);
             Duration wallTimePerNode = elapsedTime;
             String cpuWallSummary = String.format("CPU wall: %5.1fs %7s total, %5.1fs %7s per node",
                     wallTime.convertTo(SECONDS),
