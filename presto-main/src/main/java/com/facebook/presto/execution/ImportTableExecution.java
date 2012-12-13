@@ -79,7 +79,7 @@ public class ImportTableExecution
                 new StageInfo(queryId,
                         queryId + "-0",
                         StageState.FINISHED,
-                        URI.create("fake://"),
+                        URI.create("fake://fake"),
                         null,
                         TUPLE_INFOS,
                         ImmutableList.<TaskInfo>of(),
