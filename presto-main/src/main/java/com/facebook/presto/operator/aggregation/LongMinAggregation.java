@@ -9,16 +9,15 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Provider;
-
 import java.util.List;
 
 import static com.facebook.presto.tuple.Tuples.NULL_LONG_TUPLE;
 import static com.facebook.presto.tuple.Tuples.createTuple;
 
-public class LongSumAggregation
-        implements AggregationFunction
+public class LongMinAggregation
+    implements AggregationFunction
 {
-    public static Provider<AggregationFunction> longSumAggregation(int channelIndex, int field)
+    public static Provider<AggregationFunction> longMinAggregation(int channelIndex, int field)
     {
         return BINDER.bind(ImmutableList.of(new Input(channelIndex, field)));
     }
@@ -28,14 +27,14 @@ public class LongSumAggregation
         @Override
         public Provider<AggregationFunction> bind(final List<Input> arguments)
         {
-            Preconditions.checkArgument(arguments.size() == 1, "sum takes 1 parameter");
+            Preconditions.checkArgument(arguments.size() == 1, "min takes 1 parameter");
 
             return new Provider<AggregationFunction>()
             {
                 @Override
-                public LongSumAggregation get()
+                public LongMinAggregation get()
                 {
-                    return new LongSumAggregation(arguments.get(0).getChannel(), arguments.get(0).getField());
+                    return new LongMinAggregation(arguments.get(0).getChannel(), arguments.get(0).getField());
                 }
             };
         }
@@ -44,9 +43,9 @@ public class LongSumAggregation
     private final int channelIndex;
     private final int fieldIndex;
     private boolean hasNonNullValue;
-    private long sum;
+    private long min;
 
-    public LongSumAggregation(int channelIndex, int fieldIndex)
+    public LongMinAggregation(int channelIndex, int fieldIndex)
     {
         this.channelIndex = channelIndex;
         this.fieldIndex = fieldIndex;
@@ -71,7 +70,7 @@ public class LongSumAggregation
         while (cursor.advanceNextPosition()) {
             if (!cursor.isNull(fieldIndex)) {
                 hasNonNullValue = true;
-                sum += cursor.getLong(fieldIndex);
+                min = Math.min(cursor.getLong(fieldIndex), min);
             }
         }
     }
@@ -82,17 +81,7 @@ public class LongSumAggregation
         BlockCursor cursor = cursors[channelIndex];
         if (!cursor.isNull(fieldIndex)) {
             hasNonNullValue = true;
-            sum += cursor.getLong(fieldIndex);
-        }
-    }
-
-    @Override
-    public void addIntermediate(BlockCursor... cursors)
-    {
-        BlockCursor cursor = cursors[channelIndex];
-        if (!cursor.isNull(fieldIndex)) {
-            hasNonNullValue = true;
-            sum += cursor.getLong(fieldIndex);
+            min = Math.min(cursor.getLong(fieldIndex), min);
         }
     }
 
@@ -103,8 +92,18 @@ public class LongSumAggregation
         while (cursor.advanceNextPosition()) {
             if (!cursor.isNull(fieldIndex)) {
                 hasNonNullValue = true;
-                sum += cursor.getLong(fieldIndex);
+                min = Math.min(cursor.getLong(fieldIndex), min);
             }
+        }
+    }
+
+    @Override
+    public void addIntermediate(BlockCursor... cursors)
+    {
+        BlockCursor cursor = cursors[channelIndex];
+        if (!cursor.isNull(fieldIndex)) {
+            hasNonNullValue = true;
+            min = Math.min(cursor.getLong(fieldIndex), min);
         }
     }
 
@@ -114,7 +113,7 @@ public class LongSumAggregation
         if (!hasNonNullValue) {
             return NULL_LONG_TUPLE;
         }
-        return createTuple(sum);
+        return createTuple(min);
     }
 
     @Override
@@ -123,6 +122,6 @@ public class LongSumAggregation
         if (!hasNonNullValue) {
             return NULL_LONG_TUPLE;
         }
-        return createTuple(sum);
+        return createTuple(min);
     }
 }

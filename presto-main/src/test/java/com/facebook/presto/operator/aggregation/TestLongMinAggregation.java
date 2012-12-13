@@ -4,48 +4,43 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.tuple.Tuple;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
-public class TestDoubleAverageAggregation
+public class TestLongMinAggregation
     extends AbstractTestAggregationFunction
 {
     @Override
     public Block getSequenceBlock(int positions)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_DOUBLE);
+        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_LONG);
         for (int i = 0; i < positions; i++) {
-            blockBuilder.append((double) i);
+            blockBuilder.append(i);
         }
         return blockBuilder.build();
     }
 
     @Override
-    public DoubleAverageAggregation getFunction()
+    public LongMinAggregation getFunction()
     {
-        return new DoubleAverageAggregation(0, 0);
+        return new LongMinAggregation(0, 0);
     }
 
     @Override
-    public Double getExpectedValue(int positions)
+    public Long getExpectedValue(int positions)
     {
         if (positions == 0) {
             return null;
         }
-
-        double sum = 0;
-        for (int i = 0; i < positions; i++) {
-            sum += i;
-        }
-        return sum / positions;
+        return 0L;
     }
 
     @Override
-    public Double getActualValue(AggregationFunctionStep function)
+    public Long getActualValue(AggregationFunctionStep function)
     {
         Tuple value = function.evaluate();
         if (value.isNull(0)) {
             return null;
         }
-        return value.getDouble(0);
+        return value.getLong(0);
     }
 }

@@ -25,7 +25,7 @@ import static com.facebook.presto.tuple.Tuples.createTuple;
 public class DoubleAverageAggregation
         implements AggregationFunction
 {
-    public static Provider<AggregationFunction> doubleAverageAggregation(final int channelIndex, final int field)
+    public static Provider<AggregationFunction> doubleAverageAggregation(int channelIndex, int field)
     {
         return BINDER.bind(ImmutableList.of(new Input(channelIndex, field)));
     }

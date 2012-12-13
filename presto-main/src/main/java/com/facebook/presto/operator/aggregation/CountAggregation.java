@@ -18,7 +18,7 @@ import static com.facebook.presto.tuple.Tuples.createTuple;
 public class CountAggregation
         implements AggregationFunction
 {
-    public static Provider<AggregationFunction> countAggregation(final int channelIndex, final int field)
+    public static Provider<AggregationFunction> countAggregation(int channelIndex, int field)
     {
         return BINDER.bind(ImmutableList.of(new Input(channelIndex, field)));
     }

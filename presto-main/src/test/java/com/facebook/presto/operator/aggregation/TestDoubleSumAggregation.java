@@ -11,10 +11,10 @@ public class TestDoubleSumAggregation
     extends AbstractTestAggregationFunction
 {
     @Override
-    public Block getSequenceBlock(int max)
+    public Block getSequenceBlock(int positions)
     {
         BlockBuilder blockBuilder = new BlockBuilder(SINGLE_DOUBLE);
-        for (int i = 0; i < max; i++) {
+        for (int i = 0; i < positions; i++) {
             blockBuilder.append((double) i);
         }
         return blockBuilder.build();
