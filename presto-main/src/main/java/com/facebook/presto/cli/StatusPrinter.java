@@ -128,16 +128,6 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
                 globalExecutionStats.getSplits());
         out.println(querySummary);
 
-        // CPU wall: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
-        Duration wallTime = new Duration(elapsedTime.toMillis() * nodes, MILLISECONDS);
-        Duration wallTimePerNode = elapsedTime;
-        String cpuWallSummary = String.format("CPU wall: %s %s total, %s %s per node",
-                wallTime.toString(SECONDS),
-                formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTime, true),
-                wallTimePerNode.toString(SECONDS),
-                formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTimePerNode, true));
-        out.println(cpuWallSummary);
-
         // CPU user: 11.45s 4.2MBps wall, 9.45s 8.2MBps user, 9.45s 8.2MBps wall/node
         Duration userTime = new Duration(globalExecutionStats.getSplitCpuTime(), MILLISECONDS);
         Duration userTimePerNode = new Duration(userTime.toMillis() / nodes, MILLISECONDS);
@@ -147,6 +137,16 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
                 userTimePerNode.toString(SECONDS),
                 formatDataRate(inputExecutionStats.getCompletedDataSize(), userTimePerNode, true));
         out.println(cpuUserSummary);
+
+        // CPU wall: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
+        Duration wallTime = new Duration(elapsedTime.toMillis() * nodes, MILLISECONDS);
+        Duration wallTimePerNode = elapsedTime;
+        String cpuWallSummary = String.format("CPU wall: %s %s total, %s %s per node",
+                wallTime.toString(SECONDS),
+                formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTime, true),
+                wallTimePerNode.toString(SECONDS),
+                formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTimePerNode, true));
+        out.println(cpuWallSummary);
 
         // blank line
         out.println();
@@ -180,16 +180,6 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
                     globalExecutionStats.getCompletedSplits());
             reprintLine(splitsSummary);
 
-            // CPU wall: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
-            Duration wallTime = new Duration(elapsedTime.toMillis() * nodes, MILLISECONDS);
-            Duration wallTimePerNode = elapsedTime;
-            String cpuWallSummary = String.format("CPU wall: %5.1fs %7s total, %5.1fs %7s per node",
-                    wallTime.convertTo(SECONDS),
-                    formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTime, true),
-                    wallTimePerNode.convertTo(SECONDS),
-                    formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTimePerNode, true));
-            reprintLine(cpuWallSummary);
-
             // CPU user: 11.45s 4.2MBps wall, 9.45s 8.2MBps user, 9.45s 8.2MBps wall/node
             Duration userTime = new Duration(globalExecutionStats.getSplitCpuTime(), MILLISECONDS);
             Duration userTimePerNode = new Duration(userTime.toMillis() / nodes, MILLISECONDS);
@@ -199,6 +189,16 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
                     userTimePerNode.convertTo(SECONDS),
                     formatDataRate(inputExecutionStats.getCompletedDataSize(), userTimePerNode, true));
             reprintLine(cpuUserSummary);
+
+            // CPU wall: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
+            Duration wallTime = new Duration(elapsedTime.toMillis() * nodes, MILLISECONDS);
+            Duration wallTimePerNode = elapsedTime;
+            String cpuWallSummary = String.format("CPU wall: %5.1fs %7s total, %5.1fs %7s per node",
+                    wallTime.convertTo(SECONDS),
+                    formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTime, true),
+                    wallTimePerNode.convertTo(SECONDS),
+                    formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTimePerNode, true));
+            reprintLine(cpuWallSummary);
 
             // todo Mem: 1949M shared, 7594M private
 
