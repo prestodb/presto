@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.concurrent.FairBatchExecutor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -24,7 +25,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -39,7 +39,7 @@ public class SqlTaskManager
     private final int pageBufferMax;
 
     private final ExecutorService taskExecutor;
-    private final ExecutorService shardExecutor;
+    private final FairBatchExecutor shardExecutor;
     private final Metadata metadata;
     private final PlanFragmentSourceProvider sourceProvider;
     private final HttpServerInfo httpServerInfo;
@@ -67,12 +67,8 @@ public class SqlTaskManager
                 1, TimeUnit.MINUTES,
                 new LinkedBlockingQueue<Runnable>(),
                 threadsNamed("task-processor-%d"));
-        shardExecutor = new ThreadPoolExecutor(8 * processors,
-                8 * processors,
-                1, TimeUnit.MINUTES,
-                new SynchronousQueue<Runnable>(),
-                threadsNamed("shard-processor-%d"),
-                new ThreadPoolExecutor.CallerRunsPolicy());
+
+        shardExecutor = new FairBatchExecutor(8 * processors, threadsNamed("shard-processor-%d"));
     }
 
     @Override
