@@ -9,7 +9,9 @@ import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.server.QueryDriversOperator.QueryDriversIterator;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
@@ -138,7 +140,9 @@ public class TestHttpQueryProvider
         );
 
         int count = 0;
-        for (Page page : operator) {
+        PageIterator iterator = operator.iterator(new OperatorStats());
+        while (iterator.hasNext()) {
+            Page page = iterator.next();
             BlockCursor cursor = page.getBlock(0).cursor();
             while (cursor.advanceNextPosition()) {
                 count++;
@@ -159,7 +163,7 @@ public class TestHttpQueryProvider
         );
 
         int count = 0;
-        QueryDriversIterator iterator = operator.iterator();
+        QueryDriversIterator iterator = operator.iterator(new OperatorStats());
         while (count < 20 && iterator.hasNext()) {
             Page page = iterator.next();
             BlockCursor cursor = page.getBlock(0).cursor();

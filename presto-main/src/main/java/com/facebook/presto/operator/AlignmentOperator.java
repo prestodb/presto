@@ -15,6 +15,7 @@ import io.airlift.units.DataSize;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -22,8 +23,8 @@ public class AlignmentOperator implements Operator
 {
     private final BlockIterable[] channels;
     private final List<TupleInfo> tupleInfos;
-    private Optional<DataSize> dataSize;
-    private Optional<Integer> positionCount;
+    private Optional<DataSize> expectedDataSize;
+    private Optional<Integer> expectedPositionCount;
 
     public AlignmentOperator(BlockIterable... channels)
     {
@@ -33,8 +34,8 @@ public class AlignmentOperator implements Operator
             tupleInfos.add(channel.getTupleInfo());
         }
         this.tupleInfos = tupleInfos.build();
-        dataSize = BlockIterables.getDataSize(channels);
-        positionCount = BlockIterables.getPositionCount(channels);
+        expectedDataSize = BlockIterables.getDataSize(channels);
+        expectedPositionCount = BlockIterables.getPositionCount(channels);
     }
 
     public AlignmentOperator(Iterable<BlockIterable> channels)
@@ -45,8 +46,8 @@ public class AlignmentOperator implements Operator
             tupleInfos.add(channel.getTupleInfo());
         }
         this.tupleInfos = tupleInfos.build();
-        dataSize = BlockIterables.getDataSize(channels);
-        positionCount = BlockIterables.getPositionCount(channels);
+        expectedDataSize = BlockIterables.getDataSize(channels);
+        expectedPositionCount = BlockIterables.getPositionCount(channels);
     }
 
     @Override
@@ -61,18 +62,18 @@ public class AlignmentOperator implements Operator
         return tupleInfos;
     }
 
-    public Optional<DataSize> getDataSize()
+    public Optional<DataSize> getExpectedDataSize()
     {
-        return dataSize;
+        return expectedDataSize;
     }
 
-    public Optional<Integer> getPositionCount()
+    public Optional<Integer> getExpectedPositionCount()
     {
-        return positionCount;
+        return expectedPositionCount;
     }
 
     @Override
-    public PageIterator iterator()
+    public PageIterator iterator(OperatorStats operatorStats)
     {
         Iterator<? extends Block>[] iterators = new Iterator[channels.length];
         for (int i = 0; i < iterators.length; i++) {
@@ -87,20 +88,27 @@ public class AlignmentOperator implements Operator
             return PageIterators.emptyIterator(tupleInfos);
         }
 
-        return new AlignmentIterator(tupleInfos, iterators);
+        if (expectedDataSize.isPresent()) {
+            operatorStats.addExpectedDataSize(expectedDataSize.get().toBytes());
+        }
+        operatorStats.addExpectedPositionCount(expectedPositionCount.or(0));
+        return new AlignmentIterator(tupleInfos, iterators, operatorStats);
     }
 
     public static class AlignmentIterator
             extends AbstractPageIterator
     {
         private final Iterator<? extends Block>[] iterators;
+        private final OperatorStats operatorStats;
         private final BlockCursor[] cursors;
 
-        public AlignmentIterator(List<TupleInfo> tupleInfos, Iterator<? extends Block>[] iterators)
+        public AlignmentIterator(List<TupleInfo> tupleInfos, Iterator<? extends Block>[] iterators, OperatorStats operatorStats)
         {
             super(tupleInfos);
 
             this.iterators = iterators;
+            this.operatorStats = operatorStats;
+
             cursors = new BlockCursor[iterators.length];
             for (int i = 0; i < iterators.length; i++) {
                 cursors[i] = iterators[i].next().cursor();
@@ -137,7 +145,10 @@ public class AlignmentOperator implements Operator
                  blocks[i] = cursors[i].getRegionAndAdvance(length);
             }
 
-            return new Page(blocks);
+            Page page = new Page(blocks);
+            operatorStats.addActualDataSize(page.getDataSize().toBytes());
+            operatorStats.addActualPositionCount(page.getPositionCount());
+            return page;
         }
 
         @Override

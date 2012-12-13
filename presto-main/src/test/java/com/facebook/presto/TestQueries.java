@@ -4,6 +4,8 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.execution.ExchangePlanFragmentSource;
+import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.ingest.Record;
 import com.facebook.presto.ingest.RecordIterable;
 import com.facebook.presto.ingest.RecordIterables;
@@ -16,18 +18,17 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunctions;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.serde.BlocksFileEncoding;
-import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.server.HackPlanFragmentSourceProvider;
-import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.sql.analyzer.AnalysisResult;
 import com.facebook.presto.sql.analyzer.Analyzer;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
@@ -35,6 +36,7 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.SubPlan;
+import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.Query;
@@ -58,6 +60,8 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.UnmodifiableIterator;
 import com.google.common.io.CharStreams;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.Resources;
@@ -90,7 +94,6 @@ import java.util.zip.GZIPInputStream;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.isEmpty;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
@@ -565,7 +568,9 @@ public class TestQueries
     private List<Tuple> getTuples(Operator root)
     {
         ImmutableList.Builder<Tuple> output = ImmutableList.builder();
-        for (Page page : root) {
+        PageIterator iterator = root.iterator(new OperatorStats());
+        while (iterator.hasNext()) {
+            Page page = iterator.next();
             Preconditions.checkState(page.getChannelCount() == 1, "Expected result to produce 1 channel");
 
             BlockCursor cursor = Iterables.getOnlyElement(Arrays.asList(page.getBlocks())).cursor();
@@ -608,6 +613,7 @@ public class TestQueries
                 null,
                 builder.build(),
                 ImmutableMap.<String, ExchangePlanFragmentSource>of(),
+                new OperatorStats(),
                 new SourceHashProviderFactory());
 
         return new FilterAndProjectOperator(executionPlanner.plan(plan),
@@ -630,12 +636,14 @@ public class TestQueries
 
     private static void insertRows(String table, Handle handle, RecordIterable data)
     {
-        checkArgument(!isEmpty(data), "no data to insert");
-        int columns = Iterables.get(data, 0).getFieldCount();
+        checkArgument(data.iterator(new OperatorStats()).hasNext(), "no data to insert");
+        int columns = data.iterator(new OperatorStats()).next().getFieldCount();
         String vars = Joiner.on(',').join(nCopies(columns, "?"));
         String sql = format("INSERT INTO %s VALUES (%s)", table, vars);
 
-        for (List<Record> partition : Iterables.partition(data, 1000)) {
+        UnmodifiableIterator<List<Record>> partitions = Iterators.partition(data.iterator(new OperatorStats()), 1000);
+        while (partitions.hasNext()) {
+            List<Record> partition = partitions.next();
             PreparedBatch batch = handle.prepareBatch(sql);
             for (Record record : partition) {
                 checkArgument(record.getFieldCount() == columns, "rows have differing column counts");
@@ -770,7 +778,7 @@ public class TestQueries
                 {
                     return new AbstractIterator<Block>()
                     {
-                        private final RecordIterator iterator = data.get(tableHandle.getTableName()).iterator();
+                        private final RecordIterator iterator = data.get(tableHandle.getTableName()).iterator(new OperatorStats());
                         private final RecordProjection projection = RecordProjections.createProjection(columnHandle.getFieldIndex(), columnHandle.getType());
 
                         @Override

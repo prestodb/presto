@@ -3,6 +3,7 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.SourceHashProvider;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchBlocksProvider;
@@ -27,7 +28,7 @@ public class HashBuildBenchmark
         BlockIterable orderOrderKey = getBlockIterable(blocksProvider, "orders", "orderkey", BlocksFileEncoding.RAW);
         BlockIterable totalPrice = getBlockIterable(blocksProvider, "orders", "totalprice", BlocksFileEncoding.RAW);
         AlignmentOperator ordersTableScan = new AlignmentOperator(orderOrderKey, totalPrice);
-        SourceHashProvider sourceHashProvider = new SourceHashProvider(ordersTableScan, 0, 1_500_000);
+        SourceHashProvider sourceHashProvider = new SourceHashProvider(ordersTableScan, 0, 1_500_000, new OperatorStats());
         sourceHashProvider.get();
         return 0;
     }

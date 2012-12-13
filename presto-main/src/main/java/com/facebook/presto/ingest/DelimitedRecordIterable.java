@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.ingest;
 
+import com.facebook.presto.operator.OperatorStats;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
@@ -32,7 +33,7 @@ public class DelimitedRecordIterable
     }
 
     @Override
-    public RecordIterator iterator()
+    public RecordIterator iterator(OperatorStats operatorStats)
     {
         return new DelimitedRecordIterator(readerSupplier, columnSplitter);
     }

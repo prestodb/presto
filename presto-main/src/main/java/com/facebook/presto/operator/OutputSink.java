@@ -37,9 +37,9 @@ public class OutputSink
     }
 
     @Override
-    public PageIterator iterator()
+    public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new OutputSinkPageIterator(source.iterator(), handler);
+        return new OutputSinkPageIterator(source.iterator(operatorStats), handler);
     }
 
     public interface OutputSinkHandler

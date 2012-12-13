@@ -7,6 +7,7 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.PageIterators;
 import com.facebook.presto.tuple.TupleInfo;
@@ -125,7 +126,7 @@ public class HttpQueryClient
                 }
 
                 @Override
-                public PageIterator iterator()
+                public PageIterator iterator(OperatorStats operatorStats)
                 {
                     return PageIterators.emptyIterator(ImmutableList.<TupleInfo>of());
                 }

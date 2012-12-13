@@ -51,7 +51,7 @@ public class AggregationOperator
     }
 
     @Override
-    public PageIterator iterator()
+    public PageIterator iterator(OperatorStats operatorStats)
     {
         // create the aggregation functions
         AggregationFunctionStep[] functions = new AggregationFunctionStep[functionProviders.size()];
@@ -60,7 +60,9 @@ public class AggregationOperator
         }
 
         // process all rows
-        for (Page page : source) {
+        PageIterator iterator = source.iterator(operatorStats);
+        while (iterator.hasNext()) {
+            Page page = iterator.next();
             for (AggregationFunctionStep function : functions) {
                 function.add(page);
             }

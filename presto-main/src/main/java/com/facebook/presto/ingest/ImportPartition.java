@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.ingest;
 
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
 import com.google.common.base.Preconditions;
@@ -32,8 +33,13 @@ public class ImportPartition
         this.columnNames = ImmutableList.copyOf(columnNames);
     }
 
+    public PartitionChunk getChunk()
+    {
+        return chunk;
+    }
+
     @Override
-    public RecordIterator iterator()
+    public RecordIterator iterator(OperatorStats operatorStats)
     {
         com.facebook.presto.spi.RecordIterator records = runWithRetryUnchecked(new Callable<com.facebook.presto.spi.RecordIterator>()
         {
@@ -44,6 +50,7 @@ public class ImportPartition
                 return importClient.getRecords(chunk);
             }
         });
+        operatorStats.addExpectedDataSize(chunk.getLength());
         return new ImportRecordIterator(records, columnNames);
     }
 

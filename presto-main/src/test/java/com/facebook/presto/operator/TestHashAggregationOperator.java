@@ -7,8 +7,6 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import java.util.Iterator;
-
 import static com.facebook.presto.operator.OperatorAssertions.createOperator;
 import static com.facebook.presto.operator.ProjectionFunctions.concat;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
@@ -65,7 +63,7 @@ public class TestHashAggregationOperator
                         singleColumn(FIXED_INT_64, 2, 0),
                         singleColumn(DOUBLE, 3, 0))));
 
-        PageIterator pages = actual.iterator();
+        PageIterator pages = actual.iterator(new OperatorStats());
 
         Page page = pages.next();
         assertEquals(page.getChannelCount(), 1);

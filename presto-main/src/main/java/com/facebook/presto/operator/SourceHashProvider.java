@@ -17,15 +17,17 @@ public class SourceHashProvider
     private final Operator source;
     private final int hashChannel;
     private final int expectedPositions;
+    private final OperatorStats operatorStats;
 
     @GuardedBy("this")
     private SourceHash sourceHash;
 
-    public SourceHashProvider(Operator source, int hashChannel, int expectedPositions)
+    public SourceHashProvider(Operator source, int hashChannel, int expectedPositions, OperatorStats operatorStats)
     {
         this.source = source;
         this.hashChannel = hashChannel;
         this.expectedPositions = expectedPositions;
+        this.operatorStats = operatorStats;
     }
 
     public int getChannelCount()
@@ -47,7 +49,7 @@ public class SourceHashProvider
     public synchronized SourceHash get()
     {
         if (sourceHash == null) {
-            sourceHash = new SourceHash(source, hashChannel, expectedPositions);
+            sourceHash = new SourceHash(source, hashChannel, expectedPositions, operatorStats);
         }
         return new SourceHash(sourceHash);
     }

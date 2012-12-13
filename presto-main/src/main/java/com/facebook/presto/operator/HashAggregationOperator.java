@@ -59,15 +59,16 @@ public class HashAggregationOperator
     }
 
     @Override
-    public PageIterator iterator()
+    public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new HashAggregationIterator(source, groupByChannel, functionProviders, projections);
+        return new HashAggregationIterator(source, groupByChannel, functionProviders, projections, operatorStats);
     }
 
     private static class HashAggregationIterator
             extends AbstractPageIterator
     {
         private final List<ProjectionFunction> projections;
+        private final OperatorStats operatorStats;
 
         private final Iterator<Entry<Tuple, AggregationFunctionStep[]>> aggregations;
         private final int aggregationFunctionCount;
@@ -75,10 +76,12 @@ public class HashAggregationOperator
         private HashAggregationIterator(Operator source,
                 int groupByChannel,
                 List<Provider<AggregationFunctionStep>> functionProviders,
-                List<ProjectionFunction> projections)
+                List<ProjectionFunction> projections,
+                OperatorStats operatorStats)
         {
             super(toTupleInfos(projections));
             this.projections = projections;
+            this.operatorStats = operatorStats;
             Map<Tuple, AggregationFunctionStep[]> aggregate = aggregate(source, groupByChannel, functionProviders);
             this.aggregations = aggregate.entrySet().iterator();
             this.aggregationFunctionCount = functionProviders.size();
@@ -150,7 +153,9 @@ public class HashAggregationOperator
             Map<Tuple, AggregationFunctionStep[]> aggregationMap = new HashMap<>();
 
             BlockCursor[] cursors = new BlockCursor[source.getChannelCount()];
-            for (Page page : source) {
+            PageIterator iterator = source.iterator(operatorStats);
+            while (iterator.hasNext()) {
+                Page page = iterator.next();
                 Block[] blocks = page.getBlocks();
                 for (int i = 0; i < blocks.length; i++) {
                     cursors[i] = blocks[i].cursor();

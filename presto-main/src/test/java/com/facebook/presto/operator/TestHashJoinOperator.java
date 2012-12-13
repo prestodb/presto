@@ -23,7 +23,7 @@ public class TestHashJoinOperator
                 createLongSequenceBlock(1000, 2000),
                 createLongSequenceBlock(2000, 3000)));
 
-        HashJoinOperator joinOperator = new HashJoinOperator(new SourceHashProvider(buildSource, 0, 10), probeSource, 0);
+        HashJoinOperator joinOperator = new HashJoinOperator(new SourceHashProvider(buildSource, 0, 10, new OperatorStats()), probeSource, 0);
 
         Operator expected = createOperator(new Page(
                 createStringSequenceBlock(20, 30),

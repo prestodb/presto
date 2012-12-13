@@ -6,6 +6,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.concurrent.FairBatchExecutor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.SourceHashProviderFactory;
@@ -15,12 +16,12 @@ import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
@@ -196,8 +197,8 @@ public class SqlTaskExecution
         private final AtomicBoolean started = new AtomicBoolean();
         private final TaskOutput taskOutput;
         private final Operator operator;
-        private final Optional<DataSize> inputDataSize;
-        private final Optional<Integer> inputPositionCount;
+        private final OperatorStats operatorStats = new OperatorStats();
+
 
         private SplitWorker(TaskOutput taskOutput,
                 PlanFragment fragment,
@@ -215,18 +216,10 @@ public class SqlTaskExecution
                     split,
                     null,
                     exchangeSources,
+                    operatorStats,
                     sourceHashProviderFactory);
 
             operator = planner.plan(fragment.getRoot());
-
-            inputDataSize = planner.getInputDataSize();
-            if (inputDataSize.isPresent()) {
-                taskOutput.getStats().addInputDataSize(inputDataSize.get());
-            }
-            inputPositionCount = planner.getInputPositionCount();
-            if (inputPositionCount.isPresent()) {
-                taskOutput.getStats().addInputPositions(inputPositionCount.get());
-            }
         }
 
         @Override
@@ -239,9 +232,11 @@ public class SqlTaskExecution
 
             taskOutput.getStats().splitStarted();
             long startTime = System.nanoTime();
-            try (PageIterator pages = operator.iterator()) {
+            try (PageIterator pages = operator.iterator(operatorStats)) {
                 while (pages.hasNext()) {
                     Page page = pages.next();
+                    taskOutput.getStats().addOutputDataSize(new DataSize(operatorStats.getActualDataSize(), Unit.BYTE));
+                    taskOutput.getStats().addOutputPositions(operatorStats.getActualPositionCount());
                     if (!taskOutput.addPage(page)) {
                         pages.close();
                     }
@@ -255,13 +250,11 @@ public class SqlTaskExecution
             finally {
                 taskOutput.getStats().addSplitCpuTime(Duration.nanosSince(startTime));
                 taskOutput.getStats().splitCompleted();
-                if (inputDataSize.isPresent()) {
-                    taskOutput.getStats().addCompletedDataSize(inputDataSize.get());
-                }
-                if (inputPositionCount.isPresent()) {
-                    taskOutput.getStats().addCompletedPositions(inputPositionCount.get());
-                }
-
+                // todo cleanup expected vs actual
+                taskOutput.getStats().addInputDataSize(new DataSize(operatorStats.getActualDataSize(), Unit.BYTE));
+                taskOutput.getStats().addInputPositions(operatorStats.getActualPositionCount());
+                taskOutput.getStats().addCompletedDataSize(new DataSize(operatorStats.getActualDataSize(), Unit.BYTE));
+                taskOutput.getStats().addCompletedPositions(operatorStats.getActualPositionCount());
             }
         }
     }

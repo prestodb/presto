@@ -4,7 +4,9 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchColumnHandle;
@@ -35,7 +37,9 @@ public class RawStreamingBenchmark
         Operator operator = createBenchmarkedOperator(blocksProvider);
 
         long outputRows = 0;
-        for (Page page : operator) {
+        PageIterator iterator = operator.iterator(new OperatorStats());
+        while (iterator.hasNext()) {
+            Page page = iterator.next();
             BlockCursor cursor = page.getBlock(0).cursor();
             while (cursor.advanceNextPosition()) {
                 outputRows++;

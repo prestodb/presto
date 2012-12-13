@@ -1,11 +1,11 @@
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.AggregationOperator;
-import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.FilterFunctions;
@@ -14,6 +14,7 @@ import com.facebook.presto.operator.HashJoinOperator;
 import com.facebook.presto.operator.LimitOperator;
 import com.facebook.presto.operator.NewInMemoryOrderByOperator;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.SourceHashProvider;
@@ -23,7 +24,6 @@ import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.AggregationFunctionStep;
 import com.facebook.presto.operator.aggregation.AggregationFunctions;
 import com.facebook.presto.operator.aggregation.Input;
-import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -46,14 +46,12 @@ import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.TupleReadable;
 import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.MoreFunctions;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import io.airlift.units.DataSize;
 
 import javax.inject.Provider;
 import java.util.ArrayList;
@@ -72,13 +70,11 @@ public class LocalExecutionPlanner
 
     private final PlanFragmentSource split;
     private final Map<TableHandle, TableScanPlanFragmentSource> tableScans;
+    private final OperatorStats operatorStats;
 
     private final Map<String, ExchangePlanFragmentSource> exchangeSources;
 
     private final SourceHashProviderFactory joinHashFactory;
-
-    private Optional<DataSize> inputDataSize = Optional.absent();
-    private Optional<Integer> inputPositionCount = Optional.absent();
 
     public LocalExecutionPlanner(Metadata metadata,
             PlanFragmentSourceProvider sourceProvider,
@@ -86,9 +82,11 @@ public class LocalExecutionPlanner
             PlanFragmentSource split,
             Map<TableHandle, TableScanPlanFragmentSource> tableScans,
             Map<String, ExchangePlanFragmentSource> exchangeSources,
+            OperatorStats operatorStats,
             SourceHashProviderFactory joinHashFactory)
     {
         this.tableScans = tableScans;
+        this.operatorStats = Preconditions.checkNotNull(operatorStats, "operatorStats is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.sourceProvider = checkNotNull(sourceProvider, "sourceProvider is null");
         this.types = checkNotNull(types, "types is null");
@@ -131,16 +129,6 @@ public class LocalExecutionPlanner
         }
 
         throw new UnsupportedOperationException("not yet implemented: " + plan.getClass().getName());
-    }
-
-    public Optional<DataSize> getInputDataSize()
-    {
-        return inputDataSize;
-    }
-
-    public Optional<Integer> getInputPositionCount()
-    {
-        return inputPositionCount;
     }
 
     private Operator createExchange(ExchangeNode node)
@@ -333,11 +321,6 @@ public class LocalExecutionPlanner
         }
 
         Operator operator = sourceProvider.createDataStream(tableSplit, columns);
-        if (operator instanceof AlignmentOperator) {
-            AlignmentOperator alignmentOperator = (AlignmentOperator) operator;
-            inputDataSize = alignmentOperator.getDataSize();
-            inputPositionCount = alignmentOperator.getPositionCount();
-        }
         return operator;
     }
 
@@ -361,7 +344,7 @@ public class LocalExecutionPlanner
             buildChannel = buildMappings.get(first);
         }
 
-        SourceHashProvider hashProvider = joinHashFactory.getSourceHashProvider(node, this, buildChannel);
+        SourceHashProvider hashProvider = joinHashFactory.getSourceHashProvider(node, this, buildChannel, operatorStats);
         Operator leftOperator = plan(node.getLeft());
         HashJoinOperator operator = new HashJoinOperator(hashProvider, leftOperator, probeChannel);
         return operator;
