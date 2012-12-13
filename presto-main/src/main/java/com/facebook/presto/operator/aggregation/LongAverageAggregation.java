@@ -25,7 +25,7 @@ import static com.facebook.presto.tuple.Tuples.createTuple;
 public class LongAverageAggregation
         implements AggregationFunction
 {
-    public static Provider<AggregationFunction> longAverageAggregation(final int channelIndex, final int field)
+    public static Provider<AggregationFunction> longAverageAggregation(int channelIndex, int field)
     {
         return BINDER.bind(ImmutableList.of(new Input(channelIndex, field)));
     }

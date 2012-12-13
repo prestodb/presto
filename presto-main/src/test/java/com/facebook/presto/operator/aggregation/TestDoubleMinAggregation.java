@@ -6,7 +6,7 @@ import com.facebook.presto.tuple.Tuple;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 
-public class TestDoubleAverageAggregation
+public class TestDoubleMinAggregation
     extends AbstractTestAggregationFunction
 {
     @Override
@@ -20,9 +20,9 @@ public class TestDoubleAverageAggregation
     }
 
     @Override
-    public DoubleAverageAggregation getFunction()
+    public DoubleMinAggregation getFunction()
     {
-        return new DoubleAverageAggregation(0, 0);
+        return new DoubleMinAggregation(0, 0);
     }
 
     @Override
@@ -31,12 +31,7 @@ public class TestDoubleAverageAggregation
         if (positions == 0) {
             return null;
         }
-
-        double sum = 0;
-        for (int i = 0; i < positions; i++) {
-            sum += i;
-        }
-        return sum / positions;
+        return 0.0;
     }
 
     @Override

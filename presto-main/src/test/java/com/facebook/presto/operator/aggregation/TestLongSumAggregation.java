@@ -11,10 +11,10 @@ public class TestLongSumAggregation
     extends AbstractTestAggregationFunction
 {
     @Override
-    public Block getSequenceBlock(int max)
+    public Block getSequenceBlock(int positions)
     {
         BlockBuilder blockBuilder = new BlockBuilder(SINGLE_LONG);
-        for (int i = 0; i < max; i++) {
+        for (int i = 0; i < positions; i++) {
             blockBuilder.append(i);
         }
         return blockBuilder.build();

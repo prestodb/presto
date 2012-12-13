@@ -23,7 +23,7 @@ import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestAggregationFunction
 {
-    public abstract Block getSequenceBlock(int max);
+    public abstract Block getSequenceBlock(int positions);
 
     public abstract AggregationFunction getFunction();
 
