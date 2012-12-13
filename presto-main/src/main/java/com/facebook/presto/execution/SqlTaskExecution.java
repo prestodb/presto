@@ -235,8 +235,8 @@ public class SqlTaskExecution
             try (PageIterator pages = operator.iterator(operatorStats)) {
                 while (pages.hasNext()) {
                     Page page = pages.next();
-                    taskOutput.getStats().addOutputDataSize(new DataSize(operatorStats.getActualDataSize(), Unit.BYTE));
-                    taskOutput.getStats().addOutputPositions(operatorStats.getActualPositionCount());
+                    taskOutput.getStats().addOutputDataSize(new DataSize(page.getDataSize(), Unit.BYTE));
+                    taskOutput.getStats().addOutputPositions(page.getPositionCount());
                     if (!taskOutput.addPage(page)) {
                         pages.close();
                     }
