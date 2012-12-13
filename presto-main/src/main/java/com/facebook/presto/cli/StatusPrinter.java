@@ -131,21 +131,21 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
         // CPU wall: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
         Duration wallTime = new Duration(elapsedTime.toMillis() * nodes, MILLISECONDS);
         Duration wallTimePerNode = elapsedTime;
-        String cpuWallSummary = String.format("CPU wall: %s %sps total, %s %sps per node",
+        String cpuWallSummary = String.format("CPU wall: %s %s total, %s %s per node",
                 wallTime.toString(SECONDS),
-                formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTime),
+                formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTime, true),
                 wallTimePerNode.toString(SECONDS),
-                formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTimePerNode));
+                formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTimePerNode, true));
         out.println(cpuWallSummary);
 
         // CPU user: 11.45s 4.2MBps wall, 9.45s 8.2MBps user, 9.45s 8.2MBps wall/node
         Duration userTime = new Duration(globalExecutionStats.getSplitCpuTime(), MILLISECONDS);
         Duration userTimePerNode = new Duration(userTime.toMillis() / nodes, MILLISECONDS);
-        String cpuUserSummary = String.format("CPU user: %s %sps total, %s %sps per node",
+        String cpuUserSummary = String.format("CPU user: %s %s total, %s %s per node",
                 userTime.toString(SECONDS),
-                formatDataRate(inputExecutionStats.getCompletedDataSize(), userTime),
+                formatDataRate(inputExecutionStats.getCompletedDataSize(), userTime, true),
                 userTimePerNode.toString(SECONDS),
-                formatDataRate(inputExecutionStats.getCompletedDataSize(), userTimePerNode));
+                formatDataRate(inputExecutionStats.getCompletedDataSize(), userTimePerNode, true));
         out.println(cpuUserSummary);
 
         // blank line
@@ -183,21 +183,21 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
             // CPU wall: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
             Duration wallTime = new Duration(elapsedTime.toMillis() * nodes, MILLISECONDS);
             Duration wallTimePerNode = elapsedTime;
-            String cpuWallSummary = String.format("CPU wall: %5.1fs %4sps total, %5.1fs %4sps per node",
+            String cpuWallSummary = String.format("CPU wall: %5.1fs %7s total, %5.1fs %7s per node",
                     wallTime.convertTo(SECONDS),
-                    formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTime),
+                    formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTime, true),
                     wallTimePerNode.convertTo(SECONDS),
-                    formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTimePerNode));
+                    formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTimePerNode, true));
             reprintLine(cpuWallSummary);
 
             // CPU user: 11.45s 4.2MBps wall, 9.45s 8.2MBps user, 9.45s 8.2MBps wall/node
             Duration userTime = new Duration(globalExecutionStats.getSplitCpuTime(), MILLISECONDS);
             Duration userTimePerNode = new Duration(userTime.toMillis() / nodes, MILLISECONDS);
-            String cpuUserSummary = String.format("CPU user: %5.1fs %4sps total, %5.1fs %4sps per node",
+            String cpuUserSummary = String.format("CPU user: %5.1fs %7s total, %5.1fs %7s per node",
                     userTime.convertTo(SECONDS),
-                    formatDataRate(inputExecutionStats.getCompletedDataSize(), userTime),
+                    formatDataRate(inputExecutionStats.getCompletedDataSize(), userTime, true),
                     userTimePerNode.convertTo(SECONDS),
-                    formatDataRate(inputExecutionStats.getCompletedDataSize(), userTimePerNode));
+                    formatDataRate(inputExecutionStats.getCompletedDataSize(), userTimePerNode, true));
             reprintLine(cpuUserSummary);
 
             // todo Mem: 1949M shared, 7594M private
@@ -228,11 +228,11 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
 
                     globalExecutionStats.getInputPositionCount(),
                     formatDataSize(globalExecutionStats.getInputDataSize()),
-                    formatDataRate(globalExecutionStats.getCompletedDataSize(), elapsedTime),
+                    formatDataRate(globalExecutionStats.getCompletedDataSize(), elapsedTime, false),
 
                     globalExecutionStats.getOutputPositionCount(),
                     formatDataSize(globalExecutionStats.getOutputDataSize()),
-                    formatDataRate(globalExecutionStats.getOutputDataSize(), elapsedTime),
+                    formatDataRate(globalExecutionStats.getOutputDataSize(), elapsedTime, false),
 
                     max(0, globalExecutionStats.getSplits() - globalExecutionStats.getStartedSplits()),
                     max(0, globalExecutionStats.getSplits() - globalExecutionStats.getCompletedSplits()),
@@ -268,10 +268,10 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
                 stage.getState().toString().charAt(0),
 
                 formatCount(executionStats.getInputPositionCount()),
-                formatCountRate(executionStats.getInputPositionCount(), elapsedTime),
+                formatCountRate(executionStats.getInputPositionCount(), elapsedTime, false),
 
                 formatDataSize(executionStats.getInputDataSize()),
-                formatDataRate(executionStats.getCompletedDataSize(), elapsedTime),
+                formatDataRate(executionStats.getCompletedDataSize(), elapsedTime, false),
 
                 max(0, executionStats.getSplits() - executionStats.getStartedSplits()),
                 max(0, executionStats.getSplits() - executionStats.getCompletedSplits()),
@@ -341,14 +341,21 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
         return String.format("%d%s", (long) count, unit);
     }
 
-    private static String formatCountRate(double count, Duration duration)
+    private static String formatCountRate(double count, Duration duration, boolean longForm)
     {
         double rate = count / duration.convertTo(SECONDS);
         if (Double.isNaN(rate) || Double.isInfinite(rate)) {
-            return "0B";
+            rate = 0;
         }
 
-        return formatCount(rate);
+        String rateString = formatCount(rate);
+        if (longForm) {
+            if (rateString.endsWith(" ")) {
+                rateString = rateString.substring(0, rateString.length() - 1);
+            }
+            rateString += "ps";
+        }
+        return rateString;
     }
 
     private static String formatDataSize(double dataSize)
@@ -377,14 +384,21 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
         return String.format("%d%s", (long) dataSize, unit);
     }
 
-    private static String formatDataRate(double dataSize, Duration duration)
+    private static String formatDataRate(double dataSize, Duration duration, boolean longForm)
     {
         double rate = dataSize / duration.convertTo(SECONDS);
         if (Double.isNaN(rate) || Double.isInfinite(rate)) {
-            return "0B";
+            rate = 0;
         }
 
-        return formatDataSize(rate);
+        String rateString = formatDataSize(rate);
+        if (longForm) {
+            if (!rateString.endsWith("B")) {
+                rateString += "B";
+            }
+            rateString += "ps";
+        }
+        return rateString;
     }
 
     private void reprintLine(String line)
