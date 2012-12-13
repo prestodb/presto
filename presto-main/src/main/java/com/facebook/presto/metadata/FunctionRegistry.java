@@ -9,6 +9,8 @@ import com.facebook.presto.operator.aggregation.LongAverageAggregation;
 import com.facebook.presto.operator.aggregation.LongMaxAggregation;
 import com.facebook.presto.operator.aggregation.LongMinAggregation;
 import com.facebook.presto.operator.aggregation.LongSumAggregation;
+import com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation;
+import com.facebook.presto.operator.aggregation.VarBinaryMinAggregation;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Joiner;
@@ -40,8 +42,10 @@ public class FunctionRegistry
                 new FunctionInfo(5, QualifiedName.of("avg"), DOUBLE, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, LongAverageAggregation.BINDER),
                 new FunctionInfo(6, QualifiedName.of("max"), FIXED_INT_64, ImmutableList.of(FIXED_INT_64), FIXED_INT_64, LongMaxAggregation.BINDER),
                 new FunctionInfo(7, QualifiedName.of("max"), DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DoubleMaxAggregation.BINDER),
-                new FunctionInfo(8, QualifiedName.of("min"), FIXED_INT_64, ImmutableList.of(FIXED_INT_64), FIXED_INT_64, LongMinAggregation.BINDER),
-                new FunctionInfo(9, QualifiedName.of("min"), DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DoubleMinAggregation.BINDER)
+                new FunctionInfo(8, QualifiedName.of("max"), VARIABLE_BINARY, ImmutableList.of(VARIABLE_BINARY), VARIABLE_BINARY, VarBinaryMaxAggregation.BINDER),
+                new FunctionInfo(9, QualifiedName.of("min"), FIXED_INT_64, ImmutableList.of(FIXED_INT_64), FIXED_INT_64, LongMinAggregation.BINDER),
+                new FunctionInfo(10, QualifiedName.of("min"), DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DoubleMinAggregation.BINDER),
+                new FunctionInfo(11, QualifiedName.of("min"), VARIABLE_BINARY, ImmutableList.of(VARIABLE_BINARY), VARIABLE_BINARY, VarBinaryMinAggregation.BINDER)
         );
 
         functionsByName = Multimaps.index(functions, FunctionInfo.nameGetter());

@@ -27,9 +27,9 @@ public abstract class AbstractTestAggregationFunction
 
     public abstract AggregationFunction getFunction();
 
-    public abstract Number getExpectedValue(int start, int length);
+    public abstract Object getExpectedValue(int start, int length);
 
-    public abstract Number getActualValue(AggregationFunctionStep function);
+    public abstract Object getActualValue(AggregationFunctionStep function);
 
     @Test
     public void testNoPositions()
@@ -65,7 +65,7 @@ public abstract class AbstractTestAggregationFunction
         testMultiplePositions(alternatingNullsBlock.cursor(), getExpectedValue(0, 5), 10);
     }
 
-    protected void testMultiplePositions(BlockCursor cursor, Number expectedValue, int positions)
+    protected void testMultiplePositions(BlockCursor cursor, Object expectedValue, int positions)
     {
         AggregationFunctionStep function = singleNodeAggregation(getFunction());
 
@@ -116,7 +116,7 @@ public abstract class AbstractTestAggregationFunction
         testVectorMultiplePositions(alternatingNullsBlock, getExpectedValue(0, 5));
     }
 
-    protected void testVectorMultiplePositions(Block block, Number expectedValue)
+    protected void testVectorMultiplePositions(Block block, Object expectedValue)
     {
         AggregationFunctionStep function = singleNodeAggregation(getFunction());
         function.add(new Page(block));
@@ -136,7 +136,7 @@ public abstract class AbstractTestAggregationFunction
         testPartialWithMultiplePositions(alternatingNullsBlock, getExpectedValue(0, 10));
     }
 
-    protected void testPartialWithMultiplePositions(Block block, Number expectedValue)
+    protected void testPartialWithMultiplePositions(Block block, Object expectedValue)
     {
         UncompressedBlock partialsBlock = performPartialAggregation(block);
         AggregationFunctionStep function = finalAggregation(getFunction());
@@ -171,7 +171,7 @@ public abstract class AbstractTestAggregationFunction
         return blockBuilder.build();
     }
 
-    protected void testVectorPartialWithMultiplePositions(Block block, Number expectedValue)
+    protected void testVectorPartialWithMultiplePositions(Block block, Object expectedValue)
     {
         UncompressedBlock partialsBlock = performPartialAggregation(block);
         AggregationFunctionStep function = finalAggregation(getFunction());
@@ -205,7 +205,7 @@ public abstract class AbstractTestAggregationFunction
         testCombinerWithMultiplePositions(cursor, getExpectedValue(0, 5), 10);
     }
 
-    protected void testCombinerWithMultiplePositions(BlockCursor cursor, Number expectedValue, int positions)
+    protected void testCombinerWithMultiplePositions(BlockCursor cursor, Object expectedValue, int positions)
     {
         // "aggregate" each input value into a partial result
         List<Block> blocks = new ArrayList<>();
@@ -225,7 +225,7 @@ public abstract class AbstractTestAggregationFunction
         assertCombineFinalAggregation(blocks, expectedValue);
     }
 
-    private void assertCombineFinalAggregation(List<Block> blocks, Number expectedValue)
+    private void assertCombineFinalAggregation(List<Block> blocks, Object expectedValue)
     {
         // combine partial results together row at a time
         Block combinedBlock = null;
@@ -251,7 +251,7 @@ public abstract class AbstractTestAggregationFunction
         assertFinalAggregation(combinedBlock, expectedValue);
     }
 
-    private void assertFinalAggregation(Block partialsBlock, Number expectedValue)
+    private void assertFinalAggregation(Block partialsBlock, Object expectedValue)
     {
         AggregationFunctionStep function = finalAggregation(getFunction());
         BlockCursor partialsCursor = partialsBlock.cursor();

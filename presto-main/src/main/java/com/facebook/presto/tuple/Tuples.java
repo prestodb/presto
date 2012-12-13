@@ -1,5 +1,6 @@
 package com.facebook.presto.tuple;
 
+import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tuple.TupleInfo.Builder;
 
@@ -25,28 +26,27 @@ public class Tuples
 
     public static Tuple createTuple(long value)
     {
-        Tuple tuple = SINGLE_LONG.builder()
+        return SINGLE_LONG.builder()
                 .append(value)
                 .build();
-
-        return tuple;
     }
 
     public static Tuple createTuple(double value)
     {
-        Tuple tuple = SINGLE_DOUBLE.builder()
+        return SINGLE_DOUBLE.builder()
                 .append(value)
                 .build();
-
-        return tuple;
     }
 
     public static Tuple createTuple(String value)
     {
-        Tuple tuple = SINGLE_VARBINARY.builder()
-                .append(Slices.wrappedBuffer(value.getBytes(UTF_8)))
-                .build();
+        return createTuple(Slices.wrappedBuffer(value.getBytes(UTF_8)));
+    }
 
-        return tuple;
+    public static Tuple createTuple(Slice value)
+    {
+        return SINGLE_VARBINARY.builder()
+                .append(value)
+                .build();
     }
 }
