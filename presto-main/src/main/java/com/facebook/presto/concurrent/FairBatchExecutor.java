@@ -9,12 +9,10 @@ import javax.annotation.concurrent.GuardedBy;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Callable;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.PriorityBlockingQueue;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -34,7 +32,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * <p>"a1", "b1", "a2", "b2", "a3", "b3", "c1", "a4", "b4", "c2", "b5", "c3"</p>
  *
- * <p>The first task of a batch will not to execute before the first task of a previously submitted task, therefore
+ * <p>The first task of a batch will not execute before the first task of a previously submitted task, therefore
  * guaranteeing that no batch will get starved.</p>
  */
 public class FairBatchExecutor
@@ -42,7 +40,7 @@ public class FairBatchExecutor
     private final static Logger log = Logger.get(FairBatchExecutor.class);
 
     private final AtomicBoolean shutdown = new AtomicBoolean();
-    private final int maxConcurrency;
+    private final int threads;
     private final ExecutorService executor;
     private final PriorityBlockingQueue<PrioritizedFutureTask> queue = new PriorityBlockingQueue<>();
 
@@ -51,7 +49,7 @@ public class FairBatchExecutor
 
     public FairBatchExecutor(int threads, ThreadFactory threadFactory)
     {
-        this.maxConcurrency = threads;
+        this.threads = threads;
         this.executor = new ThreadPoolExecutor(threads, threads,
                 1, TimeUnit.MINUTES,
                 new SynchronousQueue<Runnable>(),
@@ -63,7 +61,22 @@ public class FairBatchExecutor
     {
         shutdown.set(true);
         executor.shutdown();
+
+        // poison pills
+        for (int i = 0; i < threads; i++) {
+            queue.add(new PrioritizedFutureTask<>(-1, new Callable<Void>()
+            {
+                @Override
+                public Void call()
+                        throws Exception
+                {
+                    return null;
+                }
+            }));
+        }
     }
+
+    // TODO: add shutdownNow
 
     public <T> List<Future<T>> processBatch(Collection<? extends Callable<T>> tasks)
     {
@@ -80,7 +93,7 @@ public class FairBatchExecutor
         }
 
         // Make sure we have enough processors to achieve the desired concurrency level
-        for (int i = 0; i < Math.min(maxConcurrency, tasks.size()); ++i) {
+        for (int i = 0; i < Math.min(threads, tasks.size()); ++i) {
             executor.execute(new Runnable()
             {
                 @Override
@@ -117,14 +130,12 @@ public class FairBatchExecutor
 
     private void trigger()
     {
+        boolean interrupted = false;
         try {
             while (!Thread.currentThread().isInterrupted() && !shutdown.get()) {
-                PrioritizedFutureTask task = queue.take();
+                PrioritizedFutureTask<?> task = queue.take();
                 try {
                     task.run();
-                }
-                catch (Throwable e) {
-                    log.error(e, "Task failed");
                 }
                 finally {
                     updateStartingPriority(task.priority);
@@ -132,6 +143,23 @@ public class FairBatchExecutor
             }
         }
         catch (InterruptedException e) {
+            interrupted = true;
+        }
+        finally {
+            if (!shutdown.get()) {
+                // attempt to submit a new task in case we died due to unexpected reasons
+                executor.execute(new Runnable()
+                {
+                    @Override
+                    public void run()
+                    {
+                        trigger();
+                    }
+                });
+            }
+        }
+
+        if (interrupted) {
             Thread.currentThread().interrupt();
         }
     }

@@ -106,7 +106,7 @@ public class SqlTaskExecution
                 worker.call();
             }
             else {
-                List<Callable<Void>> splitTasks = ImmutableList.copyOf(Lists.transform(this.splits, new Function<PlanFragmentSource, Callable<Void>>()
+                List<Callable<Void>> workers = ImmutableList.copyOf(Lists.transform(this.splits, new Function<PlanFragmentSource, Callable<Void>>()
                 {
                     @Override
                     public Callable<Void> apply(PlanFragmentSource split)
@@ -119,8 +119,8 @@ public class SqlTaskExecution
                 // one thread is allocated to processing this task.
                 // SplitWorkers are designed to be "once-only" callables and become no-ops once someone
                 // invokes "call" on them. Therefore it is safe to invoke them here
-                List<Future<Void>> results = shardExecutor.processBatch(splitTasks);
-                for (Callable<Void> worker : Lists.reverse(splitTasks)) {
+                List<Future<Void>> results = shardExecutor.processBatch(workers);
+                for (Callable<Void> worker : Lists.reverse(workers)) {
                     worker.call();
                 }
 
