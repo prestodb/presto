@@ -8,7 +8,6 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.server.HttpQueryClient;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Uninterruptibles;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.fusesource.jansi.Ansi;
 import org.fusesource.jansi.Ansi.Erase;
@@ -17,18 +16,16 @@ import java.io.PrintStream;
 import java.net.URI;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.operator.OutputProcessor.OutputStats;
 import static java.lang.Math.max;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.fusesource.jansi.internal.CLibrary.STDOUT_FILENO;
 import static org.fusesource.jansi.internal.CLibrary.isatty;
 
 public class StatusPrinter
 {
-    private static final String HIDE_CURSOR = "\u001B[?25l";
-    private static final String SHOW_CURSOR = "\u001B[?25h";
-
     private final long start = System.nanoTime();
     private final HttpQueryClient queryClient;
     private final PrintStream out;
@@ -40,38 +37,19 @@ public class StatusPrinter
         this.out = out;
     }
 /*
-RUNNING QueryId 31: Stages [0 of 0]: Splits [648 total, 252 pending, 16 running, 380 finished]: Input [2,659,640 rows 67.3MB]: CPU Time 11.45s 4.2MBps: Elapsed 0.77s 62.7MBps
-  RUNNING  31.0: Splits [0 total, -1 pending, 1 running, 0 finished]: Input [0 rows 0.0B]: Elapsed 0.77s 0.0Bps
-    RUNNING  31.1: Splits [648 total, 253 pending, 15 running, 380 finished]: Input [2,659,640 rows 67.3MB]: Elapsed 0.77s 62.6MBps
 
-
-Query 31: Splits [648 total, 252 pending, 16 running, 380 finished]: Input [2,659,640 rows 67.3MB]: CPU Time 11.45s 4.2MBps: Elapsed 0.77s 62.7MBps
-  Stage  31.0: Splits [0 total, -1 pending, 1 running, 0 finished]: Input [0 rows 0.0B]: Elapsed 0.77s 0.0Bps
-    Table  31.1: Splits [648 total, 253 pending, 15 running, 380 finished]: Input [2,659,640 rows 67.3MB]: Elapsed 0.77s 62.6MBps
-                                                                               X
-
-Query 32: RUNNING, 89 nodes
-Splits: 648 total, 252 pending, 16 running, 380 finished
-CPU wall: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
-CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
+Query 47: RUNNING, 3 nodes
+Splits: 1,350 total  12,623,941 pending  12,623,941 running, 12,623,941 finished
+CPU wall: 9.18s 20M total, 3.06s 60M per node
+CPU user: 134.47s 1M total, 44.82s 4M per node
 Mem: 1949M shared, 7594M private
 
-31.0 [S] i[2,659,640 67.3MB 62.7MBps] o[35 6.1KB 1KBps] tasks[252/16/380]
-  31.1 [R] i[2,659,640 67.3MB 62.7MBps] o[35 6.1KB 1KBps] tasks[252/16/380]
-    31.0 [F] i[2,659,640 67.3MB 62.7MBps] o[35 6.1KB 1KBps] tasks[252/16/380]
-  31.1 [R] i[2,659,640 67.3MB 62.7MBps] o[35 6.1KB 1KBps] tasks[252/16/380]
-    31.0 [F] i[2,659,640 67.3MB 62.7MBps] o[35 6.1KB 1KBps] tasks[252/16/380]
-
-STAGE     S   IROWS      ISIZE   IRATE    OROWS   OSIZE  ORATE
-31.0      Q   2,659,640  67.3MB  62.7MBps 35      6.1KB  1KBps 252/16/380]
-  31.2    R   2,659,640  67.3MB  62.7MBps 35      6.1KB  1KBps 252/16/380]
-    31.3  F   2,659,640  67.3MB  62.7MBps 35      6.1KB  1KBps 252/16/380]
-  31.4    R   2,659,640  67.3MB  62.7MBps 35      6.1KB  1KBps 252/16/380]
-    31.5  F   2,659,640  67.3MB  62.7MBps 35      6.1KB  1KBps 252/16/380]
-
-
-Query 39: Splits 648: In 6,528,597 rows 171.0MB: Out 329 rows 10.7kB: CPU Time 49.88s 3.4MBps: Elapsed 3.26s 52.4MBps
-Query 39: FINISHED i[2,659,640 67.3MB 62.7MBps] o[35 6.1KB 1KBps] tasks[252/16/380]
+STAGE  S    ROWS    RPS  BYTES    BPS   PEND    RUN   DONE
+0......Q     26M  9077M  9993G  9077M  9077M  9077M  9077M
+  2....R     17K   627M   673M   627M   627M   627M   627M
+    3..C   9990    627M   673M   627M   627M   627M   627M
+  4....R     26M   627M   673T   627M   627M   627M   627M
+    5..F     29T   627M   673M   627M   627M   627M   627M
 
 Query 32: FINISHED, 89 nodes, 648 splits
 CPU wall: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
@@ -81,11 +59,10 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
 
     public void printInitialStatusUpdates()
     {
+        long lastPrint = System.nanoTime();
         try {
-            hideCursor();
             while (true) {
                 try {
-                    Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
 
                     QueryInfo queryInfo = queryClient.getQueryInfo(false);
 
@@ -106,8 +83,12 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
                         }
                     }
 
-                    resetScreen();
-                    printQueryInfo(queryInfo);
+                    if (Duration.nanosSince(lastPrint).convertTo(SECONDS) >= 0.5) {
+                        repositionCursor();
+                        printQueryInfo(queryInfo);
+                        lastPrint = System.nanoTime();
+                    }
+                    Uninterruptibles.sleepUninterruptibly(100, MILLISECONDS);
                 }
                 catch (Exception ignored) {
                 }
@@ -115,7 +96,6 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
         }
         finally {
             resetScreen();
-            showCursor();
         }
     }
 
@@ -143,22 +123,22 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
         out.println(querySummary);
 
         // CPU wall: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
-        Duration wallTime = new Duration(elapsedTime.toMillis() * nodes, TimeUnit.MILLISECONDS);
+        Duration wallTime = new Duration(elapsedTime.toMillis() * nodes, MILLISECONDS);
         Duration wallTimePerNode = elapsedTime;
-        String cpuWallSummary = String.format("CPU wall: %s %s total, %s %s per node",
-                wallTime.toString(TimeUnit.SECONDS),
+        String cpuWallSummary = String.format("CPU wall: %s %sps total, %s %sps per node",
+                wallTime.toString(SECONDS),
                 formatDataRate(executionStats.getCompletedDataSize(), wallTime),
-                wallTimePerNode.toString(TimeUnit.SECONDS),
+                wallTimePerNode.toString(SECONDS),
                 formatDataRate(executionStats.getCompletedDataSize(), wallTimePerNode));
         out.println(cpuWallSummary);
 
         // CPU user: 11.45s 4.2MBps wall, 9.45s 8.2MBps user, 9.45s 8.2MBps wall/node
-        Duration userTime = new Duration(executionStats.getSplitCpuTime(), TimeUnit.MILLISECONDS);
-        Duration userTimePerNode = new Duration(userTime.toMillis() / nodes, TimeUnit.MILLISECONDS);
-        String cpuUserSummary = String.format("CPU user: %s %s total, %s %s per node",
-                userTime.toString(TimeUnit.SECONDS),
+        Duration userTime = new Duration(executionStats.getSplitCpuTime(), MILLISECONDS);
+        Duration userTimePerNode = new Duration(userTime.toMillis() / nodes, MILLISECONDS);
+        String cpuUserSummary = String.format("CPU user: %s %sps total, %s %sps per node",
+                userTime.toString(SECONDS),
                 formatDataRate(executionStats.getCompletedDataSize(), userTime),
-                userTimePerNode.toString(TimeUnit.SECONDS),
+                userTimePerNode.toString(SECONDS),
                 formatDataRate(executionStats.getCompletedDataSize(), userTimePerNode));
         out.println(cpuUserSummary);
 
@@ -182,7 +162,7 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
             reprintLine(querySummary);
 
             // Splits: 648 total, 252 pending, 16 running, 380 finished
-            String splitsSummary = String.format("Splits: %,d total, %,d pending, %,d running, %,d finished",
+            String splitsSummary = String.format("Splits: %,4d total, %,4d pending, %,4d running, %,4d done",
                     executionStats.getSplits(),
                     max(0, executionStats.getSplits() - executionStats.getStartedSplits()),
                     max(0, executionStats.getStartedSplits() - executionStats.getCompletedSplits()),
@@ -190,22 +170,22 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
             reprintLine(splitsSummary);
 
             // CPU wall: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
-            Duration wallTime = new Duration(elapsedTime.toMillis() * nodes, TimeUnit.MILLISECONDS);
+            Duration wallTime = new Duration(elapsedTime.toMillis() * nodes, MILLISECONDS);
             Duration wallTimePerNode = elapsedTime;
-            String cpuWallSummary = String.format("CPU wall: %s %s total, %s %s per node",
-                    wallTime.toString(TimeUnit.SECONDS),
+            String cpuWallSummary = String.format("CPU wall: %5.1fs %4sps total, %5.1fs %4sps per node",
+                    wallTime.convertTo(SECONDS),
                     formatDataRate(executionStats.getCompletedDataSize(), wallTime),
-                    wallTimePerNode.toString(TimeUnit.SECONDS),
+                    wallTimePerNode.convertTo(SECONDS),
                     formatDataRate(executionStats.getCompletedDataSize(), wallTimePerNode));
             reprintLine(cpuWallSummary);
 
             // CPU user: 11.45s 4.2MBps wall, 9.45s 8.2MBps user, 9.45s 8.2MBps wall/node
-            Duration userTime = new Duration(executionStats.getSplitCpuTime(), TimeUnit.MILLISECONDS);
-            Duration userTimePerNode = new Duration(userTime.toMillis() / nodes, TimeUnit.MILLISECONDS);
-            String cpuUserSummary = String.format("CPU user: %s %s total, %s %s per node",
-                    userTime.toString(TimeUnit.SECONDS),
+            Duration userTime = new Duration(executionStats.getSplitCpuTime(), MILLISECONDS);
+            Duration userTimePerNode = new Duration(userTime.toMillis() / nodes, MILLISECONDS);
+            String cpuUserSummary = String.format("CPU user: %5.1fs %4sps total, %5.1fs %4sps per node",
+                    userTime.convertTo(SECONDS),
                     formatDataRate(executionStats.getCompletedDataSize(), userTime),
-                    userTimePerNode.toString(TimeUnit.SECONDS),
+                    userTimePerNode.convertTo(SECONDS),
                     formatDataRate(executionStats.getCompletedDataSize(), userTimePerNode));
             reprintLine(cpuUserSummary);
 
@@ -213,6 +193,19 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
 
             // blank line
             reprintLine("");
+
+            // STAGE  S    ROWS    RPS  BYTES    BPS   PEND    RUN   DONE
+            String stagesHeader = String.format("%10s%1s  %5s  %5s  %5s  %5s  %5s  %5s %5s",
+                    "STAGE",
+                    "S",
+                    "ROWS",
+                    "ROW/S",
+                    "BYTES",
+                    "B/S",
+                    "PEND",
+                    "RUN",
+                    "DONE");
+            reprintLine(stagesHeader);
 
             printStageTree(outputStage, "");
         }
@@ -244,19 +237,30 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
         ExecutionStats executionStats = new ExecutionStats();
         sumTaskStats(stage, executionStats);
 
-        // 31.0 [S] i[2,659,640 67.3MB 62.7MBps] o[35 6.1KB 1KBps] tasks[252/16/380]
-        String stageSummary = String.format("%s%s [%s] i[%,d %s %s] o[%,d %s %s] splits[%,d/%,d/%,d]",
-                indent,
-                stage.getStageId(),
+        // STAGE  S    ROWS  ROW/S  BYTES    B/S   PEND    RUN   DONE
+        // 0......Q     26M  9077M  9993G  9077M  9077M  9077M  9077M
+        //   2....R     17K   627M   673M   627M   627M   627M   627M
+        //     3..C   9990    627M   673M   627M   627M   627M   627M
+        //   4....R     26M   627M   673T   627M   627M   627M   627M
+        //     5..F     29T   627M   673M   627M   627M   627M   627M
+
+        // todo this is a total hack
+        String id = stage.getStageId().substring(stage.getQueryId().length() + 1);
+        StringBuilder nameBuilder = new StringBuilder();
+        nameBuilder.append(indent).append(id);
+        while (nameBuilder.length() < 10) {
+            nameBuilder.append('.');
+        }
+
+        String stageSummary = String.format("%10s%1s  %5s  %5s  %5s  %5s  %5s  %5s %5s",
+                nameBuilder.toString(),
                 stage.getState().toString().charAt(0),
 
-                executionStats.getInputPositionCount(),
+                formatCount(executionStats.getInputPositionCount()),
+                formatCountRate(executionStats.getInputPositionCount(), elapsedTime),
+
                 formatDataSize(executionStats.getInputDataSize()),
                 formatDataRate(executionStats.getCompletedDataSize(), elapsedTime),
-
-                executionStats.getOutputPositionCount(),
-                formatDataSize(executionStats.getOutputDataSize()),
-                formatDataRate(executionStats.getOutputDataSize(), elapsedTime),
 
                 max(0, executionStats.getSplits() - executionStats.getStartedSplits()),
                 max(0, executionStats.getStartedSplits() - executionStats.getCompletedSplits()),
@@ -298,85 +302,97 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
         return nodes.build();
     }
 
-    private static String formatDataSize(long inputDataSize)
+    private static String formatCount(double count)
     {
-        DataSize dataSize = new DataSize(inputDataSize, DataSize.Unit.BYTE).convertToMostSuccinctDataSize();
-        String unitString;
-        switch (dataSize.getUnit()) {
-            case BYTE:
-                unitString = "B";
-                break;
-            case KILOBYTE:
-                unitString = "kB";
-                break;
-            case MEGABYTE:
-                unitString = "MB";
-                break;
-            case GIGABYTE:
-                unitString = "GB";
-                break;
-            case TERABYTE:
-                unitString = "TB";
-                break;
-            case PETABYTE:
-                unitString = "PB";
-                break;
-            default:
-                throw new IllegalStateException("Unknown data unit: " + dataSize.getUnit());
+        String unit = " ";
+        if (count > 1000) {
+            count /= 1000;
+            unit = "K";
         }
-        return String.format("%.01f%s", dataSize.getValue(), unitString);
+        if (count > 1000) {
+            count /= 1000;
+            unit = "M";
+        }
+        if (count > 1000) {
+            count /= 1000;
+            unit = "B";
+        }
+        if (count > 1000) {
+            count /= 1000;
+            unit = "T";
+        }
+        if (count > 1000) {
+            count /= 1000;
+            unit = "Q";
+        }
+        return String.format("%d%s", (long) count, unit);
     }
 
-    private static String formatDataRate(long inputDataSize, Duration duration)
+    private static String formatCountRate(double count, Duration duration)
     {
-        double rate = inputDataSize / duration.convertTo(TimeUnit.SECONDS);
+        double rate = count / duration.convertTo(SECONDS);
         if (Double.isNaN(rate) || Double.isInfinite(rate)) {
-            return "0Bps";
+            return "0B";
         }
-        DataSize dataSize = new DataSize(rate, DataSize.Unit.BYTE).convertToMostSuccinctDataSize();
-        String unitString;
-        switch (dataSize.getUnit()) {
-            case BYTE:
-                unitString = "Bps";
-                break;
-            case KILOBYTE:
-                unitString = "kBps";
-                break;
-            case MEGABYTE:
-                unitString = "MBps";
-                break;
-            case GIGABYTE:
-                unitString = "GBps";
-                break;
-            case TERABYTE:
-                unitString = "TBps";
-                break;
-            case PETABYTE:
-                unitString = "PBps";
-                break;
-            default:
-                throw new IllegalStateException("Unknown data unit: " + dataSize.getUnit());
+
+        return formatCount(rate);
+    }
+
+    private static String formatDataSize(double dataSize)
+    {
+        String unit = "B";
+        if (dataSize > 1000) {
+            dataSize /= 1024;
+            unit = "K";
         }
-        return String.format("%.01f%s", dataSize.getValue(), unitString);
+        if (dataSize > 1000) {
+            dataSize /= 1024;
+            unit = "M";
+        }
+        if (dataSize > 1000) {
+            dataSize /= 1024;
+            unit = "G";
+        }
+        if (dataSize > 1000) {
+            dataSize /= 1024;
+            unit = "T";
+        }
+        if (dataSize > 1000) {
+            dataSize /= 1024;
+            unit = "P";
+        }
+        return String.format("%d%s", (long) dataSize, unit);
+    }
+
+    private static String formatDataRate(double dataSize, Duration duration)
+    {
+        double rate = dataSize / duration.convertTo(SECONDS);
+        if (Double.isNaN(rate) || Double.isInfinite(rate)) {
+            return "0B";
+        }
+
+        return formatDataSize(rate);
     }
 
     private void reprintLine(String line)
     {
         if (REAL_TERMINAL) {
             out.print(Ansi.ansi().eraseLine(Erase.ALL).a(line).a('\n').toString());
-        } else {
+        }
+        else {
             out.print('\r' + line);
         }
         out.flush();
         lines++;
     }
 
-    private void resetScreen()
+    private void repositionCursor()
     {
         if (lines > 0) {
             if (REAL_TERMINAL) {
-                out.print(Ansi.ansi().cursorUp(lines).eraseScreen(Erase.FORWARD).toString());
-            } else {
+                out.print(Ansi.ansi().cursorUp(lines).toString());
+            }
+            else {
                 out.print('\r');
             }
             out.flush();
@@ -384,19 +400,17 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
         }
     }
 
-    private void hideCursor()
+    private void resetScreen()
     {
-        if (REAL_TERMINAL) {
-            out.print(HIDE_CURSOR);
+        if (lines > 0) {
+            if (REAL_TERMINAL) {
+                out.print(Ansi.ansi().cursorUp(lines).eraseScreen(Erase.FORWARD).toString());
+            }
+            else {
+                out.print('\r');
+            }
             out.flush();
-        }
-    }
-
-    private void showCursor()
-    {
-        if (REAL_TERMINAL) {
-            out.print(SHOW_CURSOR);
-            out.flush();
+            lines = 0;
         }
     }
 
