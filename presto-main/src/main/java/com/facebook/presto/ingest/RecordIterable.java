@@ -3,6 +3,9 @@
  */
 package com.facebook.presto.ingest;
 
-public interface RecordIterable extends Iterable<Record> {
-    RecordIterator iterator();
+import com.facebook.presto.operator.OperatorStats;
+
+public interface RecordIterable
+{
+    RecordIterator iterator(OperatorStats operatorStats);
 }

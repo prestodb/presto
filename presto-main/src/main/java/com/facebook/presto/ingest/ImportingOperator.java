@@ -6,6 +6,7 @@ package com.facebook.presto.ingest;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.operator.AbstractPageIterator;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.serde.BlocksFileWriter;
@@ -30,7 +31,9 @@ public class ImportingOperator
     {
         ImportingOperator importingOperator = new ImportingOperator(source, fileWriters);
         long rowCount = 0;
-        for (Page page : importingOperator) {
+        PageIterator iterator = importingOperator.iterator(new OperatorStats());
+        while (iterator.hasNext()) {
+            Page page = iterator.next();
             rowCount += page.getPositionCount();
         }
         return rowCount;
@@ -66,12 +69,12 @@ public class ImportingOperator
     }
 
     @Override
-    public PageIterator iterator()
+    public PageIterator iterator(OperatorStats operatorStats)
     {
         Preconditions.checkState(!used, "Import operator can only be used once");
         used = true;
 
-        return new ImportingIterator(source.iterator(), fileWriters);
+        return new ImportingIterator(source.iterator(operatorStats), fileWriters);
     }
 
     private static class ImportingIterator

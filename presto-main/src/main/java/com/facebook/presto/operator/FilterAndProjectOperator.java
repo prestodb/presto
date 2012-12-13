@@ -52,9 +52,9 @@ public class FilterAndProjectOperator implements Operator
     }
 
     @Override
-    public PageIterator iterator()
+    public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new FilterAndProjectIterator(source.iterator(), filter, projections);
+        return new FilterAndProjectIterator(source.iterator(operatorStats), filter, projections);
     }
 
     private static class FilterAndProjectIterator extends AbstractPageIterator

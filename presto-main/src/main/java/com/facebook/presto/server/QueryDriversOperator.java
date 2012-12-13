@@ -6,6 +6,7 @@ package com.facebook.presto.server;
 import com.facebook.presto.execution.PageBuffer;
 import com.facebook.presto.operator.AbstractPageIterator;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
@@ -55,7 +56,7 @@ public class QueryDriversOperator
     }
 
     @Override
-    public QueryDriversIterator iterator()
+    public QueryDriversIterator iterator(OperatorStats operatorStats)
     {
         ImmutableList.Builder<QueryDriver> queries = ImmutableList.builder();
         try {
@@ -66,7 +67,7 @@ public class QueryDriversOperator
                 queryDriver.start();
             }
 
-            return new QueryDriversIterator(outputBuffer, queries.build(), tupleInfos);
+            return new QueryDriversIterator(outputBuffer, queries.build(), tupleInfos, operatorStats);
         }
         catch (Throwable e) {
             for (QueryDriver queryDriver : queries.build()) {
@@ -79,12 +80,14 @@ public class QueryDriversOperator
     public static class QueryDriversIterator extends AbstractPageIterator
     {
         private final PageBuffer pageBuffer;
+        private final OperatorStats operatorStats;
         private final List<QueryDriver> queryDrivers;
 
-        private QueryDriversIterator(PageBuffer pageBuffer, Iterable<QueryDriver> queries, List<TupleInfo> tupleInfos)
+        private QueryDriversIterator(PageBuffer pageBuffer, Iterable<QueryDriver> queries, List<TupleInfo> tupleInfos, OperatorStats operatorStats)
         {
             super(tupleInfos);
             this.pageBuffer = pageBuffer;
+            this.operatorStats = operatorStats;
             this.queryDrivers = ImmutableList.copyOf(queries);
         }
 
@@ -97,6 +100,8 @@ public class QueryDriversOperator
                     List<Page> nextPages = pageBuffer.getNextPages(1, new Duration(1, TimeUnit.SECONDS));
                     if (!nextPages.isEmpty()) {
                         Page page = Iterables.getOnlyElement(nextPages);
+                        operatorStats.addActualDataSize(page.getDataSize().toBytes());
+                        operatorStats.addActualPositionCount(page.getPositionCount());
                         return page;
                     }
                 }

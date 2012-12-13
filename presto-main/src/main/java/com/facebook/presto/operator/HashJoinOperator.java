@@ -48,9 +48,9 @@ public class HashJoinOperator
     }
 
     @Override
-    public PageIterator iterator()
+    public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new HashJoinIterator(tupleInfos, probeSource, probeJoinChannel, sourceHashProvider);
+        return new HashJoinIterator(tupleInfos, probeSource, probeJoinChannel, sourceHashProvider, operatorStats);
     }
 
     private static class HashJoinIterator
@@ -64,10 +64,10 @@ public class HashJoinOperator
         private final BlockCursor[] cursors;
         private int joinPosition = -1;
 
-        private HashJoinIterator(List<TupleInfo> tupleInfos, Operator probeSource, int probeJoinChannel, SourceHashProvider sourceHashProvider)
+        private HashJoinIterator(List<TupleInfo> tupleInfos, Operator probeSource, int probeJoinChannel, SourceHashProvider sourceHashProvider, OperatorStats operatorStats)
         {
             super(tupleInfos);
-            probeIterator = probeSource.iterator();
+            probeIterator = probeSource.iterator(operatorStats);
             this.probeJoinChannel = probeJoinChannel;
 
             hash = sourceHashProvider.get();

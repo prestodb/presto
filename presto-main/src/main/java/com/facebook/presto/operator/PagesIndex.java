@@ -29,7 +29,7 @@ public class PagesIndex
     private final int channelCount;
     private final int positionCount;
 
-    public PagesIndex(Operator source, int expectedPositions)
+    public PagesIndex(Operator source, int expectedPositions, OperatorStats operatorStats)
     {
         channelCount = source.getChannelCount();
         indexes = new ChannelIndex[channelCount];
@@ -39,7 +39,7 @@ public class PagesIndex
         }
 
         int positionCount = 0;
-        try (PageIterator pageIterator = source.iterator()) {
+        try (PageIterator pageIterator = source.iterator(operatorStats)) {
             while (pageIterator.hasNext()) {
                 Page page = pageIterator.next();
                 positionCount += page.getPositionCount();
