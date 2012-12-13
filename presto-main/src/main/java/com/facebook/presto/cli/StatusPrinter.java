@@ -105,10 +105,16 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
 
         QueryInfo queryInfo = queryClient.getQueryInfo(true);
 
-        ExecutionStats executionStats = new ExecutionStats();
         StageInfo outputStage = queryInfo.getOutputStage();
 
-        sumStats(outputStage, executionStats);
+        // only include input (leaf) stages
+        ExecutionStats inputExecutionStats = new ExecutionStats();
+        sumStats(outputStage, inputExecutionStats, true);
+
+        // sum all stats (used for global stats like cpu time)
+        ExecutionStats globalExecutionStats = new ExecutionStats();
+        sumStats(outputStage, globalExecutionStats, false);
+
         int nodes = uniqueNodes(outputStage).size();
 
         // blank line
@@ -119,7 +125,7 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
                 queryInfo.getQueryId(),
                 queryInfo.getState(),
                 nodes,
-                executionStats.getSplits());
+                globalExecutionStats.getSplits());
         out.println(querySummary);
 
         // CPU wall: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
@@ -127,19 +133,19 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
         Duration wallTimePerNode = elapsedTime;
         String cpuWallSummary = String.format("CPU wall: %s %sps total, %s %sps per node",
                 wallTime.toString(SECONDS),
-                formatDataRate(executionStats.getCompletedDataSize(), wallTime),
+                formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTime),
                 wallTimePerNode.toString(SECONDS),
-                formatDataRate(executionStats.getCompletedDataSize(), wallTimePerNode));
+                formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTimePerNode));
         out.println(cpuWallSummary);
 
         // CPU user: 11.45s 4.2MBps wall, 9.45s 8.2MBps user, 9.45s 8.2MBps wall/node
-        Duration userTime = new Duration(executionStats.getSplitCpuTime(), MILLISECONDS);
+        Duration userTime = new Duration(globalExecutionStats.getSplitCpuTime(), MILLISECONDS);
         Duration userTimePerNode = new Duration(userTime.toMillis() / nodes, MILLISECONDS);
         String cpuUserSummary = String.format("CPU user: %s %sps total, %s %sps per node",
                 userTime.toString(SECONDS),
-                formatDataRate(executionStats.getCompletedDataSize(), userTime),
+                formatDataRate(inputExecutionStats.getCompletedDataSize(), userTime),
                 userTimePerNode.toString(SECONDS),
-                formatDataRate(executionStats.getCompletedDataSize(), userTimePerNode));
+                formatDataRate(inputExecutionStats.getCompletedDataSize(), userTimePerNode));
         out.println(cpuUserSummary);
 
         // blank line
@@ -150,10 +156,15 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
     {
         Duration elapsedTime = Duration.nanosSince(start);
 
-        ExecutionStats executionStats = new ExecutionStats();
         StageInfo outputStage = queryInfo.getOutputStage();
 
-        sumStats(outputStage, executionStats);
+        // only include input (leaf) stages
+        ExecutionStats inputExecutionStats = new ExecutionStats();
+        sumStats(outputStage, inputExecutionStats, true);
+
+        ExecutionStats globalExecutionStats = new ExecutionStats();
+        sumStats(outputStage, globalExecutionStats, false);
+
         int nodes = uniqueNodes(outputStage).size();
 
         if (REAL_TERMINAL) {
@@ -163,10 +174,10 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
 
             // Splits: 648 total, 252 pending, 16 running, 380 finished
             String splitsSummary = String.format("Splits: %,4d total, %,4d pending, %,4d running, %,4d done",
-                    executionStats.getSplits(),
-                    max(0, executionStats.getSplits() - executionStats.getStartedSplits()),
-                    max(0, executionStats.getStartedSplits() - executionStats.getCompletedSplits()),
-                    executionStats.getCompletedSplits());
+                    globalExecutionStats.getSplits(),
+                    max(0, globalExecutionStats.getSplits() - globalExecutionStats.getStartedSplits()),
+                    max(0, globalExecutionStats.getSplits() - globalExecutionStats.getCompletedSplits()),
+                    globalExecutionStats.getCompletedSplits());
             reprintLine(splitsSummary);
 
             // CPU wall: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
@@ -174,19 +185,19 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
             Duration wallTimePerNode = elapsedTime;
             String cpuWallSummary = String.format("CPU wall: %5.1fs %4sps total, %5.1fs %4sps per node",
                     wallTime.convertTo(SECONDS),
-                    formatDataRate(executionStats.getCompletedDataSize(), wallTime),
+                    formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTime),
                     wallTimePerNode.convertTo(SECONDS),
-                    formatDataRate(executionStats.getCompletedDataSize(), wallTimePerNode));
+                    formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTimePerNode));
             reprintLine(cpuWallSummary);
 
             // CPU user: 11.45s 4.2MBps wall, 9.45s 8.2MBps user, 9.45s 8.2MBps wall/node
-            Duration userTime = new Duration(executionStats.getSplitCpuTime(), MILLISECONDS);
+            Duration userTime = new Duration(globalExecutionStats.getSplitCpuTime(), MILLISECONDS);
             Duration userTimePerNode = new Duration(userTime.toMillis() / nodes, MILLISECONDS);
             String cpuUserSummary = String.format("CPU user: %5.1fs %4sps total, %5.1fs %4sps per node",
                     userTime.convertTo(SECONDS),
-                    formatDataRate(executionStats.getCompletedDataSize(), userTime),
+                    formatDataRate(inputExecutionStats.getCompletedDataSize(), userTime),
                     userTimePerNode.convertTo(SECONDS),
-                    formatDataRate(executionStats.getCompletedDataSize(), userTimePerNode));
+                    formatDataRate(inputExecutionStats.getCompletedDataSize(), userTimePerNode));
             reprintLine(cpuUserSummary);
 
             // todo Mem: 1949M shared, 7594M private
@@ -215,17 +226,17 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
                     queryInfo.getQueryId(),
                     queryInfo.getState().toString().charAt(0),
 
-                    executionStats.getInputPositionCount(),
-                    formatDataSize(executionStats.getInputDataSize()),
-                    formatDataRate(executionStats.getCompletedDataSize(), elapsedTime),
+                    globalExecutionStats.getInputPositionCount(),
+                    formatDataSize(globalExecutionStats.getInputDataSize()),
+                    formatDataRate(globalExecutionStats.getCompletedDataSize(), elapsedTime),
 
-                    executionStats.getOutputPositionCount(),
-                    formatDataSize(executionStats.getOutputDataSize()),
-                    formatDataRate(executionStats.getOutputDataSize(), elapsedTime),
+                    globalExecutionStats.getOutputPositionCount(),
+                    formatDataSize(globalExecutionStats.getOutputDataSize()),
+                    formatDataRate(globalExecutionStats.getOutputDataSize(), elapsedTime),
 
-                    max(0, executionStats.getSplits() - executionStats.getStartedSplits()),
-                    max(0, executionStats.getStartedSplits() - executionStats.getCompletedSplits()),
-                    executionStats.getCompletedSplits());
+                    max(0, globalExecutionStats.getSplits() - globalExecutionStats.getStartedSplits()),
+                    max(0, globalExecutionStats.getSplits() - globalExecutionStats.getCompletedSplits()),
+                    globalExecutionStats.getCompletedSplits());
             reprintLine(querySummary);
         }
     }
@@ -263,7 +274,7 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
                 formatDataRate(executionStats.getCompletedDataSize(), elapsedTime),
 
                 max(0, executionStats.getSplits() - executionStats.getStartedSplits()),
-                max(0, executionStats.getStartedSplits() - executionStats.getCompletedSplits()),
+                max(0, executionStats.getSplits() - executionStats.getCompletedSplits()),
                 executionStats.getCompletedSplits());
         reprintLine(stageSummary);
 
@@ -272,11 +283,13 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
         }
     }
 
-    public void sumStats(StageInfo stageInfo, ExecutionStats executionStats)
+    public void sumStats(StageInfo stageInfo, ExecutionStats executionStats, boolean sumLeafOnly)
     {
-        sumTaskStats(stageInfo, executionStats);
+        if (!sumLeafOnly || stageInfo.getSubStages().isEmpty()) {
+            sumTaskStats(stageInfo, executionStats);
+        }
         for (StageInfo subStage : stageInfo.getSubStages()) {
-            sumStats(subStage, executionStats);
+            sumStats(subStage, executionStats, sumLeafOnly);
         }
     }
 
