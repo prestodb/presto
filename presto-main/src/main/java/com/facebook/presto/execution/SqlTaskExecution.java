@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.concurrent.FairBatchExecutor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.Page;
@@ -17,6 +18,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -27,8 +29,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SqlTaskExecution
         implements TaskExecution
@@ -38,7 +40,7 @@ public class SqlTaskExecution
     private final List<PlanFragmentSource> splits;
     private final Map<String, ExchangePlanFragmentSource> exchangeSources;
     private final PlanFragmentSourceProvider sourceProvider;
-    private final ExecutorService shardExecutor;
+    private final FairBatchExecutor shardExecutor;
     private final PlanFragment fragment;
     private final Metadata metadata;
 
@@ -53,7 +55,7 @@ public class SqlTaskExecution
             int pageBufferMax,
             PlanFragmentSourceProvider sourceProvider,
             Metadata metadata,
-            ExecutorService shardExecutor)
+            FairBatchExecutor shardExecutor)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
@@ -104,7 +106,7 @@ public class SqlTaskExecution
                 worker.call();
             }
             else {
-                List<Future<Void>> results = shardExecutor.invokeAll(Lists.transform(splits, new Function<PlanFragmentSource, Callable<Void>>()
+                List<Callable<Void>> splitTasks = ImmutableList.copyOf(Lists.transform(this.splits, new Function<PlanFragmentSource, Callable<Void>>()
                 {
                     @Override
                     public Callable<Void> apply(PlanFragmentSource split)
@@ -112,6 +114,15 @@ public class SqlTaskExecution
                         return new SplitWorker(taskOutput, fragment, split, exchangeSources, sourceHashProviderFactory, sourceProvider, metadata);
                     }
                 }));
+
+                // Race the multithreaded executors in reverse order. This guarantees that at least
+                // one thread is allocated to processing this task.
+                // SplitWorkers are designed to be "once-only" callables and become no-ops once someone
+                // invokes "call" on them. Therefore it is safe to invoke them here
+                List<Future<Void>> results = shardExecutor.processBatch(splitTasks);
+                for (Callable<Void> worker : Lists.reverse(splitTasks)) {
+                    worker.call();
+                }
 
                 checkQueryResults(results);
             }
@@ -182,6 +193,7 @@ public class SqlTaskExecution
     private static class SplitWorker
             implements Callable<Void>
     {
+        private final AtomicBoolean started = new AtomicBoolean();
         private final TaskOutput taskOutput;
         private final Operator operator;
         private final Optional<DataSize> inputDataSize;
@@ -221,6 +233,10 @@ public class SqlTaskExecution
         public Void call()
                 throws Exception
         {
+            if (!started.compareAndSet(false, true)) {
+                return null;
+            }
+
             taskOutput.getStats().splitStarted();
             long startTime = System.nanoTime();
             try (PageIterator pages = operator.iterator()) {
