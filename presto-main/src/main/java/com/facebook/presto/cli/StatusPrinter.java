@@ -133,21 +133,22 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
         // CPU user: 11.45s 4.2MBps wall, 9.45s 8.2MBps user, 9.45s 8.2MBps wall/node
         Duration userTime = new Duration(globalExecutionStats.getSplitCpuTime(), MILLISECONDS);
         Duration userTimePerNode = new Duration(userTime.toMillis() / nodes, MILLISECONDS);
+        long completedDataSizePerNode = inputExecutionStats.getCompletedDataSize() / nodes;
         String cpuUserSummary = String.format("CPU user: %s %s total, %s %s per node",
                 userTime.toString(SECONDS),
                 formatDataRate(inputExecutionStats.getCompletedDataSize(), userTime, true),
                 userTimePerNode.toString(SECONDS),
-                formatDataRate(inputExecutionStats.getCompletedDataSize(), userTimePerNode, true));
+                formatDataRate(completedDataSizePerNode, userTimePerNode, true));
         out.println(cpuUserSummary);
 
         // CPU wall: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
-        Duration wallTime = new Duration(elapsedTime.toMillis() * nodes, MILLISECONDS);
-        Duration wallTimePerNode = elapsedTime;
+        Duration wallTime = elapsedTime;
+        Duration wallTimePerNode = new Duration(wallTime.toMillis() / nodes, MILLISECONDS);
         String cpuWallSummary = String.format("CPU wall: %s %s total, %s %s per node",
                 wallTime.toString(SECONDS),
                 formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTime, true),
                 wallTimePerNode.toString(SECONDS),
-                formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTimePerNode, true));
+                formatDataRate(completedDataSizePerNode, wallTime, true));
         out.println(cpuWallSummary);
 
         // blank line
@@ -168,10 +169,11 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
         sumStats(outputStage, globalExecutionStats, false);
 
         int nodes = uniqueNodes(outputStage).size();
+        long completedDataSizePerNode = inputExecutionStats.getCompletedDataSize() / nodes;
 
         if (REAL_TERMINAL) {
             // Query 143: RUNNING, 39 nodes, 84.3s elapsed
-            Duration wallTime = new Duration(elapsedTime.toMillis() * nodes, MILLISECONDS);
+            Duration wallTime = elapsedTime;
             String querySummary = String.format("Query %s: %s, %,d nodes, %.1fs elapsed",
                     queryInfo.getQueryId(),
                     queryInfo.getState(),
@@ -194,16 +196,16 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
                     userTime.convertTo(SECONDS),
                     formatDataRate(inputExecutionStats.getCompletedDataSize(), userTime, true),
                     userTimePerNode.convertTo(SECONDS),
-                    formatDataRate(inputExecutionStats.getCompletedDataSize(), userTimePerNode, true));
+                    formatDataRate(completedDataSizePerNode, userTime, true));
             reprintLine(cpuUserSummary);
 
             // CPU wall: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
-            Duration wallTimePerNode = elapsedTime;
+            Duration wallTimePerNode = new Duration(wallTime.toMillis() / nodes, MILLISECONDS);
             String cpuWallSummary = String.format("CPU wall: %5.1fs %7s total, %5.1fs %7s per node",
                     wallTime.convertTo(SECONDS),
                     formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTime, true),
                     wallTimePerNode.convertTo(SECONDS),
-                    formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTimePerNode, true));
+                    formatDataRate(completedDataSizePerNode, wallTime, true));
             reprintLine(cpuWallSummary);
 
             // todo Mem: 1949M shared, 7594M private
