@@ -31,6 +31,7 @@ import com.facebook.presto.metadata.NativeMetadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.StorageManager;
+import com.facebook.presto.metadata.StorageManagerConfig;
 import com.facebook.presto.metadata.SystemTables;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
@@ -49,6 +50,8 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.base.Throwables;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import io.airlift.dbpool.H2EmbeddedDataSource;
+import io.airlift.dbpool.H2EmbeddedDataSourceConfig;
 import io.airlift.dbpool.H2EmbeddedDataSourceModule;
 import io.airlift.dbpool.MySqlDataSourceModule;
 import io.airlift.http.client.HttpClientBinder;
@@ -64,11 +67,13 @@ import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Singleton;
+import java.io.File;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 
 import static com.facebook.presto.server.ConditionalModule.installIfPropertyEquals;
 import static com.facebook.presto.server.DbiProvider.bindDbiToDataSource;
+import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -97,6 +102,7 @@ public class ServerMainModule
         HttpClientBinder.httpClientBinder(binder).bindHttpClient("scheduler", ForScheduler.class).withTracing();
         binder.bind(PlanFragmentSourceProvider.class).to(HackPlanFragmentSourceProvider.class).in(Scopes.SINGLETON);
 
+        bindConfig(binder).to(StorageManagerConfig.class);
         binder.bind(StorageManager.class).to(DatabaseStorageManager.class).in(Scopes.SINGLETON);
         binder.bind(DataStreamProvider.class).to(DataStreamManager.class).in(Scopes.SINGLETON);
         binder.bind(NativeDataStreamProvider.class).in(Scopes.SINGLETON);
@@ -179,10 +185,11 @@ public class ServerMainModule
     @Provides
     @Singleton
     @ForStorageManager
-    public IDBI createStorageManagerDBI()
+    public IDBI createStorageManagerDBI(StorageManagerConfig config)
+            throws Exception
     {
-        // TODO: configuration
-        return new DBI("jdbc:h2:file:var/presto-data/db/StorageManager;DB_CLOSE_DELAY=-1;MVCC=TRUE");
+        String path = new File(config.getDataDirectory(), "db/StorageManager").getAbsolutePath();
+        return new DBI(new H2EmbeddedDataSource(new H2EmbeddedDataSourceConfig().setFilename(path)));
     }
 
     @SafeVarargs

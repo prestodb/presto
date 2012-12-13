@@ -23,7 +23,6 @@ import com.google.common.io.Files;
 import com.google.common.io.OutputSupplier;
 import com.google.common.primitives.Ints;
 import com.google.inject.Inject;
-import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -43,16 +42,13 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
+import static java.nio.file.Files.createDirectories;
 
 public class DatabaseStorageManager
         implements StorageManager
 {
-    private final static Logger log = Logger.get(DatabaseStorageManager.class);
-
     private static final boolean ENABLE_OPTIMIZATION = Boolean.valueOf("false");
 
-    private static final File DEFAULT_BASE_STORAGE_DIR = new File("var/presto-data/storage");
-    private static final File DEFAULT_BASE_STAGING_DIR = new File("var/presto-data/staging");
     private static final int RUN_LENGTH_AVERAGE_CUTOFF = 3;
     private static final int DICTIONARY_CARDINALITY_CUTOFF = 1000;
     private static final int OUTPUT_BUFFER_SIZE = (int) new DataSize(1, MEGABYTE).toBytes();
@@ -73,20 +69,18 @@ public class DatabaseStorageManager
         }
     });
 
-    public DatabaseStorageManager(IDBI dbi, File baseStorageDir, File baseStagingDir)
+    @Inject
+    public DatabaseStorageManager(@ForStorageManager IDBI dbi, StorageManagerConfig config)
+            throws IOException
     {
-        this.dbi = checkNotNull(dbi, "iDbi is null");
-        this.baseStorageDir = checkNotNull(baseStorageDir, "baseStorageDir is null");
-        this.baseStagingDir = checkNotNull(baseStagingDir, "baseStagingDir is null");
+        checkNotNull(config, "config is null");
+        File baseDataDir = checkNotNull(config.getDataDirectory(), "dataDirectory is null");
+        this.baseStorageDir = createDirectory(new File(baseDataDir, "storage"));
+        this.baseStagingDir = createDirectory(new File(baseDataDir, "staging"));
+        this.dbi = checkNotNull(dbi, "dbi is null");
         this.dao = dbi.onDemand(StorageManagerDao.class);
 
         dao.createTableColumns();
-    }
-
-    @Inject
-    public DatabaseStorageManager(@ForStorageManager IDBI dbi)
-    {
-        this(dbi, DEFAULT_BASE_STORAGE_DIR, DEFAULT_BASE_STAGING_DIR);
     }
 
     @Override
@@ -108,8 +102,6 @@ public class DatabaseStorageManager
         // Delete empty staging directory
         deleteStagingDirectory(shardId);
     }
-
-
 
     private List<File> stagingImport(long shardId, List<Long> columnIds, Operator source)
             throws IOException
@@ -315,5 +307,12 @@ public class DatabaseStorageManager
             java.nio.file.Files.deleteIfExists(file.toPath());
         }
         dao.dropShard(shardId);
+    }
+
+    private static File createDirectory(File dir)
+            throws IOException
+    {
+        createDirectories(dir.toPath());
+        return dir;
     }
 }

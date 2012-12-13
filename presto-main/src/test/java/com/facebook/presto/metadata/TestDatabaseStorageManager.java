@@ -31,8 +31,7 @@ import static org.testng.Assert.assertTrue;
 public class TestDatabaseStorageManager
 {
     private Handle dummyHandle;
-    private File stagingDir;
-    private File storageDir;
+    private File dataDir;
     private StorageManager storageManager;
 
     @BeforeMethod
@@ -41,17 +40,16 @@ public class TestDatabaseStorageManager
     {
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
-        stagingDir = Files.createTempDir();
-        storageDir = Files.createTempDir();
-        storageManager = new DatabaseStorageManager(dbi, storageDir, stagingDir);
+        dataDir = Files.createTempDir();
+        StorageManagerConfig config = new StorageManagerConfig().setDataDirectory(dataDir);
+        storageManager = new DatabaseStorageManager(dbi, config);
     }
 
     @AfterMethod
     public void cleanupDatabase()
     {
         dummyHandle.close();
-        FileUtils.deleteRecursively(stagingDir);
-        FileUtils.deleteRecursively(storageDir);
+        FileUtils.deleteRecursively(dataDir);
     }
 
     @Test
