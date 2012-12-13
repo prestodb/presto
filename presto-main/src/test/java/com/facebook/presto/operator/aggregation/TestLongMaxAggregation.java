@@ -3,6 +3,8 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.tuple.Tuple;
+import com.google.common.collect.Ranges;
+import com.google.common.primitives.Longs;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
@@ -10,10 +12,10 @@ public class TestLongMaxAggregation
     extends AbstractTestAggregationFunction
 {
     @Override
-    public Block getSequenceBlock(int positions)
+    public Block getSequenceBlock(int start, int length)
     {
         BlockBuilder blockBuilder = new BlockBuilder(SINGLE_LONG);
-        for (int i = 0; i < positions; i++) {
+        for (int i = start; i < start + length; i++) {
             blockBuilder.append(i);
         }
         return blockBuilder.build();
@@ -26,12 +28,12 @@ public class TestLongMaxAggregation
     }
 
     @Override
-    public Long getExpectedValue(int positions)
+    public Number getExpectedValue(int start, int length)
     {
-        if (positions == 0) {
+        if (length == 0) {
             return null;
         }
-        return positions - 1L;
+        return (long) start + length - 1;
     }
 
     @Override
