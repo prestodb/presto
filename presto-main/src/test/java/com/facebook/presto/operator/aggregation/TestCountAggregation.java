@@ -11,10 +11,10 @@ public class TestCountAggregation
     extends AbstractTestAggregationFunction
 {
     @Override
-    public Block getSequenceBlock(int positions)
+    public Block getSequenceBlock(int start, int length)
     {
         BlockBuilder blockBuilder = new BlockBuilder(SINGLE_LONG);
-        for (int i = 0; i < positions; i++) {
+        for (int i = start; i < start + length; i++) {
             blockBuilder.append(i);
         }
         return blockBuilder.build();
@@ -27,9 +27,9 @@ public class TestCountAggregation
     }
 
     @Override
-    public Number getExpectedValue(int positions)
+    public Number getExpectedValue(int start, int length)
     {
-        return (long) positions;
+        return (long) length;
     }
 
     @Override
@@ -42,14 +42,14 @@ public class TestCountAggregation
     public void testAllPositionsNull()
             throws Exception
     {
-        Block nullsBlock = new RunLengthEncodedBlock(nullTuple(getSequenceBlock(10).getTupleInfo()), 11);
+        Block nullsBlock = new RunLengthEncodedBlock(nullTuple(getSequenceBlock(0, 10).getTupleInfo()), 11);
         testMultiplePositions(nullsBlock.cursor(), 10L, 10);
     }
 
     @Override
     public void testMixedNullAndNonNullPositions()
     {
-        Block alternatingNullsBlock = createAlternatingNullsBlock(getSequenceBlock(10));
+        Block alternatingNullsBlock = createAlternatingNullsBlock(getSequenceBlock(0, 10));
         testMultiplePositions(alternatingNullsBlock.cursor(), 10L, 10);
     }
 
@@ -57,35 +57,35 @@ public class TestCountAggregation
     public void testVectorAllPositionsNull()
             throws Exception
     {
-        Block nullsBlock = new RunLengthEncodedBlock(nullTuple(getSequenceBlock(10).getTupleInfo()), 10);
+        Block nullsBlock = new RunLengthEncodedBlock(nullTuple(getSequenceBlock(0, 10).getTupleInfo()), 10);
         testVectorMultiplePositions(nullsBlock, 10L);
     }
 
     @Override
     public void testVectorMixedNullAndNonNullPositions()
     {
-        Block alternatingNullsBlock = createAlternatingNullsBlock(getSequenceBlock(5));
+        Block alternatingNullsBlock = createAlternatingNullsBlock(getSequenceBlock(0, 5));
         testVectorMultiplePositions(alternatingNullsBlock, 10L);
     }
 
     @Override
     public void testPartialWithMixedNullAndNonNullPositions()
     {
-        Block alternatingNullsBlock = createAlternatingNullsBlock(getSequenceBlock(10));
+        Block alternatingNullsBlock = createAlternatingNullsBlock(getSequenceBlock(0, 10));
         testPartialWithMultiplePositions(alternatingNullsBlock, 20L);
     }
 
     @Override
     public void testVectorPartialWithMixedNullAndNonNullPositions()
     {
-        Block alternatingNullsBlock = createAlternatingNullsBlock(getSequenceBlock(10));
+        Block alternatingNullsBlock = createAlternatingNullsBlock(getSequenceBlock(0, 10));
         testPartialWithMultiplePositions(alternatingNullsBlock, 20L);
     }
 
     @Override
     public void testCombinerWithMixedNullAndNonNullPositions()
     {
-        AlternatingNullsBlockCursor cursor = new AlternatingNullsBlockCursor(getSequenceBlock(10).cursor());
+        AlternatingNullsBlockCursor cursor = new AlternatingNullsBlockCursor(getSequenceBlock(0, 10).cursor());
         testCombinerWithMultiplePositions(cursor, 10L, 10);
     }
 }

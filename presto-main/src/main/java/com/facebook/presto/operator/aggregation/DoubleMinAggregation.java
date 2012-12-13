@@ -43,7 +43,7 @@ public class DoubleMinAggregation
     private final int channelIndex;
     private final int fieldIndex;
     private boolean hasNonNullValue;
-    private double min;
+    private double min = Double.POSITIVE_INFINITY;
 
     public DoubleMinAggregation(int channelIndex, int fieldIndex)
     {

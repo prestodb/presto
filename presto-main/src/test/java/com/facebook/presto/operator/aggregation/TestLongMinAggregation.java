@@ -10,10 +10,10 @@ public class TestLongMinAggregation
     extends AbstractTestAggregationFunction
 {
     @Override
-    public Block getSequenceBlock(int positions)
+    public Block getSequenceBlock(int start, int length)
     {
         BlockBuilder blockBuilder = new BlockBuilder(SINGLE_LONG);
-        for (int i = 0; i < positions; i++) {
+        for (int i = start; i < start + length; i++) {
             blockBuilder.append(i);
         }
         return blockBuilder.build();
@@ -26,12 +26,12 @@ public class TestLongMinAggregation
     }
 
     @Override
-    public Long getExpectedValue(int positions)
+    public Number getExpectedValue(int start, int length)
     {
-        if (positions == 0) {
+        if (length == 0) {
             return null;
         }
-        return 0L;
+        return (long) start;
     }
 
     @Override

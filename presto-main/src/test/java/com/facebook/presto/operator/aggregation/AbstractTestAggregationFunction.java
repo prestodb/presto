@@ -23,11 +23,11 @@ import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestAggregationFunction
 {
-    public abstract Block getSequenceBlock(int positions);
+    public abstract Block getSequenceBlock(int start, int length);
 
     public abstract AggregationFunction getFunction();
 
-    public abstract Number getExpectedValue(int positions);
+    public abstract Number getExpectedValue(int start, int length);
 
     public abstract Number getActualValue(AggregationFunctionStep function);
 
@@ -35,34 +35,34 @@ public abstract class AbstractTestAggregationFunction
     public void testNoPositions()
             throws Exception
     {
-        testMultiplePositions(getSequenceBlock(10).cursor(), getExpectedValue(0), 0);
+        testMultiplePositions(getSequenceBlock(0, 10).cursor(), getExpectedValue(0, 0), 0);
     }
 
     @Test
     public void testSinglePosition()
             throws Exception
     {
-        testMultiplePositions(getSequenceBlock(10).cursor(), getExpectedValue(1), 1);
+        testMultiplePositions(getSequenceBlock(0, 10).cursor(), getExpectedValue(0, 1), 1);
     }
 
     @Test
     public void testMultiplePositions()
     {
-        testMultiplePositions(getSequenceBlock(10).cursor(), getExpectedValue(5), 5);
+        testMultiplePositions(getSequenceBlock(0, 10).cursor(), getExpectedValue(0, 5), 5);
     }
     @Test
     public void testAllPositionsNull()
             throws Exception
     {
-        BlockCursor nullsCursor = new RunLengthEncodedBlockCursor(nullTuple(getSequenceBlock(10).getTupleInfo()), 11);
-        testMultiplePositions(nullsCursor, getExpectedValue(0), 10);
+        BlockCursor nullsCursor = new RunLengthEncodedBlockCursor(nullTuple(getSequenceBlock(0, 10).getTupleInfo()), 11);
+        testMultiplePositions(nullsCursor, getExpectedValue(0, 0), 10);
     }
 
     @Test
     public void testMixedNullAndNonNullPositions()
     {
-        Block alternatingNullsBlock = createAlternatingNullsBlock(getSequenceBlock(10));
-        testMultiplePositions(alternatingNullsBlock.cursor(), getExpectedValue(5), 10);
+        Block alternatingNullsBlock = createAlternatingNullsBlock(getSequenceBlock(0, 10));
+        testMultiplePositions(alternatingNullsBlock.cursor(), getExpectedValue(0, 5), 10);
     }
 
     protected void testMultiplePositions(BlockCursor cursor, Number expectedValue, int positions)
@@ -85,35 +85,35 @@ public abstract class AbstractTestAggregationFunction
     public void testVectorNoPositions()
             throws Exception
     {
-        testVectorMultiplePositions(getSequenceBlock(0), getExpectedValue(0));
+        testVectorMultiplePositions(getSequenceBlock(0, 0), getExpectedValue(0, 0));
     }
 
     @Test
     public void testVectorSinglePosition()
             throws Exception
     {
-        testVectorMultiplePositions(getSequenceBlock(1), getExpectedValue(1));
+        testVectorMultiplePositions(getSequenceBlock(0, 1), getExpectedValue(0, 1));
     }
 
     @Test
     public void testVectorMultiplePositions()
     {
-        testVectorMultiplePositions(getSequenceBlock(5), getExpectedValue(5));
+        testVectorMultiplePositions(getSequenceBlock(0, 5), getExpectedValue(0, 5));
     }
 
     @Test
     public void testVectorAllPositionsNull()
             throws Exception
     {
-        Block nullsBlock = new RunLengthEncodedBlock(nullTuple(getSequenceBlock(1).getTupleInfo()), 11);
-        testVectorMultiplePositions(nullsBlock, getExpectedValue(0));
+        Block nullsBlock = new RunLengthEncodedBlock(nullTuple(getSequenceBlock(0, 1).getTupleInfo()), 11);
+        testVectorMultiplePositions(nullsBlock, getExpectedValue(0, 0));
     }
 
     @Test
     public void testVectorMixedNullAndNonNullPositions()
     {
-        Block alternatingNullsBlock = createAlternatingNullsBlock(getSequenceBlock(5));
-        testVectorMultiplePositions(alternatingNullsBlock, getExpectedValue(5));
+        Block alternatingNullsBlock = createAlternatingNullsBlock(getSequenceBlock(0, 5));
+        testVectorMultiplePositions(alternatingNullsBlock, getExpectedValue(0, 5));
     }
 
     protected void testVectorMultiplePositions(Block block, Number expectedValue)
@@ -126,14 +126,14 @@ public abstract class AbstractTestAggregationFunction
     @Test
     public void testPartialWithMultiplePositions()
     {
-        testPartialWithMultiplePositions(getSequenceBlock(10), getExpectedValue(10));
+        testPartialWithMultiplePositions(getSequenceBlock(0, 10), getExpectedValue(0, 10));
     }
 
     @Test
     public void testPartialWithMixedNullAndNonNullPositions()
     {
-        Block alternatingNullsBlock = createAlternatingNullsBlock(getSequenceBlock(10));
-        testPartialWithMultiplePositions(alternatingNullsBlock, getExpectedValue(10));
+        Block alternatingNullsBlock = createAlternatingNullsBlock(getSequenceBlock(0, 10));
+        testPartialWithMultiplePositions(alternatingNullsBlock, getExpectedValue(0, 10));
     }
 
     protected void testPartialWithMultiplePositions(Block block, Number expectedValue)
@@ -151,14 +151,14 @@ public abstract class AbstractTestAggregationFunction
     @Test
     public void testVectorPartialWithMultiplePositions()
     {
-        testVectorPartialWithMultiplePositions(getSequenceBlock(10), getExpectedValue(10));
+        testVectorPartialWithMultiplePositions(getSequenceBlock(0, 10), getExpectedValue(0, 10));
     }
 
     @Test
     public void testVectorPartialWithMixedNullAndNonNullPositions()
     {
-        Block alternatingNullsBlock = createAlternatingNullsBlock(getSequenceBlock(10));
-        testVectorPartialWithMultiplePositions(alternatingNullsBlock, getExpectedValue(10));
+        Block alternatingNullsBlock = createAlternatingNullsBlock(getSequenceBlock(0, 10));
+        testVectorPartialWithMultiplePositions(alternatingNullsBlock, getExpectedValue(0, 10));
     }
 
     public Block createAlternatingNullsBlock(Block sequenceBlock)
@@ -195,14 +195,14 @@ public abstract class AbstractTestAggregationFunction
     @Test
     public void testCombinerWithMultiplePositions()
     {
-        testCombinerWithMultiplePositions(getSequenceBlock(10).cursor(), getExpectedValue(5), 5);
+        testCombinerWithMultiplePositions(getSequenceBlock(0, 10).cursor(), getExpectedValue(0, 5), 5);
     }
 
     @Test
     public void testCombinerWithMixedNullAndNonNullPositions()
     {
-        AlternatingNullsBlockCursor cursor = new AlternatingNullsBlockCursor(getSequenceBlock(10).cursor());
-        testCombinerWithMultiplePositions(cursor, getExpectedValue(5), 10);
+        AlternatingNullsBlockCursor cursor = new AlternatingNullsBlockCursor(getSequenceBlock(0, 10).cursor());
+        testCombinerWithMultiplePositions(cursor, getExpectedValue(0, 5), 10);
     }
 
     protected void testCombinerWithMultiplePositions(BlockCursor cursor, Number expectedValue, int positions)
@@ -260,5 +260,19 @@ public abstract class AbstractTestAggregationFunction
         }
 
         assertEquals(getActualValue(function), expectedValue);
+    }
+
+    @Test
+    public void testNegativeOnlyValues()
+            throws Exception
+    {
+        testVectorMultiplePositions(getSequenceBlock(-10, 5), getExpectedValue(-10, 5));
+    }
+
+    @Test
+    public void testPositiveOnlyValues()
+            throws Exception
+    {
+        testVectorMultiplePositions(getSequenceBlock(2, 4), getExpectedValue(2, 4));
     }
 }
