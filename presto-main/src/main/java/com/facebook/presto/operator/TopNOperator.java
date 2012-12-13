@@ -71,19 +71,21 @@ public class TopNOperator
     }
 
     @Override
-    public PageIterator iterator()
+    public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new TopNIterator(source);
+        return new TopNIterator(source, operatorStats);
     }
 
     private class TopNIterator
             extends AbstractPageIterator
     {
         private final Iterator<KeyAndTuples> outputIterator;
+        private final OperatorStats operatorStats;
 
-        private TopNIterator(Operator source)
+        private TopNIterator(Operator source, OperatorStats operatorStats)
         {
             super(source.getTupleInfos());
+            this.operatorStats = operatorStats;
             outputIterator = selectTopN(source);
         }
 
@@ -126,7 +128,7 @@ public class TopNOperator
         private Iterator<KeyAndTuples> selectTopN(Operator source)
         {
             PriorityQueue<KeyAndTuples> globalCandidates = new PriorityQueue<>(n, KeyAndTuples.keyComparator(ordering));
-            try (PageIterator pageIterator = source.iterator()) {
+            try (PageIterator pageIterator = source.iterator(operatorStats)) {
                 while (pageIterator.hasNext()) {
                     Page page = pageIterator.next();
                     Iterable<KeyAndPosition> keyAndPositions = computePageCandidatePositions(globalCandidates, page);

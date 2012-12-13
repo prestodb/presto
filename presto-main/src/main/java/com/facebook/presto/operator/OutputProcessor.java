@@ -27,7 +27,7 @@ public class OutputProcessor
     {
         long rows = 0;
         long bytes = 0;
-        try (PageIterator pages = sink.iterator()) {
+        try (PageIterator pages = sink.iterator(new OperatorStats())) {
             while (pages.hasNext()) {
                 Page page = pages.next();
                 rows += page.getPositionCount();

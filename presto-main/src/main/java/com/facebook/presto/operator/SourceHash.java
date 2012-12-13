@@ -13,10 +13,10 @@ public class SourceHash
     private final PagesIndex pagesIndex;
     private final ChannelHash channelHash;
 
-    public SourceHash(Operator source, int hashChannel, int expectedPositions)
+    public SourceHash(Operator source, int hashChannel, int expectedPositions, OperatorStats operatorStats)
     {
         this.hashChannel = hashChannel;
-        this.pagesIndex = new PagesIndex(source, expectedPositions);
+        this.pagesIndex = new PagesIndex(source, expectedPositions, operatorStats);
         this.channelHash = new ChannelHash(pagesIndex.getIndex(hashChannel));
     }
 
