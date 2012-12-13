@@ -43,7 +43,7 @@ public class DoubleMaxAggregation
     private final int channelIndex;
     private final int fieldIndex;
     private boolean hasNonNullValue;
-    private double max;
+    private double max = Double.NEGATIVE_INFINITY;
 
     public DoubleMaxAggregation(int channelIndex, int fieldIndex)
     {

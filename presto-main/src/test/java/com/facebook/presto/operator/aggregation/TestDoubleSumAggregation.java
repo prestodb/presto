@@ -11,10 +11,10 @@ public class TestDoubleSumAggregation
     extends AbstractTestAggregationFunction
 {
     @Override
-    public Block getSequenceBlock(int positions)
+    public Block getSequenceBlock(int start, int length)
     {
         BlockBuilder blockBuilder = new BlockBuilder(SINGLE_DOUBLE);
-        for (int i = 0; i < positions; i++) {
+        for (int i = start; i < start + length; i++) {
             blockBuilder.append((double) i);
         }
         return blockBuilder.build();
@@ -27,14 +27,14 @@ public class TestDoubleSumAggregation
     }
 
     @Override
-    public Double getExpectedValue(int positions)
+    public Number getExpectedValue(int start, int length)
     {
-        if (positions == 0) {
+        if (length == 0) {
             return null;
         }
 
         double sum = 0;
-        for (int i = 0; i < positions; i++) {
+        for (int i = start; i < start + length; i++) {
             sum += i;
         }
         return sum;

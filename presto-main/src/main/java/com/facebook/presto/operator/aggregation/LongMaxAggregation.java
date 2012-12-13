@@ -43,7 +43,7 @@ public class LongMaxAggregation
     private final int channelIndex;
     private final int fieldIndex;
     private boolean hasNonNullValue;
-    private long max;
+    private long max = Long.MIN_VALUE;
 
     public LongMaxAggregation(int channelIndex, int fieldIndex)
     {
