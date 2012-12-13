@@ -68,6 +68,10 @@ public class Console
             query.debug = debug;
             query.run();
         }
+        catch (QueryAbortedException e) {
+            System.out.println("(query aborted by user)");
+            System.out.println();
+        }
         catch (Exception e) {
             System.out.println("error running command: " + e.getMessage());
             if (debug) {
