@@ -59,9 +59,9 @@ public class NewInMemoryOrderByOperator
     }
 
     @Override
-    public PageIterator iterator()
+    public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new NewInMemoryOrderByOperatorIterator(source, orderByChannel, tupleInfos, outputChannels, expectedPositions, sortFields, sortOrder);
+        return new NewInMemoryOrderByOperatorIterator(source, orderByChannel, tupleInfos, outputChannels, expectedPositions, sortFields, sortOrder, operatorStats);
     }
 
     private static class NewInMemoryOrderByOperatorIterator
@@ -78,7 +78,8 @@ public class NewInMemoryOrderByOperator
                 int[] outputChannels,
                 int expectedPositions,
                 int[] sortFields,
-                boolean[] sortOrder)
+                boolean[] sortOrder,
+                OperatorStats operatorStats)
         {
             super(source.getTupleInfos());
 
@@ -86,7 +87,7 @@ public class NewInMemoryOrderByOperator
             this.outputChannels = outputChannels;
 
             // index all pages
-            pageIndex = new PagesIndex(source, expectedPositions);
+            pageIndex = new PagesIndex(source, expectedPositions, operatorStats);
 
             // sort the index
             pageIndex.sort(orderByChannel, sortFields, sortOrder);

@@ -56,6 +56,7 @@ import io.airlift.dbpool.H2EmbeddedDataSourceModule;
 import io.airlift.dbpool.MySqlDataSourceModule;
 import io.airlift.http.client.HttpClientBinder;
 import io.airlift.json.JsonBinder;
+import io.airlift.units.Duration;
 import org.antlr.runtime.RecognitionException;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.JsonParser;
@@ -77,6 +78,7 @@ import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class ServerMainModule
         extends AbstractConfigurationAwareModule
@@ -189,7 +191,7 @@ public class ServerMainModule
             throws Exception
     {
         String path = new File(config.getDataDirectory(), "db/StorageManager").getAbsolutePath();
-        return new DBI(new H2EmbeddedDataSource(new H2EmbeddedDataSourceConfig().setFilename(path)));
+        return new DBI(new H2EmbeddedDataSource(new H2EmbeddedDataSourceConfig().setFilename(path).setMaxConnections(500).setMaxConnectionWait(new Duration(1, SECONDS))));
     }
 
     @SafeVarargs

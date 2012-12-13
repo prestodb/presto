@@ -158,6 +158,16 @@ public class ExecutionStats
         this.completedDataSize.addAndGet(completedDataSize.toBytes());
     }
 
+    public void addOutputPositions(long outputPositions)
+    {
+        this.outputPositionCount.addAndGet(outputPositions);
+    }
+
+    public void addOutputDataSize(DataSize outputDataSize)
+    {
+        this.outputDataSize.addAndGet(outputDataSize.toBytes());
+    }
+
     public void add(ExecutionStats stats) {
         splits.addAndGet(stats.getSplits());
         startedSplits.addAndGet(stats.getStartedSplits());

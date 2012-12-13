@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.ingest;
 
+import com.facebook.presto.operator.OperatorStats;
 import com.google.common.collect.ForwardingIterator;
 import com.google.common.collect.ImmutableList;
 
@@ -35,7 +36,7 @@ public final class RecordIterables
         }
 
         @Override
-        public RecordIterator iterator()
+        public RecordIterator iterator(OperatorStats operatorStats)
         {
             return new RecordIteratorAdapter(records.iterator());
         }

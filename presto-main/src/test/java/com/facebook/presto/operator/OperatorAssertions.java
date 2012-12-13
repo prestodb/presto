@@ -62,7 +62,7 @@ public final class OperatorAssertions
         }
 
         @Override
-        public PageIterator iterator()
+        public PageIterator iterator(OperatorStats operatorStats)
         {
             return PageIterators.createPageIterator(pages);
         }
@@ -87,7 +87,9 @@ public final class OperatorAssertions
         for (int i = 0; i < operator.getChannelCount(); i++) {
             blockBuilders.add(ImmutableList.<Block>builder());
         }
-        for (Page page : operator) {
+        PageIterator iterator = operator.iterator(new OperatorStats());
+        while (iterator.hasNext()) {
+            Page page = iterator.next();
             Block[] blocks = page.getBlocks();
             for (int i = 0; i < blocks.length; i++) {
                 blockBuilders.get(i).add(blocks[i]);

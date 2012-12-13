@@ -275,6 +275,8 @@ public class SqlQueryExecution
                     partition.getSplits(),
                     exchangeSources.build(),
                     outputIds));
+
+            queryStats.addSplits(partition.getSplits().size());
         }
 
         return stageManager.createStage(queryId, stageId, stageLocation, stageExecutionPlan.getFragment(), tasks.build(), subStages.values());

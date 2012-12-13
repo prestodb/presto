@@ -36,9 +36,9 @@ public class LimitOperator
     }
 
     @Override
-    public PageIterator iterator()
+    public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new LimitIterator(source.iterator(), limit);
+        return new LimitIterator(source.iterator(operatorStats), limit);
     }
 
     private static class LimitIterator
