@@ -8,6 +8,9 @@ import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.Tuples;
+import com.google.common.base.Preconditions;
+
+import static com.google.common.base.Preconditions.*;
 
 /**
  * A wrapper that inserts a null in every other position
@@ -133,13 +136,15 @@ public class AlternatingNullsBlockCursor
     @Override
     public int getRawOffset()
     {
-        throw new UnsupportedOperationException();
+        checkState(!isNullPosition(), "should not be called on a null position");
+        return delegate.getRawOffset();
     }
 
     @Override
     public Slice getRawSlice()
     {
-        throw new UnsupportedOperationException();
+        checkState(!isNullPosition(), "should not be called on a null position");
+        return delegate.getRawSlice();
     }
 
     @Override
