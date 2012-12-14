@@ -17,7 +17,7 @@ import static com.facebook.presto.tuple.Tuples.NULL_STRING_TUPLE;
 import static com.facebook.presto.tuple.Tuples.createTuple;
 
 public class VarBinaryMaxAggregation
-    implements AggregationFunction
+        implements AggregationFunction
 {
     public static Provider<AggregationFunction> varBinaryMaxAggregation(int channelIndex, int field)
     {
