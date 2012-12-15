@@ -62,7 +62,8 @@ public class RecordProjectOperator
     @Override
     public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new RecordProjectionOperator(source.iterator(operatorStats), dataSize, projections, operatorStats);
+        operatorStats.addActualDataSize(dataSize.toBytes());
+        return new RecordProjectionOperator(source.iterator(operatorStats), projections, operatorStats);
     }
 
     private static class RecordProjectionOperator
@@ -71,14 +72,12 @@ public class RecordProjectOperator
         private final RecordIterator iterator;
         private final List<? extends RecordProjection> projections;
         private final OperatorStats operatorStats;
-        private final DataSize dataSize;
 
 
-        public RecordProjectionOperator(RecordIterator iterator, DataSize dataSize, List<? extends RecordProjection> projections, OperatorStats operatorStats)
+        public RecordProjectionOperator(RecordIterator iterator, List<? extends RecordProjection> projections, OperatorStats operatorStats)
         {
             super(RecordProjections.toTupleInfos(projections));
             this.iterator = iterator;
-            this.dataSize = dataSize;
             this.projections = projections;
             this.operatorStats = operatorStats;
         }
@@ -109,7 +108,6 @@ public class RecordProjectOperator
             }
 
             Page page = new Page(blocks);
-            operatorStats.addActualDataSize(dataSize.toBytes());
             operatorStats.addActualPositionCount(page.getPositionCount());
             return page;
         }
