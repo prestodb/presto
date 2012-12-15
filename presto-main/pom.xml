@@ -340,7 +340,7 @@
                             </execution>
                         </executions>
                         <configuration>
-                            <executable>java</executable>
+                            <executable>${java.home}/bin/java</executable>
                             <arguments>
                                 <argument>-DoutputDirectory=benchmark_outputs</argument>
                                 <argument>-DtpchDataJar=${project.build.directory}/dependency/testdata-tpch-1g.jar</argument>
@@ -373,7 +373,7 @@
                             </execution>
                         </executions>
                         <configuration>
-                            <executable>java</executable>
+                            <executable>${java.home}/bin/java</executable>
                             <mainClass>com.facebook.presto.Main</mainClass>
                             <arguments>
                                 <argument>console</argument>
