@@ -1,6 +1,5 @@
 package com.facebook.presto.cli;
 
-import com.facebook.presto.Main;
 import com.facebook.presto.ingest.DelimitedRecordIterable;
 import com.facebook.presto.ingest.ImportingOperator;
 import com.facebook.presto.ingest.RecordProjectOperator;
@@ -14,6 +13,7 @@ import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.io.CountingInputStream;
 import com.google.common.io.Files;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.OutputSupplier;
@@ -21,6 +21,8 @@ import io.airlift.command.Arguments;
 import io.airlift.command.Command;
 import io.airlift.command.Option;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -55,16 +57,19 @@ public class ConvertCsv
     public void run()
     {
         checkArgument(extractionSpecs != null && !extractionSpecs.isEmpty(), "Extraction Spec is required");
+        final CountingInputStream countingInputStream;
         InputSupplier<InputStreamReader> readerSupplier;
         if (csvFile != null) {
+            countingInputStream = null;
             readerSupplier = Files.newReaderSupplier(new File(csvFile), Charsets.UTF_8);
         }
         else {
+            countingInputStream = new CountingInputStream(System.in);
             readerSupplier = new InputSupplier<InputStreamReader>()
             {
                 public InputStreamReader getInput()
                 {
-                    return new InputStreamReader(System.in, Charsets.UTF_8);
+                    return new InputStreamReader(countingInputStream, Charsets.UTF_8);
                 }
             };
         }
@@ -108,7 +113,14 @@ public class ConvertCsv
         List<BlocksFileWriter> writers = writersBuilder.build();
 
         DelimitedRecordIterable records = new DelimitedRecordIterable(readerSupplier, Splitter.on(toChar(columnSeparator)));
-        Operator source = new RecordProjectOperator(records, recordProjections);
+        DataSize dataSize;
+        if (csvFile != null) {
+            dataSize = new DataSize(csvFile.length(), Unit.BYTE);
+        }
+        else {
+            dataSize = new DataSize(countingInputStream.getCount(), Unit.BYTE);
+        }
+        Operator source = new RecordProjectOperator(records, dataSize, recordProjections);
 
         long rowCount = ImportingOperator.importData(source, writers);
         log.info("Imported %d rows", rowCount);

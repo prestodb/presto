@@ -11,7 +11,9 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 
 import java.util.List;
 
@@ -19,17 +21,23 @@ public class RecordProjectOperator
         implements Operator
 {
     private final RecordIterable source;
+    private final DataSize dataSize;
     private final List<? extends RecordProjection> projections;
     private final List<TupleInfo> tupleInfos;
 
-    public RecordProjectOperator(RecordIterable source, RecordProjection... projections)
+    public RecordProjectOperator(RecordIterable source, DataSize dataSize, RecordProjection... projections)
     {
-        this(source, ImmutableList.copyOf(projections));
+        this(source, dataSize, ImmutableList.copyOf(projections));
     }
 
-    public RecordProjectOperator(RecordIterable source, Iterable<? extends RecordProjection> projections)
+    public RecordProjectOperator(RecordIterable source, DataSize dataSize, Iterable<? extends RecordProjection> projections)
     {
+        Preconditions.checkNotNull(source, "source is null");
+        Preconditions.checkNotNull(dataSize, "dataSize is null");
+        Preconditions.checkNotNull(projections, "projections is null");
+
         this.source = source;
+        this.dataSize = dataSize;
         this.projections = ImmutableList.copyOf(projections);
 
         ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
@@ -54,7 +62,7 @@ public class RecordProjectOperator
     @Override
     public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new RecordProjectionOperator(source.iterator(operatorStats), projections, operatorStats);
+        return new RecordProjectionOperator(source.iterator(operatorStats), dataSize, projections, operatorStats);
     }
 
     private static class RecordProjectionOperator
@@ -63,12 +71,14 @@ public class RecordProjectOperator
         private final RecordIterator iterator;
         private final List<? extends RecordProjection> projections;
         private final OperatorStats operatorStats;
+        private final DataSize dataSize;
 
 
-        public RecordProjectionOperator(RecordIterator iterator, List<? extends RecordProjection> projections, OperatorStats operatorStats)
+        public RecordProjectionOperator(RecordIterator iterator, DataSize dataSize, List<? extends RecordProjection> projections, OperatorStats operatorStats)
         {
             super(RecordProjections.toTupleInfos(projections));
             this.iterator = iterator;
+            this.dataSize = dataSize;
             this.projections = projections;
             this.operatorStats = operatorStats;
         }
@@ -99,7 +109,7 @@ public class RecordProjectOperator
             }
 
             Page page = new Page(blocks);
-            operatorStats.addActualDataSize(page.getDataSize().toBytes());
+            operatorStats.addActualDataSize(dataSize.toBytes());
             operatorStats.addActualPositionCount(page.getPositionCount());
             return page;
         }
