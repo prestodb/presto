@@ -13,6 +13,8 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.inject.Inject;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 
 import java.util.List;
 
@@ -53,8 +55,9 @@ public class ImportDataStreamProvider
         }
 
         PartitionChunk partitionChunk = client.deserializePartitionChunk(importSplit.getSerializedChunk().getBytes());
+        DataSize partitionSize = new DataSize(partitionChunk.getLength(), Unit.BYTE);
         ImportPartition importPartition = new ImportPartition(client, partitionChunk, convertToColumnNames(columns));
-        return new RecordProjectOperator(importPartition, builder.build());
+        return new RecordProjectOperator(importPartition, partitionSize, builder.build());
     }
 
     private Iterable<String> convertToColumnNames(Iterable<ColumnHandle> columnHandles){
