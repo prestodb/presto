@@ -186,6 +186,11 @@ public final class Slice
     {
         int offset = 0;
         int length = size;
+        clear(offset, length);
+    }
+
+    public void clear(int offset, int length)
+    {
         while (length >= SIZE_OF_LONG) {
             unsafe.putLong(base, this.address + offset, 0);
             offset += SIZE_OF_LONG;

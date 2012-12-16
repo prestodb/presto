@@ -230,6 +230,11 @@ public class TupleInfo
         return types.size();
     }
 
+    public int getFixedSize()
+    {
+        return size;
+    }
+
     public int size(Slice slice)
     {
         return size(slice, 0);
@@ -277,6 +282,13 @@ public class TupleInfo
         return slice.getLong(offset + getOffset(field));
     }
 
+    public void setLong(Slice slice, int offset, int field, long value)
+    {
+        checkState(types.get(field) == FIXED_INT_64, "Expected FIXED_INT_64");
+
+        slice.setLong(offset + getOffset(field), value);
+    }
+
     public double getDouble(Slice slice, int field)
     {
         return getDouble(slice, 0, field);
@@ -287,6 +299,13 @@ public class TupleInfo
         checkState(types.get(field) == DOUBLE, "Expected DOUBLE");
 
         return slice.getDouble(offset + getOffset(field));
+    }
+
+    public void setDouble(Slice slice, int offset, int field, double value)
+    {
+        checkState(types.get(field) == DOUBLE, "Expected DOUBLE");
+
+        slice.setDouble(offset + getOffset(field), value);
     }
 
     public Slice getSlice(Slice slice, int field)
@@ -324,6 +343,22 @@ public class TupleInfo
         int bit = field & 0b111;
         int bitMask = 1 << bit;
         return (slice.getByte(offset + index) & bitMask) != 0;
+    }
+
+    public void setNull(Slice slice, int offset, int field)
+    {
+        int index = field >> 3;
+        int bit = field & 0b111;
+        int bitMask = 1 << bit;
+        slice.setByte(index, slice.getByte(index) | bitMask);
+    }
+
+    public void setNotNull(Slice slice, int offset, int field)
+    {
+        int index = field >> 3;
+        int bit = field & 0b111;
+        int bitMask = ~(1 << bit);
+        slice.setByte(index, slice.getByte(index) & bitMask);
     }
 
     /**
