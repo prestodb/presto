@@ -63,6 +63,16 @@ public class BlockBuilder
         return sliceOutput.size() > maxBlockSize;
     }
 
+    public int size()
+    {
+        return sliceOutput.size();
+    }
+
+    public int writableBytes()
+    {
+        return maxBlockSize - sliceOutput.size();
+    }
+
     public BlockBuilder append(long value)
     {
         tupleBuilder.append(value);
