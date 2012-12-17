@@ -50,6 +50,8 @@ public class SqlQueryManager
     private final AtomicInteger nextQueryId = new AtomicInteger();
     private final ConcurrentMap<String, QueryExecution> queries = new ConcurrentHashMap<>();
 
+    private final boolean importsEnabled;
+
     @Inject
     public SqlQueryManager(ImportClientFactory importClientFactory,
             ImportManager importManager,
@@ -58,7 +60,8 @@ public class SqlQueryManager
             SplitManager splitManager,
             StageManager stageManager,
             RemoteTaskFactory remoteTaskFactory,
-            LocationFactory locationFactory)
+            LocationFactory locationFactory,
+            QueryManagerConfig config)
     {
         Preconditions.checkNotNull(importClientFactory, "importClientFactory is null");
         Preconditions.checkNotNull(importManager, "importManager is null");
@@ -68,6 +71,7 @@ public class SqlQueryManager
         Preconditions.checkNotNull(stageManager, "stageManager is null");
         Preconditions.checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
         Preconditions.checkNotNull(locationFactory, "locationFactory is null");
+        Preconditions.checkNotNull(config, "config is null");
 
         this.queryExecutor = new ScheduledThreadPoolExecutor(1000, threadsNamed("query-processor-%d"));
 
@@ -79,6 +83,7 @@ public class SqlQueryManager
         this.stageManager = stageManager;
         this.remoteTaskFactory = remoteTaskFactory;
         this.locationFactory = locationFactory;
+        this.importsEnabled = config.isImportsEnabled();
 
         queryExecutor.scheduleAtFixedRate(new Runnable()
         {
@@ -139,6 +144,8 @@ public class SqlQueryManager
         String queryId = String.valueOf(nextQueryId.getAndIncrement());
         QueryExecution queryExecution;
         if (query.startsWith("import-table:")) {
+            Preconditions.checkState(importsEnabled, "Imports are currently disabled");
+
             // todo this is a hack until we have language support for import or create table as select
             ImmutableList<String> strings = ImmutableList.copyOf(Splitter.on(":").split(query));
             queryExecution = new ImportTableExecution(queryId,
