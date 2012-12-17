@@ -11,6 +11,9 @@ import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.SourceHashProvider;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchBlocksProvider;
+import io.airlift.units.DataSize;
+
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class HashJoinBenchmark
         extends AbstractOperatorBenchmark
@@ -35,7 +38,7 @@ public class HashJoinBenchmark
             AlignmentOperator ordersTableScan = new AlignmentOperator(orderOrderKey, totalPrice);
 //            AlignmentOperator ordersTableScan = new AlignmentOperator(concat(nCopies(100, orderOrderKey)), concat(nCopies(100, totalPrice)));
 //            LimitOperator ordersLimit = new LimitOperator(ordersTableScan, 1_500_000);
-            sourceHashProvider = new SourceHashProvider(ordersTableScan, 0, 1_500_000, new OperatorStats());
+            sourceHashProvider = new SourceHashProvider(ordersTableScan, 0, 1_500_000, new DataSize(100, MEGABYTE), new OperatorStats());
         }
 
         BlockIterable lineItemOrderKey = getBlockIterable(blocksProvider, "lineitem", "orderkey", BlocksFileEncoding.RAW);

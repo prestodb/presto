@@ -53,6 +53,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
+import io.airlift.units.DataSize;
 
 import javax.inject.Provider;
 import java.util.ArrayList;
@@ -76,6 +77,7 @@ public class LocalExecutionPlanner
     private final Map<String, ExchangePlanFragmentSource> exchangeSources;
 
     private final SourceHashProviderFactory joinHashFactory;
+    private final DataSize maxOperatorMemoryUsage;
 
     public LocalExecutionPlanner(Metadata metadata,
             PlanFragmentSourceProvider sourceProvider,
@@ -84,7 +86,8 @@ public class LocalExecutionPlanner
             Map<TableHandle, TableScanPlanFragmentSource> tableScans,
             Map<String, ExchangePlanFragmentSource> exchangeSources,
             OperatorStats operatorStats,
-            SourceHashProviderFactory joinHashFactory)
+            SourceHashProviderFactory joinHashFactory,
+            DataSize maxOperatorMemoryUsage)
     {
         this.tableScans = tableScans;
         this.operatorStats = Preconditions.checkNotNull(operatorStats, "operatorStats is null");
@@ -94,6 +97,7 @@ public class LocalExecutionPlanner
         this.split = split;
         this.exchangeSources = ImmutableMap.copyOf(checkNotNull(exchangeSources, "exchangeSources is null"));
         this.joinHashFactory = checkNotNull(joinHashFactory, "joinHashFactory is null");
+        this.maxOperatorMemoryUsage = Preconditions.checkNotNull(maxOperatorMemoryUsage, "maxOperatorMemoryUsage is null");
     }
 
     public Operator plan(PlanNode plan)
@@ -183,7 +187,7 @@ public class LocalExecutionPlanner
             int[] sortFields = new int[] { 0 };
             boolean[] sortOrder = new boolean[] { node.getOrderings().get(orderBySymbol) == SortItem.Ordering.ASCENDING};
 
-            return new InMemoryOrderByOperator(plan(source), symbolToChannelMappings.get(orderBySymbol), outputChannels, 1_000_000, sortFields, sortOrder);
+            return new InMemoryOrderByOperator(plan(source), symbolToChannelMappings.get(orderBySymbol), outputChannels, 1_000_000, sortFields, sortOrder, maxOperatorMemoryUsage);
         }
 
         @Override

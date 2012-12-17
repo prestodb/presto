@@ -9,6 +9,8 @@ import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import it.unimi.dsi.fastutil.Swapper;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongIterable;
@@ -16,9 +18,10 @@ import it.unimi.dsi.fastutil.longs.LongListIterator;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import static com.facebook.presto.hive.shaded.com.google.common.base.Preconditions.checkState;
-import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
-import static com.facebook.presto.operator.SyntheticAddress.decodeSliceOffset;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
+import static com.facebook.presto.operator.SyntheticAddress.decodeSliceOffset;
+import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
 
 /**
  * ChannelIndex a low-level data structure which contains the address of every value position with a channel.
@@ -34,12 +37,21 @@ public class ChannelIndex
     private final LongArrayList valueAddresses;
     private final ObjectArrayList<Slice> slices;
     private final TupleInfo tupleInfo;
+    private long slicesMemorySize;
 
     public ChannelIndex(int expectedPositions, TupleInfo tupleInfo)
     {
         this.tupleInfo = tupleInfo;
         valueAddresses = new LongArrayList(expectedPositions);
         slices = ObjectArrayList.wrap(new Slice[1024], 0);
+    }
+
+    public DataSize getEstimatedSize()
+    {
+        // assumes 64bit addresses
+        long sliceArraySize = slices.elements().length * SIZE_OF_LONG;
+        long addressesArraySize = valueAddresses.elements().length * SIZE_OF_LONG;
+        return new DataSize(slicesMemorySize + sliceArraySize + addressesArraySize, Unit.BYTE);
     }
 
     public int getPositionCount()
@@ -82,6 +94,7 @@ public class ChannelIndex
         // index the block
         int blockIndex = slices.size();
         slices.add(blockIndex, block.getSlice());
+        slicesMemorySize += block.getSlice().length();
         BlockCursor cursor = block.cursor();
         for (int position = 0; position < block.getPositionCount(); position++) {
             checkState(cursor.advanceNextPosition());
