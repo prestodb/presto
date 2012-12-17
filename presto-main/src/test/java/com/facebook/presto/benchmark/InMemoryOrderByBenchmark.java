@@ -11,32 +11,30 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchBlocksProvider;
-import com.facebook.presto.tpch.TpchColumnHandle;
-import com.facebook.presto.tpch.TpchTableHandle;
-import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.collect.ImmutableList;
 
-import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
-import static com.facebook.presto.tpch.TpchSchema.columnHandle;
-import static com.facebook.presto.tpch.TpchSchema.tableHandle;
+import static com.facebook.presto.block.BlockIterables.concat;
+import static java.util.Collections.nCopies;
 
 public class InMemoryOrderByBenchmark
     extends AbstractOperatorBenchmark
 {
+    private static final int ROWS = 1_500_000;
+
     public InMemoryOrderByBenchmark()
     {
-        super("in_memory_orderby_100k", 3, 30);
+        super("in_memory_orderby_1.5M", 5, 10);
     }
 
     @Override
     protected Operator createBenchmarkedOperator(TpchBlocksProvider blocksProvider)
     {
-        TpchTableHandle orders = tableHandle("orders");
-        TpchColumnHandle totalprice = columnHandle(orders, "totalprice");
-        BlockIterable blockIterable = blocksProvider.getBlocks(orders, totalprice, BlocksFileEncoding.RAW);
-        AlignmentOperator alignmentOperator = new AlignmentOperator(blockIterable);
-        LimitOperator limitOperator = new LimitOperator(alignmentOperator, 100_000);
-        return new InMemoryOrderByOperator(limitOperator, 0, ImmutableList.of(singleColumn(TupleInfo.Type.DOUBLE, 0, 0)));
+        BlockIterable totalPrice = getBlockIterable(blocksProvider, "orders", "totalprice", BlocksFileEncoding.RAW);
+        BlockIterable clerk = getBlockIterable(blocksProvider, "orders", "clerk", BlocksFileEncoding.RAW);
+        AlignmentOperator alignmentOperator = new AlignmentOperator(concat(nCopies(100, totalPrice)), concat(nCopies(100, clerk)));
+
+        LimitOperator limitOperator = new LimitOperator(alignmentOperator, ROWS);
+        InMemoryOrderByOperator orderByOperator = new InMemoryOrderByOperator(limitOperator, 0, new int[]{1}, ROWS);
+        return orderByOperator;
     }
 
     @Override

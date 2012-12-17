@@ -24,10 +24,9 @@ public class BenchmarkSuite
             new PredicateFilterBenchmark(),
             new RawStreamingBenchmark(),
             new Top100Benchmark(),
-            new InMemoryOrderByBenchmark(),
 
             // benchmarks for new non-integrated features
-            new NewInMemoryOrderByBenchmark(),
+            new InMemoryOrderByBenchmark(),
             new HashBuildBenchmark(),
             new HashJoinBenchmark(),
             new HashBuildAndJoinBenchmark(),

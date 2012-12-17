@@ -1,68 +1,59 @@
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.tuple.FieldOrderedTupleComparator;
-import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Ordering;
+import it.unimi.dsi.fastutil.booleans.BooleanArrays;
 
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 public class InMemoryOrderByOperator
         implements Operator
 {
-    private static final int MAX_IN_MEMORY_SORT_SIZE = 2_000_000;
-    
     private final Operator source;
-    private final int keyChannelIndex;
-    private final List<ProjectionFunction> projections;
-    private final Ordering<TupleReadable> ordering;
-    private final ImmutableList<TupleInfo> tupleInfos;
+    private final int expectedPositions;
+    private final int orderByChannel;
+    private final int[] sortFields;
+    private final boolean[] sortOrder;
+    private final int[] outputChannels;
+    private final List<TupleInfo> tupleInfos;
 
-    public InMemoryOrderByOperator(Operator source, int keyChannelIndex, List<ProjectionFunction> projections, Ordering<TupleReadable> ordering)
+    public InMemoryOrderByOperator(Operator source, int orderByChannel, int[] outputChannels, int expectedPositions)
     {
-        checkNotNull(source, "source is null");
-        checkArgument(keyChannelIndex >= 0, "keyChannelIndex must be at least zero");
-        checkNotNull(projections, "projections is null");
-        checkArgument(!projections.isEmpty(), "projections is empty");
-        checkNotNull(ordering, "ordering is null");
-        this.source = source;
-        this.keyChannelIndex = keyChannelIndex;
-        this.projections = ImmutableList.copyOf(projections);
-        this.ordering = ordering;
-
-        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
-        for (ProjectionFunction projection : projections) {
-            tupleInfos.add(projection.getTupleInfo());
-        }
-        this.tupleInfos = tupleInfos.build();
+        this(source,
+                orderByChannel,
+                outputChannels,
+                expectedPositions,
+                defaultSortFields(source, orderByChannel),
+                defaultSortOrder(source, orderByChannel));
     }
 
-    public InMemoryOrderByOperator(Operator source, int keyChannelIndex, List<ProjectionFunction> projections)
+    public InMemoryOrderByOperator(Operator source, int orderByChannel, int[] outputChannels, int expectedPositions, int[] sortFields, boolean[] sortOrder)
     {
-        this(source, keyChannelIndex, projections, Ordering.from(FieldOrderedTupleComparator.INSTANCE));
+        checkNotNull(source, "source is null");
+
+        this.source = source;
+        this.expectedPositions = expectedPositions;
+        this.orderByChannel = orderByChannel;
+        this.outputChannels = outputChannels;
+        ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
+        for (int channel : outputChannels) {
+            tupleInfos.add(source.getTupleInfos().get(channel));
+        }
+        this.tupleInfos = tupleInfos.build();
+        this.sortFields = sortFields;
+        this.sortOrder = sortOrder;
     }
 
     @Override
     public int getChannelCount()
     {
-        return projections.size();
+        return tupleInfos.size();
     }
 
     @Override
-    public ImmutableList<TupleInfo> getTupleInfos()
+    public List<TupleInfo> getTupleInfos()
     {
         return tupleInfos;
     }
@@ -70,47 +61,59 @@ public class InMemoryOrderByOperator
     @Override
     public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new InMemoryOrderByIterator(source, operatorStats);
+        return new NewInMemoryOrderByOperatorIterator(source, orderByChannel, tupleInfos, outputChannels, expectedPositions, sortFields, sortOrder, operatorStats);
     }
 
-    private class InMemoryOrderByIterator
+    private static class NewInMemoryOrderByOperatorIterator
             extends AbstractPageIterator
     {
-        private final Iterator<KeyAndTuples> outputIterator;
-        private final OperatorStats operatorStats;
+        private final List<TupleInfo> tupleInfos;
+        private final int[] outputChannels;
+        private final PagesIndex pageIndex;
+        private int currentPosition;
 
-        private InMemoryOrderByIterator(Operator source, OperatorStats operatorStats)
+        private NewInMemoryOrderByOperatorIterator(Operator source,
+                int orderByChannel,
+                List<TupleInfo> tupleInfos,
+                int[] outputChannels,
+                int expectedPositions,
+                int[] sortFields,
+                boolean[] sortOrder,
+                OperatorStats operatorStats)
         {
             super(source.getTupleInfos());
-            this.operatorStats = operatorStats;
-            outputIterator = materializeTuplesAndSort(source).iterator();
+
+            this.tupleInfos = tupleInfos;
+            this.outputChannels = outputChannels;
+
+            // index all pages
+            pageIndex = new PagesIndex(source, expectedPositions, operatorStats);
+
+            // sort the index
+            pageIndex.sort(orderByChannel, sortFields, sortOrder);
         }
 
         @Override
         protected Page computeNext()
         {
-            if (!outputIterator.hasNext()) {
+            if (currentPosition >= pageIndex.getPositionCount()) {
                 return endOfData();
             }
 
-            BlockBuilder[] outputs = new BlockBuilder[projections.size()];
-            for (int i = 0; i < outputs.length; i++) {
-                outputs[i] = new BlockBuilder(projections.get(i).getTupleInfo());
-            }
-
-            while (!isFull(outputs) && outputIterator.hasNext()) {
-                KeyAndTuples next = outputIterator.next();
-                for (int i = 0; i < projections.size(); i++) {
-                    projections.get(i).project(next.getTuples(), outputs[i]);
+            // iterate through the positions sequentially until we have one full page
+            PageBuilder pageBuilder = new PageBuilder(tupleInfos);
+            while (!pageBuilder.isFull() && currentPosition < pageIndex.getPositionCount()) {
+                for (int i = 0; i < outputChannels.length; i++) {
+                    pageIndex.appendTupleTo(outputChannels[i], currentPosition, pageBuilder.getBlockBuilder(i));
                 }
+                currentPosition++;
             }
 
-            Block[] blocks = new Block[projections.size()];
-            for (int i = 0; i < blocks.length; i++) {
-                blocks[i] = outputs[i].build();
+            // output the page if we have any data
+            if (pageBuilder.isEmpty()) {
+                return endOfData();
             }
-
-            Page page = new Page(blocks);
+            Page page = pageBuilder.build();
             return page;
         }
 
@@ -118,83 +121,25 @@ public class InMemoryOrderByOperator
         protected void doClose()
         {
         }
-
-        private List<KeyAndTuples> materializeTuplesAndSort(Operator source) {
-            List<KeyAndTuples> keyAndTuplesList = Lists.newArrayList();
-            try (PageIterator pageIterator = source.iterator(operatorStats)) {
-                while (pageIterator.hasNext()) {
-                    Page page = pageIterator.next();
-                    Block[] blocks = page.getBlocks();
-                    BlockCursor[] cursors = new BlockCursor[blocks.length];
-                    for (int i = 0; i < cursors.length; i++) {
-                        cursors[i] = blocks[i].cursor();
-                    }
-                    for (int position = 0; position < page.getPositionCount(); position++) {
-                        for (BlockCursor cursor : cursors) {
-                            checkState(cursor.advanceNextPosition());
-                        }
-                        keyAndTuplesList.add(getKeyAndTuples(cursors));
-                    }
-                    checkState(keyAndTuplesList.size() <= MAX_IN_MEMORY_SORT_SIZE, "Too many tuples for in memory sort");
-                }
-            }
-            Collections.sort(keyAndTuplesList, KeyAndTuples.keyComparator(ordering));
-            return keyAndTuplesList;
-        }
-
-        private KeyAndTuples getKeyAndTuples(BlockCursor[] cursors)
-        {
-            // TODO: pre-project columns to minimize storage in global candidate set
-            Tuple key = cursors[keyChannelIndex].getTuple();
-            Tuple[] tuples = new Tuple[cursors.length];
-            for (int channel = 0; channel < cursors.length; channel++) {
-                tuples[channel] = (channel == keyChannelIndex) ? key : cursors[channel].getTuple();
-            }
-            return new KeyAndTuples(key, tuples);
-        }
-
-        private boolean isFull(BlockBuilder... outputs)
-        {
-            for (BlockBuilder output : outputs) {
-                if (output.isFull()) {
-                    return true;
-                }
-            }
-            return false;
-        }
     }
 
-    private static class KeyAndTuples
+    private static boolean[] defaultSortOrder(Operator source, int orderByChannel)
     {
-        private final Tuple key;
-        private final Tuple[] tuples;
+        boolean[] sortOrder;
+        TupleInfo orderByTupleInfo = source.getTupleInfos().get(orderByChannel);
+        sortOrder = new boolean[orderByTupleInfo.getFieldCount()];
+        BooleanArrays.fill(sortOrder, true);
+        return sortOrder;
+    }
 
-        private KeyAndTuples(Tuple key, Tuple[] tuples)
-        {
-            this.key = key;
-            this.tuples = tuples;
+    private static int[] defaultSortFields(Operator source, int orderByChannel)
+    {
+        int[] sortFields;
+        TupleInfo orderByTupleInfo = source.getTupleInfos().get(orderByChannel);
+        sortFields = new int[orderByTupleInfo.getFieldCount()];
+        for (int i = 0; i < sortFields.length; i++) {
+            sortFields[i] = i;
         }
-
-        public Tuple getKey()
-        {
-            return key;
-        }
-
-        public Tuple[] getTuples()
-        {
-            return tuples;
-        }
-
-        public static Comparator<KeyAndTuples> keyComparator(final Comparator<TupleReadable> tupleReadableComparator)
-        {
-            return new Comparator<KeyAndTuples>()
-            {
-                @Override
-                public int compare(KeyAndTuples o1, KeyAndTuples o2)
-                {
-                    return tupleReadableComparator.compare(o1.getKey(), o2.getKey());
-                }
-            };
-        }
+        return sortFields;
     }
 }

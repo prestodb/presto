@@ -2,16 +2,11 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.tuple.FieldOrderedTupleComparator;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.operator.OperatorAssertions.assertOperatorEquals;
 import static com.facebook.presto.operator.OperatorAssertions.createOperator;
-import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 
@@ -28,20 +23,13 @@ public class TestInMemoryOrderByOperator
                 ),
                 new Page(
                         BlockAssertions.createLongsBlock(-1, 4),
-                        BlockAssertions.createDoublesBlock(-0.1, 0.4)
+                        BlockAssertions.createDoublesBlock( -0.1, 0.4)
                 )
         );
 
-        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(
-                source, 0, ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0), singleColumn(DOUBLE, 1, 0))
-        );
+        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(source, 0, new int[]{1}, 10);
 
-        Operator expected = createOperator(
-                new Page(
-                        BlockAssertions.createLongsBlock(-1, 1, 2, 4),
-                        BlockAssertions.createDoublesBlock(-0.1, 0.1, 0.2, 0.4)
-                )
-        );
+        Operator expected = createOperator(new Page(BlockAssertions.createDoublesBlock(-0.1, 0.1, 0.2, 0.4)));
         assertOperatorEquals(actual, expected);
     }
 
@@ -65,9 +53,7 @@ public class TestInMemoryOrderByOperator
                 )
         );
 
-        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(
-                source, 0, ImmutableList.of(ProjectionFunctions.concat(singleColumn(VARIABLE_BINARY, 0, 0), singleColumn(FIXED_INT_64, 0, 1)))
-        );
+        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(source, 0, new int[]{0}, 10);
 
         Operator expected = createOperator(
                 new Page(
@@ -97,15 +83,11 @@ public class TestInMemoryOrderByOperator
                 )
         );
 
-        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(
-                source, 0, ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0), singleColumn(DOUBLE, 1, 0)),
-                Ordering.from(FieldOrderedTupleComparator.INSTANCE).reverse()
-        );
+        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(source, 0, new int[]{0}, 10, new int[]{0}, new boolean[] {false});
 
         Operator expected = createOperator(
                 new Page(
-                        BlockAssertions.createLongsBlock(4, 2, 1, -1),
-                        BlockAssertions.createDoublesBlock(0.4, 0.2, 0.1, -0.1)
+                        BlockAssertions.createLongsBlock(4, 2, 1, -1)
                 )
         );
         assertOperatorEquals(actual, expected);
