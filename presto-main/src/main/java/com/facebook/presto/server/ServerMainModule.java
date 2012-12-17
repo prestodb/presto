@@ -5,6 +5,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlStageManager;
@@ -88,6 +89,7 @@ public class ServerMainModule
     {
         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
+        bindConfig(binder).to(QueryManagerConfig.class);
 
         binder.bind(StageResource.class).in(Scopes.SINGLETON);
         binder.bind(StageManager.class).to(SqlStageManager.class).in(Scopes.SINGLETON);
