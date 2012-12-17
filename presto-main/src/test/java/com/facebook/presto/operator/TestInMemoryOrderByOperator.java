@@ -10,7 +10,7 @@ import static com.facebook.presto.operator.OperatorAssertions.createOperator;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 
-public class TestNewInMemoryOrderByOperator
+public class TestInMemoryOrderByOperator
 {
     @Test
     public void testSingleFieldKey()
@@ -27,7 +27,7 @@ public class TestNewInMemoryOrderByOperator
                 )
         );
 
-        NewInMemoryOrderByOperator actual = new NewInMemoryOrderByOperator(source, 0, new int[]{1}, 10);
+        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(source, 0, new int[]{1}, 10);
 
         Operator expected = createOperator(new Page(BlockAssertions.createDoublesBlock(-0.1, 0.1, 0.2, 0.4)));
         assertOperatorEquals(actual, expected);
@@ -53,7 +53,7 @@ public class TestNewInMemoryOrderByOperator
                 )
         );
 
-        NewInMemoryOrderByOperator actual = new NewInMemoryOrderByOperator(source, 0, new int[]{0}, 10);
+        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(source, 0, new int[]{0}, 10);
 
         Operator expected = createOperator(
                 new Page(
@@ -83,7 +83,7 @@ public class TestNewInMemoryOrderByOperator
                 )
         );
 
-        NewInMemoryOrderByOperator actual = new NewInMemoryOrderByOperator(source, 0, new int[]{0}, 10, new int[]{0}, new boolean[] {false});
+        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(source, 0, new int[]{0}, 10, new int[]{0}, new boolean[] {false});
 
         Operator expected = createOperator(
                 new Page(

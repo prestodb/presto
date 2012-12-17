@@ -8,7 +8,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class NewInMemoryOrderByOperator
+public class InMemoryOrderByOperator
         implements Operator
 {
     private final Operator source;
@@ -19,7 +19,7 @@ public class NewInMemoryOrderByOperator
     private final int[] outputChannels;
     private final List<TupleInfo> tupleInfos;
 
-    public NewInMemoryOrderByOperator(Operator source, int orderByChannel, int[] outputChannels, int expectedPositions)
+    public InMemoryOrderByOperator(Operator source, int orderByChannel, int[] outputChannels, int expectedPositions)
     {
         this(source,
                 orderByChannel,
@@ -29,7 +29,7 @@ public class NewInMemoryOrderByOperator
                 defaultSortOrder(source, orderByChannel));
     }
 
-    public NewInMemoryOrderByOperator(Operator source, int orderByChannel, int[] outputChannels, int expectedPositions, int[] sortFields, boolean[] sortOrder)
+    public InMemoryOrderByOperator(Operator source, int orderByChannel, int[] outputChannels, int expectedPositions, int[] sortFields, boolean[] sortOrder)
     {
         checkNotNull(source, "source is null");
 
