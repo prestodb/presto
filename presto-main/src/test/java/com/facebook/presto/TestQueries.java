@@ -95,6 +95,7 @@ import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
@@ -607,6 +608,7 @@ public class TestQueries
             builder.put(handle, new TableScanPlanFragmentSource(new TpchSplit(handle)));
         }
 
+        DataSize maxOperatorMemoryUsage = new DataSize(50, MEGABYTE);
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(metadata,
                 new HackPlanFragmentSourceProvider(dataProvider, null, TASK_INFO_CODEC),
                 analysis.getTypes(),
@@ -614,7 +616,8 @@ public class TestQueries
                 builder.build(),
                 ImmutableMap.<String, ExchangePlanFragmentSource>of(),
                 new OperatorStats(),
-                new SourceHashProviderFactory());
+                new SourceHashProviderFactory(maxOperatorMemoryUsage),
+                maxOperatorMemoryUsage);
 
         return new FilterAndProjectOperator(executionPlanner.plan(plan),
                 FilterFunctions.TRUE_FUNCTION,

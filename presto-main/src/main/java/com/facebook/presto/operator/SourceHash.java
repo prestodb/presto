@@ -6,6 +6,8 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 
 public class SourceHash
 {
@@ -13,11 +15,12 @@ public class SourceHash
     private final PagesIndex pagesIndex;
     private final ChannelHash channelHash;
 
-    public SourceHash(Operator source, int hashChannel, int expectedPositions, OperatorStats operatorStats)
+    public SourceHash(Operator source, int hashChannel, int expectedPositions, DataSize maxSize, OperatorStats operatorStats)
     {
         this.hashChannel = hashChannel;
-        this.pagesIndex = new PagesIndex(source, expectedPositions, operatorStats);
-        this.channelHash = new ChannelHash(pagesIndex.getIndex(hashChannel));
+        this.pagesIndex = new PagesIndex(source, expectedPositions, maxSize, operatorStats);
+        DataSize remainingSize = new DataSize(maxSize.toBytes() - pagesIndex.getEstimatedSize().toBytes(), Unit.BYTE);
+        this.channelHash = new ChannelHash(pagesIndex.getIndex(hashChannel), remainingSize);
     }
 
     public SourceHash(SourceHash sourceHash)
@@ -26,6 +29,13 @@ public class SourceHash
         this.pagesIndex = sourceHash.pagesIndex;
         // hash strategy can not be shared across threads
         this.channelHash = new ChannelHash(sourceHash.channelHash);
+    }
+
+    public DataSize getEstimatedSize()
+    {
+        long pagesIndexSize = pagesIndex.getEstimatedSize().toBytes();
+        long channelHashSize = channelHash.getEstimatedSize().toBytes();
+        return new DataSize(pagesIndexSize + channelHashSize, Unit.BYTE);
     }
 
     public int getChannelCount()

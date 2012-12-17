@@ -6,15 +6,22 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Preconditions;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.longs.Long2IntMap;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenCustomHashMap;
+import it.unimi.dsi.fastutil.longs.LongHash;
 import it.unimi.dsi.fastutil.longs.LongHash.Strategy;
 
 import java.util.Arrays;
 
-import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
-import static com.facebook.presto.operator.SyntheticAddress.decodeSliceOffset;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
+import static com.facebook.presto.operator.SyntheticAddress.decodeSliceOffset;
+import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_INT;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
 
 public class ChannelHash
 {
@@ -34,17 +41,19 @@ public class ChannelHash
     private static final int LOOKUP_SLICE_INDEX = 0xFF_FF_FF_FF;
 
     private final SliceHashStrategy hashStrategy;
-    private final Long2IntOpenCustomHashMap addressToPositionMap;
+    private final AddressToPositionMap addressToPositionMap;
     private final IntArrayList positionLinks;
 
-    public ChannelHash(ChannelIndex channelIndex)
+    public ChannelHash(ChannelIndex channelIndex, DataSize maxHashSize)
     {
         hashStrategy = new SliceHashStrategy(channelIndex.getTupleInfo(), channelIndex.getSlices().elements());
-        addressToPositionMap = new Long2IntOpenCustomHashMap(channelIndex.getPositionCount(), hashStrategy);
+        addressToPositionMap = new AddressToPositionMap(channelIndex.getPositionCount(), hashStrategy);
         addressToPositionMap.defaultReturnValue(-1);
         positionLinks = new IntArrayList(new int[channelIndex.getValueAddresses().size()]);
         Arrays.fill(positionLinks.elements(), -1);
+        long maxHashSizeBytes = maxHashSize.toBytes();
         for (int position = 0; position < channelIndex.getValueAddresses().size(); position++) {
+            Preconditions.checkState(getEstimatedSize().toBytes() <= maxHashSizeBytes, "Query exceeded max operator memory size");
             long sliceAddress = channelIndex.getValueAddresses().elements()[position];
             int oldPosition = addressToPositionMap.put(sliceAddress, position);
             if (oldPosition >= 0) {
@@ -58,9 +67,19 @@ public class ChannelHash
     {
         // hash strategy can not be shared across threads, but everything else can
         this.hashStrategy = new SliceHashStrategy(hash.hashStrategy.tupleInfo, hash.hashStrategy.slices);
-        this.addressToPositionMap = new Long2IntOpenCustomHashMap(hash.addressToPositionMap, hashStrategy);
+        this.addressToPositionMap = new AddressToPositionMap(hash.addressToPositionMap, hashStrategy);
         addressToPositionMap.defaultReturnValue(-1);
         this.positionLinks = hash.positionLinks;
+    }
+
+    /**
+     * Size of this hash alone without the underlying slices.
+     */
+    public DataSize getEstimatedSize()
+    {
+        long addressToPositionSize = addressToPositionMap.getEstimatedSize().toBytes();
+        int positionLinksSize = positionLinks.elements().length * SIZE_OF_INT;
+        return new DataSize(addressToPositionSize + positionLinksSize, Unit.BYTE);
     }
 
     public void setLookupSlice(Slice lookupSlice)
@@ -133,6 +152,23 @@ public class ChannelHash
                 slice = slices[sliceIndex];
             }
             return slice;
+        }
+    }
+
+    private static class AddressToPositionMap
+            extends Long2IntOpenCustomHashMap {
+        private AddressToPositionMap(int expected, LongHash.Strategy strategy)
+        {
+            super(expected, strategy);
+        }
+
+        private AddressToPositionMap(Long2IntMap m, LongHash.Strategy strategy)
+        {
+            super(m, strategy);
+        }
+
+        public DataSize getEstimatedSize() {
+            return new DataSize(n * (SIZE_OF_LONG + SIZE_OF_INT), Unit.BYTE);
         }
     }
 }

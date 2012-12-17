@@ -14,6 +14,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import io.airlift.http.server.HttpServerInfo;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;
@@ -43,6 +44,7 @@ public class SqlTaskManager
     private final Metadata metadata;
     private final PlanFragmentSourceProvider sourceProvider;
     private final HttpServerInfo httpServerInfo;
+    private final DataSize maxOperatorMemoryUsage;
 
     private final ConcurrentMap<String, TaskExecution> tasks = new ConcurrentHashMap<>();
 
@@ -50,16 +52,19 @@ public class SqlTaskManager
     public SqlTaskManager(
             Metadata metadata,
             PlanFragmentSourceProvider sourceProvider,
-            HttpServerInfo httpServerInfo)
+            HttpServerInfo httpServerInfo,
+            QueryManagerConfig config)
     {
         Preconditions.checkNotNull(metadata, "metadata is null");
         Preconditions.checkNotNull(sourceProvider, "sourceProvider is null");
         Preconditions.checkNotNull(httpServerInfo, "httpServerInfo is null");
+        Preconditions.checkNotNull(config, "config is null");
 
         this.metadata = metadata;
         this.sourceProvider = sourceProvider;
         this.httpServerInfo = httpServerInfo;
         this.pageBufferMax = 20;
+        this.maxOperatorMemoryUsage = config.getMaxOperatorMemoryUsage();
 
         int processors = Runtime.getRuntime().availableProcessors();
         taskExecutor = new ThreadPoolExecutor(1000,
@@ -121,7 +126,21 @@ public class SqlTaskManager
 
         URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
 
-        SqlTaskExecution taskExecution = new SqlTaskExecution(queryId, stageId, taskId, location, fragment, splits, exchangeSources,  outputIds, pageBufferMax, sourceProvider, metadata, shardExecutor);
+        SqlTaskExecution taskExecution = new
+                SqlTaskExecution(queryId,
+                stageId,
+                taskId,
+                location,
+                fragment,
+                splits,
+                exchangeSources,
+                outputIds,
+                pageBufferMax,
+                sourceProvider,
+                metadata,
+                shardExecutor,
+                maxOperatorMemoryUsage);
+        
         taskExecutor.submit(new TaskStarter(taskExecution));
 
         tasks.put(taskId, taskExecution);

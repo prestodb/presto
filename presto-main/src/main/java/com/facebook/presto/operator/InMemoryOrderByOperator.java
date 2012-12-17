@@ -2,6 +2,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.booleans.BooleanArrays;
 
 import java.util.List;
@@ -18,18 +19,20 @@ public class InMemoryOrderByOperator
     private final boolean[] sortOrder;
     private final int[] outputChannels;
     private final List<TupleInfo> tupleInfos;
+    private final DataSize maxSortSize;
 
-    public InMemoryOrderByOperator(Operator source, int orderByChannel, int[] outputChannels, int expectedPositions)
+    public InMemoryOrderByOperator(Operator source, int orderByChannel, int[] outputChannels, int expectedPositions, DataSize maxSortSize)
     {
         this(source,
                 orderByChannel,
                 outputChannels,
                 expectedPositions,
                 defaultSortFields(source, orderByChannel),
-                defaultSortOrder(source, orderByChannel));
+                defaultSortOrder(source, orderByChannel),
+                maxSortSize);
     }
 
-    public InMemoryOrderByOperator(Operator source, int orderByChannel, int[] outputChannels, int expectedPositions, int[] sortFields, boolean[] sortOrder)
+    public InMemoryOrderByOperator(Operator source, int orderByChannel, int[] outputChannels, int expectedPositions, int[] sortFields, boolean[] sortOrder, DataSize maxSortSize)
     {
         checkNotNull(source, "source is null");
 
@@ -44,6 +47,7 @@ public class InMemoryOrderByOperator
         this.tupleInfos = tupleInfos.build();
         this.sortFields = sortFields;
         this.sortOrder = sortOrder;
+        this.maxSortSize = maxSortSize;
     }
 
     @Override
@@ -61,7 +65,7 @@ public class InMemoryOrderByOperator
     @Override
     public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new NewInMemoryOrderByOperatorIterator(source, orderByChannel, tupleInfos, outputChannels, expectedPositions, sortFields, sortOrder, operatorStats);
+        return new NewInMemoryOrderByOperatorIterator(source, orderByChannel, tupleInfos, outputChannels, expectedPositions, sortFields, sortOrder, maxSortSize, operatorStats);
     }
 
     private static class NewInMemoryOrderByOperatorIterator
@@ -79,6 +83,7 @@ public class InMemoryOrderByOperator
                 int expectedPositions,
                 int[] sortFields,
                 boolean[] sortOrder,
+                DataSize maxSize,
                 OperatorStats operatorStats)
         {
             super(source.getTupleInfos());
@@ -87,7 +92,7 @@ public class InMemoryOrderByOperator
             this.outputChannels = outputChannels;
 
             // index all pages
-            pageIndex = new PagesIndex(source, expectedPositions, operatorStats);
+            pageIndex = new PagesIndex(source, expectedPositions, maxSize, operatorStats);
 
             // sort the index
             pageIndex.sort(orderByChannel, sortFields, sortOrder);

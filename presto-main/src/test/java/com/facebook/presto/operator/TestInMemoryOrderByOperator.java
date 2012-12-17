@@ -3,6 +3,8 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.tuple.TupleInfo;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.operator.OperatorAssertions.assertOperatorEquals;
@@ -27,7 +29,7 @@ public class TestInMemoryOrderByOperator
                 )
         );
 
-        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(source, 0, new int[]{1}, 10);
+        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(source, 0, new int[]{1}, 10, new DataSize(1, Unit.MEGABYTE));
 
         Operator expected = createOperator(new Page(BlockAssertions.createDoublesBlock(-0.1, 0.1, 0.2, 0.4)));
         assertOperatorEquals(actual, expected);
@@ -53,7 +55,7 @@ public class TestInMemoryOrderByOperator
                 )
         );
 
-        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(source, 0, new int[]{0}, 10);
+        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(source, 0, new int[]{0}, 10, new DataSize(1, Unit.MEGABYTE));
 
         Operator expected = createOperator(
                 new Page(
@@ -83,7 +85,7 @@ public class TestInMemoryOrderByOperator
                 )
         );
 
-        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(source, 0, new int[]{0}, 10, new int[]{0}, new boolean[] {false});
+        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(source, 0, new int[]{0}, 10, new int[]{0}, new boolean[] {false}, new DataSize(1, Unit.MEGABYTE));
 
         Operator expected = createOperator(
                 new Page(
@@ -91,5 +93,24 @@ public class TestInMemoryOrderByOperator
                 )
         );
         assertOperatorEquals(actual, expected);
+    }
+
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Query exceeded max operator memory size of 10B")
+    public void testMemoryLimit()
+            throws Exception
+    {
+        Operator source = createOperator(
+                new Page(
+                        BlockAssertions.createLongsBlock(1, 2),
+                        BlockAssertions.createDoublesBlock(0.1, 0.2)
+                ),
+                new Page(
+                        BlockAssertions.createLongsBlock(-1, 4),
+                        BlockAssertions.createDoublesBlock( -0.1, 0.4)
+                )
+        );
+
+        InMemoryOrderByOperator operator = new InMemoryOrderByOperator(source, 0, new int[]{1}, 10, new DataSize(10, Unit.BYTE));
+        operator.iterator(new OperatorStats());
     }
 }
