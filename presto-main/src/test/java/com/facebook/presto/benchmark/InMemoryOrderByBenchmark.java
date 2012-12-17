@@ -3,8 +3,8 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.AlignmentOperator;
+import com.facebook.presto.operator.InMemoryOrderByOperator;
 import com.facebook.presto.operator.LimitOperator;
-import com.facebook.presto.operator.NewInMemoryOrderByOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
@@ -15,15 +15,14 @@ import com.facebook.presto.tpch.TpchBlocksProvider;
 import static com.facebook.presto.block.BlockIterables.concat;
 import static java.util.Collections.nCopies;
 
-public class NewInMemoryOrderByBenchmark
+public class InMemoryOrderByBenchmark
     extends AbstractOperatorBenchmark
 {
-    private final int rows;
+    private static final int ROWS = 1_500_000;
 
-    public NewInMemoryOrderByBenchmark()
+    public InMemoryOrderByBenchmark()
     {
-        super("duel_in_memory_orderby_1.5M", 5, 10);
-        rows = 1_000_000;
+        super("in_memory_orderby_1.5M", 5, 10);
     }
 
     @Override
@@ -33,8 +32,8 @@ public class NewInMemoryOrderByBenchmark
         BlockIterable clerk = getBlockIterable(blocksProvider, "orders", "clerk", BlocksFileEncoding.RAW);
         AlignmentOperator alignmentOperator = new AlignmentOperator(concat(nCopies(100, totalPrice)), concat(nCopies(100, clerk)));
 
-        LimitOperator limitOperator = new LimitOperator(alignmentOperator, rows);
-        NewInMemoryOrderByOperator orderByOperator = new NewInMemoryOrderByOperator(limitOperator, 0, new int[]{1}, rows);
+        LimitOperator limitOperator = new LimitOperator(alignmentOperator, ROWS);
+        InMemoryOrderByOperator orderByOperator = new InMemoryOrderByOperator(limitOperator, 0, new int[]{1}, ROWS);
         return orderByOperator;
     }
 
@@ -57,7 +56,7 @@ public class NewInMemoryOrderByBenchmark
 
     public static void main(String[] args)
     {
-        new NewInMemoryOrderByBenchmark().runBenchmark(
+        new InMemoryOrderByBenchmark().runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

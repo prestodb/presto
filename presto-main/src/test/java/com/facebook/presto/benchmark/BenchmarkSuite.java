@@ -26,7 +26,7 @@ public class BenchmarkSuite
             new Top100Benchmark(),
 
             // benchmarks for new non-integrated features
-            new NewInMemoryOrderByBenchmark(),
+            new InMemoryOrderByBenchmark(),
             new HashBuildBenchmark(),
             new HashJoinBenchmark(),
             new HashBuildAndJoinBenchmark(),
