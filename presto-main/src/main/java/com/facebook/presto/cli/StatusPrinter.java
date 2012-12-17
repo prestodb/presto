@@ -14,7 +14,9 @@ import org.fusesource.jansi.Ansi;
 import org.fusesource.jansi.Ansi.Erase;
 
 import java.io.PrintStream;
+import java.math.RoundingMode;
 import java.net.URI;
+import java.text.DecimalFormat;
 import java.util.List;
 import java.util.Set;
 
@@ -37,24 +39,18 @@ public class StatusPrinter
         this.queryClient = queryClient;
         this.out = out;
     }
+
 /*
 
-Query 47: RUNNING, 3 nodes
-Splits: 1,350 total  12,623,941 pending  12,623,941 running, 12,623,941 finished
-CPU wall: 9.18s 20M total, 3.06s 60M per node
-CPU user: 134.47s 1M total, 44.82s 4M per node
-Mem: 1949M shared, 7594M private
+Query 4: RUNNING, 1 nodes, 16.1s elapsed
+Splits:  707 total,  562 pending,   66 running,   79 done
+CPU user:  38.4s 2.14MB/s total,  38.4s 2.14MB/s per node
+CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
 
-STAGE  S    ROWS    RPS  BYTES    BPS   PEND    RUN   DONE
-0......Q     26M  9077M  9993G  9077M  9077M  9077M  9077M
-  2....R     17K   627M   673M   627M   627M   627M   627M
-    3..C   9990    627M   673M   627M   627M   627M   627M
-  4....R     26M   627M   673T   627M   627M   627M   627M
-    5..F     29T   627M   673M   627M   627M   627M   627M
-
-Query 32: FINISHED, 89 nodes, 648 splits
-CPU wall: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
-CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
+     STAGES   ROWS  ROWS/s  BYTES  BYTES/s   PEND    RUN   DONE
+0.........R  13.8M    336K  1.99G    49.5M      0      1    706
+  1.......R   666K   41.5K  82.1M    5.12M    563     65     79
+    2.....R  4.58M    234K   620M    31.6M    406     65    236
 
  */
 
@@ -192,7 +188,7 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
             // CPU user: 11.45s 4.2MBps wall, 9.45s 8.2MBps user, 9.45s 8.2MBps wall/node
             Duration userTime = new Duration(globalExecutionStats.getSplitCpuTime(), MILLISECONDS);
             Duration userTimePerNode = new Duration(userTime.toMillis() / nodes, MILLISECONDS);
-            String cpuUserSummary = String.format("CPU user: %5.1fs %7s total, %5.1fs %7s per node",
+            String cpuUserSummary = String.format("CPU user: %5.1fs %8s total, %5.1fs %8s per node",
                     userTime.convertTo(SECONDS),
                     formatDataRate(inputExecutionStats.getCompletedDataSize(), userTime, true),
                     userTimePerNode.convertTo(SECONDS),
@@ -201,7 +197,7 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
 
             // CPU wall: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
             Duration wallTimePerNode = new Duration(wallTime.toMillis() / nodes, MILLISECONDS);
-            String cpuWallSummary = String.format("CPU wall: %5.1fs %7s total, %5.1fs %7s per node",
+            String cpuWallSummary = String.format("CPU wall: %5.1fs %8s total, %5.1fs %8s per node",
                     wallTime.convertTo(SECONDS),
                     formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTime, true),
                     wallTimePerNode.convertTo(SECONDS),
@@ -214,13 +210,13 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
             reprintLine("");
 
             // STAGE  S    ROWS    RPS  BYTES    BPS   PEND    RUN   DONE
-            String stagesHeader = String.format("%10s%1s  %5s  %5s  %5s  %5s  %5s  %5s %5s",
+            String stagesHeader = String.format("%10s%1s  %5s  %6s  %5s  %7s  %5s  %5s  %5s",
                     "STAGE",
                     "S",
                     "ROWS",
-                    "ROW/S",
+                    "ROWS/s",
                     "BYTES",
-                    "B/S",
+                    "BYTES/s",
                     "PEND",
                     "RUN",
                     "DONE");
@@ -256,12 +252,12 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
         ExecutionStats executionStats = new ExecutionStats();
         sumTaskStats(stage, executionStats);
 
-        // STAGE  S    ROWS  ROW/S  BYTES    B/S   PEND    RUN   DONE
-        // 0......Q     26M  9077M  9993G  9077M  9077M  9077M  9077M
-        //   2....R     17K   627M   673M   627M   627M   627M   627M
-        //     3..C   9990    627M   673M   627M   627M   627M   627M
-        //   4....R     26M   627M   673T   627M   627M   627M   627M
-        //     5..F     29T   627M   673M   627M   627M   627M   627M
+        // STAGE  S    ROWS  ROWS/s  BYTES  BYTES/s   PEND    RUN   DONE
+        // 0......Q     26M   9077M  9993G    9077M  9077M  9077M  9077M
+        //   2....R     17K    627M   673M     627M   627M   627M   627M
+        //     3..C     999    627M   673M     627M   627M   627M   627M
+        //   4....R     26M    627M   673T     627M   627M   627M   627M
+        //     5..F     29T    627M   673M     627M   627M   627M   627M
 
         // todo this is a total hack
         String id = stage.getStageId().substring(stage.getQueryId().length() + 1);
@@ -271,7 +267,7 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
             nameBuilder.append('.');
         }
 
-        String stageSummary = String.format("%10s%1s  %5s  %5s  %5s  %5s  %5s  %5s %5s",
+        String stageSummary = String.format("%10s%1s  %5s  %6s  %5s  %7s  %5s  %5s  %5s",
                 nameBuilder.toString(),
                 stage.getState().toString().charAt(0),
 
@@ -323,30 +319,53 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
         return nodes.build();
     }
 
-    private static String formatCount(double count)
+    private static String formatCount(long count)
     {
-        String unit = " ";
-        if (count > 1000) {
-            count /= 1000;
+        double fractional = count;
+        String unit = "";
+        if (fractional > 1000) {
+            fractional /= 1000;
             unit = "K";
         }
-        if (count > 1000) {
-            count /= 1000;
+        if (fractional > 1000) {
+            fractional /= 1000;
             unit = "M";
         }
-        if (count > 1000) {
-            count /= 1000;
+        if (fractional > 1000) {
+            fractional /= 1000;
             unit = "B";
         }
-        if (count > 1000) {
-            count /= 1000;
+        if (fractional > 1000) {
+            fractional /= 1000;
             unit = "T";
         }
-        if (count > 1000) {
-            count /= 1000;
+        if (fractional > 1000) {
+            fractional /= 1000;
             unit = "Q";
         }
-        return String.format("%d%s", (long) count, unit);
+
+        DecimalFormat format = getFormat(fractional);
+        return String.format("%s%s", format.format(fractional), unit);
+    }
+
+    private static DecimalFormat getFormat(double value)
+    {
+        DecimalFormat format;
+        if (value < 10) {
+            // show up to two decimals to get 3 significant digits
+            format = new DecimalFormat("#.##");
+        }
+        else if (value < 100) {
+            // show up to one decimal to get 3 significant digits
+            format = new DecimalFormat("#.#");
+        }
+        else {
+            // show no decimals -- we have enough digits in the integer part
+            format = new DecimalFormat("#");
+        }
+
+        format.setRoundingMode(RoundingMode.HALF_UP);
+        return format;
     }
 
     private static String formatCountRate(double count, Duration duration, boolean longForm)
@@ -356,40 +375,43 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
             rate = 0;
         }
 
-        String rateString = formatCount(rate);
+        String rateString = formatCount((long) rate);
         if (longForm) {
             if (rateString.endsWith(" ")) {
                 rateString = rateString.substring(0, rateString.length() - 1);
             }
-            rateString += "ps";
+            rateString += "/s";
         }
         return rateString;
     }
 
-    private static String formatDataSize(double dataSize)
+    private static String formatDataSize(long size)
     {
+        double fractional = size;
         String unit = "B";
-        if (dataSize > 1000) {
-            dataSize /= 1024;
+        if (fractional >= 1024) {
+            fractional /= 1024;
             unit = "K";
         }
-        if (dataSize > 1000) {
-            dataSize /= 1024;
+        if (fractional >= 1024) {
+            fractional /= 1024;
             unit = "M";
         }
-        if (dataSize > 1000) {
-            dataSize /= 1024;
+        if (fractional >= 1024) {
+            fractional /= 1024;
             unit = "G";
         }
-        if (dataSize > 1000) {
-            dataSize /= 1024;
+        if (fractional >= 1024) {
+            fractional /= 1024;
             unit = "T";
         }
-        if (dataSize > 1000) {
-            dataSize /= 1024;
+        if (fractional >= 1024) {
+            fractional /= 1024;
             unit = "P";
         }
-        return String.format("%d%s", (long) dataSize, unit);
+
+        DecimalFormat format = getFormat(fractional);
+        return String.format("%s%s", format.format(fractional), unit);
     }
 
     private static String formatDataRate(double dataSize, Duration duration, boolean longForm)
@@ -399,12 +421,12 @@ CPU user: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
             rate = 0;
         }
 
-        String rateString = formatDataSize(rate);
+        String rateString = formatDataSize((long) rate);
         if (longForm) {
             if (!rateString.endsWith("B")) {
                 rateString += "B";
             }
-            rateString += "ps";
+            rateString += "/s";
         }
         return rateString;
     }
