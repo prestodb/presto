@@ -11,6 +11,7 @@ import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 public class DoubleSumFixedWidthAggregation
         implements FixedWidthAggregationFunction
 {
+    public static final DoubleSumFixedWidthAggregation DOUBLE_SUM = new DoubleSumFixedWidthAggregation();
     @Override
     public TupleInfo getFinalTupleInfo()
     {

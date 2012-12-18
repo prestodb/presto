@@ -10,6 +10,8 @@ import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 public class CountFixedWidthAggregation
         implements FixedWidthAggregationFunction
 {
+    public static final CountFixedWidthAggregation COUNT = new CountFixedWidthAggregation();
+
     @Override
     public TupleInfo getFinalTupleInfo()
     {

@@ -7,6 +7,7 @@ import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.operator.aggregation.FixedWidthAggregationFunction;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -31,35 +32,32 @@ public class NewHashAggregationOperator
 {
     private final Operator source;
     private final int groupByChannel;
-    private final boolean isSourceInitial;
-    private final boolean isOutputFinal;
-    private final List<FixedWidthAggregationFunction> aggregationFunctions;
+    private final List<AggregationFunctionDefinition> functionDefinitions;
     private final List<TupleInfo> tupleInfos;
+    private final Step step;
 
     public NewHashAggregationOperator(Operator source,
             int groupByChannel,
-            boolean isSourceInitial,
-            boolean isOutputFinal,
-            List<? extends FixedWidthAggregationFunction> aggregationFunctions)
+            Step step,
+            List<AggregationFunctionDefinition> functionDefinitions)
     {
+        this.step = step;
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkArgument(groupByChannel >= 0, "groupByChannel is negative");
-        Preconditions.checkNotNull(aggregationFunctions, "aggregationFunctions is null");
+        Preconditions.checkNotNull(functionDefinitions, "functionDefinitions is null");
 
         this.source = source;
         this.groupByChannel = groupByChannel;
-        this.isSourceInitial = isSourceInitial;
-        this.isOutputFinal = isOutputFinal;
-        this.aggregationFunctions = ImmutableList.copyOf(aggregationFunctions);
+        this.functionDefinitions = ImmutableList.copyOf(functionDefinitions);
 
         ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
         tupleInfos.add(source.getTupleInfos().get(groupByChannel));
-        for (FixedWidthAggregationFunction aggregationFunction : aggregationFunctions) {
-            if (isOutputFinal) {
-                tupleInfos.add(aggregationFunction.getFinalTupleInfo());
+        for (AggregationFunctionDefinition functionDefinition : functionDefinitions) {
+            if (step != Step.PARTIAL) {
+                tupleInfos.add(functionDefinition.getFunction().getFinalTupleInfo());
             }
             else {
-                tupleInfos.add(aggregationFunction.getIntermediateTupleInfo());
+                tupleInfos.add(functionDefinition.getFunction().getIntermediateTupleInfo());
             }
         }
         this.tupleInfos = tupleInfos.build();
@@ -80,7 +78,34 @@ public class NewHashAggregationOperator
     @Override
     public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new HashAggregationIterator(tupleInfos, source, groupByChannel, isSourceInitial, isOutputFinal, 100_000, aggregationFunctions, operatorStats);
+        return new HashAggregationIterator(tupleInfos, source, groupByChannel, step, 100_000, functionDefinitions, operatorStats);
+    }
+
+    public static class AggregationFunctionDefinition
+    {
+        public static AggregationFunctionDefinition aggregation(FixedWidthAggregationFunction function, int channel)
+        {
+            return new AggregationFunctionDefinition(function, channel);
+        }
+
+        private final FixedWidthAggregationFunction function;
+        private final int channel;
+
+        private AggregationFunctionDefinition(FixedWidthAggregationFunction function, int channel)
+        {
+            this.function = function;
+            this.channel = channel;
+        }
+
+        public FixedWidthAggregationFunction getFunction()
+        {
+            return function;
+        }
+
+        public int getChannel()
+        {
+            return channel;
+        }
     }
 
     private static class HashAggregationIterator
@@ -95,18 +120,17 @@ public class NewHashAggregationOperator
         public HashAggregationIterator(List<TupleInfo> tupleInfos,
                 Operator source,
                 int groupChannel,
-                boolean isSourceInitial,
-                boolean isOutputFinal,
+                Step step,
                 int expectedGroups,
-                List<FixedWidthAggregationFunction> aggregationFunctions,
+                List<AggregationFunctionDefinition> functionDefinitions,
                 OperatorStats operatorStats)
         {
             super(tupleInfos);
 
             // wrapper each function with an aggregator
             ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
-            for (FixedWidthAggregationFunction aggregationFunction : aggregationFunctions) {
-                builder.add(new Aggregator(aggregationFunction, isSourceInitial, isOutputFinal));
+            for (AggregationFunctionDefinition functionDefinition : functionDefinitions) {
+                builder.add(new Aggregator(functionDefinition, step));
             }
             aggregates = builder.build();
 
@@ -171,8 +195,8 @@ public class NewHashAggregationOperator
                     }
 
                     // process the row
-                    for (int i = 0; i < aggregates.size(); i++) {
-                        aggregates.get(i).addValue(cursors[i + 1], groupId);
+                    for (Aggregator aggregate : aggregates) {
+                        aggregate.addValue(cursors, groupId);
                     }
                 }
 
@@ -199,53 +223,56 @@ public class NewHashAggregationOperator
                 return null;
             }
 
-            // create outputs for the aggregation channels (group by is already a block)
-            BlockBuilder[] outputs = new BlockBuilder[getChannelCount() -1 ];
-            for (int i = 0; i < outputs.length; i++) {
-                outputs[i] = new BlockBuilder(getTupleInfos().get(i + 1));
-            }
-
-            // evaluate aggregates for each group by position
-            UncompressedBlock groupByBlock = groupByBlocksIterator.next();
-            for (int i = 0; i < groupByBlock.getPositionCount(); i++) {
-                for (int channel = 0; channel < outputs.length; channel++) {
-                    aggregates.get(channel).evaluate(currentPosition, outputs[channel]);
+            // build  the page channel at at time
+            Block[] blocks = new Block[getChannelCount()];
+            blocks[0] = groupByBlocksIterator.next();
+            int pagePositionCount = blocks[0].getPositionCount();
+            for (int channel = 1; channel < getChannelCount(); channel++) {
+                Aggregator aggregator = aggregates.get(channel - 1);
+                // todo there is no need to eval for intermediates since buffer is already in block form
+                BlockBuilder blockBuilder = new BlockBuilder(aggregator.getTupleInfo());
+                for (int position = 0; position < pagePositionCount; position++) {
+                    aggregator.evaluate(currentPosition + position, blockBuilder);
                 }
-                currentPosition++;
-            }
-
-            // build  the page
-            Block[] blocks = new Block[outputs.length + 1];
-            blocks[0] = groupByBlock;
-            for (int i = 0; i < outputs.length; i++) {
-                blocks[i + 1] = outputs[i].build();
+                blocks[channel] = blockBuilder.build();
             }
 
             Page page = new Page(blocks);
+            currentPosition += pagePositionCount;
             return page;
         }
 
         private static class Aggregator
         {
-
             private final FixedWidthAggregationFunction function;
-            private final boolean isSourceInitial;
-            private final boolean isOutputFinal;
+            private final int channel;
+            private final Step step;
             private final int fixedWithSize;
             private final int sliceSize;
             private final List<Slice> slices = new ArrayList<>();
             private int maxPosition;
 
-            private Aggregator(FixedWidthAggregationFunction function, boolean sourceInitial, boolean outputFinal)
+            private Aggregator(AggregationFunctionDefinition functionDefinition, Step step)
             {
-                this.function = function;
-                isSourceInitial = sourceInitial;
-                isOutputFinal = outputFinal;
+                this.function = functionDefinition.getFunction();
+                channel = functionDefinition.getChannel();
+                this.step = step;
                 fixedWithSize = this.function.getIntermediateTupleInfo().getFixedSize();
                 sliceSize = fixedWithSize * 1024;
                 Slice slice = Slices.allocate(sliceSize);
                 slices.add(slice);
                 maxPosition = sliceSize / fixedWithSize;
+            }
+
+            public TupleInfo getTupleInfo()
+            {
+                // if this is a partial, the output is an intermediate value
+                if (step == Step.PARTIAL) {
+                    return function.getIntermediateTupleInfo();
+                }
+                else {
+                    return function.getFinalTupleInfo();
+                }
             }
 
             public void initialize(int position)
@@ -265,7 +292,7 @@ public class NewHashAggregationOperator
                 function.initialize(slice, sliceOffset);
             }
 
-            public void addValue(BlockCursor cursor, int position)
+            public void addValue(BlockCursor[] cursors, int position)
             {
                 int globalOffset = position * fixedWithSize;
 
@@ -273,10 +300,12 @@ public class NewHashAggregationOperator
                 Slice slice = slices.get(sliceIndex);
                 int sliceOffset = globalOffset - (sliceIndex * sliceSize);
 
-                if (isSourceInitial) {
-                    function.addInput(cursor, slice, sliceOffset);
-                } else {
-                    function.addIntermediate(cursor, slice, sliceOffset);
+                // if this is a final aggregation, the input is an intermediate value
+                if (step == Step.FINAL) {
+                    function.addIntermediate(cursors[channel], slice, sliceOffset);
+                }
+                else {
+                    function.addInput(cursors[channel], slice, sliceOffset);
                 }
             }
 
@@ -288,10 +317,12 @@ public class NewHashAggregationOperator
                 Slice slice = slices.get(sliceIndex);
                 int sliceOffset = offset - (sliceIndex * sliceSize);
 
-                if (isOutputFinal) {
-                    function.evaluateFinal(slice, sliceOffset, output);
-                } else {
+                // if this is a partial, the output is an intermediate value
+                if (step == Step.PARTIAL) {
                     function.evaluateIntermediate(slice, sliceOffset, output);
+                }
+                else {
+                    function.evaluateFinal(slice, sliceOffset, output);
                 }
             }
         }

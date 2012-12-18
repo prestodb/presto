@@ -8,13 +8,15 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
-import com.facebook.presto.operator.aggregation.DoubleSumFixedWidthAggregation;
 import com.facebook.presto.serde.BlocksFileEncoding;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.ImmutableList;
 
+import static com.facebook.presto.operator.NewHashAggregationOperator.AggregationFunctionDefinition.aggregation;
+import static com.facebook.presto.operator.aggregation.DoubleSumFixedWidthAggregation.DOUBLE_SUM;
 import static com.facebook.presto.tpch.TpchSchema.columnHandle;
 import static com.facebook.presto.tpch.TpchSchema.tableHandle;
 
@@ -38,9 +40,8 @@ public class NewHashAggregationBenchmark
         AlignmentOperator alignmentOperator = new AlignmentOperator(orderStatusBlockIterable, totalPriceBlockIterable);
         return new NewHashAggregationOperator(alignmentOperator,
                 0,
-                true,
-                true,
-                ImmutableList.of(new DoubleSumFixedWidthAggregation()));
+                Step.SINGLE,
+                ImmutableList.of(aggregation(DOUBLE_SUM, 1)));
 
     }
 
