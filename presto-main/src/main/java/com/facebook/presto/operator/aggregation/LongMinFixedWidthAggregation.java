@@ -29,6 +29,7 @@ public class LongMinFixedWidthAggregation
     {
         // mark value null
         SINGLE_LONG.setNull(valueSlice, valueOffset, 0);
+        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, Long.MAX_VALUE);
     }
 
     @Override

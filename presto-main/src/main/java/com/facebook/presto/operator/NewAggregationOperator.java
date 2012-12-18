@@ -110,7 +110,7 @@ public class NewAggregationOperator
     }
 
     @SuppressWarnings("rawtypes")
-    private static Aggregator createAggregator(AggregationFunctionDefinition functionDefinition, Step step)
+    public static Aggregator createAggregator(AggregationFunctionDefinition functionDefinition, Step step)
     {
         NewAggregationFunction function = functionDefinition.getFunction();
         if (function instanceof VariableWidthAggregationFunction) {
@@ -121,7 +121,7 @@ public class NewAggregationOperator
         }
     }
 
-    private interface Aggregator
+    public interface Aggregator
     {
         TupleInfo getTupleInfo();
 

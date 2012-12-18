@@ -4,6 +4,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.tuple.Tuple;
 
+import static com.facebook.presto.operator.aggregation.LongMinFixedWidthAggregation.LONG_MIN;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
 public class TestLongMinAggregation
@@ -20,10 +21,11 @@ public class TestLongMinAggregation
     }
 
     @Override
-    public LongMinAggregation getFunction()
+    public NewAggregationFunction getFunction()
     {
-        return new LongMinAggregation(0, 0);
+        return LONG_MIN;
     }
+
 
     @Override
     public Number getExpectedValue(int start, int length)

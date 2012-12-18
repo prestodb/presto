@@ -34,6 +34,10 @@ public class VarBinaryVariableWidthMinAggregation
     @Override
     public Slice addInput(BlockCursor cursor, Slice currentMin)
     {
+        if (cursor.isNull(0)) {
+            return currentMin;
+        }
+
         Slice value = cursor.getSlice(0);
         if (currentMin == null) {
             return value;

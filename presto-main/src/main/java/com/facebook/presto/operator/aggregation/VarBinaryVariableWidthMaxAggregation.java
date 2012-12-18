@@ -35,6 +35,10 @@ public class VarBinaryVariableWidthMaxAggregation
     @Override
     public Slice addInput(BlockCursor cursor, Slice currentMax)
     {
+        if (cursor.isNull(0)) {
+            return currentMax;
+        }
+
         Slice value = cursor.getSlice(0);
         if (currentMax == null) {
             return value;
