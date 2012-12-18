@@ -29,6 +29,7 @@ public class DoubleMinFixedWidthAggregation
     {
         // mark value null
         SINGLE_DOUBLE.setNull(valueSlice, valueOffset, 0);
+        SINGLE_DOUBLE.setDouble(valueSlice, valueOffset, 0, Double.POSITIVE_INFINITY);
     }
 
     @Override

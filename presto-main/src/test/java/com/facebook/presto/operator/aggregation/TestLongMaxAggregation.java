@@ -3,9 +3,8 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.tuple.Tuple;
-import com.google.common.collect.Ranges;
-import com.google.common.primitives.Longs;
 
+import static com.facebook.presto.operator.aggregation.LongMaxFixedWidthAggregation.LONG_MAX;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
 public class TestLongMaxAggregation
@@ -22,9 +21,9 @@ public class TestLongMaxAggregation
     }
 
     @Override
-    public LongMaxAggregation getFunction()
+    public NewAggregationFunction getFunction()
     {
-        return new LongMaxAggregation(0, 0);
+        return LONG_MAX;
     }
 
     @Override

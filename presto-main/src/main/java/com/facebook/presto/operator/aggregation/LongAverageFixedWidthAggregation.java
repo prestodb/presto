@@ -6,8 +6,6 @@ import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
-
 public class LongAverageFixedWidthAggregation
         implements FixedWidthAggregationFunction
 {
@@ -64,11 +62,11 @@ public class LongAverageFixedWidthAggregation
 
         // add counts
         long count = cursor.getLong(0);
-        TUPLE_INFO.setLong(valueSlice, valueOffset, 0, TUPLE_INFO.getLong(valueSlice, valueOffset) + count);
+        TUPLE_INFO.setLong(valueSlice, valueOffset, 0, TUPLE_INFO.getLong(valueSlice, valueOffset, 0) + count);
 
         // add sums
         double sum = cursor.getDouble(1);
-        TUPLE_INFO.setDouble(valueSlice, valueOffset, 1, TUPLE_INFO.getDouble(valueSlice, valueOffset) + sum);
+        TUPLE_INFO.setDouble(valueSlice, valueOffset, 1, TUPLE_INFO.getDouble(valueSlice, valueOffset, 1) + sum);
     }
 
     @Override
@@ -78,6 +76,7 @@ public class LongAverageFixedWidthAggregation
             output.append(TUPLE_INFO.getLong(valueSlice, valueOffset, 0));
             output.append(TUPLE_INFO.getDouble(valueSlice, valueOffset, 1));
         } else {
+            output.appendNull();
             output.appendNull();
         }
     }
@@ -90,6 +89,7 @@ public class LongAverageFixedWidthAggregation
             double sum = TUPLE_INFO.getDouble(valueSlice, valueOffset, 1);
             output.append(sum / count);
         } else {
+            output.appendNull();
             output.appendNull();
         }
     }

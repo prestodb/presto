@@ -4,6 +4,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 
+import static com.facebook.presto.operator.aggregation.CountFixedWidthAggregation.COUNT;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.Tuples.nullTuple;
 
@@ -21,9 +22,9 @@ public class TestCountAggregation
     }
 
     @Override
-    public AggregationFunction getFunction()
+    public NewAggregationFunction getFunction()
     {
-        return new CountAggregation(0, 0);
+        return COUNT;
     }
 
     @Override
@@ -82,10 +83,10 @@ public class TestCountAggregation
         testPartialWithMultiplePositions(alternatingNullsBlock, 20L);
     }
 
-    @Override
-    public void testCombinerWithMixedNullAndNonNullPositions()
-    {
-        AlternatingNullsBlockCursor cursor = new AlternatingNullsBlockCursor(getSequenceBlock(0, 10).cursor());
-        testCombinerWithMultiplePositions(cursor, 10L, 10);
-    }
+//    @Override
+//    public void testCombinerWithMixedNullAndNonNullPositions()
+//    {
+//        AlternatingNullsBlockCursor cursor = new AlternatingNullsBlockCursor(getSequenceBlock(0, 10).cursor());
+//        testCombinerWithMultiplePositions(cursor, 10L, 10);
+//    }
 }

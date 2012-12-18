@@ -4,6 +4,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.tuple.Tuple;
 
+import static com.facebook.presto.operator.aggregation.DoubleMaxFixedWidthAggregation.DOUBLE_MAX;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 
 public class TestDoubleMaxAggregation
@@ -20,9 +21,9 @@ public class TestDoubleMaxAggregation
     }
 
     @Override
-    public DoubleMaxAggregation getFunction()
+    public NewAggregationFunction getFunction()
     {
-        return new DoubleMaxAggregation(0, 0);
+        return DOUBLE_MAX;
     }
 
     @Override

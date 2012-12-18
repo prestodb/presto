@@ -5,6 +5,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.tuple.Tuple;
 
+import static com.facebook.presto.operator.aggregation.DoubleSumFixedWidthAggregation.DOUBLE_SUM;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 
 public class TestDoubleSumAggregation
@@ -21,9 +22,9 @@ public class TestDoubleSumAggregation
     }
 
     @Override
-    public DoubleSumAggregation getFunction()
+    public NewAggregationFunction getFunction()
     {
-        return new DoubleSumAggregation(0, 0);
+        return DOUBLE_SUM;
     }
 
     @Override
