@@ -3,27 +3,27 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.aggregation.NewAggregationFunction;
+import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.google.common.base.Preconditions;
 
 public class AggregationFunctionDefinition
 {
-    public static AggregationFunctionDefinition aggregation(NewAggregationFunction function, int channel)
+    public static AggregationFunctionDefinition aggregation(AggregationFunction function, int channel)
     {
         Preconditions.checkNotNull(function, "function is null");
         return new AggregationFunctionDefinition(function, channel);
     }
 
-    private final NewAggregationFunction function;
+    private final AggregationFunction function;
     private final int channel;
 
-    AggregationFunctionDefinition(NewAggregationFunction function, int channel)
+    AggregationFunctionDefinition(AggregationFunction function, int channel)
     {
         this.function = function;
         this.channel = channel;
     }
 
-    public NewAggregationFunction getFunction()
+    public AggregationFunction getFunction()
     {
         return function;
     }

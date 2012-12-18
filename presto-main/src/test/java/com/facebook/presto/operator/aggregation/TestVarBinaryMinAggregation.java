@@ -8,7 +8,7 @@ import com.google.common.base.Charsets;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
 
-import static com.facebook.presto.operator.aggregation.VarBinaryVariableWidthMinAggregation.VAR_BINARY_MIN;
+import static com.facebook.presto.operator.aggregation.VarBinaryMinAggregation.VAR_BINARY_MIN;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 
 public class TestVarBinaryMinAggregation
@@ -25,7 +25,7 @@ public class TestVarBinaryMinAggregation
     }
 
     @Override
-    public NewAggregationFunction getFunction()
+    public AggregationFunction getFunction()
     {
         return VAR_BINARY_MIN;
     }

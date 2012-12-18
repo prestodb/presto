@@ -3,7 +3,7 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.AlignmentOperator;
-import com.facebook.presto.operator.NewHashAggregationOperator;
+import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
@@ -16,16 +16,16 @@ import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.ImmutableList;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
-import static com.facebook.presto.operator.aggregation.DoubleSumFixedWidthAggregation.DOUBLE_SUM;
+import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
 import static com.facebook.presto.tpch.TpchSchema.columnHandle;
 import static com.facebook.presto.tpch.TpchSchema.tableHandle;
 
-public class NewHashAggregationBenchmark
+public class HashAggregationBenchmark
         extends AbstractOperatorBenchmark
 {
-    public NewHashAggregationBenchmark()
+    public HashAggregationBenchmark()
     {
-        super("newhash_agg", 5, 25);
+        super("hash_agg", 5, 25);
     }
 
     @Override
@@ -38,7 +38,7 @@ public class NewHashAggregationBenchmark
         BlockIterable totalPriceBlockIterable = blocksProvider.getBlocks(orders, totalPrice, BlocksFileEncoding.RAW);
 
         AlignmentOperator alignmentOperator = new AlignmentOperator(orderStatusBlockIterable, totalPriceBlockIterable);
-        return new NewHashAggregationOperator(alignmentOperator,
+        return new HashAggregationOperator(alignmentOperator,
                 0,
                 Step.SINGLE,
                 ImmutableList.of(aggregation(DOUBLE_SUM, 1)), 100_000);
@@ -64,7 +64,7 @@ public class NewHashAggregationBenchmark
 
     public static void main(String[] args)
     {
-        new NewHashAggregationBenchmark().runBenchmark(
+        new HashAggregationBenchmark().runBenchmark(
                 new SimpleLineBenchmarkResultWriter(System.out)
         );
     }

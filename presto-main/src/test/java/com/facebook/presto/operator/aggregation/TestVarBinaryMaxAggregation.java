@@ -8,7 +8,7 @@ import com.google.common.base.Charsets;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
 
-import static com.facebook.presto.operator.aggregation.VarBinaryVariableWidthMaxAggregation.VAR_BINARY_MAX;
+import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 
 public class TestVarBinaryMaxAggregation
@@ -25,7 +25,7 @@ public class TestVarBinaryMaxAggregation
     }
 
     @Override
-    public NewAggregationFunction getFunction()
+    public AggregationFunction getFunction()
     {
         return VAR_BINARY_MAX;
     }

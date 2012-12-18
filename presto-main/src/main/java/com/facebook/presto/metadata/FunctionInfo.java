@@ -1,8 +1,8 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.AggregationFunctionDefinition;
+import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.Input;
-import com.facebook.presto.operator.aggregation.NewAggregationFunction;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
@@ -22,9 +22,9 @@ public class FunctionInfo
 
     private final boolean isAggregate;
     private final TupleInfo.Type intermediateType;
-    private final NewAggregationFunction function;
+    private final AggregationFunction function;
 
-    public FunctionInfo(int id, QualifiedName name, TupleInfo.Type returnType, List<TupleInfo.Type> argumentTypes, TupleInfo.Type intermediateType, NewAggregationFunction function)
+    public FunctionInfo(int id, QualifiedName name, TupleInfo.Type returnType, List<TupleInfo.Type> argumentTypes, TupleInfo.Type intermediateType, AggregationFunction function)
     {
         this.id = id;
         this.name = name;

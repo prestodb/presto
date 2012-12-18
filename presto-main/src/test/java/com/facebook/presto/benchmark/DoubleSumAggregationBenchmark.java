@@ -2,8 +2,8 @@ package com.facebook.presto.benchmark;
 
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.AlignmentOperator;
-import com.facebook.presto.operator.NewAggregationOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
@@ -16,7 +16,7 @@ import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.ImmutableList;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
-import static com.facebook.presto.operator.aggregation.DoubleSumFixedWidthAggregation.DOUBLE_SUM;
+import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
 import static com.facebook.presto.tpch.TpchSchema.columnHandle;
 import static com.facebook.presto.tpch.TpchSchema.tableHandle;
 
@@ -35,7 +35,7 @@ public class DoubleSumAggregationBenchmark
         TpchColumnHandle totalprice = columnHandle(orders, "totalprice");
         BlockIterable blockIterable = blocksProvider.getBlocks(orders, totalprice, BlocksFileEncoding.RAW);
         AlignmentOperator alignmentOperator = new AlignmentOperator(blockIterable);
-        return new NewAggregationOperator(alignmentOperator, Step.SINGLE, ImmutableList.of(aggregation(DOUBLE_SUM, 0)));
+        return new AggregationOperator(alignmentOperator, Step.SINGLE, ImmutableList.of(aggregation(DOUBLE_SUM, 0)));
     }
 
     @Override

@@ -5,7 +5,7 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 
 public interface FixedWidthAggregationFunction
-        extends NewAggregationFunction
+        extends AggregationFunction
 {
     void initialize(Slice valueSlice, int valueOffset);
 

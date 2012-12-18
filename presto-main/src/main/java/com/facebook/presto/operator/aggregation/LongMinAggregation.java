@@ -5,14 +5,12 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.TupleInfo;
 
-import java.lang.Math;
-
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
-public class LongMaxFixedWidthAggregation
+public class LongMinAggregation
         implements FixedWidthAggregationFunction
 {
-    public static final LongMaxFixedWidthAggregation LONG_MAX = new LongMaxFixedWidthAggregation();
+    public static final LongMinAggregation LONG_MIN = new LongMinAggregation();
 
     @Override
     public TupleInfo getFinalTupleInfo()
@@ -31,7 +29,7 @@ public class LongMaxFixedWidthAggregation
     {
         // mark value null
         SINGLE_LONG.setNull(valueSlice, valueOffset, 0);
-        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, Long.MIN_VALUE);
+        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, Long.MAX_VALUE);
     }
 
     @Override
@@ -47,7 +45,7 @@ public class LongMaxFixedWidthAggregation
         // update current value
         long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
         long newValue = cursor.getLong(0);
-        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, Math.max(currentValue, newValue));
+        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, Math.min(currentValue, newValue));
     }
 
     @Override

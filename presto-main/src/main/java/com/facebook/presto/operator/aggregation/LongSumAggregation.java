@@ -7,10 +7,10 @@ import com.facebook.presto.tuple.TupleInfo;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
-public class CountFixedWidthAggregation
+public class LongSumAggregation
         implements FixedWidthAggregationFunction
 {
-    public static final CountFixedWidthAggregation COUNT = new CountFixedWidthAggregation();
+    public static final LongSumAggregation LONG_SUM = new LongSumAggregation();
 
     @Override
     public TupleInfo getFinalTupleInfo()
@@ -27,32 +27,30 @@ public class CountFixedWidthAggregation
     @Override
     public void initialize(Slice valueSlice, int valueOffset)
     {
+        // mark value null
+        SINGLE_LONG.setNull(valueSlice, valueOffset, 0);
     }
 
     @Override
     public void addInput(BlockCursor cursor, Slice valueSlice, int valueOffset)
     {
-        // update current value
-        long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
-        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, currentValue + 1);
-    }
-
-    @Override
-    public void addIntermediate(BlockCursor cursor, Slice valueSlice, int valueOffset)
-    {
         if (cursor.isNull(0)) {
             return;
         }
 
-        // if the value is marked a null, clear it
-        if (SINGLE_LONG.isNull(valueSlice, valueOffset, 0)) {
-            valueSlice.clear(valueOffset, SINGLE_LONG.getFixedSize());
-        }
+        // mark value not null
+        SINGLE_LONG.setNotNull(valueSlice, valueOffset, 0);
 
         // update current value
         long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
         long newValue = cursor.getLong(0);
         SINGLE_LONG.setLong(valueSlice, valueOffset, 0, currentValue + newValue);
+    }
+
+    @Override
+    public void addIntermediate(BlockCursor cursor, Slice valueSlice, int valueOffset)
+    {
+        addInput(cursor, valueSlice, valueOffset);
     }
 
     @Override
@@ -67,8 +65,7 @@ public class CountFixedWidthAggregation
         if (!SINGLE_LONG.isNull(valueSlice, valueOffset, 0)) {
             long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
             output.append(currentValue);
-        }
-        else {
+        } else {
             output.appendNull();
         }
     }

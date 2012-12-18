@@ -4,7 +4,7 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 
 public interface VariableWidthAggregationFunction<T>
-        extends NewAggregationFunction
+        extends AggregationFunction
 {
     T initialize();
 

@@ -5,14 +5,14 @@ import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.FilterFunctions;
+import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.operator.HashJoinOperator;
 import com.facebook.presto.operator.InMemoryOrderByOperator;
 import com.facebook.presto.operator.LimitOperator;
-import com.facebook.presto.operator.NewAggregationOperator;
-import com.facebook.presto.operator.NewHashAggregationOperator;
 import com.facebook.presto.operator.AggregationFunctionDefinition;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
@@ -220,11 +220,11 @@ public class LocalExecutionPlanner
 
             Operator aggregationOperator;
             if (node.getGroupBy().isEmpty()) {
-                aggregationOperator = new NewAggregationOperator(sourceOperator, node.getStep(), functionDefinitions);
+                aggregationOperator = new AggregationOperator(sourceOperator, node.getStep(), functionDefinitions);
             } else {
                 Preconditions.checkArgument(node.getGroupBy().size() <= 1, "Only single GROUP BY key supported at this time");
                 Symbol groupBySymbol = Iterables.getOnlyElement(node.getGroupBy());
-                aggregationOperator = new NewHashAggregationOperator(sourceOperator, symbolToChannelMappings.get(groupBySymbol), node.getStep(), functionDefinitions, 100_000);
+                aggregationOperator = new HashAggregationOperator(sourceOperator, symbolToChannelMappings.get(groupBySymbol), node.getStep(), functionDefinitions, 100_000);
             }
 
             List<ProjectionFunction> projections = new ArrayList<>();

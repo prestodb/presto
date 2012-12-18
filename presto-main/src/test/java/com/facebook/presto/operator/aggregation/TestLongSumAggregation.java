@@ -4,7 +4,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 
-import static com.facebook.presto.operator.aggregation.LongSumFixedWidthAggregation.LONG_SUM;
+import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
 public class TestLongSumAggregation
@@ -21,7 +21,7 @@ public class TestLongSumAggregation
     }
 
     @Override
-    public NewAggregationFunction getFunction()
+    public AggregationFunction getFunction()
     {
         return LONG_SUM;
     }
