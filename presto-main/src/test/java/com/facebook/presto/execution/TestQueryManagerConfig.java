@@ -15,6 +15,7 @@ public class TestQueryManagerConfig
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(QueryManagerConfig.class)
                 .setImportsEnabled(true)
+                .setMaxNumberOfGroups(1_000_000)
                 .setMaxOperatorMemoryUsage(new DataSize(256, Unit.MEGABYTE)));
     }
 
@@ -24,10 +25,12 @@ public class TestQueryManagerConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("import.enabled", "false")
                 .put("query.operator.max-memory", "1GB")
+                .put("query.group-by.max-group-count", "55")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
                 .setMaxOperatorMemoryUsage(new DataSize(1, Unit.GIGABYTE))
+                .setMaxNumberOfGroups(55)
                 .setImportsEnabled(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);

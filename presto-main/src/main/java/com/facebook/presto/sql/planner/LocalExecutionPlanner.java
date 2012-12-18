@@ -78,6 +78,7 @@ public class LocalExecutionPlanner
 
     private final SourceHashProviderFactory joinHashFactory;
     private final DataSize maxOperatorMemoryUsage;
+    private final int maxNumberOfGroups;
 
     public LocalExecutionPlanner(Metadata metadata,
             PlanFragmentSourceProvider sourceProvider,
@@ -87,7 +88,8 @@ public class LocalExecutionPlanner
             Map<String, ExchangePlanFragmentSource> exchangeSources,
             OperatorStats operatorStats,
             SourceHashProviderFactory joinHashFactory,
-            DataSize maxOperatorMemoryUsage)
+            DataSize maxOperatorMemoryUsage,
+            int maxNumberOfGroups1)
     {
         this.tableScans = tableScans;
         this.operatorStats = Preconditions.checkNotNull(operatorStats, "operatorStats is null");
@@ -98,6 +100,7 @@ public class LocalExecutionPlanner
         this.exchangeSources = ImmutableMap.copyOf(checkNotNull(exchangeSources, "exchangeSources is null"));
         this.joinHashFactory = checkNotNull(joinHashFactory, "joinHashFactory is null");
         this.maxOperatorMemoryUsage = Preconditions.checkNotNull(maxOperatorMemoryUsage, "maxOperatorMemoryUsage is null");
+        maxNumberOfGroups = maxNumberOfGroups1;
     }
 
     public Operator plan(PlanNode plan)
@@ -248,7 +251,7 @@ public class LocalExecutionPlanner
 
             Preconditions.checkArgument(node.getGroupBy().size() <= 1, "Only single GROUP BY key supported at this time");
             Symbol groupBySymbol = Iterables.getOnlyElement(node.getGroupBy());
-            return new HashAggregationOperator(sourceOperator, symbolToChannelMappings.get(groupBySymbol), aggregationFunctions, projections);
+            return new HashAggregationOperator(sourceOperator, symbolToChannelMappings.get(groupBySymbol), aggregationFunctions, projections, maxNumberOfGroups);
         }
 
 

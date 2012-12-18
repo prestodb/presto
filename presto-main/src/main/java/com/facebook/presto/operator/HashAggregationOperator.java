@@ -29,8 +29,13 @@ public class HashAggregationOperator
     private final List<Provider<AggregationFunctionStep>> functionProviders;
     private final List<ProjectionFunction> projections;
     private final List<TupleInfo> tupleInfos;
+    private final int maxNumberOfGroups;
 
-    public HashAggregationOperator(Operator source, int groupByChannel, List<Provider<AggregationFunctionStep>> functionProviders, List<ProjectionFunction> projections)
+    public HashAggregationOperator(Operator source,
+            int groupByChannel,
+            List<Provider<AggregationFunctionStep>> functionProviders,
+            List<ProjectionFunction> projections,
+            int maxNumberOfGroups)
     {
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkArgument(groupByChannel >= 0, "groupByChannel is negative");
@@ -44,6 +49,7 @@ public class HashAggregationOperator
         this.projections = projections;
 
         this.tupleInfos = toTupleInfos(projections);
+        this.maxNumberOfGroups = maxNumberOfGroups;
     }
 
     @Override
@@ -61,7 +67,7 @@ public class HashAggregationOperator
     @Override
     public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new HashAggregationIterator(source, groupByChannel, functionProviders, projections, operatorStats);
+        return new HashAggregationIterator(source, groupByChannel, functionProviders, projections, operatorStats, maxNumberOfGroups);
     }
 
     private static class HashAggregationIterator
@@ -77,12 +83,13 @@ public class HashAggregationOperator
                 int groupByChannel,
                 List<Provider<AggregationFunctionStep>> functionProviders,
                 List<ProjectionFunction> projections,
-                OperatorStats operatorStats)
+                OperatorStats operatorStats,
+                int maxNumberOfGroups)
         {
             super(toTupleInfos(projections));
             this.projections = projections;
             this.operatorStats = operatorStats;
-            Map<Tuple, AggregationFunctionStep[]> aggregate = aggregate(source, groupByChannel, functionProviders);
+            Map<Tuple, AggregationFunctionStep[]> aggregate = aggregate(source, groupByChannel, functionProviders, maxNumberOfGroups);
             this.aggregations = aggregate.entrySet().iterator();
             this.aggregationFunctionCount = functionProviders.size();
         }
@@ -148,7 +155,10 @@ public class HashAggregationOperator
             return false;
         }
 
-        private Map<Tuple, AggregationFunctionStep[]> aggregate(Operator source, int groupByChannel, List<Provider<AggregationFunctionStep>> functionProviders)
+        private Map<Tuple, AggregationFunctionStep[]> aggregate(Operator source,
+                int groupByChannel,
+                List<Provider<AggregationFunctionStep>> functionProviders,
+                int maxNumberOfGroups)
         {
             Map<Tuple, AggregationFunctionStep[]> aggregationMap = new HashMap<>();
 
@@ -170,6 +180,7 @@ public class HashAggregationOperator
                     Tuple key = cursors[groupByChannel].getTuple();
                     AggregationFunctionStep[] functions = aggregationMap.get(key);
                     if (functions == null) {
+                        Preconditions.checkState(aggregationMap.size() < maxNumberOfGroups, "Query exceeded max number of aggregation groups %s", maxNumberOfGroups);
                         functions = new AggregationFunctionStep[functionProviders.size()];
                         for (int i = 0; i < functions.length; i++) {
                             functions[i]= functionProviders.get(i).get();

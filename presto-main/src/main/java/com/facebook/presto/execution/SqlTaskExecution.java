@@ -46,6 +46,7 @@ public class SqlTaskExecution
     private final PlanFragment fragment;
     private final Metadata metadata;
     private final DataSize maxOperatorMemoryUsage;
+    private final int maxNumberOfGroups;
 
     public SqlTaskExecution(String queryId,
             String stageId,
@@ -58,8 +59,9 @@ public class SqlTaskExecution
             int pageBufferMax,
             PlanFragmentSourceProvider sourceProvider,
             Metadata metadata,
-            FairBatchExecutor shardExecutor, 
-            DataSize maxOperatorMemoryUsage)
+            FairBatchExecutor shardExecutor,
+            DataSize maxOperatorMemoryUsage,
+            int maxNumberOfGroups)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
@@ -83,6 +85,7 @@ public class SqlTaskExecution
         this.shardExecutor = shardExecutor;
         this.metadata = metadata;
         this.maxOperatorMemoryUsage = maxOperatorMemoryUsage;
+        this.maxNumberOfGroups = maxNumberOfGroups;
 
         // create output buffers
         this.taskOutput = new TaskOutput(queryId, stageId, taskId, location, outputIds, pageBufferMax, splits.size());
@@ -108,7 +111,7 @@ public class SqlTaskExecution
             final SourceHashProviderFactory sourceHashProviderFactory = new SourceHashProviderFactory(maxOperatorMemoryUsage);
             if (splits.size() <= 1) {
                 PlanFragmentSource split = splits.isEmpty() ? null : splits.get(0);
-                SplitWorker worker = new SplitWorker(taskOutput, fragment, split, exchangeSources, sourceHashProviderFactory, sourceProvider, metadata, maxOperatorMemoryUsage);
+                SplitWorker worker = new SplitWorker(taskOutput, fragment, split, exchangeSources, sourceHashProviderFactory, sourceProvider, metadata, maxOperatorMemoryUsage, maxNumberOfGroups);
                 worker.call();
             }
             else {
@@ -117,7 +120,7 @@ public class SqlTaskExecution
                     @Override
                     public Callable<Void> apply(PlanFragmentSource split)
                     {
-                        return new SplitWorker(taskOutput, fragment, split, exchangeSources, sourceHashProviderFactory, sourceProvider, metadata, maxOperatorMemoryUsage);
+                        return new SplitWorker(taskOutput, fragment, split, exchangeSources, sourceHashProviderFactory, sourceProvider, metadata, maxOperatorMemoryUsage, maxNumberOfGroups);
                     }
                 }));
 
@@ -213,7 +216,8 @@ public class SqlTaskExecution
                 SourceHashProviderFactory sourceHashProviderFactory,
                 PlanFragmentSourceProvider sourceProvider,
                 Metadata metadata,
-                DataSize maxOperatorMemoryUsage)
+                DataSize maxOperatorMemoryUsage,
+                int maxNumberOfGroups)
         {
             this.taskOutput = taskOutput;
 
@@ -225,7 +229,8 @@ public class SqlTaskExecution
                     exchangeSources,
                     operatorStats,
                     sourceHashProviderFactory,
-                    maxOperatorMemoryUsage);
+                    maxOperatorMemoryUsage,
+                    maxNumberOfGroups);
 
             operator = planner.plan(fragment.getRoot());
         }
