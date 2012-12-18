@@ -9,11 +9,10 @@ import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.Ordering;
 
-public class VarBinaryVariableWidthMaxAggregation
+public class VarBinaryVariableWidthMinAggregation
         implements VariableWidthAggregationFunction<Slice>
 {
-    public static final VarBinaryVariableWidthMaxAggregation VAR_BINARY_MAX = new VarBinaryVariableWidthMaxAggregation();
-
+    public static final VarBinaryVariableWidthMinAggregation VAR_BINARY_MIN = new VarBinaryVariableWidthMinAggregation();
     @Override
     public TupleInfo getFinalTupleInfo()
     {
@@ -33,21 +32,21 @@ public class VarBinaryVariableWidthMaxAggregation
     }
 
     @Override
-    public Slice addInput(BlockCursor cursor, Slice currentMax)
+    public Slice addInput(BlockCursor cursor, Slice currentMin)
     {
         Slice value = cursor.getSlice(0);
-        if (currentMax == null) {
+        if (currentMin == null) {
             return value;
         }
         else {
-            return Ordering.natural().max(currentMax, value);
+            return Ordering.natural().min(currentMin, value);
         }
     }
 
     @Override
-    public Slice addIntermediate(BlockCursor cursor, Slice currentMax)
+    public Slice addIntermediate(BlockCursor cursor, Slice currentMin)
     {
-        return addInput(cursor, currentMax);
+        return addInput(cursor, currentMin);
     }
 
     @Override
