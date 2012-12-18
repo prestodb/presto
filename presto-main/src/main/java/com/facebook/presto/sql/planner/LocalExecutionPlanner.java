@@ -53,6 +53,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
+import io.airlift.units.DataSize;
 
 import javax.inject.Provider;
 import java.util.ArrayList;
@@ -76,6 +77,8 @@ public class LocalExecutionPlanner
     private final Map<String, ExchangePlanFragmentSource> exchangeSources;
 
     private final SourceHashProviderFactory joinHashFactory;
+    private final DataSize maxOperatorMemoryUsage;
+    private final int maxNumberOfGroups;
 
     public LocalExecutionPlanner(Metadata metadata,
             PlanFragmentSourceProvider sourceProvider,
@@ -84,7 +87,9 @@ public class LocalExecutionPlanner
             Map<TableHandle, TableScanPlanFragmentSource> tableScans,
             Map<String, ExchangePlanFragmentSource> exchangeSources,
             OperatorStats operatorStats,
-            SourceHashProviderFactory joinHashFactory)
+            SourceHashProviderFactory joinHashFactory,
+            DataSize maxOperatorMemoryUsage,
+            int maxNumberOfGroups1)
     {
         this.tableScans = tableScans;
         this.operatorStats = Preconditions.checkNotNull(operatorStats, "operatorStats is null");
@@ -94,6 +99,8 @@ public class LocalExecutionPlanner
         this.split = split;
         this.exchangeSources = ImmutableMap.copyOf(checkNotNull(exchangeSources, "exchangeSources is null"));
         this.joinHashFactory = checkNotNull(joinHashFactory, "joinHashFactory is null");
+        this.maxOperatorMemoryUsage = Preconditions.checkNotNull(maxOperatorMemoryUsage, "maxOperatorMemoryUsage is null");
+        maxNumberOfGroups = maxNumberOfGroups1;
     }
 
     public Operator plan(PlanNode plan)
@@ -183,7 +190,7 @@ public class LocalExecutionPlanner
             int[] sortFields = new int[] { 0 };
             boolean[] sortOrder = new boolean[] { node.getOrderings().get(orderBySymbol) == SortItem.Ordering.ASCENDING};
 
-            return new InMemoryOrderByOperator(plan(source), symbolToChannelMappings.get(orderBySymbol), outputChannels, 1_000_000, sortFields, sortOrder);
+            return new InMemoryOrderByOperator(plan(source), symbolToChannelMappings.get(orderBySymbol), outputChannels, 1_000_000, sortFields, sortOrder, maxOperatorMemoryUsage);
         }
 
         @Override
@@ -244,7 +251,7 @@ public class LocalExecutionPlanner
 
             Preconditions.checkArgument(node.getGroupBy().size() <= 1, "Only single GROUP BY key supported at this time");
             Symbol groupBySymbol = Iterables.getOnlyElement(node.getGroupBy());
-            return new HashAggregationOperator(sourceOperator, symbolToChannelMappings.get(groupBySymbol), aggregationFunctions, projections);
+            return new HashAggregationOperator(sourceOperator, symbolToChannelMappings.get(groupBySymbol), aggregationFunctions, projections, maxNumberOfGroups);
         }
 
 

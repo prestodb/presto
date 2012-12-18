@@ -9,6 +9,9 @@ import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
+import com.google.common.base.Preconditions;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import it.unimi.dsi.fastutil.Arrays;
 import it.unimi.dsi.fastutil.Swapper;
 import it.unimi.dsi.fastutil.ints.AbstractIntComparator;
@@ -29,7 +32,7 @@ public class PagesIndex
     private final int channelCount;
     private final int positionCount;
 
-    public PagesIndex(Operator source, int expectedPositions, OperatorStats operatorStats)
+    public PagesIndex(Operator source, int expectedPositions, DataSize maxIndexSize, OperatorStats operatorStats)
     {
         channelCount = source.getChannelCount();
         indexes = new ChannelIndex[channelCount];
@@ -38,9 +41,13 @@ public class PagesIndex
             indexes[channel] = new ChannelIndex(expectedPositions, tupleInfos.get(channel));
         }
 
+        long maxIndexSizeBytes = maxIndexSize.toBytes();
         int positionCount = 0;
         try (PageIterator pageIterator = source.iterator(operatorStats)) {
             while (pageIterator.hasNext()) {
+                // check size before loading more data
+                Preconditions.checkState(getEstimatedSize().toBytes() <= maxIndexSizeBytes, "Query exceeded max operator memory size of %s", maxIndexSize.convertToMostSuccinctDataSize());
+
                 Page page = pageIterator.next();
                 positionCount += page.getPositionCount();
                 Block[] blocks = page.getBlocks();
@@ -61,6 +68,15 @@ public class PagesIndex
     public int getPositionCount()
     {
         return positionCount;
+    }
+
+    public DataSize getEstimatedSize()
+    {
+        long size = 0;
+        for (ChannelIndex channelIndex : indexes) {
+            size += channelIndex.getEstimatedSize().toBytes();
+        }
+        return new DataSize(size, Unit.BYTE);
     }
 
     public TupleInfo getTupleInfo(int channel)

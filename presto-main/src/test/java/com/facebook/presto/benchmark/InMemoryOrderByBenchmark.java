@@ -11,8 +11,10 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.tpch.TpchBlocksProvider;
+import io.airlift.units.DataSize;
 
 import static com.facebook.presto.block.BlockIterables.concat;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Collections.nCopies;
 
 public class InMemoryOrderByBenchmark
@@ -33,7 +35,7 @@ public class InMemoryOrderByBenchmark
         AlignmentOperator alignmentOperator = new AlignmentOperator(concat(nCopies(100, totalPrice)), concat(nCopies(100, clerk)));
 
         LimitOperator limitOperator = new LimitOperator(alignmentOperator, ROWS);
-        InMemoryOrderByOperator orderByOperator = new InMemoryOrderByOperator(limitOperator, 0, new int[]{1}, ROWS);
+        InMemoryOrderByOperator orderByOperator = new InMemoryOrderByOperator(limitOperator, 0, new int[]{1}, ROWS, new DataSize(256, MEGABYTE));
         return orderByOperator;
     }
 
