@@ -2,7 +2,6 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.tuple.Tuple;
 
 import static com.facebook.presto.operator.aggregation.LongMaxFixedWidthAggregation.LONG_MAX;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
@@ -35,13 +34,4 @@ public class TestLongMaxAggregation
         return (long) start + length - 1;
     }
 
-    @Override
-    public Long getActualValue(AggregationFunctionStep function)
-    {
-        Tuple value = function.evaluate();
-        if (value.isNull(0)) {
-            return null;
-        }
-        return value.getLong(0);
-    }
 }

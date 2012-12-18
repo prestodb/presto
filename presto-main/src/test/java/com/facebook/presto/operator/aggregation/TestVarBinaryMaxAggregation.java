@@ -4,7 +4,6 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
-import com.facebook.presto.tuple.Tuple;
 import com.google.common.base.Charsets;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
@@ -45,13 +44,4 @@ public class TestVarBinaryMaxAggregation
         return max.toString(Charsets.UTF_8);
     }
 
-    @Override
-    public Object getActualValue(AggregationFunctionStep function)
-    {
-        Tuple value = function.evaluate();
-        if (value.isNull(0)) {
-            return null;
-        }
-        return value.getSlice(0).toString(Charsets.UTF_8);
-    }
 }
