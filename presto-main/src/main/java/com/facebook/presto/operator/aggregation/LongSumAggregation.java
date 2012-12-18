@@ -1,5 +1,6 @@
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
@@ -51,6 +52,29 @@ public class LongSumAggregation
         long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
         long newValue = cursor.getLong(0);
         SINGLE_LONG.setLong(valueSlice, valueOffset, 0, currentValue + newValue);
+    }
+
+    @Override
+    public void addInput(int positionCount, Block block, Slice valueSlice, int valueOffset)
+    {
+        // initialize with current value
+        boolean hasNonNull = !SINGLE_LONG.isNull(valueSlice, valueOffset);
+        long sum = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
+
+        // process block
+        BlockCursor cursor = block.cursor();
+        while (cursor.advanceNextPosition()) {
+            if (!cursor.isNull(0)) {
+                hasNonNull = true;
+                sum += cursor.getLong(0);
+            }
+        }
+
+        // write new value
+        if (hasNonNull) {
+            SINGLE_LONG.setNotNull(valueSlice, valueOffset, 0);
+            SINGLE_LONG.setLong(valueSlice, valueOffset, 0, sum);
+        }
     }
 
     @Override

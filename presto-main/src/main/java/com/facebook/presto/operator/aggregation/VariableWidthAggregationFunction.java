@@ -1,5 +1,6 @@
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 
@@ -7,6 +8,8 @@ public interface VariableWidthAggregationFunction<T>
         extends AggregationFunction
 {
     T initialize();
+
+    T addInput(int positionCount, Block block, T currentValue);
 
     T addInput(BlockCursor cursor, T currentValue);
 
