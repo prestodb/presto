@@ -1,14 +1,16 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.NewHashAggregationOperator.AggregationFunctionDefinition;
 import com.facebook.presto.operator.aggregation.Input;
+import com.facebook.presto.operator.aggregation.NewAggregationFunction;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 
-import javax.annotation.Nullable;
-import javax.inject.Provider;
 import java.util.List;
+
+import static com.facebook.presto.operator.NewHashAggregationOperator.AggregationFunctionDefinition.aggregation;
 
 public class FunctionInfo
 {
@@ -20,16 +22,16 @@ public class FunctionInfo
 
     private final boolean isAggregate;
     private final TupleInfo.Type intermediateType;
-    private final FunctionBinder binder;
+    private final NewAggregationFunction function;
 
-    public FunctionInfo(int id, QualifiedName name, TupleInfo.Type returnType, List<TupleInfo.Type> argumentTypes, TupleInfo.Type intermediateType, FunctionBinder binder)
+    public FunctionInfo(int id, QualifiedName name, TupleInfo.Type returnType, List<TupleInfo.Type> argumentTypes, TupleInfo.Type intermediateType, NewAggregationFunction function)
     {
         this.id = id;
         this.name = name;
         this.returnType = returnType;
         this.argumentTypes = argumentTypes;
         this.intermediateType = intermediateType;
-        this.binder = binder;
+        this.function = function;
         this.isAggregate = true;
     }
 
@@ -42,7 +44,7 @@ public class FunctionInfo
 
         this.isAggregate = false;
         this.intermediateType = null;
-        this.binder = null;
+        this.function = null;
     }
 
     public FunctionHandle getHandle()
@@ -75,9 +77,16 @@ public class FunctionInfo
         return intermediateType;
     }
 
-    public Provider<AggregationFunction> bind(List<Input> inputs)
+    public AggregationFunctionDefinition bind(List<Input> inputs)
     {
-        return binder.bind(inputs);
+        if (inputs.isEmpty()) {
+            return aggregation(function, -1);
+        } else {
+            Preconditions.checkArgument(inputs.size() == 1, "expected at most one input");
+            Input input = inputs.get(0);
+            Preconditions.checkArgument(input.getField() == 0, "expected field to be 0");
+            return aggregation(function, input.getChannel());
+        }
     }
 
     @Override

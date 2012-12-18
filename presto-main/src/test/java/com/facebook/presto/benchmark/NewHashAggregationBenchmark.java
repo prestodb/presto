@@ -41,7 +41,7 @@ public class NewHashAggregationBenchmark
         return new NewHashAggregationOperator(alignmentOperator,
                 0,
                 Step.SINGLE,
-                ImmutableList.of(aggregation(DOUBLE_SUM, 1)));
+                ImmutableList.of(aggregation(DOUBLE_SUM, 1)), 100_000);
 
     }
 

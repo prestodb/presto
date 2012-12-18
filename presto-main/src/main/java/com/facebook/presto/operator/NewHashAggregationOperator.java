@@ -42,7 +42,8 @@ public class NewHashAggregationOperator
     public NewHashAggregationOperator(Operator source,
             int groupByChannel,
             Step step,
-            List<AggregationFunctionDefinition> functionDefinitions)
+            List<AggregationFunctionDefinition> functionDefinitions,
+            int expectedGroups)
     {
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkArgument(groupByChannel >= 0, "groupByChannel is negative");
@@ -64,7 +65,7 @@ public class NewHashAggregationOperator
             }
         }
         this.tupleInfos = tupleInfos.build();
-        this.expectedGroups = 100_000;
+        this.expectedGroups = expectedGroups;
     }
 
     @Override
@@ -325,6 +326,14 @@ public class NewHashAggregationOperator
             @Override
             public void addValue(BlockCursor[] cursors, int position)
             {
+                BlockCursor cursor;
+                if (channel >= 0) {
+                    cursor = cursors[channel];
+                }
+                else {
+                    cursor = null;
+                }
+
                 int globalOffset = position * fixedWithSize;
 
                 int sliceIndex = globalOffset / sliceSize; // todo do this with shifts?
@@ -333,10 +342,10 @@ public class NewHashAggregationOperator
 
                 // if this is a final aggregation, the input is an intermediate value
                 if (step == Step.FINAL) {
-                    function.addIntermediate(cursors[channel], slice, sliceOffset);
+                    function.addIntermediate(cursor, slice, sliceOffset);
                 }
                 else {
-                    function.addInput(cursors[channel], slice, sliceOffset);
+                    function.addInput(cursor, slice, sliceOffset);
                 }
             }
 
@@ -398,14 +407,22 @@ public class NewHashAggregationOperator
             @Override
             public void addValue(BlockCursor[] cursors, int position)
             {
+                BlockCursor cursor;
+                if (channel >= 0) {
+                    cursor = cursors[channel];
+                }
+                else {
+                    cursor = null;
+                }
+
                 // if this is a final aggregation, the input is an intermediate value
                 T oldValue = intermediateValues.get(position);
                 T newValue;
                 if (step == Step.FINAL) {
-                    newValue = function.addIntermediate(cursors[channel], oldValue);
+                    newValue = function.addIntermediate(cursor, oldValue);
                 }
                 else {
-                    newValue = function.addInput(cursors[channel], oldValue);
+                    newValue = function.addInput(cursor, oldValue);
                 }
                 intermediateValues.set(position, newValue);
             }

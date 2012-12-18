@@ -1,16 +1,11 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.operator.aggregation.CountAggregation;
-import com.facebook.presto.operator.aggregation.DoubleAverageAggregation;
-import com.facebook.presto.operator.aggregation.DoubleMaxAggregation;
-import com.facebook.presto.operator.aggregation.DoubleMinAggregation;
-import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
-import com.facebook.presto.operator.aggregation.LongAverageAggregation;
-import com.facebook.presto.operator.aggregation.LongMaxAggregation;
-import com.facebook.presto.operator.aggregation.LongMinAggregation;
-import com.facebook.presto.operator.aggregation.LongSumAggregation;
-import com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation;
-import com.facebook.presto.operator.aggregation.VarBinaryMinAggregation;
+import com.facebook.presto.operator.aggregation.CountFixedWidthAggregation;
+import com.facebook.presto.operator.aggregation.DoubleAverageFixedWidthAggregation;
+import com.facebook.presto.operator.aggregation.DoubleSumFixedWidthAggregation;
+import com.facebook.presto.operator.aggregation.LongAverageFixedWidthAggregation;
+import com.facebook.presto.operator.aggregation.LongSumFixedWidthAggregation;
+import com.facebook.presto.operator.aggregation.VarBinaryVariableWidthMaxAggregation;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Joiner;
@@ -35,17 +30,17 @@ public class FunctionRegistry
     public FunctionRegistry()
     {
         List<FunctionInfo> functions = ImmutableList.of(
-                new FunctionInfo(1, QualifiedName.of("count"), FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(), FIXED_INT_64, CountAggregation.BINDER),
-                new FunctionInfo(2, QualifiedName.of("sum"), FIXED_INT_64, ImmutableList.of(FIXED_INT_64), FIXED_INT_64, LongSumAggregation.BINDER),
-                new FunctionInfo(3, QualifiedName.of("sum"), DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DoubleSumAggregation.BINDER),
-                new FunctionInfo(4, QualifiedName.of("avg"), DOUBLE, ImmutableList.of(DOUBLE), VARIABLE_BINARY, DoubleAverageAggregation.BINDER),
-                new FunctionInfo(5, QualifiedName.of("avg"), DOUBLE, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, LongAverageAggregation.BINDER),
-                new FunctionInfo(6, QualifiedName.of("max"), FIXED_INT_64, ImmutableList.of(FIXED_INT_64), FIXED_INT_64, LongMaxAggregation.BINDER),
-                new FunctionInfo(7, QualifiedName.of("max"), DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DoubleMaxAggregation.BINDER),
-                new FunctionInfo(8, QualifiedName.of("max"), VARIABLE_BINARY, ImmutableList.of(VARIABLE_BINARY), VARIABLE_BINARY, VarBinaryMaxAggregation.BINDER),
-                new FunctionInfo(9, QualifiedName.of("min"), FIXED_INT_64, ImmutableList.of(FIXED_INT_64), FIXED_INT_64, LongMinAggregation.BINDER),
-                new FunctionInfo(10, QualifiedName.of("min"), DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DoubleMinAggregation.BINDER),
-                new FunctionInfo(11, QualifiedName.of("min"), VARIABLE_BINARY, ImmutableList.of(VARIABLE_BINARY), VARIABLE_BINARY, VarBinaryMinAggregation.BINDER)
+                new FunctionInfo(1, QualifiedName.of("count"), FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(), FIXED_INT_64, CountFixedWidthAggregation.COUNT),
+                new FunctionInfo(2, QualifiedName.of("sum"), FIXED_INT_64, ImmutableList.of(FIXED_INT_64), FIXED_INT_64, LongSumFixedWidthAggregation.LONG_SUM),
+                new FunctionInfo(3, QualifiedName.of("sum"), DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DoubleSumFixedWidthAggregation.DOUBLE_SUM),
+                new FunctionInfo(4, QualifiedName.of("avg"), DOUBLE, ImmutableList.of(DOUBLE), VARIABLE_BINARY, DoubleAverageFixedWidthAggregation.DOUBLE_AVERAGE),
+                new FunctionInfo(5, QualifiedName.of("avg"), DOUBLE, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, LongAverageFixedWidthAggregation.LONG_AVERAGE),
+//                new FunctionInfo(6, QualifiedName.of("max"), FIXED_INT_64, ImmutableList.of(FIXED_INT_64), FIXED_INT_64, LongMaxAggregation.BINDER),
+//                new FunctionInfo(7, QualifiedName.of("max"), DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DoubleMaxAggregation.BINDER),
+                new FunctionInfo(8, QualifiedName.of("max"), VARIABLE_BINARY, ImmutableList.of(VARIABLE_BINARY), VARIABLE_BINARY, VarBinaryVariableWidthMaxAggregation.VAR_BINARY_MAX)
+//                new FunctionInfo(9, QualifiedName.of("min"), FIXED_INT_64, ImmutableList.of(FIXED_INT_64), FIXED_INT_64, LongMinAggregation.BINDER),
+//                new FunctionInfo(10, QualifiedName.of("min"), DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DoubleMinAggregation.BINDER),
+//                new FunctionInfo(11, QualifiedName.of("min"), VARIABLE_BINARY, ImmutableList.of(VARIABLE_BINARY), VARIABLE_BINARY, VarBinaryMinAggregation.BINDER)
         );
 
         functionsByName = Multimaps.index(functions, FunctionInfo.nameGetter());
@@ -67,5 +62,4 @@ public class FunctionRegistry
     {
         return functionsByHandle.get(handle);
     }
-
 }
