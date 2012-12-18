@@ -5,6 +5,8 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.operator.aggregation.FixedWidthAggregationFunction;
+import com.facebook.presto.operator.aggregation.NewAggregationFunction;
+import com.facebook.presto.operator.aggregation.VariableWidthAggregationFunction;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
@@ -32,22 +34,23 @@ public class NewHashAggregationOperator
 {
     private final Operator source;
     private final int groupByChannel;
+    private final Step step;
     private final List<AggregationFunctionDefinition> functionDefinitions;
     private final List<TupleInfo> tupleInfos;
-    private final Step step;
+    private final int expectedGroups;
 
     public NewHashAggregationOperator(Operator source,
             int groupByChannel,
             Step step,
             List<AggregationFunctionDefinition> functionDefinitions)
     {
-        this.step = step;
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkArgument(groupByChannel >= 0, "groupByChannel is negative");
         Preconditions.checkNotNull(functionDefinitions, "functionDefinitions is null");
 
         this.source = source;
         this.groupByChannel = groupByChannel;
+        this.step = step;
         this.functionDefinitions = ImmutableList.copyOf(functionDefinitions);
 
         ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
@@ -61,6 +64,7 @@ public class NewHashAggregationOperator
             }
         }
         this.tupleInfos = tupleInfos.build();
+        this.expectedGroups = 100_000;
     }
 
     @Override
@@ -78,26 +82,26 @@ public class NewHashAggregationOperator
     @Override
     public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new HashAggregationIterator(tupleInfos, source, groupByChannel, step, 100_000, functionDefinitions, operatorStats);
+        return new HashAggregationIterator(tupleInfos, source, groupByChannel, step, expectedGroups, functionDefinitions, operatorStats);
     }
 
     public static class AggregationFunctionDefinition
     {
-        public static AggregationFunctionDefinition aggregation(FixedWidthAggregationFunction function, int channel)
+        public static AggregationFunctionDefinition aggregation(NewAggregationFunction function, int channel)
         {
             return new AggregationFunctionDefinition(function, channel);
         }
 
-        private final FixedWidthAggregationFunction function;
+        private final NewAggregationFunction function;
         private final int channel;
 
-        private AggregationFunctionDefinition(FixedWidthAggregationFunction function, int channel)
+        private AggregationFunctionDefinition(NewAggregationFunction function, int channel)
         {
             this.function = function;
             this.channel = channel;
         }
 
-        public FixedWidthAggregationFunction getFunction()
+        public NewAggregationFunction getFunction()
         {
             return function;
         }
@@ -130,7 +134,7 @@ public class NewHashAggregationOperator
             // wrapper each function with an aggregator
             ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
             for (AggregationFunctionDefinition functionDefinition : functionDefinitions) {
-                builder.add(new Aggregator(functionDefinition, step));
+                builder.add(createAggregator(functionDefinition, step, expectedGroups));
             }
             aggregates = builder.build();
 
@@ -242,7 +246,31 @@ public class NewHashAggregationOperator
             return page;
         }
 
-        private static class Aggregator
+        @SuppressWarnings("rawtypes")
+        private static Aggregator createAggregator(AggregationFunctionDefinition functionDefinition, Step step, int expectedGroups)
+        {
+            NewAggregationFunction function = functionDefinition.getFunction();
+            if (function instanceof VariableWidthAggregationFunction) {
+                return new VariableWidthAggregator((VariableWidthAggregationFunction) functionDefinition.getFunction(), functionDefinition.getChannel(), step, expectedGroups);
+            }
+            else {
+                return new FixedWidthAggregator((FixedWidthAggregationFunction) functionDefinition.getFunction(), functionDefinition.getChannel(), step);
+            }
+        }
+
+        private interface Aggregator
+        {
+            TupleInfo getTupleInfo();
+
+            void initialize(int position);
+
+            void addValue(BlockCursor[] cursors, int position);
+
+            void evaluate(int position, BlockBuilder output);
+        }
+
+        private static class FixedWidthAggregator
+                implements Aggregator
         {
             private final FixedWidthAggregationFunction function;
             private final int channel;
@@ -252,18 +280,19 @@ public class NewHashAggregationOperator
             private final List<Slice> slices = new ArrayList<>();
             private int maxPosition;
 
-            private Aggregator(AggregationFunctionDefinition functionDefinition, Step step)
+            private FixedWidthAggregator(FixedWidthAggregationFunction function, int channel, Step step)
             {
-                this.function = functionDefinition.getFunction();
-                channel = functionDefinition.getChannel();
+                this.function = function;
+                this.channel = channel;
                 this.step = step;
-                fixedWithSize = this.function.getIntermediateTupleInfo().getFixedSize();
-                sliceSize = fixedWithSize * 1024;
+                this.fixedWithSize = this.function.getIntermediateTupleInfo().getFixedSize();
+                this.sliceSize = fixedWithSize * 1024;
                 Slice slice = Slices.allocate(sliceSize);
                 slices.add(slice);
                 maxPosition = sliceSize / fixedWithSize;
             }
 
+            @Override
             public TupleInfo getTupleInfo()
             {
                 // if this is a partial, the output is an intermediate value
@@ -275,6 +304,7 @@ public class NewHashAggregationOperator
                 }
             }
 
+            @Override
             public void initialize(int position)
             {
                 // add more slices if necessary
@@ -292,6 +322,7 @@ public class NewHashAggregationOperator
                 function.initialize(slice, sliceOffset);
             }
 
+            @Override
             public void addValue(BlockCursor[] cursors, int position)
             {
                 int globalOffset = position * fixedWithSize;
@@ -309,6 +340,7 @@ public class NewHashAggregationOperator
                 }
             }
 
+            @Override
             public void evaluate(int position, BlockBuilder output)
             {
                 int offset = position * fixedWithSize;
@@ -323,6 +355,71 @@ public class NewHashAggregationOperator
                 }
                 else {
                     function.evaluateFinal(slice, sliceOffset, output);
+                }
+            }
+        }
+
+        private static class VariableWidthAggregator<T>
+                implements Aggregator
+        {
+            private final VariableWidthAggregationFunction<T> function;
+            private final int channel;
+            private final Step step;
+            private final ObjectArrayList<T> intermediateValues;
+
+            private VariableWidthAggregator(VariableWidthAggregationFunction<T> function, int channel, Step step,
+                    int expectedGroups)
+            {
+                this.function = function;
+                this.channel = channel;
+                this.step = step;
+                this.intermediateValues = new ObjectArrayList<>(expectedGroups);
+            }
+
+            @Override
+            public TupleInfo getTupleInfo()
+            {
+                // if this is a partial, the output is an intermediate value
+                if (step == Step.PARTIAL) {
+                    return function.getIntermediateTupleInfo();
+                }
+                else {
+                    return function.getFinalTupleInfo();
+                }
+            }
+
+            @Override
+            public void initialize(int position)
+            {
+                Preconditions.checkState(position == intermediateValues.size(), "expected array to grow by 1");
+                intermediateValues.add(function.initialize());
+            }
+
+            @Override
+            public void addValue(BlockCursor[] cursors, int position)
+            {
+                // if this is a final aggregation, the input is an intermediate value
+                T oldValue = intermediateValues.get(position);
+                T newValue;
+                if (step == Step.FINAL) {
+                    newValue = function.addIntermediate(cursors[channel], oldValue);
+                }
+                else {
+                    newValue = function.addInput(cursors[channel], oldValue);
+                }
+                intermediateValues.set(position, newValue);
+            }
+
+            @Override
+            public void evaluate(int position, BlockBuilder output)
+            {
+                T value = intermediateValues.get(position);
+                // if this is a partial, the output is an intermediate value
+                if (step == Step.PARTIAL) {
+                    function.evaluateIntermediate(value, output);
+                }
+                else {
+                    function.evaluateFinal(value, output);
                 }
             }
         }
