@@ -31,6 +31,8 @@ import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_SHORT;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.primitives.UnsignedBytes.toInt;
+import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
+import static sun.misc.Unsafe.ARRAY_BYTE_INDEX_SCALE;
 
 public final class Slice
         implements Comparable<Slice>, InputSupplier<SliceInput>, OutputSupplier<SliceOutput>
@@ -49,9 +51,8 @@ public final class Slice
             }
 
             // make sure the VM thinks bytes are only one byte wide
-            int byteArrayIndexScale = unsafe.arrayIndexScale(byte[].class);
-            if (byteArrayIndexScale != 1) {
-                throw new IllegalStateException("Byte array index scale must be 1, but is " + byteArrayIndexScale);
+            if (ARRAY_BYTE_INDEX_SCALE != 1) {
+                throw new IllegalStateException("Byte array index scale must be 1, but is " + ARRAY_BYTE_INDEX_SCALE);
             }
 
             // fetch a method handle for the hidden constructor for DirectByteBuffer
@@ -64,7 +65,6 @@ public final class Slice
             throw new RuntimeException(e);
         }
     }
-    private static final long BYTE_ARRAY_OFFSET = unsafe.arrayBaseOffset(byte[].class);
 
     public static Slice toUnsafeSlice(ByteBuffer byteBuffer)
     {
@@ -88,7 +88,7 @@ public final class Slice
      * This base plus relative offset addressing is taken directly from
      * the Unsafe interface.
      *
-     * Note: if base object is a byte array, this address BYTE_ARRAY_OFFSET,
+     * Note: if base object is a byte array, this address ARRAY_BYTE_BASE_OFFSET,
      * since the byte array data starts AFTER the byte array object header.
      */
     private final long address;
@@ -125,7 +125,7 @@ public final class Slice
     {
         Preconditions.checkNotNull(base, "base is null");
         this.base = base;
-        this.address = BYTE_ARRAY_OFFSET;
+        this.address = (long) ARRAY_BYTE_BASE_OFFSET;
         this.size = base.length;
         this.reference = null;
     }
@@ -348,7 +348,7 @@ public final class Slice
         checkIndexLength(index, length);
         checkPositionIndexes(destinationIndex, destinationIndex + length, destination.length);
 
-        copyMemory(base, address + index, destination, BYTE_ARRAY_OFFSET + destinationIndex, length);
+        copyMemory(base, address + index, destination, (long) ARRAY_BYTE_BASE_OFFSET + destinationIndex, length);
     }
 
     /**
@@ -536,7 +536,7 @@ public final class Slice
     public void setBytes(int index, byte[] source, int sourceIndex, int length)
     {
         checkPositionIndexes(sourceIndex, sourceIndex + length, source.length);
-        copyMemory(source, BYTE_ARRAY_OFFSET + sourceIndex, base, address + index, length);
+        copyMemory(source, (long) ARRAY_BYTE_BASE_OFFSET + sourceIndex, base, address + index, length);
     }
 
     /**
@@ -558,7 +558,7 @@ public final class Slice
                 }
                 break;
             }
-            copyMemory(bytes, BYTE_ARRAY_OFFSET, base, address + index, bytesRead);
+            copyMemory(bytes, (long) ARRAY_BYTE_BASE_OFFSET, base, address + index, bytesRead);
             remaining -= bytesRead;
             index += bytesRead;
         }
@@ -847,7 +847,7 @@ public final class Slice
             return "";
         }
         if (base instanceof byte[]) {
-            return new String((byte[]) base, (int) ((address - BYTE_ARRAY_OFFSET) + index), length, charset);
+            return new String((byte[]) base, (int) ((address - (long) ARRAY_BYTE_BASE_OFFSET) + index), length, charset);
         }
         // direct memory can only be converted to a string using a ByteBuffer
         return Slices.decodeString(toByteBuffer(index, length), charset);
@@ -856,7 +856,7 @@ public final class Slice
     private ByteBuffer toByteBuffer(int index, int length)
     {
         if (base instanceof byte[]) {
-            ByteBuffer buffer = ByteBuffer.wrap((byte[]) base, (int) ((address - BYTE_ARRAY_OFFSET) + index), length);
+            ByteBuffer buffer = ByteBuffer.wrap((byte[]) base, (int) ((address - (long) ARRAY_BYTE_BASE_OFFSET) + index), length);
             return buffer;
         }
         checkIndexLength(index, length);
