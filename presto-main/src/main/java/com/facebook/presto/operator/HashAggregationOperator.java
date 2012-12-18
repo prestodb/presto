@@ -284,7 +284,7 @@ public class HashAggregationOperator
             this.function = function;
             this.channel = channel;
             this.step = step;
-            this.fixedWithSize = this.function.getIntermediateTupleInfo().getFixedSize();
+            this.fixedWithSize = this.function.getFixedSize();
             this.sliceSize = fixedWithSize * 1024;
             Slice slice = Slices.allocate(sliceSize);
             slices.add(slice);

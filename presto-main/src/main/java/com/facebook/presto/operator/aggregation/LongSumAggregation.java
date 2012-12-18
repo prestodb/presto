@@ -13,6 +13,12 @@ public class LongSumAggregation
     public static final LongSumAggregation LONG_SUM = new LongSumAggregation();
 
     @Override
+    public int getFixedSize()
+    {
+        return SINGLE_LONG.getFixedSize();
+    }
+
+    @Override
     public TupleInfo getFinalTupleInfo()
     {
         return SINGLE_LONG;

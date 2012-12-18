@@ -143,7 +143,7 @@ public class AggregationOperator
             this.function = function;
             this.channel = channel;
             this.step = step;
-            this.intermediateValue = Slices.allocate(function.getIntermediateTupleInfo().getFixedSize());
+            this.intermediateValue = Slices.allocate(function.getFixedSize());
             function.initialize(intermediateValue, 0);
         }
 

@@ -3,8 +3,14 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
+import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
+
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_DOUBLE;
+import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 
 public class LongAverageAggregation
         implements FixedWidthAggregationFunction
@@ -14,15 +20,21 @@ public class LongAverageAggregation
     private static final TupleInfo TUPLE_INFO = new TupleInfo(Type.FIXED_INT_64, Type.DOUBLE);
 
     @Override
+    public int getFixedSize()
+    {
+        return TUPLE_INFO.getFixedSize();
+    }
+
+    @Override
     public TupleInfo getFinalTupleInfo()
     {
-        return TupleInfo.SINGLE_DOUBLE;
+        return SINGLE_DOUBLE;
     }
 
     @Override
     public TupleInfo getIntermediateTupleInfo()
     {
-        return TUPLE_INFO;
+        return SINGLE_VARBINARY;
     }
 
     @Override
@@ -60,12 +72,15 @@ public class LongAverageAggregation
         // mark value not null
         TUPLE_INFO.setNotNull(valueSlice, valueOffset, 0);
 
+        // decode value
+        Slice value = cursor.getSlice(0);
+        long count = value.getLong(0);
+        double sum = value.getDouble(SIZE_OF_LONG);
+
         // add counts
-        long count = cursor.getLong(0);
         TUPLE_INFO.setLong(valueSlice, valueOffset, 0, TUPLE_INFO.getLong(valueSlice, valueOffset, 0) + count);
 
         // add sums
-        double sum = cursor.getDouble(1);
         TUPLE_INFO.setDouble(valueSlice, valueOffset, 1, TUPLE_INFO.getDouble(valueSlice, valueOffset, 1) + sum);
     }
 
@@ -73,10 +88,11 @@ public class LongAverageAggregation
     public void evaluateIntermediate(Slice valueSlice, int valueOffset, BlockBuilder output)
     {
         if (!TUPLE_INFO.isNull(valueSlice, valueOffset, 0)) {
-            output.append(TUPLE_INFO.getLong(valueSlice, valueOffset, 0));
-            output.append(TUPLE_INFO.getDouble(valueSlice, valueOffset, 1));
+            Slice value = Slices.allocate(SIZE_OF_LONG + SIZE_OF_DOUBLE);
+            value.setLong(0, TUPLE_INFO.getLong(valueSlice, valueOffset, 0));
+            value.setDouble(SIZE_OF_LONG, TUPLE_INFO.getDouble(valueSlice, valueOffset, 1));
+            output.append(value);
         } else {
-            output.appendNull();
             output.appendNull();
         }
     }
@@ -89,7 +105,6 @@ public class LongAverageAggregation
             double sum = TUPLE_INFO.getDouble(valueSlice, valueOffset, 1);
             output.append(sum / count);
         } else {
-            output.appendNull();
             output.appendNull();
         }
     }

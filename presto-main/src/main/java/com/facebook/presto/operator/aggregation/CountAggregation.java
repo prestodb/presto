@@ -13,6 +13,12 @@ public class CountAggregation
     public static final CountAggregation COUNT = new CountAggregation();
 
     @Override
+    public int getFixedSize()
+    {
+        return SINGLE_LONG.getFixedSize();
+    }
+
+    @Override
     public TupleInfo getFinalTupleInfo()
     {
         return SINGLE_LONG;

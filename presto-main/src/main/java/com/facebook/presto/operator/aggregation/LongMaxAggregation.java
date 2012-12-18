@@ -15,6 +15,12 @@ public class LongMaxAggregation
     public static final LongMaxAggregation LONG_MAX = new LongMaxAggregation();
 
     @Override
+    public int getFixedSize()
+    {
+        return SINGLE_LONG.getFixedSize();
+    }
+
+    @Override
     public TupleInfo getFinalTupleInfo()
     {
         return SINGLE_LONG;
