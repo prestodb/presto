@@ -6,7 +6,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.operator.NewHashAggregationOperator.AggregationFunctionDefinition.aggregation;
+import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.OperatorAssertions.createOperator;
 import static com.facebook.presto.operator.aggregation.CountFixedWidthAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.LongAverageFixedWidthAggregation.LONG_AVERAGE;

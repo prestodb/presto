@@ -13,7 +13,7 @@ import com.facebook.presto.operator.InMemoryOrderByOperator;
 import com.facebook.presto.operator.LimitOperator;
 import com.facebook.presto.operator.NewAggregationOperator;
 import com.facebook.presto.operator.NewHashAggregationOperator;
-import com.facebook.presto.operator.NewHashAggregationOperator.AggregationFunctionDefinition;
+import com.facebook.presto.operator.AggregationFunctionDefinition;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.ProjectionFunction;

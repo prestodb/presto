@@ -3,7 +3,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.operator.NewHashAggregationOperator.AggregationFunctionDefinition;
 import com.facebook.presto.operator.aggregation.FixedWidthAggregationFunction;
 import com.facebook.presto.operator.aggregation.NewAggregationFunction;
 import com.facebook.presto.operator.aggregation.VariableWidthAggregationFunction;

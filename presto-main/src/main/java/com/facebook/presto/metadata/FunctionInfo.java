@@ -1,6 +1,6 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.operator.NewHashAggregationOperator.AggregationFunctionDefinition;
+import com.facebook.presto.operator.AggregationFunctionDefinition;
 import com.facebook.presto.operator.aggregation.Input;
 import com.facebook.presto.operator.aggregation.NewAggregationFunction;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -10,7 +10,7 @@ import com.google.common.base.Preconditions;
 
 import java.util.List;
 
-import static com.facebook.presto.operator.NewHashAggregationOperator.AggregationFunctionDefinition.aggregation;
+import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 
 public class FunctionInfo
 {
