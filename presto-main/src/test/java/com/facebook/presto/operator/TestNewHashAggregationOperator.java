@@ -2,14 +2,16 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.operator.aggregation.CountFixedWidthAggregation;
-import com.facebook.presto.operator.aggregation.LongAverageFixedWidthAggregation;
-import com.facebook.presto.operator.aggregation.LongSumFixedWidthAggregation;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.operator.NewHashAggregationOperator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.OperatorAssertions.createOperator;
+import static com.facebook.presto.operator.aggregation.CountFixedWidthAggregation.COUNT;
+import static com.facebook.presto.operator.aggregation.LongAverageFixedWidthAggregation.LONG_AVERAGE;
+import static com.facebook.presto.operator.aggregation.LongSumFixedWidthAggregation.LONG_SUM;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
@@ -75,29 +77,25 @@ public class TestNewHashAggregationOperator
 
         Operator source = createOperator(
                 new Page(
+                        BlockAssertions.createStringSequenceBlock(100, 110),
                         BlockAssertions.createStringSequenceBlock(0, 10),
-                        BlockAssertions.createStringSequenceBlock(0, 10),
-                        BlockAssertions.createLongSequenceBlock(0, 10),
                         BlockAssertions.createLongSequenceBlock(0, 10)),
                 new Page(
+                        BlockAssertions.createStringSequenceBlock(100, 110),
                         BlockAssertions.createStringSequenceBlock(0, 10),
-                        BlockAssertions.createStringSequenceBlock(0, 10),
-                        BlockAssertions.createLongSequenceBlock(0, 10),
                         BlockAssertions.createLongSequenceBlock(0, 10)),
                 new Page(
+                        BlockAssertions.createStringSequenceBlock(100, 110),
                         BlockAssertions.createStringSequenceBlock(0, 10),
-                        BlockAssertions.createStringSequenceBlock(0, 10),
-                        BlockAssertions.createLongSequenceBlock(0, 10),
                         BlockAssertions.createLongSequenceBlock(0, 10))
         );
 
         NewHashAggregationOperator actual = new NewHashAggregationOperator(source,
-                0,
-                true,
-                true,
-                ImmutableList.of(new CountFixedWidthAggregation(),
-                        new LongSumFixedWidthAggregation(),
-                        new LongAverageFixedWidthAggregation()));
+                1,
+                Step.SINGLE,
+                ImmutableList.of(aggregation(COUNT, 0),
+                        aggregation(LONG_SUM, 2),
+                        aggregation(LONG_AVERAGE, 2)));
 
         PageIterator pages = actual.iterator(new OperatorStats());
 

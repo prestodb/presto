@@ -11,6 +11,8 @@ import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 public class LongAverageFixedWidthAggregation
         implements FixedWidthAggregationFunction
 {
+    public static final LongAverageFixedWidthAggregation LONG_AVERAGE = new LongAverageFixedWidthAggregation();
+
     private static final TupleInfo TUPLE_INFO = new TupleInfo(Type.FIXED_INT_64, Type.DOUBLE);
 
     @Override

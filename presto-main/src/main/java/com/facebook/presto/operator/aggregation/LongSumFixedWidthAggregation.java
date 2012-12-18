@@ -10,6 +10,8 @@ import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 public class LongSumFixedWidthAggregation
         implements FixedWidthAggregationFunction
 {
+    public static final LongSumFixedWidthAggregation LONG_SUM = new LongSumFixedWidthAggregation();
+
     @Override
     public TupleInfo getFinalTupleInfo()
     {
