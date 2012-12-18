@@ -26,8 +26,6 @@ public abstract class AbstractTestAggregationFunction
 
     public abstract Object getExpectedValue(int start, int length);
 
-    public abstract Object getActualValue(AggregationFunctionStep function);
-
     @Test
     public void testNoPositions()
             throws Exception

@@ -34,12 +34,6 @@ public class TestCountAggregation
     }
 
     @Override
-    public Number getActualValue(AggregationFunctionStep function)
-    {
-        return function.evaluate().getLong(0);
-    }
-
-    @Override
     public void testAllPositionsNull()
             throws Exception
     {
