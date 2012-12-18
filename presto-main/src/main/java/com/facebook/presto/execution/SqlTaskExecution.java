@@ -229,8 +229,8 @@ public class SqlTaskExecution
                     exchangeSources,
                     operatorStats,
                     sourceHashProviderFactory,
-                    maxOperatorMemoryUsage,
-                    maxNumberOfGroups);
+                    maxOperatorMemoryUsage
+            );
 
             operator = planner.plan(fragment.getRoot());
         }

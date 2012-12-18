@@ -112,7 +112,7 @@ public class TestNewHashAggregationOperator
                 ImmutableList.of(aggregation(COUNT, 0),
                         aggregation(LONG_SUM, 3),
                         aggregation(LONG_AVERAGE, 3),
-                        aggregation(VAR_BINARY_MAX, 2)));
+                        aggregation(VAR_BINARY_MAX, 2)), 100_000);
 
         PageIterator pages = actual.iterator(new OperatorStats());
 

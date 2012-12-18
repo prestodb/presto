@@ -5,14 +5,15 @@ import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.FilterFunctions;
-import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.operator.HashJoinOperator;
 import com.facebook.presto.operator.InMemoryOrderByOperator;
 import com.facebook.presto.operator.LimitOperator;
+import com.facebook.presto.operator.NewAggregationOperator;
+import com.facebook.presto.operator.NewHashAggregationOperator;
+import com.facebook.presto.operator.NewHashAggregationOperator.AggregationFunctionDefinition;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.ProjectionFunction;
@@ -20,9 +21,6 @@ import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.SourceHashProvider;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.operator.TopNOperator;
-import com.facebook.presto.operator.aggregation.AggregationFunction;
-import com.facebook.presto.operator.aggregation.AggregationFunctionStep;
-import com.facebook.presto.operator.aggregation.AggregationFunctions;
 import com.facebook.presto.operator.aggregation.Input;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
@@ -55,7 +53,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
 
-import javax.inject.Provider;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -78,7 +75,6 @@ public class LocalExecutionPlanner
 
     private final SourceHashProviderFactory joinHashFactory;
     private final DataSize maxOperatorMemoryUsage;
-    private final int maxNumberOfGroups;
 
     public LocalExecutionPlanner(Metadata metadata,
             PlanFragmentSourceProvider sourceProvider,
@@ -88,8 +84,7 @@ public class LocalExecutionPlanner
             Map<String, ExchangePlanFragmentSource> exchangeSources,
             OperatorStats operatorStats,
             SourceHashProviderFactory joinHashFactory,
-            DataSize maxOperatorMemoryUsage,
-            int maxNumberOfGroups1)
+            DataSize maxOperatorMemoryUsage)
     {
         this.tableScans = tableScans;
         this.operatorStats = Preconditions.checkNotNull(operatorStats, "operatorStats is null");
@@ -100,7 +95,6 @@ public class LocalExecutionPlanner
         this.exchangeSources = ImmutableMap.copyOf(checkNotNull(exchangeSources, "exchangeSources is null"));
         this.joinHashFactory = checkNotNull(joinHashFactory, "joinHashFactory is null");
         this.maxOperatorMemoryUsage = Preconditions.checkNotNull(maxOperatorMemoryUsage, "maxOperatorMemoryUsage is null");
-        maxNumberOfGroups = maxNumberOfGroups1;
     }
 
     public Operator plan(PlanNode plan)
@@ -208,7 +202,7 @@ public class LocalExecutionPlanner
 
             Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
 
-            List<Provider<AggregationFunctionStep>> aggregationFunctions = new ArrayList<>();
+            List<AggregationFunctionDefinition> functionDefinitions = new ArrayList<>();
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
                 List<Input> arguments = new ArrayList<>();
                 for (Expression argument : entry.getValue().getArguments()) {
@@ -219,24 +213,18 @@ public class LocalExecutionPlanner
                 }
 
                 FunctionHandle functionHandle = node.getFunctions().get(entry.getKey());
-                Provider<AggregationFunction> boundFunction = metadata.getFunction(functionHandle).bind(arguments);
+                AggregationFunctionDefinition functionDefinition = metadata.getFunction(functionHandle).bind(arguments);
 
-                Provider<AggregationFunctionStep> aggregation;
-                switch (node.getStep()) {
-                    case PARTIAL:
-                        aggregation = AggregationFunctions.partialAggregation(boundFunction);
-                        break;
-                    case FINAL:
-                        aggregation = AggregationFunctions.finalAggregation(boundFunction);
-                        break;
-                    case SINGLE:
-                        aggregation = AggregationFunctions.singleNodeAggregation(boundFunction);
-                        break;
-                    default:
-                        throw new UnsupportedOperationException("not yet implemented: " + node.getStep());
-                }
+                functionDefinitions.add(functionDefinition);
+            }
 
-                aggregationFunctions.add(aggregation);
+            Operator aggregationOperator;
+            if (node.getGroupBy().isEmpty()) {
+                aggregationOperator = new NewAggregationOperator(sourceOperator, node.getStep(), functionDefinitions);
+            } else {
+                Preconditions.checkArgument(node.getGroupBy().size() <= 1, "Only single GROUP BY key supported at this time");
+                Symbol groupBySymbol = Iterables.getOnlyElement(node.getGroupBy());
+                aggregationOperator = new NewHashAggregationOperator(sourceOperator, symbolToChannelMappings.get(groupBySymbol), node.getStep(), functionDefinitions, 100_000);
             }
 
             List<ProjectionFunction> projections = new ArrayList<>();
@@ -245,16 +233,8 @@ public class LocalExecutionPlanner
                 projections.add(ProjectionFunctions.singleColumn(types.get(symbol).getRawType(), i, 0));
             }
 
-            if (node.getGroupBy().isEmpty()) {
-                return new AggregationOperator(sourceOperator, aggregationFunctions, projections);
-            }
-
-            Preconditions.checkArgument(node.getGroupBy().size() <= 1, "Only single GROUP BY key supported at this time");
-            Symbol groupBySymbol = Iterables.getOnlyElement(node.getGroupBy());
-            return new HashAggregationOperator(sourceOperator, symbolToChannelMappings.get(groupBySymbol), aggregationFunctions, projections, maxNumberOfGroups);
+            return new FilterAndProjectOperator(aggregationOperator, FilterFunctions.TRUE_FUNCTION, projections);
         }
-
-
 
         @Override
         public Operator visitFilter(FilterNode node, Void context)
