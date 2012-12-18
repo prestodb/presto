@@ -5,6 +5,8 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
@@ -112,7 +114,9 @@ public class TestHashAggregationOperator
                 ImmutableList.of(aggregation(COUNT, 0),
                         aggregation(LONG_SUM, 3),
                         aggregation(LONG_AVERAGE, 3),
-                        aggregation(VAR_BINARY_MAX, 2)), 100_000);
+                        aggregation(VAR_BINARY_MAX, 2)),
+                100_000,
+                new DataSize(100, Unit.MEGABYTE));
 
         PageIterator pages = actual.iterator(new OperatorStats());
 
@@ -121,6 +125,39 @@ public class TestHashAggregationOperator
         PageAssertions.assertPageEquals(actualPage, expectedPage);
 
         assertFalse(pages.hasNext());
+    }
 
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Query exceeded max operator memory size of 10B")
+    public void testMemoryLimit()
+    {
+        Operator source = createOperator(
+                new Page(
+                        BlockAssertions.createStringSequenceBlock(100, 110),
+                        BlockAssertions.createStringSequenceBlock(0, 10),
+                        BlockAssertions.createStringSequenceBlock(100, 110),
+                        BlockAssertions.createLongSequenceBlock(0, 10)),
+                new Page(
+                        BlockAssertions.createStringSequenceBlock(100, 110),
+                        BlockAssertions.createStringSequenceBlock(0, 10),
+                        BlockAssertions.createStringSequenceBlock(200, 210),
+                        BlockAssertions.createLongSequenceBlock(0, 10)),
+                new Page(
+                        BlockAssertions.createStringSequenceBlock(100, 110),
+                        BlockAssertions.createStringSequenceBlock(0, 10),
+                        BlockAssertions.createStringSequenceBlock(300, 310),
+                        BlockAssertions.createLongSequenceBlock(0, 10))
+        );
+
+        HashAggregationOperator actual = new HashAggregationOperator(source,
+                1,
+                Step.SINGLE,
+                ImmutableList.of(aggregation(COUNT, 0),
+                        aggregation(LONG_SUM, 3),
+                        aggregation(LONG_AVERAGE, 3),
+                        aggregation(VAR_BINARY_MAX, 2)),
+                100_000,
+                new DataSize(10, Unit.BYTE));
+
+        actual.iterator(new OperatorStats());
     }
 }

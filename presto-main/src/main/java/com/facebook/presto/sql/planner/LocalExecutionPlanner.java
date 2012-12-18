@@ -224,7 +224,12 @@ public class LocalExecutionPlanner
             } else {
                 Preconditions.checkArgument(node.getGroupBy().size() <= 1, "Only single GROUP BY key supported at this time");
                 Symbol groupBySymbol = Iterables.getOnlyElement(node.getGroupBy());
-                aggregationOperator = new HashAggregationOperator(sourceOperator, symbolToChannelMappings.get(groupBySymbol), node.getStep(), functionDefinitions, 100_000);
+                aggregationOperator = new HashAggregationOperator(sourceOperator,
+                        symbolToChannelMappings.get(groupBySymbol),
+                        node.getStep(),
+                        functionDefinitions,
+                        100_000,
+                        maxOperatorMemoryUsage);
             }
 
             List<ProjectionFunction> projections = new ArrayList<>();
@@ -244,7 +249,7 @@ public class LocalExecutionPlanner
 
             Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
 
-        FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), symbolToChannelMappings);
+            FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), symbolToChannelMappings);
 
             List<ProjectionFunction> projections = new ArrayList<>();
             for (int i = 0; i < node.getOutputSymbols().size(); i++) {
