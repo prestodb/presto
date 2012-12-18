@@ -47,6 +47,7 @@ public class SqlTaskManager
     private final DataSize maxOperatorMemoryUsage;
 
     private final ConcurrentMap<String, TaskExecution> tasks = new ConcurrentHashMap<>();
+    private final int maxNumberOfGroups;
 
     @Inject
     public SqlTaskManager(
@@ -65,6 +66,7 @@ public class SqlTaskManager
         this.httpServerInfo = httpServerInfo;
         this.pageBufferMax = 20;
         this.maxOperatorMemoryUsage = config.getMaxOperatorMemoryUsage();
+        this.maxNumberOfGroups = config.getMaxNumberOfGroups();
 
         int processors = Runtime.getRuntime().availableProcessors();
         taskExecutor = new ThreadPoolExecutor(1000,
@@ -126,8 +128,7 @@ public class SqlTaskManager
 
         URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
 
-        SqlTaskExecution taskExecution = new
-                SqlTaskExecution(queryId,
+        SqlTaskExecution taskExecution = new SqlTaskExecution(queryId,
                 stageId,
                 taskId,
                 location,
@@ -139,7 +140,8 @@ public class SqlTaskManager
                 sourceProvider,
                 metadata,
                 shardExecutor,
-                maxOperatorMemoryUsage);
+                maxOperatorMemoryUsage,
+                maxNumberOfGroups);
         
         taskExecutor.submit(new TaskStarter(taskExecution));
 

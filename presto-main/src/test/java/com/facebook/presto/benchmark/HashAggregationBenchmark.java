@@ -43,7 +43,8 @@ public class HashAggregationBenchmark
         return new HashAggregationOperator(alignmentOperator,
                 0,
                 ImmutableList.of(singleNodeAggregation(doubleSumAggregation(1, 0))),
-                ImmutableList.of(concat(singleColumn(Type.VARIABLE_BINARY, 0, 0), singleColumn(Type.DOUBLE, 1, 0))));
+                ImmutableList.of(concat(singleColumn(Type.VARIABLE_BINARY, 0, 0), singleColumn(Type.DOUBLE, 1, 0))),
+                1_000_000);
 
     }
 

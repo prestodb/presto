@@ -617,7 +617,8 @@ public class TestQueries
                 ImmutableMap.<String, ExchangePlanFragmentSource>of(),
                 new OperatorStats(),
                 new SourceHashProviderFactory(maxOperatorMemoryUsage),
-                maxOperatorMemoryUsage);
+                maxOperatorMemoryUsage,
+                1_000_000);
 
         return new FilterAndProjectOperator(executionPlanner.plan(plan),
                 FilterFunctions.TRUE_FUNCTION,

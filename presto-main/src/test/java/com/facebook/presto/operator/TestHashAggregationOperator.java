@@ -61,7 +61,8 @@ public class TestHashAggregationOperator
                 ImmutableList.of(concat(singleColumn(VARIABLE_BINARY, 0, 0),
                         singleColumn(FIXED_INT_64, 1, 0),
                         singleColumn(FIXED_INT_64, 2, 0),
-                        singleColumn(DOUBLE, 3, 0))));
+                        singleColumn(DOUBLE, 3, 0))),
+                1_000_000);
 
         PageIterator pages = actual.iterator(new OperatorStats());
 
@@ -71,6 +72,38 @@ public class TestHashAggregationOperator
         BlockAssertions.assertBlockEqualsIgnoreOrder(actualBlock, expectedBlock);
 
         assertFalse(pages.hasNext());
-
     }
+
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Query exceeded max number of aggregation groups 5")
+    public void testGroupsLimit()
+            throws Exception
+    {
+        Operator source = createOperator(new Page(
+                BlockAssertions.createStringSequenceBlock(0, 10),
+                BlockAssertions.createLongSequenceBlock(0, 10),
+                BlockAssertions.createStringSequenceBlock(0, 10)),
+                new Page(
+                        BlockAssertions.createStringSequenceBlock(0, 10),
+                        BlockAssertions.createLongSequenceBlock(0, 10),
+                        BlockAssertions.createStringSequenceBlock(0, 10)),
+                new Page(
+                        BlockAssertions.createStringSequenceBlock(0, 10),
+                        BlockAssertions.createLongSequenceBlock(0, 10),
+                        BlockAssertions.createStringSequenceBlock(0, 10))
+        );
+
+        HashAggregationOperator operator = new HashAggregationOperator(source,
+                2,
+                ImmutableList.of(singleNodeAggregation(countAggregation(0,0)),
+                        singleNodeAggregation(longSumAggregation(1, 0)),
+                        singleNodeAggregation(longAverageAggregation(1, 0))),
+                ImmutableList.of(concat(singleColumn(VARIABLE_BINARY, 0, 0),
+                        singleColumn(FIXED_INT_64, 1, 0),
+                        singleColumn(FIXED_INT_64, 2, 0),
+                        singleColumn(DOUBLE, 3, 0))),
+                5);
+
+        operator.iterator(new OperatorStats());
+    }
+
 }
