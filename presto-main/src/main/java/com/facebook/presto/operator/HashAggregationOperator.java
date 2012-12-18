@@ -7,12 +7,14 @@ import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.FixedWidthAggregationFunction;
 import com.facebook.presto.operator.aggregation.VariableWidthAggregationFunction;
+import com.facebook.presto.slice.SizeOf;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenCustomHashMap;
 import it.unimi.dsi.fastutil.longs.LongHash.Strategy;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -40,12 +42,13 @@ public class HashAggregationOperator
     private final List<AggregationFunctionDefinition> functionDefinitions;
     private final List<TupleInfo> tupleInfos;
     private final int expectedGroups;
+    private final DataSize maxSize;
 
     public HashAggregationOperator(Operator source,
             int groupByChannel,
             Step step,
             List<AggregationFunctionDefinition> functionDefinitions,
-            int expectedGroups)
+            int expectedGroups, DataSize maxSize)
     {
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkArgument(groupByChannel >= 0, "groupByChannel is negative");
@@ -55,6 +58,8 @@ public class HashAggregationOperator
         this.groupByChannel = groupByChannel;
         this.step = step;
         this.functionDefinitions = ImmutableList.copyOf(functionDefinitions);
+        this.expectedGroups = expectedGroups;
+        this.maxSize = maxSize;
 
         ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
         tupleInfos.add(source.getTupleInfos().get(groupByChannel));
@@ -67,7 +72,6 @@ public class HashAggregationOperator
             }
         }
         this.tupleInfos = tupleInfos.build();
-        this.expectedGroups = expectedGroups;
     }
 
     @Override
@@ -85,7 +89,7 @@ public class HashAggregationOperator
     @Override
     public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new HashAggregationIterator(tupleInfos, source, groupByChannel, step, expectedGroups, functionDefinitions, operatorStats);
+        return new HashAggregationIterator(tupleInfos, source, groupByChannel, step, expectedGroups, functionDefinitions, maxSize, operatorStats);
     }
 
     private static class HashAggregationIterator
@@ -101,6 +105,7 @@ public class HashAggregationOperator
                 Step step,
                 int expectedGroups,
                 List<AggregationFunctionDefinition> functionDefinitions,
+                DataSize maxSize,
                 OperatorStats operatorStats)
         {
             super(tupleInfos);
@@ -129,6 +134,8 @@ public class HashAggregationOperator
             BlockCursor[] cursors = new BlockCursor[source.getChannelCount()];
             PageIterator iterator = source.iterator(operatorStats);
             while (iterator.hasNext()) {
+                checkMaxMemory(maxSize, hashStrategy);
+
                 Page page = iterator.next();
                 Block[] blocks = page.getBlocks();
                 Slice groupBySlice = ((UncompressedBlock) blocks[groupChannel]).getSlice();
@@ -192,6 +199,15 @@ public class HashAggregationOperator
             groupByBlocksIterator = groupByBlocks.iterator();
         }
 
+        private void checkMaxMemory(DataSize maxSize, SliceHashStrategy hashStrategy)
+        {
+            long memorySize = hashStrategy.getEstimatedSize();
+            for (Aggregator aggregate : aggregates) {
+                memorySize += aggregate.getEstimatedSize();
+            }
+            Preconditions.checkState(memorySize <= maxSize.toBytes(), "Query exceeded max operator memory size of %s", maxSize);
+        }
+
         @Override
         protected Page computeNext()
         {
@@ -241,6 +257,8 @@ public class HashAggregationOperator
 
     private interface Aggregator
     {
+        long getEstimatedSize();
+
         TupleInfo getTupleInfo();
 
         void initialize(int position);
@@ -271,6 +289,12 @@ public class HashAggregationOperator
             Slice slice = Slices.allocate(sliceSize);
             slices.add(slice);
             maxPosition = sliceSize / fixedWithSize;
+        }
+
+        @Override
+        public long getEstimatedSize()
+        {
+            return slices.size() * sliceSize;
         }
 
         @Override
@@ -366,6 +390,12 @@ public class HashAggregationOperator
         }
 
         @Override
+        public long getEstimatedSize()
+        {
+            return SizeOf.sizeOf(intermediateValues.elements()) + (intermediateValues.size() * 32);
+        }
+
+        @Override
         public TupleInfo getTupleInfo()
         {
             // if this is a partial, the output is an intermediate value
@@ -427,11 +457,17 @@ public class HashAggregationOperator
         private final TupleInfo tupleInfo;
         private final List<Slice> slices;
         private Slice lookupSlice;
+        private long memorySize;
 
         public SliceHashStrategy(TupleInfo tupleInfo)
         {
             this.tupleInfo = tupleInfo;
             this.slices = ObjectArrayList.wrap(new Slice[10240], 0);
+        }
+
+        public long getEstimatedSize()
+        {
+            return memorySize;
         }
 
         public void setLookupSlice(Slice lookupSlice)
@@ -441,6 +477,7 @@ public class HashAggregationOperator
 
         public void addSlice(Slice slice)
         {
+            memorySize += slice.length();
             slices.add(slice);
         }
 

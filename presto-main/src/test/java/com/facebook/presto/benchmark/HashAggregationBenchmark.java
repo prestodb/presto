@@ -14,6 +14,8 @@ import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
@@ -41,7 +43,9 @@ public class HashAggregationBenchmark
         return new HashAggregationOperator(alignmentOperator,
                 0,
                 Step.SINGLE,
-                ImmutableList.of(aggregation(DOUBLE_SUM, 1)), 100_000);
+                ImmutableList.of(aggregation(DOUBLE_SUM, 1)),
+                100_000,
+                new DataSize(100, Unit.MEGABYTE));
 
     }
 
