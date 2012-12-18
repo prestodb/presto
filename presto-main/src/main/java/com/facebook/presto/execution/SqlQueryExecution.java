@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.event.queryinfo.QueryEventFactory;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.server.HttpTaskClient;
@@ -27,6 +28,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.event.client.EventClient;
 import io.airlift.units.Duration;
 import org.antlr.runtime.RecognitionException;
 
@@ -45,6 +47,7 @@ import static com.facebook.presto.execution.FailureInfo.toFailures;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.execution.StageInfo.stageStateGetter;
 import static com.facebook.presto.sql.planner.Partition.nodeIdentifierGetter;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
@@ -64,6 +67,8 @@ public class SqlQueryExecution
     private final StageManager stageManager;
     private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
+    private final QueryEventFactory queryEventFactory;
+    private final EventClient eventClient;
 
     private final QueryStats queryStats = new QueryStats();
 
@@ -86,17 +91,21 @@ public class SqlQueryExecution
             SplitManager splitManager,
             StageManager stageManager,
             RemoteTaskFactory remoteTaskFactory,
-            LocationFactory locationFactory)
+            LocationFactory locationFactory,
+            QueryEventFactory queryEventFactory,
+            EventClient eventClient)
     {
-        Preconditions.checkNotNull(queryId, "queryId is null");
-        Preconditions.checkNotNull(sql, "sql is null");
-        Preconditions.checkNotNull(session, "session is null");
-        Preconditions.checkNotNull(metadata, "metadata is null");
-        Preconditions.checkNotNull(nodeManager, "nodeManager is null");
-        Preconditions.checkNotNull(splitManager, "splitManager is null");
-        Preconditions.checkNotNull(stageManager, "stageManager is null");
-        Preconditions.checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
-        Preconditions.checkNotNull(locationFactory, "locationFactory is null");
+        checkNotNull(queryId, "queryId is null");
+        checkNotNull(sql, "sql is null");
+        checkNotNull(session, "session is null");
+        checkNotNull(metadata, "metadata is null");
+        checkNotNull(nodeManager, "nodeManager is null");
+        checkNotNull(splitManager, "splitManager is null");
+        checkNotNull(stageManager, "stageManager is null");
+        checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
+        checkNotNull(locationFactory, "locationFactory is null");
+        checkNotNull(queryEventFactory, "queryEventFactory is null");
+        checkNotNull(eventClient, "eventClient is null");
 
         this.queryId = queryId;
         this.sql = sql;
@@ -108,6 +117,8 @@ public class SqlQueryExecution
         this.stageManager = stageManager;
         this.remoteTaskFactory = remoteTaskFactory;
         this.locationFactory = locationFactory;
+        this.queryEventFactory = queryEventFactory;
+        this.eventClient = eventClient;
     }
 
     @Override
@@ -170,6 +181,7 @@ public class SqlQueryExecution
                 failureCauses.add(e);
                 queryStats.recordEnd();
                 queryState.set(QueryState.FAILED);
+                eventClient.post(queryEventFactory.createCompletionEvent(getQueryInfo()));
             }
             cancel();
         }
@@ -292,6 +304,7 @@ public class SqlQueryExecution
             if (!queryState.get().isDone()) {
                 queryStats.recordEnd();
                 queryState.set(QueryState.CANCELED);
+                eventClient.post(queryEventFactory.createCompletionEvent(getQueryInfo()));
             }
         }
 
@@ -326,6 +339,7 @@ public class SqlQueryExecution
                     this.queryState.set(QueryState.FINISHED);
                 }
                 queryStats.recordEnd();
+                eventClient.post(queryEventFactory.createCompletionEvent(getQueryInfo()));
             } else if (queryState.get() == QueryState.STARTING) {
                 // if any stage is running transition to running
                 if (any(transform(getAllStages(outputStage.getStageInfo()), stageStateGetter()), isStageRunningOrDone())) {
