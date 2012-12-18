@@ -8,6 +8,7 @@ import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedBlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.operator.AggregationOperator.Aggregator;
+import com.facebook.presto.operator.Page;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.tuple.Tuple;
 import org.testng.annotations.Test;
@@ -66,7 +67,7 @@ public abstract class AbstractTestAggregationFunction
 
         for (int i = 0; i < positions; i++) {
             assertTrue(cursor.advanceNextPosition());
-            function.addValue(new BlockCursor[]{cursor});
+            function.addValue(cursor);
         }
 
         Object actualValue = getActualValue(function);
@@ -121,10 +122,7 @@ public abstract class AbstractTestAggregationFunction
     {
         Aggregator function = createAggregator(aggregation(getFunction(), 0), Step.SINGLE);
 
-        BlockCursor blockCursor = block.cursor();
-        while (blockCursor.advanceNextPosition()) {
-            function.addValue(new BlockCursor[]{blockCursor});
-        }
+        function.addValue(new Page(block));
         assertEquals(getActualValue(function), expectedValue);
     }
 
@@ -147,7 +145,7 @@ public abstract class AbstractTestAggregationFunction
         Aggregator function = createAggregator(aggregation(getFunction(), 0), Step.FINAL);
         BlockCursor partialsCursor = partialsBlock.cursor();
         while (partialsCursor.advanceNextPosition()) {
-            function.addValue(new BlockCursor[]{partialsCursor});
+            function.addValue(partialsCursor);
         }
 
         assertEquals(getActualValue(function), expectedValue);
@@ -183,7 +181,7 @@ public abstract class AbstractTestAggregationFunction
 
         BlockCursor blockCursor = partialsBlock.cursor();
         while (blockCursor.advanceNextPosition()) {
-            function.addValue(new BlockCursor[]{blockCursor});
+            function.addValue(blockCursor);
         }
         assertEquals(getActualValue(function), expectedValue);
     }
@@ -194,7 +192,7 @@ public abstract class AbstractTestAggregationFunction
         BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {
             Aggregator function = createAggregator(aggregation(getFunction(), 0), Step.PARTIAL);
-            function.addValue(new BlockCursor[]{cursor});
+            function.addValue(cursor);
             BlockCursor result = function.getResult().cursor();
             assertTrue(result.advanceNextPosition());
             Tuple tuple = result.getTuple();

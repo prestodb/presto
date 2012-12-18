@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
@@ -30,6 +31,16 @@ public class VarBinaryMaxAggregation
     public Slice initialize()
     {
         return null;
+    }
+
+    @Override
+    public Slice addInput(int positionCount, Block block, Slice currentMax)
+    {
+        BlockCursor cursor = block.cursor();
+        while (cursor.advanceNextPosition()) {
+            currentMax = addInput(cursor, currentMax);
+        }
+        return currentMax;
     }
 
     @Override

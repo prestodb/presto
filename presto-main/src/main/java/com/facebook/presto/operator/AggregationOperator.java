@@ -15,7 +15,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Group input data and produce a single block for each sequence of identical values.
@@ -73,30 +72,13 @@ public class AggregationOperator
         }
         List<Aggregator> aggregates = builder.build();
 
-        BlockCursor[] cursors = new BlockCursor[source.getChannelCount()];
         PageIterator iterator = source.iterator(operatorStats);
         while (iterator.hasNext()) {
             Page page = iterator.next();
-            Block[] blocks = page.getBlocks();
 
-            for (int i = 0; i < blocks.length; i++) {
-                cursors[i] = blocks[i].cursor();
-            }
-
-            int rows = page.getPositionCount();
-            for (int position = 0; position < rows; position++) {
-                for (BlockCursor cursor : cursors) {
-                    checkState(cursor.advanceNextPosition());
-                }
-
-                // process the row
-                for (Aggregator aggregate : aggregates) {
-                    aggregate.addValue(cursors);
-                }
-            }
-
-            for (BlockCursor cursor : cursors) {
-                checkState(!cursor.advanceNextPosition());
+            // process the row
+            for (Aggregator aggregate : aggregates) {
+                aggregate.addValue(page);
             }
         }
 
@@ -125,7 +107,9 @@ public class AggregationOperator
     {
         TupleInfo getTupleInfo();
 
-        void addValue(BlockCursor[] cursors);
+        void addValue(Page page);
+
+        void addValue(BlockCursor... cursors);
 
         Block getResult();
     }
@@ -160,7 +144,7 @@ public class AggregationOperator
         }
 
         @Override
-        public void addValue(BlockCursor[] cursors)
+        public void addValue(BlockCursor... cursors)
         {
             BlockCursor cursor;
             if (channel >= 0) {
@@ -176,6 +160,29 @@ public class AggregationOperator
             }
             else {
                 function.addInput(cursor, intermediateValue, 0);
+            }
+        }
+
+        @Override
+        public void addValue(Page page)
+        {
+            Block block;
+            if (channel >= 0) {
+                block = page.getBlock(channel);
+            }
+            else {
+                block = null;
+            }
+
+            // if this is a final aggregation, the input is an intermediate value
+            if (step == Step.FINAL) {
+                BlockCursor cursor = block.cursor();
+                while (cursor.advanceNextPosition()) {
+                    function.addIntermediate(cursor, intermediateValue, 0);
+                }
+            }
+            else {
+                function.addInput(page.getPositionCount(), block, intermediateValue, 0);
             }
         }
 
@@ -225,7 +232,30 @@ public class AggregationOperator
         }
 
         @Override
-        public void addValue(BlockCursor[] cursors)
+        public void addValue(Page page)
+        {
+            Block block;
+            if (channel >= 0) {
+                block = page.getBlock(channel);
+            }
+            else {
+                block = null;
+            }
+
+            // if this is a final aggregation, the input is an intermediate value
+            if (step == Step.FINAL) {
+                BlockCursor cursor = block.cursor();
+                while (cursor.advanceNextPosition()) {
+                    intermediateValue = function.addIntermediate(cursor, intermediateValue);
+                }
+            }
+            else {
+                intermediateValue = function.addInput(page.getPositionCount(), block, intermediateValue);
+            }
+        }
+
+        @Override
+        public void addValue(BlockCursor... cursors)
         {
             BlockCursor cursor;
             if (channel >= 0) {
@@ -244,6 +274,7 @@ public class AggregationOperator
             }
         }
 
+
         @Override
         public Block getResult()
         {
@@ -259,6 +290,5 @@ public class AggregationOperator
                 return output.build();
             }
         }
-
     }
 }
