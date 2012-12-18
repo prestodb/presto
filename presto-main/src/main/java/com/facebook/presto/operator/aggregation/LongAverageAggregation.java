@@ -6,10 +6,10 @@ import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 
-public class DoubleAverageFixedWidthAggregation
+public class LongAverageAggregation
         implements FixedWidthAggregationFunction
 {
-    public static final DoubleAverageFixedWidthAggregation DOUBLE_AVERAGE = new DoubleAverageFixedWidthAggregation();
+    public static final LongAverageAggregation LONG_AVERAGE = new LongAverageAggregation();
 
     private static final TupleInfo TUPLE_INFO = new TupleInfo(Type.FIXED_INT_64, Type.DOUBLE);
 
@@ -46,7 +46,7 @@ public class DoubleAverageFixedWidthAggregation
         TUPLE_INFO.setLong(valueSlice, valueOffset, 0, TUPLE_INFO.getLong(valueSlice, valueOffset, 0) + 1);
 
         // add value to sum
-        double newValue = cursor.getDouble(0);
+        long newValue = cursor.getLong(0);
         TUPLE_INFO.setDouble(valueSlice, valueOffset, 1, TUPLE_INFO.getDouble(valueSlice, valueOffset, 1) + newValue);
     }
 

@@ -3,7 +3,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 
-import static com.facebook.presto.operator.aggregation.DoubleMaxFixedWidthAggregation.DOUBLE_MAX;
+import static com.facebook.presto.operator.aggregation.DoubleMaxAggregation.DOUBLE_MAX;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 
 public class TestDoubleMaxAggregation
@@ -20,7 +20,7 @@ public class TestDoubleMaxAggregation
     }
 
     @Override
-    public NewAggregationFunction getFunction()
+    public AggregationFunction getFunction()
     {
         return DOUBLE_MAX;
     }

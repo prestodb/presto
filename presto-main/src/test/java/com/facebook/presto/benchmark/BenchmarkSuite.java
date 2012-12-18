@@ -20,7 +20,7 @@ public class BenchmarkSuite
     public static final List<AbstractBenchmark> BENCHMARKS = ImmutableList.<AbstractBenchmark>of(
             new CountAggregationBenchmark(),
             new DoubleSumAggregationBenchmark(),
-            new NewHashAggregationBenchmark(),
+            new HashAggregationBenchmark(),
             new PredicateFilterBenchmark(),
             new RawStreamingBenchmark(),
             new Top100Benchmark(),

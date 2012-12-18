@@ -5,52 +5,54 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.TupleInfo;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
-public class DoubleSumFixedWidthAggregation
+public class CountAggregation
         implements FixedWidthAggregationFunction
 {
-    public static final DoubleSumFixedWidthAggregation DOUBLE_SUM = new DoubleSumFixedWidthAggregation();
+    public static final CountAggregation COUNT = new CountAggregation();
+
     @Override
     public TupleInfo getFinalTupleInfo()
     {
-        return SINGLE_DOUBLE;
+        return SINGLE_LONG;
     }
 
     @Override
     public TupleInfo getIntermediateTupleInfo()
     {
-        return SINGLE_DOUBLE;
+        return SINGLE_LONG;
     }
 
     @Override
     public void initialize(Slice valueSlice, int valueOffset)
     {
-        // mark value null
-        SINGLE_LONG.setNull(valueSlice, valueOffset, 0);
     }
 
     @Override
     public void addInput(BlockCursor cursor, Slice valueSlice, int valueOffset)
     {
-        if (cursor.isNull(0)) {
-            return;
-        }
-
-        // mark value not null
-        SINGLE_LONG.setNotNull(valueSlice, valueOffset, 0);
-
         // update current value
-        double currentValue = SINGLE_DOUBLE.getDouble(valueSlice, valueOffset, 0);
-        double newValue = cursor.getDouble(0);
-        SINGLE_DOUBLE.setDouble(valueSlice, valueOffset, 0, currentValue + newValue);
+        long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
+        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, currentValue + 1);
     }
 
     @Override
     public void addIntermediate(BlockCursor cursor, Slice valueSlice, int valueOffset)
     {
-        addInput(cursor, valueSlice, valueOffset);
+        if (cursor.isNull(0)) {
+            return;
+        }
+
+        // if the value is marked a null, clear it
+        if (SINGLE_LONG.isNull(valueSlice, valueOffset, 0)) {
+            valueSlice.clear(valueOffset, SINGLE_LONG.getFixedSize());
+        }
+
+        // update current value
+        long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
+        long newValue = cursor.getLong(0);
+        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, currentValue + newValue);
     }
 
     @Override
@@ -62,10 +64,11 @@ public class DoubleSumFixedWidthAggregation
     @Override
     public void evaluateFinal(Slice valueSlice, int valueOffset, BlockBuilder output)
     {
-        if (!SINGLE_DOUBLE.isNull(valueSlice, valueOffset, 0)) {
-            double currentValue = SINGLE_DOUBLE.getDouble(valueSlice, valueOffset, 0);
+        if (!SINGLE_LONG.isNull(valueSlice, valueOffset, 0)) {
+            long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
             output.append(currentValue);
-        } else {
+        }
+        else {
             output.appendNull();
         }
     }

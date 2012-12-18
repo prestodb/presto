@@ -8,17 +8,17 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.OperatorAssertions.createOperator;
-import static com.facebook.presto.operator.aggregation.CountFixedWidthAggregation.COUNT;
-import static com.facebook.presto.operator.aggregation.LongAverageFixedWidthAggregation.LONG_AVERAGE;
-import static com.facebook.presto.operator.aggregation.LongSumFixedWidthAggregation.LONG_SUM;
-import static com.facebook.presto.operator.aggregation.VarBinaryVariableWidthMaxAggregation.VAR_BINARY_MAX;
+import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
+import static com.facebook.presto.operator.aggregation.LongAverageAggregation.LONG_AVERAGE;
+import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
+import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
-public class TestNewAggregationOperator
+public class TestAggregationOperator
 {
     @Test
     public void testAggregation()
@@ -30,7 +30,7 @@ public class TestNewAggregationOperator
                 BlockAssertions.createStringSequenceBlock(300, 400)));
 
 
-        NewAggregationOperator actual = new NewAggregationOperator(source,
+        AggregationOperator actual = new AggregationOperator(source,
                 Step.SINGLE,
                 ImmutableList.of(aggregation(COUNT, 0),
                         aggregation(LONG_SUM, 1),

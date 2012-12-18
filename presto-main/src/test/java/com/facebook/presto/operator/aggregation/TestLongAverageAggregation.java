@@ -3,7 +3,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 
-import static com.facebook.presto.operator.aggregation.LongAverageFixedWidthAggregation.LONG_AVERAGE;
+import static com.facebook.presto.operator.aggregation.LongAverageAggregation.LONG_AVERAGE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
 public class TestLongAverageAggregation
@@ -20,7 +20,7 @@ public class TestLongAverageAggregation
     }
 
     @Override
-    public NewAggregationFunction getFunction()
+    public AggregationFunction getFunction()
     {
         return LONG_AVERAGE;
     }

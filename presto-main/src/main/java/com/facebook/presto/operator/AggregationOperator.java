@@ -3,8 +3,8 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.FixedWidthAggregationFunction;
-import com.facebook.presto.operator.aggregation.NewAggregationFunction;
 import com.facebook.presto.operator.aggregation.VariableWidthAggregationFunction;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
@@ -20,7 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 /**
  * Group input data and produce a single block for each sequence of identical values.
  */
-public class NewAggregationOperator
+public class AggregationOperator
         implements Operator
 {
     private final Operator source;
@@ -28,7 +28,7 @@ public class NewAggregationOperator
     private final List<AggregationFunctionDefinition> functionDefinitions;
     private final List<TupleInfo> tupleInfos;
 
-    public NewAggregationOperator(Operator source,
+    public AggregationOperator(Operator source,
             Step step,
             List<AggregationFunctionDefinition> functionDefinitions)
     {
@@ -112,7 +112,7 @@ public class NewAggregationOperator
     @SuppressWarnings("rawtypes")
     public static Aggregator createAggregator(AggregationFunctionDefinition functionDefinition, Step step)
     {
-        NewAggregationFunction function = functionDefinition.getFunction();
+        AggregationFunction function = functionDefinition.getFunction();
         if (function instanceof VariableWidthAggregationFunction) {
             return new VariableWidthAggregator((VariableWidthAggregationFunction) functionDefinition.getFunction(), functionDefinition.getChannel(), step);
         }

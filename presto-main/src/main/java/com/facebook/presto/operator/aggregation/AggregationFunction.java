@@ -5,7 +5,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.tuple.TupleInfo;
 
-public interface NewAggregationFunction
+public interface AggregationFunction
 {
     TupleInfo getFinalTupleInfo();
 

@@ -5,31 +5,31 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.TupleInfo;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 
-public class LongMinFixedWidthAggregation
+public class DoubleMaxAggregation
         implements FixedWidthAggregationFunction
 {
-    public static final LongMinFixedWidthAggregation LONG_MIN = new LongMinFixedWidthAggregation();
+    public static final DoubleMaxAggregation DOUBLE_MAX = new DoubleMaxAggregation();
 
     @Override
     public TupleInfo getFinalTupleInfo()
     {
-        return SINGLE_LONG;
+        return SINGLE_DOUBLE;
     }
 
     @Override
     public TupleInfo getIntermediateTupleInfo()
     {
-        return SINGLE_LONG;
+        return SINGLE_DOUBLE;
     }
 
     @Override
     public void initialize(Slice valueSlice, int valueOffset)
     {
         // mark value null
-        SINGLE_LONG.setNull(valueSlice, valueOffset, 0);
-        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, Long.MAX_VALUE);
+        SINGLE_DOUBLE.setNull(valueSlice, valueOffset, 0);
+        SINGLE_DOUBLE.setDouble(valueSlice, valueOffset, 0, Double.NEGATIVE_INFINITY);
     }
 
     @Override
@@ -40,12 +40,12 @@ public class LongMinFixedWidthAggregation
         }
 
         // mark value not null
-        SINGLE_LONG.setNotNull(valueSlice, valueOffset, 0);
+        SINGLE_DOUBLE.setNotNull(valueSlice, valueOffset, 0);
 
         // update current value
-        long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
-        long newValue = cursor.getLong(0);
-        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, Math.min(currentValue, newValue));
+        double currentValue = SINGLE_DOUBLE.getDouble(valueSlice, valueOffset, 0);
+        double newValue = cursor.getDouble(0);
+        SINGLE_DOUBLE.setDouble(valueSlice, valueOffset, 0, Math.max(currentValue, newValue));
     }
 
     @Override
@@ -63,8 +63,8 @@ public class LongMinFixedWidthAggregation
     @Override
     public void evaluateFinal(Slice valueSlice, int valueOffset, BlockBuilder output)
     {
-        if (!SINGLE_LONG.isNull(valueSlice, valueOffset, 0)) {
-            long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
+        if (!SINGLE_DOUBLE.isNull(valueSlice, valueOffset, 0)) {
+            double currentValue = SINGLE_DOUBLE.getDouble(valueSlice, valueOffset, 0);
             output.append(currentValue);
         } else {
             output.appendNull();

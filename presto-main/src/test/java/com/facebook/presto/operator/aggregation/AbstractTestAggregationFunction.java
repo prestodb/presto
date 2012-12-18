@@ -7,13 +7,13 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 import com.facebook.presto.block.rle.RunLengthEncodedBlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.operator.NewAggregationOperator.Aggregator;
+import com.facebook.presto.operator.AggregationOperator.Aggregator;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.tuple.Tuple;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
-import static com.facebook.presto.operator.NewAggregationOperator.createAggregator;
+import static com.facebook.presto.operator.AggregationOperator.createAggregator;
 import static com.facebook.presto.tuple.Tuples.nullTuple;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -22,7 +22,7 @@ public abstract class AbstractTestAggregationFunction
 {
     public abstract Block getSequenceBlock(int start, int length);
 
-    public abstract NewAggregationFunction getFunction();
+    public abstract AggregationFunction getFunction();
 
     public abstract Object getExpectedValue(int start, int length);
 

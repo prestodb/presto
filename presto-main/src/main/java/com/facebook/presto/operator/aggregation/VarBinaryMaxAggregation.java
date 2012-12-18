@@ -9,10 +9,10 @@ import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.Ordering;
 
-public class VarBinaryVariableWidthMaxAggregation
+public class VarBinaryMaxAggregation
         implements VariableWidthAggregationFunction<Slice>
 {
-    public static final VarBinaryVariableWidthMaxAggregation VAR_BINARY_MAX = new VarBinaryVariableWidthMaxAggregation();
+    public static final VarBinaryMaxAggregation VAR_BINARY_MAX = new VarBinaryMaxAggregation();
 
     @Override
     public TupleInfo getFinalTupleInfo()

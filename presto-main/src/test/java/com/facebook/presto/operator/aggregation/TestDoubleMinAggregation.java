@@ -3,7 +3,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 
-import static com.facebook.presto.operator.aggregation.DoubleMinFixedWidthAggregation.DOUBLE_MIN;
+import static com.facebook.presto.operator.aggregation.DoubleMinAggregation.DOUBLE_MIN;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 
 public class TestDoubleMinAggregation
@@ -20,7 +20,7 @@ public class TestDoubleMinAggregation
     }
 
     @Override
-    public NewAggregationFunction getFunction()
+    public AggregationFunction getFunction()
     {
         return DOUBLE_MIN;
     }

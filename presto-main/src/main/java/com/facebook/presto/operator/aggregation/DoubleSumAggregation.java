@@ -6,12 +6,12 @@ import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.TupleInfo;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
-public class DoubleMaxFixedWidthAggregation
+public class DoubleSumAggregation
         implements FixedWidthAggregationFunction
 {
-    public static final DoubleMaxFixedWidthAggregation DOUBLE_MAX = new DoubleMaxFixedWidthAggregation();
-
+    public static final DoubleSumAggregation DOUBLE_SUM = new DoubleSumAggregation();
     @Override
     public TupleInfo getFinalTupleInfo()
     {
@@ -28,8 +28,7 @@ public class DoubleMaxFixedWidthAggregation
     public void initialize(Slice valueSlice, int valueOffset)
     {
         // mark value null
-        SINGLE_DOUBLE.setNull(valueSlice, valueOffset, 0);
-        SINGLE_DOUBLE.setDouble(valueSlice, valueOffset, 0, Double.NEGATIVE_INFINITY);
+        SINGLE_LONG.setNull(valueSlice, valueOffset, 0);
     }
 
     @Override
@@ -40,12 +39,12 @@ public class DoubleMaxFixedWidthAggregation
         }
 
         // mark value not null
-        SINGLE_DOUBLE.setNotNull(valueSlice, valueOffset, 0);
+        SINGLE_LONG.setNotNull(valueSlice, valueOffset, 0);
 
         // update current value
         double currentValue = SINGLE_DOUBLE.getDouble(valueSlice, valueOffset, 0);
         double newValue = cursor.getDouble(0);
-        SINGLE_DOUBLE.setDouble(valueSlice, valueOffset, 0, Math.max(currentValue, newValue));
+        SINGLE_DOUBLE.setDouble(valueSlice, valueOffset, 0, currentValue + newValue);
     }
 
     @Override

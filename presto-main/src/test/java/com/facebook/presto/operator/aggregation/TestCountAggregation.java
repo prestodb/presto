@@ -4,7 +4,7 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
 
-import static com.facebook.presto.operator.aggregation.CountFixedWidthAggregation.COUNT;
+import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.Tuples.nullTuple;
 
@@ -22,7 +22,7 @@ public class TestCountAggregation
     }
 
     @Override
-    public NewAggregationFunction getFunction()
+    public AggregationFunction getFunction()
     {
         return COUNT;
     }
