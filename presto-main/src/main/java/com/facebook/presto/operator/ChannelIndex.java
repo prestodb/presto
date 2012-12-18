@@ -21,7 +21,7 @@ import static com.facebook.presto.hive.shaded.com.google.common.base.Preconditio
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceOffset;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
-import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.presto.slice.SizeOf.sizeOf;
 
 /**
  * ChannelIndex a low-level data structure which contains the address of every value position with a channel.
@@ -49,8 +49,8 @@ public class ChannelIndex
     public DataSize getEstimatedSize()
     {
         // assumes 64bit addresses
-        long sliceArraySize = slices.elements().length * SIZE_OF_LONG;
-        long addressesArraySize = valueAddresses.elements().length * SIZE_OF_LONG;
+        long sliceArraySize = sizeOf(slices.elements());
+        long addressesArraySize = sizeOf(valueAddresses.elements());
         return new DataSize(slicesMemorySize + sliceArraySize + addressesArraySize, Unit.BYTE);
     }
 

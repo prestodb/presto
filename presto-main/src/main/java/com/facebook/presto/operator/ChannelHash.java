@@ -20,8 +20,7 @@ import java.util.Arrays;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceOffset;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
-import static com.facebook.presto.slice.SizeOf.SIZE_OF_INT;
-import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
+import static com.facebook.presto.slice.SizeOf.sizeOf;
 
 public class ChannelHash
 {
@@ -78,7 +77,7 @@ public class ChannelHash
     public DataSize getEstimatedSize()
     {
         long addressToPositionSize = addressToPositionMap.getEstimatedSize().toBytes();
-        int positionLinksSize = positionLinks.elements().length * SIZE_OF_INT;
+        long positionLinksSize = sizeOf(positionLinks.elements());
         return new DataSize(addressToPositionSize + positionLinksSize, Unit.BYTE);
     }
 
@@ -167,8 +166,9 @@ public class ChannelHash
             super(m, strategy);
         }
 
-        public DataSize getEstimatedSize() {
-            return new DataSize(n * (SIZE_OF_LONG + SIZE_OF_INT), Unit.BYTE);
+        public DataSize getEstimatedSize()
+        {
+            return new DataSize(sizeOf(this.key) + sizeOf(this.value) + sizeOf(this.used), Unit.BYTE);
         }
     }
 }
