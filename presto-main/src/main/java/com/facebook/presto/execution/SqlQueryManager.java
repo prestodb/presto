@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.event.queryinfo.QueryEventFactory;
 import com.facebook.presto.importer.ImportManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
@@ -14,6 +15,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import io.airlift.event.client.EventClient;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -31,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.util.Threads.threadsNamed;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 
@@ -50,12 +53,15 @@ public class SqlQueryManager
     private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
     private final Duration maxQueryAge;
+    private final QueryEventFactory queryEventFactory;
+    private final EventClient eventClient;
 
     private final AtomicInteger nextQueryId = new AtomicInteger();
     private final ConcurrentMap<String, QueryExecution> queries = new ConcurrentHashMap<>();
 
     private final boolean importsEnabled;
     private final Duration clientTimeout;
+
 
     @Inject
     public SqlQueryManager(ImportClientFactory importClientFactory,
@@ -66,17 +72,21 @@ public class SqlQueryManager
             StageManager stageManager,
             RemoteTaskFactory remoteTaskFactory,
             LocationFactory locationFactory,
-            QueryManagerConfig config)
+            QueryManagerConfig config,
+            QueryEventFactory queryEventFactory,
+            EventClient eventClient)
     {
-        Preconditions.checkNotNull(importClientFactory, "importClientFactory is null");
-        Preconditions.checkNotNull(importManager, "importManager is null");
-        Preconditions.checkNotNull(metadata, "metadata is null");
-        Preconditions.checkNotNull(nodeManager, "nodeManager is null");
-        Preconditions.checkNotNull(splitManager, "splitManager is null");
-        Preconditions.checkNotNull(stageManager, "stageManager is null");
-        Preconditions.checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
-        Preconditions.checkNotNull(locationFactory, "locationFactory is null");
-        Preconditions.checkNotNull(config, "config is null");
+        checkNotNull(importClientFactory, "importClientFactory is null");
+        checkNotNull(importManager, "importManager is null");
+        checkNotNull(metadata, "metadata is null");
+        checkNotNull(nodeManager, "nodeManager is null");
+        checkNotNull(splitManager, "splitManager is null");
+        checkNotNull(stageManager, "stageManager is null");
+        checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
+        checkNotNull(locationFactory, "locationFactory is null");
+        checkNotNull(config, "config is null");
+        checkNotNull(queryEventFactory, "queryEventFactory is null");
+        checkNotNull(eventClient, "eventClient is null");
 
         this.queryExecutor = Executors.newCachedThreadPool(threadsNamed("query-processor-%d"));
 
@@ -88,6 +98,8 @@ public class SqlQueryManager
         this.stageManager = stageManager;
         this.remoteTaskFactory = remoteTaskFactory;
         this.locationFactory = locationFactory;
+        this.queryEventFactory = queryEventFactory;
+        this.eventClient = eventClient;
         this.importsEnabled = config.isImportsEnabled();
         this.maxQueryAge = config.getMaxQueryAge();
         this.clientTimeout = config.getClientTimeout();
@@ -152,7 +164,7 @@ public class SqlQueryManager
     @Override
     public QueryInfo getQueryInfo(String queryId, boolean forceRefresh)
     {
-        Preconditions.checkNotNull(queryId, "queryId is null");
+        checkNotNull(queryId, "queryId is null");
 
         QueryExecution query = queries.get(queryId);
         if (query == null) {
@@ -169,7 +181,7 @@ public class SqlQueryManager
     @Override
     public QueryInfo createQuery(String query)
     {
-        Preconditions.checkNotNull(query, "query is null");
+        checkNotNull(query, "query is null");
         Preconditions.checkArgument(query.length() > 0, "query must not be empty string");
 
         String queryId = String.valueOf(nextQueryId.getAndIncrement());
@@ -198,7 +210,9 @@ public class SqlQueryManager
                     splitManager,
                     stageManager,
                     remoteTaskFactory,
-                    locationFactory);
+                    locationFactory,
+                    queryEventFactory,
+                    eventClient);
         }
         queries.put(queryExecution.getQueryId(), queryExecution);
 
@@ -211,7 +225,7 @@ public class SqlQueryManager
     @Override
     public void cancelQuery(String queryId)
     {
-        Preconditions.checkNotNull(queryId, "queryId is null");
+        checkNotNull(queryId, "queryId is null");
 
         log.debug("Cancel query %s", queryId);
 
