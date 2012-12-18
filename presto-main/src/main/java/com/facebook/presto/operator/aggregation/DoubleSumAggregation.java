@@ -12,6 +12,13 @@ public class DoubleSumAggregation
         implements FixedWidthAggregationFunction
 {
     public static final DoubleSumAggregation DOUBLE_SUM = new DoubleSumAggregation();
+
+    @Override
+    public int getFixedSize()
+    {
+        return SINGLE_DOUBLE.getFixedSize();
+    }
+
     @Override
     public TupleInfo getFinalTupleInfo()
     {

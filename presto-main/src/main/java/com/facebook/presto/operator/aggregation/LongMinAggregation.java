@@ -13,6 +13,12 @@ public class LongMinAggregation
     public static final LongMinAggregation LONG_MIN = new LongMinAggregation();
 
     @Override
+    public int getFixedSize()
+    {
+        return SINGLE_LONG.getFixedSize();
+    }
+
+    @Override
     public TupleInfo getFinalTupleInfo()
     {
         return SINGLE_LONG;

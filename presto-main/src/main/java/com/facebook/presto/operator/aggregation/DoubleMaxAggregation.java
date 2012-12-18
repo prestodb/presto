@@ -13,6 +13,12 @@ public class DoubleMaxAggregation
     public static final DoubleMaxAggregation DOUBLE_MAX = new DoubleMaxAggregation();
 
     @Override
+    public int getFixedSize()
+    {
+        return SINGLE_DOUBLE.getFixedSize();
+    }
+
+    @Override
     public TupleInfo getFinalTupleInfo()
     {
         return SINGLE_DOUBLE;

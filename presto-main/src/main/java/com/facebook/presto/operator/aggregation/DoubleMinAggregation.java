@@ -13,6 +13,12 @@ public class DoubleMinAggregation
     public static final DoubleMinAggregation DOUBLE_MIN = new DoubleMinAggregation();
 
     @Override
+    public int getFixedSize()
+    {
+        return SINGLE_DOUBLE.getFixedSize();
+    }
+
+    @Override
     public TupleInfo getFinalTupleInfo()
     {
         return SINGLE_DOUBLE;

@@ -7,6 +7,8 @@ import com.facebook.presto.slice.Slice;
 public interface FixedWidthAggregationFunction
         extends AggregationFunction
 {
+    int getFixedSize();
+
     void initialize(Slice valueSlice, int valueOffset);
 
     void addInput(BlockCursor cursor, Slice valueSlice, int valueOffset);
