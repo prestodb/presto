@@ -32,6 +32,8 @@ import static com.google.common.base.Preconditions.checkState;
 public class NewHashAggregationOperator
         implements Operator
 {
+    private static final int LOOKUP_SLICE_INDEX = 0xFF_FF_FF_FF;
+
     private final Operator source;
     private final int groupByChannel;
     private final Step step;
@@ -86,38 +88,9 @@ public class NewHashAggregationOperator
         return new HashAggregationIterator(tupleInfos, source, groupByChannel, step, expectedGroups, functionDefinitions, operatorStats);
     }
 
-    public static class AggregationFunctionDefinition
-    {
-        public static AggregationFunctionDefinition aggregation(NewAggregationFunction function, int channel)
-        {
-            return new AggregationFunctionDefinition(function, channel);
-        }
-
-        private final NewAggregationFunction function;
-        private final int channel;
-
-        private AggregationFunctionDefinition(NewAggregationFunction function, int channel)
-        {
-            this.function = function;
-            this.channel = channel;
-        }
-
-        public NewAggregationFunction getFunction()
-        {
-            return function;
-        }
-
-        public int getChannel()
-        {
-            return channel;
-        }
-    }
-
     private static class HashAggregationIterator
             extends AbstractPageIterator
     {
-        private static final int LOOKUP_SLICE_INDEX = 0xFF_FF_FF_FF;
-
         private final List<Aggregator> aggregates;
         private final Iterator<UncompressedBlock> groupByBlocksIterator;
         private int currentPosition;
@@ -247,266 +220,266 @@ public class NewHashAggregationOperator
             return page;
         }
 
-        @SuppressWarnings("rawtypes")
-        private static Aggregator createAggregator(AggregationFunctionDefinition functionDefinition, Step step, int expectedGroups)
-        {
-            NewAggregationFunction function = functionDefinition.getFunction();
-            if (function instanceof VariableWidthAggregationFunction) {
-                return new VariableWidthAggregator((VariableWidthAggregationFunction) functionDefinition.getFunction(), functionDefinition.getChannel(), step, expectedGroups);
-            }
-            else {
-                return new FixedWidthAggregator((FixedWidthAggregationFunction) functionDefinition.getFunction(), functionDefinition.getChannel(), step);
-            }
-        }
-
-        private interface Aggregator
-        {
-            TupleInfo getTupleInfo();
-
-            void initialize(int position);
-
-            void addValue(BlockCursor[] cursors, int position);
-
-            void evaluate(int position, BlockBuilder output);
-        }
-
-        private static class FixedWidthAggregator
-                implements Aggregator
-        {
-            private final FixedWidthAggregationFunction function;
-            private final int channel;
-            private final Step step;
-            private final int fixedWithSize;
-            private final int sliceSize;
-            private final List<Slice> slices = new ArrayList<>();
-            private int maxPosition;
-
-            private FixedWidthAggregator(FixedWidthAggregationFunction function, int channel, Step step)
-            {
-                this.function = function;
-                this.channel = channel;
-                this.step = step;
-                this.fixedWithSize = this.function.getIntermediateTupleInfo().getFixedSize();
-                this.sliceSize = fixedWithSize * 1024;
-                Slice slice = Slices.allocate(sliceSize);
-                slices.add(slice);
-                maxPosition = sliceSize / fixedWithSize;
-            }
-
-            @Override
-            public TupleInfo getTupleInfo()
-            {
-                // if this is a partial, the output is an intermediate value
-                if (step == Step.PARTIAL) {
-                    return function.getIntermediateTupleInfo();
-                }
-                else {
-                    return function.getFinalTupleInfo();
-                }
-            }
-
-            @Override
-            public void initialize(int position)
-            {
-                // add more slices if necessary
-                while (position >= maxPosition) {
-                    Slice slice = Slices.allocate(sliceSize);
-                    slices.add(slice);
-                    maxPosition += sliceSize / fixedWithSize;
-                }
-
-                int globalOffset = position * fixedWithSize;
-
-                int sliceIndex = globalOffset / sliceSize; // todo do this with shifts?
-                Slice slice = slices.get(sliceIndex);
-                int sliceOffset = globalOffset - (sliceIndex * sliceSize);
-                function.initialize(slice, sliceOffset);
-            }
-
-            @Override
-            public void addValue(BlockCursor[] cursors, int position)
-            {
-                BlockCursor cursor;
-                if (channel >= 0) {
-                    cursor = cursors[channel];
-                }
-                else {
-                    cursor = null;
-                }
-
-                int globalOffset = position * fixedWithSize;
-
-                int sliceIndex = globalOffset / sliceSize; // todo do this with shifts?
-                Slice slice = slices.get(sliceIndex);
-                int sliceOffset = globalOffset - (sliceIndex * sliceSize);
-
-                // if this is a final aggregation, the input is an intermediate value
-                if (step == Step.FINAL) {
-                    function.addIntermediate(cursor, slice, sliceOffset);
-                }
-                else {
-                    function.addInput(cursor, slice, sliceOffset);
-                }
-            }
-
-            @Override
-            public void evaluate(int position, BlockBuilder output)
-            {
-                int offset = position * fixedWithSize;
-
-                int sliceIndex = offset / sliceSize; // todo do this with shifts
-                Slice slice = slices.get(sliceIndex);
-                int sliceOffset = offset - (sliceIndex * sliceSize);
-
-                // if this is a partial, the output is an intermediate value
-                if (step == Step.PARTIAL) {
-                    function.evaluateIntermediate(slice, sliceOffset, output);
-                }
-                else {
-                    function.evaluateFinal(slice, sliceOffset, output);
-                }
-            }
-        }
-
-        private static class VariableWidthAggregator<T>
-                implements Aggregator
-        {
-            private final VariableWidthAggregationFunction<T> function;
-            private final int channel;
-            private final Step step;
-            private final ObjectArrayList<T> intermediateValues;
-
-            private VariableWidthAggregator(VariableWidthAggregationFunction<T> function, int channel, Step step,
-                    int expectedGroups)
-            {
-                this.function = function;
-                this.channel = channel;
-                this.step = step;
-                this.intermediateValues = new ObjectArrayList<>(expectedGroups);
-            }
-
-            @Override
-            public TupleInfo getTupleInfo()
-            {
-                // if this is a partial, the output is an intermediate value
-                if (step == Step.PARTIAL) {
-                    return function.getIntermediateTupleInfo();
-                }
-                else {
-                    return function.getFinalTupleInfo();
-                }
-            }
-
-            @Override
-            public void initialize(int position)
-            {
-                Preconditions.checkState(position == intermediateValues.size(), "expected array to grow by 1");
-                intermediateValues.add(function.initialize());
-            }
-
-            @Override
-            public void addValue(BlockCursor[] cursors, int position)
-            {
-                BlockCursor cursor;
-                if (channel >= 0) {
-                    cursor = cursors[channel];
-                }
-                else {
-                    cursor = null;
-                }
-
-                // if this is a final aggregation, the input is an intermediate value
-                T oldValue = intermediateValues.get(position);
-                T newValue;
-                if (step == Step.FINAL) {
-                    newValue = function.addIntermediate(cursor, oldValue);
-                }
-                else {
-                    newValue = function.addInput(cursor, oldValue);
-                }
-                intermediateValues.set(position, newValue);
-            }
-
-            @Override
-            public void evaluate(int position, BlockBuilder output)
-            {
-                T value = intermediateValues.get(position);
-                // if this is a partial, the output is an intermediate value
-                if (step == Step.PARTIAL) {
-                    function.evaluateIntermediate(value, output);
-                }
-                else {
-                    function.evaluateFinal(value, output);
-                }
-            }
-        }
-
         @Override
         protected void doClose()
         {
         }
 
-        public static class SliceHashStrategy
-                implements Strategy
+    }
+
+    @SuppressWarnings("rawtypes")
+    private static Aggregator createAggregator(AggregationFunctionDefinition functionDefinition, Step step, int expectedGroups)
+    {
+        NewAggregationFunction function = functionDefinition.getFunction();
+        if (function instanceof VariableWidthAggregationFunction) {
+            return new VariableWidthAggregator((VariableWidthAggregationFunction) functionDefinition.getFunction(), functionDefinition.getChannel(), step, expectedGroups);
+        }
+        else {
+            return new FixedWidthAggregator((FixedWidthAggregationFunction) functionDefinition.getFunction(), functionDefinition.getChannel(), step);
+        }
+    }
+
+    private interface Aggregator
+    {
+        TupleInfo getTupleInfo();
+
+        void initialize(int position);
+
+        void addValue(BlockCursor[] cursors, int position);
+
+        void evaluate(int position, BlockBuilder output);
+    }
+
+    private static class FixedWidthAggregator
+            implements Aggregator
+    {
+        private final FixedWidthAggregationFunction function;
+        private final int channel;
+        private final Step step;
+        private final int fixedWithSize;
+        private final int sliceSize;
+        private final List<Slice> slices = new ArrayList<>();
+        private int maxPosition;
+
+        private FixedWidthAggregator(FixedWidthAggregationFunction function, int channel, Step step)
         {
-            private final TupleInfo tupleInfo;
-            private final List<Slice> slices;
-            private Slice lookupSlice;
+            this.function = function;
+            this.channel = channel;
+            this.step = step;
+            this.fixedWithSize = this.function.getIntermediateTupleInfo().getFixedSize();
+            this.sliceSize = fixedWithSize * 1024;
+            Slice slice = Slices.allocate(sliceSize);
+            slices.add(slice);
+            maxPosition = sliceSize / fixedWithSize;
+        }
 
-            public SliceHashStrategy(TupleInfo tupleInfo)
-            {
-                this.tupleInfo = tupleInfo;
-                this.slices = ObjectArrayList.wrap(new Slice[10240], 0);
+        @Override
+        public TupleInfo getTupleInfo()
+        {
+            // if this is a partial, the output is an intermediate value
+            if (step == Step.PARTIAL) {
+                return function.getIntermediateTupleInfo();
             }
-
-            public void setLookupSlice(Slice lookupSlice)
-            {
-                this.lookupSlice = lookupSlice;
+            else {
+                return function.getFinalTupleInfo();
             }
+        }
 
-            public void addSlice(Slice slice)
-            {
+        @Override
+        public void initialize(int position)
+        {
+            // add more slices if necessary
+            while (position >= maxPosition) {
+                Slice slice = Slices.allocate(sliceSize);
                 slices.add(slice);
+                maxPosition += sliceSize / fixedWithSize;
             }
 
-            @Override
-            public int hashCode(long sliceAddress)
-            {
-                Slice slice = getSliceForSyntheticAddress(sliceAddress);
-                int offset = (int) sliceAddress;
-                int length = tupleInfo.size(slice, offset);
-                int hashCode = slice.hashCode(offset, length);
-                return hashCode;
+            int globalOffset = position * fixedWithSize;
+
+            int sliceIndex = globalOffset / sliceSize; // todo do this with shifts?
+            Slice slice = slices.get(sliceIndex);
+            int sliceOffset = globalOffset - (sliceIndex * sliceSize);
+            function.initialize(slice, sliceOffset);
+        }
+
+        @Override
+        public void addValue(BlockCursor[] cursors, int position)
+        {
+            BlockCursor cursor;
+            if (channel >= 0) {
+                cursor = cursors[channel];
+            }
+            else {
+                cursor = null;
             }
 
-            @Override
-            public boolean equals(long leftSliceAddress, long rightSliceAddress)
-            {
-                Slice leftSlice = getSliceForSyntheticAddress(leftSliceAddress);
-                int leftOffset = decodeSliceOffset(leftSliceAddress);
-                int leftLength = tupleInfo.size(leftSlice, leftOffset);
+            int globalOffset = position * fixedWithSize;
 
-                Slice rightSlice = getSliceForSyntheticAddress(rightSliceAddress);
-                int rightOffset = decodeSliceOffset(rightSliceAddress);
-                int rightLength = tupleInfo.size(rightSlice, rightOffset);
+            int sliceIndex = globalOffset / sliceSize; // todo do this with shifts?
+            Slice slice = slices.get(sliceIndex);
+            int sliceOffset = globalOffset - (sliceIndex * sliceSize);
 
-                return leftSlice.equals(leftOffset, leftLength, rightSlice, rightOffset, rightLength);
-
+            // if this is a final aggregation, the input is an intermediate value
+            if (step == Step.FINAL) {
+                function.addIntermediate(cursor, slice, sliceOffset);
             }
+            else {
+                function.addInput(cursor, slice, sliceOffset);
+            }
+        }
 
-            private Slice getSliceForSyntheticAddress(long sliceAddress)
-            {
-                int sliceIndex = decodeSliceIndex(sliceAddress);
-                Slice slice;
-                if (sliceIndex == LOOKUP_SLICE_INDEX) {
-                    slice = lookupSlice;
-                }
-                else {
-                    slice = slices.get(sliceIndex);
-                }
-                return slice;
+        @Override
+        public void evaluate(int position, BlockBuilder output)
+        {
+            int offset = position * fixedWithSize;
+
+            int sliceIndex = offset / sliceSize; // todo do this with shifts
+            Slice slice = slices.get(sliceIndex);
+            int sliceOffset = offset - (sliceIndex * sliceSize);
+
+            // if this is a partial, the output is an intermediate value
+            if (step == Step.PARTIAL) {
+                function.evaluateIntermediate(slice, sliceOffset, output);
+            }
+            else {
+                function.evaluateFinal(slice, sliceOffset, output);
             }
         }
     }
 
+    private static class VariableWidthAggregator<T>
+            implements Aggregator
+    {
+        private final VariableWidthAggregationFunction<T> function;
+        private final int channel;
+        private final Step step;
+        private final ObjectArrayList<T> intermediateValues;
+
+        private VariableWidthAggregator(VariableWidthAggregationFunction<T> function, int channel, Step step,
+                int expectedGroups)
+        {
+            this.function = function;
+            this.channel = channel;
+            this.step = step;
+            this.intermediateValues = new ObjectArrayList<>(expectedGroups);
+        }
+
+        @Override
+        public TupleInfo getTupleInfo()
+        {
+            // if this is a partial, the output is an intermediate value
+            if (step == Step.PARTIAL) {
+                return function.getIntermediateTupleInfo();
+            }
+            else {
+                return function.getFinalTupleInfo();
+            }
+        }
+
+        @Override
+        public void initialize(int position)
+        {
+            Preconditions.checkState(position == intermediateValues.size(), "expected array to grow by 1");
+            intermediateValues.add(function.initialize());
+        }
+
+        @Override
+        public void addValue(BlockCursor[] cursors, int position)
+        {
+            BlockCursor cursor;
+            if (channel >= 0) {
+                cursor = cursors[channel];
+            }
+            else {
+                cursor = null;
+            }
+
+            // if this is a final aggregation, the input is an intermediate value
+            T oldValue = intermediateValues.get(position);
+            T newValue;
+            if (step == Step.FINAL) {
+                newValue = function.addIntermediate(cursor, oldValue);
+            }
+            else {
+                newValue = function.addInput(cursor, oldValue);
+            }
+            intermediateValues.set(position, newValue);
+        }
+
+        @Override
+        public void evaluate(int position, BlockBuilder output)
+        {
+            T value = intermediateValues.get(position);
+            // if this is a partial, the output is an intermediate value
+            if (step == Step.PARTIAL) {
+                function.evaluateIntermediate(value, output);
+            }
+            else {
+                function.evaluateFinal(value, output);
+            }
+        }
+    }
+
+    public static class SliceHashStrategy
+            implements Strategy
+    {
+        private final TupleInfo tupleInfo;
+        private final List<Slice> slices;
+        private Slice lookupSlice;
+
+        public SliceHashStrategy(TupleInfo tupleInfo)
+        {
+            this.tupleInfo = tupleInfo;
+            this.slices = ObjectArrayList.wrap(new Slice[10240], 0);
+        }
+
+        public void setLookupSlice(Slice lookupSlice)
+        {
+            this.lookupSlice = lookupSlice;
+        }
+
+        public void addSlice(Slice slice)
+        {
+            slices.add(slice);
+        }
+
+        @Override
+        public int hashCode(long sliceAddress)
+        {
+            Slice slice = getSliceForSyntheticAddress(sliceAddress);
+            int offset = (int) sliceAddress;
+            int length = tupleInfo.size(slice, offset);
+            int hashCode = slice.hashCode(offset, length);
+            return hashCode;
+        }
+
+        @Override
+        public boolean equals(long leftSliceAddress, long rightSliceAddress)
+        {
+            Slice leftSlice = getSliceForSyntheticAddress(leftSliceAddress);
+            int leftOffset = decodeSliceOffset(leftSliceAddress);
+            int leftLength = tupleInfo.size(leftSlice, leftOffset);
+
+            Slice rightSlice = getSliceForSyntheticAddress(rightSliceAddress);
+            int rightOffset = decodeSliceOffset(rightSliceAddress);
+            int rightLength = tupleInfo.size(rightSlice, rightOffset);
+
+            return leftSlice.equals(leftOffset, leftLength, rightSlice, rightOffset, rightLength);
+
+        }
+
+        private Slice getSliceForSyntheticAddress(long sliceAddress)
+        {
+            int sliceIndex = decodeSliceIndex(sliceAddress);
+            Slice slice;
+            if (sliceIndex == LOOKUP_SLICE_INDEX) {
+                slice = lookupSlice;
+            }
+            else {
+                slice = slices.get(sliceIndex);
+            }
+            return slice;
+        }
+    }
 }
