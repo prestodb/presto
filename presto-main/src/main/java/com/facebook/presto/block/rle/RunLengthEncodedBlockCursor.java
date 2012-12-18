@@ -147,6 +147,12 @@ public final class RunLengthEncodedBlockCursor implements BlockCursor
     }
 
     @Override
+    public Slice getRawSlice()
+    {
+        return value.getTupleSlice();
+    }
+
+    @Override
     public void appendTupleTo(BlockBuilder blockBuilder)
     {
         blockBuilder.append(value);

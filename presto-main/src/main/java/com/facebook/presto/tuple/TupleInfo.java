@@ -1,6 +1,5 @@
 package com.facebook.presto.tuple;
 
-import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.slice.SizeOf;
 import com.facebook.presto.slice.Slice;
@@ -60,48 +59,9 @@ public class TupleInfo
 
     public enum Type
     {
-        FIXED_INT_64(SIZE_OF_LONG, "long")
-                {
-                    @Override
-                    public void convert(String value, BlockBuilder blockBuilder)
-                    {
-                        blockBuilder.append(Long.parseLong(value));
-                    }
-
-                    @Override
-                    public void convert(String value, TupleInfo.Builder tupleBuilder)
-                    {
-                        tupleBuilder.append(Long.parseLong(value));
-                    }
-                },
-        VARIABLE_BINARY(-1, "string")
-                {
-                    @Override
-                    public void convert(String value, BlockBuilder blockBuilder)
-                    {
-                        blockBuilder.append(value.getBytes(Charsets.UTF_8));
-                    }
-
-                    @Override
-                    public void convert(String value, TupleInfo.Builder tupleBuilder)
-                    {
-                        tupleBuilder.append(Slices.wrappedBuffer(value.getBytes(Charsets.UTF_8)));
-                    }
-                },
-        DOUBLE(SIZE_OF_DOUBLE, "double")
-                {
-                    @Override
-                    public void convert(String value, BlockBuilder blockBuilder)
-                    {
-                        blockBuilder.append(Double.parseDouble(value));
-                    }
-
-                    @Override
-                    public void convert(String value, TupleInfo.Builder tupleBuilder)
-                    {
-                        tupleBuilder.append(Double.parseDouble(value));
-                    }
-                };
+        FIXED_INT_64(SIZE_OF_LONG, "long"),
+        VARIABLE_BINARY(-1, "string"),
+        DOUBLE(SIZE_OF_DOUBLE, "double");
 
         private static final Map<String, Type> NAME_MAP;
         static {
@@ -138,10 +98,6 @@ public class TupleInfo
             return name;
         }
 
-        public abstract void convert(String value, BlockBuilder blockBuilder);
-
-        public abstract void convert(String value, Builder tupleBuilder);
-
         @JsonCreator
         public static Type fromName(String name)
         {
@@ -155,7 +111,7 @@ public class TupleInfo
     private final int size;
 
     private final List<Type> types;
-    private final List<Integer> offsets;
+    private final List<Integer> offsets; // Offset of either a fixed sized field, or the offset of a pointer to a variable length field
     private final int firstVariableLengthField;
     private final int secondVariableLengthField;
     private final int variableLengthFieldCount;
@@ -175,7 +131,7 @@ public class TupleInfo
     public TupleInfo(List<Type> typeIterable)
     {
         checkNotNull(typeIterable, "typeIterable is null");
-//        Preconditions.checkArgument(!types.isEmpty(), "types is empty");
+        // Preconditions.checkArgument(!types.isEmpty(), "types is empty");
 
         this.types = ImmutableList.copyOf(typeIterable);
 
@@ -287,7 +243,7 @@ public class TupleInfo
 
         // length of the tuple is located in the "last" fixed-width slot
         // this makes variable length column size easy to calculate
-        return slice.getInt(offset + getTupleSizeOffset()) & 0x7F_FF_FF_FF;
+        return slice.getInt(offset + getTupleSizeOffset());
     }
 
     /**
@@ -346,11 +302,11 @@ public class TupleInfo
         int end;
         if (field == firstVariableLengthField) {
             start = variablePartOffset;
-            end = slice.getInt(offset + getOffset(secondVariableLengthField)) & 0x7F_FF_FF_FF;
+            end = slice.getInt(offset + getOffset(secondVariableLengthField));
         }
         else {
-            start = slice.getInt(offset + getOffset(field)) & 0x7F_FF_FF_FF;
-            end = slice.getInt(offset + getOffset(field) + SIZE_OF_INT) & 0x7F_FF_FF_FF;
+            start = slice.getInt(offset + getOffset(field));
+            end = slice.getInt(offset + getOffset(field) + SIZE_OF_INT);
         }
 
         // this works because positions of variable length fields are laid out in the same order as the actual data
@@ -393,11 +349,11 @@ public class TupleInfo
         int end;
         if (field == firstVariableLengthField) {
             start = variablePartOffset;
-            end = block.getInt(tupleOffset + getOffset(secondVariableLengthField)) & 0x7F_FF_FF_FF;
+            end = block.getInt(tupleOffset + getOffset(secondVariableLengthField));
         }
         else {
-            start = block.getInt(tupleOffset + getOffset(field)) & 0x7F_FF_FF_FF;
-            end = block.getInt(tupleOffset + getOffset(field) + SIZE_OF_INT) & 0x7F_FF_FF_FF;
+            start = block.getInt(tupleOffset + getOffset(field));
+            end = block.getInt(tupleOffset + getOffset(field) + SIZE_OF_INT);
         }
 
         return value.equals(0, value.length(), block, tupleOffset + start, end - start);

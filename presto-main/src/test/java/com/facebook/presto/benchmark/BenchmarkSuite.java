@@ -40,7 +40,8 @@ public class BenchmarkSuite
             new PredicateFilterSqlBenchmark(),
             new RawStreamingSqlBenchmark(),
             new Top100SqlBenchmark(),
-            new SqlHashJoinBenchmark()
+            new SqlHashJoinBenchmark(),
+            new VarBinaryMaxAggregationSqlBenchmark()
     );
 
     private final String outputDirectory;
