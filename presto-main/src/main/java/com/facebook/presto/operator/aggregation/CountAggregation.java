@@ -58,11 +58,6 @@ public class CountAggregation
             return;
         }
 
-        // if the value is marked a null, clear it
-        if (SINGLE_LONG.isNull(valueSlice, valueOffset, 0)) {
-            valueSlice.clear(valueOffset, SINGLE_LONG.getFixedSize());
-        }
-
         // update current value
         long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
         long newValue = cursor.getLong(0);
