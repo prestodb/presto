@@ -34,6 +34,7 @@ public class HttpTaskClient
     private final URI location;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final String outputId;
+    private final URI resultsLocation;
 
     public HttpTaskClient(String taskId,
             URI location,
@@ -48,6 +49,7 @@ public class HttpTaskClient
         this.location = location;
         this.taskInfoCodec = taskInfoCodec;
         this.outputId = outputId;
+        this.resultsLocation = uriBuilderFrom(location).appendPath("results").appendPath(outputId).build();
     }
 
     public String getTaskId()
@@ -82,14 +84,14 @@ public class HttpTaskClient
     @Override
     public QueryDriver create(PageBuffer outputBuffer)
     {
-        HttpQuery httpQuery = new HttpQuery(uriBuilderFrom(location).appendPath("results").appendPath(outputId).build(), outputBuffer, new AsyncHttpClient(httpClient, executor));
+        HttpQuery httpQuery = new HttpQuery(resultsLocation, outputBuffer, new AsyncHttpClient(httpClient, executor));
         return httpQuery;
     }
 
     public void cancel()
     {
         try {
-            Request request = prepareDelete().setUri(location).build();
+            Request request = prepareDelete().setUri(resultsLocation).build();
             httpClient.execute(request, createStatusResponseHandler());
         }
         catch (RuntimeException ignored) {
