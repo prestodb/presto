@@ -42,6 +42,7 @@ public class DoubleMinAggregation
     @Override
     public void addInput(BlockCursor cursor, Slice valueSlice, int valueOffset)
     {
+        // todo remove this assumption that the field is 0
         if (cursor.isNull(0)) {
             return;
         }
@@ -51,6 +52,7 @@ public class DoubleMinAggregation
 
         // update current value
         double currentValue = SINGLE_DOUBLE.getDouble(valueSlice, valueOffset, 0);
+        // todo remove this assumption that the field is 0
         double newValue = cursor.getDouble(0);
         SINGLE_DOUBLE.setDouble(valueSlice, valueOffset, 0, Math.min(currentValue, newValue));
     }
@@ -65,8 +67,10 @@ public class DoubleMinAggregation
         // process block
         BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {
+            // todo remove this assumption that the field is 0
             if (!cursor.isNull(0)) {
                 hasNonNull = true;
+                // todo remove this assumption that the field is 0
                 min = Math.min(min, cursor.getDouble(0));
             }
         }

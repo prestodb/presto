@@ -46,10 +46,12 @@ public class VarBinaryMaxAggregation
     @Override
     public Slice addInput(BlockCursor cursor, Slice currentMax)
     {
+        // todo remove this assumption that the field is 0
         if (cursor.isNull(0)) {
             return currentMax;
         }
 
+        // todo remove this assumption that the field is 0
         Slice value = cursor.getSlice(0);
         if (currentMax == null) {
             return value;
