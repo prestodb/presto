@@ -183,10 +183,10 @@ public class ServerMainModule
         jsonCodecBinder(binder).bindJsonCodec(ShardImport.class);
 
         ServiceAnnouncementBuilder announcementBuilder = discoveryBinder(binder).bindHttpAnnouncement("presto");
-        String importSources = configurationFactory.getProperties().get("import.sources");
-        if (importSources != null) {
-            configurationFactory.consumeProperty("import.sources");
-            announcementBuilder.addProperty("import-sources", importSources);
+        String datasources = configurationFactory.getProperties().get("datasources");
+        if (datasources != null) {
+            configurationFactory.consumeProperty("datasources");
+            announcementBuilder.addProperty("datasources", datasources);
         }
 
         bindDataSource("presto-metastore", ForMetadata.class, ForShardManager.class);
