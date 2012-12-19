@@ -9,16 +9,16 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.serde.BlocksFileEncoding;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
-import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 
-import static com.facebook.presto.operator.ProjectionFunctions.concat;
-import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
-import static com.facebook.presto.operator.aggregation.AggregationFunctions.singleNodeAggregation;
-import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.doubleSumAggregation;
+import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
+import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
 import static com.facebook.presto.tpch.TpchSchema.columnHandle;
 import static com.facebook.presto.tpch.TpchSchema.tableHandle;
 
@@ -42,9 +42,10 @@ public class HashAggregationBenchmark
         AlignmentOperator alignmentOperator = new AlignmentOperator(orderStatusBlockIterable, totalPriceBlockIterable);
         return new HashAggregationOperator(alignmentOperator,
                 0,
-                ImmutableList.of(singleNodeAggregation(doubleSumAggregation(1, 0))),
-                ImmutableList.of(concat(singleColumn(Type.VARIABLE_BINARY, 0, 0), singleColumn(Type.DOUBLE, 1, 0))),
-                1_000_000);
+                Step.SINGLE,
+                ImmutableList.of(aggregation(DOUBLE_SUM, 1)),
+                100_000,
+                new DataSize(100, Unit.MEGABYTE));
 
     }
 

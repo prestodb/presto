@@ -1,107 +1,87 @@
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.metadata.FunctionBinder;
-import com.facebook.presto.operator.Page;
-import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import com.facebook.presto.slice.Slice;
+import com.facebook.presto.tuple.TupleInfo;
 
-import javax.inject.Provider;
-
-import java.util.List;
-
-import static com.facebook.presto.tuple.Tuples.createTuple;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
 public class CountAggregation
-        implements AggregationFunction
+        implements FixedWidthAggregationFunction
 {
-    public static Provider<AggregationFunction> countAggregation(int channelIndex, int field)
+    public static final CountAggregation COUNT = new CountAggregation();
+
+    @Override
+    public int getFixedSize()
     {
-        return BINDER.bind(ImmutableList.of(new Input(channelIndex, field)));
-    }
-
-    public static final FunctionBinder BINDER = new FunctionBinder()
-    {
-        @Override
-        public Provider<AggregationFunction> bind(List<Input> arguments)
-        {
-            Preconditions.checkArgument(arguments.size() == 0 || arguments.size() == 1, "count takes 0 or 1 parameters");
-            final Input input = Iterables.getFirst(arguments, new Input(-1, -1));
-
-            return new Provider<AggregationFunction>()
-            {
-                @Override
-                public CountAggregation get()
-                {
-                    return new CountAggregation(input.getChannel(), input.getField());
-                }
-            };
-        }
-    };
-
-    private final int channelIndex;
-    private final int fieldIndex;
-    private long count;
-
-    public CountAggregation(int channelIndex, int fieldIndex)
-    {
-        this.channelIndex = channelIndex;
-        this.fieldIndex = fieldIndex;
+        return SINGLE_LONG.getFixedSize();
     }
 
     @Override
     public TupleInfo getFinalTupleInfo()
     {
-        return TupleInfo.SINGLE_LONG;
+        return SINGLE_LONG;
     }
 
     @Override
     public TupleInfo getIntermediateTupleInfo()
     {
-        return TupleInfo.SINGLE_LONG;
+        return SINGLE_LONG;
     }
 
     @Override
-    public void addInput(Page page)
+    public void initialize(Slice valueSlice, int valueOffset)
     {
-        count += page.getPositionCount();
     }
 
     @Override
-    public void addInput(BlockCursor... cursors)
+    public void addInput(int positionCount, Block block, Slice valueSlice, int valueOffset)
     {
-        count++;
+        addCount(positionCount, valueSlice, valueOffset);
     }
 
     @Override
-    public void addIntermediate(Page page)
+    public void addInput(BlockCursor cursor, Slice valueSlice, int valueOffset)
     {
-        BlockCursor cursor = page.getBlock(channelIndex).cursor();
-        while (cursor.advanceNextPosition()) {
-            if (!cursor.isNull(fieldIndex)) {
-                count += cursor.getLong(fieldIndex);
-            }
+        addCount(1, valueSlice, valueOffset);
+    }
+
+    private void addCount(int positionCount, Slice valueSlice, int valueOffset)
+    {
+        long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
+        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, currentValue + positionCount);
+    }
+
+    @Override
+    public void addIntermediate(BlockCursor cursor, Slice valueSlice, int valueOffset)
+    {
+        if (cursor.isNull(0)) {
+            return;
         }
+
+        // update current value
+        long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
+        long newValue = cursor.getLong(0);
+        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, currentValue + newValue);
     }
 
     @Override
-    public void addIntermediate(BlockCursor... cursors)
+    public void evaluateIntermediate(Slice valueSlice, int valueOffset, BlockBuilder output)
     {
-        count += cursors[channelIndex].getLong(fieldIndex);
+        evaluateFinal(valueSlice, valueOffset, output);
     }
 
     @Override
-    public Tuple evaluateIntermediate()
+    public void evaluateFinal(Slice valueSlice, int valueOffset, BlockBuilder output)
     {
-        return createTuple(count);
-    }
-
-    @Override
-    public Tuple evaluateFinal()
-    {
-        return createTuple(count);
+        if (!SINGLE_LONG.isNull(valueSlice, valueOffset, 0)) {
+            long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
+            output.append(currentValue);
+        }
+        else {
+            output.appendNull();
+        }
     }
 }

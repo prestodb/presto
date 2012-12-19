@@ -4,10 +4,11 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
-import com.facebook.presto.tuple.Tuple;
+import com.google.common.base.Charsets;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
 
+import static com.facebook.presto.operator.aggregation.VarBinaryMinAggregation.VAR_BINARY_MIN;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 
 public class TestVarBinaryMinAggregation
@@ -24,9 +25,9 @@ public class TestVarBinaryMinAggregation
     }
 
     @Override
-    public VarBinaryMinAggregation getFunction()
+    public AggregationFunction getFunction()
     {
-        return new VarBinaryMinAggregation(0, 0);
+        return VAR_BINARY_MIN;
     }
 
     @Override
@@ -40,16 +41,7 @@ public class TestVarBinaryMinAggregation
             Slice slice = Slices.wrappedBuffer(Ints.toByteArray(i));
             min = (min == null) ? slice : Ordering.natural().min(min, slice);
         }
-        return min;
+        return min.toString(Charsets.UTF_8);
     }
 
-    @Override
-    public Object getActualValue(AggregationFunctionStep function)
-    {
-        Tuple value = function.evaluate();
-        if (value.isNull(0)) {
-            return null;
-        }
-        return value.getSlice(0);
-    }
 }

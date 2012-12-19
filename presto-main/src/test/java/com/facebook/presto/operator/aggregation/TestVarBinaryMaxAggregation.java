@@ -4,10 +4,11 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
-import com.facebook.presto.tuple.Tuple;
+import com.google.common.base.Charsets;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
 
+import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 
 public class TestVarBinaryMaxAggregation
@@ -24,9 +25,9 @@ public class TestVarBinaryMaxAggregation
     }
 
     @Override
-    public VarBinaryMaxAggregation getFunction()
+    public AggregationFunction getFunction()
     {
-        return new VarBinaryMaxAggregation(0, 0);
+        return VAR_BINARY_MAX;
     }
 
     @Override
@@ -40,16 +41,7 @@ public class TestVarBinaryMaxAggregation
             Slice slice = Slices.wrappedBuffer(Ints.toByteArray(i));
             max = (max == null) ? slice : Ordering.natural().max(max, slice);
         }
-        return max;
+        return max.toString(Charsets.UTF_8);
     }
 
-    @Override
-    public Object getActualValue(AggregationFunctionStep function)
-    {
-        Tuple value = function.evaluate();
-        if (value.isNull(0)) {
-            return null;
-        }
-        return value.getSlice(0);
-    }
 }

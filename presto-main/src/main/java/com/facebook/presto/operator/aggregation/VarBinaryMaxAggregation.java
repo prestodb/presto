@@ -1,56 +1,19 @@
+/*
+ * Copyright 2004-present Facebook. All Rights Reserved.
+ */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.metadata.FunctionBinder;
-import com.facebook.presto.operator.Page;
 import com.facebook.presto.slice.Slice;
-import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 
-import javax.inject.Provider;
-import java.util.List;
-
-import static com.facebook.presto.tuple.Tuples.NULL_STRING_TUPLE;
-import static com.facebook.presto.tuple.Tuples.createTuple;
-
 public class VarBinaryMaxAggregation
-        implements AggregationFunction
+        implements VariableWidthAggregationFunction<Slice>
 {
-    public static Provider<AggregationFunction> varBinaryMaxAggregation(int channelIndex, int field)
-    {
-        return BINDER.bind(ImmutableList.of(new Input(channelIndex, field)));
-    }
-
-    public static final FunctionBinder BINDER = new FunctionBinder()
-    {
-        @Override
-        public Provider<AggregationFunction> bind(final List<Input> arguments)
-        {
-            Preconditions.checkArgument(arguments.size() == 1, "max takes 1 parameter");
-
-            return new Provider<AggregationFunction>()
-            {
-                @Override
-                public VarBinaryMaxAggregation get()
-                {
-                    return new VarBinaryMaxAggregation(arguments.get(0).getChannel(), arguments.get(0).getField());
-                }
-            };
-        }
-    };
-
-    private final int channelIndex;
-    private final int fieldIndex;
-    private Slice max;
-
-    public VarBinaryMaxAggregation(int channelIndex, int fieldIndex)
-    {
-        this.channelIndex = channelIndex;
-        this.fieldIndex = fieldIndex;
-    }
+    public static final VarBinaryMaxAggregation VAR_BINARY_MAX = new VarBinaryMaxAggregation();
 
     @Override
     public TupleInfo getFinalTupleInfo()
@@ -65,64 +28,59 @@ public class VarBinaryMaxAggregation
     }
 
     @Override
-    public void addInput(Page page)
+    public Slice initialize()
     {
-        BlockCursor cursor = page.getBlock(channelIndex).cursor();
+        return null;
+    }
+
+    @Override
+    public Slice addInput(int positionCount, Block block, Slice currentMax)
+    {
+        BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {
-            if (!cursor.isNull(fieldIndex)) {
-                Slice slice = cursor.getSlice(fieldIndex);
-                max = (max == null) ? slice : Ordering.natural().max(max, slice);
-            }
+            currentMax = addInput(cursor, currentMax);
+        }
+        return currentMax;
+    }
+
+    @Override
+    public Slice addInput(BlockCursor cursor, Slice currentMax)
+    {
+        // todo remove this assumption that the field is 0
+        if (cursor.isNull(0)) {
+            return currentMax;
+        }
+
+        // todo remove this assumption that the field is 0
+        Slice value = cursor.getSlice(0);
+        if (currentMax == null) {
+            return value;
+        }
+        else {
+            return Ordering.natural().max(currentMax, value);
         }
     }
 
     @Override
-    public void addInput(BlockCursor... cursors)
+    public Slice addIntermediate(BlockCursor cursor, Slice currentMax)
     {
-        BlockCursor cursor = cursors[channelIndex];
-        if (!cursor.isNull(fieldIndex)) {
-            Slice slice = cursor.getSlice(fieldIndex);
-            max = (max == null) ? slice : Ordering.natural().max(max, slice);
-        }
+        return addInput(cursor, currentMax);
     }
 
     @Override
-    public void addIntermediate(Page page)
+    public void evaluateIntermediate(Slice currentValue, BlockBuilder output)
     {
-        BlockCursor cursor = page.getBlock(channelIndex).cursor();
-        while (cursor.advanceNextPosition()) {
-            if (!cursor.isNull(fieldIndex)) {
-                Slice slice = cursor.getSlice(fieldIndex);
-                max = (max == null) ? slice : Ordering.natural().max(max, slice);
-            }
-        }
+        evaluateFinal(currentValue, output);
     }
 
     @Override
-    public void addIntermediate(BlockCursor... cursors)
+    public void evaluateFinal(Slice currentValue, BlockBuilder output)
     {
-        BlockCursor cursor = cursors[channelIndex];
-        if (!cursor.isNull(fieldIndex)) {
-            Slice slice = cursor.getSlice(fieldIndex);
-            max = (max == null) ? slice : Ordering.natural().max(max, slice);
+        if (currentValue != null) {
+            output.append(currentValue);
         }
-    }
-
-    @Override
-    public Tuple evaluateIntermediate()
-    {
-        if (max == null) {
-            return NULL_STRING_TUPLE;
+        else {
+            output.appendNull();
         }
-        return createTuple(max);
-    }
-
-    @Override
-    public Tuple evaluateFinal()
-    {
-        if (max == null) {
-            return NULL_STRING_TUPLE;
-        }
-        return createTuple(max);
     }
 }

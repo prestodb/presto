@@ -87,8 +87,8 @@ public abstract class AbstractSqlBenchmark
                 ImmutableMap.<String, ExchangePlanFragmentSource>of(),
                 new OperatorStats(),
                 new SourceHashProviderFactory(maxOperatorMemoryUsage),
-                maxOperatorMemoryUsage,
-                1_000_000);
+                maxOperatorMemoryUsage
+        );
 
         return executionPlanner.plan(fragment.getRoot());
     }

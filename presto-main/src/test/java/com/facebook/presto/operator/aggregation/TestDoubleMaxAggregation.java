@@ -2,8 +2,8 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.tuple.Tuple;
 
+import static com.facebook.presto.operator.aggregation.DoubleMaxAggregation.DOUBLE_MAX;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 
 public class TestDoubleMaxAggregation
@@ -20,9 +20,9 @@ public class TestDoubleMaxAggregation
     }
 
     @Override
-    public DoubleMaxAggregation getFunction()
+    public AggregationFunction getFunction()
     {
-        return new DoubleMaxAggregation(0, 0);
+        return DOUBLE_MAX;
     }
 
     @Override
@@ -34,13 +34,4 @@ public class TestDoubleMaxAggregation
         return (double) (start + length - 1);
     }
 
-    @Override
-    public Double getActualValue(AggregationFunctionStep function)
-    {
-        Tuple value = function.evaluate();
-        if (value.isNull(0)) {
-            return null;
-        }
-        return value.getDouble(0);
-    }
 }

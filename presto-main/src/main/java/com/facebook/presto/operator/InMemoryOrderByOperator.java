@@ -65,10 +65,10 @@ public class InMemoryOrderByOperator
     @Override
     public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new NewInMemoryOrderByOperatorIterator(source, orderByChannel, tupleInfos, outputChannels, expectedPositions, sortFields, sortOrder, maxSortSize, operatorStats);
+        return new InMemoryOrderByOperatorIterator(source, orderByChannel, tupleInfos, outputChannels, expectedPositions, sortFields, sortOrder, maxSortSize, operatorStats);
     }
 
-    private static class NewInMemoryOrderByOperatorIterator
+    private static class InMemoryOrderByOperatorIterator
             extends AbstractPageIterator
     {
         private final List<TupleInfo> tupleInfos;
@@ -76,7 +76,7 @@ public class InMemoryOrderByOperator
         private final PagesIndex pageIndex;
         private int currentPosition;
 
-        private NewInMemoryOrderByOperatorIterator(Operator source,
+        private InMemoryOrderByOperatorIterator(Operator source,
                 int orderByChannel,
                 List<TupleInfo> tupleInfos,
                 int[] outputChannels,

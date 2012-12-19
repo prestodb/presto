@@ -3,8 +3,8 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.tuple.Tuple;
 
+import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
 public class TestLongSumAggregation
@@ -21,9 +21,9 @@ public class TestLongSumAggregation
     }
 
     @Override
-    public LongSumAggregation getFunction()
+    public AggregationFunction getFunction()
     {
-        return new LongSumAggregation(0, 0);
+        return LONG_SUM;
     }
 
     @Override
@@ -40,13 +40,4 @@ public class TestLongSumAggregation
         return sum;
     }
 
-    @Override
-    public Long getActualValue(AggregationFunctionStep function)
-    {
-        Tuple value = function.evaluate();
-        if (value.isNull(0)) {
-            return null;
-        }
-        return value.getLong(0);
-    }
 }

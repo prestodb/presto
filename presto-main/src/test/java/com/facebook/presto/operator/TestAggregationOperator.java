@@ -2,43 +2,62 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.operator.OperatorAssertions.assertOperatorEquals;
+import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.OperatorAssertions.createOperator;
-import static com.facebook.presto.operator.ProjectionFunctions.concat;
-import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
-import static com.facebook.presto.operator.aggregation.AggregationFunctions.singleNodeAggregation;
-import static com.facebook.presto.operator.aggregation.CountAggregation.countAggregation;
-import static com.facebook.presto.operator.aggregation.LongAverageAggregation.longAverageAggregation;
-import static com.facebook.presto.operator.aggregation.LongSumAggregation.longSumAggregation;
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
+import static com.facebook.presto.operator.aggregation.LongAverageAggregation.LONG_AVERAGE;
+import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
+import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 public class TestAggregationOperator
 {
     @Test
-    public void testAlignment()
+    public void testAggregation()
             throws Exception
     {
         Operator source = createOperator(new Page(
                 BlockAssertions.createStringSequenceBlock(0, 100),
-                BlockAssertions.createLongSequenceBlock(0, 100)));
+                BlockAssertions.createLongSequenceBlock(0, 100),
+                BlockAssertions.createStringSequenceBlock(300, 400)));
+
 
         AggregationOperator actual = new AggregationOperator(source,
-                ImmutableList.of(singleNodeAggregation(countAggregation(0, 0)),
-                        singleNodeAggregation(longSumAggregation(1, 0)),
-                        singleNodeAggregation(longAverageAggregation(1, 0))),
-                ImmutableList.of(concat(singleColumn(FIXED_INT_64, 0, 0),
-                        singleColumn(FIXED_INT_64, 1, 0),
-                        singleColumn(DOUBLE, 2, 0))));
+                Step.SINGLE,
+                ImmutableList.of(aggregation(COUNT, 0),
+                        aggregation(LONG_SUM, 1),
+                        aggregation(LONG_AVERAGE, 1),
+                        aggregation(VAR_BINARY_MAX, 2)));
 
-        Operator expected = createOperator(new Page(new BlockBuilder(new TupleInfo(FIXED_INT_64, FIXED_INT_64, DOUBLE))
-                .append(100L).append(4950L).append(49.5)
-                .build()));
+        Page expectedPage = new Page(
+                new BlockBuilder(SINGLE_LONG)
+                        .append(100L)
+                        .build(),
+                new BlockBuilder(SINGLE_LONG)
+                        .append(4950L)
+                        .build(),
+                new BlockBuilder(SINGLE_DOUBLE)
+                        .append(49.5)
+                        .build(),
+                new BlockBuilder(SINGLE_VARBINARY)
+                        .append("399")
+                        .build()
+        );
 
-        assertOperatorEquals(actual, expected);
+        PageIterator pages = actual.iterator(new OperatorStats());
+
+        Page actualPage = pages.next();
+        assertEquals(actualPage.getChannelCount(), 4);
+        PageAssertions.assertPageEquals(actualPage, expectedPage);
+
+        assertFalse(pages.hasNext());
     }
 }

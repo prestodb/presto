@@ -1,127 +1,107 @@
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.metadata.FunctionBinder;
-import com.facebook.presto.operator.Page;
-import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 
-import javax.inject.Provider;
-import java.util.List;
-
-import static com.facebook.presto.tuple.Tuples.NULL_DOUBLE_TUPLE;
-import static com.facebook.presto.tuple.Tuples.createTuple;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 
 public class DoubleMinAggregation
-    implements AggregationFunction
+        implements FixedWidthAggregationFunction
 {
-    public static Provider<AggregationFunction> doubleMinAggregation(int channelIndex, int field)
+    public static final DoubleMinAggregation DOUBLE_MIN = new DoubleMinAggregation();
+
+    @Override
+    public int getFixedSize()
     {
-        return BINDER.bind(ImmutableList.of(new Input(channelIndex, field)));
-    }
-
-    public static final FunctionBinder BINDER = new FunctionBinder()
-    {
-        @Override
-        public Provider<AggregationFunction> bind(final List<Input> arguments)
-        {
-            Preconditions.checkArgument(arguments.size() == 1, "min takes 1 parameter");
-
-            return new Provider<AggregationFunction>()
-            {
-                @Override
-                public DoubleMinAggregation get()
-                {
-                    return new DoubleMinAggregation(arguments.get(0).getChannel(), arguments.get(0).getField());
-                }
-            };
-        }
-    };
-
-    private final int channelIndex;
-    private final int fieldIndex;
-    private boolean hasNonNullValue;
-    private double min = Double.POSITIVE_INFINITY;
-
-    public DoubleMinAggregation(int channelIndex, int fieldIndex)
-    {
-        this.channelIndex = channelIndex;
-        this.fieldIndex = fieldIndex;
+        return SINGLE_DOUBLE.getFixedSize();
     }
 
     @Override
     public TupleInfo getFinalTupleInfo()
     {
-        return TupleInfo.SINGLE_DOUBLE;
+        return SINGLE_DOUBLE;
     }
 
     @Override
     public TupleInfo getIntermediateTupleInfo()
     {
-        return TupleInfo.SINGLE_DOUBLE;
+        return SINGLE_DOUBLE;
     }
 
     @Override
-    public void addInput(Page page)
+    public void initialize(Slice valueSlice, int valueOffset)
     {
-        BlockCursor cursor = page.getBlock(channelIndex).cursor();
+        // mark value null
+        SINGLE_DOUBLE.setNull(valueSlice, valueOffset, 0);
+        SINGLE_DOUBLE.setDouble(valueSlice, valueOffset, 0, Double.POSITIVE_INFINITY);
+    }
+
+    @Override
+    public void addInput(BlockCursor cursor, Slice valueSlice, int valueOffset)
+    {
+        // todo remove this assumption that the field is 0
+        if (cursor.isNull(0)) {
+            return;
+        }
+
+        // mark value not null
+        SINGLE_DOUBLE.setNotNull(valueSlice, valueOffset, 0);
+
+        // update current value
+        double currentValue = SINGLE_DOUBLE.getDouble(valueSlice, valueOffset, 0);
+        // todo remove this assumption that the field is 0
+        double newValue = cursor.getDouble(0);
+        SINGLE_DOUBLE.setDouble(valueSlice, valueOffset, 0, Math.min(currentValue, newValue));
+    }
+
+    @Override
+    public void addInput(int positionCount, Block block, Slice valueSlice, int valueOffset)
+    {
+        // initialize
+        boolean hasNonNull = !SINGLE_DOUBLE.isNull(valueSlice, valueOffset);
+        double min = SINGLE_DOUBLE.getDouble(valueSlice, valueOffset, 0);
+
+        // process block
+        BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {
-            if (!cursor.isNull(fieldIndex)) {
-                hasNonNullValue = true;
-                min = Math.min(cursor.getDouble(fieldIndex), min);
+            // todo remove this assumption that the field is 0
+            if (!cursor.isNull(0)) {
+                hasNonNull = true;
+                // todo remove this assumption that the field is 0
+                min = Math.min(min, cursor.getDouble(0));
             }
         }
-    }
 
-    @Override
-    public void addInput(BlockCursor... cursors)
-    {
-        BlockCursor cursor = cursors[channelIndex];
-        if (!cursor.isNull(fieldIndex)) {
-            hasNonNullValue = true;
-            min = Math.min(cursor.getDouble(fieldIndex), min);
+        // write new value
+        if (hasNonNull) {
+            SINGLE_DOUBLE.setNotNull(valueSlice, valueOffset, 0);
+            SINGLE_DOUBLE.setDouble(valueSlice, valueOffset, 0, min);
         }
     }
 
     @Override
-    public void addIntermediate(Page page)
+    public void addIntermediate(BlockCursor cursor, Slice valueSlice, int valueOffset)
     {
-        BlockCursor cursor = page.getBlock(channelIndex).cursor();
-        while (cursor.advanceNextPosition()) {
-            if (!cursor.isNull(fieldIndex)) {
-                hasNonNullValue = true;
-                min = Math.min(cursor.getDouble(fieldIndex), min);
-            }
-        }
+        addInput(cursor, valueSlice, valueOffset);
     }
 
     @Override
-    public void addIntermediate(BlockCursor... cursors)
+    public void evaluateIntermediate(Slice valueSlice, int valueOffset, BlockBuilder output)
     {
-        BlockCursor cursor = cursors[channelIndex];
-        if (!cursor.isNull(fieldIndex)) {
-            hasNonNullValue = true;
-            min = Math.min(cursor.getDouble(fieldIndex), min);
-        }
+        evaluateFinal(valueSlice, valueOffset, output);
     }
 
     @Override
-    public Tuple evaluateIntermediate()
+    public void evaluateFinal(Slice valueSlice, int valueOffset, BlockBuilder output)
     {
-        if (!hasNonNullValue) {
-            return NULL_DOUBLE_TUPLE;
+        if (!SINGLE_DOUBLE.isNull(valueSlice, valueOffset, 0)) {
+            double currentValue = SINGLE_DOUBLE.getDouble(valueSlice, valueOffset, 0);
+            output.append(currentValue);
+        } else {
+            output.appendNull();
         }
-        return createTuple(min);
-    }
-
-    @Override
-    public Tuple evaluateFinal()
-    {
-        if (!hasNonNullValue) {
-            return NULL_DOUBLE_TUPLE;
-        }
-        return createTuple(min);
     }
 }

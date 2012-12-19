@@ -1,62 +1,29 @@
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.metadata.FunctionBinder;
-import com.facebook.presto.operator.Page;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
-import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-
-import javax.inject.Provider;
-
-import java.util.List;
+import com.facebook.presto.tuple.TupleInfo.Type;
 
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_DOUBLE;
 import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.facebook.presto.tuple.Tuples.NULL_DOUBLE_TUPLE;
-import static com.facebook.presto.tuple.Tuples.NULL_STRING_TUPLE;
-import static com.facebook.presto.tuple.Tuples.createTuple;
 
 public class DoubleAverageAggregation
-        implements AggregationFunction
+        implements FixedWidthAggregationFunction
 {
-    public static Provider<AggregationFunction> doubleAverageAggregation(int channelIndex, int field)
+    public static final DoubleAverageAggregation DOUBLE_AVERAGE = new DoubleAverageAggregation();
+
+    private static final TupleInfo TUPLE_INFO = new TupleInfo(Type.FIXED_INT_64, Type.DOUBLE);
+
+    @Override
+    public int getFixedSize()
     {
-        return BINDER.bind(ImmutableList.of(new Input(channelIndex, field)));
-    }
-
-    public static final FunctionBinder BINDER = new FunctionBinder()
-    {
-        @Override
-        public Provider<AggregationFunction> bind(final List<Input> arguments)
-        {
-            Preconditions.checkArgument(arguments.size() == 1, "avg takes 1 parameter");
-
-            return new Provider<AggregationFunction>()
-            {
-                @Override
-                public DoubleAverageAggregation get()
-                {
-                    return new DoubleAverageAggregation(arguments.get(0).getChannel(), arguments.get(0).getField());
-                }
-            };
-        }
-    };
-
-    private final int channelIndex;
-    private final int fieldIndex;
-    private double sum;
-    private long count;
-
-    public DoubleAverageAggregation(int channelIndex, int fieldIndex)
-    {
-        this.channelIndex = channelIndex;
-        this.fieldIndex = fieldIndex;
+        return TUPLE_INFO.getFixedSize();
     }
 
     @Override
@@ -72,72 +39,106 @@ public class DoubleAverageAggregation
     }
 
     @Override
-    public void addInput(Page page)
+    public void initialize(Slice valueSlice, int valueOffset)
     {
-        BlockCursor cursor = page.getBlock(channelIndex).cursor();
+        // mark value null
+        TUPLE_INFO.setNull(valueSlice, valueOffset, 0);
+    }
+
+    @Override
+    public void addInput(BlockCursor cursor, Slice valueSlice, int valueOffset)
+    {
+        // todo remove this assumption that the field is 0
+        if (cursor.isNull(0)) {
+            return;
+        }
+
+        // mark value not null
+        TUPLE_INFO.setNotNull(valueSlice, valueOffset, 0);
+
+        // increment count
+        TUPLE_INFO.setLong(valueSlice, valueOffset, 0, TUPLE_INFO.getLong(valueSlice, valueOffset, 0) + 1);
+
+        // add value to sum
+        // todo remove this assumption that the field is 0
+        double newValue = cursor.getDouble(0);
+        TUPLE_INFO.setDouble(valueSlice, valueOffset, 1, TUPLE_INFO.getDouble(valueSlice, valueOffset, 1) + newValue);
+    }
+
+    @Override
+    public void addInput(int positionCount, Block block, Slice valueSlice, int valueOffset)
+    {
+        // initialize with current value
+        boolean hasNonNull = !TUPLE_INFO.isNull(valueSlice, valueOffset);
+        long count = TUPLE_INFO.getLong(valueSlice, valueOffset, 0);
+        double sum = TUPLE_INFO.getDouble(valueSlice, valueOffset, 1);
+
+        // process block
+        BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {
-            if (!cursor.isNull(fieldIndex)) {
-                sum += cursor.getDouble(fieldIndex);
+            // todo remove this assumption that the field is 0
+            if (!cursor.isNull(0)) {
+                hasNonNull = true;
                 count++;
+                // todo remove this assumption that the field is 0
+                sum += cursor.getDouble(0);
             }
         }
-    }
 
-    @Override
-    public void addInput(BlockCursor... cursors)
-    {
-        BlockCursor cursor = cursors[channelIndex];
-        if (!cursor.isNull(fieldIndex)) {
-            sum += cursor.getDouble(fieldIndex);
-            count++;
+        // write new value
+        if (hasNonNull) {
+            TUPLE_INFO.setNotNull(valueSlice, valueOffset, 0);
+            TUPLE_INFO.setLong(valueSlice, valueOffset, 0, count);
+            TUPLE_INFO.setDouble(valueSlice, valueOffset, 1, sum);
         }
     }
 
     @Override
-    public void addIntermediate(Page page)
+    public void addIntermediate(BlockCursor cursor, Slice valueSlice, int valueOffset)
     {
-        BlockCursor cursor = page.getBlock(channelIndex).cursor();
-        while (cursor.advanceNextPosition()) {
-            if (!cursor.isNull(fieldIndex)) {
-                Slice data = cursor.getSlice(fieldIndex);
-                sum += data.getDouble(0);
-                count += data.getLong(SIZE_OF_DOUBLE);
-            }
+        // todo remove this assumption that the field is 0
+        if (cursor.isNull(0)) {
+            return;
+        }
+
+        // mark value not null
+        TUPLE_INFO.setNotNull(valueSlice, valueOffset, 0);
+
+        // decode value
+        // todo remove this assumption that the field is 0
+        Slice value = cursor.getSlice(0);
+        long count = value.getLong(0);
+        double sum = value.getDouble(SIZE_OF_LONG);
+
+        // add counts
+        TUPLE_INFO.setLong(valueSlice, valueOffset, 0, TUPLE_INFO.getLong(valueSlice, valueOffset, 0) + count);
+
+        // add sums
+        TUPLE_INFO.setDouble(valueSlice, valueOffset, 1, TUPLE_INFO.getDouble(valueSlice, valueOffset, 1) + sum);
+    }
+
+    @Override
+    public void evaluateIntermediate(Slice valueSlice, int valueOffset, BlockBuilder output)
+    {
+        if (!TUPLE_INFO.isNull(valueSlice, valueOffset, 0)) {
+            Slice value = Slices.allocate(SIZE_OF_LONG + SIZE_OF_DOUBLE);
+            value.setLong(0, TUPLE_INFO.getLong(valueSlice, valueOffset, 0));
+            value.setDouble(SIZE_OF_LONG, TUPLE_INFO.getDouble(valueSlice, valueOffset, 1));
+            output.append(value);
+        } else {
+            output.appendNull();
         }
     }
 
     @Override
-    public void addIntermediate(BlockCursor... cursors)
+    public void evaluateFinal(Slice valueSlice, int valueOffset, BlockBuilder output)
     {
-        BlockCursor cursor = cursors[channelIndex];
-        if (!cursor.isNull(fieldIndex)) {
-            Slice data = cursor.getSlice(fieldIndex);
-            sum += data.getDouble(0);
-            count += data.getLong(SIZE_OF_DOUBLE);
+        if (!TUPLE_INFO.isNull(valueSlice, valueOffset, 0)) {
+            long count = TUPLE_INFO.getLong(valueSlice, valueOffset, 0);
+            double sum = TUPLE_INFO.getDouble(valueSlice, valueOffset, 1);
+            output.append(sum / count);
+        } else {
+            output.appendNull();
         }
-    }
-
-    @Override
-    public Tuple evaluateIntermediate()
-    {
-        if (count == 0) {
-            return NULL_STRING_TUPLE;
-        }
-        Slice data = Slices.allocate(SIZE_OF_DOUBLE + SIZE_OF_LONG);
-        data.setDouble(0, sum);
-        data.setLong(SIZE_OF_DOUBLE, count);
-        return SINGLE_VARBINARY.builder()
-                .append(data)
-                .build();
-    }
-
-    @Override
-    public Tuple evaluateFinal()
-    {
-        if (count == 0) {
-            return NULL_DOUBLE_TUPLE;
-        }
-        double value = sum / count;
-        return createTuple(value);
     }
 }

@@ -2,38 +2,52 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.operator.aggregation.AggregationFunctionStep;
-import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.aggregation.FixedWidthAggregationFunction;
+import com.facebook.presto.operator.aggregation.VariableWidthAggregationFunction;
+import com.facebook.presto.slice.Slice;
+import com.facebook.presto.slice.Slices;
+import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
-import javax.inject.Provider;
 import java.util.List;
 
+
+/**
+ * Group input data and produce a single block for each sequence of identical values.
+ */
 public class AggregationOperator
         implements Operator
 {
     private final Operator source;
-    private final List<Provider<AggregationFunctionStep>> functionProviders;
-    private final List<ProjectionFunction> projections;
+    private final Step step;
+    private final List<AggregationFunctionDefinition> functionDefinitions;
     private final List<TupleInfo> tupleInfos;
 
-    public AggregationOperator(Operator source, List<Provider<AggregationFunctionStep>> functionProviders, List<ProjectionFunction> projections)
+    public AggregationOperator(Operator source,
+            Step step,
+            List<AggregationFunctionDefinition> functionDefinitions)
     {
         Preconditions.checkNotNull(source, "source is null");
-        Preconditions.checkNotNull(functionProviders, "functionProviders is null");
-        Preconditions.checkArgument(!functionProviders.isEmpty(), "functionProviders is empty");
-        Preconditions.checkNotNull(projections, "projections is null");
-        Preconditions.checkArgument(!projections.isEmpty(), "projections is empty");
+        Preconditions.checkNotNull(step, "step is null");
+        Preconditions.checkNotNull(functionDefinitions, "functionDefinitions is null");
 
         this.source = source;
-        this.functionProviders = functionProviders;
-        this.projections = projections;
+        this.step = step;
+        this.functionDefinitions = ImmutableList.copyOf(functionDefinitions);
 
         ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
-        for (ProjectionFunction projection : projections) {
-            tupleInfos.add(projection.getTupleInfo());
+        for (AggregationFunctionDefinition functionDefinition : functionDefinitions) {
+            if (step != Step.PARTIAL) {
+                tupleInfos.add(functionDefinition.getFunction().getFinalTupleInfo());
+            }
+            else {
+                tupleInfos.add(functionDefinition.getFunction().getIntermediateTupleInfo());
+            }
         }
         this.tupleInfos = tupleInfos.build();
     }
@@ -41,7 +55,7 @@ public class AggregationOperator
     @Override
     public int getChannelCount()
     {
-        return projections.size();
+        return tupleInfos.size();
     }
 
     @Override
@@ -53,35 +67,197 @@ public class AggregationOperator
     @Override
     public PageIterator iterator(OperatorStats operatorStats)
     {
-        // create the aggregation functions
-        AggregationFunctionStep[] functions = new AggregationFunctionStep[functionProviders.size()];
-        for (int i = 0; i < functions.length; i++) {
-            functions[i] = functionProviders.get(i).get();
+        // wrapper each function with an aggregator
+        ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
+        for (AggregationFunctionDefinition functionDefinition : functionDefinitions) {
+            builder.add(createAggregator(functionDefinition, step));
         }
+        List<Aggregator> aggregates = builder.build();
 
-        // process all rows
         PageIterator iterator = source.iterator(operatorStats);
         while (iterator.hasNext()) {
             Page page = iterator.next();
-            for (AggregationFunctionStep function : functions) {
-                function.add(page);
+
+            // process the row
+            for (Aggregator aggregate : aggregates) {
+                aggregate.addValue(page);
             }
         }
 
-        // get result tuples
-        Tuple[] results = new Tuple[functions.length];
-        for (int i = 0; i < functions.length; i++) {
-            results[i] = functions[i].evaluate();
-        }
-
         // project results into output blocks
-        Block[] blocks = new Block[projections.size()];
+        Block[] blocks = new Block[aggregates.size()];
         for (int i = 0; i < blocks.length; i++) {
-            BlockBuilder output = new BlockBuilder(projections.get(i).getTupleInfo());
-            projections.get(i).project(results, output);
-            blocks[i] = output.build();
+            blocks[i] = aggregates.get(i).getResult();
         }
 
         return PageIterators.singletonIterator(new Page(blocks));
+    }
+
+    @VisibleForTesting
+    public static Aggregator createAggregator(AggregationFunctionDefinition functionDefinition, Step step)
+    {
+        AggregationFunction function = functionDefinition.getFunction();
+        if (function instanceof VariableWidthAggregationFunction) {
+            return new VariableWidthAggregator<>((VariableWidthAggregationFunction<Object>) functionDefinition.getFunction(), functionDefinition.getChannel(), step);
+        }
+        else {
+            return new FixedWidthAggregator((FixedWidthAggregationFunction) functionDefinition.getFunction(), functionDefinition.getChannel(), step);
+        }
+    }
+
+    @VisibleForTesting
+    public interface Aggregator
+    {
+
+        void addValue(Page page);
+
+        void addValue(BlockCursor... cursors);
+
+        Block getResult();
+    }
+
+    private static class FixedWidthAggregator
+            implements Aggregator
+    {
+        private final FixedWidthAggregationFunction function;
+        private final int channel;
+        private final Step step;
+        private final Slice intermediateValue;
+
+        private FixedWidthAggregator(FixedWidthAggregationFunction function, int channel, Step step)
+        {
+            Preconditions.checkNotNull(function, "function is null");
+            Preconditions.checkNotNull(step, "step is null");
+            this.function = function;
+            this.channel = channel;
+            this.step = step;
+            this.intermediateValue = Slices.allocate(function.getFixedSize());
+            function.initialize(intermediateValue, 0);
+        }
+
+        @Override
+        public void addValue(BlockCursor... cursors)
+        {
+            BlockCursor cursor = cursors[channel];
+
+            // if this is a final aggregation, the input is an intermediate value
+            if (step == Step.FINAL) {
+                function.addIntermediate(cursor, intermediateValue, 0);
+            }
+            else {
+                function.addInput(cursor, intermediateValue, 0);
+            }
+        }
+
+        @Override
+        public void addValue(Page page)
+        {
+
+            // if this is a final aggregation, the input is an intermediate value
+            if (step == Step.FINAL) {
+                BlockCursor cursor = page.getBlock(channel).cursor();
+                while (cursor.advanceNextPosition()) {
+                    function.addIntermediate(cursor, intermediateValue, 0);
+                }
+            }
+            else {
+                Block block;
+                if (channel >= 0) {
+                    block = page.getBlock(channel);
+                }
+                else {
+                    block = null;
+                }
+                function.addInput(page.getPositionCount(), block, intermediateValue, 0);
+            }
+        }
+
+        @Override
+        public Block getResult()
+        {
+            // if this is a partial, the output is an intermediate value
+            if (step == Step.PARTIAL) {
+                BlockBuilder output = new BlockBuilder(function.getIntermediateTupleInfo());
+                function.evaluateIntermediate(intermediateValue, 0, output);
+                return output.build();
+            }
+            else {
+                BlockBuilder output = new BlockBuilder(function.getFinalTupleInfo());
+                function.evaluateFinal(intermediateValue, 0, output);
+                return output.build();
+            }
+        }
+    }
+
+    private static class VariableWidthAggregator<T>
+            implements Aggregator
+    {
+        private final VariableWidthAggregationFunction<T> function;
+        private final int channel;
+        private final Step step;
+        private T intermediateValue;
+
+        private VariableWidthAggregator(VariableWidthAggregationFunction<T> function, int channel, Step step)
+        {
+            Preconditions.checkNotNull(function, "function is null");
+            Preconditions.checkNotNull(step, "step is null");
+            this.function = function;
+            this.channel = channel;
+            this.step = step;
+            this.intermediateValue = function.initialize();
+        }
+
+        @Override
+        public void addValue(Page page)
+        {
+            // if this is a final aggregation, the input is an intermediate value
+            if (step == Step.FINAL) {
+                BlockCursor cursor = page.getBlock(channel).cursor();
+                while (cursor.advanceNextPosition()) {
+                    intermediateValue = function.addIntermediate(cursor, intermediateValue);
+                }
+            }
+            else {
+                Block block;
+                if (channel >= 0) {
+                    block = page.getBlock(channel);
+                }
+                else {
+                    block = null;
+                }
+                intermediateValue = function.addInput(page.getPositionCount(), block, intermediateValue);
+            }
+        }
+
+        @Override
+        public void addValue(BlockCursor... cursors)
+        {
+            BlockCursor cursor = cursors[channel];
+
+            // if this is a final aggregation, the input is an intermediate value
+            if (step == Step.FINAL) {
+                intermediateValue = function.addIntermediate(cursor, intermediateValue);
+            }
+            else {
+                intermediateValue = function.addInput(cursor, intermediateValue);
+            }
+        }
+
+
+        @Override
+        public Block getResult()
+        {
+            // if this is a partial, the output is an intermediate value
+            if (step == Step.PARTIAL) {
+                BlockBuilder output = new BlockBuilder(function.getIntermediateTupleInfo());
+                function.evaluateIntermediate(intermediateValue, output);
+                return output.build();
+            }
+            else {
+                BlockBuilder output = new BlockBuilder(function.getFinalTupleInfo());
+                function.evaluateFinal(intermediateValue, output);
+                return output.build();
+            }
+        }
     }
 }
