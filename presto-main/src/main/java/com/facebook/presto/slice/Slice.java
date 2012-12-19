@@ -184,9 +184,7 @@ public final class Slice
      */
     public void clear()
     {
-        int offset = 0;
-        int length = size;
-        clear(offset, length);
+        clear(0, size);
     }
 
     public void clear(int offset, int length)
