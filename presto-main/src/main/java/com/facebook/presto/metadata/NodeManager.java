@@ -19,7 +19,7 @@ import static java.util.Arrays.asList;
 
 public class NodeManager
 {
-    private static final Splitter IMPORT_SOURCES_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+    private static final Splitter DATASOURCES_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
     private final ServiceSelector serviceSelector;
     private final NodeInfo nodeInfo;
 
@@ -45,16 +45,16 @@ public class NodeManager
         return nodes.build();
     }
 
-    public Set<Node> getActiveImportNodes(String importSourceName)
+    public Set<Node> getActiveDatasourceNodes(String datasourceName)
     {
         ImmutableSet.Builder<Node> nodes = ImmutableSet.builder();
         for (ServiceDescriptor descriptor : serviceSelector.selectAllServices()) {
-            String importSources = descriptor.getProperties().get("import-sources");
-            if (importSources == null) {
+            String datasources = descriptor.getProperties().get("datasources");
+            if (datasources == null) {
                 continue;
             }
-            importSources = importSources.toLowerCase();
-            if (Iterables.contains(IMPORT_SOURCES_SPLITTER.split(importSources), importSourceName.toLowerCase())){
+            datasources = datasources.toLowerCase();
+            if (Iterables.contains(DATASOURCES_SPLITTER.split(datasources), datasourceName.toLowerCase())){
                 try {
                     nodes.add(nodeFromServiceDescriptor(descriptor));
                 }
