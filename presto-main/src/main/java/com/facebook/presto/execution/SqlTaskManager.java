@@ -66,14 +66,13 @@ public class SqlTaskManager
         this.pageBufferMax = 20;
         this.maxOperatorMemoryUsage = config.getMaxOperatorMemoryUsage();
 
-        int processors = Runtime.getRuntime().availableProcessors();
         taskExecutor = new ThreadPoolExecutor(1000,
                 1000,
                 1, TimeUnit.MINUTES,
                 new LinkedBlockingQueue<Runnable>(),
                 threadsNamed("task-processor-%d"));
 
-        shardExecutor = new FairBatchExecutor(8 * processors, threadsNamed("shard-processor-%d"));
+        shardExecutor = new FairBatchExecutor(config.getMaxShardProcessorThreads(), threadsNamed("shard-processor-%d"));
     }
 
     @Override
