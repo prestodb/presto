@@ -55,6 +55,7 @@ import io.airlift.dbpool.H2EmbeddedDataSource;
 import io.airlift.dbpool.H2EmbeddedDataSourceConfig;
 import io.airlift.dbpool.H2EmbeddedDataSourceModule;
 import io.airlift.dbpool.MySqlDataSourceModule;
+import io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import io.airlift.http.client.HttpClientBinder;
 import io.airlift.json.JsonBinder;
 import io.airlift.units.Duration;
@@ -181,7 +182,12 @@ public class ServerMainModule
         binder.bind(ShardResource.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(ShardImport.class);
 
-        discoveryBinder(binder).bindHttpAnnouncement("presto");
+        ServiceAnnouncementBuilder announcementBuilder = discoveryBinder(binder).bindHttpAnnouncement("presto");
+        String importSources = configurationFactory.getProperties().get("import.sources");
+        if (importSources != null) {
+            configurationFactory.consumeProperty("import.sources");
+            announcementBuilder.addProperty("import-sources", importSources);
+        }
 
         bindDataSource("presto-metastore", ForMetadata.class, ForShardManager.class);
     }

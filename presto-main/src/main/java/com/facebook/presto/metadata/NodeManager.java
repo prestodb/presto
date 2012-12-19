@@ -1,6 +1,8 @@
 package com.facebook.presto.metadata;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.ServiceType;
@@ -17,6 +19,7 @@ import static java.util.Arrays.asList;
 
 public class NodeManager
 {
+    private static final Splitter IMPORT_SOURCES_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
     private final ServiceSelector serviceSelector;
     private final NodeInfo nodeInfo;
 
@@ -37,6 +40,28 @@ public class NodeManager
             catch (IllegalArgumentException e) {
                 // ignore
                 // TODO: log a warning here?
+            }
+        }
+        return nodes.build();
+    }
+
+    public Set<Node> getActiveImportNodes(String importSourceName)
+    {
+        ImmutableSet.Builder<Node> nodes = ImmutableSet.builder();
+        for (ServiceDescriptor descriptor : serviceSelector.selectAllServices()) {
+            String importSources = descriptor.getProperties().get("import-sources");
+            if (importSources == null) {
+                continue;
+            }
+            importSources = importSources.toLowerCase();
+            if (Iterables.contains(IMPORT_SOURCES_SPLITTER.split(importSources), importSourceName.toLowerCase())){
+                try {
+                    nodes.add(nodeFromServiceDescriptor(descriptor));
+                }
+                catch (IllegalArgumentException e) {
+                    // ignore
+                    // TODO: log a warning here?
+                }
             }
         }
         return nodes.build();

@@ -14,16 +14,13 @@ import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.spi.PartitionInfo;
 import com.facebook.presto.spi.SchemaField;
-import com.facebook.presto.sql.ExpressionOptimizer;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
 import com.facebook.presto.sql.planner.SymbolResolver;
-import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
-import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.util.IterableTransformer;
@@ -31,6 +28,7 @@ import com.facebook.presto.util.MapTransformer;
 import com.facebook.presto.util.MoreFunctions;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -272,7 +270,8 @@ public class SplitManager
             {
                 ImportClient importClient = importClientFactory.getClient(sourceName);
                 Split split = new ImportSplit(sourceName, SerializedPartitionChunk.create(importClient, chunk));
-                List<Node> nodes = limit(shuffle(nodeManager.getActiveNodes()), 3);
+                List<Node> nodes = limit(shuffle(nodeManager.getActiveImportNodes(sourceName)), 3);
+                Preconditions.checkState(!nodes.isEmpty(), "No active %s nodes", sourceName);
                 return new SplitAssignments(split, nodes);
             }
         };
