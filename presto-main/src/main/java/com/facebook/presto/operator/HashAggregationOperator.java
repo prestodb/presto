@@ -48,12 +48,14 @@ public class HashAggregationOperator
             int groupByChannel,
             Step step,
             List<AggregationFunctionDefinition> functionDefinitions,
-            int expectedGroups, DataSize maxSize)
+            int expectedGroups,
+            DataSize maxSize)
     {
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkArgument(groupByChannel >= 0, "groupByChannel is negative");
         Preconditions.checkNotNull(functionDefinitions, "functionDefinitions is null");
-
+        Preconditions.checkNotNull(maxSize, "maxSize is null");
+        
         this.source = source;
         this.groupByChannel = groupByChannel;
         this.step = step;
@@ -123,6 +125,16 @@ public class HashAggregationOperator
             Long2IntOpenCustomHashMap addressToGroupId = new Long2IntOpenCustomHashMap(expectedGroups, hashStrategy);
             addressToGroupId.defaultReturnValue(-1);
 
+            groupByBlocksIterator = aggregate(source, groupChannel, maxSize, operatorStats, groupByTupleInfo, hashStrategy, addressToGroupId);
+        }
+
+        private Iterator<UncompressedBlock> aggregate(Operator source,
+                int groupChannel,
+                DataSize maxSize,
+                OperatorStats operatorStats,
+                TupleInfo groupByTupleInfo,
+                SliceHashStrategy hashStrategy, Long2IntOpenCustomHashMap addressToGroupId)
+        {
             // allocate the first group by (key side) slice
             Slice slice = Slices.allocate((int) BlockBuilder.DEFAULT_MAX_BLOCK_SIZE.toBytes());
             hashStrategy.addSlice(slice);
@@ -196,7 +208,7 @@ public class HashAggregationOperator
                 groupByBlocks.add(block);
             }
 
-            groupByBlocksIterator = groupByBlocks.iterator();
+            return groupByBlocks.iterator();
         }
 
         private void checkMaxMemory(DataSize maxSize, SliceHashStrategy hashStrategy)
