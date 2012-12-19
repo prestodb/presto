@@ -270,8 +270,8 @@ public class SplitManager
             {
                 ImportClient importClient = importClientFactory.getClient(sourceName);
                 Split split = new ImportSplit(sourceName, SerializedPartitionChunk.create(importClient, chunk));
-                List<Node> nodes = limit(shuffle(nodeManager.getActiveImportNodes(sourceName)), 3);
-                Preconditions.checkState(!nodes.isEmpty(), "No active %s nodes", sourceName);
+                List<Node> nodes = limit(shuffle(nodeManager.getActiveDatasourceNodes(sourceName)), 3);
+                Preconditions.checkState(!nodes.isEmpty(), "No active %s data nodes", sourceName);
                 return new SplitAssignments(split, nodes);
             }
         };

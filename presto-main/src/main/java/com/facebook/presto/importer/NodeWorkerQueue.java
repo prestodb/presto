@@ -65,7 +65,7 @@ public class NodeWorkerQueue
         {
             // TODO: handle nodes changing their URI
             // TODO: handle nodes disappearing
-            Set<Node> activeNodes = nodeManager.getActiveNodes();
+            Set<Node> activeNodes = nodeManager.getActiveDatasourceNodes("native");
             Set<Node> newNodes = Sets.difference(activeNodes, nodes);
 
             // add node workers in round-robin node order
