@@ -25,9 +25,7 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Executors;
 
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.collect.Iterables.filter;
@@ -66,11 +64,7 @@ public class SqlTaskManager
         this.pageBufferMax = 20;
         this.maxOperatorMemoryUsage = config.getMaxOperatorMemoryUsage();
 
-        taskExecutor = new ThreadPoolExecutor(1000,
-                1000,
-                1, TimeUnit.MINUTES,
-                new LinkedBlockingQueue<Runnable>(),
-                threadsNamed("task-processor-%d"));
+        taskExecutor = Executors.newCachedThreadPool(threadsNamed("task-processor-%d"));
 
         shardExecutor = new FairBatchExecutor(config.getMaxShardProcessorThreads(), threadsNamed("shard-processor-%d"));
     }
