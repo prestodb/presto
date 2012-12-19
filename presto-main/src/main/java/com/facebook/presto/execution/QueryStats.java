@@ -107,7 +107,9 @@ public class QueryStats
 
     public void recordEnd()
     {
-        this.endTime = DateTime.now();
+        if (endTime == null) {
+            endTime = DateTime.now();
+        }
     }
 
     public void recordAnalysisTime(long analysisStart)

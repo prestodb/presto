@@ -14,8 +14,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import io.airlift.http.server.HttpServerInfo;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 
 import javax.inject.Inject;
 import java.net.URI;
@@ -26,15 +28,21 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class SqlTaskManager
         implements TaskManager
 {
+    private static final Logger log = Logger.get(SqlTaskManager.class);
+
     private final int pageBufferMax;
 
     private final ExecutorService taskExecutor;
@@ -43,6 +51,7 @@ public class SqlTaskManager
     private final PlanFragmentSourceProvider sourceProvider;
     private final HttpServerInfo httpServerInfo;
     private final DataSize maxOperatorMemoryUsage;
+    private final Duration maxTaskAge;
 
     private final ConcurrentMap<String, TaskExecution> tasks = new ConcurrentHashMap<>();
 
@@ -63,10 +72,27 @@ public class SqlTaskManager
         this.httpServerInfo = httpServerInfo;
         this.pageBufferMax = 20;
         this.maxOperatorMemoryUsage = config.getMaxOperatorMemoryUsage();
+        // Just to be nice, allow tasks to live an extra 30 seconds so queries will be removed first
+        this.maxTaskAge = new Duration(config.getMaxQueryAge().toMillis() + SECONDS.toMillis(30), MILLISECONDS);
 
         taskExecutor = Executors.newCachedThreadPool(threadsNamed("task-processor-%d"));
 
         shardExecutor = new FairBatchExecutor(config.getMaxShardProcessorThreads(), threadsNamed("shard-processor-%d"));
+
+        ScheduledExecutorService taskManagementExecutor = Executors.newScheduledThreadPool(100, threadsNamed("task-management-%d"));
+        taskManagementExecutor.scheduleAtFixedRate(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                try {
+                    removeOldTasks();
+                }
+                catch (Throwable e) {
+                    log.warn(e, "Error removing old tasks");
+                }
+            }
+        }, 200, 200, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -172,9 +198,37 @@ public class SqlTaskManager
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 
+        TaskExecution taskExecution = tasks.get(taskId);
+        if (taskExecution != null) {
+            taskExecution.cancel();
+        }
+    }
+
+
+    public void removeTask(String taskId)
+    {
+        Preconditions.checkNotNull(taskId, "taskId is null");
+
         TaskExecution taskExecution = tasks.remove(taskId);
         if (taskExecution != null) {
             taskExecution.cancel();
+        }
+    }
+
+    public void removeOldTasks()
+    {
+        DateTime oldestAllowedTask = DateTime.now().minus((long) maxTaskAge.toMillis());
+        for (TaskExecution taskExecution : tasks.values()) {
+            try {
+                TaskInfo taskInfo = taskExecution.getTaskInfo();
+                DateTime endTime = taskInfo.getStats().getEndTime();
+                if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
+                    removeTask(taskExecution.getTaskId());
+                }
+            }
+            catch (Exception e) {
+                log.warn(e, "Error while inspecting age of task %s", taskExecution.getTaskId());
+            }
         }
     }
 

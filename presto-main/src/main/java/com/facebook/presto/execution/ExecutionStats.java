@@ -7,12 +7,17 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
+import org.joda.time.DateTime;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class ExecutionStats
 {
+    private final DateTime createTime;
+    private DateTime executionStartTime;
+    private DateTime endTime;
+
     private final AtomicInteger splits;
     private final AtomicInteger startedSplits;
     private final AtomicInteger completedSplits;
@@ -30,11 +35,14 @@ public class ExecutionStats
 
     public ExecutionStats()
     {
-        this(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        this(DateTime.now(), null, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     }
 
     @JsonCreator
     public ExecutionStats(
+            @JsonProperty("createTime") DateTime createTime,
+            @JsonProperty("executionStartTime") DateTime executionStartTime,
+            @JsonProperty("endTime") DateTime endTime,
             @JsonProperty("splits") int splits,
             @JsonProperty("startedSplits") int startedSplits,
             @JsonProperty("completedSplits") int completedSplits,
@@ -46,6 +54,9 @@ public class ExecutionStats
             @JsonProperty("outputDataSize") long outputDataSize,
             @JsonProperty("outputPositionCount") long outputPositionCount)
     {
+        this.createTime = createTime;
+        this.executionStartTime = executionStartTime;
+        this.endTime = endTime;
         this.splits = new AtomicInteger(splits);
         this.startedSplits = new AtomicInteger(startedSplits);
         this.completedSplits = new AtomicInteger(completedSplits);
@@ -56,6 +67,24 @@ public class ExecutionStats
         this.completedPositionCount = new AtomicLong(completedPositionCount);
         this.outputDataSize = new AtomicLong(outputDataSize);
         this.outputPositionCount = new AtomicLong(outputPositionCount);
+    }
+
+    @JsonProperty
+    public DateTime getCreateTime()
+    {
+        return createTime;
+    }
+
+    @JsonProperty
+    public DateTime getExecutionStartTime()
+    {
+        return executionStartTime;
+    }
+
+    @JsonProperty
+    public DateTime getEndTime()
+    {
+        return endTime;
     }
 
     @JsonProperty
@@ -166,6 +195,18 @@ public class ExecutionStats
     public void addOutputDataSize(DataSize outputDataSize)
     {
         this.outputDataSize.addAndGet(outputDataSize.toBytes());
+    }
+
+    public void recordExecutionStart()
+    {
+        this.executionStartTime = DateTime.now();
+    }
+
+    public void recordEnd()
+    {
+        if (endTime == null) {
+            endTime = DateTime.now();
+        }
     }
 
     public void add(ExecutionStats stats) {

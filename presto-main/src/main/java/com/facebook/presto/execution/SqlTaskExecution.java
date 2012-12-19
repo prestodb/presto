@@ -103,6 +103,7 @@ public class SqlTaskExecution
     @Override
     public void run()
     {
+        taskOutput.getStats().recordExecutionStart();
         try {
             // if we have a single split, just execute in the current thread; otherwise use the thread pool
             final SourceHashProviderFactory sourceHashProviderFactory = new SourceHashProviderFactory(maxOperatorMemoryUsage);

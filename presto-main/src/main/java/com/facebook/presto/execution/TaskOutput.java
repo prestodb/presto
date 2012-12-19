@@ -87,11 +87,13 @@ public class TaskOutput
 
             if (Iterables.any(bufferStates, equalTo(BufferState.FAILED))) {
                 taskState.set(TaskState.FAILED);
+                stats.recordEnd();
                 // this shouldn't be necessary, but be safe
                 finishAllBuffers();
             }
             else if (Iterables.all(bufferStates, equalTo(BufferState.FINISHED))) {
                 taskState.set(TaskState.FINISHED);
+                stats.recordEnd();
             }
         }
     }
@@ -117,6 +119,7 @@ public class TaskOutput
                 return;
             }
             if (this.taskState.compareAndSet(taskState, TaskState.CANCELED)) {
+                stats.recordEnd();
                 break;
             }
         }
@@ -138,6 +141,7 @@ public class TaskOutput
     {
         failureCauses.add(cause);
         taskState.set(TaskState.FAILED);
+        stats.recordEnd();
         for (PageBuffer outputBuffer : outputBuffers.values()) {
             outputBuffer.queryFailed(cause);
         }

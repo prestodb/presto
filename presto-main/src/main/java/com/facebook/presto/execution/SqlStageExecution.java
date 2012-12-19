@@ -171,7 +171,12 @@ public class SqlStageExecution
 
         // propagate update to tasks and stages
         for (RemoteTask task : tasks) {
-            task.updateState();
+            try {
+                task.updateState();
+            }
+            catch (Exception e) {
+                log.debug(e, "Error updating task info");
+            }
         }
         for (StageExecution subStage : subStages) {
             subStage.updateState();
