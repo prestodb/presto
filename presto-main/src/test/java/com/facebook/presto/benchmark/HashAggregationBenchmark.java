@@ -33,9 +33,9 @@ public class HashAggregationBenchmark
     @Override
     protected Operator createBenchmarkedOperator(TpchBlocksProvider blocksProvider)
     {
-        TpchTableHandle orders = tableHandle("lineitem");
-        TpchColumnHandle orderStatus = columnHandle(orders, "orderkey");
-        TpchColumnHandle totalPrice = columnHandle(orders, "extendedprice");
+        TpchTableHandle orders = tableHandle("orders");
+        TpchColumnHandle orderStatus = columnHandle(orders, "orderstatus");
+        TpchColumnHandle totalPrice = columnHandle(orders, "totalprice");
         BlockIterable orderStatusBlockIterable = blocksProvider.getBlocks(orders, orderStatus, BlocksFileEncoding.RAW);
         BlockIterable totalPriceBlockIterable = blocksProvider.getBlocks(orders, totalPrice, BlocksFileEncoding.RAW);
 
