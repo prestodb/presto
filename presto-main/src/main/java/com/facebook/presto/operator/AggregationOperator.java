@@ -10,6 +10,7 @@ import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
@@ -32,6 +33,7 @@ public class AggregationOperator
             List<AggregationFunctionDefinition> functionDefinitions)
     {
         Preconditions.checkNotNull(source, "source is null");
+        Preconditions.checkNotNull(step, "step is null");
         Preconditions.checkNotNull(functionDefinitions, "functionDefinitions is null");
 
         this.source = source;
@@ -91,21 +93,21 @@ public class AggregationOperator
         return PageIterators.singletonIterator(new Page(blocks));
     }
 
-    @SuppressWarnings("rawtypes")
+    @VisibleForTesting
     public static Aggregator createAggregator(AggregationFunctionDefinition functionDefinition, Step step)
     {
         AggregationFunction function = functionDefinition.getFunction();
         if (function instanceof VariableWidthAggregationFunction) {
-            return new VariableWidthAggregator((VariableWidthAggregationFunction) functionDefinition.getFunction(), functionDefinition.getChannel(), step);
+            return new VariableWidthAggregator<>((VariableWidthAggregationFunction<Object>) functionDefinition.getFunction(), functionDefinition.getChannel(), step);
         }
         else {
             return new FixedWidthAggregator((FixedWidthAggregationFunction) functionDefinition.getFunction(), functionDefinition.getChannel(), step);
         }
     }
 
+    @VisibleForTesting
     public interface Aggregator
     {
-        TupleInfo getTupleInfo();
 
         void addValue(Page page);
 
@@ -124,6 +126,8 @@ public class AggregationOperator
 
         private FixedWidthAggregator(FixedWidthAggregationFunction function, int channel, Step step)
         {
+            Preconditions.checkNotNull(function, "function is null");
+            Preconditions.checkNotNull(step, "step is null");
             this.function = function;
             this.channel = channel;
             this.step = step;
@@ -132,27 +136,9 @@ public class AggregationOperator
         }
 
         @Override
-        public TupleInfo getTupleInfo()
-        {
-            // if this is a partial, the output is an intermediate value
-            if (step == Step.PARTIAL) {
-                return function.getIntermediateTupleInfo();
-            }
-            else {
-                return function.getFinalTupleInfo();
-            }
-        }
-
-        @Override
         public void addValue(BlockCursor... cursors)
         {
-            BlockCursor cursor;
-            if (channel >= 0) {
-                cursor = cursors[channel];
-            }
-            else {
-                cursor = null;
-            }
+            BlockCursor cursor = cursors[channel];
 
             // if this is a final aggregation, the input is an intermediate value
             if (step == Step.FINAL) {
@@ -166,22 +152,22 @@ public class AggregationOperator
         @Override
         public void addValue(Page page)
         {
-            Block block;
-            if (channel >= 0) {
-                block = page.getBlock(channel);
-            }
-            else {
-                block = null;
-            }
 
             // if this is a final aggregation, the input is an intermediate value
             if (step == Step.FINAL) {
-                BlockCursor cursor = block.cursor();
+                BlockCursor cursor = page.getBlock(channel).cursor();
                 while (cursor.advanceNextPosition()) {
                     function.addIntermediate(cursor, intermediateValue, 0);
                 }
             }
             else {
+                Block block;
+                if (channel >= 0) {
+                    block = page.getBlock(channel);
+                }
+                else {
+                    block = null;
+                }
                 function.addInput(page.getPositionCount(), block, intermediateValue, 0);
             }
         }
@@ -213,6 +199,8 @@ public class AggregationOperator
 
         private VariableWidthAggregator(VariableWidthAggregationFunction<T> function, int channel, Step step)
         {
+            Preconditions.checkNotNull(function, "function is null");
+            Preconditions.checkNotNull(step, "step is null");
             this.function = function;
             this.channel = channel;
             this.step = step;
@@ -220,36 +208,23 @@ public class AggregationOperator
         }
 
         @Override
-        public TupleInfo getTupleInfo()
-        {
-            // if this is a partial, the output is an intermediate value
-            if (step == Step.PARTIAL) {
-                return function.getIntermediateTupleInfo();
-            }
-            else {
-                return function.getFinalTupleInfo();
-            }
-        }
-
-        @Override
         public void addValue(Page page)
         {
-            Block block;
-            if (channel >= 0) {
-                block = page.getBlock(channel);
-            }
-            else {
-                block = null;
-            }
-
             // if this is a final aggregation, the input is an intermediate value
             if (step == Step.FINAL) {
-                BlockCursor cursor = block.cursor();
+                BlockCursor cursor = page.getBlock(channel).cursor();
                 while (cursor.advanceNextPosition()) {
                     intermediateValue = function.addIntermediate(cursor, intermediateValue);
                 }
             }
             else {
+                Block block;
+                if (channel >= 0) {
+                    block = page.getBlock(channel);
+                }
+                else {
+                    block = null;
+                }
                 intermediateValue = function.addInput(page.getPositionCount(), block, intermediateValue);
             }
         }
@@ -257,13 +232,7 @@ public class AggregationOperator
         @Override
         public void addValue(BlockCursor... cursors)
         {
-            BlockCursor cursor;
-            if (channel >= 0) {
-                cursor = cursors[channel];
-            }
-            else {
-                cursor = null;
-            }
+            BlockCursor cursor = cursors[channel];
 
             // if this is a final aggregation, the input is an intermediate value
             if (step == Step.FINAL) {

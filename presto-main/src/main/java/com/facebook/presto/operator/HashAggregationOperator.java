@@ -53,6 +53,7 @@ public class HashAggregationOperator
     {
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkArgument(groupByChannel >= 0, "groupByChannel is negative");
+        Preconditions.checkNotNull(step, "step is null");
         Preconditions.checkNotNull(functionDefinitions, "functionDefinitions is null");
         Preconditions.checkNotNull(maxSize, "maxSize is null");
         
@@ -286,21 +287,21 @@ public class HashAggregationOperator
         private final FixedWidthAggregationFunction function;
         private final int channel;
         private final Step step;
-        private final int fixedWithSize;
+        private final int fixedWidthSize;
         private final int sliceSize;
         private final List<Slice> slices = new ArrayList<>();
-        private int maxPosition;
+        private int currentMaxPosition;
 
         private FixedWidthAggregator(FixedWidthAggregationFunction function, int channel, Step step)
         {
             this.function = function;
             this.channel = channel;
             this.step = step;
-            this.fixedWithSize = this.function.getFixedSize();
-            this.sliceSize = fixedWithSize * 1024;
+            this.fixedWidthSize = this.function.getFixedSize();
+            this.sliceSize = (int) (BlockBuilder.DEFAULT_MAX_BLOCK_SIZE.toBytes() / fixedWidthSize);
             Slice slice = Slices.allocate(sliceSize);
             slices.add(slice);
-            maxPosition = sliceSize / fixedWithSize;
+            currentMaxPosition = sliceSize / fixedWidthSize;
         }
 
         @Override
@@ -325,13 +326,13 @@ public class HashAggregationOperator
         public void initialize(int position)
         {
             // add more slices if necessary
-            while (position >= maxPosition) {
+            while (position >= currentMaxPosition) {
                 Slice slice = Slices.allocate(sliceSize);
                 slices.add(slice);
-                maxPosition += sliceSize / fixedWithSize;
+                currentMaxPosition += sliceSize / fixedWidthSize;
             }
 
-            int globalOffset = position * fixedWithSize;
+            int globalOffset = position * fixedWidthSize;
 
             int sliceIndex = globalOffset / sliceSize; // todo do this with shifts?
             Slice slice = slices.get(sliceIndex);
@@ -350,7 +351,7 @@ public class HashAggregationOperator
                 cursor = null;
             }
 
-            int globalOffset = position * fixedWithSize;
+            int globalOffset = position * fixedWidthSize;
 
             int sliceIndex = globalOffset / sliceSize; // todo do this with shifts?
             Slice slice = slices.get(sliceIndex);
@@ -368,7 +369,7 @@ public class HashAggregationOperator
         @Override
         public void evaluate(int position, BlockBuilder output)
         {
-            int offset = position * fixedWithSize;
+            int offset = position * fixedWidthSize;
 
             int sliceIndex = offset / sliceSize; // todo do this with shifts
             Slice slice = slices.get(sliceIndex);
@@ -474,7 +475,7 @@ public class HashAggregationOperator
         public SliceHashStrategy(TupleInfo tupleInfo)
         {
             this.tupleInfo = tupleInfo;
-            this.slices = ObjectArrayList.wrap(new Slice[10240], 0);
+            this.slices = ObjectArrayList.wrap(new Slice[1024], 0);
         }
 
         public long getEstimatedSize()
