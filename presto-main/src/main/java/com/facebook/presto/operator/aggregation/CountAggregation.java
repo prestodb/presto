@@ -39,16 +39,19 @@ public class CountAggregation
     @Override
     public void addInput(int positionCount, Block block, Slice valueSlice, int valueOffset)
     {
-        long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
-        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, currentValue + positionCount);
+        addCount(positionCount, valueSlice, valueOffset);
     }
 
     @Override
     public void addInput(BlockCursor cursor, Slice valueSlice, int valueOffset)
     {
-        // update current value
+        addCount(1, valueSlice, valueOffset);
+    }
+
+    private void addCount(int positionCount, Slice valueSlice, int valueOffset)
+    {
         long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
-        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, currentValue + 1);
+        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, currentValue + positionCount);
     }
 
     @Override
