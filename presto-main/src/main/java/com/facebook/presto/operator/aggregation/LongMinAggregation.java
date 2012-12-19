@@ -42,6 +42,7 @@ public class LongMinAggregation
     @Override
     public void addInput(BlockCursor cursor, Slice valueSlice, int valueOffset)
     {
+        // todo remove this assumption that the field is 0
         if (cursor.isNull(0)) {
             return;
         }
@@ -51,6 +52,7 @@ public class LongMinAggregation
 
         // update current value
         long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
+        // todo remove this assumption that the field is 0
         long newValue = cursor.getLong(0);
         SINGLE_LONG.setLong(valueSlice, valueOffset, 0, Math.min(currentValue, newValue));
     }
@@ -65,8 +67,10 @@ public class LongMinAggregation
         // process block
         BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {
+        // todo remove this assumption that the field is 0
             if (!cursor.isNull(0)) {
                 hasNonNull = true;
+                // todo remove this assumption that the field is 0
                 min = Math.min(min, cursor.getLong(0));
             }
         }

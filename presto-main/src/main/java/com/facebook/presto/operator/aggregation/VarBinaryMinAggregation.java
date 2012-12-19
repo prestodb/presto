@@ -45,10 +45,12 @@ public class VarBinaryMinAggregation
     @Override
     public Slice addInput(BlockCursor cursor, Slice currentMin)
     {
+        // todo remove this assumption that the field is 0
         if (cursor.isNull(0)) {
             return currentMin;
         }
 
+        // todo remove this assumption that the field is 0
         Slice value = cursor.getSlice(0);
         if (currentMin == null) {
             return value;

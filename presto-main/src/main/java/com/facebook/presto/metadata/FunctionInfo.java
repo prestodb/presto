@@ -81,9 +81,11 @@ public class FunctionInfo
     {
         if (inputs.isEmpty()) {
             return aggregation(function, -1);
-        } else {
+        }
+        else {
             Preconditions.checkArgument(inputs.size() == 1, "expected at most one input");
             Input input = inputs.get(0);
+            // todo remove this assumption that field is 0 when we add field support
             Preconditions.checkArgument(input.getField() == 0, "expected field to be 0");
             return aggregation(function, input.getChannel());
         }
