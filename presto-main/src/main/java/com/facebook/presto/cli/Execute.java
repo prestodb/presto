@@ -28,7 +28,7 @@ public class Execute
 
         try (QueryRunner queryRunner = QueryRunner.create(server, debug)) {
             try (Query query = queryRunner.startQuery(queryText)) {
-                query.run(System.err);
+                query.renderOutput(System.err);
             }
             catch (QueryAbortedException e) {
                 System.err.println("Query aborted by user");
