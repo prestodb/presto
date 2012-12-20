@@ -1,4 +1,4 @@
-package com.facebook.presto.event.queryinfo;
+package com.facebook.presto.event.query;
 
 import com.facebook.presto.execution.FailureInfo;
 import com.facebook.presto.execution.QueryInfo;
@@ -22,9 +22,29 @@ public class QueryEventFactory
         this.failureInfoJsonCodec = checkNotNull(failureInfoJsonCodec, "failureInfoJsonCodec is null");
     }
 
-    public QueryCompletionEvent createCompletionEvent(QueryInfo queryInfo)
+    public QueryCompletionEvent completionEvent(QueryInfo queryInfo)
     {
         return new QueryCompletionEvent(
+                queryInfo.getQueryId(),
+                queryInfo.getState(),
+                queryInfo.getSelf(),
+                queryInfo.getFieldNames(),
+                queryInfo.getQuery(),
+                queryInfo.getQueryStats().getCreateTime(),
+                queryInfo.getQueryStats().getExecutionStartTime(),
+                queryInfo.getQueryStats().getEndTime(),
+                queryInfo.getQueryStats().getQueuedTime(),
+                queryInfo.getQueryStats().getAnalysisTime(),
+                queryInfo.getQueryStats().getDistributedPlanningTime(),
+                queryInfo.getQueryStats().getSplits(),
+                stageInfoJsonCodec.toJson(queryInfo.getOutputStage()),
+                failureInfoJsonCodec.toJson(queryInfo.getFailures())
+        );
+    }
+
+    public QueryCreatedEvent createdEvent(QueryInfo queryInfo)
+    {
+        return new QueryCreatedEvent(
                 queryInfo.getQueryId(),
                 queryInfo.getState(),
                 queryInfo.getSelf(),
