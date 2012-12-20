@@ -3,6 +3,7 @@ package com.facebook.presto.cli;
 import com.facebook.presto.execution.ExecutionStats;
 import com.facebook.presto.execution.PageBufferInfo;
 import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
@@ -167,7 +168,10 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
         sumStats(outputStage, globalExecutionStats, false);
 
         int nodes = uniqueNodes(outputStage).size();
-        long completedDataSizePerNode = inputExecutionStats.getCompletedDataSize() / nodes;
+        long completedDataSizePerNode = 0;
+        if (nodes > 0) {
+            completedDataSizePerNode = inputExecutionStats.getCompletedDataSize() / nodes;
+        }
 
         if (REAL_TERMINAL) {
             // blank line
@@ -180,6 +184,10 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
                     nodes,
                     wallTime.convertTo(SECONDS));
             reprintLine(querySummary);
+
+            if (queryInfo.getState() == QueryState.PLANNING) {
+                return;
+            }
 
             // Splits: 648 total, 252 pending, 16 running, 380 finished
             String splitsSummary = String.format("Splits: %,4d total, %,4d pending, %,4d running, %,4d done",
@@ -293,6 +301,9 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
 
     private static void sumStats(StageInfo stageInfo, ExecutionStats executionStats, boolean sumLeafOnly)
     {
+        if (stageInfo == null) {
+            return;
+        }
         if (!sumLeafOnly || stageInfo.getSubStages().isEmpty()) {
             sumTaskStats(stageInfo, executionStats);
         }
@@ -310,6 +321,9 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
 
     private static Set<String> uniqueNodes(StageInfo stageInfo)
     {
+        if (stageInfo == null) {
+            return ImmutableSet.of();
+        }
         ImmutableSet.Builder<String> nodes = ImmutableSet.builder();
         for (TaskInfo task : stageInfo.getTasks()) {
             // todo add nodeId to TaskInfo
