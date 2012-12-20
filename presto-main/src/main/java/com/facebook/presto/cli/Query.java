@@ -15,6 +15,7 @@ import com.google.common.collect.Iterables;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
 
+import java.io.Closeable;
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.util.List;
@@ -25,7 +26,7 @@ import static com.facebook.presto.operator.OutputProcessor.OutputStats;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Query
-        implements AutoCloseable
+        implements Closeable
 {
     private static final Signal SIGINT = new Signal("INT");
 
@@ -38,7 +39,7 @@ public class Query
         this.debug = debug;
     }
 
-    public void run(PrintStream out)
+    public void renderOutput(PrintStream out)
     {
         SignalHandler oldHandler = Signal.handle(SIGINT, new SignalHandler()
         {
@@ -49,14 +50,14 @@ public class Query
             }
         });
         try {
-            runQuery(out);
+            renderQueryOutput(out);
         }
         finally {
             Signal.handle(SIGINT, oldHandler);
         }
     }
 
-    private void runQuery(PrintStream out)
+    private void renderQueryOutput(PrintStream out)
     {
         StatusPrinter statusPrinter = new StatusPrinter(queryClient, out);
         statusPrinter.printInitialStatusUpdates();
@@ -87,8 +88,19 @@ public class Query
         }
     }
 
+    private static OutputStats pageOutput(List<String> pagerCommand, Operator operator, List<String> fieldNames)
+    {
+        try (Pager pager = Pager.create(pagerCommand)) {
+            @SuppressWarnings("IOResourceOpenedButNotSafelyClosed")
+            OutputStreamWriter writer = new OutputStreamWriter(pager, Charsets.UTF_8);
+            OutputHandler outputHandler = new AlignedTuplePrinter(fieldNames, writer);
+            OutputProcessor processor = new OutputProcessor(operator, outputHandler);
+            return processor.process();
+        }
+    }
+
     @Override
-    public synchronized void close()
+    public void close()
     {
         queryClient.destroy();
     }
@@ -186,16 +198,5 @@ public class Query
             builder.add(failureInfo.getMessage());
         }
         return builder.build();
-    }
-
-    private static OutputStats pageOutput(List<String> pagerCommand, Operator operator, List<String> fieldNames)
-    {
-        try (Pager pager = Pager.create(pagerCommand)) {
-            @SuppressWarnings("IOResourceOpenedButNotSafelyClosed")
-            OutputStreamWriter writer = new OutputStreamWriter(pager, Charsets.UTF_8);
-            OutputHandler outputHandler = new AlignedTuplePrinter(fieldNames, writer);
-            OutputProcessor processor = new OutputProcessor(operator, outputHandler);
-            return processor.process();
-        }
     }
 }

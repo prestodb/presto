@@ -74,7 +74,7 @@ public class Console
         }
 
         try (Query query = queryRunner.startQuery(line)) {
-            query.run(System.out);
+            query.renderOutput(System.out);
         }
         catch (QueryAbortedException e) {
             System.out.println("(query aborted by user)");

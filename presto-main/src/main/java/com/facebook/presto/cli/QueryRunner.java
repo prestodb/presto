@@ -5,6 +5,7 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.server.HttpQueryClient;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.http.client.ApacheHttpClient;
 import io.airlift.http.client.HttpClientConfig;
@@ -52,6 +53,7 @@ public class QueryRunner
 
     public Query startQuery(String query)
     {
+        Preconditions.checkNotNull(query, "query is null");
         HttpQueryClient client = new HttpQueryClient(query, coordinatorLocation, httpClient, executor, queryInfoCodec, taskInfoCodec);
         return new Query(client, debug);
     }
