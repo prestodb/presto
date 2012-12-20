@@ -1,11 +1,9 @@
 package com.facebook.presto.cli;
 
-import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,11 +24,6 @@ public class AlignedTuplePrinter
     private final Writer writer;
     private boolean headerOutput = false;
     private long rowCount = 0;
-
-    public AlignedTuplePrinter(List<String> fieldNames)
-    {
-        this(fieldNames, new OutputStreamWriter(System.out, Charsets.UTF_8));
-    }
 
     public AlignedTuplePrinter(List<String> fieldNames, Writer writer)
     {
