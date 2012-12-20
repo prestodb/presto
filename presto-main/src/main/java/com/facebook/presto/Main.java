@@ -24,12 +24,12 @@ public class Main
     public static void main(String[] args)
             throws Exception
     {
-        CliBuilder<Runnable> builder = Cli.buildCli("presto", Runnable.class)
+        CliBuilder<Runnable> builder = Cli.<Runnable>builder("presto")
                 .withDefaultCommand(Server.class)
                 .withCommand(Server.class)
                 .withCommand(Execute.class)
                 .withCommand(Console.class)
-                .withCommands(Help.class);
+                .withCommand(Help.class);
 
         builder.withGroup("convert")
                 .withDescription("convert file formats")
