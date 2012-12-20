@@ -1,11 +1,13 @@
 package com.facebook.presto.cli;
 
+import com.facebook.presto.Main;
 import io.airlift.command.Command;
 import io.airlift.command.Option;
 import jline.console.ConsoleReader;
 import jline.console.history.FileHistory;
 import jline.console.history.History;
 import jline.console.history.MemoryHistory;
+import org.fusesource.jansi.AnsiConsole;
 
 import java.io.Closeable;
 import java.io.File;
@@ -28,6 +30,16 @@ public class Console
     @Override
     public void run()
     {
+        AnsiConsole.systemInstall();
+        Main.initializeLogging(debug);
+
+        try (QueryRunner queryRunner = QueryRunner.create(server, debug)) {
+            runConsole(queryRunner);
+        }
+    }
+
+    private void runConsole(QueryRunner queryRunner)
+    {
         try (LineReader reader = new LineReader(getHistory())) {
             while (true) {
                 String line = reader.readLine("presto> ");
@@ -40,18 +52,18 @@ public class Console
                     continue;
                 }
 
-                if (!process(line)) {
+                if (!process(queryRunner, line)) {
                     return;
                 }
                 reader.getHistory().add(line);
             }
         }
         catch (IOException e) {
-            System.err.println("readline error: " + e.getMessage());
+            System.err.println("Readline error: " + e.getMessage());
         }
     }
 
-    private boolean process(String line)
+    private boolean process(QueryRunner queryRunner, String line)
     {
         if (line.endsWith(";")) {
             line = line.substring(0, line.length() - 1);
@@ -61,19 +73,15 @@ public class Console
             return false;
         }
 
-        try {
-            Execute query = new Execute();
-            query.server = server;
-            query.query = line;
-            query.debug = debug;
-            query.run();
+        try (Query query = queryRunner.startQuery(line)) {
+            query.run(System.out);
         }
         catch (QueryAbortedException e) {
             System.out.println("(query aborted by user)");
             System.out.println();
         }
         catch (Exception e) {
-            System.out.println("error running command: " + e.getMessage());
+            System.out.println("Error running command: " + e.getMessage());
             if (debug) {
                 e.printStackTrace();
             }

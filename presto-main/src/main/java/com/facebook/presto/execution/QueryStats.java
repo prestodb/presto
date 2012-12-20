@@ -16,6 +16,7 @@ public class QueryStats
     private final DateTime createTime;
     private final long createNanos;
     private DateTime executionStartTime;
+    private DateTime lastHeartBeat;
     private DateTime endTime;
     // todo these should be duration objects
     // times are in ms
@@ -28,6 +29,7 @@ public class QueryStats
     public QueryStats()
     {
         createTime = DateTime.now();
+        lastHeartBeat = DateTime.now();
         createNanos = System.nanoTime();
     }
 
@@ -35,6 +37,7 @@ public class QueryStats
     public QueryStats(
             @JsonProperty("createTime") DateTime createTime,
             @JsonProperty("executionStartTime") DateTime executionStartTime,
+            @JsonProperty("lastHeartBeat") DateTime lastHeartBeat,
             @JsonProperty("endTime") DateTime endTime,
             @JsonProperty("queuedTime") long queuedTime,
             @JsonProperty("analysisTime") long analysisTime,
@@ -62,6 +65,12 @@ public class QueryStats
     public DateTime getExecutionStartTime()
     {
         return executionStartTime;
+    }
+
+    @JsonProperty
+    public DateTime getLastHeartBeat()
+    {
+        return lastHeartBeat;
     }
 
     @JsonProperty
@@ -100,6 +109,11 @@ public class QueryStats
         queuedTime = (long) Duration.nanosSince(createNanos).toMillis();
     }
 
+    public void recordHeartBeat()
+    {
+        this.lastHeartBeat = DateTime.now();
+    }
+
     public void recordExecutionStart()
     {
         this.executionStartTime = DateTime.now();
@@ -107,7 +121,9 @@ public class QueryStats
 
     public void recordEnd()
     {
-        this.endTime = DateTime.now();
+        if (endTime == null) {
+            endTime = DateTime.now();
+        }
     }
 
     public void recordAnalysisTime(long analysisStart)
