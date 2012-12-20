@@ -4,6 +4,7 @@ import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -15,6 +16,7 @@ public class QueryManagerConfig
     private DataSize maxOperatorMemoryUsage = new DataSize(256, Unit.MEGABYTE);
     private int maxShardProcessorThreads = Runtime.getRuntime().availableProcessors() * 4;
     private Duration maxQueryAge = new Duration(15, TimeUnit.MINUTES);
+    private Duration clientTimeout = new Duration(1, TimeUnit.MINUTES);
 
     public boolean isImportsEnabled()
     {
@@ -64,6 +66,20 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxQueryAge(Duration maxQueryAge)
     {
         this.maxQueryAge = maxQueryAge;
+        return this;
+    }
+
+    @MinDuration("5s")
+    @NotNull
+    public Duration getClientTimeout()
+    {
+        return clientTimeout;
+    }
+
+    @Config("query.client.timeout")
+    public QueryManagerConfig setClientTimeout(Duration clientTimeout)
+    {
+        this.clientTimeout = clientTimeout;
         return this;
     }
 }

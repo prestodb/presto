@@ -16,6 +16,7 @@ public class ExecutionStats
 {
     private final DateTime createTime;
     private DateTime executionStartTime;
+    private DateTime lastHeartBeat;
     private DateTime endTime;
 
     private final AtomicInteger splits;
@@ -35,13 +36,14 @@ public class ExecutionStats
 
     public ExecutionStats()
     {
-        this(DateTime.now(), null, null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        this(DateTime.now(), null, DateTime.now(), null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     }
 
     @JsonCreator
     public ExecutionStats(
             @JsonProperty("createTime") DateTime createTime,
             @JsonProperty("executionStartTime") DateTime executionStartTime,
+            @JsonProperty("lastHeartBeat") DateTime lastHeartBeat,
             @JsonProperty("endTime") DateTime endTime,
             @JsonProperty("splits") int splits,
             @JsonProperty("startedSplits") int startedSplits,
@@ -56,6 +58,7 @@ public class ExecutionStats
     {
         this.createTime = createTime;
         this.executionStartTime = executionStartTime;
+        this.lastHeartBeat = lastHeartBeat;
         this.endTime = endTime;
         this.splits = new AtomicInteger(splits);
         this.startedSplits = new AtomicInteger(startedSplits);
@@ -79,6 +82,12 @@ public class ExecutionStats
     public DateTime getExecutionStartTime()
     {
         return executionStartTime;
+    }
+
+    @JsonProperty
+    public DateTime getLastHeartBeat()
+    {
+        return lastHeartBeat;
     }
 
     @JsonProperty
@@ -200,6 +209,11 @@ public class ExecutionStats
     public void recordExecutionStart()
     {
         this.executionStartTime = DateTime.now();
+    }
+
+    public void recordHeartBeat()
+    {
+        this.lastHeartBeat = DateTime.now();
     }
 
     public void recordEnd()

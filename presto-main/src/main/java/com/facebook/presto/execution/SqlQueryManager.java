@@ -55,6 +55,7 @@ public class SqlQueryManager
     private final ConcurrentMap<String, QueryExecution> queries = new ConcurrentHashMap<>();
 
     private final boolean importsEnabled;
+    private final Duration clientTimeout;
 
     @Inject
     public SqlQueryManager(ImportClientFactory importClientFactory,
@@ -89,6 +90,7 @@ public class SqlQueryManager
         this.locationFactory = locationFactory;
         this.importsEnabled = config.isImportsEnabled();
         this.maxQueryAge = config.getMaxQueryAge();
+        this.clientTimeout = config.getClientTimeout();
 
         ScheduledExecutorService queryManagementExecutor = Executors.newScheduledThreadPool(100, threadsNamed("query-management-%d"));
 
@@ -114,7 +116,13 @@ public class SqlQueryManager
             public void run()
             {
                 try {
-                    removeOldQueries();
+                    removeExpiredQueries();
+                }
+                catch (Throwable e) {
+                    log.warn(e, "Error removing old queries");
+                }
+                try {
+                    cancelAbandonedQueries();
                 }
                 catch (Throwable e) {
                     log.warn(e, "Error removing old queries");
@@ -150,6 +158,8 @@ public class SqlQueryManager
         if (query == null) {
             throw new NoSuchElementException();
         }
+        // todo should this be a method on QueryExecution?
+        query.getQueryInfo().getQueryStats().recordHeartBeat();
         if (forceRefresh) {
             query.updateState();
         }
@@ -223,7 +233,10 @@ public class SqlQueryManager
         }
     }
 
-    public void removeOldQueries()
+    /**
+     * Remove completed queries after a waiting period
+     */
+    public void removeExpiredQueries()
     {
         DateTime oldestAllowedQuery = DateTime.now().minus((long) maxQueryAge.toMillis());
         for (QueryExecution queryExecution : queries.values()) {
@@ -232,6 +245,26 @@ public class SqlQueryManager
                 DateTime endTime = queryInfo.getQueryStats().getEndTime();
                 if (endTime != null && endTime.isBefore(oldestAllowedQuery)) {
                     removeQuery(queryExecution.getQueryId());
+                }
+            }
+            catch (Exception e) {
+                log.warn(e, "Error while inspecting age of query %s", queryExecution.getQueryId());
+            }
+        }
+    }
+
+    public void cancelAbandonedQueries()
+    {
+        DateTime oldestAllowedHeartBeat = DateTime.now().minus((long) clientTimeout.toMillis());
+        for (QueryExecution queryExecution : queries.values()) {
+            try {
+                QueryInfo queryInfo = queryExecution.getQueryInfo();
+                if (queryInfo.getState().isDone()) {
+                    continue;
+                }
+                DateTime lastHeartBeat = queryInfo.getQueryStats().getLastHeartBeat();
+                if (lastHeartBeat != null && lastHeartBeat.isBefore(oldestAllowedHeartBeat)) {
+                    cancelQuery(queryExecution.getQueryId());
                 }
             }
             catch (Exception e) {
