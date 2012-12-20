@@ -3,8 +3,9 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.event.queryinfo.QueryCompletionEvent;
-import com.facebook.presto.event.queryinfo.QueryEventFactory;
+import com.facebook.presto.event.query.QueryCompletionEvent;
+import com.facebook.presto.event.query.QueryCreatedEvent;
+import com.facebook.presto.event.query.QueryEventFactory;
 import com.facebook.presto.execution.FailureInfo;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryManager;
@@ -57,7 +58,6 @@ import io.airlift.dbpool.H2EmbeddedDataSourceConfig;
 import io.airlift.dbpool.H2EmbeddedDataSourceModule;
 import io.airlift.dbpool.MySqlDataSourceModule;
 import io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
-import io.airlift.event.client.EventBinder;
 import io.airlift.http.client.HttpClientBinder;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.DBI;
@@ -133,6 +133,7 @@ public class ServerMainModule
         jsonCodecBinder(binder).bindJsonCodec(StageInfo.class);
         jsonCodecBinder(binder).bindListJsonCodec(FailureInfo.class);
         binder.bind(QueryEventFactory.class).in(Scopes.SINGLETON);
+        eventBinder(binder).bindEventClient(QueryCreatedEvent.class);
         eventBinder(binder).bindEventClient(QueryCompletionEvent.class);
 
         discoveryBinder(binder).bindSelector("presto");

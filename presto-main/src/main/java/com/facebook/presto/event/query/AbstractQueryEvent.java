@@ -1,8 +1,7 @@
-package com.facebook.presto.event.queryinfo;
+package com.facebook.presto.event.query;
 
 import com.facebook.presto.execution.QueryState;
 import io.airlift.event.client.EventField;
-import io.airlift.event.client.EventType;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.Immutable;
@@ -10,11 +9,10 @@ import java.net.URI;
 import java.util.List;
 
 /**
- * Flattened Event version of QueryInfo at query completion
+ * Flattened Event version of QueryInfo for various query stages
  */
 @Immutable
-@EventType("QueryCompletion")
-public class QueryCompletionEvent
+public abstract class AbstractQueryEvent
 {
     private final String queryId;
     private final QueryState queryState;
@@ -35,7 +33,7 @@ public class QueryCompletionEvent
     private final String outputStageJson;
     private final String failuresJson;
 
-    public QueryCompletionEvent(
+    public AbstractQueryEvent(
             String queryId,
             QueryState queryState,
             URI uri,

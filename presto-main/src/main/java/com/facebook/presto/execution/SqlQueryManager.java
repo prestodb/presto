@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.event.queryinfo.QueryEventFactory;
+import com.facebook.presto.event.query.QueryEventFactory;
 import com.facebook.presto.importer.ImportManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
@@ -213,6 +213,7 @@ public class SqlQueryManager
                     locationFactory,
                     queryEventFactory,
                     eventClient);
+            eventClient.post(queryEventFactory.createdEvent(queryExecution.getQueryInfo()));
         }
         queries.put(queryExecution.getQueryId(), queryExecution);
 
