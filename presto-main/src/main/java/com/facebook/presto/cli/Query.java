@@ -12,6 +12,8 @@ import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import sun.misc.Signal;
+import sun.misc.SignalHandler;
 
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
@@ -25,6 +27,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class Query
         implements AutoCloseable
 {
+    private static final Signal SIGINT = new Signal("INT");
+
     private final HttpQueryClient queryClient;
     private final boolean debug;
 
@@ -36,11 +40,32 @@ public class Query
 
     public void run(PrintStream out)
     {
+        SignalHandler oldHandler = Signal.handle(SIGINT, new SignalHandler()
+        {
+            @Override
+            public void handle(Signal signal)
+            {
+                close();
+            }
+        });
+        try {
+            runQuery(out);
+        }
+        finally {
+            Signal.handle(SIGINT, oldHandler);
+        }
+    }
+
+    private void runQuery(PrintStream out)
+    {
         StatusPrinter statusPrinter = new StatusPrinter(queryClient, out);
         statusPrinter.printInitialStatusUpdates();
 
         QueryInfo queryInfo = queryClient.getQueryInfo(false);
-        if (queryInfo.getState().isDone()) {
+        if (queryInfo == null) {
+            out.println("Query is gone (server restarted?)");
+        }
+        else if (queryInfo.getState().isDone()) {
             if (queryInfo.getState() == QueryState.CANCELED) {
                 out.printf("Query %s was canceled\n", queryInfo.getQueryId());
             }
@@ -63,8 +88,7 @@ public class Query
     }
 
     @Override
-    public void close()
-            throws Exception
+    public synchronized void close()
     {
         queryClient.destroy();
     }
