@@ -237,16 +237,16 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
             printStageTree(outputStage, "");
         }
         else {
-            // Query 31 [S] i[2,659,640 67.3MB 62.7MBps] o[35 6.1KB 1KBps] splits[252/16/380]
-            String querySummary = String.format("Query %s [%s] i[%,d %s %s] o[%,d %s %s] splits[%,d/%,d/%,d]",
+            // Query 31 [S] i[2.7M 67.3MB 62.7MBps] o[35 6.1KB 1KBps] splits[252/16/380]
+            String querySummary = String.format("Query %s [%s] i[%s %s %s] o[%s %s %s] splits[%,d/%,d/%,d]",
                     queryInfo.getQueryId(),
                     queryInfo.getState().toString().charAt(0),
 
-                    globalExecutionStats.getInputPositionCount(),
+                    formatCount(globalExecutionStats.getInputPositionCount()),
                     formatDataSize(globalExecutionStats.getInputDataSize()),
                     formatDataRate(globalExecutionStats.getCompletedDataSize(), wallTime, false),
 
-                    globalExecutionStats.getOutputPositionCount(),
+                    formatCount(globalExecutionStats.getOutputPositionCount()),
                     formatDataSize(globalExecutionStats.getOutputDataSize()),
                     formatDataRate(globalExecutionStats.getOutputDataSize(), wallTime, false),
 
