@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.event.queryinfo.QueryEventFactory;
+import com.facebook.presto.event.query.QueryEventFactory;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.server.HttpTaskClient;
@@ -181,7 +181,7 @@ public class SqlQueryExecution
                 failureCauses.add(e);
                 queryStats.recordEnd();
                 queryState.set(QueryState.FAILED);
-                eventClient.post(queryEventFactory.createCompletionEvent(getQueryInfo()));
+                eventClient.post(queryEventFactory.completionEvent(getQueryInfo()));
             }
             cancel();
         }
@@ -304,7 +304,7 @@ public class SqlQueryExecution
             if (!queryState.get().isDone()) {
                 queryStats.recordEnd();
                 queryState.set(QueryState.CANCELED);
-                eventClient.post(queryEventFactory.createCompletionEvent(getQueryInfo()));
+                eventClient.post(queryEventFactory.completionEvent(getQueryInfo()));
             }
         }
 
@@ -339,7 +339,7 @@ public class SqlQueryExecution
                     this.queryState.set(QueryState.FINISHED);
                 }
                 queryStats.recordEnd();
-                eventClient.post(queryEventFactory.createCompletionEvent(getQueryInfo()));
+                eventClient.post(queryEventFactory.completionEvent(getQueryInfo()));
             } else if (queryState.get() == QueryState.STARTING) {
                 // if any stage is running transition to running
                 if (any(transform(getAllStages(outputStage.getStageInfo()), stageStateGetter()), isStageRunningOrDone())) {
