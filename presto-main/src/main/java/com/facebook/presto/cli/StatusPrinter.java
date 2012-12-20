@@ -9,6 +9,7 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.server.HttpQueryClient;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Uninterruptibles;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.fusesource.jansi.Ansi;
 import org.fusesource.jansi.Ansi.Erase;
@@ -29,6 +30,8 @@ import static org.fusesource.jansi.internal.CLibrary.isatty;
 
 public class StatusPrinter
 {
+    private static final Logger log = Logger.get(StatusPrinter.class);
+
     private final long start = System.nanoTime();
     private final HttpQueryClient queryClient;
     private final PrintStream out;
@@ -86,7 +89,8 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
                     }
                     Uninterruptibles.sleepUninterruptibly(100, MILLISECONDS);
                 }
-                catch (Exception ignored) {
+                catch (Exception e) {
+                    log.debug(e, "error printing status");
                 }
             }
         }
