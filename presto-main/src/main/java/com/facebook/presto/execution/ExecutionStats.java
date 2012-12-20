@@ -9,14 +9,20 @@ import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 import org.joda.time.DateTime;
 
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+@ThreadSafe
 public class ExecutionStats
 {
     private final DateTime createTime;
+    @GuardedBy("this")
     private DateTime executionStartTime;
+    @GuardedBy("this")
     private DateTime lastHeartBeat;
+    @GuardedBy("this")
     private DateTime endTime;
 
     private final AtomicInteger splits;
@@ -79,19 +85,19 @@ public class ExecutionStats
     }
 
     @JsonProperty
-    public DateTime getExecutionStartTime()
+    public synchronized DateTime getExecutionStartTime()
     {
         return executionStartTime;
     }
 
     @JsonProperty
-    public DateTime getLastHeartBeat()
+    public synchronized DateTime getLastHeartBeat()
     {
         return lastHeartBeat;
     }
 
     @JsonProperty
-    public DateTime getEndTime()
+    public synchronized DateTime getEndTime()
     {
         return endTime;
     }
@@ -206,17 +212,17 @@ public class ExecutionStats
         this.outputDataSize.addAndGet(outputDataSize.toBytes());
     }
 
-    public void recordExecutionStart()
+    public synchronized void recordExecutionStart()
     {
         this.executionStartTime = DateTime.now();
     }
 
-    public void recordHeartBeat()
+    public synchronized void recordHeartBeat()
     {
         this.lastHeartBeat = DateTime.now();
     }
 
-    public void recordEnd()
+    public synchronized void recordEnd()
     {
         if (endTime == null) {
             endTime = DateTime.now();

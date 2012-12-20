@@ -9,20 +9,27 @@ import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 import org.joda.time.DateTime;
 
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
+@ThreadSafe
 public class QueryStats
 {
     private final DateTime createTime;
     private final long createNanos;
+    @GuardedBy("this")
     private DateTime executionStartTime;
+    @GuardedBy("this")
     private DateTime lastHeartBeat;
+    @GuardedBy("this")
     private DateTime endTime;
     // todo these should be duration objects
     // times are in ms
-    private long queuedTime;
-    private long analysisTime;
-    private long distributedPlanningTime;
+    private AtomicLong queuedTime = new AtomicLong();
+    private AtomicLong analysisTime = new AtomicLong();
+    private AtomicLong distributedPlanningTime = new AtomicLong();
 
     private AtomicInteger splits = new AtomicInteger();
 
@@ -47,9 +54,9 @@ public class QueryStats
         this.createTime = createTime;
         this.executionStartTime = executionStartTime;
         this.endTime = endTime;
-        this.queuedTime = queuedTime;
-        this.analysisTime = analysisTime;
-        this.distributedPlanningTime = distributedPlanningTime;
+        this.queuedTime.set(queuedTime);
+        this.analysisTime.set(analysisTime);
+        this.distributedPlanningTime.set(distributedPlanningTime);
         this.splits.set(splits);
 
         createNanos = -1;
@@ -62,19 +69,19 @@ public class QueryStats
     }
 
     @JsonProperty
-    public DateTime getExecutionStartTime()
+    public synchronized DateTime getExecutionStartTime()
     {
         return executionStartTime;
     }
 
     @JsonProperty
-    public DateTime getLastHeartBeat()
+    public synchronized DateTime getLastHeartBeat()
     {
         return lastHeartBeat;
     }
 
     @JsonProperty
-    public DateTime getEndTime()
+    public synchronized DateTime getEndTime()
     {
         return endTime;
     }
@@ -82,19 +89,19 @@ public class QueryStats
     @JsonProperty
     public long getQueuedTime()
     {
-        return queuedTime;
+        return queuedTime.get();
     }
 
     @JsonProperty
     public long getAnalysisTime()
     {
-        return analysisTime;
+        return analysisTime.get();
     }
 
     @JsonProperty
     public long getDistributedPlanningTime()
     {
-        return distributedPlanningTime;
+        return distributedPlanningTime.get();
     }
 
     @JsonProperty
@@ -106,20 +113,20 @@ public class QueryStats
     public void recordAnalysisStart()
     {
         Preconditions.checkState(createNanos > 0, "Can not record analysis start");
-        queuedTime = (long) Duration.nanosSince(createNanos).toMillis();
+        queuedTime.set((long) Duration.nanosSince(createNanos).toMillis());
     }
 
-    public void recordHeartBeat()
+    public synchronized void recordHeartBeat()
     {
         this.lastHeartBeat = DateTime.now();
     }
 
-    public void recordExecutionStart()
+    public synchronized void recordExecutionStart()
     {
         this.executionStartTime = DateTime.now();
     }
 
-    public void recordEnd()
+    public synchronized void recordEnd()
     {
         if (endTime == null) {
             endTime = DateTime.now();
@@ -128,12 +135,12 @@ public class QueryStats
 
     public void recordAnalysisTime(long analysisStart)
     {
-        analysisTime = (long) Duration.nanosSince(analysisStart).toMillis();
+        analysisTime.set((long) Duration.nanosSince(analysisStart).toMillis());
     }
 
     public void recordDistributedPlanningTime(long distributedPlanningStart)
     {
-        distributedPlanningTime = (long) Duration.nanosSince(distributedPlanningStart).toMillis();
+        distributedPlanningTime.set((long) Duration.nanosSince(distributedPlanningStart).toMillis());
     }
 
     public void addSplits(int splits)
