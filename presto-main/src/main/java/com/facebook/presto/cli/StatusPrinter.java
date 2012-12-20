@@ -60,11 +60,10 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
         try {
             while (true) {
                 try {
-
                     QueryInfo queryInfo = queryClient.getQueryInfo(false);
 
                     // if query is no longer running, finish
-                    if (queryInfo == null || queryInfo.getState().isDone()) {
+                    if ((queryInfo == null) || queryInfo.getState().isDone()) {
                         return;
                     }
 
@@ -98,7 +97,7 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
 
     public void printFinalInfo(OutputStats stats)
     {
-        Duration elapsedTime = Duration.nanosSince(start);
+        Duration wallTime = Duration.nanosSince(start);
 
         QueryInfo queryInfo = queryClient.getQueryInfo(true);
         QueryStats queryStats = queryInfo.getQueryStats();
@@ -138,7 +137,6 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
         out.println(cpuUserSummary);
 
         // CPU wall: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
-        Duration wallTime = elapsedTime;
         Duration wallTimePerNode = new Duration(wallTime.toMillis() / nodes, MILLISECONDS);
         String cpuWallSummary = String.format("CPU wall: %s %s total, %s %s per node",
                 wallTime.toString(SECONDS),
@@ -153,7 +151,7 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
 
     private void printQueryInfo(QueryInfo queryInfo)
     {
-        Duration elapsedTime = Duration.nanosSince(start);
+        Duration wallTime = Duration.nanosSince(start);
 
         StageInfo outputStage = queryInfo.getOutputStage();
 
@@ -168,8 +166,10 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
         long completedDataSizePerNode = inputExecutionStats.getCompletedDataSize() / nodes;
 
         if (REAL_TERMINAL) {
+            // blank line
+            reprintLine("");
+
             // Query 143: RUNNING, 39 nodes, 84.3s elapsed
-            Duration wallTime = elapsedTime;
             String querySummary = String.format("Query %s: %s, %,d nodes, %.1fs elapsed",
                     queryInfo.getQueryId(),
                     queryInfo.getState(),
@@ -232,11 +232,11 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
 
                     globalExecutionStats.getInputPositionCount(),
                     formatDataSize(globalExecutionStats.getInputDataSize()),
-                    formatDataRate(globalExecutionStats.getCompletedDataSize(), elapsedTime, false),
+                    formatDataRate(globalExecutionStats.getCompletedDataSize(), wallTime, false),
 
                     globalExecutionStats.getOutputPositionCount(),
                     formatDataSize(globalExecutionStats.getOutputDataSize()),
-                    formatDataRate(globalExecutionStats.getOutputDataSize(), elapsedTime, false),
+                    formatDataRate(globalExecutionStats.getOutputDataSize(), wallTime, false),
 
                     max(0, globalExecutionStats.getSplits() - globalExecutionStats.getStartedSplits()),
                     max(0, globalExecutionStats.getStartedSplits() - globalExecutionStats.getCompletedSplits()),
@@ -287,7 +287,7 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
         }
     }
 
-    public void sumStats(StageInfo stageInfo, ExecutionStats executionStats, boolean sumLeafOnly)
+    private static void sumStats(StageInfo stageInfo, ExecutionStats executionStats, boolean sumLeafOnly)
     {
         if (!sumLeafOnly || stageInfo.getSubStages().isEmpty()) {
             sumTaskStats(stageInfo, executionStats);
@@ -297,14 +297,14 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
         }
     }
 
-    private void sumTaskStats(StageInfo stageInfo, ExecutionStats executionStats)
+    private static void sumTaskStats(StageInfo stageInfo, ExecutionStats executionStats)
     {
         for (TaskInfo task : stageInfo.getTasks()) {
             executionStats.add(task.getStats());
         }
     }
 
-    public Set<String> uniqueNodes(StageInfo stageInfo)
+    private static Set<String> uniqueNodes(StageInfo stageInfo)
     {
         ImmutableSet.Builder<String> nodes = ImmutableSet.builder();
         for (TaskInfo task : stageInfo.getTasks()) {
@@ -475,16 +475,15 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
 
     private static boolean isRealTerminal()
     {
-
         // If the jansi.passthrough property is set, then don't interpret
         // any of the ansi sequences.
-        if (Boolean.getBoolean("jansi.passthrough")) {
+        if (Boolean.parseBoolean(System.getProperty("jansi.passthrough"))) {
             return true;
         }
 
         // If the jansi.strip property is set, then we just strip the
         // the ansi escapes.
-        if (Boolean.getBoolean("jansi.strip")) {
+        if (Boolean.parseBoolean(System.getProperty("jansi.strip"))) {
             return false;
         }
 
@@ -501,12 +500,10 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
             if (rc == 0) {
                 return false;
             }
-
         }
         catch (NoClassDefFoundError | UnsatisfiedLinkError ignore) {
             // These errors happen if the JNI lib is not available for your platform.
         }
         return true;
     }
-
 }
