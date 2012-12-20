@@ -19,6 +19,7 @@ public class TestQueryManagerConfig
                 .setImportsEnabled(true)
                 .setMaxShardProcessorThreads(Runtime.getRuntime().availableProcessors() * 4)
                 .setMaxQueryAge(new Duration(15, TimeUnit.MINUTES))
+                .setClientTimeout(new Duration(1, TimeUnit.MINUTES))
                 .setMaxOperatorMemoryUsage(new DataSize(256, Unit.MEGABYTE)));
     }
 
@@ -29,6 +30,7 @@ public class TestQueryManagerConfig
                 .put("import.enabled", "false")
                 .put("query.operator.max-memory", "1GB")
                 .put("query.shard.max-threads", "3")
+                .put("query.client.timeout", "10s")
                 .put("query.max-age", "30s")
                 .build();
 
@@ -36,6 +38,7 @@ public class TestQueryManagerConfig
                 .setMaxOperatorMemoryUsage(new DataSize(1, Unit.GIGABYTE))
                 .setMaxShardProcessorThreads(3)
                 .setMaxQueryAge(new Duration(30, TimeUnit.SECONDS))
+                .setClientTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setImportsEnabled(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);

@@ -52,6 +52,7 @@ public class SqlTaskManager
     private final HttpServerInfo httpServerInfo;
     private final DataSize maxOperatorMemoryUsage;
     private final Duration maxTaskAge;
+    private final Duration clientTimeout;
 
     private final ConcurrentMap<String, TaskExecution> tasks = new ConcurrentHashMap<>();
 
@@ -74,6 +75,7 @@ public class SqlTaskManager
         this.maxOperatorMemoryUsage = config.getMaxOperatorMemoryUsage();
         // Just to be nice, allow tasks to live an extra 30 seconds so queries will be removed first
         this.maxTaskAge = new Duration(config.getMaxQueryAge().toMillis() + SECONDS.toMillis(30), MILLISECONDS);
+        this.clientTimeout = config.getClientTimeout();
 
         taskExecutor = Executors.newCachedThreadPool(threadsNamed("task-processor-%d"));
 
@@ -90,6 +92,12 @@ public class SqlTaskManager
                 }
                 catch (Throwable e) {
                     log.warn(e, "Error removing old tasks");
+                }
+                try {
+                    cancelAbandonedTasks();
+                }
+                catch (Throwable e) {
+                    log.warn(e, "Error canceling abandoned tasks");
                 }
             }
         }, 200, 200, TimeUnit.MILLISECONDS);
@@ -122,7 +130,9 @@ public class SqlTaskManager
         if (taskExecution == null) {
             throw new NoSuchElementException("Unknown query task " + taskId);
         }
-        return taskExecution.getTaskInfo();
+        TaskInfo taskInfo = taskExecution.getTaskInfo();
+        taskInfo.getStats().recordHeartBeat();
+        return taskInfo;
     }
 
     @Override
@@ -224,6 +234,26 @@ public class SqlTaskManager
                 DateTime endTime = taskInfo.getStats().getEndTime();
                 if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
                     removeTask(taskExecution.getTaskId());
+                }
+            }
+            catch (Exception e) {
+                log.warn(e, "Error while inspecting age of task %s", taskExecution.getTaskId());
+            }
+        }
+    }
+
+    public void cancelAbandonedTasks()
+    {
+        DateTime oldestAllowedHeartBeat = DateTime.now().minus((long) clientTimeout.toMillis());
+        for (TaskExecution taskExecution : tasks.values()) {
+            try {
+                TaskInfo taskInfo = taskExecution.getTaskInfo();
+                if (taskInfo.getState().isDone()) {
+                    continue;
+                }
+                DateTime lastHeartBeat = taskInfo.getStats().getLastHeartBeat();
+                if (lastHeartBeat != null && lastHeartBeat.isBefore(oldestAllowedHeartBeat)) {
+                    cancelTask(taskExecution.getTaskId());
                 }
             }
             catch (Exception e) {
