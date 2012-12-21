@@ -1,4 +1,4 @@
-package com.facebook.presto.event.scribe.nectar;
+package com.facebook.presto.event.scribe.payload;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -12,7 +12,7 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class NectarEventMappingConfiguration
+public class EventMappingConfiguration
 {
     // Map of EventType to corresponding Scribe categories
     private Map<String, String> eventCategoryMap = ImmutableMap.of();
@@ -29,9 +29,9 @@ public class NectarEventMappingConfiguration
      *
      *   event1:category1,event2:category2,...
      */
-    @Config("scribe.nectar.event-category-map")
+    @Config("scribe.payload.event-category-map")
     @ConfigDescription("Map format: event1:category1,event2:category2,...")
-    public NectarEventMappingConfiguration setEventCategoryMap(String formattedMap)
+    public EventMappingConfiguration setEventCategoryMap(String formattedMap)
     {
         Iterable<String> entries = Splitter.on(",").omitEmptyStrings().split(formattedMap);
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
