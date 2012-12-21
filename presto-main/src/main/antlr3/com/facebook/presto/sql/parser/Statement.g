@@ -85,14 +85,12 @@ tokens {
     @Override
     public void reportError(RecognitionException e)
     {
-        super.reportError(e);
         throw new RuntimeException(e);
     }
 }
 
 @rulecatch {
     catch (RecognitionException re) {
-        reportError(re);
         throw re;
     }
 }
