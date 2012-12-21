@@ -1,6 +1,7 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.Main;
+import com.facebook.presto.util.SignalCatcher;
 import io.airlift.command.Command;
 import io.airlift.command.Option;
 import jline.console.ConsoleReader;
@@ -15,6 +16,7 @@ import java.io.Flushable;
 import java.io.IOException;
 import java.net.URI;
 
+import static com.facebook.presto.util.SignalCatcher.*;
 import static jline.internal.Configuration.getUserHome;
 
 @Command(name = "console", description = "Interactive console")
@@ -123,7 +125,10 @@ public class Console
         public String readLine(String prompt, Character mask)
                 throws IOException
         {
-            String line = super.readLine(prompt, mask);
+            String line;
+            try (SignalCatcher ignored = new SignalCatcher(SIGINT)) {
+                line = super.readLine(prompt, mask);
+            }
             if (getHistory() instanceof Flushable) {
                 ((Flushable) getHistory()).flush();
             }
