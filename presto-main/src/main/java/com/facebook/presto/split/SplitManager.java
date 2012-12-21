@@ -120,6 +120,10 @@ public class SplitManager
         final String tableName = handle.getTableName();
 
         final List<String> partitions = getPartitions(sourceName, databaseName, tableName, predicate, mappings);
+        final List<String> columns = IterableTransformer.on(mappings.values())
+                .transform(MoreFunctions.<ColumnHandle, ImportColumnHandle>cast(ImportColumnHandle.class))
+                .transform(columnNameGetter())
+                .list();
 
         Iterable<List<PartitionChunk>> chunks = runWithRetryUnchecked(new Callable<Iterable<List<PartitionChunk>>>()
         {
@@ -128,7 +132,7 @@ public class SplitManager
                     throws Exception
             {
                 ImportClient importClient = importClientFactory.getClient(sourceName);
-                return importClient.getPartitionChunks(databaseName, tableName, partitions);
+                return importClient.getPartitionChunks(databaseName, tableName, partitions, columns);
             }
         });
 
