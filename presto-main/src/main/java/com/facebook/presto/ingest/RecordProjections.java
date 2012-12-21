@@ -6,7 +6,6 @@ package com.facebook.presto.ingest;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
-import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -70,8 +69,8 @@ public final class RecordProjections
                         break;
                     }
                     case VARIABLE_BINARY: {
-                        String value = record.getString(field);
-                        output.append(value.getBytes(Charsets.UTF_8));
+                        byte[] value = record.getString(field);
+                        output.append(value);
                         break;
                     }
                     case DOUBLE: {
