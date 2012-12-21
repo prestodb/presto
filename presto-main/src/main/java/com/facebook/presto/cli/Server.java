@@ -1,7 +1,7 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.event.scribe.client.ScribeClientModule;
-import com.facebook.presto.event.scribe.nectar.ScribeNectarEventModule;
+import com.facebook.presto.event.scribe.payload.ScribeEventModule;
 import com.facebook.presto.server.ServerMainModule;
 import com.facebook.swift.codec.guice.ThriftCodecModule;
 import com.facebook.swift.service.guice.ThriftClientModule;
@@ -45,7 +45,7 @@ public class Server
                 new ThriftCodecModule(),
                 new ThriftClientModule(),
                 new ScribeClientModule(),
-                new ScribeNectarEventModule(),
+                new ScribeEventModule(),
                 new ServerMainModule());
 
         try {

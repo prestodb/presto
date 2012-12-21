@@ -1,4 +1,4 @@
-package com.facebook.presto.event.scribe.nectar;
+package com.facebook.presto.event.scribe.payload;
 
 import com.facebook.presto.event.Event;
 import com.facebook.presto.event.scribe.client.AsyncScribeLogger;
@@ -23,10 +23,10 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class ScribeNectarEventClient
+public class ScribeEventClient
         implements EventClient
 {
-    private final static Logger log = Logger.get(ScribeNectarEventClient.class);
+    private final static Logger log = Logger.get(ScribeEventClient.class);
 
     private final AsyncScribeLogger asyncScribeLogger;
     private final Map<String, String> eventToCategoryMap;
@@ -34,7 +34,7 @@ public class ScribeNectarEventClient
     private final JsonEventSerializer eventSerializer;
     private final JsonCodec<Map<String, Object>> jsonCodec;
 
-    public ScribeNectarEventClient(AsyncScribeLogger asyncScribeLogger, ObjectMapper objectMapper, JsonEventSerializer eventSerializer, JsonCodec<Map<String, Object>> jsonCodec, Map<String, String> eventToCategoryMap)
+    public ScribeEventClient(AsyncScribeLogger asyncScribeLogger, ObjectMapper objectMapper, JsonEventSerializer eventSerializer, JsonCodec<Map<String, Object>> jsonCodec, Map<String, String> eventToCategoryMap)
     {
         this.asyncScribeLogger = checkNotNull(asyncScribeLogger, "asyncScribeLogger is null");
         this.eventToCategoryMap = ImmutableMap.copyOf(checkNotNull(eventToCategoryMap, "eventToCategoryMap is null"));
@@ -44,7 +44,7 @@ public class ScribeNectarEventClient
     }
 
     @Inject
-    public ScribeNectarEventClient(AsyncScribeLogger asyncScribeLogger, ObjectMapper objectMapper, JsonEventSerializer eventSerializer, JsonCodec<Map<String, Object>> jsonCodec, NectarEventMappingConfiguration config)
+    public ScribeEventClient(AsyncScribeLogger asyncScribeLogger, ObjectMapper objectMapper, JsonEventSerializer eventSerializer, JsonCodec<Map<String, Object>> jsonCodec, EventMappingConfiguration config)
     {
         this(asyncScribeLogger, objectMapper, eventSerializer, jsonCodec, checkNotNull(config, "config is null").getEventCategoryMap());
     }
@@ -95,18 +95,17 @@ public class ScribeNectarEventClient
                         log.debug("No Scribe category configured for event '%s'. Skipping event.", normalizedEvent.getType());
                     }
                     else {
-                        NectarPayloadBuilder nectarPayloadBuilder = new NectarPayloadBuilder(jsonCodec)
+                        PayloadBuilder payloadBuilder = new PayloadBuilder(jsonCodec)
                                 .setAppEventType(normalizedEvent.getType())
                                 .addAppData("event_type", normalizedEvent.getType())
                                 .addAppData("event_host", normalizedEvent.getHost())
                                 .addAppData("event_uuid", normalizedEvent.getUuid())
                                 .addAppData("event_time", normalizedEvent.getTimestamp());
                         for (Map.Entry<String, ?> entry : normalizedEvent.getData().entrySet()) {
-                            // Convert lower camel keys to lower underscore keys for Nectar compatibility
                             String key = CaseFormat.LOWER_CAMEL.to(CaseFormat.LOWER_UNDERSCORE, entry.getKey());
-                            nectarPayloadBuilder.addAppData(key, entry.getValue());
+                            payloadBuilder.addAppData(key, entry.getValue());
                         }
-                        String payload = nectarPayloadBuilder.build();
+                        String payload = payloadBuilder.build();
                         asyncScribeLogger.log(new LogEntry(scribeCategory, payload));
                     }
                 }
