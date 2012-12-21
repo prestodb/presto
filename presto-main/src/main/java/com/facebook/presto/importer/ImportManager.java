@@ -1,16 +1,21 @@
 package com.facebook.presto.importer;
 
 import com.facebook.presto.ingest.SerializedPartitionChunk;
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.ImportColumnHandle;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.server.ShardImport;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.split.ImportClientFactory;
+import com.facebook.presto.util.IterableTransformer;
+import com.facebook.presto.util.MoreFunctions;
 import com.facebook.presto.util.ShardBoundedExecutor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
@@ -35,6 +40,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.metadata.ImportColumnHandle.columnNameGetter;
 import static com.facebook.presto.util.RetryDriver.runWithRetry;
 import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
 import static com.facebook.presto.util.Threads.threadsNamed;
@@ -128,8 +134,10 @@ public class ImportManager
         }
         log.info("Dropping %d old partitions: table %d", partitionsToRemove.size(), tableId);
 
+        List<String> columns = Lists.transform(fields, ImportField.nameGetter());
+
         for (String partition : Iterables.concat(partitionsToAdd, repairPartitions)) {
-            PartitionChunkSupplier supplier = new PartitionChunkSupplier(importClientFactory, sourceName, databaseName, tableName, partition);
+            PartitionChunkSupplier supplier = new PartitionChunkSupplier(importClientFactory, sourceName, databaseName, tableName, partition, columns);
             PartitionImportJob importJob = new PartitionImportJob(tableId, sourceName, partition, supplier, fields);
             partitionBoundedExecutor.execute(PartitionMarker.from(tableId, partition), importJob);
         }

@@ -24,14 +24,16 @@ class PartitionChunkSupplier
     private final String databaseName;
     private final String tableName;
     private final String partitionName;
+    private final List<String> columns;
 
-    public PartitionChunkSupplier(ImportClientFactory importClientFactory, String sourceName, String databaseName, String tableName, String partitionName)
+    public PartitionChunkSupplier(ImportClientFactory importClientFactory, String sourceName, String databaseName, String tableName, String partitionName, List<String> columns)
     {
         this.importClientFactory = checkNotNull(importClientFactory, "importClientFactory is null");
         this.sourceName = checkNotNull(sourceName, "sourceName is null");
         this.databaseName = checkNotNull(databaseName, "databaseName is null");
         this.tableName = checkNotNull(tableName, "tableName is null");
         this.partitionName = checkNotNull(partitionName, "partitionName is null");
+        this.columns = checkNotNull(columns, "columns is null");
     }
 
     @Override
@@ -44,7 +46,7 @@ class PartitionChunkSupplier
                     throws Exception
             {
                 ImportClient importClient = importClientFactory.getClient(sourceName);
-                return importClient.getPartitionChunks(databaseName, tableName, partitionName);
+                return importClient.getPartitionChunks(databaseName, tableName, partitionName, columns);
             }
         });
 
