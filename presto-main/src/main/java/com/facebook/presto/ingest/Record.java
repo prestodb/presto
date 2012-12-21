@@ -11,7 +11,7 @@ public interface Record
 
     double getDouble(int field);
 
-    String getString(int field);
+    byte[] getString(int field);
 
     boolean isNull(int field);
 }

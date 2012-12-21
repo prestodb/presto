@@ -114,7 +114,7 @@ public class ImportPartition
         }
 
         @Override
-        public String getString(int field)
+        public byte[] getString(int field)
         {
             return importRecord.getString(columnNames.get(field));
         }

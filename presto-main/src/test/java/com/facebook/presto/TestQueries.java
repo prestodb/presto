@@ -93,6 +93,8 @@ import java.util.zip.GZIPInputStream;
 
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.google.common.base.Charsets.*;
+import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -653,7 +655,7 @@ public class TestQueries
                 checkArgument(record.getFieldCount() == columns, "rows have differing column counts");
                 PreparedBatchPart part = batch.add();
                 for (int i = 0; i < record.getFieldCount(); i++) {
-                    part.bind(i, record.getString(i));
+                    part.bind(i, new String(record.getString(i), UTF_8));
                 }
             }
             batch.execute();
@@ -683,7 +685,7 @@ public class TestQueries
                             break;
                         case VARIABLE_BINARY:
                             String value = rs.getString(i);
-                            builder.append(Slices.wrappedBuffer(value.getBytes(Charsets.UTF_8)));
+                            builder.append(Slices.wrappedBuffer(value.getBytes(UTF_8)));
                             break;
                         default:
                             throw new AssertionError("unhandled type: " + type);
@@ -738,7 +740,7 @@ public class TestQueries
             {
                 URL url = Resources.getResource(name);
                 GZIPInputStream gzip = new GZIPInputStream(url.openStream());
-                return new InputStreamReader(gzip, Charsets.UTF_8);
+                return new InputStreamReader(gzip, UTF_8);
             }
         };
     }
