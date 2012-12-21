@@ -8,6 +8,7 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OutputProcessor;
 import com.facebook.presto.server.HttpQueryClient;
+import com.facebook.presto.util.SignalCatcher;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -23,13 +24,12 @@ import java.util.Set;
 
 import static com.facebook.presto.operator.OutputProcessor.OutputHandler;
 import static com.facebook.presto.operator.OutputProcessor.OutputStats;
+import static com.facebook.presto.util.SignalCatcher.SIGINT;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Query
         implements Closeable
 {
-    private static final Signal SIGINT = new Signal("INT");
-
     private final HttpQueryClient queryClient;
     private final boolean debug;
 
@@ -41,19 +41,16 @@ public class Query
 
     public void renderOutput(PrintStream out)
     {
-        SignalHandler oldHandler = Signal.handle(SIGINT, new SignalHandler()
+        SignalHandler handler = new SignalHandler()
         {
             @Override
             public void handle(Signal signal)
             {
                 close();
             }
-        });
-        try {
+        };
+        try (SignalCatcher ignored = new SignalCatcher(SIGINT, handler)) {
             renderQueryOutput(out);
-        }
-        finally {
-            Signal.handle(SIGINT, oldHandler);
         }
     }
 
