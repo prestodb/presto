@@ -3,12 +3,14 @@ package com.facebook.presto.cli;
 import com.facebook.presto.execution.ExecutionStats;
 import com.facebook.presto.execution.PageBufferInfo;
 import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.server.HttpQueryClient;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Uninterruptibles;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.fusesource.jansi.Ansi;
 import org.fusesource.jansi.Ansi.Erase;
@@ -29,6 +31,8 @@ import static org.fusesource.jansi.internal.CLibrary.isatty;
 
 public class StatusPrinter
 {
+    private static final Logger log = Logger.get(StatusPrinter.class);
+
     private final long start = System.nanoTime();
     private final HttpQueryClient queryClient;
     private final PrintStream out;
@@ -86,7 +90,8 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
                     }
                     Uninterruptibles.sleepUninterruptibly(100, MILLISECONDS);
                 }
-                catch (Exception ignored) {
+                catch (Exception e) {
+                    log.debug(e, "error printing status");
                 }
             }
         }
@@ -163,7 +168,10 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
         sumStats(outputStage, globalExecutionStats, false);
 
         int nodes = uniqueNodes(outputStage).size();
-        long completedDataSizePerNode = inputExecutionStats.getCompletedDataSize() / nodes;
+        long completedDataSizePerNode = 0;
+        if (nodes > 0) {
+            completedDataSizePerNode = inputExecutionStats.getCompletedDataSize() / nodes;
+        }
 
         if (REAL_TERMINAL) {
             // blank line
@@ -176,6 +184,10 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
                     nodes,
                     wallTime.convertTo(SECONDS));
             reprintLine(querySummary);
+
+            if (queryInfo.getState() == QueryState.PLANNING) {
+                return;
+            }
 
             // Splits: 648 total, 252 pending, 16 running, 380 finished
             String splitsSummary = String.format("Splits: %,4d total, %,4d pending, %,4d running, %,4d done",
@@ -225,16 +237,16 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
             printStageTree(outputStage, "");
         }
         else {
-            // Query 31 [S] i[2,659,640 67.3MB 62.7MBps] o[35 6.1KB 1KBps] splits[252/16/380]
-            String querySummary = String.format("Query %s [%s] i[%,d %s %s] o[%,d %s %s] splits[%,d/%,d/%,d]",
+            // Query 31 [S] i[2.7M 67.3MB 62.7MBps] o[35 6.1KB 1KBps] splits[252/16/380]
+            String querySummary = String.format("Query %s [%s] i[%s %s %s] o[%s %s %s] splits[%,d/%,d/%,d]",
                     queryInfo.getQueryId(),
                     queryInfo.getState().toString().charAt(0),
 
-                    globalExecutionStats.getInputPositionCount(),
+                    formatCount(globalExecutionStats.getInputPositionCount()),
                     formatDataSize(globalExecutionStats.getInputDataSize()),
                     formatDataRate(globalExecutionStats.getCompletedDataSize(), wallTime, false),
 
-                    globalExecutionStats.getOutputPositionCount(),
+                    formatCount(globalExecutionStats.getOutputPositionCount()),
                     formatDataSize(globalExecutionStats.getOutputDataSize()),
                     formatDataRate(globalExecutionStats.getOutputDataSize(), wallTime, false),
 
@@ -289,6 +301,9 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
 
     private static void sumStats(StageInfo stageInfo, ExecutionStats executionStats, boolean sumLeafOnly)
     {
+        if (stageInfo == null) {
+            return;
+        }
         if (!sumLeafOnly || stageInfo.getSubStages().isEmpty()) {
             sumTaskStats(stageInfo, executionStats);
         }
@@ -306,6 +321,9 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
 
     private static Set<String> uniqueNodes(StageInfo stageInfo)
     {
+        if (stageInfo == null) {
+            return ImmutableSet.of();
+        }
         ImmutableSet.Builder<String> nodes = ImmutableSet.builder();
         for (TaskInfo task : stageInfo.getTasks()) {
             // todo add nodeId to TaskInfo
