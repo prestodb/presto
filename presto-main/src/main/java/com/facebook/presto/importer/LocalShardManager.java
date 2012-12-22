@@ -103,11 +103,10 @@ public class LocalShardManager
             ImportClient importClient = importClientFactory.getClient(shardImport.getSourceName());
 
             PartitionChunk chunk = shardImport.getPartitionChunk().deserialize(importClient);
-            List<String> fieldNames = getFieldNames(shardImport.getFields());
             List<Long> columnIds = getColumnIds(shardImport.getFields());
             List<RecordProjection> projections = getRecordProjections(shardImport.getFields());
 
-            ImportPartition importPartition = new ImportPartition(importClient, chunk, fieldNames);
+            ImportPartition importPartition = new ImportPartition(importClient, chunk, shardImport.getFields().size());
             DataSize partitionSize = new DataSize(chunk.getLength(), Unit.BYTE);
             RecordProjectOperator source = new RecordProjectOperator(importPartition, partitionSize, projections);
 
@@ -145,15 +144,6 @@ public class LocalShardManager
         }
     }
 
-    private static List<String> getFieldNames(List<ImportField> fields)
-    {
-        ImmutableList.Builder<String> names = ImmutableList.builder();
-        for (ImportField field : fields) {
-            names.add(field.getImportFieldName());
-        }
-        return names.build();
-    }
-
     private List<Long> getColumnIds(List<ImportField> fields)
     {
         ImmutableList.Builder<Long> columnIds = ImmutableList.builder();
@@ -167,7 +157,8 @@ public class LocalShardManager
     {
         ImmutableList.Builder<RecordProjection> projections = ImmutableList.builder();
         for (int i = 0; i < fields.size(); i++) {
-            projections.add(createProjection(i, fields.get(i).getColumnType()));
+            ImportField field = fields.get(i);
+            projections.add(createProjection((int) field.getColumnId(), field.getColumnType()));
         }
         return projections.build();
     }
