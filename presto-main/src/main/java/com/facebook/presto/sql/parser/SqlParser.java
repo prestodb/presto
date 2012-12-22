@@ -56,13 +56,6 @@ public class SqlParser
         return (CommonTree) getParser(expression).expr().getTree();
     }
 
-    @VisibleForTesting
-    static CommonTree parseStatementList(String sql)
-            throws RecognitionException
-    {
-        return (CommonTree) getParser(sql).statementList().getTree();
-    }
-
     private static StatementParser getParser(String sql)
     {
         CharStream stream = new CaseInsensitiveStream(new ANTLRStringStream(sql));
