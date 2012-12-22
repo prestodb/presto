@@ -53,6 +53,32 @@ public class StatementSplitter
         return partialStatement;
     }
 
+    public static String squeezeStatement(String sql)
+    {
+        TokenSource tokens = getLexer(checkNotNull(sql, "sql is null"));
+        StringBuilder sb = new StringBuilder();
+        while (true) {
+            Token token;
+            try {
+                token = tokens.nextToken();
+            }
+            catch (TokenizationException e) {
+                sb.append(sql.substring(e.getCause().index));
+                break;
+            }
+            if (token.getType() == Token.EOF) {
+                break;
+            }
+            if (token.getType() == StatementLexer.WS) {
+                sb.append(' ');
+            }
+            else {
+                sb.append(token.getText());
+            }
+        }
+        return sb.toString().trim();
+    }
+
     private static TokenSource getLexer(String sql)
     {
         return new StatementLexer(new CaseInsensitiveStream(new ANTLRStringStream(sql)));
