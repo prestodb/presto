@@ -85,7 +85,7 @@ tokens {
     @Override
     public void reportError(RecognitionException e)
     {
-        throw new RuntimeException(e);
+        throw new TokenizationException(e);
     }
 }
 
@@ -101,7 +101,7 @@ singleStatement
     ;
 
 statementList
-    : (statement ';')* EOF -> ^(STATEMENT_LIST statement*)
+    : (statement SEMICOLON)* EOF -> ^(STATEMENT_LIST statement*)
     ;
 
 statement
@@ -523,6 +523,8 @@ LT  : '<';
 LTE : '<=';
 GT  : '>';
 GTE : '>=';
+
+SEMICOLON: ';';
 
 STRING
     : '\'' ( ~'\'' | '\'' '\'' )* '\''
