@@ -106,7 +106,7 @@ public class ImportMetadata
             public ColumnMetadata apply(SchemaField schemaField)
             {
                 TupleInfo.Type type = ImportSchemaUtil.getTupleType(schemaField.getPrimitiveType());
-                ImportColumnHandle columnHandle = new ImportColumnHandle(sourceName, schemaField.getFieldName(), type);
+                ImportColumnHandle columnHandle = new ImportColumnHandle(sourceName, schemaField.getFieldName(), schemaField.getFieldId(), type);
                 return new ColumnMetadata(schemaField.getFieldName(), type, columnHandle);
             }
         });

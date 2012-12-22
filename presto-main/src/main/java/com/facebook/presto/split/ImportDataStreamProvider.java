@@ -9,9 +9,7 @@ import com.facebook.presto.metadata.ImportColumnHandle;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -51,24 +49,12 @@ public class ImportDataStreamProvider
             assert columnHandle instanceof ImportColumnHandle; // // IDEA-60343
 
             ImportColumnHandle importColumn = (ImportColumnHandle) columns.get(i);
-            builder.add(RecordProjections.createProjection(i, importColumn.getColumnType()));
+            builder.add(RecordProjections.createProjection(importColumn.getColumnId(), importColumn.getColumnType()));
         }
 
         PartitionChunk partitionChunk = client.deserializePartitionChunk(importSplit.getSerializedChunk().getBytes());
         DataSize partitionSize = new DataSize(partitionChunk.getLength(), Unit.BYTE);
-        ImportPartition importPartition = new ImportPartition(client, partitionChunk, convertToColumnNames(columns));
+        ImportPartition importPartition = new ImportPartition(client, partitionChunk, columns.size());
         return new RecordProjectOperator(importPartition, partitionSize, builder.build());
-    }
-
-    private Iterable<String> convertToColumnNames(Iterable<ColumnHandle> columnHandles){
-        return Iterables.transform(columnHandles, new Function<ColumnHandle, String>()
-        {
-            @Override
-            public String apply(ColumnHandle columnHandle)
-            {
-                ImportColumnHandle importColumn = (ImportColumnHandle) columnHandle;
-                return importColumn.getColumnName();
-            }
-        });
     }
 }
