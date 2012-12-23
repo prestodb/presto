@@ -1,14 +1,13 @@
 package com.facebook.presto.cli;
 
-import com.facebook.presto.ingest.DelimitedRecordIterable;
+import com.facebook.presto.ingest.DelimitedRecordSet;
 import com.facebook.presto.ingest.ImportingOperator;
 import com.facebook.presto.ingest.RecordProjectOperator;
-import com.facebook.presto.ingest.RecordProjection;
-import com.facebook.presto.ingest.RecordProjections;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileWriter;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -98,7 +97,7 @@ public class ConvertCsv
         ImmutableSortedMap<Integer, TupleInfo.Type> schema = schemaBuilder.build();
         ImmutableList<OutputSupplier<? extends OutputStream>> outputSuppliers = outputSupplierBuilder.build();
 
-        ImmutableList.Builder<RecordProjection> recordProjectionBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
         ImmutableList.Builder<BlocksFileWriter> writersBuilder = ImmutableList.builder();
         for (int index = 0; index <= schema.lastKey(); index++) {
             // Default to VARIABLE_BINARY if we don't know some of the intermediate types
@@ -106,21 +105,21 @@ public class ConvertCsv
             if (schema.containsKey(index)) {
                 type = schema.get(index);
             }
-            recordProjectionBuilder.add(RecordProjections.createProjection(index, type));
+            typesBuilder.add(type);
             writersBuilder.add(new BlocksFileWriter(BlocksFileEncoding.RAW, outputSuppliers.get(index)));
         }
-        List<RecordProjection> recordProjections = recordProjectionBuilder.build();
+        List<Type> types = typesBuilder.build();
         List<BlocksFileWriter> writers = writersBuilder.build();
 
-        DelimitedRecordIterable records = new DelimitedRecordIterable(readerSupplier, Splitter.on(toChar(columnSeparator)));
+        DelimitedRecordSet records = new DelimitedRecordSet(readerSupplier, Splitter.on(toChar(columnSeparator)));
         DataSize dataSize;
-        if (csvFile != null) {
+        if (countingInputStream == null) {
             dataSize = new DataSize(csvFile.length(), Unit.BYTE);
         }
         else {
             dataSize = new DataSize(countingInputStream.getCount(), Unit.BYTE);
         }
-        Operator source = new RecordProjectOperator(records, dataSize, recordProjections);
+        Operator source = new RecordProjectOperator(records, dataSize, types);
 
         long rowCount = ImportingOperator.importData(source, writers);
         log.info("Imported %d rows", rowCount);

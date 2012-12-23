@@ -1,6 +1,6 @@
 package com.facebook.presto.tpch;
 
-import com.facebook.presto.ingest.DelimitedRecordIterable;
+import com.facebook.presto.ingest.DelimitedRecordSet;
 import com.facebook.presto.ingest.ImportingOperator;
 import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.serde.BlocksFileEncoding;
@@ -20,7 +20,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.jar.JarFile;
 
-import static com.facebook.presto.ingest.RecordProjections.createProjection;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -142,13 +141,13 @@ public class GeneratingTpchDataProvider
 
             InputSupplier<InputStream> inputSupplier = tableInputSupplierFactory.getInputSupplier(tableName);
 
-            DelimitedRecordIterable records = new DelimitedRecordIterable(
+            DelimitedRecordSet records = new DelimitedRecordSet(
                     newReaderSupplier(inputSupplier, UTF_8),
                     Splitter.on("|")
             );
 
             DataSize dataSize = new DataSize(cachedFile.length(), Unit.BYTE);
-            RecordProjectOperator source = new RecordProjectOperator(records, dataSize, createProjection(columnHandle.getFieldIndex(), columnHandle.getType()));
+            RecordProjectOperator source = new RecordProjectOperator(records, dataSize, columnHandle.getType());
 
             ImportingOperator.importData(source, new BlocksFileWriter(encoding, newOutputStreamSupplier(cachedFile)));
 

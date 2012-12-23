@@ -5,10 +5,10 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static com.facebook.presto.block.BlockAssertions.createLongsBlockIterable;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlockIterable;
-import static com.facebook.presto.ingest.RecordIterables.asRecordIterable;
-import static com.facebook.presto.ingest.RecordProjections.createProjection;
 import static com.facebook.presto.operator.OperatorAssertions.assertOperatorEquals;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
@@ -20,13 +20,9 @@ public class TestRecordProjectionOperator
     public void testSingleColumn()
             throws Exception
     {
-        RecordIterable records = asRecordIterable(ImmutableList.of(
-                new StringRecord("abc"),
-                new StringRecord("def"),
-                new StringRecord("g"))
-        );
+        RecordSet records = new InMemoryRecordSet(ImmutableList.copyOf(new List<?>[]{ImmutableList.of("abc"), ImmutableList.of("def"), ImmutableList.of("g")}));
 
-        RecordProjectOperator recordProjectOperator = new RecordProjectOperator(records, new DataSize(10, BYTE), createProjection(0, VARIABLE_BINARY));
+        RecordProjectOperator recordProjectOperator = new RecordProjectOperator(records, new DataSize(10, BYTE), VARIABLE_BINARY);
         assertOperatorEquals(recordProjectOperator, new AlignmentOperator(createStringsBlockIterable("abc", "def", "g")));
     }
 
@@ -34,15 +30,9 @@ public class TestRecordProjectionOperator
     public void testMultiColumn()
             throws Exception
     {
-        RecordIterable records = asRecordIterable(ImmutableList.of(
-                new StringRecord("abc", "1"),
-                new StringRecord("def", "2"),
-                new StringRecord("g", "0"))
-        );
+        RecordSet records = new InMemoryRecordSet(ImmutableList.copyOf(new List<?>[]{ImmutableList.of("abc", 1L), ImmutableList.of("def", 2L), ImmutableList.of("g", 0L)}));
 
-        RecordProjectOperator recordProjectOperator = new RecordProjectOperator(records,
-                new DataSize(10, BYTE),
-                createProjection(0, VARIABLE_BINARY), createProjection(1, FIXED_INT_64));
+        RecordProjectOperator recordProjectOperator = new RecordProjectOperator(records, new DataSize(10, BYTE), VARIABLE_BINARY, FIXED_INT_64);
         assertOperatorEquals(recordProjectOperator, new AlignmentOperator(
                 createStringsBlockIterable("abc", "def", "g"),
                 createLongsBlockIterable(1, 2, 0)

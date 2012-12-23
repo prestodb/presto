@@ -1,11 +1,11 @@
 package com.facebook.presto.importer;
 
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Function;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -56,6 +56,18 @@ public class ImportField
             public String apply(ImportField input)
             {
                 return input.getImportFieldName();
+            }
+        };
+    }
+
+    public static Function<ImportField, Type> typeGetter()
+    {
+        return new Function<ImportField, Type>()
+        {
+            @Override
+            public Type apply(ImportField input)
+            {
+                return input.getColumnType();
             }
         };
     }

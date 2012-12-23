@@ -7,7 +7,6 @@ import com.facebook.presto.operator.OperatorStats;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closeables;
 import com.google.common.io.InputSupplier;
@@ -17,13 +16,15 @@ import java.io.IOException;
 import java.io.Reader;
 import java.util.List;
 
-public class DelimitedRecordIterable
-        implements RecordIterable
+import static com.google.common.base.Charsets.UTF_8;
+
+public class DelimitedRecordSet
+        implements RecordSet
 {
     private final InputSupplier<? extends Reader> readerSupplier;
     private final Splitter columnSplitter;
 
-    public DelimitedRecordIterable(InputSupplier<? extends Reader> readerSupplier, Splitter columnSplitter)
+    public DelimitedRecordSet(InputSupplier<? extends Reader> readerSupplier, Splitter columnSplitter)
     {
         Preconditions.checkNotNull(readerSupplier, "readerSupplier is null");
         Preconditions.checkNotNull(columnSplitter, "columnSplitter is null");
@@ -33,20 +34,20 @@ public class DelimitedRecordIterable
     }
 
     @Override
-    public RecordIterator iterator(OperatorStats operatorStats)
+    public RecordCursor cursor(OperatorStats operatorStats)
     {
-        return new DelimitedRecordIterator(readerSupplier, columnSplitter);
+        return new DelimitedRecordCursor(readerSupplier, columnSplitter);
     }
 
-    private static class DelimitedRecordIterator
-            extends AbstractIterator<Record>
-            implements RecordIterator
+    private static class DelimitedRecordCursor
+            implements RecordCursor
     {
         private final Reader reader;
         private final LineReader lineReader;
         private final Splitter columnSplitter;
+        private List<String> columns;
 
-        private DelimitedRecordIterator(InputSupplier<? extends Reader> readerSupplier, Splitter columnSplitter)
+        private DelimitedRecordCursor(InputSupplier<? extends Reader> readerSupplier, Splitter columnSplitter)
         {
             try {
                 this.reader = readerSupplier.getInput();
@@ -59,19 +60,44 @@ public class DelimitedRecordIterable
         }
 
         @Override
-        protected Record computeNext()
+        public boolean advanceNextPosition()
         {
             try {
                 String line = lineReader.readLine();
                 if (line == null) {
-                    return endOfData();
+                    columns = null;
+                    return false;
                 }
-                List<String> columns = ImmutableList.copyOf(columnSplitter.split(line));
-                return new StringRecord(columns);
+                columns = ImmutableList.copyOf(columnSplitter.split(line));
+                return true;
             }
             catch (IOException e) {
                 throw Throwables.propagate(e);
             }
+        }
+
+        @Override
+        public long getLong(int field)
+        {
+            return Long.parseLong(columns.get(field));
+        }
+
+        @Override
+        public double getDouble(int field)
+        {
+            return Double.parseDouble(columns.get(field));
+        }
+
+        @Override
+        public byte[] getString(int field)
+        {
+            return columns.get(field).getBytes(UTF_8);
+        }
+
+        @Override
+        public boolean isNull(int field)
+        {
+            return columns.get(field).isEmpty();
         }
 
         @Override

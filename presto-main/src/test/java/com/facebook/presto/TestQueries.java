@@ -6,15 +6,13 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.ingest.Record;
-import com.facebook.presto.ingest.RecordIterable;
-import com.facebook.presto.ingest.RecordIterables;
-import com.facebook.presto.ingest.RecordIterator;
-import com.facebook.presto.ingest.RecordProjection;
-import com.facebook.presto.ingest.RecordProjections;
-import com.facebook.presto.ingest.StringRecord;
+import com.facebook.presto.ingest.DelimitedRecordSet;
+import com.facebook.presto.ingest.RecordCursor;
+import com.facebook.presto.ingest.RecordSet;
+import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunctions;
 import com.facebook.presto.operator.Operator;
@@ -49,6 +47,7 @@ import com.facebook.presto.tpch.TpchSplit;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -59,9 +58,6 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.UnmodifiableIterator;
-import com.google.common.io.CharStreams;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.Resources;
 import io.airlift.json.JsonCodec;
@@ -106,8 +102,8 @@ public class TestQueries
     private static final JsonCodec<TaskInfo> TASK_INFO_CODEC = JsonCodec.jsonCodec(TaskInfo.class);
 
     private Handle handle;
-    private RecordIterable ordersRecords;
-    private RecordIterable lineItemRecords;
+    private RecordSet ordersRecords;
+    private RecordSet lineItemRecords;
     private Metadata metadata;
     private TpchDataStreamProvider dataProvider;
 
@@ -466,7 +462,7 @@ public class TestQueries
     {
         handle = DBI.open("jdbc:h2:mem:test" + System.nanoTime());
 
-        ordersRecords = readRecords("tpch/orders.dat.gz", 15000);
+        ordersRecords = readRecords("tpch/orders.dat.gz");
         handle.execute("CREATE TABLE orders (\n" +
                 "  orderkey BIGINT PRIMARY KEY,\n" +
                 "  custkey BIGINT NOT NULL,\n" +
@@ -478,9 +474,9 @@ public class TestQueries
                 "  shippriority BIGINT NOT NULL,\n" +
                 "  comment VARCHAR(79) NOT NULL\n" +
                 ")");
-        insertRows("orders", handle, ordersRecords);
+        insertRows(TpchSchema.createOrders(), handle, ordersRecords);
 
-        lineItemRecords = readRecords("tpch/lineitem.dat.gz", 60175);
+        lineItemRecords = readRecords("tpch/lineitem.dat.gz");
         handle.execute("CREATE TABLE lineitem (\n" +
                 "  orderkey BIGINT,\n" +
                 "  partkey BIGINT NOT NULL,\n" +
@@ -500,7 +496,7 @@ public class TestQueries
                 "  comment VARCHAR(44) NOT NULL,\n" +
                 "  PRIMARY KEY (orderkey, linenumber)" +
                 ")");
-        insertRows("lineitem", handle, lineItemRecords);
+        insertRows(TpchSchema.createLineItem(), handle, lineItemRecords);
 
         metadata = TpchSchema.createMetadata();
 
@@ -645,22 +641,34 @@ public class TestQueries
         });
     }
 
-    private static void insertRows(String table, Handle handle, RecordIterable data)
+    private static void insertRows(TableMetadata tableMetadata, Handle handle, RecordSet data)
     {
-        checkArgument(data.iterator(new OperatorStats()).hasNext(), "no data to insert");
-        int columns = data.iterator(new OperatorStats()).next().getFieldCount();
-        String vars = Joiner.on(',').join(nCopies(columns, "?"));
-        String sql = format("INSERT INTO %s VALUES (%s)", table, vars);
+        String vars = Joiner.on(',').join(nCopies(tableMetadata.getColumns().size(), "?"));
+        String sql = format("INSERT INTO %s VALUES (%s)", tableMetadata.getTableName(), vars);
 
-        UnmodifiableIterator<List<Record>> partitions = Iterators.partition(data.iterator(new OperatorStats()), 1000);
-        while (partitions.hasNext()) {
-            List<Record> partition = partitions.next();
+        RecordCursor cursor = data.cursor(new OperatorStats());
+        while (true) {
+            // insert 1000 rows at a time
             PreparedBatch batch = handle.prepareBatch(sql);
-            for (Record record : partition) {
-                checkArgument(record.getFieldCount() == columns, "rows have differing column counts");
+            for (int row = 0; row < 1000; row++) {
+                if (!cursor.advanceNextPosition()) {
+                    batch.execute();
+                    return;
+                }
                 PreparedBatchPart part = batch.add();
-                for (int i = 0; i < record.getFieldCount(); i++) {
-                    part.bind(i, new String(record.getString(i), UTF_8));
+                for (int column = 0; column < tableMetadata.getColumns().size(); column++) {
+                    ColumnMetadata columnMetadata = tableMetadata.getColumns().get(column);
+                    switch (columnMetadata.getType()) {
+                        case FIXED_INT_64:
+                            part.bind(column, cursor.getLong(column));
+                            break;
+                        case DOUBLE:
+                            part.bind(column, cursor.getDouble(column));
+                            break;
+                        case VARIABLE_BINARY:
+                            part.bind(column, new String(cursor.getString(column), UTF_8));
+                            break;
+                    }
                 }
             }
             batch.execute();
@@ -720,19 +728,13 @@ public class TestQueries
         };
     }
 
-    private static RecordIterable readRecords(String name, int expectedRows)
+    private static RecordSet readRecords(String name)
             throws IOException
     {
-        Splitter splitter = Splitter.on('|');
-        List<Record> records = new ArrayList<>();
-        for (String line : CharStreams.readLines(readResource(name))) {
-            checkArgument(!line.isEmpty(), "line is empty");
-            checkArgument(line.charAt(line.length() - 1) == '|', "line does not end in delimiter");
-            line = line.substring(0, line.length() - 1);
-            records.add(new StringRecord(splitter.split(line)));
-        }
-        checkArgument(records.size() == expectedRows, "expected %s rows, but read %s", expectedRows, records.size());
-        return RecordIterables.asRecordIterable(records);
+        // tpch does not contain nulls, but does have a trailing pipe character,
+        // so omitting empty strings will prevent an extra column at the end being added
+        Splitter splitter = Splitter.on('|').omitEmptyStrings();
+        return new DelimitedRecordSet(readResource(name), splitter);
     }
 
     private static InputSupplier<InputStreamReader> readResource(final String name)
@@ -753,70 +755,95 @@ public class TestQueries
     private static class TestTpchBlocksProvider
             implements TpchBlocksProvider
     {
-        private final Map<String, RecordIterable> data;
+        private final Map<String, RecordSet> data;
 
-        private TestTpchBlocksProvider(Map<String, RecordIterable> data)
+        private TestTpchBlocksProvider(Map<String, RecordSet> data)
         {
             Preconditions.checkNotNull(data, "data is null");
             this.data = ImmutableMap.copyOf(data);
         }
 
         @Override
-        public BlockIterable getBlocks(final TpchTableHandle tableHandle, final TpchColumnHandle columnHandle, BlocksFileEncoding encoding)
+        public BlockIterable getBlocks(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding)
         {
-            return new BlockIterable()
-            {
-                @Override
-                public TupleInfo getTupleInfo()
-                {
-                    return new TupleInfo(columnHandle.getType());
-                }
-
-                @Override
-                public Optional<DataSize> getDataSize()
-                {
-                    return Optional.absent();
-                }
-
-                @Override
-                public Optional<Integer> getPositionCount()
-                {
-                    return Optional.absent();
-                }
-
-                @Override
-                public Iterator<Block> iterator()
-                {
-                    return new AbstractIterator<Block>()
-                    {
-                        private final RecordIterator iterator = data.get(tableHandle.getTableName()).iterator(new OperatorStats());
-                        private final RecordProjection projection = RecordProjections.createProjection(columnHandle.getFieldIndex(), columnHandle.getType());
-
-                        @Override
-                        protected Block computeNext()
-                        {
-                            BlockBuilder builder = new BlockBuilder(new TupleInfo(columnHandle.getType()));
-
-                            while (iterator.hasNext() && !builder.isFull()) {
-                                Record record = iterator.next();
-                                projection.project(record, builder);
-                            }
-
-                            if (builder.isEmpty()) {
-                                return endOfData();
-                            }
-
-                            return builder.build();
-                        }
-                    };
-                }
-            };
+            String tableName = tableHandle.getTableName();
+            int fieldIndex = columnHandle.getFieldIndex();
+            Type fieldType = columnHandle.getType();
+            return new TpchBlockIterable(fieldType, tableName, fieldIndex);
         }
 
         @Override
         public DataSize getColumnDataSize(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding)
         {
             throw new UnsupportedOperationException();
+        }
+
+        private class TpchBlockIterable
+                implements BlockIterable
+        {
+            private final Type fieldType;
+            private final String tableName;
+            private final int fieldIndex;
+
+            public TpchBlockIterable(Type fieldType, String tableName, int fieldIndex)
+            {
+                this.fieldType = fieldType;
+                this.tableName = tableName;
+                this.fieldIndex = fieldIndex;
+            }
+
+            @Override
+            public TupleInfo getTupleInfo()
+            {
+                return new TupleInfo(fieldType);
+            }
+
+            @Override
+            public Optional<DataSize> getDataSize()
+            {
+                return Optional.absent();
+            }
+
+            @Override
+            public Optional<Integer> getPositionCount()
+            {
+                return Optional.absent();
+            }
+
+            @Override
+            public Iterator<Block> iterator()
+            {
+                return new AbstractIterator<Block>()
+                {
+                    private final RecordCursor cursor = data.get(tableName).cursor(new OperatorStats());
+
+                    @Override
+                    protected Block computeNext()
+                    {
+                        BlockBuilder builder = new BlockBuilder(new TupleInfo(fieldType));
+
+                        while (!builder.isFull() && cursor.advanceNextPosition()) {
+                            switch (fieldType) {
+                                case FIXED_INT_64:
+                                    builder.append(cursor.getLong(fieldIndex));
+                                    break;
+                                case DOUBLE:
+                                    builder.append(cursor.getDouble(fieldIndex));
+                                    break;
+                                case VARIABLE_BINARY:
+                                    builder.append(cursor.getString(fieldIndex));
+                                    break;
+                            }
+                        }
+
+                        if (builder.isEmpty()) {
+                            return endOfData();
+                        }
+
+                        return builder.build();
+                    }
+                };
+            }
         }
     }
 

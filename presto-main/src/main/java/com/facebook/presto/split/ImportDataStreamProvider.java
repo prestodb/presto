@@ -2,13 +2,12 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.ingest.ImportPartition;
 import com.facebook.presto.ingest.RecordProjectOperator;
-import com.facebook.presto.ingest.RecordProjection;
-import com.facebook.presto.ingest.RecordProjections;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ImportColumnHandle;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
@@ -42,19 +41,18 @@ public class ImportDataStreamProvider
         ImportSplit importSplit = (ImportSplit) split;
         ImportClient client = importClientFactory.getClient(importSplit.getSourceName());
 
-        ImmutableList.Builder<RecordProjection> builder = ImmutableList.builder();
-        for (int i = 0; i < columns.size(); i++) {
-            ColumnHandle columnHandle = columns.get(i);
+        ImmutableList.Builder<Type> builder = ImmutableList.builder();
+        for (ColumnHandle columnHandle : columns) {
             checkArgument(columnHandle instanceof ImportColumnHandle, "columnHandle must be of type ImportColumnHandle, not %s", columnHandle.getClass().getName());
             assert columnHandle instanceof ImportColumnHandle; // // IDEA-60343
 
-            ImportColumnHandle importColumn = (ImportColumnHandle) columns.get(i);
-            builder.add(RecordProjections.createProjection(importColumn.getColumnId(), importColumn.getColumnType()));
+            ImportColumnHandle importColumn = (ImportColumnHandle) columnHandle;
+            builder.add(importColumn.getColumnType());
         }
 
         PartitionChunk partitionChunk = client.deserializePartitionChunk(importSplit.getSerializedChunk().getBytes());
         DataSize partitionSize = new DataSize(partitionChunk.getLength(), Unit.BYTE);
-        ImportPartition importPartition = new ImportPartition(client, partitionChunk, columns.size());
+        ImportPartition importPartition = new ImportPartition(client, partitionChunk);
         return new RecordProjectOperator(importPartition, partitionSize, builder.build());
     }
 }
