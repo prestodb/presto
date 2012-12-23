@@ -5,7 +5,7 @@ package com.facebook.presto.ingest;
 
 import com.facebook.presto.operator.OperatorStats;
 
-public interface RecordIterable
+public interface RecordSet
 {
-    RecordIterator iterator(OperatorStats operatorStats);
+    RecordCursor cursor(OperatorStats operatorStats);
 }

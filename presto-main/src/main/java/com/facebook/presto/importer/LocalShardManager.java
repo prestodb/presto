@@ -2,14 +2,15 @@ package com.facebook.presto.importer;
 
 import com.facebook.presto.ingest.ImportPartition;
 import com.facebook.presto.ingest.RecordProjectOperator;
-import com.facebook.presto.ingest.RecordProjection;
 import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.server.ShardImport;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.split.ImportClientFactory;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.ShardBoundedExecutor;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -21,7 +22,6 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.ingest.RecordProjections.createProjection;
 import static com.facebook.presto.util.RetryDriver.runWithRetry;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -104,9 +104,9 @@ public class LocalShardManager
 
             PartitionChunk chunk = shardImport.getPartitionChunk().deserialize(importClient);
             List<Long> columnIds = getColumnIds(shardImport.getFields());
-            List<RecordProjection> projections = getRecordProjections(shardImport.getFields());
+            List<Type> projections = Lists.transform(shardImport.getFields(), ImportField.typeGetter());
 
-            ImportPartition importPartition = new ImportPartition(importClient, chunk, shardImport.getFields().size());
+            ImportPartition importPartition = new ImportPartition(importClient, chunk);
             DataSize partitionSize = new DataSize(chunk.getLength(), Unit.BYTE);
             RecordProjectOperator source = new RecordProjectOperator(importPartition, partitionSize, projections);
 
@@ -151,15 +151,5 @@ public class LocalShardManager
             columnIds.add(field.getColumnId());
         }
         return columnIds.build();
-    }
-
-    private List<RecordProjection> getRecordProjections(List<ImportField> fields)
-    {
-        ImmutableList.Builder<RecordProjection> projections = ImmutableList.builder();
-        for (int i = 0; i < fields.size(); i++) {
-            ImportField field = fields.get(i);
-            projections.add(createProjection((int) field.getColumnId(), field.getColumnType()));
-        }
-        return projections.build();
     }
 }

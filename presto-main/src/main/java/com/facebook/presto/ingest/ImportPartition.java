@@ -7,7 +7,6 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.io.Closeables;
 
 import java.util.concurrent.Callable;
@@ -15,15 +14,13 @@ import java.util.concurrent.Callable;
 import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
 
 public class ImportPartition
-        implements RecordIterable
+        implements RecordSet
 {
     private final ImportClient importClient;
     private final PartitionChunk chunk;
-    private final int fieldCount;
 
-    public ImportPartition(ImportClient importClient, PartitionChunk chunk, int fieldCount)
+    public ImportPartition(ImportClient importClient, PartitionChunk chunk)
     {
-        this.fieldCount = fieldCount;
         Preconditions.checkNotNull(importClient, "importClient is null");
         Preconditions.checkNotNull(chunk, "chunk is null");
 
@@ -31,96 +28,66 @@ public class ImportPartition
         this.chunk = chunk;
     }
 
-    public PartitionChunk getChunk()
-    {
-        return chunk;
-    }
-
     @Override
-    public RecordIterator iterator(OperatorStats operatorStats)
+    public RecordCursor cursor(OperatorStats operatorStats)
     {
-        com.facebook.presto.spi.RecordIterator records = runWithRetryUnchecked(new Callable<com.facebook.presto.spi.RecordIterator>()
+        com.facebook.presto.spi.RecordCursor records = runWithRetryUnchecked(new Callable<com.facebook.presto.spi.RecordCursor>()
         {
             @Override
-            public com.facebook.presto.spi.RecordIterator call()
+            public com.facebook.presto.spi.RecordCursor call()
                     throws Exception
             {
                 return importClient.getRecords(chunk);
             }
         });
         operatorStats.addExpectedDataSize(chunk.getLength());
-        return new ImportRecordIterator(records, fieldCount);
+        return new ImportRecordCursor(records);
     }
 
-    private static class ImportRecordIterator
-            extends AbstractIterator<Record>
-            implements RecordIterator
+    private static class ImportRecordCursor
+            implements RecordCursor
     {
-        private final com.facebook.presto.spi.RecordIterator importRecords;
-        private final int fieldCount;
+        private final com.facebook.presto.spi.RecordCursor cursor;
 
-        private ImportRecordIterator(com.facebook.presto.spi.RecordIterator importRecords, int fieldCount)
+        private ImportRecordCursor(com.facebook.presto.spi.RecordCursor cursor)
         {
-            this.importRecords = importRecords;
-            this.fieldCount = fieldCount;
+            this.cursor = cursor;
         }
 
         @Override
-        protected Record computeNext()
+        public boolean advanceNextPosition()
         {
-            if (importRecords.hasNext()) {
-                return new ImportRecord(importRecords.next(), fieldCount);
-            }
-            return endOfData();
-        }
-
-        @Override
-        public void close()
-        {
-            Closeables.closeQuietly(importRecords);
-        }
-    }
-
-    public static class ImportRecord
-            implements Record
-    {
-        private final com.facebook.presto.spi.Record importRecord;
-        private final int fieldCount;
-
-        public ImportRecord(com.facebook.presto.spi.Record importRecord, int fieldCount)
-        {
-            this.importRecord = importRecord;
-            this.fieldCount = fieldCount;
-        }
-
-        @Override
-        public int getFieldCount()
-        {
-            return fieldCount;
+            return cursor.advanceNextPosition();
         }
 
         @Override
         public long getLong(int field)
         {
-            return importRecord.getLong(field);
+            return cursor.getLong(field);
         }
 
         @Override
         public double getDouble(int field)
         {
-            return importRecord.getDouble(field);
+            return cursor.getDouble(field);
         }
 
         @Override
         public byte[] getString(int field)
         {
-            return importRecord.getString(field);
+            return cursor.getString(field);
         }
 
         @Override
         public boolean isNull(int field)
         {
-            return importRecord.isNull(field);
+            return cursor.isNull(field);
+        }
+
+        @Override
+        public void close()
+        {
+            cursor.close();
         }
     }
 }
