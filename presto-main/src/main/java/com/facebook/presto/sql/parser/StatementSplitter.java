@@ -2,6 +2,7 @@ package com.facebook.presto.sql.parser;
 
 import com.google.common.collect.ImmutableList;
 import org.antlr.runtime.ANTLRStringStream;
+import org.antlr.runtime.CommonToken;
 import org.antlr.runtime.Token;
 import org.antlr.runtime.TokenSource;
 
@@ -19,13 +20,15 @@ public class StatementSplitter
         TokenSource tokens = getLexer(checkNotNull(sql, "sql is null"));
         ImmutableList.Builder<String> list = ImmutableList.builder();
         StringBuilder sb = new StringBuilder();
+        int index = 0;
         while (true) {
             Token token;
             try {
                 token = tokens.nextToken();
+                index = ((CommonToken) token).getStopIndex() + 1;
             }
             catch (TokenizationException e) {
-                sb.append(sql.substring(e.getCause().index));
+                sb.append(sql.substring(index));
                 break;
             }
             if (token.getType() == Token.EOF) {
@@ -36,7 +39,7 @@ public class StatementSplitter
                 sb = new StringBuilder();
             }
             else {
-                sb.append(token.getText());
+                sb.append(getTokenText(token));
             }
         }
         this.completeStatements = list.build();
@@ -73,10 +76,19 @@ public class StatementSplitter
                 sb.append(' ');
             }
             else {
-                sb.append(token.getText());
+                sb.append(getTokenText(token));
             }
         }
         return sb.toString().trim();
+    }
+
+    private static String getTokenText(Token token)
+    {
+        // TODO: handle escaping after the parser supports it
+        if (token.getType() == StatementLexer.STRING) {
+            return "'" + token.getText() + "'";
+        }
+        return token.getText();
     }
 
     private static TokenSource getLexer(String sql)
