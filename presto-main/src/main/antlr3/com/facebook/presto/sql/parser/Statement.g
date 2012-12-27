@@ -85,14 +85,12 @@ tokens {
     @Override
     public void reportError(RecognitionException e)
     {
-        super.reportError(e);
-        throw new RuntimeException(e);
+        throw new TokenizationException(e);
     }
 }
 
 @rulecatch {
     catch (RecognitionException re) {
-        reportError(re);
         throw re;
     }
 }
@@ -103,7 +101,7 @@ singleStatement
     ;
 
 statementList
-    : (statement ';')* EOF -> ^(STATEMENT_LIST statement*)
+    : (statement SEMICOLON)* EOF -> ^(STATEMENT_LIST statement*)
     ;
 
 statement
@@ -525,6 +523,8 @@ LT  : '<';
 LTE : '<=';
 GT  : '>';
 GTE : '>=';
+
+SEMICOLON: ';';
 
 STRING
     : '\'' ( ~'\'' | '\'' '\'' )* '\''

@@ -1,6 +1,8 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.Main;
+import com.facebook.presto.sql.parser.StatementSplitter;
+import com.google.common.base.Strings;
 import io.airlift.command.Command;
 import io.airlift.command.Option;
 import jline.console.ConsoleReader;
@@ -15,12 +17,15 @@ import java.io.Flushable;
 import java.io.IOException;
 import java.net.URI;
 
+import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
 import static jline.internal.Configuration.getUserHome;
 
 @Command(name = "console", description = "Interactive console")
 public class Console
         implements Runnable
 {
+    private static final String PROMPT_NAME = "presto";
+
     @Option(name = "-s", title = "server")
     public URI server = URI.create("http://localhost:8080");
 
@@ -41,21 +46,47 @@ public class Console
     private void runConsole(QueryRunner queryRunner)
     {
         try (LineReader reader = new LineReader(getHistory())) {
+            StringBuilder buffer = new StringBuilder();
             while (true) {
-                String line = reader.readLine("presto> ");
+                // read a line of input from user
+                String prompt = PROMPT_NAME;
+                if (buffer.length() > 0) {
+                    prompt = Strings.repeat(" ", prompt.length() - 1) + "-";
+                }
+                String line = reader.readLine(prompt + "> ");
                 if (line == null) {
                     return;
                 }
 
-                line = line.trim();
-                if (line.isEmpty()) {
-                    continue;
+                // check for special commands if this is the first line
+                if (buffer.length() == 0) {
+                    String command = line.trim();
+                    if (command.endsWith(";")) {
+                        command = command.substring(0, command.length() - 1).trim();
+                    }
+                    switch (command.toLowerCase()) {
+                        case "exit":
+                        case "quit":
+                            return;
+                    }
                 }
 
-                if (!process(queryRunner, line)) {
-                    return;
+                // not a command, add line to buffer
+                buffer.append(line).append("\n");
+
+                // execute any complete statements
+                StatementSplitter splitter = new StatementSplitter(buffer.toString());
+                for (String sql : splitter.getCompleteStatements()) {
+                    process(queryRunner, sql);
+                    reader.getHistory().add(squeezeStatement(sql) + ";");
                 }
-                reader.getHistory().add(line);
+
+                // replace buffer with trailing partial statement
+                buffer = new StringBuilder();
+                String partial = splitter.getPartialStatement();
+                if (!partial.isEmpty()) {
+                    buffer.append(partial).append('\n');
+                }
             }
         }
         catch (IOException e) {
@@ -63,17 +94,9 @@ public class Console
         }
     }
 
-    private boolean process(QueryRunner queryRunner, String line)
+    private void process(QueryRunner queryRunner, String sql)
     {
-        if (line.endsWith(";")) {
-            line = line.substring(0, line.length() - 1);
-        }
-
-        if (line.equalsIgnoreCase("quit") || line.equalsIgnoreCase("exit")) {
-            return false;
-        }
-
-        try (Query query = queryRunner.startQuery(line)) {
+        try (Query query = queryRunner.startQuery(sql)) {
             query.renderOutput(System.out);
         }
         catch (QueryAbortedException e) {
@@ -86,8 +109,6 @@ public class Console
                 e.printStackTrace();
             }
         }
-
-        return true;
     }
 
     private static MemoryHistory getHistory()
