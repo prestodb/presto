@@ -49,6 +49,24 @@ public class TestStatementSplitter
     }
 
     @Test
+    public void testSplitterWithQuotedString()
+    {
+        String sql = "select 'foo bar' x from dual";
+        StatementSplitter splitter = new StatementSplitter(sql);
+        assertEquals(splitter.getCompleteStatements(), ImmutableList.of());
+        assertEquals(splitter.getPartialStatement(), sql);
+    }
+
+    @Test
+    public void testSplitterWithIncompleteQuotedString()
+    {
+        String sql = "select 'foo', 'bar";
+        StatementSplitter splitter = new StatementSplitter(sql);
+        assertEquals(splitter.getCompleteStatements(), ImmutableList.of());
+        assertEquals(splitter.getPartialStatement(), sql);
+    }
+
+    @Test
     public void testSqueezeStatement()
     {
         String sql = "select   *  from\n foo\n  order by x ; ";
