@@ -1,7 +1,6 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.execution.ExecutionStats;
-import com.facebook.presto.execution.PageBufferInfo;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.StageInfo;
@@ -21,7 +20,6 @@ import java.io.PrintStream;
 import java.math.RoundingMode;
 import java.net.URI;
 import java.text.DecimalFormat;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -78,15 +76,8 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
                     }
 
                     // check if there is there is pending output
-                    if (queryInfo.getOutputStage() != null) {
-                        List<TaskInfo> outStage = queryInfo.getOutputStage().getTasks();
-                        for (TaskInfo outputTask : outStage) {
-                            for (PageBufferInfo outputBuffer : outputTask.getOutputBuffers()) {
-                                if (outputBuffer.getBufferedPages() > 0) {
-                                    return;
-                                }
-                            }
-                        }
+                    if (queryInfo.resultsPending()) {
+                        return;
                     }
 
                     if (Duration.nanosSince(lastPrint).convertTo(SECONDS) >= 0.5) {
