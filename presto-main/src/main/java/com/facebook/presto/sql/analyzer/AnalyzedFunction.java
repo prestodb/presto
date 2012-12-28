@@ -9,13 +9,13 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class AnalyzedAggregation
+public class AnalyzedFunction
 {
     private final FunctionInfo info;
     private final List<AnalyzedExpression> arguments;
     private final FunctionCall rewrittenCall;
 
-    public AnalyzedAggregation(FunctionInfo info, List<AnalyzedExpression> arguments, FunctionCall rewrittenCall)
+    public AnalyzedFunction(FunctionInfo info, List<AnalyzedExpression> arguments, FunctionCall rewrittenCall)
     {
         Preconditions.checkNotNull(info, "info is null");
         Preconditions.checkNotNull(arguments, "arguments is null");
@@ -61,7 +61,7 @@ public class AnalyzedAggregation
             return false;
         }
 
-        AnalyzedAggregation that = (AnalyzedAggregation) o;
+        AnalyzedFunction that = (AnalyzedFunction) o;
 
         if (!arguments.equals(that.arguments)) {
             return false;
@@ -85,12 +85,12 @@ public class AnalyzedAggregation
         return result;
     }
 
-    public static Function<AnalyzedAggregation, List<AnalyzedExpression>> argumentGetter()
+    public static Function<AnalyzedFunction, List<AnalyzedExpression>> argumentGetter()
     {
-        return new Function<AnalyzedAggregation, List<AnalyzedExpression>>()
+        return new Function<AnalyzedFunction, List<AnalyzedExpression>>()
         {
             @Override
-            public List<AnalyzedExpression> apply(AnalyzedAggregation input)
+            public List<AnalyzedExpression> apply(AnalyzedFunction input)
             {
                 return input.getArguments();
             }
