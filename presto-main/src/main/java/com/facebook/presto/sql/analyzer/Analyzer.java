@@ -33,7 +33,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
@@ -41,10 +40,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -116,7 +112,7 @@ public class Analyzer
             }
 
             List<AnalyzedExpression> groupBy = analyzeGroupBy(query.getGroupBy(), sourceDescriptor, context.getSymbols());
-            Set<AnalyzedAggregation> aggregations = analyzeAggregations(query.getGroupBy(), query.getSelect(), query.getOrderBy(), sourceDescriptor, context.getSymbols());
+            Set<AnalyzedFunction> aggregations = analyzeAggregations(query.getGroupBy(), query.getSelect(), query.getOrderBy(), sourceDescriptor, context.getSymbols());
             List<AnalyzedOrdering> orderBy = analyzeOrderBy(query.getOrderBy(), sourceDescriptor);
             AnalyzedOutput output = analyzeOutput(query.getSelect(), context.getSymbolAllocator(), sourceDescriptor);
 
@@ -248,20 +244,20 @@ public class Analyzer
             return builder.build();
         }
 
-        private Set<AnalyzedAggregation> analyzeAggregations(List<Expression> groupBy, Select select, List<SortItem> orderBy, TupleDescriptor descriptor, Map<Symbol, Type> symbols)
+        private Set<AnalyzedFunction> analyzeAggregations(List<Expression> groupBy, Select select, List<SortItem> orderBy, TupleDescriptor descriptor, Map<Symbol, Type> symbols)
         {
             if (!groupBy.isEmpty() && Iterables.any(select.getSelectItems(), instanceOf(AllColumns.class))) {
                 throw new SemanticException(select, "Wildcard selector not supported when GROUP BY is present"); // TODO: add support for SELECT T.*, count() ... GROUP BY T.* (maybe?)
             }
 
             List<Expression> scalarTerms = new ArrayList<>();
-            ImmutableSet.Builder<AnalyzedAggregation> aggregateTermsBuilder = ImmutableSet.builder();
+            ImmutableSet.Builder<AnalyzedFunction> aggregateTermsBuilder = ImmutableSet.builder();
             // analyze select and order by terms
             for (Expression term : concat(transform(select.getSelectItems(), unaliasFunction()), transform(orderBy, sortKeyGetter()))) {
                 // TODO: this doesn't currently handle queries like 'SELECT k + sum(v) FROM T GROUP BY k' correctly
                 AggregateAnalyzer analyzer = new AggregateAnalyzer(metadata, descriptor, symbols);
 
-                List<AnalyzedAggregation> aggregations = analyzer.analyze(term);
+                List<AnalyzedFunction> aggregations = analyzer.analyze(term);
                 if (aggregations.isEmpty()) {
                     scalarTerms.add(term);
                 }
@@ -270,7 +266,7 @@ public class Analyzer
                 }
             }
 
-            Set<AnalyzedAggregation> aggregateTerms = aggregateTermsBuilder.build();
+            Set<AnalyzedFunction> aggregateTerms = aggregateTermsBuilder.build();
 
             if (!groupBy.isEmpty()) {
                 Iterable<Expression> notInGroupBy = Iterables.filter(scalarTerms, not(in(groupBy)));
@@ -299,7 +295,7 @@ public class Analyzer
         private final TupleDescriptor descriptor;
         private final Map<Symbol, Type> symbols;
 
-        private List<AnalyzedAggregation> aggregations;
+        private List<AnalyzedFunction> aggregations;
 
         public AggregateAnalyzer(Metadata metadata, TupleDescriptor descriptor, Map<Symbol, Type> symbols)
         {
@@ -308,7 +304,7 @@ public class Analyzer
             this.symbols = symbols;
         }
 
-        public List<AnalyzedAggregation> analyze(Expression expression)
+        public List<AnalyzedFunction> analyze(Expression expression)
         {
             aggregations = new ArrayList<>();
             process(expression, null);
@@ -335,7 +331,7 @@ public class Analyzer
                 }
 
                 FunctionCall rewritten = TreeRewriter.rewriteWith(new NameToSymbolRewriter(descriptor), node);
-                aggregations.add(new AnalyzedAggregation(info, argumentsAnalysis.build(), rewritten));
+                aggregations.add(new AnalyzedFunction(info, argumentsAnalysis.build(), rewritten));
                 return super.visitFunctionCall(node, node); // visit children
             }
 
