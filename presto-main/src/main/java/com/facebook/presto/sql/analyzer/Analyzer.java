@@ -335,7 +335,7 @@ public class Analyzer
                 return super.visitFunctionCall(node, node); // visit children
             }
 
-            return super.visitFunctionCall(node, null);
+            return super.visitFunctionCall(node, enclosingAggregate);
         }
     }
 
