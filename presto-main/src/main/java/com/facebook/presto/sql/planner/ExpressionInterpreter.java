@@ -1,7 +1,10 @@
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.sql.analyzer.Symbol;
+import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -9,6 +12,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
@@ -20,6 +24,11 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.google.common.base.Charsets;
+import com.google.common.collect.Lists;
+
+import java.lang.invoke.MethodHandle;
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -287,6 +296,47 @@ public class ExpressionInterpreter
     protected Object visitBooleanLiteral(BooleanLiteral node, Void context)
     {
         return node.equals(BooleanLiteral.TRUE_LITERAL);
+    }
+
+    @Override
+    protected Object visitFunctionCall(FunctionCall node, Void context)
+    {
+        // TODO: remove this huge hack
+        List<Type> argumentTypes = new ArrayList<>();
+        List<Object> argumentValues = new ArrayList<>();
+        for (Expression expression : node.getArguments()) {
+            Object value = process(expression, context);
+            if (value == null) {
+                return null;
+            }
+            Type type;
+            if (value instanceof Double) {
+                type = Type.DOUBLE;
+            }
+            else if (value instanceof Long) {
+                type = Type.LONG;
+            }
+            else if (value instanceof Slice) {
+                type = Type.STRING;
+            }
+            else if (value instanceof Boolean) {
+                type = Type.BOOLEAN;
+            }
+            else {
+                throw new RuntimeException("Unhandled value type: " + value.getClass().getName());
+            }
+            argumentValues.add(value);
+            argumentTypes.add(type);
+        }
+        FunctionRegistry registry = new FunctionRegistry();
+        FunctionInfo function = registry.get(node.getName(), Lists.transform(argumentTypes, Type.toRaw()));
+        MethodHandle handle = function.getScalarFunction();
+        try {
+            return handle.invokeWithArguments(argumentValues);
+        }
+        catch (Throwable throwable) {
+            throw new RuntimeException("Exception from function invocation", throwable);
+        }
     }
 
     @Override

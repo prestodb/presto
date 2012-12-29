@@ -8,9 +8,12 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 
+import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 public class FunctionInfo
 {
@@ -22,7 +25,9 @@ public class FunctionInfo
 
     private final boolean isAggregate;
     private final TupleInfo.Type intermediateType;
-    private final AggregationFunction function;
+    private final AggregationFunction aggregationFunction;
+
+    private final MethodHandle scalarFunction;
 
     public FunctionInfo(int id, QualifiedName name, TupleInfo.Type returnType, List<TupleInfo.Type> argumentTypes, TupleInfo.Type intermediateType, AggregationFunction function)
     {
@@ -31,11 +36,12 @@ public class FunctionInfo
         this.returnType = returnType;
         this.argumentTypes = argumentTypes;
         this.intermediateType = intermediateType;
-        this.function = function;
+        this.aggregationFunction = function;
         this.isAggregate = true;
+        this.scalarFunction = null;
     }
 
-    public FunctionInfo(int id, QualifiedName name, TupleInfo.Type returnType, List<TupleInfo.Type> argumentTypes)
+    public FunctionInfo(int id, QualifiedName name, TupleInfo.Type returnType, List<TupleInfo.Type> argumentTypes, MethodHandle function)
     {
         this.id = id;
         this.name = name;
@@ -44,7 +50,9 @@ public class FunctionInfo
 
         this.isAggregate = false;
         this.intermediateType = null;
-        this.function = null;
+        this.aggregationFunction = null;
+
+        this.scalarFunction = checkNotNull(function, "function is null");
     }
 
     public FunctionHandle getHandle()
@@ -80,15 +88,21 @@ public class FunctionInfo
     public AggregationFunctionDefinition bind(List<Input> inputs)
     {
         if (inputs.isEmpty()) {
-            return aggregation(function, -1);
+            return aggregation(aggregationFunction, -1);
         }
         else {
             Preconditions.checkArgument(inputs.size() == 1, "expected at most one input");
             Input input = inputs.get(0);
             // todo remove this assumption that field is 0 when we add field support
             Preconditions.checkArgument(input.getField() == 0, "expected field to be 0");
-            return aggregation(function, input.getChannel());
+            return aggregation(aggregationFunction, input.getChannel());
         }
+    }
+
+    public MethodHandle getScalarFunction()
+    {
+        checkState(scalarFunction != null, "not a scalar function");
+        return scalarFunction;
     }
 
     @Override
