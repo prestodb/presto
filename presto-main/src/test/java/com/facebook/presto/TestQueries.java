@@ -50,7 +50,6 @@ import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
-import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -93,7 +92,6 @@ import java.util.zip.GZIPInputStream;
 
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
-import static com.google.common.base.Charsets.*;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
@@ -452,6 +450,13 @@ public class TestQueries
             throws Exception
     {
         assertQueryOrdered("SELECT orderstatus FROM orders ORDER BY orderkey DESC");
+    }
+
+    @Test
+    public void testScalarFunction()
+            throws Exception
+    {
+        assertQuery("SELECT SUBSTR('Quadratically', 5, 6) FROM orders LIMIT 1");
     }
 
 

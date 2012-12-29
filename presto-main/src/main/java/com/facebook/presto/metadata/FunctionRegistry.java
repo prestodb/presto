@@ -1,13 +1,18 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.operator.scalar.StringFunctions;
+import com.facebook.presto.slice.Slice;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Joiner;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodType;
 import java.util.List;
 import java.util.Map;
 
@@ -26,6 +31,7 @@ import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
 
 public class FunctionRegistry
 {
@@ -45,7 +51,8 @@ public class FunctionRegistry
                 new FunctionInfo(8, QualifiedName.of("max"), VARIABLE_BINARY, ImmutableList.of(VARIABLE_BINARY), VARIABLE_BINARY, VAR_BINARY_MAX),
                 new FunctionInfo(9, QualifiedName.of("min"), FIXED_INT_64, ImmutableList.of(FIXED_INT_64), FIXED_INT_64, LONG_MIN),
                 new FunctionInfo(10, QualifiedName.of("min"), DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_MIN),
-                new FunctionInfo(11, QualifiedName.of("min"), VARIABLE_BINARY, ImmutableList.of(VARIABLE_BINARY), VARIABLE_BINARY, VAR_BINARY_MIN)
+                new FunctionInfo(11, QualifiedName.of("min"), VARIABLE_BINARY, ImmutableList.of(VARIABLE_BINARY), VARIABLE_BINARY, VAR_BINARY_MIN),
+                new FunctionInfo(12, QualifiedName.of("substr"), VARIABLE_BINARY, types(StringFunctions.SUBSTR), StringFunctions.SUBSTR)
         );
 
         functionsByName = Multimaps.index(functions, FunctionInfo.nameGetter());
@@ -66,5 +73,35 @@ public class FunctionRegistry
     public FunctionInfo get(FunctionHandle handle)
     {
         return functionsByHandle.get(handle);
+    }
+
+    public static MethodHandle lookupStatic(Class<?> clazz, String methodName, Class<?> returnType, Class<?>... parameterTypes)
+    {
+        try {
+            return lookup().findStatic(clazz, methodName, MethodType.methodType(returnType, parameterTypes));
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    private static List<TupleInfo.Type> types(MethodHandle handle)
+    {
+        ImmutableList.Builder<TupleInfo.Type> types = ImmutableList.builder();
+        for (Class<?> parameter : handle.type().parameterList()) {
+            if (parameter == long.class) {
+                types.add(FIXED_INT_64);
+            }
+            else if (parameter == double.class) {
+                types.add(DOUBLE);
+            }
+            else if (parameter == Slice.class) {
+                types.add(VARIABLE_BINARY);
+            }
+            else {
+                throw new IllegalArgumentException("Unhandled parameter type: " + parameter.getName());
+            }
+        }
+        return types.build();
     }
 }
