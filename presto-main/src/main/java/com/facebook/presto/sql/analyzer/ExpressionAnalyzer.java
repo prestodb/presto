@@ -17,6 +17,7 @@ import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -171,6 +172,16 @@ public class ExpressionAnalyzer
                 throw new SemanticException(node, "All operands of coalesce must be the same type: %s", operandTypes);
             }
             return firstOperand;
+        }
+
+        @Override
+        protected Type visitNegativeExpression(NegativeExpression node, Void context)
+        {
+            Type type = process(node.getValue(), context);
+            if (!Type.isNumeric(type)) {
+                throw new SemanticException(node.getValue(), "Value of negative operator must be numeric (actual: %s)", type);
+            }
+            return type;
         }
 
         @Override

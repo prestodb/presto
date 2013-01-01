@@ -17,6 +17,7 @@ import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
@@ -114,6 +115,23 @@ public class ExpressionInterpreter
             }
         }
         return null;
+    }
+
+    @Override
+    protected Object visitNegativeExpression(NegativeExpression node, Void context)
+    {
+        Object value = process(node.getValue(), context);
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Expression) {
+            return node;
+        }
+
+        if (value instanceof Long) {
+            return -((long) value);
+        }
+        return -((double) value);
     }
 
     @Override

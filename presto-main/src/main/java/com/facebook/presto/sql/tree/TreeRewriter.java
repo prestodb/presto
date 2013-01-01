@@ -188,6 +188,19 @@ public final class TreeRewriter<C>
         }
 
         @Override
+        protected Node visitNegativeExpression(NegativeExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteNegativeExpression(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            return node;
+        }
+
+        @Override
         public Node visitArithmeticExpression(ArithmeticExpression node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
