@@ -25,7 +25,7 @@ public class AnalysisResult
     private final AnalyzedExpression predicate;
     private final AnalyzedOutput output;
     private final List<AnalyzedExpression> groupBy;
-    private final Set<AnalyzedAggregation> aggregations;
+    private final Set<AnalyzedFunction> aggregations;
     private final Long limit;
     private final List<AnalyzedOrdering> orderBy;
     private final IdentityHashMap<Join, AnalyzedExpression> joinCriteria;
@@ -36,7 +36,7 @@ public class AnalysisResult
             AnalyzedOutput output,
             AnalyzedExpression predicate,
             List<AnalyzedExpression> groupBy,
-            Set<AnalyzedAggregation> aggregations,
+            Set<AnalyzedFunction> aggregations,
             @Nullable Long limit,
             List<AnalyzedOrdering> orderBy)
     {
@@ -62,7 +62,7 @@ public class AnalysisResult
             IdentityHashMap<Subquery, AnalysisResult> inlineViews,
             IdentityHashMap<Join, AnalyzedExpression> joinCriteria,
             boolean distinct,
-            Set<AnalyzedAggregation> aggregations,
+            Set<AnalyzedFunction> aggregations,
             @Nullable AnalyzedExpression predicate,
             AnalyzedOutput output,
             List<AnalyzedExpression> groupBy,
@@ -132,7 +132,7 @@ public class AnalysisResult
         return joinCriteria.get(join);
     }
 
-    public Set<AnalyzedAggregation> getAggregations()
+    public Set<AnalyzedFunction> getAggregations()
     {
         return aggregations;
     }

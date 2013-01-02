@@ -4,7 +4,7 @@ import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.analyzer.AnalysisResult;
-import com.facebook.presto.sql.analyzer.AnalyzedAggregation;
+import com.facebook.presto.sql.analyzer.AnalyzedFunction;
 import com.facebook.presto.sql.analyzer.AnalyzedExpression;
 import com.facebook.presto.sql.analyzer.AnalyzedOrdering;
 import com.facebook.presto.sql.analyzer.Field;
@@ -57,7 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.sql.analyzer.AnalyzedAggregation.argumentGetter;
+import static com.facebook.presto.sql.analyzer.AnalyzedFunction.argumentGetter;
 import static com.facebook.presto.sql.analyzer.AnalyzedOrdering.expressionGetter;
 import static com.google.common.collect.Iterables.concat;
 
@@ -223,7 +223,7 @@ public class LogicalPlanner
     private PlanNode createAggregatePlan(PlanNode source,
             List<AnalyzedExpression> outputs,
             List<AnalyzedExpression> orderBy,
-            Set<AnalyzedAggregation> aggregations,
+            Set<AnalyzedFunction> aggregations,
             List<AnalyzedExpression> groupBys,
             SymbolAllocator allocator,
             Map<Expression, Symbol> outputSubstitutions)
@@ -259,7 +259,7 @@ public class LogicalPlanner
 
         BiMap<Symbol, FunctionCall> aggregationAssignments = HashBiMap.create();
         Map<Symbol, FunctionHandle> functions = new HashMap<>();
-        for (AnalyzedAggregation aggregation : aggregations) {
+        for (AnalyzedFunction aggregation : aggregations) {
             // rewrite function calls in terms of scalar inputs
             FunctionCall rewrittenFunction = TreeRewriter.rewriteWith(substitution(scalarAssignments.inverse()), aggregation.getRewrittenCall());
             Symbol symbol = allocator.newSymbol(aggregation.getFunctionName().getSuffix(), aggregation.getType());
