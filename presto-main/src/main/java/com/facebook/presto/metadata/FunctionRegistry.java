@@ -67,7 +67,8 @@ public class FunctionRegistry
             }
         }
 
-        throw new IllegalArgumentException(format("Function %s(%s) not registered", name, Joiner.on(", ").join(parameterTypes)));
+        String parameters = Joiner.on(", ").useForNull("NULL").join(parameterTypes);
+        throw new IllegalArgumentException(format("Function %s(%s) not registered", name, parameters));
     }
 
     public FunctionInfo get(FunctionHandle handle)
