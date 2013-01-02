@@ -54,7 +54,15 @@ public class FunctionRegistry
                 .aggregate("min", FIXED_INT_64, ImmutableList.of(FIXED_INT_64), FIXED_INT_64, LONG_MIN)
                 .aggregate("min", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_MIN)
                 .aggregate("min", VARIABLE_BINARY, ImmutableList.of(VARIABLE_BINARY), VARIABLE_BINARY, VAR_BINARY_MIN)
+                .scalar("concat", StringFunctions.CONCAT)
+                .scalar("length", StringFunctions.LENGTH)
+                .scalar("reverse", StringFunctions.REVERSE)
                 .scalar("substr", StringFunctions.SUBSTR)
+                .scalar("ltrim", StringFunctions.LTRIM)
+                .scalar("rtrim", StringFunctions.RTRIM)
+                .scalar("trim", StringFunctions.TRIM)
+                .scalar("lower", StringFunctions.LOWER)
+                .scalar("upper", StringFunctions.UPPER)
                 .build();
 
         functionsByName = Multimaps.index(functions, FunctionInfo.nameGetter());
