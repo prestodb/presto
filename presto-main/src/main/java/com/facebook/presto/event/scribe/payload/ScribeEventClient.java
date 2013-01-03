@@ -95,6 +95,7 @@ public class ScribeEventClient
                         log.debug("No Scribe category configured for event '%s'. Skipping event.", normalizedEvent.getType());
                     }
                     else {
+                        // See PayloadBuilder for message format
                         PayloadBuilder payloadBuilder = new PayloadBuilder(jsonCodec)
                                 .setAppEventType(normalizedEvent.getType())
                                 .addAppData("event_type", normalizedEvent.getType())
@@ -118,7 +119,12 @@ public class ScribeEventClient
     }
 
     /**
-     * Normalize annotated event into an actual Event class
+     * Normalize annotated event into an actual Event class.
+     * The only reason this exists is because the Event metadata extraction is tightly coupled with JSON serialization
+     * and does not lend itself well to just metadata extraction.
+     *
+     * TODO: Once the Event metadata introspection is decoupled from JSON, we should switch to using that directly, instead
+     * of this workaround.
      */
     private <T> Event normalizeToEvent(T event)
             throws IOException
