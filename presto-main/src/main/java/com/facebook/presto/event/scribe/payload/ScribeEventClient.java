@@ -44,9 +44,9 @@ public class ScribeEventClient
     }
 
     @Inject
-    public ScribeEventClient(AsyncScribeLogger asyncScribeLogger, ObjectMapper objectMapper, JsonEventSerializer eventSerializer, JsonCodec<Map<String, Object>> jsonCodec, EventMappingConfiguration config)
+    public ScribeEventClient(AsyncScribeLogger asyncScribeLogger, ObjectMapper objectMapper, JsonEventSerializer eventSerializer, JsonCodec<Map<String, Object>> jsonCodec, EventCategoryMapProvider mapProvider)
     {
-        this(asyncScribeLogger, objectMapper, eventSerializer, jsonCodec, checkNotNull(config, "config is null").getEventCategoryMap());
+        this(asyncScribeLogger, objectMapper, eventSerializer, jsonCodec, checkNotNull(mapProvider, "mapProvider is null").getEventCategoryMap());
     }
 
     @Override
