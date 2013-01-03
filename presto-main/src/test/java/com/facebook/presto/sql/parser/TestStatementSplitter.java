@@ -72,4 +72,11 @@ public class TestStatementSplitter
         String sql = "select   *  from\n foo\n  order by x ; ";
         assertEquals(squeezeStatement(sql), "select * from foo order by x ;");
     }
+
+    @Test
+    public void testSqueezeStatementWithIncompleteQuotedString()
+    {
+        String sql = "select   *  from\n foo\n  where x = 'oops";
+        assertEquals(squeezeStatement(sql), "select * from foo where x = 'oops");
+    }
 }
