@@ -51,10 +51,9 @@ public class ReusableScribeClient
     @Override
     public void close()
     {
-        if (client != null)
-        {
+        if (client != null) {
             client.close();
-            closed = true;
         }
+        closed = true;
     }
 }
