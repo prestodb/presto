@@ -87,6 +87,7 @@ public class FunctionInfo
 
     public AggregationFunctionDefinition bind(List<Input> inputs)
     {
+        checkState(isAggregate, "function is not an aggregate");
         if (inputs.isEmpty()) {
             return aggregation(aggregationFunction, -1);
         }
