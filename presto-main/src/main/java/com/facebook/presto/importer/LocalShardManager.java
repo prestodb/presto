@@ -2,6 +2,7 @@ package com.facebook.presto.importer;
 
 import com.facebook.presto.ingest.ImportPartition;
 import com.facebook.presto.ingest.RecordProjectOperator;
+import com.facebook.presto.metadata.ImportColumnHandle;
 import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.server.ShardImport;
 import com.facebook.presto.spi.ImportClient;
@@ -11,6 +12,7 @@ import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.ShardBoundedExecutor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -104,11 +106,15 @@ public class LocalShardManager
 
             PartitionChunk chunk = shardImport.getPartitionChunk().deserialize(importClient);
             List<Long> columnIds = getColumnIds(shardImport.getFields());
-            List<Type> projections = Lists.transform(shardImport.getFields(), ImportField.typeGetter());
 
             ImportPartition importPartition = new ImportPartition(importClient, chunk);
             DataSize partitionSize = new DataSize(chunk.getLength(), Unit.BYTE);
-            RecordProjectOperator source = new RecordProjectOperator(importPartition, partitionSize, projections);
+
+            ImmutableList.Builder<ImportColumnHandle> columns = ImmutableList.builder();
+            for (ImportField field : shardImport.getFields()) {
+                columns.add(new ImportColumnHandle(shardImport.getSourceName(), field.getImportFieldName(), Ints.checkedCast(field.getColumnId()), field.getColumnType()));
+            }
+            RecordProjectOperator source = new RecordProjectOperator(importPartition, partitionSize, columns.build());
 
             storageManager.importShard(shardId, columnIds, source);
         }

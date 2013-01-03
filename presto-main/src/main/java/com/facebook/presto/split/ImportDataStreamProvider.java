@@ -8,6 +8,7 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.util.IterableTransformer;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
@@ -41,18 +42,13 @@ public class ImportDataStreamProvider
         ImportSplit importSplit = (ImportSplit) split;
         ImportClient client = importClientFactory.getClient(importSplit.getSourceName());
 
-        ImmutableList.Builder<Type> builder = ImmutableList.builder();
-        for (ColumnHandle columnHandle : columns) {
-            checkArgument(columnHandle instanceof ImportColumnHandle, "columnHandle must be of type ImportColumnHandle, not %s", columnHandle.getClass().getName());
-            assert columnHandle instanceof ImportColumnHandle; // // IDEA-60343
-
-            ImportColumnHandle importColumn = (ImportColumnHandle) columnHandle;
-            builder.add(importColumn.getColumnType());
-        }
+        List<ImportColumnHandle> columnHandles = IterableTransformer.on(columns)
+                .cast(ImportColumnHandle.class)
+                .list();
 
         PartitionChunk partitionChunk = client.deserializePartitionChunk(importSplit.getSerializedChunk().getBytes());
         DataSize partitionSize = new DataSize(partitionChunk.getLength(), Unit.BYTE);
         ImportPartition importPartition = new ImportPartition(client, partitionChunk);
-        return new RecordProjectOperator(importPartition, partitionSize, builder.build());
+        return new RecordProjectOperator(importPartition, partitionSize, columnHandles);
     }
 }
