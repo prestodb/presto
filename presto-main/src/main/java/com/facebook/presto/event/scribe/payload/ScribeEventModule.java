@@ -15,6 +15,7 @@ public class ScribeEventModule
     public void configure(Binder binder)
     {
         bindConfig(binder).to(EventMappingConfiguration.class);
+        binder.bind(EventCategoryMapProvider.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindMapJsonCodec(String.class, Object.class);
         binder.bind(EventClient.class).to(ScribeEventClient.class).in(Scopes.SINGLETON);
     }
