@@ -60,13 +60,15 @@ public class StatementSplitter
     {
         TokenSource tokens = getLexer(checkNotNull(sql, "sql is null"));
         StringBuilder sb = new StringBuilder();
+        int index = 0;
         while (true) {
             Token token;
             try {
                 token = tokens.nextToken();
+                index = ((CommonToken) token).getStopIndex() + 1;
             }
             catch (TokenizationException e) {
-                sb.append(sql.substring(e.getCause().index));
+                sb.append(sql.substring(index));
                 break;
             }
             if (token.getType() == Token.EOF) {
