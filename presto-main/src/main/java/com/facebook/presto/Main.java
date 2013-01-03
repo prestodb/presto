@@ -4,7 +4,6 @@
 package com.facebook.presto;
 
 import com.facebook.presto.cli.Console;
-import com.facebook.presto.cli.ConvertCsv;
 import com.facebook.presto.cli.Execute;
 import com.facebook.presto.cli.Server;
 import com.facebook.presto.ingest.RuntimeIOException;
@@ -30,11 +29,6 @@ public class Main
                 .withCommand(Execute.class)
                 .withCommand(Console.class)
                 .withCommand(Help.class);
-
-        builder.withGroup("convert")
-                .withDescription("convert file formats")
-                .withDefaultCommand(Help.class)
-                .withCommand(ConvertCsv.class);
 
         Cli<Runnable> cli = builder.build();
         cli.parse(args).run();
