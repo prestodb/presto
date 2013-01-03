@@ -7,11 +7,13 @@ import com.google.common.base.Charsets;
 import com.google.common.base.Objects;
 
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.Immutable;
 import java.util.Arrays;
 import java.util.zip.CRC32;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+@Immutable
 @ThriftStruct
 public class LogEntry
 {
@@ -27,8 +29,8 @@ public class LogEntry
         checkNotNull(category, "category is null");
         checkNotNull(message, "message is null");
 
-        this.category = category;
-        this.message = message;
+        this.category = Arrays.copyOf(category, category.length);
+        this.message = Arrays.copyOf(message, message.length);
         this.checksum = checksum;
         this.sourceInfo = sourceInfo;
         this.bucket = bucket;
@@ -141,12 +143,12 @@ public class LogEntry
     // Needs to match logic in com.facebook.datafreeway.integrity.LogEntryCheckSum
     private static int computeChecksum(byte[] category, byte[] message)
     {
-        CRC32 crc32Obj = new CRC32();
+        CRC32 crc = new CRC32();
 
-        crc32Obj.update(category);
-        crc32Obj.update(message);
+        crc.update(category);
+        crc.update(message);
 
         //noinspection NumericCastThatLosesPrecision
-        return (int) crc32Obj.getValue();
+        return (int) crc.getValue();
     }
 }

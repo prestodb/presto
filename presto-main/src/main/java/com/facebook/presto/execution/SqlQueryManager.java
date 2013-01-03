@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.event.query.QueryEventFactory;
+import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.importer.ImportManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
@@ -15,7 +15,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import io.airlift.event.client.EventClient;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -53,8 +52,7 @@ public class SqlQueryManager
     private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
     private final Duration maxQueryAge;
-    private final QueryEventFactory queryEventFactory;
-    private final EventClient eventClient;
+    private final QueryMonitor queryMonitor;
 
     private final AtomicInteger nextQueryId = new AtomicInteger();
     private final ConcurrentMap<String, QueryExecution> queries = new ConcurrentHashMap<>();
@@ -73,8 +71,7 @@ public class SqlQueryManager
             RemoteTaskFactory remoteTaskFactory,
             LocationFactory locationFactory,
             QueryManagerConfig config,
-            QueryEventFactory queryEventFactory,
-            EventClient eventClient)
+            QueryMonitor queryMonitor)
     {
         checkNotNull(importClientFactory, "importClientFactory is null");
         checkNotNull(importManager, "importManager is null");
@@ -85,8 +82,7 @@ public class SqlQueryManager
         checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
         checkNotNull(locationFactory, "locationFactory is null");
         checkNotNull(config, "config is null");
-        checkNotNull(queryEventFactory, "queryEventFactory is null");
-        checkNotNull(eventClient, "eventClient is null");
+        checkNotNull(queryMonitor, "queryMonitor is null");
 
         this.queryExecutor = Executors.newCachedThreadPool(threadsNamed("query-processor-%d"));
 
@@ -98,8 +94,7 @@ public class SqlQueryManager
         this.stageManager = stageManager;
         this.remoteTaskFactory = remoteTaskFactory;
         this.locationFactory = locationFactory;
-        this.queryEventFactory = queryEventFactory;
-        this.eventClient = eventClient;
+        this.queryMonitor = queryMonitor;
         this.importsEnabled = config.isImportsEnabled();
         this.maxQueryAge = config.getMaxQueryAge();
         this.clientTimeout = config.getClientTimeout();
@@ -211,9 +206,8 @@ public class SqlQueryManager
                     stageManager,
                     remoteTaskFactory,
                     locationFactory,
-                    queryEventFactory,
-                    eventClient);
-            eventClient.post(queryEventFactory.createdEvent(queryExecution.getQueryInfo()));
+                    queryMonitor);
+            queryMonitor.createdEvent(queryExecution.getQueryInfo());
         }
         queries.put(queryExecution.getQueryId(), queryExecution);
 

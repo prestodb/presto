@@ -1,5 +1,6 @@
 package com.facebook.presto.event;
 
+import com.google.common.collect.ImmutableMap;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 import org.joda.time.DateTime;
@@ -34,7 +35,7 @@ public class Event
         this.uuid = checkNotNull(uuid, "uuid is null");
         this.host = checkNotNull(host, "host is null");
         this.timestamp = checkNotNull(timestamp, "timestamp is null");
-        this.data = checkNotNull(data, "data is null");
+        this.data = ImmutableMap.copyOf(checkNotNull(data, "data is null"));
     }
 
     @JsonProperty

@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -27,6 +28,9 @@ import static java.util.concurrent.Executors.newSingleThreadExecutor;
 public class AsyncScribeLogger
 {
     private final static Logger log = Logger.get(AsyncScribeLogger.class);
+
+    private static final Duration ERROR_BACKOFF = Duration.valueOf("4s");
+    private static final Duration POLL_WAIT = Duration.valueOf("1s");
 
     private final AtomicBoolean shutdown = new AtomicBoolean(false);
     private final ExecutorService executorService = newSingleThreadExecutor(threadsNamed("scribe-logger-%d"));
@@ -84,9 +88,6 @@ public class AsyncScribeLogger
     class FlushTask
             implements Runnable
     {
-        private static final int ERROR_BACKOFF_SECS = 4;
-        private static final int POLL_WAIT_SECS = 1;
-
         private List<LogEntry> failedBatch;
 
         @Override
@@ -97,12 +98,13 @@ public class AsyncScribeLogger
                     try {
                         if (!process()) {
                             // Sleep to backoff on any downstream failures
-                            TimeUnit.SECONDS.sleep(ERROR_BACKOFF_SECS);
+                            TimeUnit.MILLISECONDS.sleep((long) ERROR_BACKOFF.toMillis());
                         }
                     }
                     catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         log.warn("Flush task interrupted");
+                        return;
                     }
                     catch (Exception e) {
                         log.warn(e, "Unexpected flush task exception");
@@ -127,7 +129,7 @@ public class AsyncScribeLogger
 
             // Wait for messages (with timeout)
             BatchBuilder batchBuilder = new BatchBuilder();
-            LogEntry logEntry = queue.poll(POLL_WAIT_SECS, TimeUnit.SECONDS);
+            LogEntry logEntry = queue.poll((long) POLL_WAIT.toMillis(), TimeUnit.MILLISECONDS);
             if (logEntry == null) {
                 // No messages found before timeout
                 return true;
@@ -136,14 +138,15 @@ public class AsyncScribeLogger
             // Fill up batch and log
             do {
                 batchBuilder.add(logEntry);
-                if (batchBuilder.getNumBytes() >= maxBatchSize.toBytes()) {
+                if (batchBuilder.getSize().toBytes() >= maxBatchSize.toBytes()) {
                     if (!flushToScribe(batchBuilder.build())) {
                         return false;
                     }
                     batchBuilder = new BatchBuilder();
                 }
+                logEntry = queue.poll();
             }
-            while ((logEntry = queue.poll()) != null);
+            while (logEntry != null);
 
             // Flush anything remaining in the BatchBuilder
             if (!batchBuilder.isEmpty()) {
@@ -191,13 +194,13 @@ public class AsyncScribeLogger
         }
 
         public boolean isEmpty()
-        {
+        {˜
             return logEntries.isEmpty();
         }
 
-        public long getNumBytes()
+        public DataSize getSize()
         {
-            return numBytes;
+            return new DataSize(numBytes, DataSize.Unit.BYTE);
         }
 
         public List<LogEntry> build()

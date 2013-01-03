@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.event.query.QueryEventFactory;
+import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.server.HttpTaskClient;
@@ -28,7 +28,6 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.event.client.EventClient;
 import io.airlift.units.Duration;
 import org.antlr.runtime.RecognitionException;
 
@@ -67,8 +66,7 @@ public class SqlQueryExecution
     private final StageManager stageManager;
     private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
-    private final QueryEventFactory queryEventFactory;
-    private final EventClient eventClient;
+    private final QueryMonitor queryMonitor;
 
     private final QueryStats queryStats = new QueryStats();
 
@@ -92,8 +90,7 @@ public class SqlQueryExecution
             StageManager stageManager,
             RemoteTaskFactory remoteTaskFactory,
             LocationFactory locationFactory,
-            QueryEventFactory queryEventFactory,
-            EventClient eventClient)
+            QueryMonitor queryMonitor)
     {
         checkNotNull(queryId, "queryId is null");
         checkNotNull(sql, "sql is null");
@@ -104,8 +101,7 @@ public class SqlQueryExecution
         checkNotNull(stageManager, "stageManager is null");
         checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
         checkNotNull(locationFactory, "locationFactory is null");
-        checkNotNull(queryEventFactory, "queryEventFactory is null");
-        checkNotNull(eventClient, "eventClient is null");
+        checkNotNull(queryMonitor, "queryMonitor is null");
 
         this.queryId = queryId;
         this.sql = sql;
@@ -117,8 +113,7 @@ public class SqlQueryExecution
         this.stageManager = stageManager;
         this.remoteTaskFactory = remoteTaskFactory;
         this.locationFactory = locationFactory;
-        this.queryEventFactory = queryEventFactory;
-        this.eventClient = eventClient;
+        this.queryMonitor = queryMonitor;
     }
 
     @Override
@@ -181,7 +176,7 @@ public class SqlQueryExecution
                 failureCauses.add(e);
                 queryStats.recordEnd();
                 queryState.set(QueryState.FAILED);
-                eventClient.post(queryEventFactory.completionEvent(getQueryInfo()));
+                queryMonitor.completionEvent(getQueryInfo());
             }
             cancel();
         }
@@ -304,7 +299,7 @@ public class SqlQueryExecution
             if (!queryState.get().isDone()) {
                 queryStats.recordEnd();
                 queryState.set(QueryState.CANCELED);
-                eventClient.post(queryEventFactory.completionEvent(getQueryInfo()));
+                queryMonitor.completionEvent(getQueryInfo());
             }
         }
 
@@ -339,7 +334,7 @@ public class SqlQueryExecution
                     this.queryState.set(QueryState.FINISHED);
                 }
                 queryStats.recordEnd();
-                eventClient.post(queryEventFactory.completionEvent(getQueryInfo()));
+                queryMonitor.completionEvent(getQueryInfo());
             } else if (queryState.get() == QueryState.STARTING) {
                 // if any stage is running transition to running
                 if (any(transform(getAllStages(outputStage.getStageInfo()), stageStateGetter()), isStageRunningOrDone())) {

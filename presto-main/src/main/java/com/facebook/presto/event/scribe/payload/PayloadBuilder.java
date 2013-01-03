@@ -12,8 +12,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 /**
- * Builder for Scribe data payloads
- * NOTE: newlines are not permitted
+ * Builder for Scribe data payloads by serializing events into Scribe with the following message format:
+ *
+ *   <app_event_type>\001<json_encoded_property_map>
+ *
+ * NOTE: newlines are not permitted in the payload
  */
 public class PayloadBuilder
 {
