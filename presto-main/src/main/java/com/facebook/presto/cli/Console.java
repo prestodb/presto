@@ -6,6 +6,7 @@ import com.google.common.base.Strings;
 import io.airlift.command.Command;
 import io.airlift.command.Option;
 import jline.console.ConsoleReader;
+import jline.console.UserInterruptException;
 import jline.console.history.FileHistory;
 import jline.console.history.History;
 import jline.console.history.MemoryHistory;
@@ -54,6 +55,18 @@ public class Console
                     prompt = Strings.repeat(" ", prompt.length() - 1) + "-";
                 }
                 String line = reader.readLine(prompt + "> ");
+
+                // add buffer to history and clear on user interrupt
+                if (reader.interrupted()) {
+                    String partial = squeezeStatement(buffer.toString());
+                    if (!partial.isEmpty()) {
+                        reader.getHistory().add(partial);
+                    }
+                    buffer = new StringBuilder();
+                    continue;
+                }
+
+                // exit on EOF
                 if (line == null) {
                     return;
                 }
@@ -132,10 +145,14 @@ public class Console
             extends ConsoleReader
             implements Closeable
     {
+        private boolean interrupted;
+
         private LineReader(History history)
                 throws IOException
         {
             setExpandEvents(false);
+            setBellEnabled(true);
+            setHandleUserInterrupt(true);
             setHistory(history);
             setHistoryEnabled(false);
         }
@@ -144,7 +161,16 @@ public class Console
         public String readLine(String prompt, Character mask)
                 throws IOException
         {
-            String line = super.readLine(prompt, mask);
+            String line;
+            interrupted = false;
+            try {
+                line = super.readLine(prompt, mask);
+            }
+            catch (UserInterruptException e) {
+                interrupted = true;
+                return null;
+            }
+
             if (getHistory() instanceof Flushable) {
                 ((Flushable) getHistory()).flush();
             }
@@ -155,6 +181,11 @@ public class Console
         public void close()
         {
             shutdown();
+        }
+
+        public boolean interrupted()
+        {
+            return interrupted;
         }
     }
 }
