@@ -15,9 +15,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.event.scribe.client.ReusableScribeClient.makeReusableClient;
 import static com.facebook.presto.util.Threads.threadsNamed;
@@ -30,13 +30,13 @@ public class AsyncScribeLogger
     private final static Logger log = Logger.get(AsyncScribeLogger.class);
 
     private static final Duration ERROR_BACKOFF = Duration.valueOf("4s");
-    private static final Duration POLL_WAIT = Duration.valueOf("1s");
 
-    private final AtomicBoolean shutdown = new AtomicBoolean(false);
     private final ExecutorService executorService = newSingleThreadExecutor(threadsNamed("scribe-logger-%d"));
     private final BlockingQueue<LogEntry> queue;
     private final ReusableScribeClient scribeClient;
     private final DataSize maxBatchSize;
+
+    private Future<?> future;
 
     public AsyncScribeLogger(int maxQueueLength, Provider<ScribeClient> scribeClientProvider, DataSize maxBatchSize)
     {
@@ -56,16 +56,19 @@ public class AsyncScribeLogger
     }
 
     @PostConstruct
-    public void start()
+    public synchronized void start()
     {
-        executorService.execute(createFlushTask());
+        future = executorService.submit(createFlushTask());
     }
 
     @PreDestroy
-    public void stop()
+    public synchronized void stop()
     {
-        shutdown.set(true);
-        executorService.shutdown();
+        if (future != null) {
+            future.cancel(true);
+            executorService.shutdownNow();
+            future = null;
+        }
     }
 
     public void log(LogEntry logEntry)
@@ -94,7 +97,7 @@ public class AsyncScribeLogger
         public void run()
         {
             try {
-                while (!shutdown.get()) {
+                while (!Thread.currentThread().isInterrupted()) {
                     try {
                         if (!process()) {
                             // Sleep to backoff on any downstream failures
@@ -103,8 +106,6 @@ public class AsyncScribeLogger
                     }
                     catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
-                        log.warn("Flush task interrupted");
-                        return;
                     }
                     catch (Exception e) {
                         log.warn(e, "Unexpected flush task exception");
@@ -127,13 +128,9 @@ public class AsyncScribeLogger
                 failedBatch = null;
             }
 
-            // Wait for messages (with timeout)
+            // Wait for messages
             BatchBuilder batchBuilder = new BatchBuilder();
-            LogEntry logEntry = queue.poll((long) POLL_WAIT.toMillis(), TimeUnit.MILLISECONDS);
-            if (logEntry == null) {
-                // No messages found before timeout
-                return true;
-            }
+            LogEntry logEntry = queue.take();
 
             // Fill up batch and log
             do {
@@ -194,7 +191,7 @@ public class AsyncScribeLogger
         }
 
         public boolean isEmpty()
-        {˜
+        {
             return logEntries.isEmpty();
         }
 
