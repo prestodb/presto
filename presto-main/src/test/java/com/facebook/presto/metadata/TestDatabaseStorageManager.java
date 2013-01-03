@@ -58,8 +58,8 @@ public class TestDatabaseStorageManager
         long shardId = 123;
         List<Long> columnIds = ImmutableList.of(7L, 11L);
 
-        RecordSet records = new InMemoryRecordSet(ImmutableList.copyOf(new List<?>[]{ImmutableList.of("abc", 1L), ImmutableList.of("def", 2L), ImmutableList.of("g", 0L)}));
-        RecordProjectOperator source = new RecordProjectOperator(records, new DataSize(10, BYTE), VARIABLE_BINARY, FIXED_INT_64);
+        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(VARIABLE_BINARY, FIXED_INT_64) ,ImmutableList.copyOf(new List<?>[]{ImmutableList.of("abc", 1L), ImmutableList.of("def", 2L), ImmutableList.of("g", 0L)}));
+        RecordProjectOperator source = new RecordProjectOperator(records, new DataSize(10, BYTE), records.getColumns());
 
         assertFalse(storageManager.shardExists(shardId));
 
@@ -69,7 +69,7 @@ public class TestDatabaseStorageManager
 
         assertOperatorEquals(
                 new AlignmentOperator(storageManager.getBlocks(shardId, columnIds.get(0)), storageManager.getBlocks(shardId, columnIds.get(1))),
-                new RecordProjectOperator(records, new DataSize(10, BYTE), VARIABLE_BINARY, FIXED_INT_64));
+                new RecordProjectOperator(records, new DataSize(10, BYTE), records.getColumns()));
     }
 
     @Test
@@ -79,8 +79,8 @@ public class TestDatabaseStorageManager
         long shardId = 456;
         List<Long> columnIds = ImmutableList.of(13L);
 
-        RecordSet records = new InMemoryRecordSet(ImmutableList.copyOf(new List<?>[]{}));
-        RecordProjectOperator source = new RecordProjectOperator(records, new DataSize(10, BYTE), VARIABLE_BINARY);
+        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(VARIABLE_BINARY), ImmutableList.copyOf(new List<?>[]{}));
+        RecordProjectOperator source = new RecordProjectOperator(records, new DataSize(10, BYTE), records.getColumns());
 
         assertFalse(storageManager.shardExists(shardId));
 

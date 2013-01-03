@@ -5,18 +5,21 @@ package com.facebook.presto.ingest;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.metadata.ImportColumnHandle;
 import com.facebook.presto.operator.AbstractPageIterator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import io.airlift.units.DataSize;
 
 import java.util.List;
+
+import static com.facebook.presto.metadata.ImportColumnHandle.idGetter;
 
 public class RecordProjectOperator
         implements Operator
@@ -24,24 +27,27 @@ public class RecordProjectOperator
     private final RecordSet source;
     private final DataSize dataSize;
     private final List<TupleInfo> tupleInfos;
+    private final List<Integer> columnIds;
 
-    public RecordProjectOperator(RecordSet source, DataSize dataSize, Type... types)
+    public RecordProjectOperator(RecordSet source, DataSize dataSize, ImportColumnHandle... columns)
     {
-        this(source, dataSize, ImmutableList.copyOf(types));
+        this(source, dataSize, ImmutableList.copyOf(columns));
     }
 
-    public RecordProjectOperator(RecordSet source, DataSize dataSize, Iterable<Type> types)
+    public RecordProjectOperator(RecordSet source, DataSize dataSize, Iterable<ImportColumnHandle> columns)
     {
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkNotNull(dataSize, "dataSize is null");
-        Preconditions.checkNotNull(types, "projections is null");
+        Preconditions.checkNotNull(columns, "columns is null");
 
         this.source = source;
         this.dataSize = dataSize;
 
+        this.columnIds = ImmutableList.copyOf(Iterables.transform(columns, idGetter()));
+
         ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
-        for (Type type : types) {
-            tupleInfos.add(new TupleInfo(type));
+        for (ImportColumnHandle column : columns) {
+            tupleInfos.add(new TupleInfo(column.getColumnType()));
         }
         this.tupleInfos = tupleInfos.build();
     }
@@ -62,20 +68,23 @@ public class RecordProjectOperator
     public PageIterator iterator(OperatorStats operatorStats)
     {
         operatorStats.addActualDataSize(dataSize.toBytes());
-        return new RecordProjectionOperator(source.cursor(operatorStats), tupleInfos, operatorStats);
+        return new RecordProjectionOperator(source.cursor(operatorStats), tupleInfos, columnIds, operatorStats);
     }
 
     private static class RecordProjectionOperator
             extends AbstractPageIterator
     {
         private final RecordCursor cursor;
+        private final List<Integer> columnIds;
         private final OperatorStats operatorStats;
 
 
-        public RecordProjectionOperator(RecordCursor cursor, List<TupleInfo> tupleInfos, OperatorStats operatorStats)
+        public RecordProjectionOperator(RecordCursor cursor, List<TupleInfo> tupleInfos, List<Integer> columnIds, OperatorStats operatorStats)
         {
             super(tupleInfos);
+
             this.cursor = cursor;
+            this.columnIds = columnIds;
             this.operatorStats = operatorStats;
         }
 
@@ -88,9 +97,10 @@ public class RecordProjectOperator
             }
 
             while (!isFull(outputs) && cursor.advanceNextPosition()) {
-                for (int field = 0; field < outputs.length; field++) {
-                    BlockBuilder output = outputs[field];
-                    switch (getTupleInfos().get(field).getTypes().get(0)) {
+                for (int i = 0; i < columnIds.size(); i++) {
+                    int field = columnIds.get(i);
+                    BlockBuilder output = outputs[i];
+                    switch (getTupleInfos().get(i).getTypes().get(0)) {
                         case FIXED_INT_64:
                             output.append(cursor.getLong(field));
                             break;

@@ -3,6 +3,7 @@ package com.facebook.presto.tpch;
 import com.facebook.presto.ingest.DelimitedRecordSet;
 import com.facebook.presto.ingest.ImportingOperator;
 import com.facebook.presto.ingest.RecordProjectOperator;
+import com.facebook.presto.metadata.ImportColumnHandle;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileWriter;
 import com.google.common.base.Splitter;
@@ -147,7 +148,7 @@ public class GeneratingTpchDataProvider
             );
 
             DataSize dataSize = new DataSize(cachedFile.length(), Unit.BYTE);
-            RecordProjectOperator source = new RecordProjectOperator(records, dataSize, columnHandle.getType());
+            RecordProjectOperator source = new RecordProjectOperator(records, dataSize, new ImportColumnHandle("tpch", "column" + columnHandle.getFieldIndex(), columnHandle.getFieldIndex(), columnHandle.getType()));
 
             ImportingOperator.importData(source, new BlocksFileWriter(encoding, newOutputStreamSupplier(cachedFile)));
 

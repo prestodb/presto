@@ -20,9 +20,9 @@ public class TestRecordProjectionOperator
     public void testSingleColumn()
             throws Exception
     {
-        RecordSet records = new InMemoryRecordSet(ImmutableList.copyOf(new List<?>[]{ImmutableList.of("abc"), ImmutableList.of("def"), ImmutableList.of("g")}));
+        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(VARIABLE_BINARY), ImmutableList.copyOf(new List<?>[]{ImmutableList.of("abc"), ImmutableList.of("def"), ImmutableList.of("g")}));
 
-        RecordProjectOperator recordProjectOperator = new RecordProjectOperator(records, new DataSize(10, BYTE), VARIABLE_BINARY);
+        RecordProjectOperator recordProjectOperator = new RecordProjectOperator(records, new DataSize(10, BYTE), records.getColumns());
         assertOperatorEquals(recordProjectOperator, new AlignmentOperator(createStringsBlockIterable("abc", "def", "g")));
     }
 
@@ -30,9 +30,9 @@ public class TestRecordProjectionOperator
     public void testMultiColumn()
             throws Exception
     {
-        RecordSet records = new InMemoryRecordSet(ImmutableList.copyOf(new List<?>[]{ImmutableList.of("abc", 1L), ImmutableList.of("def", 2L), ImmutableList.of("g", 0L)}));
+        InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(VARIABLE_BINARY, FIXED_INT_64), ImmutableList.copyOf(new List<?>[]{ImmutableList.of("abc", 1L), ImmutableList.of("def", 2L), ImmutableList.of("g", 0L)}));
 
-        RecordProjectOperator recordProjectOperator = new RecordProjectOperator(records, new DataSize(10, BYTE), VARIABLE_BINARY, FIXED_INT_64);
+        RecordProjectOperator recordProjectOperator = new RecordProjectOperator(records, new DataSize(10, BYTE), records.getColumns());
         assertOperatorEquals(recordProjectOperator, new AlignmentOperator(
                 createStringsBlockIterable("abc", "def", "g"),
                 createLongsBlockIterable(1, 2, 0)

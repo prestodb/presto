@@ -6,8 +6,6 @@ import com.google.common.base.Preconditions;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
-import javax.annotation.Nullable;
-
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ImportColumnHandle
@@ -74,4 +72,29 @@ public class ImportColumnHandle
             }
         };
     }
+
+    public static Function<ImportColumnHandle, Integer> idGetter()
+    {
+        return new Function<ImportColumnHandle, Integer>()
+        {
+            @Override
+            public Integer apply(ImportColumnHandle input)
+            {
+                return input.getColumnId();
+            }
+        };
+    }
+
+    public static Function<ImportColumnHandle, TupleInfo.Type> typeGetter()
+    {
+        return new Function<ImportColumnHandle, TupleInfo.Type>()
+        {
+            @Override
+            public TupleInfo.Type apply(ImportColumnHandle input)
+            {
+                return input.getColumnType();
+            }
+        };
+    }
+
 }
