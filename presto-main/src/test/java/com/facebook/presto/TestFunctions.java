@@ -58,6 +58,7 @@ import java.util.List;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -190,6 +191,8 @@ public class TestFunctions
     private void doAssertFunction(String projection, Object expected)
             throws Exception
     {
+        checkNotNull(projection, "projection is null");
+
         Operator operator = plan("SELECT " + projection + " FROM dual");
 
         List<Tuple> results = getTuples(operator);
