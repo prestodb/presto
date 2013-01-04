@@ -1,4 +1,4 @@
-package com.facebook.presto;
+package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.execution.ExchangePlanFragmentSource;
