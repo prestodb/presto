@@ -135,6 +135,7 @@
         <dependency>
             <groupId>org.weakref</groupId>
             <artifactId>jmxutils</artifactId>
+            <version>1.13</version>
         </dependency>
 
         <dependency>
@@ -208,12 +209,6 @@
             <groupId>com.facebook.swift</groupId>
             <artifactId>swift-service</artifactId>
             <version>0.1</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.weakref</groupId>
-            <artifactId>jmxutils</artifactId>
-            <version>1.13</version>
         </dependency>
 
         <!-- for packaging -->
