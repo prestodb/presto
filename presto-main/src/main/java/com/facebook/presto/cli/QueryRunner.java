@@ -17,7 +17,6 @@ import org.codehaus.jackson.map.JsonDeserializer;
 
 import javax.annotation.PreDestroy;
 import java.io.Closeable;
-import java.net.URI;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -32,18 +31,15 @@ public class QueryRunner
     private final ExecutorService executor = Executors.newCachedThreadPool();
     private final JsonCodec<QueryInfo> queryInfoCodec;
     private final JsonCodec<TaskInfo> taskInfoCodec;
-    private final URI coordinatorLocation;
-    private final boolean debug;
+    private final ClientSession session;
     private final ApacheHttpClient httpClient;
 
     public QueryRunner(
-            URI coordinatorLocation,
-            boolean debug,
+            ClientSession session,
             JsonCodec<QueryInfo> queryInfoCodec,
             JsonCodec<TaskInfo> taskInfoCodec)
     {
-        this.coordinatorLocation = checkNotNull(coordinatorLocation, "coordinatorLocation is null");
-        this.debug = debug;
+        this.session = checkNotNull(session, "session is null");
         this.queryInfoCodec = checkNotNull(queryInfoCodec, "queryInfoCodec is null");
         this.taskInfoCodec = checkNotNull(taskInfoCodec, "taskInfoCodec is null");
         this.httpClient = new ApacheHttpClient(new HttpClientConfig()
@@ -51,11 +47,16 @@ public class QueryRunner
                 .setReadTimeout(new Duration(10, TimeUnit.DAYS)));
     }
 
+    public ClientSession getSession()
+    {
+        return session;
+    }
+
     public Query startQuery(String query)
     {
         Preconditions.checkNotNull(query, "query is null");
-        HttpQueryClient client = new HttpQueryClient(query, coordinatorLocation, httpClient, executor, queryInfoCodec, taskInfoCodec);
-        return new Query(client, debug);
+        HttpQueryClient client = new HttpQueryClient(session, query, httpClient, executor, queryInfoCodec, taskInfoCodec);
+        return new Query(client);
     }
 
     @PreDestroy
@@ -66,12 +67,12 @@ public class QueryRunner
         httpClient.close();
     }
 
-    public static QueryRunner create(URI coordinatorLocation, boolean debug)
+    public static QueryRunner create(ClientSession session)
     {
         JsonCodecFactory codecs = createCodecFactory();
         JsonCodec<QueryInfo> queryInfoCodec = codecs.jsonCodec(QueryInfo.class);
         JsonCodec<TaskInfo> taskInfoCodec = codecs.jsonCodec(TaskInfo.class);
-        return new QueryRunner(coordinatorLocation, debug, queryInfoCodec, taskInfoCodec);
+        return new QueryRunner(session, queryInfoCodec, taskInfoCodec);
     }
 
     private static JsonCodecFactory createCodecFactory()
