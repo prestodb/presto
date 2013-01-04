@@ -44,7 +44,7 @@ public class Query
             @Override
             public void handle(Signal signal)
             {
-                close();
+                cancelLeafStage();
             }
         });
         try {
@@ -95,6 +95,11 @@ public class Query
             OutputProcessor processor = new OutputProcessor(operator, outputHandler);
             return processor.process();
         }
+    }
+
+    public void cancelLeafStage()
+    {
+        queryClient.cancelLeafStage();
     }
 
     @Override
