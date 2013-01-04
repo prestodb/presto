@@ -1,6 +1,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -8,15 +9,20 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.DoubleAverageAggregation.DOUBLE_AVERAGE;
@@ -32,6 +38,7 @@ import static com.facebook.presto.operator.aggregation.VarBinaryMinAggregation.V
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
@@ -54,15 +61,7 @@ public class FunctionRegistry
                 .aggregate("min", FIXED_INT_64, ImmutableList.of(FIXED_INT_64), FIXED_INT_64, LONG_MIN)
                 .aggregate("min", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_MIN)
                 .aggregate("min", VARIABLE_BINARY, ImmutableList.of(VARIABLE_BINARY), VARIABLE_BINARY, VAR_BINARY_MIN)
-                .scalar("concat", StringFunctions.CONCAT)
-                .scalar("length", StringFunctions.LENGTH)
-                .scalar("reverse", StringFunctions.REVERSE)
-                .scalar("substr", StringFunctions.SUBSTR)
-                .scalar("ltrim", StringFunctions.LTRIM)
-                .scalar("rtrim", StringFunctions.RTRIM)
-                .scalar("trim", StringFunctions.TRIM)
-                .scalar("lower", StringFunctions.LOWER)
-                .scalar("upper", StringFunctions.UPPER)
+                .scalar(StringFunctions.class)
                 .build();
 
         functionsByName = Multimaps.index(functions, FunctionInfo.nameGetter());
@@ -121,27 +120,79 @@ public class FunctionRegistry
 
     private static class FunctionListBuilder
     {
-        private final List<FunctionInfo> list = new ArrayList<>();
+        private final List<FunctionInfo> functions = new ArrayList<>();
 
         public FunctionListBuilder aggregate(String name, TupleInfo.Type returnType, List<TupleInfo.Type> argumentTypes, TupleInfo.Type intermediateType, AggregationFunction function)
         {
-            int id = list.size() + 1;
-            list.add(new FunctionInfo(id, QualifiedName.of(name), returnType, argumentTypes, intermediateType, function));
+            name = name.toLowerCase();
+
+            int id = functions.size() + 1;
+            functions.add(new FunctionInfo(id, QualifiedName.of(name), returnType, argumentTypes, intermediateType, function));
             return this;
         }
 
         public FunctionListBuilder scalar(String name, MethodHandle function)
         {
-            int id = list.size() + 1;
+            name = name.toLowerCase();
+
+            int id = functions.size() + 1;
             TupleInfo.Type returnType = type(function.type().returnType());
             List<TupleInfo.Type> argumentTypes = types(function);
-            list.add(new FunctionInfo(id, QualifiedName.of(name), returnType, argumentTypes, function));
+            functions.add(new FunctionInfo(id, QualifiedName.of(name), returnType, argumentTypes, function));
             return this;
+        }
+
+        public FunctionListBuilder scalar(Class<?> clazz)
+        {
+            try {
+                boolean foundOne = false;
+                for (Method method : clazz.getMethods()) {
+                    ScalarFunction scalarFunction = method.getAnnotation(ScalarFunction.class);
+                    if (scalarFunction == null) {
+                        continue;
+                    }
+                    checkArgument(isValidMethod(method), "@ScalarFunction method %s is not valid", method);
+                    MethodHandle methodHandle = lookup().unreflect(method);
+                    String name = scalarFunction.value();
+                    if (name.isEmpty()) {
+                        name = method.getName();
+                    }
+                    scalar(name, methodHandle);
+                    for (String alias : scalarFunction.alias()) {
+                        scalar(alias, methodHandle);
+                    }
+                    foundOne = true;
+                }
+                checkArgument(foundOne, "Expected class %s to contain at least one method annotated with @%s", clazz.getName(), ScalarFunction.class.getSimpleName());
+            }
+            catch (Exception e) {
+                throw Throwables.propagate(e);
+            }
+            return this;
+        }
+
+        private static final Set<Class<?>> SUPPORTED_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class);
+
+        private boolean isValidMethod(Method method)
+        {
+            if (!Modifier.isStatic(method.getModifiers())) {
+                return false;
+            }
+            if (! SUPPORTED_TYPES.contains(method.getReturnType())) {
+                return false;
+            }
+            for (Class<?> type : method.getParameterTypes()) {
+                if (! SUPPORTED_TYPES.contains(type)) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         public ImmutableList<FunctionInfo> build()
         {
-            return ImmutableList.copyOf(list);
+            Collections.sort(functions);
+            return ImmutableList.copyOf(functions);
         }
     }
 }
