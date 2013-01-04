@@ -4,25 +4,12 @@ import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Ascii;
 
-import java.lang.invoke.MethodHandle;
-
-import static com.facebook.presto.metadata.FunctionRegistry.lookupStatic;
-
 @SuppressWarnings("UnusedDeclaration")
 public final class StringFunctions
 {
-    public static final MethodHandle CONCAT = lookupStatic(StringFunctions.class, "concat", Slice.class, Slice.class, Slice.class);
-    public static final MethodHandle LENGTH = lookupStatic(StringFunctions.class, "length", long.class, Slice.class);
-    public static final MethodHandle REVERSE = lookupStatic(StringFunctions.class, "reverse", Slice.class, Slice.class);
-    public static final MethodHandle SUBSTR = lookupStatic(StringFunctions.class, "substr", Slice.class, Slice.class, long.class, long.class);
-    public static final MethodHandle LTRIM = lookupStatic(StringFunctions.class, "leftTrim", Slice.class, Slice.class);
-    public static final MethodHandle RTRIM = lookupStatic(StringFunctions.class, "rightTrim", Slice.class, Slice.class);
-    public static final MethodHandle TRIM = lookupStatic(StringFunctions.class, "trim", Slice.class, Slice.class);
-    public static final MethodHandle LOWER = lookupStatic(StringFunctions.class, "lower", Slice.class, Slice.class);
-    public static final MethodHandle UPPER = lookupStatic(StringFunctions.class, "upper", Slice.class, Slice.class);
-
     private StringFunctions() {}
 
+    @ScalarFunction
     public static Slice concat(Slice str1, Slice str2)
     {
         Slice concat = Slices.allocate(str1.length() + str2.length());
@@ -31,11 +18,13 @@ public final class StringFunctions
         return concat;
     }
 
+    @ScalarFunction
     public static long length(Slice slice)
     {
         return slice.length();
     }
 
+    @ScalarFunction
     public static Slice reverse(Slice slice)
     {
         Slice reverse = Slices.allocate(slice.length());
@@ -45,6 +34,7 @@ public final class StringFunctions
         return reverse;
     }
 
+    @ScalarFunction
     public static Slice substr(Slice slice, long start, long length)
     {
         if ((start == 0) || (length <= 0)) {
@@ -73,18 +63,21 @@ public final class StringFunctions
         return slice.slice((int) start, (int) length);
     }
 
+    @ScalarFunction("ltrim")
     public static Slice leftTrim(Slice slice)
     {
         int start = firstNonSpace(slice);
         return slice.slice(start, slice.length() - start);
     }
 
+    @ScalarFunction("rtrim")
     public static Slice rightTrim(Slice slice)
     {
         int end = lastNonSpace(slice);
         return slice.slice(0, end + 1);
     }
 
+    @ScalarFunction
     public static Slice trim(Slice slice)
     {
         int start = firstNonSpace(slice);
@@ -118,6 +111,7 @@ public final class StringFunctions
         return -1;
     }
 
+    @ScalarFunction
     public static Slice lower(Slice slice)
     {
         Slice upper = Slices.allocate(slice.length());
@@ -127,6 +121,7 @@ public final class StringFunctions
         return upper;
     }
 
+    @ScalarFunction
     public static Slice upper(Slice slice)
     {
         Slice upper = Slices.allocate(slice.length());

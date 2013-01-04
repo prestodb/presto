@@ -60,7 +60,7 @@ public class TupleInfo
     public static final TupleInfo SINGLE_VARBINARY = new TupleInfo(VARIABLE_BINARY);
     public static final TupleInfo SINGLE_DOUBLE = new TupleInfo(DOUBLE);
 
-    public enum Type
+    public enum Type implements Comparable<Type>
     {
         FIXED_INT_64(SIZE_OF_LONG, "long"),
         VARIABLE_BINARY(-1, "string"),
