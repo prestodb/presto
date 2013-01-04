@@ -8,6 +8,8 @@ import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.server.HttpQueryClient;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.log.Logger;
@@ -21,6 +23,7 @@ import java.net.URI;
 import java.text.DecimalFormat;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.operator.OutputProcessor.OutputStats;
 import static java.lang.Math.max;
@@ -122,33 +125,44 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
         // blank line
         out.println();
 
-        // Query 32: FINISHED, 89 nodes, 648 splits
-        String querySummary = String.format("Query %s: %s, %,d nodes, %,d splits",
+        // Query 12, FINISHED, 1 node
+        String querySummary = String.format("Query %s, %s, %,d %s",
                 queryInfo.getQueryId(),
                 queryInfo.getState(),
                 nodes,
-                queryStats.getSplits());
+                pluralize("node", nodes));
         out.println(querySummary);
 
-        // CPU user: 11.45s 4.2MBps wall, 9.45s 8.2MBps user, 9.45s 8.2MBps wall/node
-        Duration userTime = new Duration(globalExecutionStats.getSplitCpuTime(), MILLISECONDS);
-        Duration userTimePerNode = new Duration(userTime.toMillis() / nodes, MILLISECONDS);
-        long completedDataSizePerNode = inputExecutionStats.getCompletedDataSize() / nodes;
-        String cpuUserSummary = String.format("CPU user: %s %s total, %s %s per node",
-                userTime.toString(SECONDS),
-                formatDataRate(inputExecutionStats.getCompletedDataSize(), userTime, true),
-                userTimePerNode.toString(SECONDS),
-                formatDataRate(completedDataSizePerNode, userTimePerNode, true));
-        out.println(cpuUserSummary);
+        // Splits: 1000 total, 842 done (84.20%)
+        String splitsSummary = String.format("Splits: %,d total, %,d done (%.2f%%)",
+                globalExecutionStats.getSplits(),
+                globalExecutionStats.getCompletedSplits(),
+                Math.min(100, globalExecutionStats.getCompletedSplits() * 100.0 / globalExecutionStats.getSplits()));
+        out.println(splitsSummary);
 
-        // CPU wall: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
-        Duration wallTimePerNode = new Duration(wallTime.toMillis() / nodes, MILLISECONDS);
-        String cpuWallSummary = String.format("CPU wall: %s %s total, %s %s per node",
-                wallTime.toString(SECONDS),
-                formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTime, true),
-                wallTimePerNode.toString(SECONDS),
-                formatDataRate(completedDataSizePerNode, wallTime, true));
-        out.println(cpuWallSummary);
+
+        if (queryClient.isDebug()) {
+            // CPU Time: 565.2s total,   26K rows/s, 3.85MB/s
+            Duration cpuTime = new Duration(globalExecutionStats.getSplitCpuTime(), MILLISECONDS);
+            String cpuTimeSummary = String.format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
+                    cpuTime.convertTo(SECONDS),
+                    formatCountRate(inputExecutionStats.getCompletedPositionCount(), cpuTime, false),
+                    formatDataRate(inputExecutionStats.getCompletedDataSize(), cpuTime, true),
+                    (int) (globalExecutionStats.getSplitCpuTime() * 100.0 / globalExecutionStats.getSplitWallTime()));
+            out.println(cpuTimeSummary);
+
+            out.println(String.format("Parallelism: %.1f", cpuTime.toMillis() / wallTime.toMillis()));
+        }
+
+        // 0:32 [2.12GB, 15M rows] [67MB/s, 463K rows/s]
+        String statsLine = String.format("%s [%s rows, %s] [%s rows/s, %s]",
+                formatTime(wallTime),
+                formatCount(inputExecutionStats.getCompletedPositionCount()),
+                formatDataSize(inputExecutionStats.getCompletedDataSize(), true),
+                formatCountRate(inputExecutionStats.getInputPositionCount(), wallTime, false),
+                formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTime, true));
+
+        out.println(statsLine);
 
         // blank line
         out.println();
@@ -168,53 +182,60 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
         sumStats(outputStage, globalExecutionStats, false);
 
         int nodes = uniqueNodes(outputStage).size();
-        long completedDataSizePerNode = 0;
-        if (nodes > 0) {
-            completedDataSizePerNode = inputExecutionStats.getCompletedDataSize() / nodes;
-        }
-
         if (REAL_TERMINAL) {
             // blank line
             reprintLine("");
 
-            // Query 143: RUNNING, 39 nodes, 84.3s elapsed
-            String querySummary = String.format("Query %s: %s, %,d nodes, %.1fs elapsed",
+            // Query 10, RUNNING, 1 node, 778 splits
+            String querySummary = String.format("Query %s, %s, %,d %s, %,d splits",
                     queryInfo.getQueryId(),
                     queryInfo.getState(),
                     nodes,
-                    wallTime.convertTo(SECONDS));
+                    pluralize("node", nodes),
+                    globalExecutionStats.getSplits());
             reprintLine(querySummary);
 
             if (queryInfo.getState() == QueryState.PLANNING) {
                 return;
             }
 
-            // Splits: 648 total, 252 pending, 16 running, 380 finished
-            String splitsSummary = String.format("Splits: %,4d total, %,4d pending, %,4d running, %,4d done",
-                    globalExecutionStats.getSplits(),
-                    max(0, globalExecutionStats.getSplits() - globalExecutionStats.getStartedSplits()),
+            if (queryClient.isDebug()) {
+                // Splits:   620 pending, 34 running, 124 done
+                String splitsSummary = String.format("Splits:   %,d pending, %,d running, %,d done",
+                        max(0, globalExecutionStats.getSplits() - globalExecutionStats.getStartedSplits()),
+                        max(0, globalExecutionStats.getStartedSplits() - globalExecutionStats.getCompletedSplits()),
+                        globalExecutionStats.getCompletedSplits());
+                reprintLine(splitsSummary);
+
+                // CPU Time: 56.5s total, 36.4K rows/s, 4.44MB/s, 60% active
+                Duration cpuTime = new Duration(globalExecutionStats.getSplitCpuTime(), MILLISECONDS);
+                String cpuTimeSummary = String.format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
+                        cpuTime.convertTo(SECONDS),
+                        formatCountRate(inputExecutionStats.getCompletedPositionCount(), cpuTime, false),
+                        formatDataRate(inputExecutionStats.getCompletedDataSize(), cpuTime, true),
+                        (int) (globalExecutionStats.getSplitCpuTime() * 100.0 / globalExecutionStats.getSplitWallTime()));
+                reprintLine(cpuTimeSummary);
+
+                reprintLine(String.format("Parallelism: %.1f", cpuTime.toMillis() / wallTime.toMillis()));
+            }
+
+            String progressBar = formatProgressBar(42, // 42 is to keep the total progress line width <= 100 chars
+                    globalExecutionStats.getCompletedSplits(),
                     max(0, globalExecutionStats.getStartedSplits() - globalExecutionStats.getCompletedSplits()),
-                    globalExecutionStats.getCompletedSplits());
-            reprintLine(splitsSummary);
+                    globalExecutionStats.getSplits());
 
-            // CPU user: 11.45s 4.2MBps wall, 9.45s 8.2MBps user, 9.45s 8.2MBps wall/node
-            Duration userTime = new Duration(globalExecutionStats.getSplitCpuTime(), MILLISECONDS);
-            Duration userTimePerNode = new Duration(userTime.toMillis() / nodes, MILLISECONDS);
-            String cpuUserSummary = String.format("CPU user: %5.1fs %8s total, %5.1fs %8s per node",
-                    userTime.convertTo(SECONDS),
-                    formatDataRate(inputExecutionStats.getCompletedDataSize(), userTime, true),
-                    userTimePerNode.convertTo(SECONDS),
-                    formatDataRate(completedDataSizePerNode, userTime, true));
-            reprintLine(cpuUserSummary);
-
-            // CPU wall: 11.45s 4.2MBps total, 9.45s 8.2MBps per node
-            Duration wallTimePerNode = new Duration(wallTime.toMillis() / nodes, MILLISECONDS);
-            String cpuWallSummary = String.format("CPU wall: %5.1fs %8s total, %5.1fs %8s per node",
-                    wallTime.convertTo(SECONDS),
+            // 0:17 [ 103MB,  802K rows] [5.74MB/s, 44.9K rows/s] [=====>>                                   ] 10%
+            String progressLine = String.format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s] %d%%",
+                    formatTime(wallTime),
+                    formatCount(inputExecutionStats.getCompletedPositionCount()),
+                    formatDataSize(inputExecutionStats.getCompletedDataSize(), true),
+                    formatCountRate(inputExecutionStats.getInputPositionCount(), wallTime, false),
                     formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTime, true),
-                    wallTimePerNode.convertTo(SECONDS),
-                    formatDataRate(completedDataSizePerNode, wallTime, true));
-            reprintLine(cpuWallSummary);
+                    progressBar,
+                    // cap progress at 99%, otherwise it looks weird when the query is still running and it says 100%
+                    Math.min(99, (int) (globalExecutionStats.getCompletedSplits() * 100.0 / globalExecutionStats.getSplits())));
+
+            reprintLine(progressLine);
 
             // todo Mem: 1949M shared, 7594M private
 
@@ -243,11 +264,11 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
                     queryInfo.getState().toString().charAt(0),
 
                     formatCount(globalExecutionStats.getInputPositionCount()),
-                    formatDataSize(globalExecutionStats.getInputDataSize()),
+                    formatDataSize(globalExecutionStats.getInputDataSize(), false),
                     formatDataRate(globalExecutionStats.getCompletedDataSize(), wallTime, false),
 
                     formatCount(globalExecutionStats.getOutputPositionCount()),
-                    formatDataSize(globalExecutionStats.getOutputDataSize()),
+                    formatDataSize(globalExecutionStats.getOutputDataSize(), false),
                     formatDataRate(globalExecutionStats.getOutputDataSize(), wallTime, false),
 
                     max(0, globalExecutionStats.getSplits() - globalExecutionStats.getStartedSplits()),
@@ -286,7 +307,7 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
                 formatCount(executionStats.getInputPositionCount()),
                 formatCountRate(executionStats.getInputPositionCount(), elapsedTime, false),
 
-                formatDataSize(executionStats.getInputDataSize()),
+                formatDataSize(executionStats.getInputDataSize(), false),
                 formatDataRate(executionStats.getCompletedDataSize(), elapsedTime, false),
 
                 max(0, executionStats.getSplits() - executionStats.getStartedSplits()),
@@ -403,10 +424,10 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
         return rateString;
     }
 
-    private static String formatDataSize(long size)
+    private static String formatDataSize(long size, boolean longForm)
     {
         double fractional = size;
-        String unit = "B";
+        String unit = null;
         if (fractional >= 1024) {
             fractional /= 1024;
             unit = "K";
@@ -428,6 +449,13 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
             unit = "P";
         }
 
+        if (unit == null) {
+            unit = "B";
+        }
+        else if (longForm) {
+            unit = unit + "B";
+        }
+
         DecimalFormat format = getFormat(fractional);
         return String.format("%s%s", format.format(fractional), unit);
     }
@@ -439,7 +467,7 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
             rate = 0;
         }
 
-        String rateString = formatDataSize((long) rate);
+        String rateString = formatDataSize((long) rate, false);
         if (longForm) {
             if (!rateString.endsWith("B")) {
                 rateString += "B";
@@ -523,5 +551,67 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
             // These errors happen if the JNI lib is not available for your platform.
         }
         return true;
+    }
+
+    private static String pluralize(String word, int count)
+    {
+        if (count != 1) {
+            return word + "s";
+        }
+        return word;
+    }
+
+    private static String formatTime(Duration duration)
+    {
+        int totalSeconds = (int) duration.convertTo(TimeUnit.SECONDS);
+        int minutes = totalSeconds / 60;
+        int seconds = totalSeconds % 60;
+
+        return String.format("%s:%02d", minutes, seconds);
+    }
+
+    private static String formatProgressBar(int width, int complete, int running, int total)
+    {
+        if (total == 0) {
+            return Strings.repeat(" ", width);
+        }
+
+        int pending = Math.max(0, total - complete - running);
+
+        // compute nominal lengths
+        int completeLength = Math.min(width, ceil(complete * width, total));
+        int pendingLength = Math.min(width, ceil(pending * width, total));
+
+        // leave space for at least one ">" as long as running is > 0
+        int minRunningLength = running > 0 ? 1 : 0;
+        int runningLength = Math.max(Math.min(width, ceil(running * width, total)), minRunningLength);
+
+        // adjust to fix rounding errors
+        if (completeLength + runningLength + pendingLength != width && pending > 0) {
+            // sacrifice "pending" if we're over the max width
+            pendingLength = Math.max(0, width - completeLength - runningLength);
+        }
+        if (completeLength + runningLength + pendingLength != width) {
+            // then, sacrifice "running"
+            runningLength = Math.max(minRunningLength, width - completeLength - pendingLength);
+        }
+        if (completeLength + runningLength + pendingLength > width && complete > 0) {
+            // finally, sacrifice "complete" if we're still over the limit
+            completeLength = Math.max(0, width - runningLength - pendingLength);
+        }
+
+        Preconditions.checkState(completeLength + runningLength + pendingLength == width,
+                "Expected completeLength (%s) + runningLength (%s) + pendingLength (%s) == width (%s), was %s for complete = %s, running = %s, total = %s",
+                completeLength, runningLength, pendingLength, width, completeLength + runningLength + pendingLength, complete, running, total);
+
+        return Strings.repeat("=", completeLength) + Strings.repeat(">", runningLength) + Strings.repeat(" ", pendingLength);
+    }
+
+    /**
+     * Ceiling of integer division
+     */
+    private static int ceil(int dividend, int divisor)
+    {
+        return (dividend + divisor - 1) / divisor;
     }
 }
