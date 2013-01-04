@@ -1,3 +1,6 @@
+/*
+ * Copyright 2004-present Facebook. All Rights Reserved.
+ */
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.block.BlockCursor;
@@ -41,16 +44,16 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tuple.Tuple;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import org.antlr.runtime.RecognitionException;
-import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
@@ -63,133 +66,32 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TestFunctions
+public final class FunctionAssertions
 {
+    private FunctionAssertions()
+    {
+    }
+
     private static final JsonCodec<TaskInfo> TASK_INFO_CODEC = JsonCodec.jsonCodec(TaskInfo.class);
+    private static final Metadata METADATA = new DualTableMetadata();
+    private static final DualTableDataStreamProvider DATA_PROVIDER = new DualTableDataStreamProvider();
 
-    private final Metadata metadata = new DualTableMetadata();
-    private final DualTableDataStreamProvider dataProvider = new DualTableDataStreamProvider();
-
-    @Test
-    public void testConcat()
-            throws Exception
-    {
-        assertFunction("CONCAT('hello', ' world')", "hello world");
-        assertFunction("CONCAT('', '')", "");
-        assertFunction("CONCAT('what', '')", "what");
-        assertFunction("CONCAT('', 'what')", "what");
-        assertFunction("CONCAT(CONCAT('this', ' is'), ' cool')", "this is cool");
-        assertFunction("CONCAT('this', CONCAT(' is', ' cool'))", "this is cool");
-    }
-
-    @Test
-    public void testLength()
-            throws Exception
-    {
-        assertFunction("LENGTH('')", 0);
-        assertFunction("LENGTH('hello')", 5);
-        assertFunction("LENGTH('Quadratically')", 13);
-    }
-
-    @Test
-    public void testReverse()
-            throws Exception
-    {
-        assertFunction("REVERSE('')", "");
-        assertFunction("REVERSE('hello')", "olleh");
-        assertFunction("REVERSE('Quadratically')", "yllacitardauQ");
-        assertFunction("REVERSE('racecar')", "racecar");
-    }
-
-    @Test
-    public void testSubstring()
-            throws Exception
-    {
-        assertFunction("SUBSTR('Quadratically', 5, 6)", "ratica");
-        assertFunction("SUBSTR('Quadratically', 5, 10)", "ratically");
-        assertFunction("SUBSTR('Quadratically', 5, 50)", "ratically");
-        assertFunction("SUBSTR('Quadratically', 50, 10)", "");
-        assertFunction("SUBSTR('Quadratically', -5, 4)", "call");
-        assertFunction("SUBSTR('Quadratically', -5, 40)", "cally");
-        assertFunction("SUBSTR('Quadratically', -50, 4)", "");
-        assertFunction("SUBSTR('Quadratically', 0, 4)", "");
-        assertFunction("SUBSTR('Quadratically', 5, 0)", "");
-    }
-
-    @Test
-    public void testLeftTrim()
-            throws Exception
-    {
-        assertFunction("LTRIM('')", "");
-        assertFunction("LTRIM('   ')", "");
-        assertFunction("LTRIM('  hello  ')", "hello  ");
-        assertFunction("LTRIM('  hello')", "hello");
-        assertFunction("LTRIM('hello  ')", "hello  ");
-        assertFunction("LTRIM(' hello world ')", "hello world ");
-    }
-
-    @Test
-    public void testRightTrim()
-            throws Exception
-    {
-        assertFunction("RTRIM('')", "");
-        assertFunction("RTRIM('   ')", "");
-        assertFunction("RTRIM('  hello  ')", "  hello");
-        assertFunction("RTRIM('  hello')", "  hello");
-        assertFunction("RTRIM('hello  ')", "hello");
-        assertFunction("RTRIM(' hello world ')", " hello world");
-    }
-
-    @Test
-    public void testTrim()
-            throws Exception
-    {
-        assertFunction("TRIM('')", "");
-        assertFunction("TRIM('   ')", "");
-        assertFunction("TRIM('  hello  ')", "hello");
-        assertFunction("TRIM('  hello')", "hello");
-        assertFunction("TRIM('hello  ')", "hello");
-        assertFunction("TRIM(' hello world ')", "hello world");
-    }
-
-    @Test
-    public void testLower()
-            throws Exception
-    {
-        assertFunction("LOWER('')", "");
-        assertFunction("LOWER('Hello World')", "hello world");
-        assertFunction("LOWER('WHAT!!')", "what!!");
-    }
-
-    @Test
-    public void testUpper()
-            throws Exception
-    {
-        assertFunction("UPPER('')", "");
-        assertFunction("UPPER('Hello World')", "HELLO WORLD");
-        assertFunction("UPPER('what!!')", "WHAT!!");
-    }
-
-    private void assertFunction(String projection, long expected)
-            throws Exception
+    public static void assertFunction(String projection, long expected)
     {
         doAssertFunction(projection, expected);
     }
 
-    private void assertFunction(String projection, double expected)
-            throws Exception
+    public static void assertFunction(String projection, double expected)
     {
         doAssertFunction(projection, expected);
     }
 
-    private void assertFunction(String projection, String expected)
-            throws Exception
+    public static void assertFunction(String projection, String expected)
     {
         doAssertFunction(projection, Slices.copiedBuffer(expected, Charsets.UTF_8));
     }
 
-    private void doAssertFunction(String projection, Object expected)
-            throws Exception
+    private static void doAssertFunction(String projection, Object expected)
     {
         checkNotNull(projection, "projection is null");
 
@@ -200,7 +102,7 @@ public class TestFunctions
         Tuple tuple = results.get(0);
         assertEquals(tuple.getTupleInfo().getFieldCount(), 1);
 
-        TupleInfo.Type type = tuple.getTupleInfo().getTypes().get(0);
+        Type type = tuple.getTupleInfo().getTypes().get(0);
         switch (type) {
             case FIXED_INT_64:
                 assertEquals(tuple.getLong(0), expected);
@@ -233,19 +135,24 @@ public class TestFunctions
         return output.build();
     }
 
-    private Operator plan(String sql)
-            throws RecognitionException
+    private static Operator plan(String sql)
     {
-        Statement statement = SqlParser.createStatement(sql);
+        Statement statement;
+        try {
+            statement = SqlParser.createStatement(sql);
+        }
+        catch (RecognitionException e) {
+            throw Throwables.propagate(e);
+        }
 
-        Analyzer analyzer = new Analyzer(new Session(null, Session.DEFAULT_CATALOG, Session.DEFAULT_SCHEMA), metadata);
+        Analyzer analyzer = new Analyzer(new Session(null, Session.DEFAULT_CATALOG, Session.DEFAULT_SCHEMA), METADATA);
 
         AnalysisResult analysis = analyzer.analyze(statement);
 
         PlanNode plan = new LogicalPlanner().plan((Query) statement, analysis);
         new PlanPrinter().print(plan, analysis.getTypes());
 
-        SubPlan subplan = new DistributedLogicalPlanner(metadata).createSubplans(plan, analysis.getSymbolAllocator(), true);
+        SubPlan subplan = new DistributedLogicalPlanner(METADATA).createSubplans(plan, analysis.getSymbolAllocator(), true);
         assertTrue(subplan.getChildren().isEmpty(), "Expected subplan to have no children");
 
         ImmutableMap.Builder<TableHandle, TableScanPlanFragmentSource> builder = ImmutableMap.builder();
@@ -257,8 +164,8 @@ public class TestFunctions
 
         DataSize maxOperatorMemoryUsage = new DataSize(50, MEGABYTE);
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
-                metadata,
-                new HackPlanFragmentSourceProvider(dataProvider, null, TASK_INFO_CODEC),
+                METADATA,
+                new HackPlanFragmentSourceProvider(DATA_PROVIDER, null, TASK_INFO_CODEC),
                 analysis.getTypes(),
                 null,
                 builder.build(),
@@ -277,7 +184,7 @@ public class TestFunctions
         private final FunctionRegistry functions = new FunctionRegistry();
 
         @Override
-        public FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes)
+        public FunctionInfo getFunction(QualifiedName name, List<Type> parameterTypes)
         {
             return functions.get(name, parameterTypes);
         }
