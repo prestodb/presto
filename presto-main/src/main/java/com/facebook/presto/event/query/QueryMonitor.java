@@ -30,7 +30,6 @@ public class QueryMonitor
         eventClient.post(
                 new QueryCreatedEvent(
                         queryInfo.getQueryId(),
-                        queryInfo.getState(),
                         queryInfo.getSelf(),
                         queryInfo.getQuery(),
                         queryInfo.getQueryStats().getCreateTime()
