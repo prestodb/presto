@@ -1,5 +1,7 @@
 package com.facebook.presto.sql.analyzer;
 
+import javax.annotation.Nullable;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Session
@@ -7,33 +9,30 @@ public class Session
     public static final String DEFAULT_CATALOG = "default";
     public static final String DEFAULT_SCHEMA = "default";
 
-    private String currentCatalog;
-    private String currentSchema;
+    private final String user;
+    private final String catalog;
+    private final String schema;
 
-    public Session(String currentCatalog, String currentSchema)
+    public Session(@Nullable String user, String catalog, String schema)
     {
-        this.currentCatalog = checkNotNull(currentCatalog, "currentCatalog is null");
-        this.currentSchema = checkNotNull(currentSchema, "currentSchema is null");
+        this.user = user;
+        this.catalog = checkNotNull(catalog, "catalog is null");
+        this.schema = checkNotNull(schema, "schema is null");
     }
 
-    public Session()
+    @Nullable
+    public String getUser()
     {
-        this(DEFAULT_CATALOG, DEFAULT_SCHEMA);
+        return user;
     }
 
-    public void using(String catalogName, String schemaName)
+    public String getCatalog()
     {
-        currentCatalog = catalogName;
-        currentSchema = schemaName;
+        return catalog;
     }
 
-    public String getCurrentCatalog()
+    public String getSchema()
     {
-        return currentCatalog;
-    }
-
-    public String getCurrentSchema()
-    {
-        return currentSchema;
+        return schema;
     }
 }

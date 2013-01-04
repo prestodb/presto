@@ -5,28 +5,27 @@ import io.airlift.command.Command;
 import io.airlift.command.Option;
 import org.fusesource.jansi.AnsiConsole;
 
-import java.net.URI;
+import javax.inject.Inject;
 
 @Command(name = "execute", description = "Execute a query")
 public class Execute
         implements Runnable
 {
-    @Option(name = "-s", title = "server")
-    public URI server = URI.create("http://localhost:8080");
-
     @Option(name = "-q", title = "query", required = true)
     public String queryText;
 
-    @Option(name = "--debug", title = "debug")
-    public boolean debug;
+    @Inject
+    public ClientOptions clientOptions = new ClientOptions();
 
     @Override
     public void run()
     {
-        AnsiConsole.systemInstall();
-        Main.initializeLogging(debug);
+        ClientSession session = clientOptions.toClientSession();
 
-        try (QueryRunner queryRunner = QueryRunner.create(server, debug)) {
+        AnsiConsole.systemInstall();
+        Main.initializeLogging(session.isDebug());
+
+        try (QueryRunner queryRunner = QueryRunner.create(session)) {
             try (Query query = queryRunner.startQuery(queryText)) {
                 query.renderOutput(System.err);
             }
@@ -35,7 +34,7 @@ public class Execute
             }
             catch (Exception e) {
                 System.err.println("Error running command: " + e.getMessage());
-                if (debug) {
+                if (session.isDebug()) {
                     e.printStackTrace();
                 }
             }

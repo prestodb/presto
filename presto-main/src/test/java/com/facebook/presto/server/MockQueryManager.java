@@ -13,6 +13,7 @@ import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
@@ -85,7 +86,7 @@ public class MockQueryManager
     }
 
     @Override
-    public QueryInfo createQuery(String query)
+    public QueryInfo createQuery(Session session, String query)
     {
         Preconditions.checkNotNull(query, "query is null");
 

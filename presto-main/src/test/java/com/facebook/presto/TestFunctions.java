@@ -238,7 +238,7 @@ public class TestFunctions
     {
         Statement statement = SqlParser.createStatement(sql);
 
-        Analyzer analyzer = new Analyzer(new Session(), metadata);
+        Analyzer analyzer = new Analyzer(new Session(null, Session.DEFAULT_CATALOG, Session.DEFAULT_SCHEMA), metadata);
 
         AnalysisResult analysis = analyzer.analyze(statement);
 

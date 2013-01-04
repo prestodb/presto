@@ -4,7 +4,6 @@ import com.facebook.presto.Main;
 import com.facebook.presto.sql.parser.StatementSplitter;
 import com.google.common.base.Strings;
 import io.airlift.command.Command;
-import io.airlift.command.Option;
 import jline.console.ConsoleReader;
 import jline.console.UserInterruptException;
 import jline.console.history.FileHistory;
@@ -12,11 +11,11 @@ import jline.console.history.History;
 import jline.console.history.MemoryHistory;
 import org.fusesource.jansi.AnsiConsole;
 
+import javax.inject.Inject;
 import java.io.Closeable;
 import java.io.File;
 import java.io.Flushable;
 import java.io.IOException;
-import java.net.URI;
 
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
 import static jline.internal.Configuration.getUserHome;
@@ -27,19 +26,18 @@ public class Console
 {
     private static final String PROMPT_NAME = "presto";
 
-    @Option(name = "-s", title = "server")
-    public URI server = URI.create("http://localhost:8080");
-
-    @Option(name = "--debug", title = "debug")
-    public boolean debug = false;
+    @Inject
+    public ClientOptions clientOptions = new ClientOptions();
 
     @Override
     public void run()
     {
-        AnsiConsole.systemInstall();
-        Main.initializeLogging(debug);
+        ClientSession session = clientOptions.toClientSession();
 
-        try (QueryRunner queryRunner = QueryRunner.create(server, debug)) {
+        AnsiConsole.systemInstall();
+        Main.initializeLogging(session.isDebug());
+
+        try (QueryRunner queryRunner = QueryRunner.create(session)) {
             runConsole(queryRunner);
         }
     }
@@ -118,7 +116,7 @@ public class Console
         }
         catch (Exception e) {
             System.out.println("Error running command: " + e.getMessage());
-            if (debug) {
+            if (queryRunner.getSession().isDebug()) {
                 e.printStackTrace();
             }
         }

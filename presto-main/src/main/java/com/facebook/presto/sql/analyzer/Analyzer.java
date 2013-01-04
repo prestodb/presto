@@ -378,8 +378,8 @@ public class Analyzer
 
             List<String> parts = Lists.reverse(name.getParts());
             String tableName = parts.get(0);
-            String schemaName = (parts.size() > 1) ? parts.get(1) : session.getCurrentSchema();
-            String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCurrentCatalog();
+            String schemaName = (parts.size() > 1) ? parts.get(1) : session.getSchema();
+            String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCatalog();
 
             TableMetadata tableMetadata = metadata.getTable(catalogName, schemaName, tableName);
             if (tableMetadata == null) {

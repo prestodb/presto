@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.cli.ClientSession;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
@@ -46,16 +47,17 @@ public class HttpQueryClient
     private final URI queryLocation;
     private final JsonCodec<QueryInfo> queryInfoCodec;
     private final JsonCodec<TaskInfo> taskInfoCodec;
+    private final boolean debug;
 
-    public HttpQueryClient(String query,
-            URI coordinatorLocation,
+    public HttpQueryClient(ClientSession session,
+            String query,
             HttpClient httpClient,
             ExecutorService executor,
             JsonCodec<QueryInfo> queryInfoCodec,
             JsonCodec<TaskInfo> taskInfoCodec)
     {
+        checkNotNull(session, "session is null");
         checkNotNull(query, "query is null");
-        checkNotNull(coordinatorLocation, "coordinatorLocation is null");
         checkNotNull(httpClient, "httpClient is null");
         checkNotNull(executor, "executor is null");
         checkNotNull(queryInfoCodec, "queryInfoCodec is null");
@@ -65,12 +67,21 @@ public class HttpQueryClient
         this.executor = executor;
         this.queryInfoCodec = queryInfoCodec;
         this.taskInfoCodec = taskInfoCodec;
+        this.debug = session.isDebug();
 
-        URI queryUri = HttpUriBuilder.uriBuilderFrom(coordinatorLocation).appendPath("/v1/query").build();
+        URI queryUri = HttpUriBuilder.uriBuilderFrom(session.getServer()).appendPath("/v1/query").build();
         Request.Builder requestBuilder = preparePost()
                 .setUri(queryUri)
                 .setBodyGenerator(createStaticBodyGenerator(query, Charsets.UTF_8));
-
+        if (session.getUser() != null) {
+            requestBuilder.setHeader(PrestoHeaders.PRESTO_USER, session.getUser());
+        }
+        if (session.getCatalog() != null) {
+            requestBuilder.setHeader(PrestoHeaders.PRESTO_CATALOG, session.getCatalog());
+        }
+        if (session.getSchema() != null) {
+            requestBuilder.setHeader(PrestoHeaders.PRESTO_SCHEMA, session.getSchema());
+        }
         Request request = requestBuilder.build();
 
         JsonResponse<QueryInfo> response = httpClient.execute(request, createFullJsonResponseHandler(queryInfoCodec));
@@ -82,6 +93,11 @@ public class HttpQueryClient
         Preconditions.checkState(location != null);
 
         this.queryLocation = URI.create(location);
+    }
+
+    public boolean isDebug()
+    {
+        return debug;
     }
 
     public QueryInfo getQueryInfo(boolean forceRefresh)
