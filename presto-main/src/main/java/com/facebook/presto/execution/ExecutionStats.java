@@ -29,7 +29,9 @@ public class ExecutionStats
     private final AtomicInteger startedSplits;
     private final AtomicInteger completedSplits;
 
+    private final AtomicLong splitWallTime;
     private final AtomicLong splitCpuTime;
+    private final AtomicLong splitUserTime;
 
     private final AtomicLong inputDataSize;
     private final AtomicLong completedDataSize;
@@ -42,7 +44,7 @@ public class ExecutionStats
 
     public ExecutionStats()
     {
-        this(DateTime.now(), null, DateTime.now(), null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        this(DateTime.now(), null, DateTime.now(), null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     }
 
     @JsonCreator
@@ -54,7 +56,9 @@ public class ExecutionStats
             @JsonProperty("splits") int splits,
             @JsonProperty("startedSplits") int startedSplits,
             @JsonProperty("completedSplits") int completedSplits,
+            @JsonProperty("splitWallTime") long splitWallTime,
             @JsonProperty("splitCpuTime") long splitCpuTime,
+            @JsonProperty("splitUserTime") long splitUserTime,
             @JsonProperty("inputDataSize") long inputDataSize,
             @JsonProperty("completedDataSize") long completedDataSize,
             @JsonProperty("inputPositionCount") long inputPositionCount,
@@ -69,7 +73,9 @@ public class ExecutionStats
         this.splits = new AtomicInteger(splits);
         this.startedSplits = new AtomicInteger(startedSplits);
         this.completedSplits = new AtomicInteger(completedSplits);
+        this.splitWallTime = new AtomicLong(splitWallTime);
         this.splitCpuTime = new AtomicLong(splitCpuTime);
+        this.splitUserTime = new AtomicLong(splitUserTime);
         this.inputDataSize = new AtomicLong(inputDataSize);
         this.inputPositionCount = new AtomicLong(inputPositionCount);
         this.completedDataSize = new AtomicLong(completedDataSize);
@@ -124,6 +130,18 @@ public class ExecutionStats
     public long getSplitCpuTime()
     {
         return splitCpuTime.get();
+    }
+
+    @JsonProperty
+    public long getSplitWallTime()
+    {
+        return splitWallTime.get();
+    }
+
+    @JsonProperty
+    public long getSplitUserTime()
+    {
+        return splitUserTime.get();
     }
 
     @JsonProperty
@@ -182,6 +200,16 @@ public class ExecutionStats
         splitCpuTime.addAndGet((long) duration.toMillis());
     }
 
+    public void addSplitWallTime(Duration duration)
+    {
+        splitWallTime.addAndGet((long) duration.toMillis());
+    }
+
+    public void addSplitUserTime(Duration duration)
+    {
+        splitUserTime.addAndGet((long) duration.toMillis());
+    }
+
     public void addInputPositions(long inputPositions)
     {
         this.inputPositionCount.addAndGet(inputPositions);
@@ -233,7 +261,9 @@ public class ExecutionStats
         splits.addAndGet(stats.getSplits());
         startedSplits.addAndGet(stats.getStartedSplits());
         completedSplits.addAndGet(stats.getCompletedSplits());
+        splitWallTime.addAndGet(stats.getSplitWallTime());
         splitCpuTime.addAndGet(stats.getSplitCpuTime());
+        splitUserTime.addAndGet(stats.getSplitUserTime());
         inputDataSize.addAndGet(stats.getInputDataSize());
         inputPositionCount.addAndGet(stats.getInputPositionCount());
         completedDataSize.addAndGet(stats.getCompletedDataSize());
