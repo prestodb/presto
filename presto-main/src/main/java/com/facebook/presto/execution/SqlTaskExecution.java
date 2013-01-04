@@ -25,6 +25,8 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -32,11 +34,13 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SqlTaskExecution
         implements TaskExecution
 {
+    private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
     private final String taskId;
     private final TaskOutput taskOutput;
     private final List<PlanFragmentSource> splits;
@@ -241,7 +245,9 @@ public class SqlTaskExecution
             }
 
             taskOutput.getStats().splitStarted();
-            long startTime = System.nanoTime();
+            long wallStartTime = System.nanoTime();
+            long cpuStartTime = THREAD_MX_BEAN.getCurrentThreadCpuTime();
+            long userStartTime = THREAD_MX_BEAN.getCurrentThreadUserTime();
             try (PageIterator pages = operator.iterator(operatorStats)) {
                 while (pages.hasNext()) {
                     Page page = pages.next();
@@ -258,7 +264,9 @@ public class SqlTaskExecution
                 throw e;
             }
             finally {
-                taskOutput.getStats().addSplitCpuTime(Duration.nanosSince(startTime));
+                taskOutput.getStats().addSplitWallTime(Duration.nanosSince(wallStartTime));
+                taskOutput.getStats().addSplitCpuTime(new Duration(THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStartTime, TimeUnit.NANOSECONDS));
+                taskOutput.getStats().addSplitUserTime(new Duration(THREAD_MX_BEAN.getCurrentThreadUserTime() - userStartTime, TimeUnit.NANOSECONDS));
                 taskOutput.getStats().splitCompleted();
                 // todo cleanup expected vs actual
                 taskOutput.getStats().addInputDataSize(new DataSize(operatorStats.getActualDataSize(), Unit.BYTE));
