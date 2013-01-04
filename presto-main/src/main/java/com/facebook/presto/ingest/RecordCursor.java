@@ -3,9 +3,12 @@
  */
 package com.facebook.presto.ingest;
 
-public interface Record
+import java.io.Closeable;
+
+public interface RecordCursor
+        extends Closeable
 {
-    int getFieldCount();
+    boolean advanceNextPosition();
 
     long getLong(int field);
 
@@ -14,4 +17,7 @@ public interface Record
     byte[] getString(int field);
 
     boolean isNull(int field);
+
+    @Override
+    void close();
 }

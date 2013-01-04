@@ -5,6 +5,7 @@ package com.facebook.presto.ingest;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.metadata.ImportColumnHandle;
 import com.facebook.presto.operator.AbstractPageIterator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
@@ -13,36 +14,40 @@ import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import io.airlift.units.DataSize;
 
 import java.util.List;
 
+import static com.facebook.presto.metadata.ImportColumnHandle.idGetter;
+
 public class RecordProjectOperator
         implements Operator
 {
-    private final RecordIterable source;
+    private final RecordSet source;
     private final DataSize dataSize;
-    private final List<? extends RecordProjection> projections;
     private final List<TupleInfo> tupleInfos;
+    private final List<Integer> columnIds;
 
-    public RecordProjectOperator(RecordIterable source, DataSize dataSize, RecordProjection... projections)
+    public RecordProjectOperator(RecordSet source, DataSize dataSize, ImportColumnHandle... columns)
     {
-        this(source, dataSize, ImmutableList.copyOf(projections));
+        this(source, dataSize, ImmutableList.copyOf(columns));
     }
 
-    public RecordProjectOperator(RecordIterable source, DataSize dataSize, Iterable<? extends RecordProjection> projections)
+    public RecordProjectOperator(RecordSet source, DataSize dataSize, Iterable<ImportColumnHandle> columns)
     {
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkNotNull(dataSize, "dataSize is null");
-        Preconditions.checkNotNull(projections, "projections is null");
+        Preconditions.checkNotNull(columns, "columns is null");
 
         this.source = source;
         this.dataSize = dataSize;
-        this.projections = ImmutableList.copyOf(projections);
+
+        this.columnIds = ImmutableList.copyOf(Iterables.transform(columns, idGetter()));
 
         ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
-        for (RecordProjection projection : projections) {
-            tupleInfos.add(projection.getTupleInfo());
+        for (ImportColumnHandle column : columns) {
+            tupleInfos.add(new TupleInfo(column.getColumnType()));
         }
         this.tupleInfos = tupleInfos.build();
     }
@@ -50,7 +55,7 @@ public class RecordProjectOperator
     @Override
     public int getChannelCount()
     {
-        return projections.size();
+        return tupleInfos.size();
     }
 
     @Override
@@ -63,38 +68,49 @@ public class RecordProjectOperator
     public PageIterator iterator(OperatorStats operatorStats)
     {
         operatorStats.addActualDataSize(dataSize.toBytes());
-        return new RecordProjectionOperator(source.iterator(operatorStats), projections, operatorStats);
+        return new RecordProjectionOperator(source.cursor(operatorStats), tupleInfos, columnIds, operatorStats);
     }
 
     private static class RecordProjectionOperator
             extends AbstractPageIterator
     {
-        private final RecordIterator iterator;
-        private final List<? extends RecordProjection> projections;
+        private final RecordCursor cursor;
+        private final List<Integer> columnIds;
         private final OperatorStats operatorStats;
 
 
-        public RecordProjectionOperator(RecordIterator iterator, List<? extends RecordProjection> projections, OperatorStats operatorStats)
+        public RecordProjectionOperator(RecordCursor cursor, List<TupleInfo> tupleInfos, List<Integer> columnIds, OperatorStats operatorStats)
         {
-            super(RecordProjections.toTupleInfos(projections));
-            this.iterator = iterator;
-            this.projections = projections;
+            super(tupleInfos);
+
+            this.cursor = cursor;
+            this.columnIds = columnIds;
             this.operatorStats = operatorStats;
         }
 
         protected Page computeNext()
         {
             // todo convert this code to page builder
-            BlockBuilder[] outputs = new BlockBuilder[projections.size()];
+            BlockBuilder[] outputs = new BlockBuilder[getChannelCount()];
             for (int i = 0; i < outputs.length; i++) {
-                outputs[i] = new BlockBuilder(projections.get(i).getTupleInfo());
-
+                outputs[i] = new BlockBuilder(getTupleInfos().get(i));
             }
 
-            while (!isFull(outputs) && iterator.hasNext()) {
-                Record record = iterator.next();
-                for (int i = 0; i < projections.size(); i++) {
-                    projections.get(i).project(record, outputs[i]);
+            while (!isFull(outputs) && cursor.advanceNextPosition()) {
+                for (int i = 0; i < columnIds.size(); i++) {
+                    int field = columnIds.get(i);
+                    BlockBuilder output = outputs[i];
+                    switch (getTupleInfos().get(i).getTypes().get(0)) {
+                        case FIXED_INT_64:
+                            output.append(cursor.getLong(field));
+                            break;
+                        case DOUBLE:
+                            output.append(cursor.getDouble(field));
+                            break;
+                        case VARIABLE_BINARY:
+                            output.append(cursor.getString(field));
+                            break;
+                    }
                 }
             }
 
@@ -102,7 +118,7 @@ public class RecordProjectOperator
                 return endOfData();
             }
 
-            Block[] blocks = new Block[projections.size()];
+            Block[] blocks = new Block[getChannelCount()];
             for (int i = 0; i < blocks.length; i++) {
                 blocks[i] = outputs[i].build();
             }
@@ -115,7 +131,7 @@ public class RecordProjectOperator
         @Override
         protected void doClose()
         {
-            iterator.close();
+            cursor.close();
         }
 
         private boolean isFull(BlockBuilder... outputs)

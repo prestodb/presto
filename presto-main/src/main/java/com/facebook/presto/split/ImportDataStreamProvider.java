@@ -2,16 +2,14 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.ingest.ImportPartition;
 import com.facebook.presto.ingest.RecordProjectOperator;
-import com.facebook.presto.ingest.RecordProjection;
-import com.facebook.presto.ingest.RecordProjections;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ImportColumnHandle;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
-import com.google.common.base.Function;
+import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.util.IterableTransformer;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -44,31 +42,13 @@ public class ImportDataStreamProvider
         ImportSplit importSplit = (ImportSplit) split;
         ImportClient client = importClientFactory.getClient(importSplit.getSourceName());
 
-        ImmutableList.Builder<RecordProjection> builder = ImmutableList.builder();
-        for (int i = 0; i < columns.size(); i++) {
-            ColumnHandle columnHandle = columns.get(i);
-            checkArgument(columnHandle instanceof ImportColumnHandle, "columnHandle must be of type ImportColumnHandle, not %s", columnHandle.getClass().getName());
-            assert columnHandle instanceof ImportColumnHandle; // // IDEA-60343
-
-            ImportColumnHandle importColumn = (ImportColumnHandle) columns.get(i);
-            builder.add(RecordProjections.createProjection(i, importColumn.getColumnType()));
-        }
+        List<ImportColumnHandle> columnHandles = IterableTransformer.on(columns)
+                .cast(ImportColumnHandle.class)
+                .list();
 
         PartitionChunk partitionChunk = client.deserializePartitionChunk(importSplit.getSerializedChunk().getBytes());
         DataSize partitionSize = new DataSize(partitionChunk.getLength(), Unit.BYTE);
-        ImportPartition importPartition = new ImportPartition(client, partitionChunk, convertToColumnNames(columns));
-        return new RecordProjectOperator(importPartition, partitionSize, builder.build());
-    }
-
-    private Iterable<String> convertToColumnNames(Iterable<ColumnHandle> columnHandles){
-        return Iterables.transform(columnHandles, new Function<ColumnHandle, String>()
-        {
-            @Override
-            public String apply(ColumnHandle columnHandle)
-            {
-                ImportColumnHandle importColumn = (ImportColumnHandle) columnHandle;
-                return importColumn.getColumnName();
-            }
-        });
+        ImportPartition importPartition = new ImportPartition(client, partitionChunk);
+        return new RecordProjectOperator(importPartition, partitionSize, columnHandles);
     }
 }
