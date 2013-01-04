@@ -3,6 +3,10 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.event.query.QueryCompletionEvent;
+import com.facebook.presto.event.query.QueryCreatedEvent;
+import com.facebook.presto.event.query.QueryMonitor;
+import com.facebook.presto.execution.FailureInfo;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -10,6 +14,7 @@ import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlStageManager;
 import com.facebook.presto.execution.SqlTaskManager;
+import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageManager;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
@@ -69,6 +74,7 @@ import static com.facebook.presto.sql.tree.Serialization.ExpressionSerializer;
 import static com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
+import static io.airlift.event.client.EventBinder.eventBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -123,6 +129,12 @@ public class ServerMainModule
         jsonBinder(binder).addSerializerBinding(Expression.class).to(ExpressionSerializer.class);
         jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);
+
+        jsonCodecBinder(binder).bindJsonCodec(StageInfo.class);
+        jsonCodecBinder(binder).bindListJsonCodec(FailureInfo.class);
+        binder.bind(QueryMonitor.class).in(Scopes.SINGLETON);
+        eventBinder(binder).bindEventClient(QueryCreatedEvent.class);
+        eventBinder(binder).bindEventClient(QueryCompletionEvent.class);
 
         discoveryBinder(binder).bindSelector("presto");
         discoveryBinder(binder).bindSelector("hive-metastore");
