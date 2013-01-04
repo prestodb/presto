@@ -10,6 +10,8 @@ import java.io.Reader;
 import java.util.Map;
 import java.util.Properties;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 public class EventCategoryMapProvider
 {
     // Map of EventType to corresponding Scribe categories
@@ -41,6 +43,8 @@ public class EventCategoryMapProvider
         catch (IOException e) {
             throw Throwables.propagate(e);
         }
+
+        checkArgument(!properties.isEmpty(), "No Scribe mappings provided specified in %s", configuration.getEventMappingFile());
 
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         for (Map.Entry<Object, Object> entry : properties.entrySet()) {
