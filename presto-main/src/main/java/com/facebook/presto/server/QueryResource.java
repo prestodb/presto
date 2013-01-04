@@ -5,10 +5,12 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.sql.analyzer.Session;
 import org.eclipse.jetty.http.HttpHeaders;
 
 import javax.inject.Inject;
 import javax.ws.rs.DELETE;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
@@ -24,6 +26,11 @@ import java.net.URI;
 import java.util.List;
 import java.util.NoSuchElementException;
 
+import static com.facebook.presto.server.PrestoHeaders.PRESTO_CATALOG;
+import static com.facebook.presto.server.PrestoHeaders.PRESTO_SCHEMA;
+import static com.facebook.presto.server.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
+import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 
@@ -67,11 +74,17 @@ public class QueryResource
 
     @POST
     @Produces(MediaType.APPLICATION_JSON)
-    public Response createQuery(String query, @Context UriInfo uriInfo)
+    public Response createQuery(String query,
+            @HeaderParam(PRESTO_USER) String user,
+            @HeaderParam(PRESTO_CATALOG) @DefaultValue(DEFAULT_CATALOG) String catalog,
+            @HeaderParam(PRESTO_SCHEMA) @DefaultValue(DEFAULT_SCHEMA) String schema,
+            @Context UriInfo uriInfo)
     {
         checkNotNull(query, "query is null");
+        checkNotNull(catalog, "catalog is null");
+        checkNotNull(schema, "schema is null");
 
-        QueryInfo queryInfo = queryManager.createQuery(query);
+        QueryInfo queryInfo = queryManager.createQuery(new Session(user, catalog, schema), query);
         URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryInfo.getQueryId()).build();
         return Response.created(pagesUri).entity(queryInfo).build();
     }

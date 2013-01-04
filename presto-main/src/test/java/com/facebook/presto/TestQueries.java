@@ -591,7 +591,7 @@ public class TestQueries
     {
         Statement statement = SqlParser.createStatement(sql);
 
-        Session session = new Session(TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
+        Session session = new Session(null, TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
 
         Analyzer analyzer = new Analyzer(session, metadata);
 

@@ -3,6 +3,8 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.sql.analyzer.Session;
+
 import java.util.List;
 
 public interface QueryManager
@@ -11,7 +13,7 @@ public interface QueryManager
 
     QueryInfo getQueryInfo(String queryId, boolean forceRefresh);
 
-    QueryInfo createQuery(String query);
+    QueryInfo createQuery(Session session, String query);
 
     void cancelQuery(String queryId);
 }

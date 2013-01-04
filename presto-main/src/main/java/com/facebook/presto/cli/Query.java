@@ -31,12 +31,10 @@ public class Query
     private static final Signal SIGINT = new Signal("INT");
 
     private final HttpQueryClient queryClient;
-    private final boolean debug;
 
-    public Query(HttpQueryClient queryClient, boolean debug)
+    public Query(HttpQueryClient queryClient)
     {
         this.queryClient = checkNotNull(queryClient, "queryClient is null");
-        this.debug = debug;
     }
 
     public void renderOutput(PrintStream out)
@@ -107,7 +105,7 @@ public class Query
 
     public void renderFailure(QueryInfo queryInfo, PrintStream out)
     {
-        if (debug) {
+        if (queryClient.isDebug()) {
             out.printf("Query %s failed:\n", queryInfo.getQueryId());
             renderStacks(queryInfo, out);
             return;

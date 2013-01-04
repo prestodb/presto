@@ -174,7 +174,7 @@ public class SqlQueryManager
     }
 
     @Override
-    public QueryInfo createQuery(String query)
+    public QueryInfo createQuery(Session session, String query)
     {
         checkNotNull(query, "query is null");
         Preconditions.checkArgument(query.length() > 0, "query must not be empty string");
@@ -199,7 +199,7 @@ public class SqlQueryManager
         else {
             queryExecution = new SqlQueryExecution(queryId,
                     query,
-                    new Session(),
+                    session,
                     metadata,
                     nodeManager,
                     splitManager,
