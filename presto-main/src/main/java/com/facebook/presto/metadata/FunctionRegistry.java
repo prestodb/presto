@@ -1,11 +1,13 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -15,7 +17,6 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -62,6 +63,7 @@ public class FunctionRegistry
                 .aggregate("min", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_MIN)
                 .aggregate("min", VARIABLE_BINARY, ImmutableList.of(VARIABLE_BINARY), VARIABLE_BINARY, VAR_BINARY_MIN)
                 .scalar(StringFunctions.class)
+                .scalar(MathFunctions.class)
                 .build();
 
         functionsByName = Multimaps.index(functions, FunctionInfo.nameGetter());
@@ -70,8 +72,16 @@ public class FunctionRegistry
 
     public FunctionInfo get(QualifiedName name, List<TupleInfo.Type> parameterTypes)
     {
+        // search for exact match
         for (FunctionInfo functionInfo : functionsByName.get(name)) {
             if (functionInfo.getArgumentTypes().equals(parameterTypes)) {
+                return functionInfo;
+            }
+        }
+
+        // search for coerced match
+        for (FunctionInfo functionInfo : functionsByName.get(name)) {
+            if (canCoerce(parameterTypes, functionInfo)) {
                 return functionInfo;
             }
         }
@@ -80,19 +90,25 @@ public class FunctionRegistry
         throw new IllegalArgumentException(format("Function %s(%s) not registered", name, parameters));
     }
 
+    private boolean canCoerce(List<Type> parameterTypes, FunctionInfo functionInfo)
+    {
+        List<Type> functionArguments = functionInfo.getArgumentTypes();
+        if (parameterTypes.size() != functionArguments.size()) {
+            return false;
+        }
+        for (int i = 0; i < functionArguments.size(); i++) {
+            Type functionArgument = functionArguments.get(i);
+            Type parameterType = parameterTypes.get(i);
+            if (functionArgument != parameterType && !(functionArgument == DOUBLE && parameterType == FIXED_INT_64)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public FunctionInfo get(FunctionHandle handle)
     {
         return functionsByHandle.get(handle);
-    }
-
-    public static MethodHandle lookupStatic(Class<?> clazz, String methodName, Class<?> returnType, Class<?>... parameterTypes)
-    {
-        try {
-            return lookup().findStatic(clazz, methodName, MethodType.methodType(returnType, parameterTypes));
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
     }
 
     private static List<TupleInfo.Type> types(MethodHandle handle)
