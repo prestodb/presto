@@ -70,9 +70,9 @@ public class LogicalPlanner
             new CoalesceLimits()
     );
 
-    public PlanNode plan(Query query, AnalysisResult analysis)
+    public PlanNode plan(AnalysisResult analysis)
     {
-        PlanNode root = createOutputPlan(query, analysis);
+        PlanNode root = createOutputPlan(analysis);
 
         // make sure we produce a valid plan. This is mainly to catch programming errors
         PlanSanityChecker.validate(root);
@@ -86,9 +86,9 @@ public class LogicalPlanner
         return root;
     }
 
-    private PlanNode createOutputPlan(Query query, AnalysisResult analysis)
+    private PlanNode createOutputPlan(AnalysisResult analysis)
     {
-        PlanNode result = createQueryPlan(query, analysis);
+        PlanNode result = createQueryPlan(analysis);
 
         int i = 0;
         List<String> names = new ArrayList<>();
@@ -107,8 +107,9 @@ public class LogicalPlanner
         return new OutputNode(result, names, assignments.build());
     }
 
-    private PlanNode createQueryPlan(Query query, AnalysisResult analysis)
+    private PlanNode createQueryPlan(AnalysisResult analysis)
     {
+        Query query = analysis.getRewrittenQuery();
         PlanNode root = createRelationPlan(query.getFrom(), analysis);
 
         if (analysis.getPredicate() != null) {
@@ -325,7 +326,8 @@ public class LogicalPlanner
             return createRelationPlan(ImmutableList.of(((AliasedRelation) relation).getRelation()), analysis);
         }
         else if (relation instanceof Subquery) {
-            return createQueryPlan(((Subquery) relation).getQuery(), analysis.getAnalysis((Subquery) relation));
+            AnalysisResult subqueryAnalysis = analysis.getAnalysis((Subquery) relation);
+            return createQueryPlan(subqueryAnalysis);
         }
         else if (relation instanceof Join) {
             return createJoinPlan((Join) relation, analysis);

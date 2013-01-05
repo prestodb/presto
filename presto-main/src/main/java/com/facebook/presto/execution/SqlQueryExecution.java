@@ -19,7 +19,6 @@ import com.facebook.presto.sql.planner.Partition;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
@@ -199,7 +198,7 @@ public class SqlQueryExecution
 
         // plan query
         LogicalPlanner logicalPlanner = new LogicalPlanner();
-        PlanNode plan = logicalPlanner.plan((Query) statement, analysis);
+        PlanNode plan = logicalPlanner.plan(analysis);
 
         // fragment the plan
         SubPlan subplan = new DistributedLogicalPlanner(metadata).createSubplans(plan, analysis.getSymbolAllocator(), false);

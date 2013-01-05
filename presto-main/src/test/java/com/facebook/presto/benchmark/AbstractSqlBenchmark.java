@@ -20,7 +20,6 @@ import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
@@ -56,7 +55,7 @@ public abstract class AbstractSqlBenchmark
             session = new Session(null, TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
             analysis = new Analyzer(session, metadata).analyze(statement);
 
-            PlanNode plan = new LogicalPlanner().plan((Query) statement, analysis);
+            PlanNode plan = new LogicalPlanner().plan(analysis);
             fragment = new DistributedLogicalPlanner(metadata)
                     .createSubplans(plan, analysis.getSymbolAllocator(), true)
                     .getFragment();

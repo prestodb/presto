@@ -2,6 +2,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.tree.Join;
+import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Subquery;
 import com.facebook.presto.sql.tree.Table;
@@ -30,6 +31,7 @@ public class AnalysisResult
     private final List<AnalyzedOrdering> orderBy;
     private final IdentityHashMap<Join, AnalyzedExpression> joinCriteria;
     private final boolean distinct;
+    private final Query rewrittenQuery;
 
     public static AnalysisResult newInstance(AnalysisContext context,
             boolean distinct,
@@ -38,7 +40,8 @@ public class AnalysisResult
             List<AnalyzedExpression> groupBy,
             Set<AnalyzedFunction> aggregations,
             @Nullable Long limit,
-            List<AnalyzedOrdering> orderBy)
+            List<AnalyzedOrdering> orderBy,
+            Query rewrittenQuery)
     {
         return new AnalysisResult(
                 context.getSymbolAllocator(),
@@ -52,13 +55,13 @@ public class AnalysisResult
                 output,
                 groupBy,
                 orderBy,
-                limit
-        );
+                limit,
+                rewrittenQuery);
     }
 
     private AnalysisResult(SymbolAllocator symbolAllocator,
             IdentityHashMap<Relation, TupleDescriptor> tableDescriptors,
-            IdentityHashMap<Relation, TableMetadata> tableMetadata, 
+            IdentityHashMap<Relation, TableMetadata> tableMetadata,
             IdentityHashMap<Subquery, AnalysisResult> inlineViews,
             IdentityHashMap<Join, AnalyzedExpression> joinCriteria,
             boolean distinct,
@@ -67,7 +70,8 @@ public class AnalysisResult
             AnalyzedOutput output,
             List<AnalyzedExpression> groupBy,
             List<AnalyzedOrdering> orderBy,
-            @Nullable Long limit)
+            @Nullable Long limit,
+            Query rewrittenQuery)
     {
         Preconditions.checkNotNull(symbolAllocator, "symbolAllocator is null");
         Preconditions.checkNotNull(tableDescriptors, "tableDescriptors is null");
@@ -78,6 +82,7 @@ public class AnalysisResult
         Preconditions.checkNotNull(output, "output is null");
         Preconditions.checkNotNull(groupBy, "groupBy is null");
         Preconditions.checkNotNull(orderBy, "orderBy is null");
+        Preconditions.checkNotNull(rewrittenQuery, "rewrittenQuery is null");
 
         this.symbolAllocator = symbolAllocator;
         this.tableDescriptors = new IdentityHashMap<>(tableDescriptors);
@@ -91,6 +96,7 @@ public class AnalysisResult
         this.groupBy = ImmutableList.copyOf(groupBy);
         this.limit = limit;
         this.orderBy = ImmutableList.copyOf(orderBy);
+        this.rewrittenQuery = rewrittenQuery;
     }
 
     public TupleDescriptor getOutputDescriptor()
@@ -170,5 +176,10 @@ public class AnalysisResult
     public boolean isDistinct()
     {
         return distinct;
+    }
+
+    public Query getRewrittenQuery()
+    {
+        return rewrittenQuery;
     }
 }
