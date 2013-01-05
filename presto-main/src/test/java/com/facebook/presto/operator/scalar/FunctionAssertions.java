@@ -35,7 +35,6 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LogicalPlanner;
-import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -78,20 +77,20 @@ public final class FunctionAssertions
 
     public static void assertFunction(String projection, long expected)
     {
-        doAssertFunction(projection, expected);
+        assertEquals(selectSingleValue(projection), expected);
     }
 
     public static void assertFunction(String projection, double expected)
     {
-        doAssertFunction(projection, expected);
+        assertEquals(selectSingleValue(projection), expected);
     }
 
     public static void assertFunction(String projection, String expected)
     {
-        doAssertFunction(projection, Slices.copiedBuffer(expected, Charsets.UTF_8));
+        assertEquals(selectSingleValue(projection), Slices.copiedBuffer(expected, Charsets.UTF_8));
     }
 
-    private static void doAssertFunction(String projection, Object expected)
+    public static Object selectSingleValue(String projection)
     {
         checkNotNull(projection, "projection is null");
 
@@ -105,14 +104,11 @@ public final class FunctionAssertions
         Type type = tuple.getTupleInfo().getTypes().get(0);
         switch (type) {
             case FIXED_INT_64:
-                assertEquals(tuple.getLong(0), expected);
-                break;
+                return tuple.getLong(0);
             case DOUBLE:
-                assertEquals(tuple.getDouble(0), expected);
-                break;
+                return tuple.getDouble(0);
             case VARIABLE_BINARY:
-                assertEquals(tuple.getSlice(0), expected);
-                break;
+                return tuple.getSlice(0);
             default:
                 throw new AssertionError("unimplemented type: " + type);
         }
@@ -150,7 +146,6 @@ public final class FunctionAssertions
         AnalysisResult analysis = analyzer.analyze(statement);
 
         PlanNode plan = new LogicalPlanner().plan((Query) statement, analysis);
-        new PlanPrinter().print(plan, analysis.getTypes());
 
         SubPlan subplan = new DistributedLogicalPlanner(METADATA).createSubplans(plan, analysis.getSymbolAllocator(), true);
         assertTrue(subplan.getChildren().isEmpty(), "Expected subplan to have no children");
