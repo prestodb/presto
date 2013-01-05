@@ -265,8 +265,8 @@ public class SqlTaskExecution
             }
             finally {
                 taskOutput.getStats().addSplitWallTime(Duration.nanosSince(wallStartTime));
-                taskOutput.getStats().addSplitCpuTime(new Duration(THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStartTime, TimeUnit.NANOSECONDS));
-                taskOutput.getStats().addSplitUserTime(new Duration(THREAD_MX_BEAN.getCurrentThreadUserTime() - userStartTime, TimeUnit.NANOSECONDS));
+                taskOutput.getStats().addSplitCpuTime(new Duration(Math.max(0, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStartTime), TimeUnit.NANOSECONDS));
+                taskOutput.getStats().addSplitUserTime(new Duration(Math.max(0, THREAD_MX_BEAN.getCurrentThreadUserTime() - userStartTime), TimeUnit.NANOSECONDS));
                 taskOutput.getStats().splitCompleted();
                 // todo cleanup expected vs actual
                 taskOutput.getStats().addInputDataSize(new DataSize(operatorStats.getActualDataSize(), Unit.BYTE));
