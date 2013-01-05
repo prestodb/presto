@@ -125,7 +125,7 @@ public class Analyzer
                 limit = Long.parseLong(query.getLimit());
             }
 
-            return AnalysisResult.newInstance(context, query.getSelect().isDistinct(), output, predicate, groupBy, aggregations, limit, orderBy);
+            return AnalysisResult.newInstance(context, query.getSelect().isDistinct(), output, predicate, groupBy, aggregations, limit, orderBy, query);
         }
 
         private void analyzeDistinct(AnalyzedOutput output, List<AnalyzedOrdering> orderBy)
