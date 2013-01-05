@@ -80,8 +80,12 @@ public class ScribeEventClient
             throws IllegalArgumentException
     {
         checkNotNull(eventGenerator, "eventGenerator is null");
-        try {
+        // Skip logging if Scribe logging is disabled
+        if (eventToCategoryMap.isEmpty()) {
+            return Futures.immediateCheckedFuture(null);
+        }
 
+        try {
             eventGenerator.generate(new EventPoster<T>()
             {
                 @Override

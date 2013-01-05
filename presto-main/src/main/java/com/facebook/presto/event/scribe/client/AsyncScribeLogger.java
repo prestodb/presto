@@ -18,6 +18,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.event.scribe.client.ReusableScribeClient.makeReusableClient;
 import static com.facebook.presto.util.Threads.threadsNamed;
@@ -91,6 +92,9 @@ public class AsyncScribeLogger
     class FlushTask
             implements Runnable
     {
+        private final AtomicBoolean tryLaterState = new AtomicBoolean(false);
+        private final AtomicBoolean connectionErrorState = new AtomicBoolean(false);
+
         private List<LogEntry> failedBatch;
 
         @Override
@@ -160,16 +164,26 @@ public class AsyncScribeLogger
                 ResultCode resultCode = scribeClient.log(logEntries);
                 switch (resultCode) {
                     case OK:
+                        if (tryLaterState.compareAndSet(true, false)) {
+                            log.info("Scribe recovered from TRY_LATER");
+                        }
+                        if (connectionErrorState.compareAndSet(true, false)) {
+                            log.info("Scribe recovered from connection errors");
+                        }
                         return true;
                     case TRY_LATER:
-                        log.warn("Scribe log returned TRY_LATER");
+                        if (tryLaterState.compareAndSet(false, true)) {
+                            log.warn("Scribe log returned TRY_LATER");
+                        }
                         break;
                     default:
                         throw new AssertionError("Unknown ResultCode: " + resultCode);
                 }
             }
             catch (Exception e) {
-                log.warn("Failed to log to Scribe: %s", e.getMessage());
+                if (connectionErrorState.compareAndSet(false, true)) {
+                    log.warn("Failed to log to Scribe: %s", e.getMessage());
+                }
             }
 
             // Set failedBatch so that it can be retried on next attempt
