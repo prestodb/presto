@@ -3,6 +3,9 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.slice.Slice;
+import com.google.common.base.Charsets;
+import com.google.common.primitives.Ints;
 import org.joda.time.DateTimeField;
 import org.joda.time.DateTimeZone;
 import org.joda.time.chrono.ISOChronology;
@@ -26,6 +29,72 @@ public class UnixTimeFunctions
     {
         // todo this must come from the Session so it is consistent for every call on every node
         return System.currentTimeMillis();
+    }
+
+    @ScalarFunction(alias = "date_add")
+    public static long dateAdd(Slice unit, long value, long unixTime)
+    {
+        String unitString = unit.toString(Charsets.US_ASCII).toLowerCase();
+        int intValue = Ints.checkedCast(value);
+        switch (unitString) {
+            case "second":
+                return SECOND_OF_MINUTE.add(unixTime, intValue);
+            case "minute":
+                return MINUTE_OF_HOUR.add(unixTime, intValue);
+            case "hour":
+                return HOUR_OF_DAY.add(unixTime, intValue);
+            case "day":
+                return DAY_OF_MONTH.add(unixTime, intValue);
+            case "dow":
+                return DAY_OF_WEEK.add(unixTime, intValue);
+            case "doy":
+                return DAY_OF_YEAR.add(unixTime, intValue);
+            case "week":
+                return WEEK_OF_YEAR.add(unixTime, intValue);
+            case "month":
+                return MONTH_OF_YEAR.add(unixTime, intValue);
+            case "year":
+                return YEAR.add(unixTime, intValue);
+            case "quarter":
+                return MONTH_OF_YEAR.add(unixTime, intValue * 3);
+            case "century":
+                return CENTURY.add(unixTime, intValue);
+            default:
+                throw new IllegalArgumentException("Unsupported unit " + unitString);
+        }
+    }
+
+    @ScalarFunction(alias = "date_diff")
+    public static long dateDiff(Slice unit, long unixTime1, long unixTime2)
+    {
+        String unitString = unit.toString(Charsets.US_ASCII).toLowerCase();
+
+        switch (unitString) {
+            case "second":
+                return SECOND_OF_MINUTE.getDifference(unixTime2, unixTime1);
+            case "minute":
+                return MINUTE_OF_HOUR.getDifference(unixTime2, unixTime1);
+            case "hour":
+                return HOUR_OF_DAY.getDifference(unixTime2, unixTime1);
+            case "day":
+                return DAY_OF_MONTH.getDifference(unixTime2, unixTime1);
+            case "dow":
+                return DAY_OF_WEEK.getDifference(unixTime2, unixTime1);
+            case "doy":
+                return DAY_OF_YEAR.getDifference(unixTime2, unixTime1);
+            case "week":
+                return WEEK_OF_YEAR.getDifference(unixTime2, unixTime1);
+            case "month":
+                return MONTH_OF_YEAR.getDifference(unixTime2, unixTime1);
+            case "year":
+                return YEAR.getDifference(unixTime2, unixTime1);
+            case "quarter":
+                return MONTH_OF_YEAR.getDifference(unixTime2, unixTime1) / 4 + 1;
+            case "century":
+                return CENTURY.getDifference(unixTime2, unixTime1);
+            default:
+                throw new IllegalArgumentException("Unsupported unit " + unitString);
+        }
     }
 
     @ScalarFunction
