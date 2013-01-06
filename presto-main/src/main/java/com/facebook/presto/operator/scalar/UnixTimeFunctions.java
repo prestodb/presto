@@ -21,6 +21,13 @@ public class UnixTimeFunctions
     private static final DateTimeField YEAR = UTC_CHRONOLOGY.year();
     private static final DateTimeField CENTURY = UTC_CHRONOLOGY.centuryOfEra();
 
+    @ScalarFunction(value = "current_timestamp", alias = "now")
+    public static long currentTimestamp()
+    {
+        // todo this must come from the Session so it is consistent for every call on every node
+        return System.currentTimeMillis();
+    }
+
     @ScalarFunction
     public static long second(long unixTime)
     {
