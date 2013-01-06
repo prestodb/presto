@@ -5,6 +5,14 @@ package com.facebook.presto.operator.scalar;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.joda.time.Days;
+import org.joda.time.Hours;
+import org.joda.time.Minutes;
+import org.joda.time.Months;
+import org.joda.time.Seconds;
+import org.joda.time.Weeks;
+import org.joda.time.Years;
+import org.joda.time.chrono.ISOChronology;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.operator.scalar.FunctionAssertions.assertFunction;
@@ -54,7 +62,6 @@ public class TestUnixTimeFunctions
         DateTime dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC);
         long millis = dateTime.getMillis();
 
-        assertFunction("extract(century FROM " + millis + ")", dateTime.getCenturyOfEra());
         assertFunction("extract(day FROM " + millis + ")", dateTime.getDayOfMonth());
         assertFunction("extract(doy FROM " + millis + ")", dateTime.getDayOfYear());
         assertFunction("extract(hour FROM " + millis + ")", dateTime.getHourOfDay());
@@ -64,5 +71,44 @@ public class TestUnixTimeFunctions
         assertFunction("extract(second FROM " + millis + ")", dateTime.getSecondOfMinute());
         assertFunction("extract(week FROM " + millis + ")", dateTime.getWeekOfWeekyear());
         assertFunction("extract(year FROM " + millis + ")", dateTime.getYear());
+        assertFunction("extract(century FROM " + millis + ")", dateTime.getCenturyOfEra());
+    }
+
+    @Test
+    public void testDateAdd()
+    {
+        DateTime dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC);
+        long millis = dateTime.getMillis();
+
+        assertFunction("dateAdd('day', 3, " + millis + ")", dateTime.plusDays(3).getMillis());
+        assertFunction("dateAdd('doy', 3, " + millis + ")", dateTime.plusDays(3).getMillis());
+        assertFunction("dateAdd('hour', 3, " + millis + ")", dateTime.plusHours(3).getMillis());
+        assertFunction("dateAdd('minute', 3, " + millis + ")", dateTime.plusMinutes(3).getMillis());
+        assertFunction("dateAdd('month', 3, " + millis + ")", dateTime.plusMonths(3).getMillis());
+        assertFunction("dateAdd('quarter', 3, " + millis + ")", dateTime.plusMonths(3 * 3).getMillis());
+        assertFunction("dateAdd('second', 3, " + millis + ")", dateTime.plusSeconds(3).getMillis());
+        assertFunction("dateAdd('week', 3, " + millis + ")", dateTime.plusWeeks(3).getMillis());
+        assertFunction("dateAdd('year', 3, " + millis + ")", dateTime.plusYears(3).getMillis());
+        assertFunction("dateAdd('century', 3, " + millis + ")", ISOChronology.getInstance(DateTimeZone.UTC).centuryOfEra().add(millis, 3));
+    }
+
+    @Test
+    public void testDateDiff()
+    {
+        DateTime dateTime1 = new DateTime(1960, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC);
+        long millis1 = dateTime1.getMillis();
+        DateTime dateTime2 = new DateTime(2011, 5, 1, 7, 2, 9, 456, DateTimeZone.UTC);
+        long millis2 = dateTime2.getMillis();
+
+        assertFunction("dateDiff('day', " + millis1 + ", " + millis2 + ")", Days.daysBetween(dateTime1, dateTime2).getDays());
+        assertFunction("dateDiff('doy', " + millis1 + ", " + millis2 + ")", Days.daysBetween(dateTime1, dateTime2).getDays());
+        assertFunction("dateDiff('hour', " + millis1 + ", " + millis2 + ")", Hours.hoursBetween(dateTime1, dateTime2).getHours());
+        assertFunction("dateDiff('minute', " + millis1 + ", " + millis2 + ")", Minutes.minutesBetween(dateTime1, dateTime2).getMinutes());
+        assertFunction("dateDiff('month', " + millis1 + ", " + millis2 + ")", Months.monthsBetween(dateTime1, dateTime2).getMonths());
+        assertFunction("dateDiff('quarter', " + millis1 + ", " + millis2 + ")", Months.monthsBetween(dateTime1, dateTime2).getMonths() / 4 + 1);
+        assertFunction("dateDiff('second', " + millis1 + ", " + millis2 + ")", Seconds.secondsBetween(dateTime1, dateTime2).getSeconds());
+        assertFunction("dateDiff('week', " + millis1 + ", " + millis2 + ")", Weeks.weeksBetween(dateTime1, dateTime2).getWeeks());
+        assertFunction("dateDiff('year', " + millis1 + ", " + millis2 + ")", Years.yearsBetween(dateTime1, dateTime2).getYears());
+        assertFunction("dateDiff('century', " + millis1 + ", " + millis2 + ")", ISOChronology.getInstance(DateTimeZone.UTC).centuryOfEra().getDifference(millis2, millis1));
     }
 }
