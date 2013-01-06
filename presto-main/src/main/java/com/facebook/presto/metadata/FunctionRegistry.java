@@ -4,6 +4,7 @@ import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.StringFunctions;
+import com.facebook.presto.operator.scalar.UnixTimeFunctions;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
@@ -64,6 +65,7 @@ public class FunctionRegistry
                 .aggregate("min", VARIABLE_BINARY, ImmutableList.of(VARIABLE_BINARY), VARIABLE_BINARY, VAR_BINARY_MIN)
                 .scalar(StringFunctions.class)
                 .scalar(MathFunctions.class)
+                .scalar(UnixTimeFunctions.class)
                 .build();
 
         functionsByName = Multimaps.index(functions, FunctionInfo.nameGetter());
