@@ -326,10 +326,11 @@ specialFunction
     | CURRENT_TIMESTAMP ('(' integer ')')?         -> ^(FUNCTION_CALL CURRENT_TIMESTAMP integer?)
     | SUBSTRING '(' expr FROM expr (FOR expr)? ')' -> ^(FUNCTION_CALL SUBSTRING expr expr expr?)
     | EXTRACT '(' extractField FROM expr ')'       -> ^(FUNCTION_CALL EXTRACT extractField expr)
+    | extractField '(' expr ')'                    -> ^(FUNCTION_CALL EXTRACT extractField expr)
     ;
 
 extractField
-    : YEAR | MONTH | DAY | HOUR | MINUTE | SECOND | TIMEZONE_HOUR | TIMEZONE_MINUTE
+    : CENTURY | YEAR | QUARTER | MONTH | WEEK | DAY | DOW | DOY | HOUR | MINUTE | SECOND | TIMEZONE_HOUR | TIMEZONE_MINUTE
     ;
 
 caseExpression
@@ -471,9 +472,14 @@ DATE: 'DATE';
 TIME: 'TIME';
 TIMESTAMP: 'TIMESTAMP';
 INTERVAL: 'INTERVAL';
+CENTURY: 'CENTURY';
+QUARTER: 'QUARTER';
 YEAR: 'YEAR';
 MONTH: 'MONTH';
+WEEK: 'WEEK';
 DAY: 'DAY';
+DOW: 'DOW';
+DOY: 'DOY';
 HOUR: 'HOUR';
 MINUTE: 'MINUTE';
 SECOND: 'SECOND';
