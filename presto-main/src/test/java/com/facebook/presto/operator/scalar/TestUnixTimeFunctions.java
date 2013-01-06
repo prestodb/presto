@@ -8,9 +8,22 @@ import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.operator.scalar.FunctionAssertions.assertFunction;
+import static com.facebook.presto.operator.scalar.FunctionAssertions.selectSingleValue;
+import static org.testng.Assert.assertTrue;
 
 public class TestUnixTimeFunctions
 {
+    @Test
+    public void testNow()
+    {
+        long min = System.currentTimeMillis();
+        long now = (long) selectSingleValue("now()");
+        long currentTimestamp = (long) selectSingleValue("current_timestamp");
+        long max = System.currentTimeMillis();
+        assertTrue(min <= now && now <= max);
+        assertTrue(min <= currentTimestamp && currentTimestamp <= max);
+    }
+
     @Test
     public void testPartFunctions()
     {
