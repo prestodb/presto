@@ -155,13 +155,33 @@ public final class MathFunctions
     @ScalarFunction
     public static long round(long num)
     {
+        return round(num, 0);
+    }
+
+    @ScalarFunction
+    public static long round(long num, long decimals)
+    {
         return num;
     }
 
     @ScalarFunction
-    public static long round(double num)
+    public static double round(double num)
     {
-        return Math.round(num);
+        return round(num, 0);
+    }
+
+    @ScalarFunction
+    public static double round(double num, long decimals)
+    {
+        if (num == 0.0) {
+            return 0;
+        }
+        if (num < 0) {
+            return -round(-num, decimals);
+        }
+
+        double factor = Math.pow(10, decimals);
+        return Math.floor(num * factor + 0.5) / factor;
     }
 
     @ScalarFunction

@@ -231,14 +231,36 @@ public class TestMathFunctions
     {
         assertFunction("round( 3)", 3);
         assertFunction("round(-3)", -3);
-        assertFunction("round( 3.0)", 3);
-        assertFunction("round(-3.0)", -3);
-        assertFunction("round( 3.499)", 3);
-        assertFunction("round(-3.499)", -3);
-        assertFunction("round( 3.5)", 4);
-        assertFunction("round(-3.5)", -3);
-        assertFunction("round(-3.5001)", -4);
-        assertFunction("round(-3.99)", -4);
+        assertFunction("round( 3.0)", 3.0);
+        assertFunction("round(-3.0)", -3.0);
+        assertFunction("round( 3.499)", 3.0);
+        assertFunction("round(-3.499)", -3.0);
+        assertFunction("round( 3.5)", 4.0);
+        assertFunction("round(-3.5)", -4.0);
+        assertFunction("round(-3.5001)", -4.0);
+        assertFunction("round(-3.99)", -4.0);
+
+        assertFunction("round( 3, 0)", 3);
+        assertFunction("round(-3, 0)", -3);
+        assertFunction("round( 3.0, 0)", 3.0);
+        assertFunction("round(-3.0, 0)", -3.0);
+        assertFunction("round( 3.499, 0)", 3.0);
+        assertFunction("round(-3.499, 0)", -3.0);
+        assertFunction("round( 3.5, 0)", 4.0);
+        assertFunction("round(-3.5, 0)", -4.0);
+        assertFunction("round(-3.5001, 0)", -4.0);
+        assertFunction("round(-3.99, 0)", -4.0);
+
+        assertFunction("round( 3, 1)", 3);
+        assertFunction("round(-3, 1)", -3);
+        assertFunction("round( 3.0, 1)", 3.0);
+        assertFunction("round(-3.0, 1)", -3.0);
+        assertFunction("round( 3.499, 1)", 3.5);
+        assertFunction("round(-3.499, 1)", -3.5);
+        assertFunction("round( 3.5, 1)", 3.5);
+        assertFunction("round(-3.5, 1)", -3.5);
+        assertFunction("round(-3.5001, 1)", -3.5);
+        assertFunction("round(-3.99, 1)", -4.0);
     }
 
     @Test
