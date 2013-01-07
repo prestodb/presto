@@ -138,4 +138,24 @@ public class TestUnixTimeFunctions
         assertFunction("timestamp '1960-01-22 03:04:05 Asia/Oral'", new DateTime(1960, 1, 22, 3, 4, 5, 0, timeZone).getMillis());
         assertFunction("timestamp '1960-01-22 03:04 Asia/Oral'", new DateTime(1960, 1, 22, 3, 4, 0, 0, timeZone).getMillis());
     }
+
+    @Test
+    public void testParseDatetime()
+    {
+        DateTimeZone timeZone = DateTimeZone.forOffsetHours(5);
+
+        assertFunction("parsedatetime('1960/01/22 03:04', 'YYYY/MM/DD HH:mm')", new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.UTC).getMillis());
+        assertFunction("parsedatetime('1960/01/22 03:04 Asia/Oral', 'YYYY/MM/DD HH:mm ZZZZZ')", new DateTime(1960, 1, 22, 3, 4, 0, 0, timeZone).getMillis());
+        assertFunction("parsedatetime('1960/01/22 03:04 +0500', 'YYYY/MM/DD HH:mm Z')", new DateTime(1960, 1, 22, 3, 4, 0, 0, timeZone).getMillis());
+    }
+
+    @Test
+    public void testFormatDatetime()
+    {
+        DateTime dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC);
+        long millis = dateTime.getMillis();
+
+        assertFunction("formatDatetime(" + millis + ", 'YYYY/MM/DD HH:mm')", "2001/01/22 03:04");
+        assertFunction("formatDatetime(" + millis + ", 'YYYY/MM/DD HH:mm ZZZZ')", "2001/01/22 03:04 UTC");
+    }
 }

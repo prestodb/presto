@@ -4,11 +4,14 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.slice.Slice;
+import com.facebook.presto.slice.Slices;
 import com.google.common.base.Charsets;
 import com.google.common.primitives.Ints;
 import org.joda.time.DateTimeField;
 import org.joda.time.DateTimeZone;
 import org.joda.time.chrono.ISOChronology;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 
 public class UnixTimeFunctions
 {
@@ -95,6 +98,26 @@ public class UnixTimeFunctions
             default:
                 throw new IllegalArgumentException("Unsupported unit " + unitString);
         }
+    }
+
+    @ScalarFunction(alias = "parse_datetime")
+    public static long parseDatetime(Slice datetime, Slice formatString)
+    {
+        String pattern = formatString.toString(Charsets.UTF_8);
+        DateTimeFormatter formatter = DateTimeFormat.forPattern(pattern).withZoneUTC();
+
+        String datetimeString = datetime.toString(Charsets.UTF_8);
+        return formatter.parseMillis(datetimeString);
+    }
+
+    @ScalarFunction(alias = "format_datetime")
+    public static Slice formatDatetime(long unixTime, Slice formatString)
+    {
+        String pattern = formatString.toString(Charsets.UTF_8);
+        DateTimeFormatter formatter = DateTimeFormat.forPattern(pattern).withZoneUTC();
+
+        String datetimeString = formatter.print(unixTime);
+        return Slices.wrappedBuffer(datetimeString.getBytes(Charsets.UTF_8));
     }
 
     @ScalarFunction
