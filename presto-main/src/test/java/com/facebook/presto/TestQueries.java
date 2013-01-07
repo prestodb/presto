@@ -448,6 +448,22 @@ public class TestQueries
         assertQueryOrdered("SELECT orderstatus FROM orders ORDER BY orderkey DESC");
     }
 
+    @Test(enabled = false)
+    public void testOrderByAlias()
+            throws Exception
+    {
+        assertQueryOrdered("SELECT orderstatus x FROM orders ORDER BY x ASC");
+    }
+
+    @Test(enabled = false)
+    public void testOrderByAliasWithSameNameAsUnselectedColumn()
+            throws Exception
+    {
+        assertQueryOrdered("SELECT orderstatus orderdate FROM orders ORDER BY orderdate ASC");
+    }
+
+
+
     @Test
     public void testScalarFunction()
             throws Exception
