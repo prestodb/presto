@@ -24,7 +24,7 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.server.HackPlanFragmentSourceProvider;
-import com.facebook.presto.slice.Slices;
+import com.facebook.presto.slice.Slice;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.InternalSplit;
 import com.facebook.presto.split.Split;
@@ -44,7 +44,6 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo.Type;
-import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -59,6 +58,7 @@ import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
+import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -87,7 +87,8 @@ public final class FunctionAssertions
 
     public static void assertFunction(String projection, String expected)
     {
-        assertEquals(selectSingleValue(projection), Slices.copiedBuffer(expected, Charsets.UTF_8));
+        Slice value = (Slice) selectSingleValue(projection);
+        assertEquals(value.toString(UTF_8), expected);
     }
 
     public static Object selectSingleValue(String projection)
