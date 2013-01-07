@@ -23,6 +23,7 @@ import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TreeRewriter;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -246,6 +247,12 @@ public class ExpressionAnalyzer
         protected Type visitBooleanLiteral(BooleanLiteral node, Void context)
         {
             return Type.BOOLEAN;
+        }
+
+        @Override
+        protected Type visitTimestampLiteral(TimestampLiteral node, Void context)
+        {
+            return Type.LONG;
         }
 
         @Override

@@ -111,4 +111,31 @@ public class TestUnixTimeFunctions
         assertFunction("dateDiff('year', " + millis1 + ", " + millis2 + ")", Years.yearsBetween(dateTime1, dateTime2).getYears());
         assertFunction("dateDiff('century', " + millis1 + ", " + millis2 + ")", ISOChronology.getInstance(DateTimeZone.UTC).centuryOfEra().getDifference(millis2, millis1));
     }
+
+    @Test
+    public void testTimestampLiteral()
+    {
+        DateTimeZone timeZone = DateTimeZone.forOffsetHours(5);
+
+        assertFunction("timestamp '1960-01-22 03:04:05.321'", new DateTime(1960, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis());
+        assertFunction("timestamp '1960-01-22 03:04:05'", new DateTime(1960, 1, 22, 3, 4, 5, 0, DateTimeZone.UTC).getMillis());
+        assertFunction("timestamp '1960-01-22 03:04'", new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.UTC).getMillis());
+        assertFunction("timestamp '1960-01-22'", new DateTime(1960, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC).getMillis());
+
+        assertFunction("timestamp '1960-01-22 03:04:05.321Z'", new DateTime(1960, 1, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis());
+        assertFunction("timestamp '1960-01-22 03:04:05Z'", new DateTime(1960, 1, 22, 3, 4, 5, 0, DateTimeZone.UTC).getMillis());
+        assertFunction("timestamp '1960-01-22 03:04Z'", new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.UTC).getMillis());
+
+        assertFunction("timestamp '1960-01-22 03:04:05.321+05:00'", new DateTime(1960, 1, 22, 3, 4, 5, 321, timeZone).getMillis());
+        assertFunction("timestamp '1960-01-22 03:04:05+05:00'", new DateTime(1960, 1, 22, 3, 4, 5, 0, timeZone).getMillis());
+        assertFunction("timestamp '1960-01-22 03:04+05:00'", new DateTime(1960, 1, 22, 3, 4, 0, 0, timeZone).getMillis());
+
+        assertFunction("timestamp '1960-01-22 03:04:05.321+05'", new DateTime(1960, 1, 22, 3, 4, 5, 321, timeZone).getMillis());
+        assertFunction("timestamp '1960-01-22 03:04:05+05'", new DateTime(1960, 1, 22, 3, 4, 5, 0, timeZone).getMillis());
+        assertFunction("timestamp '1960-01-22 03:04+05'", new DateTime(1960, 1, 22, 3, 4, 0, 0, timeZone).getMillis());
+
+        assertFunction("timestamp '1960-01-22 03:04:05.321 Asia/Oral'", new DateTime(1960, 1, 22, 3, 4, 5, 321, timeZone).getMillis());
+        assertFunction("timestamp '1960-01-22 03:04:05 Asia/Oral'", new DateTime(1960, 1, 22, 3, 4, 5, 0, timeZone).getMillis());
+        assertFunction("timestamp '1960-01-22 03:04 Asia/Oral'", new DateTime(1960, 1, 22, 3, 4, 0, 0, timeZone).getMillis());
+    }
 }

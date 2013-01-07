@@ -22,6 +22,7 @@ import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Iterables;
@@ -82,6 +83,12 @@ public class ExpressionFormatter
         protected String visitDoubleLiteral(DoubleLiteral node, Void context)
         {
             return Double.toString(node.getValue());
+        }
+
+        @Override
+        protected String visitTimestampLiteral(TimestampLiteral node, Void context)
+        {
+            return "'" + node.getValue() + "'";
         }
 
         @Override
