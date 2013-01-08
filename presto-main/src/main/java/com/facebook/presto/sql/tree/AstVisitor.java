@@ -19,6 +19,11 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
+    protected R visitExtract(Extract node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitArithmeticExpression(ArithmeticExpression node, C context)
     {
         return visitExpression(node, context);

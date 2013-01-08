@@ -7,6 +7,8 @@ import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.SymbolResolver;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import org.antlr.runtime.RecognitionException;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
@@ -109,6 +111,45 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("boundString between a and 'bar'", "'hello' between a and 'bar'");
     }
 
+    public void testExtract()
+            throws RecognitionException
+    {
+        DateTime dateTime = new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC);
+        long millis = dateTime.getMillis();
+
+        assertOptimizedEquals("extract (CENTURY from " + millis + ")", "20");
+        assertOptimizedEquals("extract (YEAR from " + millis + ")", "2001");
+        assertOptimizedEquals("extract (QUARTER from " + millis + ")", "3");
+        assertOptimizedEquals("extract (MONTH from " + millis + ")", "8");
+        assertOptimizedEquals("extract (WEEK from " + millis + ")", "34");
+        assertOptimizedEquals("extract (DOW from " + millis + ")", "3");
+        assertOptimizedEquals("extract (DOY from " + millis + ")", "234");
+        assertOptimizedEquals("extract (DAY from " + millis + ")", "22");
+        assertOptimizedEquals("extract (HOUR from " + millis + ")", "3");
+        assertOptimizedEquals("extract (MINUTE from " + millis + ")", "4");
+        assertOptimizedEquals("extract (SECOND from " + millis + ")", "5");
+        assertOptimizedEquals("extract (TIMEZONE_HOUR from " + millis + ")", "0");
+        assertOptimizedEquals("extract (TIMEZONE_MINUTE from " + millis + ")", "0");
+
+
+        assertOptimizedEquals("extract (CENTURY from boundTimestamp)", "20");
+        assertOptimizedEquals("extract (YEAR from boundTimestamp)", "2001");
+        assertOptimizedEquals("extract (QUARTER from boundTimestamp)", "3");
+        assertOptimizedEquals("extract (MONTH from boundTimestamp)", "8");
+        assertOptimizedEquals("extract (WEEK from boundTimestamp)", "34");
+        assertOptimizedEquals("extract (DOW from boundTimestamp)", "3");
+        assertOptimizedEquals("extract (DOY from boundTimestamp)", "234");
+        assertOptimizedEquals("extract (DAY from boundTimestamp)", "22");
+        assertOptimizedEquals("extract (HOUR from boundTimestamp)", "3");
+        assertOptimizedEquals("extract (MINUTE from boundTimestamp)", "4");
+        assertOptimizedEquals("extract (SECOND from boundTimestamp)", "5");
+        assertOptimizedEquals("extract (TIMEZONE_HOUR from boundTimestamp)", "0");
+        assertOptimizedEquals("extract (TIMEZONE_MINUTE from boundTimestamp)", "0");
+
+        assertOptimizedEquals("extract (YEAR from a)", "extract (YEAR from a)");
+        assertOptimizedEquals("extract (SECOND from boundTimestamp + 1000)", "6");
+    }
+
     private void assertOptimizedEquals(String actual, String expected)
             throws RecognitionException
     {
@@ -124,6 +165,8 @@ public class TestExpressionInterpreter
                         return Slices.wrappedBuffer("hello".getBytes(UTF_8));
                     case "bounddouble":
                         return 12.34;
+                    case "boundtimestamp":
+                        return new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis();
                 }
 
                 return new QualifiedNameReference(symbol.toQualifiedName());

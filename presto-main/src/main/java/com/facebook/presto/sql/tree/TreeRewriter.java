@@ -515,6 +515,25 @@ public final class TreeRewriter<C>
 
             return node;
         }
+
+        @Override
+        protected Node visitExtract(Extract node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteExtract(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression expression = rewrite(node.getExpression(), context.get());
+
+            if (node.getExpression() != expression) {
+                return new Extract(expression, node.getField());
+            }
+
+            return node;
+        }
     }
 
     public static class Context<C>

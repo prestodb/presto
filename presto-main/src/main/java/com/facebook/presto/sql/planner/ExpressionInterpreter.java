@@ -2,6 +2,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.operator.scalar.UnixTimeFunctions;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
@@ -13,6 +14,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
@@ -474,6 +476,49 @@ public class ExpressionInterpreter
             }
         }
         return Pattern.compile(regex.toString());
+    }
+
+    protected Object visitExtract(Extract node, Void context)
+    {
+        Object value = process(node.getExpression(), context);
+        if (value == null) {
+            return null;
+        }
+
+        if (value instanceof Expression) {
+            return new Extract(toExpression(value), node.getField());
+        }
+
+        long time = (long) value;
+        switch (node.getField()) {
+            case CENTURY:
+                return UnixTimeFunctions.century(time);
+            case YEAR:
+                return UnixTimeFunctions.year(time);
+            case QUARTER:
+                return UnixTimeFunctions.quarter(time);
+            case MONTH:
+                return UnixTimeFunctions.month(time);
+            case WEEK:
+                return UnixTimeFunctions.week(time);
+            case DAY:
+                return UnixTimeFunctions.day(time);
+            case DOW:
+                return UnixTimeFunctions.dayOfWeek(time);
+            case DOY:
+                return UnixTimeFunctions.dayOfYear(time);
+            case HOUR:
+                return UnixTimeFunctions.hour(time);
+            case MINUTE:
+                return UnixTimeFunctions.minute(time);
+            case SECOND:
+                return UnixTimeFunctions.second(time);
+            case TIMEZONE_HOUR:
+            case TIMEZONE_MINUTE:
+                return 0L; // we assume all times are UTC for now  TODO
+        }
+
+        throw new UnsupportedOperationException("not yet implemented: " + node.getField());
     }
 
     @Override
