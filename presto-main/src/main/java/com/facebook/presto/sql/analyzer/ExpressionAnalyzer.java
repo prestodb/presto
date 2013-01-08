@@ -8,6 +8,7 @@ import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
@@ -70,6 +71,20 @@ public class ExpressionAnalyzer
             this.metadata = metadata;
             this.descriptor = descriptor;
             this.symbols = symbols;
+        }
+
+        @Override
+        protected Type visitCurrentTime(CurrentTime node, Void context)
+        {
+            if (node.getType() != CurrentTime.Type.TIMESTAMP) {
+                throw new SemanticException(node, "%s not yet supported", node.getType().getName());
+            }
+
+            if (node.getPrecision() != null) {
+                throw new SemanticException(node, "non-default precision not yet supported");
+            }
+
+            return Type.LONG;
         }
 
         @Override

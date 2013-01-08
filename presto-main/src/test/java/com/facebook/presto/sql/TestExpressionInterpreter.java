@@ -11,6 +11,8 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
+import java.util.concurrent.TimeUnit;
+
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
 import static com.google.common.base.Charsets.UTF_8;
 import static org.testng.Assert.assertEquals;
@@ -182,6 +184,15 @@ public class TestExpressionInterpreter
 
         assertOptimizedEquals("boundLong in (2, 4, a, b, 9)", "1234 in (a, b)");
         assertOptimizedEquals("a in (2, 4, boundLong, b, 5)", "a in (2, 4, 1234, b, 5)");
+    }
+
+    @Test
+    public void testCurrenTimestamp()
+            throws Exception
+    {
+        long current = System.currentTimeMillis();
+        assertOptimizedEquals("current_timestamp >= " + current, "true");
+        assertOptimizedEquals("current_timestamp > " + current + TimeUnit.MINUTES.toMillis(1), "false");
     }
 
     private void assertOptimizedEquals(String actual, String expected)

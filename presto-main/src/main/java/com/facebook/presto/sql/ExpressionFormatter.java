@@ -7,6 +7,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
@@ -60,6 +61,33 @@ public class ExpressionFormatter
         protected String visitExpression(Expression node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
+        }
+
+        @Override
+        protected String visitCurrentTime(CurrentTime node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+            switch (node.getType()) {
+                case TIME:
+                    builder.append("current_time");
+                    break;
+                case DATE:
+                    builder.append("current_date");
+                    break;
+                case TIMESTAMP:
+                    builder.append("current_timestamp");
+                    break;
+                default:
+                    throw new UnsupportedOperationException("not yet implemented: " + node.getType());
+            }
+
+            if (node.getPrecision() != null) {
+                builder.append('(')
+                        .append(node.getPrecision())
+                        .append(')');
+            }
+
+            return builder.toString();
         }
 
         @Override
