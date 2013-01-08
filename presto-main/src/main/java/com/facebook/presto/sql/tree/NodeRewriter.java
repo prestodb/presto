@@ -151,4 +151,9 @@ public class NodeRewriter<C>
     {
         return rewriteExpression(node, context, treeRewriter);
     }
+
+    public Node rewriteCast(Cast node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
 }

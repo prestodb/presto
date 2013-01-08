@@ -212,6 +212,7 @@ expr returns [Expression value]
     | subquery              { $value = new SubqueryExpression($subquery.value); }
     | extract               { $value = $extract.value; }
     | current_time          { $value = $current_time.value; }
+    | cast                  { $value = $cast.value; }
     ;
 
 exprList returns [List<Expression> value = new ArrayList<>()]
@@ -249,6 +250,10 @@ functionCall returns [FunctionCall value]
 
 extract returns [Extract value]
     : ^(EXTRACT field=IDENT expr) { $value = new Extract($expr.value, Extract.Field.valueOf($field.text.toUpperCase())); }
+    ;
+
+cast returns [Cast value]
+    : ^(CAST expr IDENT) { $value = new Cast($expr.value, $IDENT.text); }
     ;
 
 current_time returns [CurrentTime value]
