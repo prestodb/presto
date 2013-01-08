@@ -132,7 +132,8 @@ public class LocalExecutionPlanner
             for (Symbol symbol : resultSymbols) {
                 ProjectionFunction function = new InterpretedProjectionFunction(types.get(symbol),
                         new QualifiedNameReference(symbol.toQualifiedName()),
-                        symbolToChannelMappings);
+                        symbolToChannelMappings,
+                        metadata);
 
                 projections.add(function);
             }
@@ -249,7 +250,7 @@ public class LocalExecutionPlanner
 
             Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
 
-            FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), symbolToChannelMappings);
+            FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), symbolToChannelMappings, metadata);
 
             List<ProjectionFunction> projections = new ArrayList<>();
             for (int i = 0; i < node.getOutputSymbols().size(); i++) {
@@ -273,7 +274,7 @@ public class LocalExecutionPlanner
             for (int i = 0; i < node.getExpressions().size(); i++) {
                 Symbol symbol = node.getOutputSymbols().get(i);
                 Expression expression = node.getExpressions().get(i);
-                ProjectionFunction function = new InterpretedProjectionFunction(types.get(symbol), expression, symbolToChannelMappings);
+                ProjectionFunction function = new InterpretedProjectionFunction(types.get(symbol), expression, symbolToChannelMappings, metadata);
                 projections.add(function);
             }
 

@@ -1,7 +1,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
@@ -38,11 +38,15 @@ public class ExpressionInterpreter
         extends AstVisitor<Object, Void>
 {
     private final SymbolResolver resolver;
+    private final Metadata metadata;
 
-    public ExpressionInterpreter(SymbolResolver resolver)
+    public ExpressionInterpreter(SymbolResolver resolver, Metadata metadata)
     {
         checkNotNull(resolver, "resolver is null");
+        checkNotNull(metadata, "metadata is null");
+
         this.resolver = resolver;
+        this.metadata = metadata;
     }
 
     @Override
@@ -353,8 +357,7 @@ public class ExpressionInterpreter
             argumentValues.add(value);
             argumentTypes.add(type);
         }
-        FunctionRegistry registry = new FunctionRegistry();
-        FunctionInfo function = registry.get(node.getName(), Lists.transform(argumentTypes, Type.toRaw()));
+        FunctionInfo function = metadata.getFunction(node.getName(), Lists.transform(argumentTypes, Type.toRaw()));
         MethodHandle handle = function.getScalarFunction();
         try {
             return handle.invokeWithArguments(argumentValues);
