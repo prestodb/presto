@@ -246,11 +246,6 @@ functionCall returns [FunctionCall value]
     | ^(FUNCTION_CALL CURRENT_TIME a=exprList)       { $value = new FunctionCall("current_time", $a.value); }
     | ^(FUNCTION_CALL CURRENT_TIMESTAMP a=exprList)  { $value = new FunctionCall("current_timestamp", $a.value); }
     | ^(FUNCTION_CALL SUBSTRING a=exprList)          { $value = new FunctionCall("substr", $a.value); }
-    | ^(FUNCTION_CALL EXTRACT f=extractField e=exprList) { $value = new FunctionCall($f.value, $e.value); }
-    ;
-
-extractField returns [String value]
-    : t=(CENTURY | YEAR | QUARTER | MONTH | WEEK | DAY | DOW | DOY | HOUR | MINUTE | SECOND | TIMEZONE_HOUR | TIMEZONE_MINUTE) { $value = $t.text; }
     ;
 
 arithmeticExpression returns [ArithmeticExpression value]
