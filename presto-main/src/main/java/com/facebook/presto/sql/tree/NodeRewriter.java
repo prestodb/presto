@@ -67,6 +67,11 @@ public class NodeRewriter<C>
         return rewriteExpression(node, context, treeRewriter);
     }
 
+    public Node rewriteBetweenPredicate(BetweenPredicate node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
     public Node rewriteLogicalBinaryExpression(LogicalBinaryExpression node, C context, TreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);

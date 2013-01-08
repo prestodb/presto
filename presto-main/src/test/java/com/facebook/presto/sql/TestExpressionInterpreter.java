@@ -84,6 +84,30 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("abs(a + 1)", "abs(a + 1)");
     }
 
+    public void testBetween()
+            throws Exception
+    {
+        assertOptimizedEquals("3 between 2 and 4", "true");
+        assertOptimizedEquals("2 between 3 and 4", "false");
+        assertOptimizedEquals("null between 2 and 4", "null");
+        assertOptimizedEquals("3 between null and 4", "null");
+        assertOptimizedEquals("3 between 2 and null", "null");
+
+        assertOptimizedEquals("'c' between 'b' and 'd'", "true");
+        assertOptimizedEquals("'b' between 'c' and 'd'", "false");
+        assertOptimizedEquals("null between 'b' and 'd'", "null");
+        assertOptimizedEquals("'c' between null and 'd'", "null");
+        assertOptimizedEquals("'c' between 'b' and null", "null");
+
+        assertOptimizedEquals("boundLong between 1000 and 2000", "true");
+        assertOptimizedEquals("boundLong between 3 and 4", "false");
+        assertOptimizedEquals("boundString between 'e' and 'i'", "true");
+        assertOptimizedEquals("boundString between 'a' and 'b'", "false");
+
+        assertOptimizedEquals("boundLong between a and 2000 + 1", "1234 between a and 2001");
+        assertOptimizedEquals("boundString between a and 'bar'", "'hello' between a and 'bar'");
+    }
+
     private void assertOptimizedEquals(String actual, String expected)
             throws RecognitionException
     {
