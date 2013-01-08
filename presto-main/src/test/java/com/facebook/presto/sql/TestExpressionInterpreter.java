@@ -72,6 +72,18 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("boundLong = a", "1234 = a");
     }
 
+    @Test
+    public void testFunctionCall()
+        throws Exception
+    {
+        assertOptimizedEquals("abs(-5)", "5");
+        assertOptimizedEquals("abs(-10-5)", "15");
+        assertOptimizedEquals("abs(-boundLong + 1)", "1233");
+        assertOptimizedEquals("abs(-boundLong)", "1234");
+        assertOptimizedEquals("abs(a)", "abs(a)");
+        assertOptimizedEquals("abs(a + 1)", "abs(a + 1)");
+    }
+
     private void assertOptimizedEquals(String actual, String expected)
             throws RecognitionException
     {
