@@ -204,6 +204,18 @@ public class TestQueries
     }
 
     @Test
+    public void testCountColumn()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(orderkey) FROM ORDERS");
+        assertQuery("SELECT COUNT(orderstatus) FROM ORDERS");
+        assertQuery("SELECT COUNT(orderdate) FROM ORDERS");
+        assertQuery("SELECT COUNT(1) FROM ORDERS");
+
+        assertQuery("SELECT COUNT(NULLIF(orderstatus, 'F')) FROM ORDERS");
+    }
+
+    @Test
     public void testWildcard()
             throws Exception
     {
