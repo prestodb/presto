@@ -24,6 +24,7 @@ import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
 
@@ -67,6 +68,12 @@ public class ExpressionInterpreter
     protected Slice visitStringLiteral(StringLiteral node, Void context)
     {
         return node.getSlice();
+    }
+
+    @Override
+    protected Long visitTimestampLiteral(TimestampLiteral node, Void context)
+    {
+        return node.getUnixTime();
     }
 
     @Override

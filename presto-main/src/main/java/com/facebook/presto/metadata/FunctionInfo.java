@@ -5,8 +5,11 @@ import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.Input;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ComparisonChain;
+import com.google.common.collect.Ordering;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -15,7 +18,7 @@ import static com.facebook.presto.operator.AggregationFunctionDefinition.aggrega
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-public class FunctionInfo
+public class FunctionInfo implements Comparable<FunctionInfo>
 {
     private final int id;
 
@@ -124,9 +127,6 @@ public class FunctionInfo
         if (!argumentTypes.equals(that.argumentTypes)) {
             return false;
         }
-        if (intermediateType != that.intermediateType) {
-            return false;
-        }
         if (!name.equals(that.name)) {
             return false;
         }
@@ -144,8 +144,18 @@ public class FunctionInfo
         result = 31 * result + (isAggregate ? 1 : 0);
         result = 31 * result + returnType.hashCode();
         result = 31 * result + argumentTypes.hashCode();
-        result = 31 * result + (intermediateType != null ? intermediateType.hashCode() : 0);
         return result;
+    }
+
+    @Override
+    public int compareTo(FunctionInfo o)
+    {
+        return ComparisonChain.start()
+                .compareTrueFirst(isAggregate, o.isAggregate)
+                .compare(name.toString(), o.name.toString())
+                .compare(argumentTypes, o.argumentTypes, Ordering.<Type>natural().lexicographical())
+                .compare(returnType, o.returnType)
+                .result();
     }
 
     public static Function<FunctionInfo, QualifiedName> nameGetter()
