@@ -307,7 +307,8 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitInPredicate(InPredicate node, Void context)
         {
-            throw new UnsupportedOperationException("not yet implemented: IN");
+            // todo should values be the same type?
+            return Type.BOOLEAN;
         }
 
         @Override

@@ -16,6 +16,8 @@ import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.InListExpression;
+import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
@@ -29,8 +31,11 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
+import com.google.common.base.Function;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
+import javax.annotation.Nullable;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
@@ -132,6 +137,56 @@ public class ExpressionInterpreter
             }
         }
         return null;
+    }
+
+    @Override
+    protected Object visitInPredicate(InPredicate node, Void context)
+    {
+        Expression valueListExpression = node.getValueList();
+        if (!(valueListExpression instanceof InListExpression)) {
+            return node;
+        }
+        InListExpression valueList = (InListExpression) valueListExpression;
+
+        boolean hasUnresolvedValue = false;
+        Object value = process(node.getValue(), context);
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Expression) {
+            hasUnresolvedValue = true;
+        }
+
+        boolean hasNullValue = false;
+        boolean found = false;
+        List<Object> values = new ArrayList<>(valueList.getValues().size());
+        for (Expression expression : valueList.getValues()) {
+            Object inValue = process(expression, context);
+            if (value instanceof Expression || inValue instanceof Expression) {
+                hasUnresolvedValue = true;
+                values.add(inValue);
+                continue;
+            }
+
+            if (inValue == null) {
+                hasNullValue = true;
+            }
+            else if (!found && value.equals(inValue)) {
+                // in does not short-circuit so we must evaluate all value in the list
+                found = true;
+            }
+        }
+        if (found) {
+            return true;
+        }
+
+        if (hasUnresolvedValue) {
+            return new InPredicate(toExpression(value), new InListExpression(toExpressions(values)));
+        }
+        if (hasNullValue) {
+            return null;
+        }
+        return false;
     }
 
     @Override
@@ -531,6 +586,17 @@ public class ExpressionInterpreter
     protected Object visitNode(Node node, Void context)
     {
         throw new UnsupportedOperationException("Evaluator visitor can only handle Expression nodes");
+    }
+
+    private static List<Expression> toExpressions(List<?> objects)
+    {
+        return ImmutableList.copyOf(Lists.transform(objects, new Function<Object, Expression>()
+        {
+            public Expression apply(@Nullable Object value)
+            {
+                return toExpression(value);
+            }
+        }));
     }
 
     private static Expression toExpression(Object object)

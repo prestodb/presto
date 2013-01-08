@@ -111,6 +111,7 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("boundString between a and 'bar'", "'hello' between a and 'bar'");
     }
 
+    @Test
     public void testExtract()
             throws RecognitionException
     {
@@ -148,6 +149,39 @@ public class TestExpressionInterpreter
 
         assertOptimizedEquals("extract (YEAR from a)", "extract (YEAR from a)");
         assertOptimizedEquals("extract (SECOND from boundTimestamp + 1000)", "6");
+    }
+
+    @Test
+    public void testIn()
+            throws Exception
+    {
+        assertOptimizedEquals("3 in (2, 4, 3, 5)", "true");
+        assertOptimizedEquals("3 in (2, 4, 9, 5)", "false");
+        assertOptimizedEquals("3 in (2, null, 3, 5)", "true");
+
+        assertOptimizedEquals("'foo' in ('bar', 'baz', 'foo', 'blah')", "true");
+        assertOptimizedEquals("'foo' in ('bar', 'baz', 'buz', 'blah')", "false");
+        assertOptimizedEquals("'foo' in ('bar', null, 'foo', 'blah')", "true");
+
+        assertOptimizedEquals("null in (2, null, 3, 5)", "null");
+        assertOptimizedEquals("3 in (2, null)", "null");
+
+        assertOptimizedEquals("boundLong in (2, 1234, 3, 5)", "true");
+        assertOptimizedEquals("boundLong in (2, 4, 3, 5)", "false");
+        assertOptimizedEquals("1234 in (2, boundLong, 3, 5)", "true");
+        assertOptimizedEquals("99 in (2, boundLong, 3, 5)", "false");
+        assertOptimizedEquals("boundLong in (2, boundLong, 3, 5)", "true");
+
+        assertOptimizedEquals("boundString in ('bar', 'hello', 'foo', 'blah')", "true");
+        assertOptimizedEquals("boundString in ('bar', 'baz', 'foo', 'blah')", "false");
+        assertOptimizedEquals("'hello' in ('bar', boundString, 'foo', 'blah')", "true");
+        assertOptimizedEquals("'baz' in ('bar', boundString, 'foo', 'blah')", "false");
+
+        assertOptimizedEquals("boundLong in (2, 1234, a, 5)", "true");
+        assertOptimizedEquals("boundString in ('bar', 'hello', a, 'blah')", "true");
+
+        assertOptimizedEquals("boundLong in (2, 4, a, b, 9)", "1234 in (a, b)");
+        assertOptimizedEquals("a in (2, 4, boundLong, b, 5)", "a in (2, 4, 1234, b, 5)");
     }
 
     private void assertOptimizedEquals(String actual, String expected)
