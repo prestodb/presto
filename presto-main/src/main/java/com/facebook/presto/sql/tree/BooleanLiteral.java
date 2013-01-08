@@ -6,8 +6,8 @@ import com.google.common.base.Preconditions;
 public class BooleanLiteral
     extends Literal
 {
-    public static BooleanLiteral TRUE_LITERAL = new BooleanLiteral("true");
-    public static BooleanLiteral FALSE_LITERAL = new BooleanLiteral("false");
+    public static final BooleanLiteral TRUE_LITERAL = new BooleanLiteral("true");
+    public static final BooleanLiteral FALSE_LITERAL = new BooleanLiteral("false");
 
     private final String value;
 
