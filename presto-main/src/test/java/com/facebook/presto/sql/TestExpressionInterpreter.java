@@ -76,7 +76,7 @@ public class TestExpressionInterpreter
 
     @Test
     public void testFunctionCall()
-        throws Exception
+            throws Exception
     {
         assertOptimizedEquals("abs(-5)", "5");
         assertOptimizedEquals("abs(-10-5)", "15");
@@ -182,6 +182,121 @@ public class TestExpressionInterpreter
 
         assertOptimizedEquals("boundLong in (2, 4, a, b, 9)", "1234 in (a, b)");
         assertOptimizedEquals("a in (2, 4, boundLong, b, 5)", "a in (2, 4, 1234, b, 5)");
+    }
+
+    @Test
+    public void testSearchCase()
+            throws Exception
+    {
+        assertOptimizedEquals("case " +
+                "when true then 33 " +
+                "end",
+                "33");
+        assertOptimizedEquals("case " +
+                "when false then 1 " +
+                "else 33 " +
+                "end",
+                "33");
+
+        assertOptimizedEquals("case " +
+                "when boundLong = 1234 then 33 " +
+                "end",
+                "33");
+        assertOptimizedEquals("case " +
+                "when true then boundLong " +
+                "end",
+                "1234");
+        assertOptimizedEquals("case " +
+                "when false then 1 " +
+                "else boundLong " +
+                "end",
+                "1234");
+
+        assertOptimizedEquals("case " +
+                "when boundLong = 1234 then 33 " +
+                "else a " +
+                "end",
+                "33");
+        assertOptimizedEquals("case " +
+                "when true then boundLong " +
+                "else a " +
+                "end",
+                "1234");
+        assertOptimizedEquals("case " +
+                "when false then a " +
+                "else boundLong " +
+                "end",
+                "1234");
+
+        assertOptimizedEquals("case " +
+                "when a = 1234 then 33 " +
+                "else 1 " +
+                "end",
+                "" +
+                        "case " +
+                        "when a = 1234 then 33 " +
+                        "else 1 " +
+                        "end");
+
+    }
+
+    @Test
+    public void testSimpleCase()
+            throws Exception
+    {
+        assertOptimizedEquals("case true " +
+                "when true then 33 " +
+                "end",
+                "33");
+        assertOptimizedEquals("case true " +
+                "when false then 1 " +
+                "else 33 end",
+                "33");
+
+        assertOptimizedEquals("case boundLong " +
+                "when 1234 then 33 " +
+                "end",
+                "33");
+        assertOptimizedEquals("case 1234 " +
+                "when boundLong then 33 " +
+                "end",
+                "33");
+        assertOptimizedEquals("case true " +
+                "when true then boundLong " +
+                "end",
+                "1234");
+        assertOptimizedEquals("case true " +
+                "when false then 1 " +
+                "else boundLong " +
+                "end",
+                "1234");
+
+        assertOptimizedEquals("case boundLong " +
+                "when 1234 then 33 " +
+                "else a " +
+                "end",
+                "33");
+        assertOptimizedEquals("case true " +
+                "when true then boundLong " +
+                "else a " +
+                "end",
+                "1234");
+        assertOptimizedEquals("case true " +
+                "when false then a " +
+                "else boundLong " +
+                "end",
+                "1234");
+
+        assertOptimizedEquals("case a " +
+                "when 1234 then 33 " +
+                "else 1 " +
+                "end",
+                "" +
+                        "case a " +
+                        "when 1234 then 33 " +
+                        "else 1 " +
+                        "end");
+
     }
 
     private void assertOptimizedEquals(String actual, String expected)
