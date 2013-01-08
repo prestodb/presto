@@ -32,10 +32,13 @@ import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.SearchedCaseExpression;
+import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nullable;
@@ -135,6 +138,79 @@ public class ExpressionInterpreter
         }
 
         return value != null;
+    }
+
+    @Override
+    protected Object visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
+    {
+        Expression resultClause = node.getDefaultValue();
+        for (WhenClause whenClause : node.getWhenClauses()) {
+            Object value = process(whenClause.getOperand(), context);
+            if (value instanceof Expression) {
+                // TODO: optimize this case
+                return node;
+            }
+
+            if (Boolean.TRUE.equals(value)) {
+                resultClause = whenClause.getResult();
+                break;
+            }
+        }
+
+        if (resultClause == null) {
+            return null;
+        }
+
+        Object result = process(resultClause, context);
+        if (result instanceof Expression) {
+            return node;
+        }
+        return result;
+    }
+
+    @Override
+    protected Object visitSimpleCaseExpression(SimpleCaseExpression node, Void context)
+    {
+        Object operand = process(node.getOperand(), context);
+        if (operand == null) {
+            return null;
+        }
+        if (operand instanceof Expression) {
+            return node;
+        }
+
+        Expression resultClause = node.getDefaultValue();
+        for (WhenClause whenClause : node.getWhenClauses()) {
+            Object value = process(whenClause.getOperand(), context);
+            if (value instanceof Expression) {
+                // TODO: optimize this case
+                return node;
+            }
+
+            if (operand instanceof Long && value instanceof  Long) {
+                if (((Long) operand).doubleValue() == ((Long) value).doubleValue()) {
+                    resultClause = whenClause.getResult();
+                    break;
+                }
+            } else if (operand instanceof Number && value instanceof  Number) {
+                if (((Number) operand).doubleValue() == ((Number) value).doubleValue()) {
+                    resultClause = whenClause.getResult();
+                    break;
+                }
+            } else if (operand.equals(value)) {
+                resultClause = whenClause.getResult();
+                break;
+            }
+        }
+        if (resultClause == null) {
+            return null;
+        }
+
+        Object result = process(resultClause, context);
+        if (result instanceof Expression) {
+            return node;
+        }
+        return result;
     }
 
     @Override

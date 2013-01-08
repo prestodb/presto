@@ -359,6 +359,81 @@ public final class TreeRewriter<C>
         }
 
         @Override
+        protected Node visitSearchedCaseExpression(SearchedCaseExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteSearchedCaseExpression(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            ImmutableList.Builder<WhenClause> builder = ImmutableList.builder();
+            for (WhenClause expression : node.getWhenClauses()) {
+                builder.add(rewrite(expression, context.get()));
+            }
+
+            Expression defaultValue = null;
+            if (node.getDefaultValue() != null) {
+                defaultValue = rewrite(node.getDefaultValue(), context.get());
+            }
+
+            if (defaultValue != node.getDefaultValue() || !sameElements(node.getWhenClauses(), builder.build())) {
+                return new SearchedCaseExpression(builder.build(), defaultValue);
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Node visitSimpleCaseExpression(SimpleCaseExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteSimpleCaseExpression(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression operand = rewrite(node.getOperand(), context.get());
+
+            ImmutableList.Builder<WhenClause> builder = ImmutableList.builder();
+            for (WhenClause expression : node.getWhenClauses()) {
+                builder.add(rewrite(expression, context.get()));
+            }
+
+            Expression defaultValue = null;
+            if (node.getDefaultValue() != null) {
+                defaultValue = rewrite(node.getDefaultValue(), context.get());
+            }
+
+            if (operand != node.getOperand() || defaultValue != node.getDefaultValue() || !sameElements(node.getWhenClauses(), builder.build())) {
+                return new SimpleCaseExpression(operand, builder.build(), defaultValue);
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Node visitWhenClause(WhenClause node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteWhenClause(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression operand = rewrite(node.getOperand(), context.get());
+            Expression result = rewrite(node.getResult(), context.get());
+
+            if (operand != node.getOperand() || result != node.getResult()) {
+                return new WhenClause(operand, result);
+            }
+            return node;
+        }
+
+        @Override
         protected Node visitCoalesceExpression(CoalesceExpression node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

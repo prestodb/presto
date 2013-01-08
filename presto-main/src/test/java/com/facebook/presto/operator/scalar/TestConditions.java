@@ -3,10 +3,13 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.sql.analyzer.SemanticException;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.operator.scalar.FunctionAssertions.assertFunction;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.selectBooleanValue;
+import static com.facebook.presto.operator.scalar.FunctionAssertions.selectSingleValue;
+import static org.testng.Assert.fail;
 
 public class TestConditions
 {
@@ -86,4 +89,111 @@ public class TestConditions
         selectBooleanValue("3 in (2, 4, 3, 5 / 0)");
     }
 
+    @Test
+    public void testSearchCase()
+    {
+        assertFunction("case " +
+                "when true then 33 " +
+                "end",
+                33L);
+
+        assertFunction("case " +
+                "when false then 1 " +
+                "else 33 " +
+                "end",
+                33L);
+
+        assertFunction("case " +
+                "when false then 1 " +
+                "when false then 1 " +
+                "when true then 33 " +
+                "else 1 " +
+                "end",
+                33L);
+
+        assertFunction("case " +
+                "when false then 1 " +
+                "end",
+                null);
+
+        assertFunction("case " +
+                "when true then null " +
+                "else 'foo' " +
+                "end",
+                null);
+
+        assertFunction("case " +
+                "when null then 1 " +
+                "when true then 33 " +
+                "end",
+                33L);
+
+        // todo coercion to double
+        try {
+            selectSingleValue("case " +
+                    "when false then 1.0 " +
+                    "when true then 33 " +
+                    "end");
+            fail("Expected SemanticException");
+        }
+        catch (SemanticException expected) {
+        }
+    }
+
+    @Test
+    public void testSimpleCase()
+    {
+        assertFunction("case true " +
+                "when true then 33 " +
+                "end",
+                33L);
+
+        assertFunction("case true " +
+                "when false then 1 " +
+                "else 33 " +
+                "end",
+                33L);
+
+        assertFunction("case true " +
+                "when false then 1 " +
+                "when false then 1 " +
+                "when true then 33 " +
+                "else 1 " +
+                "end",
+                33L);
+
+        assertFunction("case true " +
+                "when false then 1 " +
+                "end",
+                null);
+
+        assertFunction("case true " +
+                "when true then null " +
+                "else 'foo' " +
+                "end",
+                null);
+
+        assertFunction("case true " +
+                "when null then 1 " +
+                "when true then 33 " +
+                "end",
+                33L);
+
+        assertFunction("case null " +
+                "when true then 1 " +
+                "else 33 " +
+                "end",
+                null);
+
+        // todo coercion to double
+        try {
+            selectSingleValue("case true " +
+                    "when false then 1.0 " +
+                    "when true then 33 " +
+                    "end");
+            fail("Expected SemanticException");
+        }
+        catch (SemanticException expected) {
+        }
+    }
 }

@@ -88,7 +88,11 @@ public final class FunctionAssertions
     public static void assertFunction(String projection, String expected)
     {
         Slice value = (Slice) selectSingleValue(projection);
-        assertEquals(value.toString(UTF_8), expected);
+        if (value == null) {
+            assertEquals(value, expected);
+        } else {
+            assertEquals(value.toString(UTF_8), expected);
+        }
     }
 
     public static void assertFunction(String projection, boolean expected)
@@ -106,6 +110,10 @@ public final class FunctionAssertions
         assertEquals(results.size(), 1);
         Tuple tuple = results.get(0);
         assertEquals(tuple.getTupleInfo().getFieldCount(), 1);
+
+        if (tuple.isNull(0)) {
+            return null;
+        }
 
         Type type = tuple.getTupleInfo().getTypes().get(0);
         switch (type) {
