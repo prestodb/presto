@@ -328,6 +328,15 @@ specialFunction
     | EXTRACT '(' extractFieldOrIdent FROM expr ')'-> ^(EXTRACT IDENT[$extractFieldOrIdent.text] expr)
     // handle function call-like syntax for extract
     | extractField '(' expr ')'                    -> ^(FUNCTION_CALL ^(QNAME IDENT[$extractField.text]) expr)
+    | CAST '(' expr AS type ')'                    -> ^(CAST expr IDENT[$type.text])
+    ;
+
+// TODO: this should be 'dataType', which supports arbitrary type specifications. For now we constrain to simple types
+type
+    : VARCHAR
+    | BIGINT
+    | DOUBLE
+    | BOOLEAN
     ;
 
 extractFieldOrIdent
@@ -520,10 +529,14 @@ DECIMAL: 'DECIMAL';
 DEC: 'DEC';
 INTEGER: 'INTEGER';
 INT: 'INT';
+DOUBLE: 'DOUBLE';
+BIGINT: 'BIGINT';
+BOOLEAN: 'BOOLEAN';
 CONSTRAINT: 'CONSTRAINT';
 SHOW_TABLES: 'SHOW' WS 'TABLES';
 SHOW_COLUMNS: 'SHOW' WS 'COLUMNS';
 DESCRIBE: 'DESCRIBE';
+CAST: 'CAST';
 
 EQ  : '=';
 NEQ : '<>' | '!=';

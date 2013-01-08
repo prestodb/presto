@@ -4,12 +4,14 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.scalar.UnixTimeFunctions;
 import com.facebook.presto.slice.Slice;
+import com.facebook.presto.sql.Casts;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -588,6 +590,33 @@ public class ExpressionInterpreter
         }
 
         throw new UnsupportedOperationException("not yet implemented: " + node.getField());
+    }
+
+    @Override
+    public Object visitCast(Cast node, Void context)
+    {
+        Object value = process(node.getExpression(), context);
+
+        if (value instanceof Expression) {
+            return new Cast((Expression) value, node.getType());
+        }
+
+        if (value == null) {
+            return null;
+        }
+
+        switch (node.getType()) {
+            case "BOOLEAN":
+                return Casts.toBoolean(value);
+            case "VARCHAR":
+                return Casts.toSlice(value);
+            case "DOUBLE":
+                return Casts.toDouble(value);
+            case "BIGINT":
+                return Casts.toLong(value);
+        }
+
+        throw new UnsupportedOperationException("Unsupported type: " + node.getType());
     }
 
     @Override

@@ -569,6 +569,25 @@ public final class TreeRewriter<C>
 
             return node;
         }
+
+        @Override
+        public Node visitCast(Cast node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteCast(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression expression = rewrite(node.getExpression(), context.get());
+
+            if (node.getExpression() != expression) {
+                return new Cast(expression, node.getType());
+            }
+
+            return node;
+        }
     }
 
     public static class Context<C>
