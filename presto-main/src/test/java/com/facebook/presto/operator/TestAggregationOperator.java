@@ -9,6 +9,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.OperatorAssertions.createOperator;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
+import static com.facebook.presto.operator.aggregation.CountColumnAggregation.COUNT_COLUMN;
 import static com.facebook.presto.operator.aggregation.LongAverageAggregation.LONG_AVERAGE;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
 import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
@@ -35,7 +36,8 @@ public class TestAggregationOperator
                 ImmutableList.of(aggregation(COUNT, 0),
                         aggregation(LONG_SUM, 1),
                         aggregation(LONG_AVERAGE, 1),
-                        aggregation(VAR_BINARY_MAX, 2)));
+                        aggregation(VAR_BINARY_MAX, 2),
+                        aggregation(COUNT_COLUMN, 0)));
 
         Page expectedPage = new Page(
                 new BlockBuilder(SINGLE_LONG)
@@ -49,13 +51,16 @@ public class TestAggregationOperator
                         .build(),
                 new BlockBuilder(SINGLE_VARBINARY)
                         .append("399")
+                        .build(),
+                new BlockBuilder(SINGLE_LONG)
+                        .append(100L)
                         .build()
         );
 
         PageIterator pages = actual.iterator(new OperatorStats());
 
         Page actualPage = pages.next();
-        assertEquals(actualPage.getChannelCount(), 4);
+        assertEquals(actualPage.getChannelCount(), 5);
         PageAssertions.assertPageEquals(actualPage, expectedPage);
 
         assertFalse(pages.hasNext());
