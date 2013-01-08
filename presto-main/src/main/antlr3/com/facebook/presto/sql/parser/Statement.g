@@ -325,8 +325,8 @@ specialFunction
     | CURRENT_TIME ('(' integer ')')?              -> ^(FUNCTION_CALL CURRENT_TIME integer?)
     | CURRENT_TIMESTAMP ('(' integer ')')?         -> ^(FUNCTION_CALL CURRENT_TIMESTAMP integer?)
     | SUBSTRING '(' expr FROM expr (FOR expr)? ')' -> ^(FUNCTION_CALL SUBSTRING expr expr expr?)
-    | EXTRACT '(' extractField FROM expr ')'       -> ^(FUNCTION_CALL EXTRACT extractField expr)
-    | extractField '(' expr ')'                    -> ^(FUNCTION_CALL EXTRACT extractField expr)
+    | EXTRACT '(' extractField FROM expr ')'       -> ^(FUNCTION_CALL ^(QNAME IDENT[$extractField.text]) expr)
+    | extractField '(' expr ')'                    -> ^(FUNCTION_CALL ^(QNAME IDENT[$extractField.text]) expr)
     ;
 
 extractField
