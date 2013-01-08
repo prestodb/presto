@@ -208,18 +208,21 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitLikePredicate(LikePredicate node, Void context)
         {
-            if (node.getEscape() != null) {
-                throw new UnsupportedOperationException("not yet implemented: LIKE with ESCAPE");
-            }
-
             Type value = process(node.getValue(), context);
-            if (value != Type.STRING) {
+            if (value != Type.STRING && value != Type.NULL) {
                 throw new SemanticException(node.getValue(), "Left side of LIKE expression must be a STRING (actual: %s)", value);
             }
 
             Type pattern = process(node.getPattern(), context);
-            if (pattern != Type.STRING) {
+            if (pattern != Type.STRING && pattern != Type.NULL) {
                 throw new SemanticException(node.getValue(), "Pattern for LIKE expression must be a STRING (actual: %s)", pattern);
+            }
+
+            if (node.getEscape() != null) {
+                Type escape = process(node.getEscape(), context);
+                if (escape != Type.STRING && escape != Type.NULL) {
+                    throw new SemanticException(node.getValue(), "Escape for LIKE expression must be a STRING (actual: %s)", escape);
+                }
             }
 
             return Type.BOOLEAN;

@@ -91,6 +91,11 @@ public final class FunctionAssertions
         assertEquals(value.toString(UTF_8), expected);
     }
 
+    public static void assertFunction(String projection, boolean expected)
+    {
+        assertEquals(selectBooleanValue(projection), expected);
+    }
+
     public static Object selectSingleValue(String projection)
     {
         checkNotNull(projection, "projection is null");
@@ -113,6 +118,16 @@ public final class FunctionAssertions
             default:
                 throw new AssertionError("unimplemented type: " + type);
         }
+    }
+
+    public static Object selectBooleanValue(String projection)
+    {
+        checkNotNull(projection, "projection is null");
+
+        Operator operator = plan("SELECT 1 FROM dual where " + projection);
+
+        List<Tuple> results = getTuples(operator);
+        return !results.isEmpty();
     }
 
     private static List<Tuple> getTuples(Operator root)
