@@ -325,13 +325,20 @@ specialFunction
     | CURRENT_TIME ('(' integer ')')?              -> ^(FUNCTION_CALL CURRENT_TIME integer?)
     | CURRENT_TIMESTAMP ('(' integer ')')?         -> ^(FUNCTION_CALL CURRENT_TIMESTAMP integer?)
     | SUBSTRING '(' expr FROM expr (FOR expr)? ')' -> ^(FUNCTION_CALL SUBSTRING expr expr expr?)
-    | EXTRACT '(' extractField FROM expr ')'       -> ^(FUNCTION_CALL ^(QNAME IDENT[$extractField.text]) expr)
+    | EXTRACT '(' extractFieldOrIdent FROM expr ')'-> ^(EXTRACT IDENT[$extractFieldOrIdent.text] expr)
+    // handle function call-like syntax for extract
     | extractField '(' expr ')'                    -> ^(FUNCTION_CALL ^(QNAME IDENT[$extractField.text]) expr)
     ;
 
-extractField
-    : CENTURY | YEAR | QUARTER | MONTH | WEEK | DAY | DOW | DOY | HOUR | MINUTE | SECOND | TIMEZONE_HOUR | TIMEZONE_MINUTE
+extractFieldOrIdent
+    : IDENT
+    | extractField
     ;
+
+extractField
+    : YEAR | MONTH | DAY | HOUR | MINUTE | SECOND | TIMEZONE_HOUR | TIMEZONE_MINUTE
+    ;
+
 
 caseExpression
     : NULLIF '(' expr ',' expr ')'          -> ^(NULLIF expr expr)
@@ -472,14 +479,9 @@ DATE: 'DATE';
 TIME: 'TIME';
 TIMESTAMP: 'TIMESTAMP';
 INTERVAL: 'INTERVAL';
-CENTURY: 'CENTURY';
-QUARTER: 'QUARTER';
 YEAR: 'YEAR';
 MONTH: 'MONTH';
-WEEK: 'WEEK';
 DAY: 'DAY';
-DOW: 'DOW';
-DOY: 'DOY';
 HOUR: 'HOUR';
 MINUTE: 'MINUTE';
 SECOND: 'SECOND';

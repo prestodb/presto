@@ -10,6 +10,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
@@ -274,6 +275,17 @@ public class ExpressionAnalyzer
 
             FunctionInfo function = metadata.getFunction(node.getName(), Lists.transform(argumentTypes.build(), Type.toRaw()));
             return Type.fromRaw(function.getReturnType());
+        }
+
+        @Override
+        protected Type visitExtract(Extract node, Void context)
+        {
+            Type type = process(node.getExpression(), context);
+            if (type != Type.LONG) {
+                throw new SemanticException(node.getExpression(), "Type of argument to extract must be LONG (actual %s)", type);
+            }
+
+            return Type.LONG;
         }
 
         @Override
