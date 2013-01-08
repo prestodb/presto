@@ -211,6 +211,7 @@ expr returns [Expression value]
     | caseExpression        { $value = $caseExpression.value; }
     | subquery              { $value = new SubqueryExpression($subquery.value); }
     | extract               { $value = $extract.value; }
+    | current_time          { $value = $current_time.value; }
     ;
 
 exprList returns [List<Expression> value = new ArrayList<>()]
@@ -243,14 +244,19 @@ decimal returns [String value]
 
 functionCall returns [FunctionCall value]
     : ^(FUNCTION_CALL n=qname d=distinct a=exprList) { $value = new FunctionCall($n.value, $d.value, $a.value); }
-    | ^(FUNCTION_CALL CURRENT_DATE)                  { $value = new FunctionCall("current_date"); }
-    | ^(FUNCTION_CALL CURRENT_TIME a=exprList)       { $value = new FunctionCall("current_time", $a.value); }
-    | ^(FUNCTION_CALL CURRENT_TIMESTAMP a=exprList)  { $value = new FunctionCall("current_timestamp", $a.value); }
     | ^(FUNCTION_CALL SUBSTRING a=exprList)          { $value = new FunctionCall("substr", $a.value); }
     ;
 
 extract returns [Extract value]
     : ^(EXTRACT field=IDENT expr) { $value = new Extract($expr.value, Extract.Field.valueOf($field.text.toUpperCase())); }
+    ;
+
+current_time returns [CurrentTime value]
+    : CURRENT_DATE                   { $value = new CurrentTime(CurrentTime.Type.DATE); }
+    | CURRENT_TIME                   { $value = new CurrentTime(CurrentTime.Type.TIME); }
+    | CURRENT_TIMESTAMP              { $value = new CurrentTime(CurrentTime.Type.TIMESTAMP); }
+    | ^(CURRENT_TIME integer)        { $value = new CurrentTime(CurrentTime.Type.TIME, Integer.valueOf($integer.value)); }
+    | ^(CURRENT_TIMESTAMP integer)   { $value = new CurrentTime(CurrentTime.Type.TIMESTAMP, Integer.valueOf($integer.value)); }
     ;
 
 arithmeticExpression returns [ArithmeticExpression value]

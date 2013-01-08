@@ -321,9 +321,9 @@ nonSecond
     ;
 
 specialFunction
-    : CURRENT_DATE                                 -> ^(FUNCTION_CALL CURRENT_DATE)
-    | CURRENT_TIME ('(' integer ')')?              -> ^(FUNCTION_CALL CURRENT_TIME integer?)
-    | CURRENT_TIMESTAMP ('(' integer ')')?         -> ^(FUNCTION_CALL CURRENT_TIMESTAMP integer?)
+    : CURRENT_DATE
+    | CURRENT_TIME ('(' integer ')')?              -> ^(CURRENT_TIME integer?)
+    | CURRENT_TIMESTAMP ('(' integer ')')?         -> ^(CURRENT_TIMESTAMP integer?)
     | SUBSTRING '(' expr FROM expr (FOR expr)? ')' -> ^(FUNCTION_CALL SUBSTRING expr expr expr?)
     | EXTRACT '(' extractFieldOrIdent FROM expr ')'-> ^(EXTRACT IDENT[$extractFieldOrIdent.text] expr)
     // handle function call-like syntax for extract

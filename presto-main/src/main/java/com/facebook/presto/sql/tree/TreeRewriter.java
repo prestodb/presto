@@ -556,6 +556,19 @@ public final class TreeRewriter<C>
 
             return node;
         }
+
+        @Override
+        protected Node visitCurrentTime(CurrentTime node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteCurrentTime(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            return node;
+        }
     }
 
     public static class Context<C>
