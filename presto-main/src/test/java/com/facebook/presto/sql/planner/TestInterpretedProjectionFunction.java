@@ -6,6 +6,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.NameToSymbolRewriter;
 import com.facebook.presto.sql.analyzer.Symbol;
@@ -147,7 +148,7 @@ public class TestInterpretedProjectionFunction
 
     public static void assertProjection(Type outputType, Expression expression, @Nullable Object expectedValue, Map<Symbol, Integer> symbolToChannelMappings, Map<Symbol, Type> types, TupleReadable... channels)
     {
-        InterpretedProjectionFunction projectionFunction = new InterpretedProjectionFunction(outputType, expression, symbolToChannelMappings);
+        InterpretedProjectionFunction projectionFunction = new InterpretedProjectionFunction(outputType, expression, symbolToChannelMappings, new TestingMetadata());
 
         // create output
         BlockBuilder builder = new BlockBuilder(new TupleInfo(outputType.getRawType()));

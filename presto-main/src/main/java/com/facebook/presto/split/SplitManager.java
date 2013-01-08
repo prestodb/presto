@@ -5,6 +5,7 @@ import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ImportColumnHandle;
 import com.facebook.presto.metadata.ImportTableHandle;
 import com.facebook.presto.metadata.InternalTableHandle;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
@@ -60,13 +61,15 @@ public class SplitManager
     private final NodeManager nodeManager;
     private final ShardManager shardManager;
     private final ImportClientFactory importClientFactory;
+    private final Metadata metadata;
 
     @Inject
-    public SplitManager(NodeManager nodeManager, ShardManager shardManager, ImportClientFactory importClientFactory)
+    public SplitManager(NodeManager nodeManager, ShardManager shardManager, ImportClientFactory importClientFactory, Metadata metadata)
     {
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
         this.importClientFactory = checkNotNull(importClientFactory, "importClientFactory is null");
+        this.metadata = checkNotNull(metadata, "metadata is null");
     }
 
     public Iterable<SplitAssignments> getSplitAssignments(TableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
@@ -243,7 +246,7 @@ public class SplitManager
             }
 
             SymbolResolver resolver = new LookupSymbolResolver(assignments.build());
-            Object optimized = new ExpressionInterpreter(resolver).process(predicate, null);
+            Object optimized = new ExpressionInterpreter(resolver, metadata).process(predicate, null);
             if (!Boolean.FALSE.equals(optimized) && optimized != null) {
                 builder.add(partition);
             }

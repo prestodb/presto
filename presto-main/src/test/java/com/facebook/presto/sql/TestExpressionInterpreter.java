@@ -1,5 +1,6 @@
 package com.facebook.presto.sql;
 
+import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
@@ -90,7 +91,7 @@ public class TestExpressionInterpreter
 
                 return new QualifiedNameReference(symbol.toQualifiedName());
             }
-        });
+        }, new TestingMetadata());
 
         assertEquals(interpreter.process(createExpression(actual), null), interpreter.process(createExpression(expected), null));
     }
