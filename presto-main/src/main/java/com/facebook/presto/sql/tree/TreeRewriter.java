@@ -447,6 +447,28 @@ public final class TreeRewriter<C>
         }
 
         @Override
+        protected Node visitInListExpression(InListExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteInListExpression(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            ImmutableList.Builder<Expression> builder = ImmutableList.builder();
+            for (Expression expression : node.getValues()) {
+                builder.add(rewrite(expression, context.get()));
+            }
+
+            if (!sameElements(node.getValues(), builder.build())) {
+                return new InListExpression(builder.build());
+            }
+
+            return node;
+        }
+
+        @Override
         public Node visitSubqueryExpression(SubqueryExpression node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
