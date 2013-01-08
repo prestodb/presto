@@ -241,6 +241,27 @@ public final class TreeRewriter<C>
         }
 
         @Override
+        protected Node visitBetweenPredicate(BetweenPredicate node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteBetweenPredicate(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression value = rewrite(node.getValue(), context.get());
+            Expression min = rewrite(node.getMin(), context.get());
+            Expression max = rewrite(node.getMax(), context.get());
+
+            if (value != node.getValue() || min != node.getMin() || max != node.getMax()) {
+                return new BetweenPredicate(value, min, max);
+            }
+
+            return node;
+        }
+
+        @Override
         public Node visitLogicalBinaryExpression(LogicalBinaryExpression node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

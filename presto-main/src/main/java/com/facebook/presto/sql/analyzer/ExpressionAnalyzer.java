@@ -279,7 +279,17 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitBetweenPredicate(BetweenPredicate node, Void context)
         {
-            throw new UnsupportedOperationException("not yet implemented: BETWEEN");
+            Type value = process(node.getValue(), context);
+            Type min = process(node.getMin(), context);
+            Type max = process(node.getMax(), context);
+
+            if (isStringTypeOrNull(value) && isStringTypeOrNull(min) && isStringTypeOrNull(max)) {
+                return Type.BOOLEAN;
+            }
+            if (isNumericOrNull(value) && isNumericOrNull(min) && isNumericOrNull(max)) {
+                return Type.BOOLEAN;
+            }
+            throw new SemanticException(node.getValue(), "Between value, min and max must be the same type (value: %s, min: %s, max: %s)", value, min, max);
         }
 
         @Override
@@ -292,6 +302,16 @@ public class ExpressionAnalyzer
         protected Type visitExpression(Expression node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented: " + getClass().getName());
+        }
+
+        public static boolean isNumericOrNull(Type type)
+        {
+            return Type.isNumeric(type) || type == Type.NULL;
+        }
+
+        public static boolean isStringTypeOrNull(Type type)
+        {
+            return type == Type.STRING || type == Type.NULL;
         }
     }
 }

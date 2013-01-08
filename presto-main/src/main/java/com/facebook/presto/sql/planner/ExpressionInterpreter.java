@@ -7,6 +7,7 @@ import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -253,6 +254,32 @@ public class ExpressionInterpreter
         }
 
         return new ComparisonExpression(node.getType(), toExpression(left), toExpression(right));
+    }
+
+    @Override
+    protected Object visitBetweenPredicate(BetweenPredicate node, Void context)
+    {
+        Object value = process(node.getValue(), context);
+        if (value == null) {
+            return null;
+        }
+        Object min = process(node.getMin(), context);
+        if (min == null) {
+            return null;
+        }
+        Object max = process(node.getMax(), context);
+        if (max == null) {
+            return null;
+        }
+
+        if (value instanceof Number && min instanceof Number && max instanceof Number) {
+            return ((Number) min).doubleValue() <= ((Number) value).doubleValue() && ((Number) value).doubleValue() <= ((Number) max).doubleValue();
+        }
+        else if (value instanceof Slice && min instanceof Slice && max instanceof Slice) {
+            return ((Slice) min).compareTo((Slice) value) <= 0 && ((Slice) value).compareTo((Slice) max) <= 0;
+        }
+
+        return new BetweenPredicate(toExpression(value), toExpression(min), toExpression(max));
     }
 
     @Override
