@@ -127,7 +127,9 @@ public class DefaultTraversalVisitor<R, C>
         for (WhenClause clause : node.getWhenClauses()) {
             process(clause, context);
         }
-        process(node.getDefaultValue(), context);
+        if (node.getDefaultValue() != null) {
+            process(node.getDefaultValue(), context);
+        }
 
         return null;
     }
@@ -169,7 +171,9 @@ public class DefaultTraversalVisitor<R, C>
         for (WhenClause clause : node.getWhenClauses()) {
             process(clause, context);
         }
-        process(node.getDefaultValue(), context);
+        if (node.getDefaultValue() != null) {
+            process(node.getDefaultValue(), context);
+        }
 
         return null;
     }

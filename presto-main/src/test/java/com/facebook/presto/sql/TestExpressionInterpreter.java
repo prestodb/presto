@@ -317,6 +317,120 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("cast(unbound as VARCHAR)", "cast(unbound as VARCHAR)");
     }
 
+    @Test
+    public void testSearchCase()
+            throws Exception
+    {
+        assertOptimizedEquals("case " +
+                "when true then 33 " +
+                "end",
+                "33");
+        assertOptimizedEquals("case " +
+                "when false then 1 " +
+                "else 33 " +
+                "end",
+                "33");
+
+        assertOptimizedEquals("case " +
+                "when boundLong = 1234 then 33 " +
+                "end",
+                "33");
+        assertOptimizedEquals("case " +
+                "when true then boundLong " +
+                "end",
+                "1234");
+        assertOptimizedEquals("case " +
+                "when false then 1 " +
+                "else boundLong " +
+                "end",
+                "1234");
+
+        assertOptimizedEquals("case " +
+                "when boundLong = 1234 then 33 " +
+                "else a " +
+                "end",
+                "33");
+        assertOptimizedEquals("case " +
+                "when true then boundLong " +
+                "else a " +
+                "end",
+                "1234");
+        assertOptimizedEquals("case " +
+                "when false then a " +
+                "else boundLong " +
+                "end",
+                "1234");
+
+        assertOptimizedEquals("case " +
+                "when a = 1234 then 33 " +
+                "else 1 " +
+                "end",
+                "" +
+                        "case " +
+                        "when a = 1234 then 33 " +
+                        "else 1 " +
+                        "end");
+
+    }
+
+    @Test
+    public void testSimpleCase()
+            throws Exception
+    {
+        assertOptimizedEquals("case true " +
+                "when true then 33 " +
+                "end",
+                "33");
+        assertOptimizedEquals("case true " +
+                "when false then 1 " +
+                "else 33 end",
+                "33");
+
+        assertOptimizedEquals("case boundLong " +
+                "when 1234 then 33 " +
+                "end",
+                "33");
+        assertOptimizedEquals("case 1234 " +
+                "when boundLong then 33 " +
+                "end",
+                "33");
+        assertOptimizedEquals("case true " +
+                "when true then boundLong " +
+                "end",
+                "1234");
+        assertOptimizedEquals("case true " +
+                "when false then 1 " +
+                "else boundLong " +
+                "end",
+                "1234");
+
+        assertOptimizedEquals("case boundLong " +
+                "when 1234 then 33 " +
+                "else a " +
+                "end",
+                "33");
+        assertOptimizedEquals("case true " +
+                "when true then boundLong " +
+                "else a " +
+                "end",
+                "1234");
+        assertOptimizedEquals("case true " +
+                "when false then a " +
+                "else boundLong " +
+                "end",
+                "1234");
+
+        assertOptimizedEquals("case a " +
+                "when 1234 then 33 " +
+                "else 1 " +
+                "end",
+                "" +
+                        "case a " +
+                        "when 1234 then 33 " +
+                        "else 1 " +
+                        "end");
+    }
+
     private void assertOptimizedEquals(String actual, String expected)
             throws RecognitionException
     {
