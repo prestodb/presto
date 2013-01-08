@@ -354,6 +354,10 @@ public class ExpressionInterpreter
             else if (value instanceof Boolean) {
                 type = Type.BOOLEAN;
             }
+            else if (value instanceof Expression) {
+                // TODO construct new FunctionCall node with optimized arguments
+                return node;
+            }
             else {
                 throw new RuntimeException("Unhandled value type: " + value.getClass().getName());
             }
