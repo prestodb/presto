@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.sql.analyzer.Symbol;
@@ -19,13 +20,13 @@ public class InterpretedProjectionFunction
     private final ChannelSymbolResolver resolver;
     private final ExpressionInterpreter evaluator;
 
-    public InterpretedProjectionFunction(Type type, Expression expression, Map<Symbol, Integer> symbolToChannelMapping)
+    public InterpretedProjectionFunction(Type type, Expression expression, Map<Symbol, Integer> symbolToChannelMapping, Metadata metadata)
     {
         this.type = type;
         this.expression = expression;
 
         resolver = new ChannelSymbolResolver(symbolToChannelMapping);
-        evaluator = new ExpressionInterpreter(resolver);
+        evaluator = new ExpressionInterpreter(resolver, metadata);
     }
 
     @Override
