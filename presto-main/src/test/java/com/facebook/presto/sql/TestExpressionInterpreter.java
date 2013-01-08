@@ -9,6 +9,7 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import org.antlr.runtime.RecognitionException;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
@@ -78,7 +79,7 @@ public class TestExpressionInterpreter
 
     @Test
     public void testFunctionCall()
-        throws Exception
+            throws Exception
     {
         assertOptimizedEquals("abs(-5)", "5");
         assertOptimizedEquals("abs(-10-5)", "15");
@@ -195,7 +196,146 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("current_timestamp > " + current + TimeUnit.MINUTES.toMillis(1), "false");
     }
 
+    @Test
+    public void testCastToString()
+            throws Exception
+    {
+        // long
+        assertOptimizedEquals("cast(123 as VARCHAR)", "'123'");
+        assertOptimizedEquals("cast(-123 as VARCHAR)", "'-123'");
+
+        // double
+        assertOptimizedEquals("cast(123.0 as VARCHAR)", "'123.0'");
+        assertOptimizedEquals("cast(-123.0 as VARCHAR)", "'-123.0'");
+        assertOptimizedEquals("cast(123.456 as VARCHAR)", "'123.456'");
+        assertOptimizedEquals("cast(-123.456 as VARCHAR)", "'-123.456'");
+
+        // boolean
+        assertOptimizedEquals("cast(true as VARCHAR)", "'true'");
+        assertOptimizedEquals("cast(false as VARCHAR)", "'false'");
+
+        // string
+        assertOptimizedEquals("cast('xyz' as VARCHAR)", "'xyz'");
+
+        // null
+        assertOptimizedEquals("cast(null as VARCHAR)", "null");
+    }
+
+    @Test
+    public void testCastToBoolean()
+            throws Exception
+    {
+        // long
+        assertOptimizedEquals("cast(123 as BOOLEAN)", "true");
+        assertOptimizedEquals("cast(-123 as BOOLEAN)", "true");
+        assertOptimizedEquals("cast(0 as BOOLEAN)", "false");
+
+        // boolean
+        assertOptimizedEquals("cast(true as BOOLEAN)", "true");
+        assertOptimizedEquals("cast(false as BOOLEAN)", "false");
+
+        // string
+        assertOptimizedEquals("cast('true' as BOOLEAN)", "true");
+        assertOptimizedEquals("cast('false' as BOOLEAN)", "false");
+        assertOptimizedEquals("cast('t' as BOOLEAN)", "true");
+        assertOptimizedEquals("cast('f' as BOOLEAN)", "false");
+        assertOptimizedEquals("cast('1' as BOOLEAN)", "true");
+        assertOptimizedEquals("cast('0' as BOOLEAN)", "false");
+
+        // null
+        assertOptimizedEquals("cast(null as BOOLEAN)", "null");
+
+        // double
+        assertInvalidCast("cast(123.0 as BOOLEAN)");
+    }
+
+    @Test
+    public void testCastToLong()
+            throws Exception
+    {
+        // long
+        assertOptimizedEquals("cast(0 as BIGINT)", "0");
+        assertOptimizedEquals("cast(123 as BIGINT)", "123");
+        assertOptimizedEquals("cast(-123 as BIGINT)", "-123");
+
+        // double
+        assertOptimizedEquals("cast(123.0 as BIGINT)", "123");
+        assertOptimizedEquals("cast(-123.0 as BIGINT)", "-123");
+        assertOptimizedEquals("cast(123.456 as BIGINT)", "123");
+        assertOptimizedEquals("cast(-123.456 as BIGINT)", "-123");
+
+        // boolean
+        assertOptimizedEquals("cast(true as BIGINT)", "1");
+        assertOptimizedEquals("cast(false as BIGINT)", "0");
+
+        // string
+        assertOptimizedEquals("cast('123' as BIGINT)", "123");
+        assertOptimizedEquals("cast('-123' as BIGINT)", "-123");
+
+        // null
+        assertOptimizedEquals("cast(null as BIGINT)", "null");
+    }
+
+    @Test
+    public void testCastToDouble()
+            throws Exception
+    {
+        // long
+        assertOptimizedEquals("cast(0 as DOUBLE)", "0.0");
+        assertOptimizedEquals("cast(123 as DOUBLE)", "123.0");
+        assertOptimizedEquals("cast(-123 as DOUBLE)", "-123.0");
+
+        // double
+        assertOptimizedEquals("cast(123.0 as DOUBLE)", "123.0");
+        assertOptimizedEquals("cast(-123.0 as DOUBLE)", "-123.0");
+        assertOptimizedEquals("cast(123.456 as DOUBLE)", "123.456");
+        assertOptimizedEquals("cast(-123.456 as DOUBLE)", "-123.456");
+
+        // string
+        assertOptimizedEquals("cast('0' as DOUBLE)", "0.0");
+        assertOptimizedEquals("cast('123' as DOUBLE)", "123.0");
+        assertOptimizedEquals("cast('-123' as DOUBLE)", "-123.0");
+        assertOptimizedEquals("cast('123.0' as DOUBLE)", "123.0");
+        assertOptimizedEquals("cast('-123.0' as DOUBLE)", "-123.0");
+        assertOptimizedEquals("cast('123.456' as DOUBLE)", "123.456");
+        assertOptimizedEquals("cast('-123.456' as DOUBLE)", "-123.456");
+
+        // null
+        assertOptimizedEquals("cast(null as DOUBLE)", "null");
+
+        // boolean
+        assertInvalidCast("cast(true as DOUBLE)");
+        assertInvalidCast("cast(false as DOUBLE)");
+    }
+
+    @Test
+    public void testCastOptimization()
+            throws Exception
+    {
+        assertOptimizedEquals("cast(boundLong as VARCHAR)", "'1234'");
+        assertOptimizedEquals("cast(boundLong + 1 as VARCHAR)", "'1235'");
+        assertOptimizedEquals("cast(unbound as VARCHAR)", "cast(unbound as VARCHAR)");
+    }
+
     private void assertOptimizedEquals(String actual, String expected)
+            throws RecognitionException
+    {
+        assertEquals(evaluate(actual), evaluate(expected));
+    }
+
+    private void assertInvalidCast(String expression)
+            throws RecognitionException
+    {
+        try {
+            Object value = evaluate(expression);
+            Assert.fail(String.format("Expected '%s' to fail but it returned %s", expression, value));
+        }
+        catch (IllegalArgumentException e) {
+            // success
+        }
+    }
+
+    private Object evaluate(String expression)
             throws RecognitionException
     {
         ExpressionInterpreter interpreter = new ExpressionInterpreter(new SymbolResolver()
@@ -218,7 +358,6 @@ public class TestExpressionInterpreter
             }
         }, new TestingMetadata());
 
-        assertEquals(interpreter.process(createExpression(actual), null), interpreter.process(createExpression(expected), null));
+        return interpreter.process(createExpression(expression), null);
     }
-
 }

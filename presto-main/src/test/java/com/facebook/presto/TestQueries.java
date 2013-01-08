@@ -471,6 +471,15 @@ public class TestQueries
     }
 
 
+    @Test
+    public void testCast()
+            throws Exception
+    {
+        assertQuery("SELECT CAST(totalprice AS BIGINT) FROM orders");
+        assertQuery("SELECT CAST(orderkey AS DOUBLE) FROM orders");
+        assertQuery("SELECT CAST(orderkey AS VARCHAR) FROM orders");
+    }
+
     @BeforeSuite
     public void setupDatabase()
             throws IOException

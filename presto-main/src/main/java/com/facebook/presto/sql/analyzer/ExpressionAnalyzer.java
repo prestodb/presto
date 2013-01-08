@@ -6,6 +6,7 @@ import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -317,6 +318,25 @@ public class ExpressionAnalyzer
                 return Type.BOOLEAN;
             }
             throw new SemanticException(node.getValue(), "Between value, min and max must be the same type (value: %s, min: %s, max: %s)", value, min, max);
+        }
+
+        @Override
+        public Type visitCast(Cast node, Void context)
+        {
+            process(node.getExpression(), context);
+
+            switch (node.getType()) {
+                case "BOOLEAN":
+                    return Type.BOOLEAN;
+                case "DOUBLE":
+                    return Type.DOUBLE;
+                case "BIGINT":
+                    return Type.LONG;
+                case "VARCHAR":
+                    return Type.STRING;
+            }
+
+            throw new SemanticException(node, "Cannot cast to type: " + node.getType());
         }
 
         @Override

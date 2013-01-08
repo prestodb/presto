@@ -10,6 +10,12 @@ public class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitCast(Cast node, C context)
+    {
+        return process(node.getExpression(), context);
+    }
+
+    @Override
     protected R visitArithmeticExpression(ArithmeticExpression node, C context)
     {
         process(node.getLeft(), context);

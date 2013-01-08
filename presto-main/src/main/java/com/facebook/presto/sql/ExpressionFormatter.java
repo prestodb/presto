@@ -5,6 +5,7 @@ import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -246,6 +247,12 @@ public class ExpressionFormatter
             }
 
             return "*";
+        }
+
+        @Override
+        public String visitCast(Cast node, Void context)
+        {
+            return "CAST(" + process(node.getExpression(), context) + " AS " + node.getType() + ")";
         }
 
         private String formatBinaryExpression(String operator, Expression left, Expression right)
