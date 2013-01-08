@@ -9,6 +9,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
@@ -59,6 +60,12 @@ public class ExpressionFormatter
         protected String visitExpression(Expression node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
+        }
+
+        @Override
+        protected String visitExtract(Extract node, Void context)
+        {
+            return "(EXTRACT " + node.getField() + " FROM " + process(node.getExpression(), context) + ")";
         }
 
         @Override

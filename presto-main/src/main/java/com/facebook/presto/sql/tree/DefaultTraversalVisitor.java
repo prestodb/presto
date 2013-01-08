@@ -4,6 +4,12 @@ public class DefaultTraversalVisitor<R, C>
     extends AstVisitor<R, C>
 {
     @Override
+    protected R visitExtract(Extract node, C context)
+    {
+        return process(node.getExpression(), context);
+    }
+
+    @Override
     protected R visitArithmeticExpression(ArithmeticExpression node, C context)
     {
         process(node.getLeft(), context);

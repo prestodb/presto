@@ -210,6 +210,7 @@ expr returns [Expression value]
     | ^(NEGATIVE e=expr)    { $value = new NegativeExpression($e.value); }
     | caseExpression        { $value = $caseExpression.value; }
     | subquery              { $value = new SubqueryExpression($subquery.value); }
+    | extract               { $value = $extract.value; }
     ;
 
 exprList returns [List<Expression> value = new ArrayList<>()]
@@ -246,6 +247,10 @@ functionCall returns [FunctionCall value]
     | ^(FUNCTION_CALL CURRENT_TIME a=exprList)       { $value = new FunctionCall("current_time", $a.value); }
     | ^(FUNCTION_CALL CURRENT_TIMESTAMP a=exprList)  { $value = new FunctionCall("current_timestamp", $a.value); }
     | ^(FUNCTION_CALL SUBSTRING a=exprList)          { $value = new FunctionCall("substr", $a.value); }
+    ;
+
+extract returns [Extract value]
+    : ^(EXTRACT field=IDENT expr) { $value = new Extract($expr.value, Extract.Field.valueOf($field.text.toUpperCase())); }
     ;
 
 arithmeticExpression returns [ArithmeticExpression value]

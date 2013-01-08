@@ -463,7 +463,6 @@ public class TestQueries
     }
 
 
-
     @Test
     public void testScalarFunction()
             throws Exception
