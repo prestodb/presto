@@ -97,6 +97,21 @@ public class NodeRewriter<C>
         return rewriteExpression(node, context, treeRewriter);
     }
 
+    public Node rewriteSearchedCaseExpression(SearchedCaseExpression node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
+    public Node rewriteSimpleCaseExpression(SimpleCaseExpression node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
+    public Node rewriteWhenClause(WhenClause node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
     public Node rewriteCoalesceExpression(CoalesceExpression node, C context, TreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);

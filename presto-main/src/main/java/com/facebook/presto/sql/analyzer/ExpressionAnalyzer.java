@@ -19,14 +19,18 @@ import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NegativeExpression;
+import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.SearchedCaseExpression;
+import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TreeRewriter;
-import com.google.common.base.Predicates;
+import com.facebook.presto.sql.tree.WhenClause;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -37,6 +41,8 @@ import java.util.Map;
 
 import static com.facebook.presto.sql.analyzer.Field.nameGetter;
 import static com.google.common.base.Predicates.equalTo;
+import static com.google.common.base.Predicates.not;
+import static com.google.common.collect.Iterables.filter;
 
 public class ExpressionAnalyzer
 {
@@ -158,20 +164,62 @@ public class ExpressionAnalyzer
         }
 
         @Override
+        protected Type visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
+        {
+            for (WhenClause whenClause : node.getWhenClauses()) {
+                Type whenOperand = process(whenClause.getOperand(), context);
+                if (!isBooleanOrNull(whenOperand)) {
+                    throw new SemanticException(node, "WHEN clause must be a boolean type: %s", whenOperand);
+                }
+            }
+
+            List<Type> types = new ArrayList<>();
+            for (WhenClause whenClause : node.getWhenClauses()) {
+                types.add(process(whenClause.getResult(), context));
+            }
+            if (node.getDefaultValue() != null) {
+                types.add(process(node.getDefaultValue(), context));
+            }
+            return getType(node, "clauses", types);
+        }
+
+        @Override
+        protected Type visitSimpleCaseExpression(SimpleCaseExpression node, Void context)
+        {
+            Type operand = process(node.getOperand(), context);
+            for (WhenClause whenClause : node.getWhenClauses()) {
+                Type whenOperand = process(whenClause.getOperand(), context);
+                if (!comparableTypes(operand, whenOperand)) {
+                    throw new SemanticException(node, "CASE operand type does not match WHEN clause operand type: %s vs %s", operand, whenOperand);
+                }
+            }
+
+            List<Type> types = new ArrayList<>();
+            for (WhenClause whenClause : node.getWhenClauses()) {
+                types.add(process(whenClause.getResult(), context));
+            }
+            if (node.getDefaultValue() != null) {
+                types.add(process(node.getDefaultValue(), context));
+            }
+            return getType(node, "clauses", types);
+        }
+
+        @Override
         protected Type visitCoalesceExpression(CoalesceExpression node, Void context)
         {
             List<Type> operandTypes = new ArrayList<>();
             for (Expression expression : node.getOperands()) {
                 operandTypes.add(process(expression, context));
             }
-            Type firstOperand = Iterables.get(operandTypes, 0);
-            if (!Iterables.all(operandTypes, equalTo(firstOperand))) {
-                // if they are all numeric return DOUBLE
-                // todo rewrite this when we add proper type hierarchy
-                if (Iterables.all(operandTypes, Predicates.or(equalTo(Type.DOUBLE), equalTo(Type.LONG)))){
-                    return Type.DOUBLE;
-                }
-                throw new SemanticException(node, "All operands of coalesce must be the same type: %s", operandTypes);
+            return getType(node, "operands", operandTypes);
+        }
+
+        private Type getType(Node node, String subTypeName, List<Type> subTypes)
+        {
+            subTypes = ImmutableList.copyOf(filter(subTypes, not(equalTo(Type.NULL))));
+            Type firstOperand = Iterables.get(subTypes, 0);
+            if (!Iterables.all(subTypes, comparableTypesPredicate(firstOperand))) {
+                throw new SemanticException(node, "All %s must be the same type: %s", subTypeName, subTypes);
             }
             return firstOperand;
         }
@@ -315,6 +363,37 @@ public class ExpressionAnalyzer
         protected Type visitExpression(Expression node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented: " + getClass().getName());
+        }
+
+        public static Predicate<Type> comparableTypesPredicate(final Type type) {
+            return new Predicate<Type>() {
+                public boolean apply(Type input)
+                {
+                    return comparableTypes(type, input);
+                }
+            };
+        }
+
+        public static boolean comparableTypes(Type type1, Type type2)
+        {
+            switch (type1) {
+                case LONG:
+                case DOUBLE:
+                    return isNumericOrNull(type2);
+                case STRING:
+                    return isStringTypeOrNull(type2);
+                case BOOLEAN:
+                    return isBooleanOrNull(type2);
+                case NULL:
+                    return true;
+                default:
+                    throw new IllegalStateException("Unknown type " + type1);
+            }
+        }
+
+        public static boolean isBooleanOrNull(Type type)
+        {
+            return type == Type.BOOLEAN || type == Type.NULL;
         }
 
         public static boolean isNumericOrNull(Type type)
