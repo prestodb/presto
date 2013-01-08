@@ -37,4 +37,30 @@ public class TestConditions
     {
         selectBooleanValue("'monkey' like 'monkey' escape 'foo'");
     }
+
+    @Test
+    public void testBetween()
+    {
+        assertFunction("3 between 2 and 4", true);
+        assertFunction("3 between 3 and 3", true);
+        assertFunction("3 between 2 and 3", true);
+        assertFunction("3 between 3 and 4", true);
+        assertFunction("3 between 4 and 2", false);
+        assertFunction("2 between 3 and 4", false);
+        assertFunction("5 between 3 and 4", false);
+        assertFunction("null between 2 and 4", false);
+        assertFunction("3 between null and 4", false);
+        assertFunction("3 between 2 and null", false);
+
+        assertFunction("'c' between 'b' and 'd'", true);
+        assertFunction("'c' between 'c' and 'c'", true);
+        assertFunction("'c' between 'b' and 'c'", true);
+        assertFunction("'c' between 'c' and 'd'", true);
+        assertFunction("'c' between 'd' and 'b'", false);
+        assertFunction("'b' between 'c' and 'd'", false);
+        assertFunction("'e' between 'c' and 'd'", false);
+        assertFunction("null between 'b' and 'd'", false);
+        assertFunction("'c' between null and 'd'", false);
+        assertFunction("'c' between 'b' and null", false);
+    }
 }
