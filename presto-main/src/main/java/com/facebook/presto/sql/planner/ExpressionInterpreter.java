@@ -15,6 +15,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
+import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NegativeExpression;
@@ -25,13 +26,15 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
-import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ExpressionInterpreter
@@ -365,6 +368,81 @@ public class ExpressionInterpreter
     }
 
     @Override
+    protected Object visitLikePredicate(LikePredicate node, Void context)
+    {
+        Object value = process(node.getValue(), context);
+        if (!(value instanceof Slice)) {
+            return node;
+        }
+        String valueString = ((Slice) value).toString(UTF_8);
+
+        Object pattern = process(node.getPattern(), context);
+        if (!(pattern instanceof Slice)) {
+            return node;
+        }
+        String patternString = ((Slice) pattern).toString(UTF_8);
+
+        char escapeChar;
+        if (node.getEscape() != null) {
+            Object escape = process(node.getEscape(), context);
+            if (!(escape instanceof Slice)) {
+                return node;
+            }
+            String escapeString = ((Slice) escape).toString(UTF_8);
+            if (escapeString.length() == 0) {
+                // escaping disabled
+                escapeChar = (char) -1; // invalid character
+            } else if (escapeString.length() == 1) {
+                escapeChar = escapeString.charAt(0);
+            } else {
+                throw new IllegalArgumentException("escape must be empty or a single character: "  + escapeString);
+            }
+        } else {
+            escapeChar = '\\';
+        }
+
+        Matcher matcher = likeToPattern(patternString, escapeChar).matcher(valueString);
+        return matcher.matches();
+    }
+
+    public static Pattern likeToPattern(String patternString, char escapeChar)
+    {
+        StringBuilder regex = new StringBuilder(patternString.length() * 2);
+
+        boolean escaped = false;
+        for (char currentChar : patternString.toCharArray()) {
+            if (currentChar == escapeChar) {
+                escaped = true;
+            } else {
+                switch (currentChar) {
+                    case '%':
+                        if (escaped) {
+                            regex.append("%");
+                        }
+                        else {
+                            regex.append(".*");
+                        }
+                        escaped = false;
+                        break;
+                    case '_':
+                        if (escaped) {
+                            regex.append("_");
+                        }
+                        else {
+                            regex.append('.');
+                        }
+                        escaped = false;
+                        break;
+                    default:
+                        escaped = false;
+                        regex.append(Pattern.quote(String.valueOf(currentChar)));
+                }
+            }
+        }
+        return Pattern.compile(regex.toString());
+    }
+
+    @Override
     protected Object visitExpression(Expression node, Void context)
     {
         throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
@@ -391,7 +469,7 @@ public class ExpressionInterpreter
         }
 
         if (object instanceof Slice) {
-            return new StringLiteral(((Slice) object).toString(Charsets.UTF_8));
+            return new StringLiteral(((Slice) object).toString(UTF_8));
         }
 
         throw new UnsupportedOperationException("not yet implemented");
