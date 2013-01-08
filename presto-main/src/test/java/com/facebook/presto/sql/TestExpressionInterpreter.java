@@ -150,6 +150,14 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("extract (SECOND from boundTimestamp + 1000)", "6");
     }
 
+    @Test
+    public void testCurrenTimestamp()
+            throws Exception
+    {
+        long current = System.currentTimeMillis();
+        assertOptimizedEquals("current_timestamp >= " + current, "true");
+    }
+
     private void assertOptimizedEquals(String actual, String expected)
             throws RecognitionException
     {
