@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
+import static com.facebook.presto.operator.aggregation.CountColumnAggregation.COUNT_COLUMN;
 import static com.facebook.presto.operator.aggregation.DoubleAverageAggregation.DOUBLE_AVERAGE;
 import static com.facebook.presto.operator.aggregation.DoubleMaxAggregation.DOUBLE_MAX;
 import static com.facebook.presto.operator.aggregation.DoubleMinAggregation.DOUBLE_MIN;
@@ -53,6 +54,9 @@ public class FunctionRegistry
     {
         List<FunctionInfo> functions = new FunctionListBuilder()
                 .aggregate("count", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(), FIXED_INT_64, COUNT)
+                .aggregate("count", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(FIXED_INT_64), FIXED_INT_64, COUNT_COLUMN)
+                .aggregate("count", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(DOUBLE), FIXED_INT_64, COUNT_COLUMN)
+                .aggregate("count", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(VARIABLE_BINARY), FIXED_INT_64, COUNT_COLUMN)
                 .aggregate("sum", FIXED_INT_64, ImmutableList.of(FIXED_INT_64), FIXED_INT_64, LONG_SUM)
                 .aggregate("sum", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_SUM)
                 .aggregate("avg", DOUBLE, ImmutableList.of(DOUBLE), VARIABLE_BINARY, DOUBLE_AVERAGE)
