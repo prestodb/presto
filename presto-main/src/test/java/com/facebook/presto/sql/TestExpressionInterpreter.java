@@ -84,6 +84,7 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("abs(a + 1)", "abs(a + 1)");
     }
 
+    @Test
     public void testBetween()
             throws Exception
     {
