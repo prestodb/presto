@@ -40,11 +40,11 @@ public class TestNativeMetadata
     @Test
     public void testCreateTable()
     {
-        assertNull(metadata.getTable("default", "default", "orders"));
+        assertNull(metadata.getTable("default", "test", "orders"));
 
         metadata.createTable(getOrdersTable());
 
-        TableMetadata table = metadata.getTable("default", "default", "orders");
+        TableMetadata table = metadata.getTable("default", "test", "orders");
         assertTableEqual(table, getOrdersTable());
 
         TableHandle tableHandle = table.getTableHandle().get();
@@ -61,7 +61,7 @@ public class TestNativeMetadata
     {
         metadata.createTable(getOrdersTable());
         List<QualifiedTableName> tables = metadata.listTables("default");
-        assertEquals(tables, ImmutableList.of(new QualifiedTableName("default", "default", "orders")));
+        assertEquals(tables, ImmutableList.of(new QualifiedTableName("default", "test", "orders")));
     }
 
     @Test
@@ -70,16 +70,27 @@ public class TestNativeMetadata
         metadata.createTable(getOrdersTable());
         List<TableColumn> columns = metadata.listTableColumns("default");
         assertEquals(columns, ImmutableList.<TableColumn>builder()
-                .add(new TableColumn("default", "default", "orders", "orderkey", 1, FIXED_INT_64))
-                .add(new TableColumn("default", "default", "orders", "custkey", 2, FIXED_INT_64))
-                .add(new TableColumn("default", "default", "orders", "totalprice", 3, DOUBLE))
-                .add(new TableColumn("default", "default", "orders", "orderdate", 4, VARIABLE_BINARY))
+                .add(new TableColumn("default", "test", "orders", "orderkey", 1, FIXED_INT_64))
+                .add(new TableColumn("default", "test", "orders", "custkey", 2, FIXED_INT_64))
+                .add(new TableColumn("default", "test", "orders", "totalprice", 3, DOUBLE))
+                .add(new TableColumn("default", "test", "orders", "orderdate", 4, VARIABLE_BINARY))
                 .build());
+    }
+
+    @Test
+    public void testListTableColumnsFiltering()
+    {
+        metadata.createTable(getOrdersTable());
+        List<TableColumn> filterCatalog = metadata.listTableColumns("default");
+        List<TableColumn> filterSchema = metadata.listTableColumns("default", "test");
+        List<TableColumn> filterTable = metadata.listTableColumns("default", "test", "orders");
+        assertEquals(filterCatalog, filterSchema);
+        assertEquals(filterCatalog, filterTable);
     }
 
     private static TableMetadata getOrdersTable()
     {
-        return new TableMetadata("default", "default", "ORDERS", ImmutableList.of(
+        return new TableMetadata("default", "test", "ORDERS", ImmutableList.of(
                 new ColumnMetadata("orderkey", FIXED_INT_64),
                 new ColumnMetadata("custkey", FIXED_INT_64),
                 new ColumnMetadata("totalprice", DOUBLE),
