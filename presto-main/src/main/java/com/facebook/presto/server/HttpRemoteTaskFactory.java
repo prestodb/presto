@@ -10,6 +10,7 @@ import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.operator.ForScheduler;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
 import io.airlift.http.client.HttpClient;
@@ -40,7 +41,8 @@ public class HttpRemoteTaskFactory
     }
 
     @Override
-    public RemoteTask createRemoteTask(String queryId,
+    public RemoteTask createRemoteTask(Session session,
+            String queryId,
             String stageId,
             String taskId,
             Node node,
@@ -49,7 +51,8 @@ public class HttpRemoteTaskFactory
             Map<String, ExchangePlanFragmentSource> exchangeSources,
             List<String> outputIds)
     {
-        return new HttpRemoteTask(queryId,
+        return new HttpRemoteTask(session,
+                queryId,
                 stageId,
                 taskId,
                 locationFactory.createTaskLocation(node, taskId),

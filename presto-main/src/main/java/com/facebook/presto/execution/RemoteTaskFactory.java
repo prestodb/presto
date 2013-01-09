@@ -4,6 +4,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.metadata.Node;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
 
@@ -12,7 +13,8 @@ import java.util.Map;
 
 public interface RemoteTaskFactory
 {
-    RemoteTask createRemoteTask(String queryId,
+    RemoteTask createRemoteTask(Session session,
+            String queryId,
             String stageId,
             String taskId,
             Node node,

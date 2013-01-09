@@ -10,6 +10,7 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.SourceHashProviderFactory;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
@@ -50,8 +51,10 @@ public class SqlTaskExecution
     private final PlanFragment fragment;
     private final Metadata metadata;
     private final DataSize maxOperatorMemoryUsage;
+    private final Session session;
 
-    public SqlTaskExecution(String queryId,
+    public SqlTaskExecution(Session session,
+            String queryId,
             String stageId,
             String taskId,
             URI location,
@@ -65,6 +68,7 @@ public class SqlTaskExecution
             FairBatchExecutor shardExecutor,
             DataSize maxOperatorMemoryUsage)
     {
+        Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
@@ -79,6 +83,7 @@ public class SqlTaskExecution
         Preconditions.checkNotNull(shardExecutor, "shardExecutor is null");
         Preconditions.checkNotNull(maxOperatorMemoryUsage, "maxOperatorMemoryUsage is null");
 
+        this.session = session;
         this.taskId = taskId;
         this.fragment = fragment;
         this.splits = splits;
@@ -113,7 +118,16 @@ public class SqlTaskExecution
             final SourceHashProviderFactory sourceHashProviderFactory = new SourceHashProviderFactory(maxOperatorMemoryUsage);
             if (splits.size() <= 1) {
                 PlanFragmentSource split = splits.isEmpty() ? null : splits.get(0);
-                SplitWorker worker = new SplitWorker(taskOutput, fragment, split, exchangeSources, sourceHashProviderFactory, sourceProvider, metadata, maxOperatorMemoryUsage);
+                SplitWorker worker = new SplitWorker(session,
+                        taskOutput,
+                        fragment,
+                        split,
+                        exchangeSources,
+                        sourceHashProviderFactory,
+                        sourceProvider,
+                        metadata,
+                        maxOperatorMemoryUsage);
+
                 worker.call();
             }
             else {
@@ -122,7 +136,15 @@ public class SqlTaskExecution
                     @Override
                     public Callable<Void> apply(PlanFragmentSource split)
                     {
-                        return new SplitWorker(taskOutput, fragment, split, exchangeSources, sourceHashProviderFactory, sourceProvider, metadata, maxOperatorMemoryUsage);
+                        return new SplitWorker(session,
+                                taskOutput,
+                                fragment,
+                                split,
+                                exchangeSources,
+                                sourceHashProviderFactory,
+                                sourceProvider,
+                                metadata,
+                                maxOperatorMemoryUsage);
                     }
                 }));
 
@@ -211,7 +233,8 @@ public class SqlTaskExecution
         private final OperatorStats operatorStats = new OperatorStats();
 
 
-        private SplitWorker(TaskOutput taskOutput,
+        private SplitWorker(Session session,
+                TaskOutput taskOutput,
                 PlanFragment fragment,
                 @Nullable PlanFragmentSource split,
                 Map<String, ExchangePlanFragmentSource> exchangeSources,
@@ -222,7 +245,8 @@ public class SqlTaskExecution
         {
             this.taskOutput = taskOutput;
 
-            LocalExecutionPlanner planner = new LocalExecutionPlanner(metadata,
+            LocalExecutionPlanner planner = new LocalExecutionPlanner(session,
+                    metadata,
                     sourceProvider,
                     fragment.getSymbols(),
                     split,

@@ -11,6 +11,7 @@ import com.facebook.presto.execution.PageBufferInfo;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.google.common.base.Function;
@@ -44,17 +45,18 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 public class HttpRemoteTask
         implements RemoteTask
 {
+    private final Session session;
     private final AtomicReference<TaskInfo> taskInfo = new AtomicReference<>();
     private final PlanFragment planFragment;
     private final List<PlanFragmentSource> splits;
     private final Map<String, ExchangePlanFragmentSource> exchangeSources;
 
-
     private final HttpClient httpClient;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec;
 
-    public HttpRemoteTask(String queryId,
+    public HttpRemoteTask(Session session,
+            String queryId,
             String stageId,
             String taskId,
             URI location,
@@ -66,6 +68,7 @@ public class HttpRemoteTask
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec)
     {
+        Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
@@ -78,6 +81,7 @@ public class HttpRemoteTask
         Preconditions.checkNotNull(taskInfoCodec, "taskInfoCodec is null");
         Preconditions.checkNotNull(queryFragmentRequestCodec, "queryFragmentRequestCodec is null");
 
+        this.session = session;
         this.planFragment = planFragment;
         this.splits = splits;
         this.exchangeSources = exchangeSources;
@@ -120,7 +124,8 @@ public class HttpRemoteTask
     public void start()
     {
         TaskInfo taskInfo = this.taskInfo.get();
-        QueryFragmentRequest queryFragmentRequest = new QueryFragmentRequest(taskInfo.getQueryId(),
+        QueryFragmentRequest queryFragmentRequest = new QueryFragmentRequest(session,
+                taskInfo.getQueryId(),
                 taskInfo.getStageId(),
                 planFragment,
                 splits,

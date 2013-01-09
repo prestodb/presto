@@ -6,6 +6,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.concurrent.FairBatchExecutor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
@@ -136,7 +137,8 @@ public class SqlTaskManager
     }
 
     @Override
-    public TaskInfo createTask(String queryId,
+    public TaskInfo createTask(Session session,
+            String queryId,
             String stageId,
             String taskId,
             PlanFragment fragment,
@@ -144,6 +146,7 @@ public class SqlTaskManager
             Map<String, ExchangePlanFragmentSource> exchangeSources,
             List<String> outputIds)
     {
+        Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
@@ -155,7 +158,8 @@ public class SqlTaskManager
 
         URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
 
-        SqlTaskExecution taskExecution = new SqlTaskExecution(queryId,
+        SqlTaskExecution taskExecution = new SqlTaskExecution(session,
+                queryId,
                 stageId,
                 taskId,
                 location,

@@ -4,6 +4,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.TestingMetadata;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -13,6 +14,8 @@ import com.google.common.collect.ImmutableMap;
 import org.antlr.runtime.RecognitionException;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
+import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
@@ -177,7 +180,8 @@ public class TestInterpretedFilterFunction
     {
         try {
             Expression parsed = SqlParser.createExpression(expression);
-            InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(parsed, ImmutableMap.<Symbol, Integer>of(), new TestingMetadata());
+            Session session = new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA);
+            InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(parsed, ImmutableMap.<Symbol, Integer>of(), new TestingMetadata(), session);
             boolean result = filterFunction.filter();
             assertEquals(result, expectedValue);
         }

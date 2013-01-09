@@ -15,6 +15,7 @@ import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.spi.PartitionInfo;
 import com.facebook.presto.spi.SchemaField;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
@@ -72,7 +73,7 @@ public class SplitManager
         this.metadata = checkNotNull(metadata, "metadata is null");
     }
 
-    public Iterable<SplitAssignments> getSplitAssignments(TableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
+    public Iterable<SplitAssignments> getSplitAssignments(Session session, TableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
     {
         switch (handle.getDataSourceType()) {
             case NATIVE:
@@ -80,7 +81,7 @@ public class SplitManager
             case INTERNAL:
                 return getInternalSplitAssignments((InternalTableHandle) handle);
             case IMPORT:
-                return getImportSplitAssignments((ImportTableHandle) handle, predicate, mappings);
+                return getImportSplitAssignments(session, (ImportTableHandle) handle, predicate, mappings);
         }
         throw new IllegalArgumentException("unsupported handle type: " + handle);
     }
@@ -116,13 +117,13 @@ public class SplitManager
         return Maps.uniqueIndex(nodes, Node.getIdentifierFunction());
     }
 
-    private Iterable<SplitAssignments> getImportSplitAssignments(ImportTableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
+    private Iterable<SplitAssignments> getImportSplitAssignments(Session session, ImportTableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
     {
         final String sourceName = handle.getSourceName();
         final String databaseName = handle.getDatabaseName();
         final String tableName = handle.getTableName();
 
-        final List<String> partitions = getPartitions(sourceName, databaseName, tableName, predicate, mappings);
+        final List<String> partitions = getPartitions(session, sourceName, databaseName, tableName, predicate, mappings);
         final List<String> columns = IterableTransformer.on(mappings.values())
                 .transform(MoreFunctions.<ColumnHandle, ImportColumnHandle>cast(ImportColumnHandle.class))
                 .transform(columnNameGetter())
@@ -142,7 +143,7 @@ public class SplitManager
         return Iterables.transform(Iterables.concat(chunks), createImportSplitFunction(sourceName));
     }
 
-    private List<String> getPartitions(String sourceName, String databaseName, String tableName, Expression predicate, Map<Symbol, ColumnHandle> mappings)
+    private List<String> getPartitions(Session session, String sourceName, String databaseName, String tableName, Expression predicate, Map<Symbol, ColumnHandle> mappings)
     {
         BiMap<Symbol, String> symbolToColumn = MapTransformer.of(mappings)
                 .transformValues(MoreFunctions.<ColumnHandle, ImportColumnHandle>cast(ImportColumnHandle.class))
@@ -154,7 +155,7 @@ public class SplitManager
 
         // Next, prune the list in case we got more partitions that necessary because parts of the predicate
         // could not be pushed down
-        partitions = prunePartitions(partitions, predicate, symbolToColumn.inverse());
+        partitions = prunePartitions(session, partitions, predicate, symbolToColumn.inverse());
 
         return Lists.transform(partitions, partitionNameGetter());
     }
@@ -231,7 +232,7 @@ public class SplitManager
         });
     }
 
-    private List<PartitionInfo> prunePartitions(List<PartitionInfo> partitions, Expression predicate, Map<String, Symbol> columnNameToSymbol)
+    private List<PartitionInfo> prunePartitions(Session session, List<PartitionInfo> partitions, Expression predicate, Map<String, Symbol> columnNameToSymbol)
     {
         ImmutableList.Builder<PartitionInfo> builder = ImmutableList.builder();
         for (PartitionInfo partition : partitions) {
@@ -246,7 +247,7 @@ public class SplitManager
             }
 
             SymbolResolver resolver = new LookupSymbolResolver(assignments.build());
-            Object optimized = new ExpressionInterpreter(resolver, metadata).process(predicate, null);
+            Object optimized = new ExpressionInterpreter(resolver, metadata, session).process(predicate, null);
             if (!Boolean.FALSE.equals(optimized) && optimized != null) {
                 builder.add(partition);
             }

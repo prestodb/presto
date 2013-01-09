@@ -3,6 +3,8 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.sql.analyzer.Session;
+import com.google.common.util.concurrent.Uninterruptibles;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Days;
@@ -15,21 +17,24 @@ import org.joda.time.Years;
 import org.joda.time.chrono.ISOChronology;
 import org.testng.annotations.Test;
 
+import java.util.concurrent.TimeUnit;
+
 import static com.facebook.presto.operator.scalar.FunctionAssertions.assertFunction;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.selectSingleValue;
-import static org.testng.Assert.assertTrue;
+import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
+import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
+import static org.testng.Assert.assertEquals;
 
 public class TestUnixTimeFunctions
 {
     @Test
-    public void testNow()
+    public void testCurrentTime()
     {
-        long min = System.currentTimeMillis();
-        long now = (long) selectSingleValue("now()");
-        long currentTimestamp = (long) selectSingleValue("current_timestamp");
-        long max = System.currentTimeMillis();
-        assertTrue(min <= now && now <= max);
-        assertTrue(min <= currentTimestamp && currentTimestamp <= max);
+        Session session = new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA);
+        Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
+
+        assertEquals((long) selectSingleValue("current_timestamp", session), session.getStartTime());
+        assertEquals((long) selectSingleValue("now()", session), session.getStartTime());
     }
 
     @Test

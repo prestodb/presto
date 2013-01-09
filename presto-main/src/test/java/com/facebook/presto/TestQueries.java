@@ -648,7 +648,7 @@ public class TestQueries
         }
 
         DataSize maxOperatorMemoryUsage = new DataSize(50, MEGABYTE);
-        LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(metadata,
+        LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(session, metadata,
                 new HackPlanFragmentSourceProvider(dataProvider, null, TASK_INFO_CODEC),
                 analysis.getTypes(),
                 null,

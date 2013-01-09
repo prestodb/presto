@@ -4,6 +4,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
 import io.airlift.units.Duration;
@@ -15,7 +16,8 @@ public interface TaskManager
 {
     List<TaskInfo> getAllTaskInfo();
 
-    TaskInfo createTask(String queryId,
+    TaskInfo createTask(Session session,
+            String queryId,
             String stageId,
             String taskId,
             PlanFragment fragment,

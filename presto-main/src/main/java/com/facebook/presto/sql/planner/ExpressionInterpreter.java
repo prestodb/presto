@@ -5,6 +5,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.scalar.UnixTimeFunctions;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.sql.Casts;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
@@ -36,9 +37,9 @@ import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
+import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
-import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nullable;
@@ -56,14 +57,17 @@ public class ExpressionInterpreter
 {
     private final SymbolResolver resolver;
     private final Metadata metadata;
+    private final Session session;
 
-    public ExpressionInterpreter(SymbolResolver resolver, Metadata metadata)
+    public ExpressionInterpreter(SymbolResolver resolver, Metadata metadata, Session session)
     {
         checkNotNull(resolver, "resolver is null");
         checkNotNull(metadata, "metadata is null");
+        checkNotNull(session, "session is null");
 
         this.resolver = resolver;
         this.metadata = metadata;
+        this.session = session;
     }
 
     @Override
@@ -76,7 +80,7 @@ public class ExpressionInterpreter
             throw new UnsupportedOperationException("not yet implemented: non-default precision");
         }
 
-        return UnixTimeFunctions.currentTimestamp();
+        return UnixTimeFunctions.currentTimestamp(session);
     }
 
     @Override
@@ -542,6 +546,9 @@ public class ExpressionInterpreter
         }
         FunctionInfo function = metadata.getFunction(node.getName(), Lists.transform(argumentTypes, Type.toRaw()));
         MethodHandle handle = function.getScalarFunction();
+        if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == Session.class) {
+            handle = handle.bindTo(session);
+        }
         try {
             return handle.invokeWithArguments(argumentValues);
         }

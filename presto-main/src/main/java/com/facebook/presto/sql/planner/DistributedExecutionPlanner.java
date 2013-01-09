@@ -5,6 +5,7 @@ import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitAssignments;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -39,13 +40,15 @@ public class DistributedExecutionPlanner
 {
     private final NodeManager nodeManager;
     private final SplitManager splitManager;
+    private final Session session;
     private final Random random = new Random();
 
     @Inject
-    public DistributedExecutionPlanner(NodeManager nodeManager, SplitManager splitManager)
+    public DistributedExecutionPlanner(NodeManager nodeManager, SplitManager splitManager, Session session)
     {
         this.nodeManager = nodeManager;
         this.splitManager = splitManager;
+        this.session = session;
     }
 
     public StageExecutionPlan plan(SubPlan root)
@@ -84,7 +87,7 @@ public class DistributedExecutionPlanner
         public List<Partition> visitTableScan(TableScanNode node, Expression inheritedPredicate)
         {
             // get splits for table
-            Iterable<SplitAssignments> splitAssignments = splitManager.getSplitAssignments(node.getTable(), inheritedPredicate, node.getAssignments());
+            Iterable<SplitAssignments> splitAssignments = splitManager.getSplitAssignments(session, node.getTable(), inheritedPredicate, node.getAssignments());
 
             // divide splits amongst the nodes
             Multimap<Node, Split> nodeSplits = SplitAssignments.randomNodeAssignment(random, splitAssignments);

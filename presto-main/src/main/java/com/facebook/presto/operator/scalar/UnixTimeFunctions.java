@@ -5,6 +5,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
+import com.facebook.presto.sql.analyzer.Session;
 import com.google.common.base.Charsets;
 import com.google.common.primitives.Ints;
 import org.joda.time.DateTimeField;
@@ -28,10 +29,9 @@ public class UnixTimeFunctions
     private static final DateTimeField CENTURY = UTC_CHRONOLOGY.centuryOfEra();
 
     @ScalarFunction(value = "current_timestamp", alias = "now")
-    public static long currentTimestamp()
+    public static long currentTimestamp(Session session)
     {
-        // todo this must come from the Session so it is consistent for every call on every node
-        return System.currentTimeMillis();
+        return session.getStartTime();
     }
 
     @ScalarFunction(alias = "date_add")
