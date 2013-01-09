@@ -5,8 +5,6 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 
 import java.util.HashMap;
 import java.util.List;
@@ -16,6 +14,9 @@ import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.Maps.filterKeys;
 
 public class TestingMetadata
         implements Metadata
@@ -45,22 +46,31 @@ public class TestingMetadata
     @Override
     public List<QualifiedTableName> listTables(String catalogName)
     {
-        Iterable<TableMetadata> values = Maps.filterKeys(tables, catalogMatches(catalogName)).values();
-        return ImmutableList.copyOf(Iterables.transform(values, toQualifiedTableName()));
+        return getTableNames(catalogMatches(catalogName));
     }
 
     @Override
     public List<QualifiedTableName> listTables(String catalogName, String schemaName)
     {
-        Iterable<TableMetadata> values = Maps.filterKeys(tables, schemaMatches(catalogName, schemaName)).values();
-        return ImmutableList.copyOf(Iterables.transform(values, toQualifiedTableName()));
+        return getTableNames(schemaMatches(catalogName, schemaName));
     }
 
     @Override
     public List<TableColumn> listTableColumns(String catalogName)
     {
-        Iterable<TableMetadata> values = Maps.filterKeys(tables, catalogMatches(catalogName)).values();
-        return ImmutableList.copyOf(Iterables.concat(Iterables.transform(values, toTableColumns())));
+        return getTableColumns(catalogMatches(catalogName));
+    }
+
+    @Override
+    public List<TableColumn> listTableColumns(String catalogName, String schemaName)
+    {
+        return getTableColumns(schemaMatches(catalogName, schemaName));
+    }
+
+    @Override
+    public List<TableColumn> listTableColumns(String catalogName, String schemaName, String tableName)
+    {
+        return getTableColumns(tableMatches(catalogName, schemaName, tableName));
     }
 
     @Override
@@ -72,6 +82,18 @@ public class TestingMetadata
         tables.put(key, table);
     }
 
+    private List<QualifiedTableName> getTableNames(Predicate<List<String>> predicate)
+    {
+        Iterable<TableMetadata> values = filterKeys(tables, predicate).values();
+        return ImmutableList.copyOf(transform(values, toQualifiedTableName()));
+    }
+
+    private List<TableColumn> getTableColumns(Predicate<List<String>> predicate)
+    {
+        Iterable<TableMetadata> values = filterKeys(tables, predicate).values();
+        return ImmutableList.copyOf(concat(transform(values, toTableColumns())));
+    }
+
     private static Predicate<List<String>> catalogMatches(final String catalogName)
     {
         checkCatalogName(catalogName);
@@ -80,7 +102,7 @@ public class TestingMetadata
             @Override
             public boolean apply(List<String> key)
             {
-                return key.get(0).equals(catalogName);
+                return key.equals(ImmutableList.of(catalogName));
             }
         };
     }
@@ -93,7 +115,20 @@ public class TestingMetadata
             @Override
             public boolean apply(List<String> key)
             {
-                return key.get(0).equals(catalogName) && key.get(1).equals(schemaName);
+                return key.equals(ImmutableList.of(catalogName, schemaName));
+            }
+        };
+    }
+
+    private static Predicate<List<String>> tableMatches(final String catalogName, final String schemaName, final String tableName)
+    {
+        checkTableName(catalogName, schemaName, tableName);
+        return new Predicate<List<String>>()
+        {
+            @Override
+            public boolean apply(List<String> key)
+            {
+                return key.equals(ImmutableList.of(catalogName, schemaName, tableName));
             }
         };
     }

@@ -21,7 +21,10 @@ public abstract class AbstractMetadata
     }
 
     @Override
-    public abstract TableMetadata getTable(String catalogName, String schemaName, String tableName);
+    public List<QualifiedTableName> listTables(String catalogName)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     @Override
     public List<QualifiedTableName> listTables(String catalogName, String schemaName)
@@ -30,13 +33,19 @@ public abstract class AbstractMetadata
     }
 
     @Override
-    public List<QualifiedTableName> listTables(String catalogName)
+    public List<TableColumn> listTableColumns(String catalogName)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<TableColumn> listTableColumns(String catalogName)
+    public List<TableColumn> listTableColumns(String catalogName, String schemaName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<TableColumn> listTableColumns(String catalogName, String schemaName, String tableName)
     {
         throw new UnsupportedOperationException();
     }

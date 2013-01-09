@@ -74,7 +74,7 @@ public class NativeMetadata
     public List<QualifiedTableName> listTables(String catalogName)
     {
         checkCatalogName(catalogName);
-        return dao.listTables(catalogName);
+        return dao.listTables(catalogName, null);
     }
 
     @Override
@@ -88,7 +88,21 @@ public class NativeMetadata
     public List<TableColumn> listTableColumns(String catalogName)
     {
         checkCatalogName(catalogName);
-        return dao.listTableColumns(catalogName);
+        return dao.listTableColumns(catalogName, null, null);
+    }
+
+    @Override
+    public List<TableColumn> listTableColumns(String catalogName, String schemaName)
+    {
+        checkSchemaName(catalogName, schemaName);
+        return dao.listTableColumns(catalogName, schemaName, null);
+    }
+
+    @Override
+    public List<TableColumn> listTableColumns(String catalogName, String schemaName, String tableName)
+    {
+        checkTableName(catalogName, schemaName, tableName);
+        return dao.listTableColumns(catalogName, schemaName, tableName);
     }
 
     @Override

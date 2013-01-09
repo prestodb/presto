@@ -75,6 +75,16 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitShowTables(ShowTables node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitShowColumns(ShowColumns node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitTimeLiteral(TimeLiteral node, C context)
     {
         return visitLiteral(node, context);

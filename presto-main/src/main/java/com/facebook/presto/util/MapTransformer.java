@@ -1,6 +1,7 @@
 package com.facebook.presto.util;
 
 import com.google.common.base.Function;
+import com.google.common.base.Predicate;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
@@ -25,6 +26,16 @@ public class MapTransformer<K, V>
     public <V1> MapTransformer<K, V1> transformValues(Function<V, V1> function)
     {
         return new MapTransformer<>(Maps.transformValues(map, function));
+    }
+
+    public MapTransformer<K, V> filterValues(Predicate<? super V> predicate)
+    {
+        return new MapTransformer<>(Maps.filterValues(map, predicate));
+    }
+
+    public <V1 extends V> MapTransformer<K, V1> castValues(Class<V1> clazz)
+    {
+        return transformValues(MoreFunctions.<V, V1>cast(clazz));
     }
 
     public Map<K, V> map()

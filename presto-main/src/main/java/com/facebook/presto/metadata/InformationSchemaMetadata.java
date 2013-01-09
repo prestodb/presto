@@ -62,6 +62,18 @@ public class InformationSchemaMetadata
         return new TupleInfo(transform(METADATA.get(tableName), getType()));
     }
 
+    static int informationSchemaColumnIndex(String tableName, String columnName)
+    {
+        checkArgument(METADATA.containsKey(tableName), "table does not exist: %s", tableName);
+        List<ColumnMetadata> columns = METADATA.get(tableName);
+        for (int i = 0; i < columns.size(); i++) {
+            if (columns.get(i).getName().equals(columnName)) {
+                return i;
+            }
+        }
+        throw new IllegalArgumentException("column does not exist: " + columnName);
+    }
+
     public static List<QualifiedTableName> listInformationSchemaTables(String catalogName)
     {
         return getTableNames(catalogName, INFORMATION_SCHEMA, METADATA);

@@ -19,5 +19,9 @@ public interface Metadata
 
     List<TableColumn> listTableColumns(String catalogName);
 
+    List<TableColumn> listTableColumns(String catalogName, String schemaName);
+
+    List<TableColumn> listTableColumns(String catalogName, String schemaName, String tableName);
+
     void createTable(TableMetadata table);
 }

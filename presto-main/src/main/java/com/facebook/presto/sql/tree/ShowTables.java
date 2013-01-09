@@ -1,54 +1,52 @@
 package com.facebook.presto.sql.tree;
 
-import com.facebook.presto.sql.analyzer.Session;
-import com.google.common.collect.ImmutableList;
-
-import java.util.List;
-
-import static com.facebook.presto.metadata.InformationSchemaMetadata.INFORMATION_SCHEMA;
-import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_TABLES;
-import static com.facebook.presto.sql.tree.QueryUtil.aliasedName;
-import static com.facebook.presto.sql.tree.QueryUtil.ascending;
-import static com.facebook.presto.sql.tree.QueryUtil.equal;
-import static com.facebook.presto.sql.tree.QueryUtil.nameReference;
-import static com.facebook.presto.sql.tree.QueryUtil.selectList;
-import static com.facebook.presto.sql.tree.QueryUtil.table;
-import static com.google.common.base.Preconditions.checkArgument;
+import com.google.common.base.Objects;
 
 public class ShowTables
+        extends Statement
 {
-    public static Query create(QualifiedName schema)
+    private final QualifiedName schema;
+
+    public ShowTables(QualifiedName schema)
     {
-        String catalogName = null;
-        String schemaName = Session.DEFAULT_SCHEMA; // TODO: use Session properly
+        this.schema = schema;
+    }
 
-        if (schema != null) {
-            List<String> parts = schema.getParts();
-            checkArgument(parts.size() <= 2, "too many parts in schema name: %s", schema);
-            if (parts.size() == 2) {
-                catalogName = parts.get(0);
-            }
-            schemaName = schema.getSuffix();
+    public QualifiedName getSchema()
+    {
+        return schema;
+    }
+
+    @Override
+    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitShowTables(this, context);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hashCode(schema);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
         }
-
-        QualifiedName tableName = QualifiedName.of(INFORMATION_SCHEMA, TABLE_TABLES);
-        if (catalogName != null) {
-            tableName = QualifiedName.of(catalogName, tableName);
+        if ((obj == null) || (getClass() != obj.getClass())) {
+            return false;
         }
+        ShowTables o = (ShowTables) obj;
+        return Objects.equal(schema, o.schema);
+    }
 
-        Expression where = null;
-        if (schemaName != null) {
-            where = equal(nameReference("table_schema"), new StringLiteral(schemaName));
-        }
-
-        return new Query(
-                selectList(aliasedName("table_name", "Table")),
-                table(tableName),
-                where,
-                ImmutableList.<Expression>of(),
-                null,
-                ImmutableList.of(ascending("table_name")),
-                null
-        );
+    @Override
+    public String toString()
+    {
+        return Objects.toStringHelper(this)
+                .add("schema", schema)
+                .toString();
     }
 }
