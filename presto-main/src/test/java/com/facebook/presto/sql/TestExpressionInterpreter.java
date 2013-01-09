@@ -5,6 +5,7 @@ import com.facebook.presto.slice.Slices;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.SymbolResolver;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import org.antlr.runtime.RecognitionException;
 import org.joda.time.DateTime;
@@ -472,6 +473,12 @@ public class TestExpressionInterpreter
             }
         }, new TestingMetadata());
 
-        return interpreter.process(createExpression(expression), null);
+        Expression parsedExpression = createExpression(expression);
+
+        // verify roundtrip
+        Expression roundtrip = createExpression(ExpressionFormatter.toString(parsedExpression));
+        assertEquals(parsedExpression, roundtrip);
+
+        return interpreter.process(parsedExpression, null);
     }
 }
