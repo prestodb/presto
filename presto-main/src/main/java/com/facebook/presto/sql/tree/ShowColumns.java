@@ -1,57 +1,54 @@
 package com.facebook.presto.sql.tree;
 
-import com.facebook.presto.sql.analyzer.Session;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
+import com.google.common.base.Objects;
 
-import java.util.List;
-
-import static com.facebook.presto.metadata.InformationSchemaMetadata.INFORMATION_SCHEMA;
-import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_COLUMNS;
-import static com.facebook.presto.sql.tree.QueryUtil.aliasedName;
-import static com.facebook.presto.sql.tree.QueryUtil.ascending;
-import static com.facebook.presto.sql.tree.QueryUtil.equal;
-import static com.facebook.presto.sql.tree.QueryUtil.logicalAnd;
-import static com.facebook.presto.sql.tree.QueryUtil.nameReference;
-import static com.facebook.presto.sql.tree.QueryUtil.selectList;
-import static com.facebook.presto.sql.tree.QueryUtil.table;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ShowColumns
+        extends Statement
 {
-    public static Query create(QualifiedName table)
+    private final QualifiedName table;
+
+    public ShowColumns(QualifiedName table)
     {
-        checkNotNull(table, "table is null");
-        List<String> parts = Lists.reverse(table.getParts());
-        checkArgument(parts.size() <= 3, "too many parts in table name: %s", table);
+        this.table = checkNotNull(table, "table is null");
+    }
 
-        QualifiedName columnsTable = QualifiedName.of(INFORMATION_SCHEMA, TABLE_COLUMNS);
-        String schemaName = Session.DEFAULT_SCHEMA; // TODO: use Session properly
-        String tableName = parts.get(0);
+    public QualifiedName getTable()
+    {
+        return table;
+    }
 
-        if (parts.size() > 2) {
-            columnsTable = QualifiedName.of(parts.get(2), columnsTable);
+    @Override
+    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitShowColumns(this, context);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hashCode(table);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
         }
-        if (parts.size() > 1) {
-            schemaName = parts.get(1);
+        if ((obj == null) || (getClass() != obj.getClass())) {
+            return false;
         }
+        ShowColumns o = (ShowColumns) obj;
+        return Objects.equal(table, o.table);
+    }
 
-        Expression where = logicalAnd(
-                equal(nameReference("table_schema"), new StringLiteral(schemaName)),
-                equal(nameReference("table_name"), new StringLiteral(tableName)));
-
-        return new Query(
-                selectList(
-                        aliasedName("column_name", "Column"),
-                        aliasedName("data_type", "Type"),
-                        aliasedName("is_nullable", "Null")),
-                table(columnsTable),
-                where,
-                ImmutableList.<Expression>of(),
-                null,
-                ImmutableList.of(ascending("ordinal_position")),
-                null
-        );
+    @Override
+    public String toString()
+    {
+        return Objects.toStringHelper(this)
+                .add("table", table)
+                .toString();
     }
 }

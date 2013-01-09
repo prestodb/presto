@@ -14,6 +14,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.metadata.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.metadata.SystemTables.SYSTEM_SCHEMA;
@@ -45,13 +46,14 @@ public class InternalDataStreamProvider
         checkArgument(!columns.isEmpty(), "must provide at least one column");
 
         InternalTableHandle handle = ((InternalSplit) split).getTableHandle();
+        Map<InternalColumnHandle, String> filters = ((InternalSplit) split).getFilters();
 
         InternalTable table;
         if (handle.getTableName().equals(DualTable.NAME)) {
             table = DualTable.getInternalTable(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
         }
         else if (handle.getSchemaName().equals(INFORMATION_SCHEMA)) {
-            table = informationSchemaData.getInternalTable(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
+            table = informationSchemaData.getInternalTable(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), filters);
         }
         else if (handle.getSchemaName().equals(SYSTEM_SCHEMA)) {
             table = systemTables.getInternalTable(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());

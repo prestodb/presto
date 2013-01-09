@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.block.BlockIterables.createBlockIterable;
+import static com.facebook.presto.block.BlockUtils.emptyBlockIterable;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -73,16 +74,18 @@ public class InternalTable
             flushPage();
             ImmutableList.Builder<BlockIterable> list = ImmutableList.builder();
             for (List<Block> column : columns) {
-                list.add(createBlockIterable(column));
+                list.add(column.isEmpty() ? emptyBlockIterable() : createBlockIterable(column));
             }
             return new InternalTable(list.build());
         }
 
         private void flushPage()
         {
-            Page page = pageBuilder.build();
-            for (int i = 0; i < tupleInfo.getFieldCount(); i++) {
-                columns.get(i).add(page.getBlock(i));
+            if (!pageBuilder.isEmpty()) {
+                Page page = pageBuilder.build();
+                for (int i = 0; i < tupleInfo.getFieldCount(); i++) {
+                    columns.get(i).add(page.getBlock(i));
+                }
             }
         }
 

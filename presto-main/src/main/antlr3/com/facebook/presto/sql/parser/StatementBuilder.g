@@ -327,10 +327,10 @@ whenList returns [List<WhenClause> value = new ArrayList<>()]
     : ( ^(WHEN a=expr b=expr) { $value.add(new WhenClause($a.value, $b.value)); } )+
     ;
 
-showTables returns [Query value]
-    : ^(SHOW_TABLES qname?) { $value = ShowTables.create($qname.value); }
+showTables returns [Statement value]
+    : ^(SHOW_TABLES qname?) { $value = new ShowTables($qname.value); }
     ;
 
-showColumns returns [Query value]
-    : ^(SHOW_COLUMNS qname) { $value = ShowColumns.create($qname.value); }
+showColumns returns [Statement value]
+    : ^(SHOW_COLUMNS qname) { $value = new ShowColumns($qname.value); }
     ;
