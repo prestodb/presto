@@ -13,6 +13,7 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.server.QueryDriversOperator.QueryDriversIterator;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -48,6 +49,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static com.facebook.presto.server.MockQueryManager.TUPLE_INFOS;
+import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
+import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.preparePut;
@@ -185,7 +188,9 @@ public class TestHttpQueryProvider
     {
         PlanFragment planFragment = new PlanFragment(32, false, ImmutableMap.<Symbol, Type>of(), new ExchangeNode(22, ImmutableList.<Symbol>of()));
 
-        QueryFragmentRequest fragmentRequest = new QueryFragmentRequest("queryId",
+        Session session = new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA);
+        QueryFragmentRequest fragmentRequest = new QueryFragmentRequest(session,
+                "queryId",
                 "stageId",
                 planFragment,
                 ImmutableList.<PlanFragmentSource>of(),

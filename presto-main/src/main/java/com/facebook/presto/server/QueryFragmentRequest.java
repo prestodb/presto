@@ -1,6 +1,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.execution.ExchangePlanFragmentSource;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.google.common.base.Objects;
@@ -15,6 +16,7 @@ import java.util.Map;
 
 public class QueryFragmentRequest
 {
+    private final Session session;
     private final String queryId;
     private final String stageId;
     private final PlanFragment fragment;
@@ -24,6 +26,7 @@ public class QueryFragmentRequest
 
     @JsonCreator
     public QueryFragmentRequest(
+            @JsonProperty("session") Session session,
             @JsonProperty("queryId") String queryId,
             @JsonProperty("stageId") String stageId,
             @JsonProperty("fragment") PlanFragment fragment,
@@ -31,6 +34,7 @@ public class QueryFragmentRequest
             @JsonProperty("exchangeSources") Map<String, ExchangePlanFragmentSource> exchangeSources,
             @JsonProperty("outputIds") List<String> outputIds)
     {
+        Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(fragment, "fragment is null");
@@ -38,12 +42,19 @@ public class QueryFragmentRequest
         Preconditions.checkNotNull(exchangeSources, "exchangeSources is null");
         Preconditions.checkNotNull(outputIds, "outputIds is null");
 
+        this.session = session;
         this.queryId = queryId;
         this.stageId = stageId;
         this.fragment = fragment;
         this.splits = ImmutableList.copyOf(splits);
         this.exchangeSources = ImmutableMap.copyOf(exchangeSources);
         this.outputIds = ImmutableList.copyOf(outputIds);
+    }
+
+    @JsonProperty
+    public Session getSession()
+    {
+        return session;
     }
 
     @JsonProperty
@@ -86,6 +97,7 @@ public class QueryFragmentRequest
     public String toString()
     {
         return Objects.toStringHelper(this)
+                .add("session", session)
                 .add("queryId", queryId)
                 .add("stageId", stageId)
                 .add("fragment", fragment)

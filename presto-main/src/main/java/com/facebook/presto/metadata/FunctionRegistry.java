@@ -6,6 +6,7 @@ import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.operator.scalar.UnixTimeFunctions;
 import com.facebook.presto.slice.Slice;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
@@ -120,10 +121,19 @@ public class FunctionRegistry
     private static List<TupleInfo.Type> types(MethodHandle handle)
     {
         ImmutableList.Builder<TupleInfo.Type> types = ImmutableList.builder();
-        for (Class<?> parameter : handle.type().parameterList()) {
+        for (Class<?> parameter : getParameterTypes(handle.type().parameterArray())) {
             types.add(type(parameter));
         }
         return types.build();
+    }
+
+    private static List<Class<?>> getParameterTypes(Class<?>... types)
+    {
+        ImmutableList<Class<?>> parameterTypes = ImmutableList.copyOf(types);
+        if (!parameterTypes.isEmpty() && parameterTypes.get(0) == Session.class) {
+            parameterTypes = parameterTypes.subList(1, parameterTypes.size());
+        }
+        return parameterTypes;
     }
 
     private static TupleInfo.Type type(Class<?> clazz)
@@ -203,7 +213,7 @@ public class FunctionRegistry
             if (! SUPPORTED_TYPES.contains(method.getReturnType())) {
                 return false;
             }
-            for (Class<?> type : method.getParameterTypes()) {
+            for (Class<?> type : getParameterTypes(method.getParameterTypes())) {
                 if (! SUPPORTED_TYPES.contains(type)) {
                     return false;
                 }
