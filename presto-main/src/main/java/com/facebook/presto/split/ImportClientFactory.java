@@ -25,16 +25,21 @@ public class ImportClientFactory
         this.selector = selector;
     }
 
+    // TODO: includes hack to support presto installations supporting multiple hive dbs
     public ImportClient getClient(String sourceName)
     {
-        checkArgument("hive".equals(sourceName), "bad source name: %s", sourceName);
+        checkArgument(sourceName.startsWith("hive_"), "bad source name: %s", sourceName);
+
+        String metastoreName = sourceName.split("_", 2)[1];
+        checkArgument(!metastoreName.isEmpty(), "bad metastore name: %s", metastoreName);
 
         List<ServiceDescriptor> descriptors = ImmutableList.copyOf(selector.selectAllServices());
 
         List<HostAndPort> metastores = new ArrayList<>();
         for (ServiceDescriptor descriptor : descriptors) {
             String thrift = descriptor.getProperties().get("thrift");
-            if (thrift != null) {
+            String name = descriptor.getProperties().get("name");
+            if (thrift != null && metastoreName.equals(name)) {
                 try {
                     HostAndPort metastore = HostAndPort.fromString(thrift);
                     checkArgument(metastore.hasPort());
@@ -46,7 +51,7 @@ public class ImportClientFactory
         }
 
         if (metastores.isEmpty()) {
-            throw new RuntimeException("hive metastore not available: " + selector.getPool());
+            throw new RuntimeException(String.format("hive metastore not available for name %s in pool %s", metastoreName, selector.getPool()));
         }
 
         HostAndPort metastore = shuffle(metastores).get(0);
