@@ -100,16 +100,20 @@ public class RecordProjectOperator
                 for (int i = 0; i < columnIds.size(); i++) {
                     int field = columnIds.get(i);
                     BlockBuilder output = outputs[i];
-                    switch (getTupleInfos().get(i).getTypes().get(0)) {
-                        case FIXED_INT_64:
-                            output.append(cursor.getLong(field));
-                            break;
-                        case DOUBLE:
-                            output.append(cursor.getDouble(field));
-                            break;
-                        case VARIABLE_BINARY:
-                            output.append(cursor.getString(field));
-                            break;
+                    if (cursor.isNull(field)) {
+                        output.appendNull();
+                    } else {
+                        switch (getTupleInfos().get(i).getTypes().get(0)) {
+                            case FIXED_INT_64:
+                                output.append(cursor.getLong(field));
+                                break;
+                            case DOUBLE:
+                                output.append(cursor.getDouble(field));
+                                break;
+                            case VARIABLE_BINARY:
+                                output.append(cursor.getString(field));
+                                break;
+                        }
                     }
                 }
             }
