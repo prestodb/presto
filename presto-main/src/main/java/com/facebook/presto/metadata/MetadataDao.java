@@ -63,7 +63,7 @@ public interface MetadataDao
             "JOIN columns c ON (t.table_id = c.table_id)\n" +
             "WHERE (catalog_name = :catalogName OR :catalogName IS NULL)\n" +
             "  AND (schema_name = :schemaName OR :schemaName IS NULL)\n" +
-            "  AND (table_name = :schemaName OR :tableName IS NULL)\n" +
+            "  AND (table_name = :tableName OR :tableName IS NULL)\n" +
             "ORDER BY schema_name, table_name, ordinal_position")
     @Mapper(TableColumnMapper.class)
     List<TableColumn> listTableColumns(
