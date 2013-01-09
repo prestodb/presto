@@ -94,7 +94,7 @@ public class ExpressionFormatter
         @Override
         protected String visitExtract(Extract node, Void context)
         {
-            return "(EXTRACT " + node.getField() + " FROM " + process(node.getExpression(), context) + ")";
+            return "EXTRACT(" + node.getField() + " FROM " + process(node.getExpression(), context) + ")";
         }
 
         @Override
