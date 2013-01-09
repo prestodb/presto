@@ -4,6 +4,7 @@ import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
@@ -13,6 +14,8 @@ import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.InListExpression;
+import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
@@ -24,11 +27,18 @@ import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.SearchedCaseExpression;
+import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
+import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class ExpressionFormatter
 {
@@ -253,6 +263,75 @@ public class ExpressionFormatter
         public String visitCast(Cast node, Void context)
         {
             return "CAST(" + process(node.getExpression(), context) + " AS " + node.getType() + ")";
+        }
+
+        @Override
+        protected String visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
+        {
+            ImmutableList.Builder<String> parts = ImmutableList.builder();
+            parts.add("CASE");
+            for (WhenClause whenClause : node.getWhenClauses()) {
+                parts.add(process(whenClause, context));
+            }
+            if (node.getDefaultValue() != null) {
+                parts.add("ELSE")
+                        .add(process(node.getDefaultValue(), context));
+            }
+            parts.add("END");
+
+            return "(" + Joiner.on(' ').join(parts.build()) + ")";
+        }
+
+        @Override
+        protected String visitSimpleCaseExpression(SimpleCaseExpression node, Void context)
+        {
+            ImmutableList.Builder<String> parts = ImmutableList.builder();
+
+            parts.add("CASE")
+                    .add(process(node.getOperand(), context));
+
+            for (WhenClause whenClause : node.getWhenClauses()) {
+                parts.add(process(whenClause, context));
+            }
+            if (node.getDefaultValue() != null) {
+                parts.add("ELSE")
+                        .add(process(node.getDefaultValue(), context));
+            }
+            parts.add("END");
+
+            return "(" + Joiner.on(' ').join(parts.build()) + ")";
+        }
+
+        @Override
+        protected String visitWhenClause(WhenClause node, Void context)
+        {
+            return "WHEN " + process(node.getOperand(), context) + " THEN " + process(node.getResult(), context);
+        }
+
+        @Override
+        protected String visitBetweenPredicate(BetweenPredicate node, Void context)
+        {
+            return "(" + process(node.getValue(), context) + " BETWEEN " +
+                    process(node.getMin(), context) + " AND " + process(node.getMax(), context) + ")";
+        }
+
+        @Override
+        protected String visitInPredicate(InPredicate node, Void context)
+        {
+            return "(" + process(node.getValue(), context) + " IN " + process(node.getValueList(), context) + ")";
+        }
+
+        @Override
+        protected String visitInListExpression(InListExpression node, Void context)
+        {
+            return "(" + Joiner.on(", ").join(Iterables.transform(node.getValues(), new Function<Expression, String>()
+            {
+                @Override
+                public String apply(Expression input)
+                {
+                    return process(input, null);
+                }
+            })) + ")";
         }
 
         private String formatBinaryExpression(String operator, Expression left, Expression right)
