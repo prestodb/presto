@@ -24,7 +24,11 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Select;
+import com.facebook.presto.sql.tree.ShowColumns;
+import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.Subquery;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TreeRewriter;
@@ -45,10 +49,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.metadata.InformationSchemaMetadata.INFORMATION_SCHEMA;
+import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_COLUMNS;
+import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.sql.analyzer.AnalyzedExpression.rewrittenExpressionGetter;
 import static com.facebook.presto.sql.analyzer.AnalyzedOrdering.expressionGetter;
 import static com.facebook.presto.sql.analyzer.AnalyzedOrdering.nodeGetter;
 import static com.facebook.presto.sql.analyzer.Field.nameGetter;
+import static com.facebook.presto.sql.tree.QueryUtil.aliasedName;
+import static com.facebook.presto.sql.tree.QueryUtil.ascending;
+import static com.facebook.presto.sql.tree.QueryUtil.equal;
+import static com.facebook.presto.sql.tree.QueryUtil.logicalAnd;
+import static com.facebook.presto.sql.tree.QueryUtil.nameReference;
+import static com.facebook.presto.sql.tree.QueryUtil.selectList;
+import static com.facebook.presto.sql.tree.QueryUtil.table;
 import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
 import static com.google.common.base.Predicates.compose;
 import static com.google.common.base.Predicates.in;
@@ -90,6 +104,12 @@ public class Analyzer
         }
 
         @Override
+        protected AnalysisResult visitStatement(Statement node, AnalysisContext context)
+        {
+            throw new UnsupportedOperationException("not yet implemented: " + node);
+        }
+
+        @Override
         protected AnalysisResult visitQuery(Query query, AnalysisContext context)
         {
             Preconditions.checkArgument(query.getHaving() == null, "not yet implemented: HAVING");
@@ -126,6 +146,68 @@ public class Analyzer
             }
 
             return AnalysisResult.newInstance(context, query.getSelect().isDistinct(), output, predicate, groupBy, aggregations, limit, orderBy, query);
+        }
+
+        @Override
+        protected AnalysisResult visitShowTables(ShowTables showTables, AnalysisContext context)
+        {
+            String catalogName = context.getSession().getCatalog();
+            String schemaName = context.getSession().getSchema();
+
+            QualifiedName schema = showTables.getSchema();
+            if (schema != null) {
+                List<String> parts = schema.getParts();
+                if (parts.size() > 2) {
+                    throw new SemanticException(showTables, "too many parts in schema name: %s", schema);
+                }
+                if (parts.size() == 2) {
+                    catalogName = parts.get(0);
+                }
+                schemaName = schema.getSuffix();
+            }
+
+            // TODO: throw SemanticException if schema does not exist
+            Query query = new Query(
+                    selectList(aliasedName("table_name", "Table")),
+                    table(QualifiedName.of(catalogName, INFORMATION_SCHEMA, TABLE_TABLES)),
+                    equal(nameReference("table_schema"), new StringLiteral(schemaName)),
+                    ImmutableList.<Expression>of(),
+                    null,
+                    ImmutableList.of(ascending("table_name")),
+                    null);
+
+            return visitQuery(query, context);
+        }
+
+        @Override
+        protected AnalysisResult visitShowColumns(ShowColumns showColumns, AnalysisContext context)
+        {
+            QualifiedName table = showColumns.getTable();
+            List<String> parts = Lists.reverse(table.getParts());
+            if (parts.size() > 3) {
+                throw new SemanticException(showColumns, "too many parts in table name: %s", table);
+            }
+
+            String catalogName = (parts.size() > 2) ? parts.get(2) : context.getSession().getCatalog();
+            String schemaName = (parts.size() > 1) ? parts.get(1) : context.getSession().getSchema();
+            String tableName = parts.get(0);
+
+            // TODO: throw SemanticException if table does not exist
+            Query query = new Query(
+                    selectList(
+                            aliasedName("column_name", "Column"),
+                            aliasedName("data_type", "Type"),
+                            aliasedName("is_nullable", "Null")),
+                    table(QualifiedName.of(catalogName, INFORMATION_SCHEMA, TABLE_COLUMNS)),
+                    logicalAnd(
+                            equal(nameReference("table_schema"), new StringLiteral(schemaName)),
+                            equal(nameReference("table_name"), new StringLiteral(tableName))),
+                    ImmutableList.<Expression>of(),
+                    null,
+                    ImmutableList.of(ascending("ordinal_position")),
+                    null);
+
+            return visitQuery(query, context);
         }
 
         private void analyzeDistinct(AnalyzedOutput output, List<AnalyzedOrdering> orderBy)
@@ -210,7 +292,6 @@ public class Analyzer
                     expressions.add(expression);
                 }
             }
-
 
             BiMap<Symbol, AnalyzedExpression> assignments = HashBiMap.create();
 
@@ -500,5 +581,4 @@ public class Analyzer
             return Iterables.getOnlyElement(matches);
         }
     }
-
 }

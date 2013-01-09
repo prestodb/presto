@@ -4,6 +4,7 @@ import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ImportColumnHandle;
 import com.facebook.presto.metadata.ImportTableHandle;
+import com.facebook.presto.metadata.InternalColumnHandle;
 import com.facebook.presto.metadata.InternalTableHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeTableHandle;
@@ -79,7 +80,7 @@ public class SplitManager
             case NATIVE:
                 return getNativeSplitAssignments((NativeTableHandle) handle);
             case INTERNAL:
-                return getInternalSplitAssignments((InternalTableHandle) handle);
+                return getInternalSplitAssignments((InternalTableHandle) handle, predicate, mappings);
             case IMPORT:
                 return getImportSplitAssignments(session, (ImportTableHandle) handle, predicate, mappings);
         }
@@ -100,11 +101,17 @@ public class SplitManager
         return splitAssignments.build();
     }
 
-    private Iterable<SplitAssignments> getInternalSplitAssignments(InternalTableHandle handle)
+    private Iterable<SplitAssignments> getInternalSplitAssignments(InternalTableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
     {
-        Split split = new InternalSplit(handle);
+        Map<Symbol, InternalColumnHandle> symbols = filterValueInstances(mappings, InternalColumnHandle.class);
+        Split split = InternalSplit.create(handle, extractFilters(predicate, symbols));
         List<Node> nodes = ImmutableList.of(nodeManager.getCurrentNode());
         return ImmutableList.of(new SplitAssignments(split, nodes));
+    }
+
+    private static <K, V, V1 extends V> Map<K, V1> filterValueInstances(Map<K, V> map, Class<V1> clazz)
+    {
+        return MapTransformer.of(map).filterValues(instanceOf(clazz)).castValues(clazz).map();
     }
 
     private static List<Node> getNodes(Map<String, Node> nodeMap, Iterable<String> nodeIdentifiers)
@@ -256,7 +263,42 @@ public class SplitManager
         return builder.build();
     }
 
-    private ImmutableList<Expression> extractConjuncts(Expression expression)
+    private static <T> Map<T, String> extractFilters(Expression predicate, Map<Symbol, T> mappings)
+    {
+        // Look for any sub-expression in an AND expression of the form <name> = 'value'
+        Set<ComparisonExpression> comparisons = IterableTransformer.on(extractConjuncts(predicate))
+                .select(instanceOf(ComparisonExpression.class))
+                .cast(ComparisonExpression.class)
+                .select(or(matchesPattern(ComparisonExpression.Type.EQUAL, QualifiedNameReference.class, StringLiteral.class),
+                        matchesPattern(ComparisonExpression.Type.EQUAL, StringLiteral.class, QualifiedNameReference.class)))
+                .set();
+
+        ImmutableMap.Builder<T, String> filters = ImmutableMap.builder();
+        for (ComparisonExpression comparison : comparisons) {
+            QualifiedNameReference reference;
+            StringLiteral literal;
+
+            if (comparison.getLeft() instanceof QualifiedNameReference) {
+                reference = (QualifiedNameReference) comparison.getLeft();
+                literal = (StringLiteral) comparison.getRight();
+            }
+            else {
+                reference = (QualifiedNameReference) comparison.getRight();
+                literal = (StringLiteral) comparison.getRight();
+            }
+
+            Symbol symbol = Symbol.fromQualifiedName(reference.getName());
+            String value = literal.getValue();
+
+            T columnHandle = mappings.get(symbol);
+            if (columnHandle != null) {
+                filters.put(columnHandle, value);
+            }
+        }
+        return filters.build();
+    }
+
+    private static List<Expression> extractConjuncts(Expression expression)
     {
         if (expression instanceof LogicalBinaryExpression && ((LogicalBinaryExpression) expression).getType() == LogicalBinaryExpression.Type.AND) {
             LogicalBinaryExpression and = (LogicalBinaryExpression) expression;

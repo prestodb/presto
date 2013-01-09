@@ -50,14 +50,8 @@ public interface MetadataDao
 
     @SqlQuery("SELECT catalog_name, schema_name, table_name\n" +
             "FROM tables\n" +
-            "WHERE catalog_name = :catalogName")
-    @Mapper(QualifiedTableNameMapper.class)
-    List<QualifiedTableName> listTables(@Bind("catalogName") String catalogName);
-
-    @SqlQuery("SELECT catalog_name, schema_name, table_name\n" +
-            "FROM tables\n" +
-            "WHERE catalog_name = :catalogName\n" +
-            "  AND schema_name = :schemaName")
+            "WHERE (catalog_name = :catalogName OR :catalogName IS NULL)\n" +
+            "  AND (schema_name = :schemaName OR :schemaName IS NULL)")
     @Mapper(QualifiedTableNameMapper.class)
     List<QualifiedTableName> listTables(
             @Bind("catalogName") String catalogName,
@@ -67,10 +61,15 @@ public interface MetadataDao
             "  c.column_name, c.ordinal_position, c.data_type\n" +
             "FROM tables t\n" +
             "JOIN columns c ON (t.table_id = c.table_id)\n" +
-            "WHERE catalog_name = :catalogName\n" +
+            "WHERE (catalog_name = :catalogName OR :catalogName IS NULL)\n" +
+            "  AND (schema_name = :schemaName OR :schemaName IS NULL)\n" +
+            "  AND (table_name = :schemaName OR :tableName IS NULL)\n" +
             "ORDER BY schema_name, table_name, ordinal_position")
     @Mapper(TableColumnMapper.class)
-    List<TableColumn> listTableColumns(@Bind("catalogName") String catalogName);
+    List<TableColumn> listTableColumns(
+            @Bind("catalogName") String catalogName,
+            @Bind("schemaName") String schemaName,
+            @Bind("tableName") String tableName);
 
     @SqlQuery("SELECT COUNT(*) > 0 FROM tables\n" +
             "WHERE catalog_name = :catalogName\n" +

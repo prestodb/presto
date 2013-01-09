@@ -72,8 +72,8 @@ public class MetadataManager
     public List<QualifiedTableName> listTables(String catalogName, String schemaName)
     {
         checkSchemaName(catalogName, schemaName);
-        DataSourceType dataSourceType = lookupDataSource(catalogName);
-        return lookup(dataSourceType).listTables(catalogName);
+        DataSourceType dataSourceType = lookupDataSource(catalogName, schemaName);
+        return lookup(dataSourceType).listTables(catalogName, schemaName);
     }
 
     @Override
@@ -81,10 +81,23 @@ public class MetadataManager
     {
         checkCatalogName(catalogName);
         DataSourceType dataSourceType = lookupDataSource(catalogName);
-        List<TableColumn> catalogColumns = lookup(dataSourceType).listTableColumns(catalogName);
-        List<TableColumn> informationSchemaColumns = listInformationSchemaTableColumns(catalogName);
-        List<TableColumn> systemColumns = listSystemTableColumns(catalogName);
-        return ImmutableList.copyOf(concat(catalogColumns, informationSchemaColumns, systemColumns));
+        return getTableColumns(catalogName, lookup(dataSourceType).listTableColumns(catalogName));
+    }
+
+    @Override
+    public List<TableColumn> listTableColumns(String catalogName, String schemaName)
+    {
+        checkSchemaName(catalogName, schemaName);
+        DataSourceType dataSourceType = lookupDataSource(catalogName, schemaName);
+        return getTableColumns(catalogName, lookup(dataSourceType).listTableColumns(catalogName, schemaName));
+    }
+
+    @Override
+    public List<TableColumn> listTableColumns(String catalogName, String schemaName, String tableName)
+    {
+        checkTableName(catalogName, schemaName, tableName);
+        DataSourceType dataSourceType = lookupDataSource(catalogName, schemaName, tableName);
+        return getTableColumns(catalogName, lookup(dataSourceType).listTableColumns(catalogName, schemaName, tableName));
     }
 
     @Override
@@ -93,6 +106,13 @@ public class MetadataManager
         DataSourceType dataSourceType = lookupDataSource(table.getCatalogName(), table.getSchemaName());
         checkArgument(dataSourceType == DataSourceType.NATIVE, "table creation is only supported for native tables");
         metadataSourceMap.get(dataSourceType).createTable(table);
+    }
+
+    private static List<TableColumn> getTableColumns(String catalogName, List<TableColumn> catalogColumns)
+    {
+        List<TableColumn> informationSchemaColumns = listInformationSchemaTableColumns(catalogName);
+        List<TableColumn> systemColumns = listSystemTableColumns(catalogName);
+        return ImmutableList.copyOf(concat(catalogColumns, informationSchemaColumns, systemColumns));
     }
 
     private static DataSourceType lookupDataSource(String catalogName)
