@@ -1,7 +1,6 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
@@ -9,13 +8,12 @@ import java.util.Map;
 
 import static com.facebook.presto.metadata.MetadataUtil.ColumnMetadataListBuilder.columnsBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
-import static com.facebook.presto.metadata.MetadataUtil.getColumns;
-import static com.facebook.presto.metadata.MetadataUtil.getTable;
+import static com.facebook.presto.metadata.MetadataUtil.getTableColumns;
+import static com.facebook.presto.metadata.MetadataUtil.getTableNames;
 import static com.facebook.presto.metadata.MetadataUtil.getType;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.transform;
 
 public class InformationSchemaMetadata
@@ -66,11 +64,11 @@ public class InformationSchemaMetadata
 
     public static List<QualifiedTableName> listInformationSchemaTables(String catalogName)
     {
-        return ImmutableList.copyOf(transform(METADATA.keySet(), getTable(catalogName, INFORMATION_SCHEMA)));
+        return getTableNames(catalogName, INFORMATION_SCHEMA, METADATA);
     }
 
     public static List<TableColumn> listInformationSchemaTableColumns(String catalogName)
     {
-        return ImmutableList.copyOf(concat(transform(METADATA.entrySet(), getColumns(catalogName, INFORMATION_SCHEMA))));
+        return getTableColumns(catalogName, INFORMATION_SCHEMA, METADATA);
     }
 }
