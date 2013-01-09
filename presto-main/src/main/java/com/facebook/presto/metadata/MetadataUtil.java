@@ -10,6 +10,8 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Iterables.transform;
 
 class MetadataUtil
 {
@@ -49,7 +51,17 @@ class MetadataUtil
         };
     }
 
-    public static Function<Map.Entry<String, List<ColumnMetadata>>, List<TableColumn>> getColumns(
+    public static List<TableColumn> getTableColumns(String catalogName, String schemaName, Map<String, List<ColumnMetadata>> tables)
+    {
+        return ImmutableList.copyOf(concat(transform(tables.entrySet(), getColumns(catalogName, schemaName))));
+    }
+
+    public static List<QualifiedTableName> getTableNames(String catalogName, String schemaName, Map<String, List<ColumnMetadata>> tables)
+    {
+        return ImmutableList.copyOf(transform(tables.keySet(), getTable(catalogName, schemaName)));
+    }
+
+    private static Function<Map.Entry<String, List<ColumnMetadata>>, List<TableColumn>> getColumns(
             final String catalogName, final String schemaName)
     {
         return new Function<Map.Entry<String, List<ColumnMetadata>>, List<TableColumn>>()
@@ -71,7 +83,7 @@ class MetadataUtil
         };
     }
 
-    public static Function<String, QualifiedTableName> getTable(final String catalogName, final String schemaName)
+    private static Function<String, QualifiedTableName> getTable(final String catalogName, final String schemaName)
     {
         return new Function<String, QualifiedTableName>()
         {

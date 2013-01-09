@@ -1,7 +1,6 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
@@ -10,12 +9,11 @@ import java.util.Map;
 
 import static com.facebook.presto.metadata.MetadataUtil.ColumnMetadataListBuilder.columnsBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
-import static com.facebook.presto.metadata.MetadataUtil.getColumns;
-import static com.facebook.presto.metadata.MetadataUtil.getTable;
+import static com.facebook.presto.metadata.MetadataUtil.getTableColumns;
+import static com.facebook.presto.metadata.MetadataUtil.getTableNames;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
 
@@ -84,12 +82,12 @@ public class SystemTables
 
     public static List<QualifiedTableName> listSystemTables(String catalogName)
     {
-        return ImmutableList.copyOf(transform(METADATA.keySet(), getTable(catalogName, SYSTEM_SCHEMA)));
+        return getTableNames(catalogName, SYSTEM_SCHEMA, METADATA);
     }
 
     public static List<TableColumn> listSystemTableColumns(String catalogName)
     {
-        return ImmutableList.copyOf(concat(transform(METADATA.entrySet(), getColumns(catalogName, SYSTEM_SCHEMA))));
+        return getTableColumns(catalogName, SYSTEM_SCHEMA, METADATA);
     }
 
     private static TupleInfo systemTupleInfo(String tableName)
