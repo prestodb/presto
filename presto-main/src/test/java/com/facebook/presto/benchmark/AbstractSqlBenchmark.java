@@ -42,6 +42,7 @@ public abstract class AbstractSqlBenchmark
     private final PlanFragment fragment;
     private final Metadata metadata;
     private final AnalysisResult analysis;
+    private final Session session;
 
     protected AbstractSqlBenchmark(String benchmarkName, int warmupIterations, int measuredIterations, @Language("SQL") String query)
     {
@@ -52,7 +53,7 @@ public abstract class AbstractSqlBenchmark
 
             metadata = TpchSchema.createMetadata();
 
-            Session session = new Session(null, TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
+            session = new Session(null, TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
             analysis = new Analyzer(session, metadata).analyze(statement);
 
             PlanNode plan = new LogicalPlanner().plan((Query) statement, analysis);
@@ -79,7 +80,8 @@ public abstract class AbstractSqlBenchmark
         }
 
         DataSize maxOperatorMemoryUsage = new DataSize(100, MEGABYTE);
-        LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(metadata,
+        LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(session,
+                metadata,
                 new HackPlanFragmentSourceProvider(new TpchDataStreamProvider(provider), null, jsonCodec(TaskInfo.class)),
                 analysis.getTypes(),
                 null,

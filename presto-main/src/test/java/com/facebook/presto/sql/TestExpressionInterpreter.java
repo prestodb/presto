@@ -2,6 +2,7 @@ package com.facebook.presto.sql;
 
 import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.slice.Slices;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.SymbolResolver;
@@ -15,6 +16,8 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
+import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.sql.parser.SqlParser.createExpression;
 import static com.google.common.base.Charsets.UTF_8;
 import static org.testng.Assert.assertEquals;
@@ -471,7 +474,7 @@ public class TestExpressionInterpreter
 
                 return new QualifiedNameReference(symbol.toQualifiedName());
             }
-        }, new TestingMetadata());
+        }, new TestingMetadata(), new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA));
 
         Expression parsedExpression = createExpression(expression);
 

@@ -22,6 +22,7 @@ import com.facebook.presto.operator.SourceHashProvider;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.operator.TopNOperator;
 import com.facebook.presto.operator.aggregation.Input;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -63,6 +64,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class LocalExecutionPlanner
 {
+    private final Session session;
     private final Metadata metadata;
     private final PlanFragmentSourceProvider sourceProvider;
     private final Map<Symbol, Type> types;
@@ -76,7 +78,7 @@ public class LocalExecutionPlanner
     private final SourceHashProviderFactory joinHashFactory;
     private final DataSize maxOperatorMemoryUsage;
 
-    public LocalExecutionPlanner(Metadata metadata,
+    public LocalExecutionPlanner(Session session, Metadata metadata,
             PlanFragmentSourceProvider sourceProvider,
             Map<Symbol, Type> types,
             PlanFragmentSource split,
@@ -86,6 +88,7 @@ public class LocalExecutionPlanner
             SourceHashProviderFactory joinHashFactory,
             DataSize maxOperatorMemoryUsage)
     {
+        this.session = checkNotNull(session, "session is null");
         this.tableScans = tableScans;
         this.operatorStats = Preconditions.checkNotNull(operatorStats, "operatorStats is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
@@ -133,7 +136,7 @@ public class LocalExecutionPlanner
                 ProjectionFunction function = new InterpretedProjectionFunction(types.get(symbol),
                         new QualifiedNameReference(symbol.toQualifiedName()),
                         symbolToChannelMappings,
-                        metadata);
+                        metadata, session);
 
                 projections.add(function);
             }
@@ -250,7 +253,7 @@ public class LocalExecutionPlanner
 
             Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
 
-            FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), symbolToChannelMappings, metadata);
+            FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), symbolToChannelMappings, metadata, session);
 
             List<ProjectionFunction> projections = new ArrayList<>();
             for (int i = 0; i < node.getOutputSymbols().size(); i++) {
@@ -274,7 +277,7 @@ public class LocalExecutionPlanner
             for (int i = 0; i < node.getExpressions().size(); i++) {
                 Symbol symbol = node.getOutputSymbols().get(i);
                 Expression expression = node.getExpressions().get(i);
-                ProjectionFunction function = new InterpretedProjectionFunction(types.get(symbol), expression, symbolToChannelMappings, metadata);
+                ProjectionFunction function = new InterpretedProjectionFunction(types.get(symbol), expression, symbolToChannelMappings, metadata, session);
                 projections.add(function);
             }
 

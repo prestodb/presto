@@ -216,7 +216,7 @@ public class SqlQueryExecution
         long distributedPlanningStart = System.nanoTime();
 
         // plan the execution on the active nodes
-        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(nodeManager, splitManager);
+        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(nodeManager, splitManager, session);
         StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(subplan);
 
         synchronized (this) {
@@ -274,7 +274,8 @@ public class SqlQueryExecution
                 exchangeSources.put(entry.getKey(), entry.getValue().getExchangeSourceFor(nodeIdentifier));
             }
 
-            tasks.add(remoteTaskFactory.createRemoteTask(queryId,
+            tasks.add(remoteTaskFactory.createRemoteTask(session,
+                    queryId,
                     stageId,
                     stageId + '.' + taskId++,
                     partition.getNode(),

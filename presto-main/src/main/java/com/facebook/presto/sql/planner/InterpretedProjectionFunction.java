@@ -4,6 +4,7 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.slice.Slice;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.Expression;
@@ -20,13 +21,13 @@ public class InterpretedProjectionFunction
     private final ChannelSymbolResolver resolver;
     private final ExpressionInterpreter evaluator;
 
-    public InterpretedProjectionFunction(Type type, Expression expression, Map<Symbol, Integer> symbolToChannelMapping, Metadata metadata)
+    public InterpretedProjectionFunction(Type type, Expression expression, Map<Symbol, Integer> symbolToChannelMapping, Metadata metadata, Session session)
     {
         this.type = type;
         this.expression = expression;
 
         resolver = new ChannelSymbolResolver(symbolToChannelMapping);
-        evaluator = new ExpressionInterpreter(resolver, metadata);
+        evaluator = new ExpressionInterpreter(resolver, metadata, session);
     }
 
     @Override

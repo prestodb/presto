@@ -92,7 +92,8 @@ public class MockQueryManager
 
         String queryId = String.valueOf(nextQueryId.getAndIncrement());
 
-        TaskInfo outputTask = mockTaskManager.createTask("queryId",
+        TaskInfo outputTask = mockTaskManager.createTask(session,
+                "queryId",
                 "stageId",
                 "queryId",
                 null,

@@ -102,9 +102,14 @@ public final class FunctionAssertions
 
     public static Object selectSingleValue(String projection)
     {
+        return selectSingleValue(projection, new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA));
+    }
+
+    public static Object selectSingleValue(String projection, Session session)
+    {
         checkNotNull(projection, "projection is null");
 
-        Operator operator = plan("SELECT " + projection + " FROM dual");
+        Operator operator = plan("SELECT " + projection + " FROM dual", session);
 
         List<Tuple> results = getTuples(operator);
         assertEquals(results.size(), 1);
@@ -132,7 +137,7 @@ public final class FunctionAssertions
     {
         checkNotNull(projection, "projection is null");
 
-        Operator operator = plan("SELECT 1 FROM dual where " + projection);
+        Operator operator = plan("SELECT 1 FROM dual where " + projection, new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA));
 
         List<Tuple> results = getTuples(operator);
         return !results.isEmpty();
@@ -155,7 +160,7 @@ public final class FunctionAssertions
         return output.build();
     }
 
-    private static Operator plan(String sql)
+    private static Operator plan(String sql, Session session)
     {
         Statement statement;
         try {
@@ -165,7 +170,7 @@ public final class FunctionAssertions
             throw Throwables.propagate(e);
         }
 
-        Analyzer analyzer = new Analyzer(new Session(null, Session.DEFAULT_CATALOG, Session.DEFAULT_SCHEMA), METADATA);
+        Analyzer analyzer = new Analyzer(session, METADATA);
 
         AnalysisResult analysis = analyzer.analyze(statement);
 
@@ -183,6 +188,7 @@ public final class FunctionAssertions
 
         DataSize maxOperatorMemoryUsage = new DataSize(50, MEGABYTE);
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
+                session,
                 METADATA,
                 new HackPlanFragmentSourceProvider(DATA_PROVIDER, null, TASK_INFO_CODEC),
                 analysis.getTypes(),
