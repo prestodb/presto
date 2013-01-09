@@ -71,7 +71,7 @@ public class ExpressionFormatter
         @Override
         protected String visitExpression(Expression node, Void context)
         {
-            throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
+            throw new UnsupportedOperationException(String.format("not yet implemented: %s.visit%s", getClass().getName(), node.getClass().getSimpleName()));
         }
 
         @Override
