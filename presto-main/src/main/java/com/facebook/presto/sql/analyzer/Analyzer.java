@@ -572,8 +572,8 @@ public class Analyzer
                 Field rightField = resolveSingleField(node, right, column);
 
                 Expression expression = new ComparisonExpression(ComparisonExpression.Type.EQUAL,
-                        new QualifiedNameReference(leftField.getSymbol().toQualifiedName()),
-                        new QualifiedNameReference(rightField.getSymbol().toQualifiedName()));
+                        new QualifiedNameReference(leftField.getName()),
+                        new QualifiedNameReference(rightField.getName()));
 
                 analyzedCriteria = new ExpressionAnalyzer(metadata, descriptor.getSymbols())
                         .analyze(expression, descriptor);
