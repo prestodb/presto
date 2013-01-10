@@ -47,7 +47,6 @@ import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.InformationSchemaMetadata.INFORMATION_SCHEMA;
@@ -136,8 +135,8 @@ public class Analyzer
                 predicate = analyzePredicate(query.getWhere(), sourceDescriptor);
             }
 
-            List<AnalyzedExpression> groupBy = analyzeGroupBy(query.getGroupBy(), sourceDescriptor, context.getSymbols());
-            Set<AnalyzedFunction> aggregations = analyzeAggregations(query.getGroupBy(), query.getSelect(), query.getOrderBy(), sourceDescriptor, context.getSymbols());
+            List<AnalyzedExpression> groupBy = analyzeGroupBy(query.getGroupBy(), sourceDescriptor);
+            Set<AnalyzedFunction> aggregations = analyzeAggregations(query.getGroupBy(), query.getSelect(), query.getOrderBy(), sourceDescriptor);
             List<AnalyzedOrdering> orderBy = analyzeOrderBy(query.getOrderBy(), sourceDescriptor);
             AnalyzedOutput output = analyzeOutput(query.getSelect(), context.getSymbolAllocator(), sourceDescriptor);
 
@@ -271,7 +270,7 @@ public class Analyzer
                     throw new SemanticException(sortItem, "Custom null ordering not yet supported");
                 }
 
-                AnalyzedExpression expression = new ExpressionAnalyzer(metadata, descriptor.getSymbols()).analyze(sortItem.getSortKey(), descriptor);
+                AnalyzedExpression expression = new ExpressionAnalyzer(metadata).analyze(sortItem.getSortKey(), descriptor);
                 builder.add(new AnalyzedOrdering(expression, sortItem.getOrdering(), sortItem));
             }
 
@@ -280,7 +279,7 @@ public class Analyzer
 
         private AnalyzedExpression analyzePredicate(Expression predicate, TupleDescriptor sourceDescriptor)
         {
-            AnalyzedExpression analyzedExpression = new ExpressionAnalyzer(metadata, sourceDescriptor.getSymbols()).analyze(predicate, sourceDescriptor);
+            AnalyzedExpression analyzedExpression = new ExpressionAnalyzer(metadata).analyze(predicate, sourceDescriptor);
             Type expressionType = analyzedExpression.getType();
             if (expressionType != Type.BOOLEAN && expressionType != Type.NULL) {
                 throw new SemanticException(predicate, "WHERE clause must evaluate to a boolean: actual type %s", expressionType);
@@ -293,8 +292,11 @@ public class Analyzer
          */
         private AnalyzedOutput analyzeOutput(Select select, SymbolAllocator allocator, TupleDescriptor descriptor)
         {
-            ImmutableList.Builder<Expression> expressions = ImmutableList.builder();
             ImmutableList.Builder<Optional<String>> names = ImmutableList.builder();
+            ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
+            BiMap<Symbol, AnalyzedExpression> assignments = HashBiMap.create();
+            ImmutableList.Builder<Type> types = ImmutableList.builder();
+
             for (Expression expression : select.getSelectItems()) {
                 if (expression instanceof AllColumns) {
                     // expand * and T.*
@@ -305,7 +307,9 @@ public class Analyzer
                         // e.g., SELECT T.* FROM S.T should resolve correctly
                         if (!starPrefix.isPresent() || prefix.isPresent() && prefix.get().hasSuffix(starPrefix.get())) {
                             names.add(field.getAttribute());
-                            expressions.add(new QualifiedNameReference(field.getSymbol().toQualifiedName()));
+                            symbols.add(field.getSymbol());
+                            types.add(field.getType());
+                            assignments.put(field.getSymbol(), new AnalyzedExpression(field.getType(), new QualifiedNameReference(field.getSymbol().toQualifiedName())));
                         }
                     }
                 }
@@ -321,44 +325,35 @@ public class Analyzer
                         alias = Optional.of(((QualifiedNameReference) expression).getName().getSuffix());
                     }
 
+                    AnalyzedExpression analysis = new ExpressionAnalyzer(metadata).analyze(expression, descriptor);
+                    Symbol symbol;
+                    if (assignments.containsValue(analysis)) {
+                        symbol = assignments.inverse().get(analysis);
+                    }
+                    else {
+                        symbol = allocator.newSymbol(analysis.getRewrittenExpression(), analysis.getType());
+                        assignments.put(symbol, analysis);
+                    }
+
+                    symbols.add(symbol);
                     names.add(alias);
-                    expressions.add(expression);
+                    types.add(analysis.getType());
                 }
-            }
-
-            BiMap<Symbol, AnalyzedExpression> assignments = HashBiMap.create();
-
-            ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
-            ImmutableList.Builder<Type> types = ImmutableList.builder();
-            for (Expression expression : expressions.build()) {
-                AnalyzedExpression analysis = new ExpressionAnalyzer(metadata, allocator.getTypes()).analyze(expression, descriptor);
-
-                Symbol symbol;
-                if (assignments.containsValue(analysis)) {
-                    symbol = assignments.inverse().get(analysis);
-                }
-                else {
-                    symbol = allocator.newSymbol(analysis.getRewrittenExpression(), analysis.getType());
-                    assignments.put(symbol, analysis);
-                }
-
-                symbols.add(symbol);
-                types.add(analysis.getType());
             }
 
             return new AnalyzedOutput(new TupleDescriptor(names.build(), symbols.build(), types.build()), assignments);
         }
 
-        private List<AnalyzedExpression> analyzeGroupBy(List<Expression> groupBy, TupleDescriptor descriptor, Map<Symbol, Type> symbols)
+        private List<AnalyzedExpression> analyzeGroupBy(List<Expression> groupBy, TupleDescriptor descriptor)
         {
             ImmutableList.Builder<AnalyzedExpression> builder = ImmutableList.builder();
             for (Expression expression : groupBy) {
-                builder.add(new ExpressionAnalyzer(metadata, symbols).analyze(expression, descriptor));
+                builder.add(new ExpressionAnalyzer(metadata).analyze(expression, descriptor));
             }
             return builder.build();
         }
 
-        private Set<AnalyzedFunction> analyzeAggregations(List<Expression> groupBy, Select select, List<SortItem> orderBy, TupleDescriptor descriptor, Map<Symbol, Type> symbols)
+        private Set<AnalyzedFunction> analyzeAggregations(List<Expression> groupBy, Select select, List<SortItem> orderBy, TupleDescriptor descriptor)
         {
             if (!groupBy.isEmpty() && Iterables.any(select.getSelectItems(), instanceOf(AllColumns.class))) {
                 throw new SemanticException(select, "Wildcard selector not supported when GROUP BY is present"); // TODO: add support for SELECT T.*, count() ... GROUP BY T.* (maybe?)
@@ -369,7 +364,7 @@ public class Analyzer
             // analyze select and order by terms
             for (Expression term : concat(transform(select.getSelectItems(), unaliasFunction()), transform(orderBy, sortKeyGetter()))) {
                 // TODO: this doesn't currently handle queries like 'SELECT k + sum(v) FROM T GROUP BY k' correctly
-                AggregateAnalyzer analyzer = new AggregateAnalyzer(metadata, descriptor, symbols);
+                AggregateAnalyzer analyzer = new AggregateAnalyzer(metadata, descriptor);
 
                 List<AnalyzedFunction> aggregations = analyzer.analyze(term);
                 if (aggregations.isEmpty()) {
@@ -407,15 +402,13 @@ public class Analyzer
     {
         private final Metadata metadata;
         private final TupleDescriptor descriptor;
-        private final Map<Symbol, Type> symbols;
 
         private List<AnalyzedFunction> aggregations;
 
-        public AggregateAnalyzer(Metadata metadata, TupleDescriptor descriptor, Map<Symbol, Type> symbols)
+        public AggregateAnalyzer(Metadata metadata, TupleDescriptor descriptor)
         {
             this.metadata = metadata;
             this.descriptor = descriptor;
-            this.symbols = symbols;
         }
 
         public List<AnalyzedFunction> analyze(Expression expression)
@@ -432,7 +425,7 @@ public class Analyzer
             ImmutableList.Builder<AnalyzedExpression> argumentsAnalysis = ImmutableList.builder();
             ImmutableList.Builder<Type> argumentTypes = ImmutableList.builder();
             for (Expression expression : node.getArguments()) {
-                AnalyzedExpression analysis = new ExpressionAnalyzer(metadata, symbols).analyze(expression, descriptor);
+                AnalyzedExpression analysis = new ExpressionAnalyzer(metadata).analyze(expression, descriptor);
                 argumentsAnalysis.add(analysis);
                 argumentTypes.add(analysis.getType());
             }
@@ -575,11 +568,11 @@ public class Analyzer
                         new QualifiedNameReference(leftField.getName()),
                         new QualifiedNameReference(rightField.getName()));
 
-                analyzedCriteria = new ExpressionAnalyzer(metadata, descriptor.getSymbols())
+                analyzedCriteria = new ExpressionAnalyzer(metadata)
                         .analyze(expression, descriptor);
             }
             else if (criteria instanceof JoinOn) {
-                analyzedCriteria = new ExpressionAnalyzer(metadata, descriptor.getSymbols())
+                analyzedCriteria = new ExpressionAnalyzer(metadata)
                         .analyze(((JoinOn) criteria).getExpression(), descriptor);
 
                 Expression expression = analyzedCriteria.getRewrittenExpression();
