@@ -122,6 +122,9 @@ public class Analyzer
                 if (expression instanceof AliasedExpression) {
                     context.getSymbolAllocator().blacklist(((AliasedExpression) expression).getAlias());
                 }
+                else if (expression instanceof QualifiedNameReference) {
+                    context.getSymbolAllocator().blacklist(((QualifiedNameReference) expression).getName().toString());
+                }
             }
 
             // analyze FROM clause
