@@ -39,7 +39,6 @@ import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import static com.facebook.presto.sql.analyzer.Field.nameGetter;
 import static com.google.common.base.Predicates.equalTo;
@@ -49,17 +48,15 @@ import static com.google.common.collect.Iterables.filter;
 public class ExpressionAnalyzer
 {
     private final Metadata metadata;
-    private final Map<Symbol, Type> symbols;
 
-    public ExpressionAnalyzer(Metadata metadata, Map<Symbol, Type> symbols)
+    public ExpressionAnalyzer(Metadata metadata)
     {
         this.metadata = metadata;
-        this.symbols = symbols;
     }
 
     public AnalyzedExpression analyze(Expression expression, TupleDescriptor sourceDescriptor)
     {
-        Type type = new Visitor(metadata, symbols, sourceDescriptor).process(expression, null);
+        Type type = new Visitor(metadata, sourceDescriptor).process(expression, null);
 
         Expression rewritten = TreeRewriter.rewriteWith(new NameToSymbolRewriter(sourceDescriptor), expression);
 
@@ -71,13 +68,11 @@ public class ExpressionAnalyzer
     {
         private final Metadata metadata;
         private final TupleDescriptor descriptor;
-        private final Map<Symbol, Type> symbols;
 
-        private Visitor(Metadata metadata, Map<Symbol, Type> symbols, TupleDescriptor descriptor)
+        private Visitor(Metadata metadata, TupleDescriptor descriptor)
         {
             this.metadata = metadata;
             this.descriptor = descriptor;
-            this.symbols = symbols;
         }
 
         @Override
@@ -97,14 +92,6 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitQualifiedNameReference(QualifiedNameReference node, Void context)
         {
-            // is this a known symbol?
-            if (!node.getName().getPrefix().isPresent()) { // symbols can't have prefixes
-                Type type = symbols.get(Symbol.fromQualifiedName(node.getName()));
-                if (type != null) {
-                    return type;
-                }
-            }
-
             List<Field> matches = descriptor.resolve(node.getName());
             if (matches.isEmpty()) {
                 throw new SemanticException(node, "Attribute '%s' cannot be resolved", node.getName());

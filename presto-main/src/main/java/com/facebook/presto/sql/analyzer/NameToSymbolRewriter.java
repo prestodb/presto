@@ -6,6 +6,7 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.TreeRewriter;
 import com.google.common.collect.Iterables;
 
+import java.util.List;
 import java.util.Map;
 
 public class NameToSymbolRewriter
@@ -23,14 +24,17 @@ public class NameToSymbolRewriter
     @Override
     public Node rewriteQualifiedNameReference(QualifiedNameReference node, Void context, TreeRewriter<Void> treeRewriter)
     {
+        List<Field> fields = descriptor.resolve(node.getName());
+        if (fields.size() == 1) {
+            return new QualifiedNameReference(Iterables.getOnlyElement(fields).getSymbol().toQualifiedName());
+        }
+
         // is this a known symbol?
         if (!node.getName().getPrefix().isPresent() && symbols.containsKey(Symbol.fromQualifiedName(node.getName()))) { // symbols can't have prefixes
             return node;
         }
 
-        // try to resolve name
-        Symbol symbol = Iterables.getOnlyElement(descriptor.resolve(node.getName())).getSymbol();
-        return new QualifiedNameReference(symbol.toQualifiedName());
+        throw new IllegalStateException(String.format("%s is a known symbol or field in descriptor %s", descriptor.getFields()));
     }
 }
 
