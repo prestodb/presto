@@ -3,6 +3,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.ingest.ImportSchemaUtil;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.ObjectNotFoundException;
+import com.facebook.presto.spi.PartitionInfo;
 import com.facebook.presto.spi.SchemaField;
 import com.facebook.presto.split.ImportClientFactory;
 import com.facebook.presto.tuple.TupleInfo;
@@ -115,6 +116,32 @@ public class ImportMetadata
         return getTableColumns(catalogName, schemaName, map);
     }
 
+    @Override
+    public List<String> listTablePartitionKeys(String catalogName, String schemaName, String tableName)
+    {
+        checkTableName(catalogName, schemaName, tableName);
+        ImportClient client = importClientFactory.getClient(catalogName);
+
+        ImmutableList.Builder<String> list = ImmutableList.builder();
+        for (SchemaField partition : getPartitionKeys(client, schemaName, tableName)) {
+            list.add(partition.getFieldName());
+        }
+        return list.build();
+    }
+
+    @Override
+    public List<Map<String, String>> listTablePartitionValues(String catalogName, String schemaName, String tableName)
+    {
+        checkTableName(catalogName, schemaName, tableName);
+        ImportClient client = importClientFactory.getClient(catalogName);
+
+        ImmutableList.Builder<Map<String, String>> list = ImmutableList.builder();
+        for (PartitionInfo partition : getPartitions(client, schemaName, tableName)) {
+            list.add(partition.getKeyFields());
+        }
+        return list.build();
+    }
+
     private static List<SchemaField> getTableSchema(final ImportClient client, final String database, final String table)
     {
         return retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<List<SchemaField>>()
@@ -150,6 +177,32 @@ public class ImportMetadata
                     throws Exception
             {
                 return client.getDatabaseNames();
+            }
+        });
+    }
+
+    private static List<SchemaField> getPartitionKeys(final ImportClient client, final String database, final String table)
+    {
+        return retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<List<SchemaField>>()
+        {
+            @Override
+            public List<SchemaField> call()
+                    throws Exception
+            {
+                return client.getPartitionKeys(database, table);
+            }
+        });
+    }
+
+    private static List<PartitionInfo> getPartitions(final ImportClient client, final String database, final String table)
+    {
+        return retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<List<PartitionInfo>>()
+        {
+            @Override
+            public List<PartitionInfo> call()
+                    throws Exception
+            {
+                return client.getPartitions(database, table);
             }
         });
     }

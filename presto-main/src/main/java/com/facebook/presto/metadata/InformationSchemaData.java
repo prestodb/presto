@@ -1,6 +1,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Joiner;
 
 import javax.inject.Inject;
 import java.util.List;
@@ -8,6 +9,7 @@ import java.util.Map;
 
 import static com.facebook.presto.metadata.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_COLUMNS;
+import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.informationSchemaColumnIndex;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.informationSchemaTupleInfo;
@@ -36,6 +38,8 @@ public class InformationSchemaData
                 return buildColumns(catalogName, filters);
             case TABLE_TABLES:
                 return buildTables(catalogName, filters);
+            case TABLE_INTERNAL_PARTITIONS:
+                return buildPartitions(catalogName, filters);
         }
 
         throw new IllegalArgumentException(format("table does not exist: %s.%s.%s", catalogName, schemaName, tableName));
@@ -95,6 +99,32 @@ public class InformationSchemaData
             return metadata.listTables(catalogName, schemaName);
         }
         return metadata.listTables(catalogName);
+    }
+
+    private InternalTable buildPartitions(String catalogName, Map<InternalColumnHandle, String> filters)
+    {
+        String schemaName = requiredFilterColumn(filters, TABLE_INTERNAL_PARTITIONS, "table_schema");
+        String tableName = requiredFilterColumn(filters, TABLE_INTERNAL_PARTITIONS, "table_name");
+
+        Joiner.MapJoiner joiner = Joiner.on("/").withKeyValueSeparator("=").useForNull("NULL");
+        TupleInfo tupleInfo = informationSchemaTupleInfo(TABLE_INTERNAL_PARTITIONS);
+        InternalTable.Builder table = InternalTable.builder(tupleInfo);
+        for (Map<String, String> partition : metadata.listTablePartitionValues(catalogName, schemaName, tableName)) {
+            table.add(tupleInfo.builder()
+                    .append(catalogName)
+                    .append(schemaName)
+                    .append(tableName)
+                    .append(joiner.join(partition))
+                    .build());
+        }
+        return table.build();
+    }
+
+    private static String requiredFilterColumn(Map<InternalColumnHandle, String> filters, String tableName, String columnName)
+    {
+        String value = getFilterColumn(filters, tableName, columnName);
+        checkArgument(value != null, "filter is required for column: %s.%s", tableName, columnName);
+        return value;
     }
 
     private static String getFilterColumn(Map<InternalColumnHandle, String> filters, String tableName, String columnName)

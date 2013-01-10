@@ -4,6 +4,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
 
 import java.util.List;
+import java.util.Map;
 
 public interface Metadata
 {
@@ -22,6 +23,10 @@ public interface Metadata
     List<TableColumn> listTableColumns(String catalogName, String schemaName);
 
     List<TableColumn> listTableColumns(String catalogName, String schemaName, String tableName);
+
+    List<String> listTablePartitionKeys(String catalogName, String schemaName, String tableName);
+
+    List<Map<String, String>> listTablePartitionValues(String catalogName, String schemaName, String tableName);
 
     void createTable(TableMetadata table);
 }

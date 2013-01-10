@@ -25,6 +25,7 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.ShowColumns;
+import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
@@ -51,6 +52,7 @@ import java.util.Set;
 
 import static com.facebook.presto.metadata.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_COLUMNS;
+import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.sql.analyzer.AnalyzedExpression.rewrittenExpressionGetter;
 import static com.facebook.presto.sql.analyzer.AnalyzedOrdering.expressionGetter;
@@ -205,6 +207,34 @@ public class Analyzer
                     ImmutableList.<Expression>of(),
                     null,
                     ImmutableList.of(ascending("ordinal_position")),
+                    null);
+
+            return visitQuery(query, context);
+        }
+
+        @Override
+        protected AnalysisResult visitShowPartitions(ShowPartitions showPartitions, AnalysisContext context)
+        {
+            QualifiedName table = showPartitions.getTable();
+            List<String> parts = Lists.reverse(table.getParts());
+            if (parts.size() > 3) {
+                throw new SemanticException(showPartitions, "too many parts in table name: %s", table);
+            }
+
+            String catalogName = (parts.size() > 2) ? parts.get(2) : context.getSession().getCatalog();
+            String schemaName = (parts.size() > 1) ? parts.get(1) : context.getSession().getSchema();
+            String tableName = parts.get(0);
+
+            // TODO: throw SemanticException if table does not exist
+            Query query = new Query(
+                    selectList(aliasedName("partition", "Partition")),
+                    table(QualifiedName.of(catalogName, INFORMATION_SCHEMA, TABLE_INTERNAL_PARTITIONS)),
+                    logicalAnd(
+                            equal(nameReference("table_schema"), new StringLiteral(schemaName)),
+                            equal(nameReference("table_name"), new StringLiteral(tableName))),
+                    ImmutableList.<Expression>of(),
+                    null,
+                    ImmutableList.<SortItem>of(),
                     null);
 
             return visitQuery(query, context);
