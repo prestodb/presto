@@ -47,7 +47,9 @@ public class InformationSchemaMetadata
                     .column("table_catalog", VARIABLE_BINARY)
                     .column("table_schema", VARIABLE_BINARY)
                     .column("table_name", VARIABLE_BINARY)
-                    .column("partition", VARIABLE_BINARY)
+                    .column("partition_number", FIXED_INT_64)
+                    .column("partition_key", VARIABLE_BINARY)
+                    .column("partition_value", VARIABLE_BINARY)
                     .build())
             .build();
 
