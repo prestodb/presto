@@ -436,6 +436,26 @@ public class TestQueries
         );
     }
 
+    @Test
+    public void testWilcardFromJoin()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT * FROM (select orderkey, partkey from lineitem) a join (select orderkey, custkey from orders) b using (orderkey)",
+                "SELECT * FROM (select orderkey, partkey from lineitem) a join (select orderkey, custkey from orders) b on a.orderkey = b.orderkey"
+        );
+    }
+
+    @Test
+    public void testQualifiedWilcardFromJoin()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT a.*, b.* FROM (select orderkey, partkey from lineitem) a join (select orderkey, custkey from orders) b using (orderkey)",
+                "SELECT a.*, b.* FROM (select orderkey, partkey from lineitem) a join (select orderkey, custkey from orders) b on a.orderkey = b.orderkey"
+        );
+    }
+
     @Test(enabled = false) // TODO: doesn't work because the underlying table appears twice in the same fragment
     public void testJoinAggregations()
             throws Exception
@@ -490,6 +510,13 @@ public class TestQueries
         assertQuery("SELECT CAST(totalprice AS BIGINT) FROM orders");
         assertQuery("SELECT CAST(orderkey AS DOUBLE) FROM orders");
         assertQuery("SELECT CAST(orderkey AS VARCHAR) FROM orders");
+    }
+
+    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = ".*orderkey_1.*")
+    public void testInvalidColumn()
+            throws Exception
+    {
+        computeActual("select * from lineitem l join (select orderkey_1, custkey from orders) o on l.orderkey = o.orderkey_1");
     }
 
     @BeforeSuite
