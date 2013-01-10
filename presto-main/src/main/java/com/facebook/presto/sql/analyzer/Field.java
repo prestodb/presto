@@ -55,6 +55,11 @@ public class Field
         return type;
     }
 
+    public QualifiedName getName()
+    {
+        return QualifiedName.of(prefix.get(), attribute.get());
+    }
+
     public String toString()
     {
         return String.format("%s.%s:%s:%s", prefix.or(QualifiedName.of("<anonymous")), attribute.or("<anonymous>"), symbol, type);
@@ -67,7 +72,7 @@ public class Field
             @Override
             public QualifiedName apply(Field input)
             {
-                return QualifiedName.of(input.getPrefix().get(), input.getAttribute().get());
+                return input.getName();
             }
         };
     }
