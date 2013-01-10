@@ -7,11 +7,10 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
 import com.google.common.base.Preconditions;
-import com.google.common.io.Closeables;
 
 import java.util.concurrent.Callable;
 
-import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
+import static com.facebook.presto.util.RetryDriver.retry;
 
 public class ImportPartition
         implements RecordSet
@@ -31,7 +30,7 @@ public class ImportPartition
     @Override
     public RecordCursor cursor(OperatorStats operatorStats)
     {
-        com.facebook.presto.spi.RecordCursor records = runWithRetryUnchecked(new Callable<com.facebook.presto.spi.RecordCursor>()
+        com.facebook.presto.spi.RecordCursor records = retry().runUnchecked(new Callable<com.facebook.presto.spi.RecordCursor>()
         {
             @Override
             public com.facebook.presto.spi.RecordCursor call()

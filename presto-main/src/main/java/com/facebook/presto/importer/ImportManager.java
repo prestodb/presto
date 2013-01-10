@@ -1,16 +1,12 @@
 package com.facebook.presto.importer;
 
 import com.facebook.presto.ingest.SerializedPartitionChunk;
-import com.facebook.presto.metadata.ColumnHandle;
-import com.facebook.presto.metadata.ImportColumnHandle;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.server.ShardImport;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.split.ImportClientFactory;
-import com.facebook.presto.util.IterableTransformer;
-import com.facebook.presto.util.MoreFunctions;
 import com.facebook.presto.util.ShardBoundedExecutor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -40,9 +36,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.metadata.ImportColumnHandle.columnNameGetter;
-import static com.facebook.presto.util.RetryDriver.runWithRetry;
-import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
+import static com.facebook.presto.util.RetryDriver.retry;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -102,7 +96,7 @@ public class ImportManager
 
         shardManager.createImportTable(tableId, sourceName, databaseName, tableName);
 
-        Set<String> activePartitions = runWithRetryUnchecked(new Callable<Set<String>>()
+        Set<String> activePartitions = retry().runUnchecked(new Callable<Set<String>>()
         {
             @Override
             public Set<String> call()
@@ -208,7 +202,7 @@ public class ImportManager
         public void run()
         {
             try {
-                runWithRetry(new Callable<Void>()
+                retry().runUnchecked(new Callable<Void>()
                 {
                     @Override
                     public Void call()
@@ -310,7 +304,7 @@ public class ImportManager
         public void run()
         {
             try {
-                runWithRetry(new Callable<Void>()
+                retry().runUnchecked(new Callable<Void>()
                 {
                     @Override
                     public Void call()

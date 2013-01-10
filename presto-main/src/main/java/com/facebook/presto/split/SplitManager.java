@@ -13,6 +13,7 @@ import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ImportClient;
+import com.facebook.presto.spi.ObjectNotFoundException;
 import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.spi.PartitionInfo;
 import com.facebook.presto.spi.SchemaField;
@@ -52,7 +53,7 @@ import static com.facebook.presto.metadata.ImportColumnHandle.columnNameGetter;
 import static com.facebook.presto.sql.tree.ComparisonExpression.matchesPattern;
 import static com.facebook.presto.util.IterableUtils.limit;
 import static com.facebook.presto.util.IterableUtils.shuffle;
-import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
+import static com.facebook.presto.util.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.instanceOf;
@@ -136,7 +137,7 @@ public class SplitManager
                 .transform(columnNameGetter())
                 .list();
 
-        Iterable<List<PartitionChunk>> chunks = runWithRetryUnchecked(new Callable<Iterable<List<PartitionChunk>>>()
+        Iterable<List<PartitionChunk>> chunks = retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<Iterable<List<PartitionChunk>>>()
         {
             @Override
             public Iterable<List<PartitionChunk>> call()
@@ -213,7 +214,7 @@ public class SplitManager
             }
         }
 
-        return runWithRetryUnchecked(new Callable<List<PartitionInfo>>()
+        return retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<List<PartitionInfo>>()
         {
             @Override
             public List<PartitionInfo> call()
@@ -227,7 +228,7 @@ public class SplitManager
 
     private List<String> getPartitionKeys(final String sourceName, final String databaseName, final String tableName)
     {
-        return runWithRetryUnchecked(new Callable<List<String>>()
+        return retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<List<String>>()
         {
             @Override
             public List<String> call()
