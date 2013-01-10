@@ -436,6 +436,26 @@ public class TestQueries
         );
     }
 
+    @Test
+    public void testWilcardFromJoin()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT * FROM (select orderkey, partkey from lineitem) a join (select orderkey, custkey from orders) b using (orderkey)",
+                "SELECT * FROM (select orderkey, partkey from lineitem) a join (select orderkey, custkey from orders) b on a.orderkey = b.orderkey"
+        );
+    }
+
+    @Test
+    public void testQualifiedWilcardFromJoin()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT a.*, b.* FROM (select orderkey, partkey from lineitem) a join (select orderkey, custkey from orders) b using (orderkey)",
+                "SELECT a.*, b.* FROM (select orderkey, partkey from lineitem) a join (select orderkey, custkey from orders) b on a.orderkey = b.orderkey"
+        );
+    }
+
     @Test(enabled = false) // TODO: doesn't work because the underlying table appears twice in the same fragment
     public void testJoinAggregations()
             throws Exception
