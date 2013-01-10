@@ -44,9 +44,10 @@ options {
 
 
 statement returns [Statement value]
-    : query        { $value = $query.value; }
-    | showTables   { $value = $showTables.value; }
-    | showColumns  { $value = $showColumns.value; }
+    : query           { $value = $query.value; }
+    | showTables      { $value = $showTables.value; }
+    | showColumns     { $value = $showColumns.value; }
+    | showPartitions  { $value = $showPartitions.value; }
     ;
 
 query returns [Query value]
@@ -333,4 +334,8 @@ showTables returns [Statement value]
 
 showColumns returns [Statement value]
     : ^(SHOW_COLUMNS qname) { $value = new ShowColumns($qname.value); }
+    ;
+
+showPartitions returns [Statement value]
+    : ^(SHOW_PARTITIONS qname) { $value = new ShowPartitions($qname.value); }
     ;

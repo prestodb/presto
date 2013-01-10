@@ -108,6 +108,7 @@ statement
     : selectStmt      -> ^(QUERY selectStmt)
     | showTablesStmt
     | showColumnsStmt
+    | showPartitionsStmt
     | createTableStmt
     ;
 
@@ -378,6 +379,10 @@ showColumnsStmt
     | DESCRIBE qname                 -> ^(SHOW_COLUMNS qname)
     ;
 
+showPartitionsStmt
+    : SHOW_PARTITIONS (FROM | IN) qname -> ^(SHOW_PARTITIONS qname)
+    ;
+
 createTableStmt
     : CREATE TABLE qname tableElementList -> ^(CREATE_TABLE qname tableElementList)
     ;
@@ -535,6 +540,7 @@ BOOLEAN: 'BOOLEAN';
 CONSTRAINT: 'CONSTRAINT';
 SHOW_TABLES: 'SHOW' WS 'TABLES';
 SHOW_COLUMNS: 'SHOW' WS 'COLUMNS';
+SHOW_PARTITIONS: 'SHOW' WS 'PARTITIONS';
 DESCRIBE: 'DESCRIBE';
 CAST: 'CAST';
 

@@ -2,6 +2,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.Handle;
@@ -12,6 +13,7 @@ import org.skife.jdbi.v2.exceptions.UnableToObtainConnectionException;
 
 import javax.inject.Inject;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
@@ -103,6 +105,18 @@ public class NativeMetadata
     {
         checkTableName(catalogName, schemaName, tableName);
         return dao.listTableColumns(catalogName, schemaName, tableName);
+    }
+
+    @Override
+    public List<String> listTablePartitionKeys(String catalogName, String schemaName, String tableName)
+    {
+        return ImmutableList.of();
+    }
+
+    @Override
+    public List<Map<String, String>> listTablePartitionValues(String catalogName, String schemaName, String tableName)
+    {
+        return ImmutableList.of();
     }
 
     @Override
