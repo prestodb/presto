@@ -492,6 +492,13 @@ public class TestQueries
         assertQuery("SELECT CAST(orderkey AS VARCHAR) FROM orders");
     }
 
+    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = ".*orderkey_1.*")
+    public void testInvalidColumn()
+            throws Exception
+    {
+        computeActual("select * from lineitem l join (select orderkey_1, custkey from orders) o on l.orderkey = o.orderkey_1");
+    }
+
     @BeforeSuite
     public void setupDatabase()
             throws IOException
