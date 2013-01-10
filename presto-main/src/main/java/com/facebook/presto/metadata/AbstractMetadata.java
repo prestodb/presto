@@ -4,6 +4,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
 
 import java.util.List;
+import java.util.Map;
 
 public abstract class AbstractMetadata
         implements Metadata
@@ -46,6 +47,18 @@ public abstract class AbstractMetadata
 
     @Override
     public List<TableColumn> listTableColumns(String catalogName, String schemaName, String tableName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<String> listTablePartitionKeys(String catalogName, String schemaName, String tableName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<Map<String, String>> listTablePartitionValues(String catalogName, String schemaName, String tableName)
     {
         throw new UnsupportedOperationException();
     }

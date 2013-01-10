@@ -1,7 +1,9 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 
 import java.util.List;
 import java.util.Map;
@@ -22,6 +24,7 @@ public class InformationSchemaMetadata
 
     public static final String TABLE_COLUMNS = "columns";
     public static final String TABLE_TABLES = "tables";
+    public static final String TABLE_INTERNAL_PARTITIONS = "__internal_partitions__";
 
     private static final Map<String, List<ColumnMetadata>> METADATA = ImmutableMap.<String, List<ColumnMetadata>>builder()
             .put(TABLE_COLUMNS, columnsBuilder()
@@ -39,6 +42,12 @@ public class InformationSchemaMetadata
                     .column("table_schema", VARIABLE_BINARY)
                     .column("table_name", VARIABLE_BINARY)
                     .column("table_type", VARIABLE_BINARY)
+                    .build())
+            .put(TABLE_INTERNAL_PARTITIONS, columnsBuilder()
+                    .column("table_catalog", VARIABLE_BINARY)
+                    .column("table_schema", VARIABLE_BINARY)
+                    .column("table_name", VARIABLE_BINARY)
+                    .column("partition", VARIABLE_BINARY)
                     .build())
             .build();
 
@@ -76,11 +85,23 @@ public class InformationSchemaMetadata
 
     public static List<QualifiedTableName> listInformationSchemaTables(String catalogName)
     {
-        return getTableNames(catalogName, INFORMATION_SCHEMA, METADATA);
+        return getTableNames(catalogName, INFORMATION_SCHEMA, filteredTables());
     }
 
     public static List<TableColumn> listInformationSchemaTableColumns(String catalogName)
     {
-        return getTableColumns(catalogName, INFORMATION_SCHEMA, METADATA);
+        return getTableColumns(catalogName, INFORMATION_SCHEMA, filteredTables());
+    }
+
+    private static Map<String, List<ColumnMetadata>> filteredTables()
+    {
+        return Maps.filterKeys(METADATA, new Predicate<String>()
+        {
+            @Override
+            public boolean apply(String name)
+            {
+                return !name.startsWith("__");
+            }
+        });
     }
 }

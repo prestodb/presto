@@ -101,6 +101,22 @@ public class MetadataManager
     }
 
     @Override
+    public List<String> listTablePartitionKeys(String catalogName, String schemaName, String tableName)
+    {
+        checkTableName(catalogName, schemaName, tableName);
+        DataSourceType dataSourceType = lookupDataSource(catalogName, schemaName, tableName);
+        return lookup(dataSourceType).listTablePartitionKeys(catalogName, schemaName, tableName);
+    }
+
+    @Override
+    public List<Map<String, String>> listTablePartitionValues(String catalogName, String schemaName, String tableName)
+    {
+        checkTableName(catalogName, schemaName, tableName);
+        DataSourceType dataSourceType = lookupDataSource(catalogName, schemaName, tableName);
+        return lookup(dataSourceType).listTablePartitionValues(catalogName, schemaName, tableName);
+    }
+
+    @Override
     public void createTable(TableMetadata table)
     {
         DataSourceType dataSourceType = lookupDataSource(table.getCatalogName(), table.getSchemaName());

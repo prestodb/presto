@@ -74,6 +74,18 @@ public class TestingMetadata
     }
 
     @Override
+    public List<String> listTablePartitionKeys(String catalogName, String schemaName, String tableName)
+    {
+        return ImmutableList.of();
+    }
+
+    @Override
+    public List<Map<String, String>> listTablePartitionValues(String catalogName, String schemaName, String tableName)
+    {
+        return ImmutableList.of();
+    }
+
+    @Override
     public synchronized void createTable(TableMetadata table)
     {
         List<String> key = tableKey(table);
