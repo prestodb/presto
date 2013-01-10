@@ -55,6 +55,9 @@ public class Field
         return type;
     }
 
+    /**
+     * This method can only be called if this field's prefix and attribute are present
+     */
     public QualifiedName getName()
     {
         return QualifiedName.of(prefix.get(), attribute.get());
