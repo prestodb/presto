@@ -1,7 +1,6 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Joiner;
 
 import javax.inject.Inject;
 import java.util.List;
@@ -106,16 +105,21 @@ public class InformationSchemaData
         String schemaName = requiredFilterColumn(filters, TABLE_INTERNAL_PARTITIONS, "table_schema");
         String tableName = requiredFilterColumn(filters, TABLE_INTERNAL_PARTITIONS, "table_name");
 
-        Joiner.MapJoiner joiner = Joiner.on("/").withKeyValueSeparator("=").useForNull("NULL");
         TupleInfo tupleInfo = informationSchemaTupleInfo(TABLE_INTERNAL_PARTITIONS);
         InternalTable.Builder table = InternalTable.builder(tupleInfo);
+        int partitionNumber = 1;
         for (Map<String, String> partition : metadata.listTablePartitionValues(catalogName, schemaName, tableName)) {
-            table.add(tupleInfo.builder()
-                    .append(catalogName)
-                    .append(schemaName)
-                    .append(tableName)
-                    .append(joiner.join(partition))
-                    .build());
+            for (Map.Entry<String, String> entry : partition.entrySet()) {
+                table.add(tupleInfo.builder()
+                        .append(catalogName)
+                        .append(schemaName)
+                        .append(tableName)
+                        .append(partitionNumber)
+                        .append(entry.getKey())
+                        .append(entry.getValue())
+                        .build());
+            }
+            partitionNumber++;
         }
         return table.build();
     }
