@@ -2,9 +2,11 @@ package com.facebook.presto.sql.tree;
 
 import com.google.common.collect.ImmutableList;
 
+import java.util.List;
+
 public class QueryUtil
 {
-    public static QualifiedNameReference nameReference(String name)
+    public static Expression nameReference(String name)
     {
         return new QualifiedNameReference(QualifiedName.of(name));
     }
@@ -19,7 +21,12 @@ public class QueryUtil
         return new Select(false, ImmutableList.copyOf(expressions));
     }
 
-    public static ImmutableList<Relation> table(QualifiedName name)
+    public static Select selectAll(List<Expression> expressions)
+    {
+        return new Select(false, expressions);
+    }
+
+    public static List<Relation> table(QualifiedName name)
     {
         return ImmutableList.<Relation>of(new Table(name));
     }
@@ -37,5 +44,15 @@ public class QueryUtil
     public static Expression equal(Expression left, Expression right)
     {
         return new ComparisonExpression(ComparisonExpression.Type.EQUAL, left, right);
+    }
+
+    public static Expression caseWhen(Expression operand, Expression result)
+    {
+        return new SearchedCaseExpression(ImmutableList.of(new WhenClause(operand, result)), null);
+    }
+
+    public static Expression functionCall(String name, Expression... arguments)
+    {
+        return new FunctionCall(name, ImmutableList.copyOf(arguments));
     }
 }

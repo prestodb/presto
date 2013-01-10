@@ -59,9 +59,12 @@ import static com.facebook.presto.sql.analyzer.AnalyzedOrdering.nodeGetter;
 import static com.facebook.presto.sql.analyzer.Field.nameGetter;
 import static com.facebook.presto.sql.tree.QueryUtil.aliasedName;
 import static com.facebook.presto.sql.tree.QueryUtil.ascending;
+import static com.facebook.presto.sql.tree.QueryUtil.caseWhen;
 import static com.facebook.presto.sql.tree.QueryUtil.equal;
+import static com.facebook.presto.sql.tree.QueryUtil.functionCall;
 import static com.facebook.presto.sql.tree.QueryUtil.logicalAnd;
 import static com.facebook.presto.sql.tree.QueryUtil.nameReference;
+import static com.facebook.presto.sql.tree.QueryUtil.selectAll;
 import static com.facebook.presto.sql.tree.QueryUtil.selectList;
 import static com.facebook.presto.sql.tree.QueryUtil.table;
 import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
@@ -227,16 +230,36 @@ public class Analyzer
             String schemaName = (parts.size() > 1) ? parts.get(1) : context.getSession().getSchema();
             String tableName = parts.get(0);
 
+            /*
+                Generate a dynamic pivot to output one column per partition key.
+                For example, a table with two partition keys (ds, cluster_name)
+                would generate the following query:
+
+                SELECT
+                  max(CASE WHEN partition_key = 'ds' THEN partition_value END) ds
+                , max(CASE WHEN partition_key = 'cluster_name' THEN partition_value END) cluster_name
+                FROM ...
+                GROUP BY partition_number
+                ORDER BY partition_number
+            */
+
+            ImmutableList.Builder<Expression> selectList = ImmutableList.builder();
+            for (String partition : metadata.listTablePartitionKeys(catalogName, schemaName, tableName)) {
+                Expression key = equal(nameReference("partition_key"), new StringLiteral(partition));
+                Expression function = functionCall("max", caseWhen(key, nameReference("partition_value")));
+                selectList.add(new AliasedExpression(function, partition));
+            }
+
             // TODO: throw SemanticException if table does not exist
             Query query = new Query(
-                    selectList(aliasedName("partition", "Partition")),
+                    selectAll(selectList.build()),
                     table(QualifiedName.of(catalogName, INFORMATION_SCHEMA, TABLE_INTERNAL_PARTITIONS)),
                     logicalAnd(
                             equal(nameReference("table_schema"), new StringLiteral(schemaName)),
                             equal(nameReference("table_name"), new StringLiteral(tableName))),
-                    ImmutableList.<Expression>of(),
+                    ImmutableList.of(nameReference("partition_number")),
                     null,
-                    ImmutableList.<SortItem>of(),
+                    ImmutableList.of(ascending("partition_number")),
                     null);
 
             return visitQuery(query, context);
