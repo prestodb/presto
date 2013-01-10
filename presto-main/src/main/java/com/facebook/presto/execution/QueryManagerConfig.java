@@ -12,11 +12,24 @@ import java.util.concurrent.TimeUnit;
 
 public class QueryManagerConfig
 {
+    private boolean coordinator = true;
     private boolean importsEnabled = true;
     private DataSize maxOperatorMemoryUsage = new DataSize(256, Unit.MEGABYTE);
     private int maxShardProcessorThreads = Runtime.getRuntime().availableProcessors() * 4;
     private Duration maxQueryAge = new Duration(15, TimeUnit.MINUTES);
     private Duration clientTimeout = new Duration(1, TimeUnit.MINUTES);
+
+    public boolean isCoordinator()
+    {
+        return coordinator;
+    }
+
+    @Config("coordinator")
+    public QueryManagerConfig setCoordinator(boolean coordinator)
+    {
+        this.coordinator = coordinator;
+        return this;
+    }
 
     public boolean isImportsEnabled()
     {

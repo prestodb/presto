@@ -155,6 +155,15 @@ public class ServerMainModule
             announcementBuilder.addProperty("datasources", datasources);
         }
 
+        String coordinatorProperty = configurationFactory.getProperties().get("coordinator");
+        if (coordinatorProperty != null) {
+            configurationFactory.consumeProperty("coordinator");
+        }
+        // default coordinator value is true
+        if (coordinatorProperty == null || Boolean.parseBoolean(coordinatorProperty)) {
+            discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
+        }
+
         bindDataSource("presto-metastore", ForMetadata.class, ForShardManager.class);
     }
 
