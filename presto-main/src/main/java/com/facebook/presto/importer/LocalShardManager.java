@@ -8,10 +8,8 @@ import com.facebook.presto.server.ShardImport;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.split.ImportClientFactory;
-import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.ShardBoundedExecutor;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
@@ -24,7 +22,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.util.RetryDriver.runWithRetry;
+import static com.facebook.presto.util.RetryDriver.retry;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -84,7 +82,7 @@ public class LocalShardManager
         public void run()
         {
             try {
-                runWithRetry(new Callable<Void>()
+                retry().runUnchecked(new Callable<Void>()
                 {
                     @Override
                     public Void call()
@@ -134,7 +132,7 @@ public class LocalShardManager
         public void run()
         {
             try {
-                runWithRetry(new Callable<Void>()
+                retry().runUnchecked(new Callable<Void>()
                 {
                     @Override
                     public Void call()

@@ -1,9 +1,12 @@
 package com.facebook.presto.util;
 
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
@@ -13,94 +16,65 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class RetryDriver
 {
     private static final Logger log = Logger.get(RetryDriver.class);
+    private static final String DEFAULT_CALLABLE_NAME = "<default>";
     private static final int DEFAULT_RETRY_ATTEMPTS = 10;
-    private static final Duration DEFAULT_SLEEP_DURATION = Duration.valueOf("1s");
+    private static final Duration DEFAULT_SLEEP_TIME = Duration.valueOf("1s");
+
+    private final int maxRetryAttempts;
+    private final Duration sleepTime;
+    private final List<Class<? extends Exception>> exceptionWhitelist;
+
+    private RetryDriver(int maxRetryAttempts, Duration sleepTime, List<Class<? extends Exception>> exceptionWhitelist)
+    {
+        this.maxRetryAttempts = maxRetryAttempts;
+        this.sleepTime = sleepTime;
+        this.exceptionWhitelist = exceptionWhitelist;
+
+    }
 
     private RetryDriver()
     {
+        this(DEFAULT_RETRY_ATTEMPTS, DEFAULT_SLEEP_TIME, ImmutableList.<Class<? extends Exception>>of());
     }
 
-    public static <V> V runWithRetryUnchecked(Callable<V> callable)
+    public static RetryDriver retry()
     {
-        try {
-            return runWithRetry(callable);
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
+        return new RetryDriver();
     }
 
-    public static <V> V runWithRetry(Callable<V> callable)
-            throws Exception
+    public RetryDriver withMaxRetries(int maxRetryAttempts)
     {
-        return runWithRetry(callable, "<default>");
-    }
-
-    public static <V> V runWithRetryUnchecked(Callable<V> callable, int maxRetryAttempts)
-    {
-        try {
-            return runWithRetry(callable, maxRetryAttempts);
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    public static <V> V runWithRetry(Callable<V> callable, int maxRetryAttempts)
-            throws Exception
-    {
-        return runWithRetry(callable, "<default>", maxRetryAttempts);
-    }
-
-    public static <V> V runWithRetryUnchecked(Callable<V> callable, String callableName)
-    {
-        try {
-            return runWithRetry(callable, callableName);
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    public static <V> V runWithRetry(Callable<V> callable, String callableName)
-            throws Exception
-    {
-        return runWithRetry(callable, callableName, DEFAULT_RETRY_ATTEMPTS);
-    }
-
-    public static <V> V runWithRetryUnchecked(Callable<V> callable, String callableName, int maxRetryAttempts)
-    {
-        try {
-            return runWithRetry(callable, callableName, maxRetryAttempts);
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    public static <V> V runWithRetry(Callable<V> callable, String callableName, int maxRetryAttempts)
-            throws Exception
-    {
-        return runWithRetry(callable, callableName, maxRetryAttempts, DEFAULT_SLEEP_DURATION);
-    }
-
-    public static <V> V runWithRetryUnchecked(Callable<V> callable, String callableName, int maxRetryAttempts, Duration duration)
-    {
-        try {
-            return runWithRetry(callable, callableName, maxRetryAttempts, duration);
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    public static <V> V runWithRetry(Callable<V> callable, String callableName, int maxRetryAttempts, Duration duration)
-            throws Exception
-    {
-        checkNotNull(callable, "callable is null");
-        checkNotNull(callableName, "callableName is null");
         checkArgument(maxRetryAttempts > 0, "maxRetryAttempts must be greater than zero");
-        checkNotNull(duration, "duration is null");
+        return new RetryDriver(maxRetryAttempts, sleepTime, exceptionWhitelist);
+    }
+
+    public RetryDriver withSleep(Duration sleepTime)
+    {
+        return new RetryDriver(maxRetryAttempts, checkNotNull(sleepTime, "sleepTime is null"), exceptionWhitelist);
+    }
+
+    @SafeVarargs
+    public final RetryDriver stopOn(Class<? extends Exception>... classes)
+    {
+        checkNotNull(classes, "classes is null");
+        List<Class<? extends Exception>> exceptions = ImmutableList.<Class<? extends Exception>>builder()
+                .addAll(exceptionWhitelist)
+                .addAll(Arrays.asList(classes))
+                .build();
+        return new RetryDriver(maxRetryAttempts, sleepTime, exceptions);
+    }
+
+    public <V> V run(Callable<V> callable)
+            throws Exception
+    {
+        return run(DEFAULT_CALLABLE_NAME, callable);
+    }
+
+    public <V> V run(String callableName, Callable<V> callable)
+            throws Exception
+    {
+        checkNotNull(callableName, "callableName is null");
+        checkNotNull(callable, "callable is null");
 
         int attempt = 0;
         while (true) {
@@ -109,14 +83,34 @@ public class RetryDriver
                 return callable.call();
             }
             catch (Exception e) {
+                for (Class<? extends Exception> clazz : exceptionWhitelist) {
+                    if (clazz.isInstance(e)) {
+                        throw e;
+                    }
+                }
                 if (attempt >= maxRetryAttempts) {
                     throw e;
                 }
                 else {
                     log.debug("Failed on executing %s with attempt %d, will retry. Exception: %s", callableName, attempt, e.getMessage());
                 }
-                TimeUnit.MILLISECONDS.sleep((long) duration.toMillis());
+                TimeUnit.MILLISECONDS.sleep((long) sleepTime.toMillis());
             }
+        }
+    }
+
+    public <V> V runUnchecked(Callable<V> callable)
+    {
+        return runUnchecked(DEFAULT_CALLABLE_NAME, callable);
+    }
+
+    public <V> V runUnchecked(String callableName, Callable<V> callable)
+    {
+        try {
+            return run(callableName, callable);
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
         }
     }
 }

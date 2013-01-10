@@ -12,6 +12,7 @@ import com.facebook.presto.metadata.NativeColumnHandle;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ImportClient;
+import com.facebook.presto.spi.ObjectNotFoundException;
 import com.facebook.presto.spi.SchemaField;
 import com.facebook.presto.split.ImportClientFactory;
 import com.facebook.presto.tuple.TupleInfo;
@@ -19,8 +20,10 @@ import com.google.common.collect.ImmutableList;
 
 import java.net.URI;
 import java.util.List;
+import java.util.concurrent.Callable;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.util.RetryDriver.retry;
 
 public class ImportTableExecution
         implements QueryExecution
@@ -96,8 +99,16 @@ public class ImportTableExecution
         String catalogName = "default";
         String schemaName = "default";
 
-        ImportClient importClient = importClientFactory.getClient(sourceName);
-        List<SchemaField> schema = importClient.getTableSchema(databaseName, tableName);
+        List<SchemaField> schema = retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<List<SchemaField>>()
+        {
+            @Override
+            public List<SchemaField> call()
+                    throws Exception
+            {
+                ImportClient importClient = importClientFactory.getClient(sourceName);
+                return importClient.getTableSchema(databaseName, tableName);
+            }
+        });
         List<ColumnMetadata> columns = ImportSchemaUtil.createColumnMetadata(schema);
         TableMetadata table = new TableMetadata(catalogName, schemaName, tableName, columns);
         metadata.createTable(table);

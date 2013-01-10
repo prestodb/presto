@@ -2,18 +2,17 @@ package com.facebook.presto.importer;
 
 import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.facebook.presto.spi.ImportClient;
+import com.facebook.presto.spi.ObjectNotFoundException;
 import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.split.ImportClientFactory;
 import com.google.common.base.Function;
 import com.google.common.base.Supplier;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
-import javax.annotation.Nullable;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
+import static com.facebook.presto.util.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 class PartitionChunkSupplier
@@ -39,7 +38,7 @@ class PartitionChunkSupplier
     @Override
     public Iterable<SerializedPartitionChunk> get()
     {
-        List<PartitionChunk> chunks = runWithRetryUnchecked(new Callable<List<PartitionChunk>>()
+        List<PartitionChunk> chunks = retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<List<PartitionChunk>>()
         {
             @Override
             public List<PartitionChunk> call()

@@ -2,6 +2,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.ingest.ImportSchemaUtil;
 import com.facebook.presto.spi.ImportClient;
+import com.facebook.presto.spi.ObjectNotFoundException;
 import com.facebook.presto.spi.SchemaField;
 import com.facebook.presto.split.ImportClientFactory;
 import com.facebook.presto.tuple.TupleInfo;
@@ -19,7 +20,7 @@ import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 import static com.facebook.presto.metadata.MetadataUtil.getTableColumns;
-import static com.facebook.presto.util.RetryDriver.runWithRetryUnchecked;
+import static com.facebook.presto.util.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ImportMetadata
@@ -116,7 +117,7 @@ public class ImportMetadata
 
     private static List<SchemaField> getTableSchema(final ImportClient client, final String database, final String table)
     {
-        return runWithRetryUnchecked(new Callable<List<SchemaField>>()
+        return retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<List<SchemaField>>()
         {
             @Override
             public List<SchemaField> call()
@@ -129,7 +130,7 @@ public class ImportMetadata
 
     private static List<String> getTableNames(final ImportClient client, final String database)
     {
-        return runWithRetryUnchecked(new Callable<List<String>>()
+        return retry().runUnchecked(new Callable<List<String>>()
         {
             @Override
             public List<String> call()
@@ -142,7 +143,7 @@ public class ImportMetadata
 
     private static List<String> getDatabaseNames(final ImportClient client)
     {
-        return runWithRetryUnchecked(new Callable<List<String>>()
+        return retry().runUnchecked(new Callable<List<String>>()
         {
             @Override
             public List<String> call()
