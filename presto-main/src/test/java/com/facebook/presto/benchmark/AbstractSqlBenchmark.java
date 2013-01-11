@@ -55,7 +55,7 @@ public abstract class AbstractSqlBenchmark
             session = new Session(null, TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
             analysis = new Analyzer(session, metadata).analyze(statement);
 
-            PlanNode plan = new LogicalPlanner().plan(analysis);
+            PlanNode plan = new LogicalPlanner(session, metadata).plan(analysis);
             fragment = new DistributedLogicalPlanner(metadata)
                     .createSubplans(plan, analysis.getSymbolAllocator(), true)
                     .getFragment();
