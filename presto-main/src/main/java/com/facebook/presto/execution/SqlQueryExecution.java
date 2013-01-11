@@ -197,7 +197,7 @@ public class SqlQueryExecution
         AnalysisResult analysis = analyzer.analyze(statement);
 
         // plan query
-        LogicalPlanner logicalPlanner = new LogicalPlanner();
+        LogicalPlanner logicalPlanner = new LogicalPlanner(session, metadata);
         PlanNode plan = logicalPlanner.plan(analysis);
 
         // fragment the plan

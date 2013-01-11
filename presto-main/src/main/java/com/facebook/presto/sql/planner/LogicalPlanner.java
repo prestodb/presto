@@ -2,12 +2,14 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionHandle;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.analyzer.AnalysisResult;
 import com.facebook.presto.sql.analyzer.AnalyzedFunction;
 import com.facebook.presto.sql.analyzer.AnalyzedExpression;
 import com.facebook.presto.sql.analyzer.AnalyzedOrdering;
 import com.facebook.presto.sql.analyzer.Field;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.SymbolAllocator;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
@@ -16,6 +18,7 @@ import com.facebook.presto.sql.planner.optimizations.CoalesceLimits;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PruneRedundantProjections;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
+import com.facebook.presto.sql.planner.optimizations.SimplifyExpressions;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -63,12 +66,14 @@ import static com.google.common.collect.Iterables.concat;
 
 public class LogicalPlanner
 {
-    private final static List<PlanOptimizer> OPTIMIZATIONS = ImmutableList.of(
-            new PruneUnreferencedOutputs(),
-            new UnaliasSymbolReferences(),
-            new PruneRedundantProjections(),
-            new CoalesceLimits()
-    );
+    private final Metadata metadata;
+    private final Session session;
+
+    public LogicalPlanner(Session session, Metadata metadata)
+    {
+        this.metadata = metadata;
+        this.session = session;
+    }
 
     public PlanNode plan(AnalysisResult analysis)
     {
@@ -79,11 +84,22 @@ public class LogicalPlanner
 
         Map<Symbol, Type> types = analysis.getTypes();
 
-        for (PlanOptimizer optimizer : OPTIMIZATIONS) {
+        for (PlanOptimizer optimizer : getOptimizations()) {
             root = optimizer.optimize(root, types);
         }
 
         return root;
+    }
+
+    private List<PlanOptimizer> getOptimizations()
+    {
+        return ImmutableList.of(
+                new SimplifyExpressions(metadata, session),
+                new PruneUnreferencedOutputs(),
+                new UnaliasSymbolReferences(),
+                new PruneRedundantProjections(),
+                new CoalesceLimits()
+        );
     }
 
     private PlanNode createOutputPlan(AnalysisResult analysis)

@@ -173,7 +173,7 @@ public final class FunctionAssertions
 
         AnalysisResult analysis = analyzer.analyze(statement);
 
-        PlanNode plan = new LogicalPlanner().plan(analysis);
+        PlanNode plan = new LogicalPlanner(session, METADATA).plan(analysis);
 
         SubPlan subplan = new DistributedLogicalPlanner(METADATA).createSubplans(plan, analysis.getSymbolAllocator(), true);
         assertTrue(subplan.getChildren().isEmpty(), "Expected subplan to have no children");
