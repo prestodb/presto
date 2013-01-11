@@ -22,12 +22,17 @@ public class QueryCompletionEvent
 
     private final DateTime createTime;
     private final DateTime executionStartTime;
-
     private final DateTime endTime;
+
     // times are in ms
     private final long queuedTimeMs;
     private final long analysisTimeMs;
     private final long distributedPlanningTimeMs;
+    private final long totalSplitWallTimeMs;
+    private final long totalSplitCpuTimeMs;
+    private final long totalBytes;
+    private final long totalRows;
+
     private final int splits;
 
     private final String outputStageJson;
@@ -45,6 +50,10 @@ public class QueryCompletionEvent
             long queuedTimeMs,
             long analysisTimeMs,
             long distributedPlanningTimeMs,
+            long totalSplitWallTimeMs,
+            long totalSplitCpuTimeMs,
+            long totalBytes,
+            long totalRows,
             int splits,
             String outputStageJson,
             String failuresJson)
@@ -60,6 +69,10 @@ public class QueryCompletionEvent
         this.queuedTimeMs = queuedTimeMs;
         this.analysisTimeMs = analysisTimeMs;
         this.distributedPlanningTimeMs = distributedPlanningTimeMs;
+        this.totalSplitWallTimeMs = totalSplitWallTimeMs;
+        this.totalSplitCpuTimeMs = totalSplitCpuTimeMs;
+        this.totalBytes = totalBytes;
+        this.totalRows = totalRows;
         this.splits = splits;
         this.outputStageJson = outputStageJson;
         this.failuresJson = failuresJson;
@@ -114,6 +127,15 @@ public class QueryCompletionEvent
     }
 
     @EventField
+    public long getQueryWallTimeMs()
+    {
+        if (createTime == null || endTime == null) {
+            return 0;
+        }
+        return endTime.getMillis() - createTime.getMillis();
+    }
+
+    @EventField
     public long getQueuedTimeMs()
     {
         return queuedTimeMs;
@@ -129,6 +151,55 @@ public class QueryCompletionEvent
     public long getDistributedPlanningTimeMs()
     {
         return distributedPlanningTimeMs;
+    }
+
+    @EventField
+    public long getTotalSplitWallTimeMs()
+    {
+        return totalSplitWallTimeMs;
+    }
+
+    @EventField
+    public long getTotalSplitCpuTimeMs()
+    {
+        return totalSplitCpuTimeMs;
+    }
+
+    @EventField
+    public long getBytesPerSec()
+    {
+        return (getQueryWallTimeMs() > 0) ? totalBytes * 1000 / getQueryWallTimeMs() : 0;
+    }
+
+    @EventField
+    public long getBytesPerCpuSec()
+    {
+        return (getTotalSplitCpuTimeMs() > 0) ? totalBytes * 1000 / getTotalSplitCpuTimeMs() : 0;
+
+    }
+
+    @EventField
+    public long getTotalBytes()
+    {
+        return totalBytes;
+    }
+
+    @EventField
+    public long getRowsPerSec()
+    {
+        return (getQueryWallTimeMs() > 0) ? totalRows * 1000 / getQueryWallTimeMs() : 0;
+    }
+
+    @EventField
+    public long getRowsPerCpuSec()
+    {
+        return (getTotalSplitCpuTimeMs() > 0) ? totalRows * 1000 / getTotalSplitCpuTimeMs() : 0;
+    }
+
+    @EventField
+    public long getTotalRows()
+    {
+        return totalRows;
     }
 
     @EventField

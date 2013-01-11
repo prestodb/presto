@@ -1,5 +1,6 @@
 package com.facebook.presto.event.query;
 
+import com.facebook.presto.execution.ExecutionStats;
 import com.facebook.presto.execution.FailureInfo;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.StageInfo;
@@ -39,6 +40,7 @@ public class QueryMonitor
 
     public void completionEvent(QueryInfo queryInfo)
     {
+        ExecutionStats globalExecutionStats = queryInfo.getOutputStage().getGlobalExecutionStats();
         eventClient.post(
                 new QueryCompletionEvent(
                         queryInfo.getQueryId(),
@@ -52,6 +54,10 @@ public class QueryMonitor
                         queryInfo.getQueryStats().getQueuedTime(),
                         queryInfo.getQueryStats().getAnalysisTime(),
                         queryInfo.getQueryStats().getDistributedPlanningTime(),
+                        globalExecutionStats.getSplitWallTime(),
+                        globalExecutionStats.getSplitCpuTime(),
+                        globalExecutionStats.getCompletedDataSize(),
+                        globalExecutionStats.getCompletedPositionCount(),
                         queryInfo.getQueryStats().getSplits(),
                         stageInfoJsonCodec.toJson(queryInfo.getOutputStage()),
                         failureInfoJsonCodec.toJson(queryInfo.getFailures())

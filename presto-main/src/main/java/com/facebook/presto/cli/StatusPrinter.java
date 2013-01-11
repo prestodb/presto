@@ -111,12 +111,10 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
         StageInfo outputStage = queryInfo.getOutputStage();
 
         // only include input (leaf) stages
-        ExecutionStats inputExecutionStats = new ExecutionStats();
-        sumStats(outputStage, inputExecutionStats, true);
+        ExecutionStats inputExecutionStats = outputStage.getLeafExecutionStats();
 
         // sum all stats (used for global stats like cpu time)
-        ExecutionStats globalExecutionStats = new ExecutionStats();
-        sumStats(outputStage, globalExecutionStats, false);
+        ExecutionStats globalExecutionStats = outputStage.getGlobalExecutionStats();
 
         int nodes = uniqueNodes(outputStage).size();
 
@@ -173,11 +171,9 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
         StageInfo outputStage = queryInfo.getOutputStage();
 
         // only include input (leaf) stages
-        ExecutionStats inputExecutionStats = new ExecutionStats();
-        sumStats(outputStage, inputExecutionStats, true);
+        ExecutionStats inputExecutionStats = outputStage.getLeafExecutionStats();
 
-        ExecutionStats globalExecutionStats = new ExecutionStats();
-        sumStats(outputStage, globalExecutionStats, false);
+        ExecutionStats globalExecutionStats = outputStage.getGlobalExecutionStats();
 
         int nodes = uniqueNodes(outputStage).size();
         if (REAL_TERMINAL) {
@@ -280,8 +276,7 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
     {
         Duration elapsedTime = Duration.nanosSince(start);
 
-        ExecutionStats executionStats = new ExecutionStats();
-        sumTaskStats(stage, executionStats);
+        ExecutionStats executionStats = stage.getStageOnlyExecutionStats();
 
         // STAGE  S    ROWS  ROWS/s  BYTES  BYTES/s   PEND    RUN   DONE
         // 0......Q     26M   9077M  9993G    9077M  9077M  9077M  9077M
@@ -315,26 +310,6 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
 
         for (StageInfo subStage : stage.getSubStages()) {
             printStageTree(subStage, indent + "  ");
-        }
-    }
-
-    private static void sumStats(StageInfo stageInfo, ExecutionStats executionStats, boolean sumLeafOnly)
-    {
-        if (stageInfo == null) {
-            return;
-        }
-        if (!sumLeafOnly || stageInfo.getSubStages().isEmpty()) {
-            sumTaskStats(stageInfo, executionStats);
-        }
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            sumStats(subStage, executionStats, sumLeafOnly);
-        }
-    }
-
-    private static void sumTaskStats(StageInfo stageInfo, ExecutionStats executionStats)
-    {
-        for (TaskInfo task : stageInfo.getTasks()) {
-            executionStats.add(task.getStats());
         }
     }
 
