@@ -660,7 +660,7 @@ public class TestQueries
 
         AnalysisResult analysis = analyzer.analyze(statement);
 
-        PlanNode plan = new LogicalPlanner().plan(analysis);
+        PlanNode plan = new LogicalPlanner(session, metadata).plan(analysis);
         new PlanPrinter().print(plan, analysis.getTypes());
 
         SubPlan subplan = new DistributedLogicalPlanner(metadata).createSubplans(plan, analysis.getSymbolAllocator(), true);

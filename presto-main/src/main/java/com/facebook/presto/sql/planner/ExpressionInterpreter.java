@@ -725,7 +725,7 @@ public class ExpressionInterpreter
         }));
     }
 
-    private static Expression toExpression(Object object)
+    public static Expression toExpression(Object object)
     {
         if (object instanceof Expression) {
             return (Expression) object;
@@ -743,6 +743,14 @@ public class ExpressionInterpreter
             return new StringLiteral(((Slice) object).toString(UTF_8));
         }
 
-        throw new UnsupportedOperationException("not yet implemented");
+        if (object instanceof Boolean) {
+            return new BooleanLiteral(object.toString());
+        }
+
+        if (object == null) {
+            return new NullLiteral();
+        }
+
+        throw new UnsupportedOperationException("not yet implemented: " + object.getClass().getName());
     }
 }
