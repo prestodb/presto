@@ -21,7 +21,7 @@ public class TestImportClientFactory
                 serviceDescriptor("hive-metastore").addProperty("thrift", "missing-port").build(),
                 serviceDescriptor("hive-metastore").build());
 
-        ImportClientFactory factory = new ImportClientFactory(selector);
+        ImportClientFactory factory = new ImportClientFactory(selector, new HiveClientConfig());
         assertInstanceOf(factory.getClient("hive_fuu"), HiveClient.class);
         assertInstanceOf(factory.getClient("hive_bar"), HiveClient.class);
     }
@@ -33,6 +33,6 @@ public class TestImportClientFactory
                 serviceDescriptor("hive-metastore").addProperty("thrift", "missing-port").addProperty("name", "fuu").build(),
                 serviceDescriptor("hive-metastore").build());
 
-        new ImportClientFactory(selector).getClient("hive_fuu");
+        new ImportClientFactory(selector, new HiveClientConfig()).getClient("hive_fuu");
     }
 }
