@@ -21,6 +21,9 @@ public class TestSqlParser
 
         printStatement("select * from foo a (x, y, z)");
 
+        printStatement("select show from foo");
+        printStatement("select extract(day from x), extract(dow from x) from y");
+
         printStatement("" +
                 "select * from foo a " +
                 "join bar b using (bar_id) " +

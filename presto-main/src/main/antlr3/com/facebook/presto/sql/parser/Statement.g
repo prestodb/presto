@@ -51,6 +51,9 @@ tokens {
     FUNCTION_CALL;
     NEGATIVE;
     QNAME;
+    SHOW_TABLES;
+    SHOW_COLUMNS;
+    SHOW_PARTITIONS;
     CREATE_TABLE;
     TABLE_ELEMENT_LIST;
     COLUMN_DEF;
@@ -341,7 +344,7 @@ type
     ;
 
 extractFieldOrIdent
-    : IDENT
+    : ident
     | extractField
     ;
 
@@ -371,16 +374,16 @@ function
     ;
 
 showTablesStmt
-    : SHOW_TABLES ((FROM | IN) qname)? -> ^(SHOW_TABLES qname?)
+    : SHOW TABLES ((FROM | IN) qname)? -> ^(SHOW_TABLES qname?)
     ;
 
 showColumnsStmt
-    : SHOW_COLUMNS (FROM | IN) qname -> ^(SHOW_COLUMNS qname)
+    : SHOW COLUMNS (FROM | IN) qname -> ^(SHOW_COLUMNS qname)
     | DESCRIBE qname                 -> ^(SHOW_COLUMNS qname)
     ;
 
 showPartitionsStmt
-    : SHOW_PARTITIONS (FROM | IN) qname -> ^(SHOW_PARTITIONS qname)
+    : SHOW PARTITIONS (FROM | IN) qname -> ^(SHOW_PARTITIONS qname)
     ;
 
 createTableStmt
@@ -443,6 +446,7 @@ qname
 
 ident
     : IDENT
+    | nonReserved -> IDENT[$nonReserved.text]
     ;
 
 number
@@ -457,6 +461,10 @@ bool
 
 integer
     : INTEGER_VALUE
+    ;
+
+nonReserved
+    : SHOW | TABLES | COLUMNS | PARTITIONS
     ;
 
 SELECT: 'SELECT';
@@ -538,11 +546,12 @@ DOUBLE: 'DOUBLE';
 BIGINT: 'BIGINT';
 BOOLEAN: 'BOOLEAN';
 CONSTRAINT: 'CONSTRAINT';
-SHOW_TABLES: 'SHOW' WS 'TABLES';
-SHOW_COLUMNS: 'SHOW' WS 'COLUMNS';
-SHOW_PARTITIONS: 'SHOW' WS 'PARTITIONS';
 DESCRIBE: 'DESCRIBE';
 CAST: 'CAST';
+SHOW: 'SHOW';
+TABLES: 'TABLES';
+COLUMNS: 'COLUMNS';
+PARTITIONS: 'PARTITIONS';
 
 EQ  : '=';
 NEQ : '<>' | '!=';
