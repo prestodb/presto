@@ -43,6 +43,7 @@ import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.split.HiveClientConfig;
 import com.facebook.presto.split.ImportClientFactory;
 import com.facebook.presto.split.ImportDataStreamProvider;
 import com.facebook.presto.split.InternalDataStreamProvider;
@@ -121,6 +122,7 @@ public class ServerMainModule
         binder.bind(SystemTables.class).in(Scopes.SINGLETON);
 
         binder.bind(ImportClientFactory.class).in(Scopes.SINGLETON);
+        bindConfig(binder).to(HiveClientConfig.class);
         binder.bind(ImportMetadata.class).in(Scopes.SINGLETON);
 
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
