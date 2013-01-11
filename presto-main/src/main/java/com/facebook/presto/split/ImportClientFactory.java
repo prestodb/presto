@@ -8,6 +8,7 @@ import com.google.inject.Inject;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.ServiceType;
+import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,11 +19,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class ImportClientFactory
 {
     private final ServiceSelector selector;
+    private final DataSize maxChunkSize;
 
     @Inject
-    public ImportClientFactory(@ServiceType("hive-metastore") ServiceSelector selector)
+    public ImportClientFactory(@ServiceType("hive-metastore") ServiceSelector selector, HiveClientConfig hiveClientConfig)
     {
         this.selector = selector;
+        this.maxChunkSize = hiveClientConfig.getMaxChunkSize();
     }
 
     // TODO: includes hack to support presto installations supporting multiple hive dbs
@@ -55,6 +58,6 @@ public class ImportClientFactory
         }
 
         HostAndPort metastore = shuffle(metastores).get(0);
-        return new HiveClient(metastore.getHostText(), metastore.getPort());
+        return new HiveClient(metastore.getHostText(), metastore.getPort(), maxChunkSize.toBytes());
     }
 }
