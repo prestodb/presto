@@ -1,5 +1,6 @@
 package com.facebook.presto.cli;
 
+import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
@@ -19,11 +20,13 @@ public class AlignedTuplePrinter
         extends OutputHandler
 {
     private static final int MAX_BUFFERED_ROWS = 10_000;
+    private static final Splitter LINE_SPLITTER = Splitter.on('\n');
+
     private final List<List<Object>> rowBuffer = new ArrayList<>(MAX_BUFFERED_ROWS);
     private final List<String> fieldNames;
     private final Writer writer;
-    private boolean headerOutput = false;
-    private long rowCount = 0;
+    private boolean headerOutput;
+    private long rowCount;
 
     public AlignedTuplePrinter(List<String> fieldNames, Writer writer)
     {
@@ -70,14 +73,14 @@ public class AlignedTuplePrinter
     {
         int columns = fieldNames.size();
 
-        int maxWidth[] = new int[columns];
+        int[] maxWidth = new int[columns];
         for (int i = 0; i < columns; i++) {
             maxWidth[i] = max(1, fieldNames.get(i).length());
         }
         for (List<Object> row : rowBuffer) {
             for (int i = 0; i < row.size(); i++) {
                 String s = formatValue(row.get(i));
-                maxWidth[i] = max(maxWidth[i], s.length());
+                maxWidth[i] = max(maxWidth[i], maxLineLength(s));
             }
         }
 
@@ -103,15 +106,33 @@ public class AlignedTuplePrinter
         }
 
         for (List<Object> row : rowBuffer) {
+            List<List<String>> columnLines = new ArrayList<>(columns);
+            int maxLines = 1;
             for (int i = 0; i < columns; i++) {
-                if (i > 0) {
-                    writer.append('|');
-                }
                 String s = formatValue(row.get(i));
-                boolean numeric = row.get(i) instanceof Number;
-                writer.append(align(s, maxWidth[i], 1, numeric));
+                ImmutableList<String> lines = ImmutableList.copyOf(LINE_SPLITTER.split(s));
+                columnLines.add(lines);
+                maxLines = max(maxLines, lines.size());
             }
-            writer.append('\n');
+
+            for (int line = 0; line < maxLines; line++) {
+                for (int column = 0; column < columns; column++) {
+                    if (column > 0) {
+                        writer.append('|');
+                    }
+                    String s = "";
+                    if (columnLines.get(column).size() > line) {
+                        s = columnLines.get(column).get(line);
+                    }
+                    boolean numeric = row.get(column) instanceof Number;
+                    String out = align(s, maxWidth[column], 1, numeric);
+                    if ((line + 1) < columnLines.get(column).size()) {
+                        out = out.substring(0, out.length() - 1) + "+";
+                    }
+                    writer.append(out);
+                }
+                writer.append('\n');
+            }
         }
 
         writer.flush();
@@ -137,5 +158,14 @@ public class AlignedTuplePrinter
         String large = repeat(" ", (maxWidth - s.length()) + padding);
         String small = repeat(" ", padding);
         return right ? (large + s + small) : (small + s + large);
+    }
+
+    private static int maxLineLength(String s)
+    {
+        int n = 0;
+        for (String line : LINE_SPLITTER.split(s)) {
+            n = max(n, line.length());
+        }
+        return n;
     }
 }
