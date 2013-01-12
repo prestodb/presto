@@ -7,6 +7,14 @@ import static com.facebook.presto.operator.scalar.FunctionAssertions.assertFunct
 public class TestStringFunctions
 {
     @Test
+    public void testChr()
+    {
+        assertFunction("CHR(65)", "A");
+        assertFunction("CHR(65)", "A");
+        assertFunction("CHR(0)", "\0");
+    }
+
+    @Test
     public void testConcat()
     {
         assertFunction("CONCAT('hello', ' world')", "hello world");

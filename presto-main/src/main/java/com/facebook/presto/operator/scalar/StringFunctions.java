@@ -3,11 +3,20 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Ascii;
+import com.google.common.primitives.Ints;
 
 @SuppressWarnings("UnusedDeclaration")
 public final class StringFunctions
 {
     private StringFunctions() {}
+
+    @ScalarFunction
+    public static Slice chr(long n)
+    {
+        Slice slice = Slices.allocate(1);
+        slice.setByte(0, Ints.saturatedCast(n));
+        return slice;
+    }
 
     @ScalarFunction
     public static Slice concat(Slice str1, Slice str2)
