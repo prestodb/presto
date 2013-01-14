@@ -150,6 +150,13 @@ public class TestQueries
     }
 
     @Test
+    public void testLimitZero()
+            throws Exception
+    {
+        assertQuery("SELECT custkey, totalprice FROM orders LIMIT 0");
+    }
+
+    @Test
     public void testRepeatedAggregations()
             throws Exception
     {
