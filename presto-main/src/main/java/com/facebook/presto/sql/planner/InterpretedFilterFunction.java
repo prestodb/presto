@@ -5,6 +5,7 @@ import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.TreeRewriter;
 import com.facebook.presto.tuple.TupleReadable;
 
 import java.util.Map;
@@ -15,13 +16,13 @@ public class InterpretedFilterFunction
         implements FilterFunction
 {
     private final Expression predicate;
-    private final ChannelSymbolResolver resolver;
+    private final TupleInputResolver resolver = new TupleInputResolver();
     private final ExpressionInterpreter evaluator;
 
     public InterpretedFilterFunction(Expression predicate, Map<Symbol, Integer> symbolToChannelMapping, Metadata metadata, Session session)
     {
-        this.predicate = predicate;
-        resolver = new ChannelSymbolResolver(symbolToChannelMapping);
+        // pre-compute symbol -> input mappings and replace the corresponding nodes in the tree
+        this.predicate = TreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToChannelMapping), predicate);
         evaluator = new ExpressionInterpreter(resolver, metadata, session);
     }
 
