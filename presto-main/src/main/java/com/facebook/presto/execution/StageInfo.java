@@ -115,6 +115,27 @@ public class StageInfo
         return failures;
     }
 
+    public ExecutionStats getGlobalExecutionStats()
+    {
+        ExecutionStats executionStats = new ExecutionStats();
+        sumStats(this, executionStats, false);
+        return executionStats;
+    }
+
+    public ExecutionStats getLeafExecutionStats()
+    {
+        ExecutionStats executionStats = new ExecutionStats();
+        sumStats(this, executionStats, true);
+        return executionStats;
+    }
+
+    public ExecutionStats getStageOnlyExecutionStats()
+    {
+        ExecutionStats executionStats = new ExecutionStats();
+        sumTaskStats(this, executionStats);
+        return executionStats;
+    }
+
     @Override
     public String toString()
     {
@@ -150,5 +171,25 @@ public class StageInfo
                 return stageInfo.getState();
             }
         };
+    }
+
+    private static void sumStats(StageInfo stageInfo, ExecutionStats executionStats, boolean sumLeafOnly)
+    {
+        if (stageInfo == null) {
+            return;
+        }
+        if (!sumLeafOnly || stageInfo.getSubStages().isEmpty()) {
+            sumTaskStats(stageInfo, executionStats);
+        }
+        for (StageInfo subStage : stageInfo.getSubStages()) {
+            sumStats(subStage, executionStats, sumLeafOnly);
+        }
+    }
+
+    private static void sumTaskStats(StageInfo stageInfo, ExecutionStats executionStats)
+    {
+        for (TaskInfo task : stageInfo.getTasks()) {
+            executionStats.add(task.getStats());
+        }
     }
 }
