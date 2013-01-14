@@ -14,7 +14,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -65,7 +64,6 @@ public class SqlStageExecution
         Preconditions.checkNotNull(location, "location is null");
         Preconditions.checkNotNull(plan, "plan is null");
         Preconditions.checkNotNull(tasks, "tasks is null");
-        Preconditions.checkArgument(!Iterables.isEmpty(tasks), "tasks is empty");
         Preconditions.checkNotNull(subStages, "subStages is null");
 
         this.queryId = queryId;
@@ -74,6 +72,10 @@ public class SqlStageExecution
         this.plan = plan;
         this.subStages = ImmutableList.copyOf(subStages);
         this.tasks = ImmutableList.copyOf(tasks);
+
+        if (this.tasks.isEmpty()) {
+            stageState.set(StageState.FINISHED);
+        }
 
         tupleInfos = ImmutableList.copyOf(IterableTransformer.on(plan.getRoot().getOutputSymbols())
                 .transform(Functions.forMap(plan.getSymbols()))
@@ -138,7 +140,10 @@ public class SqlStageExecution
 
         // transition to scheduling
         synchronized (this) {
-            Preconditions.checkState(stageState.compareAndSet(StageState.PLANNED, StageState.SCHEDULING), "Stage has already been started");
+            if (!stageState.compareAndSet(StageState.PLANNED, StageState.SCHEDULING)) {
+                // stage has already been started, has been canceled or has no tasks due to partition pruning
+                return;
+            }
         }
 
         try {

@@ -8,6 +8,8 @@ import com.facebook.presto.operator.AbstractPageIterator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.operator.PageIterator;
+import com.facebook.presto.operator.PageIterators;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -39,7 +41,6 @@ public class QueryDriversOperator
 
         this.pageBufferMax = pageBufferMax;
         this.driverProviders = ImmutableList.copyOf(driverProviders);
-        Preconditions.checkArgument(!this.driverProviders.isEmpty(), "driverProviders is empty");
         this.tupleInfos = tupleInfos;
     }
 
@@ -56,8 +57,12 @@ public class QueryDriversOperator
     }
 
     @Override
-    public QueryDriversIterator iterator(OperatorStats operatorStats)
+    public PageIterator iterator(OperatorStats operatorStats)
     {
+        if (driverProviders.isEmpty()) {
+            return PageIterators.emptyIterator(tupleInfos);
+        }
+
         ImmutableList.Builder<QueryDriver> queries = ImmutableList.builder();
         try {
             PageBuffer outputBuffer = new PageBuffer("out", driverProviders.size(), pageBufferMax);
