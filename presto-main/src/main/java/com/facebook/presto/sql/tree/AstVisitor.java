@@ -254,4 +254,9 @@ public abstract class AstVisitor<R, C>
     {
         return visitExpression(node, context);
     }
+
+    public R visitInputReference(InputReference node, C context)
+    {
+        return visitExpression(node, context);
+    }
 }

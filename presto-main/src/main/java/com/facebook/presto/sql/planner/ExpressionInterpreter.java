@@ -22,6 +22,7 @@ import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
@@ -55,17 +56,31 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class ExpressionInterpreter
         extends AstVisitor<Object, Void>
 {
-    private final SymbolResolver resolver;
+    private final SymbolResolver symbolResolver;
+    private final InputResolver inputResolver;
     private final Metadata metadata;
     private final Session session;
 
-    public ExpressionInterpreter(SymbolResolver resolver, Metadata metadata, Session session)
+    public ExpressionInterpreter(SymbolResolver symbolResolver, Metadata metadata, Session session)
     {
-        checkNotNull(resolver, "resolver is null");
+        checkNotNull(symbolResolver, "resolver is null");
         checkNotNull(metadata, "metadata is null");
         checkNotNull(session, "session is null");
 
-        this.resolver = resolver;
+        this.symbolResolver = symbolResolver;
+        this.inputResolver = null;
+        this.metadata = metadata;
+        this.session = session;
+    }
+
+    public ExpressionInterpreter(InputResolver inputResolver, Metadata metadata, Session session)
+    {
+        checkNotNull(inputResolver, "resolver is null");
+        checkNotNull(metadata, "metadata is null");
+        checkNotNull(session, "session is null");
+
+        this.symbolResolver = null;
+        this.inputResolver = inputResolver;
         this.metadata = metadata;
         this.session = session;
     }
@@ -84,10 +99,16 @@ public class ExpressionInterpreter
     }
 
     @Override
+    public Object visitInputReference(InputReference node, Void context)
+    {
+        return inputResolver.getValue(node.getInput());
+    }
+
+    @Override
     protected Object visitQualifiedNameReference(QualifiedNameReference node, Void context)
     {
         Symbol symbol = Symbol.fromQualifiedName(node.getName());
-        return resolver.getValue(symbol);
+        return symbolResolver.getValue(symbol);
     }
 
     @Override

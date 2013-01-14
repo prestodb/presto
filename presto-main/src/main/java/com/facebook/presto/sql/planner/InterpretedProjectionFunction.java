@@ -8,6 +8,7 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.TreeRewriter;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
 
@@ -18,15 +19,16 @@ public class InterpretedProjectionFunction
 {
     private final Type type;
     private final Expression expression;
-    private final ChannelSymbolResolver resolver;
+    private final TupleInputResolver resolver = new TupleInputResolver();
     private final ExpressionInterpreter evaluator;
 
     public InterpretedProjectionFunction(Type type, Expression expression, Map<Symbol, Integer> symbolToChannelMapping, Metadata metadata, Session session)
     {
         this.type = type;
-        this.expression = expression;
 
-        resolver = new ChannelSymbolResolver(symbolToChannelMapping);
+        // pre-compute symbol -> input mappings and replace the corresponding nodes in the tree
+        this.expression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToChannelMapping), expression);
+
         evaluator = new ExpressionInterpreter(resolver, metadata, session);
     }
 
