@@ -25,15 +25,15 @@ public class QueryCompletionEvent
     private final DateTime endTime;
 
     // times are in ms
-    private final long queuedTimeMs;
-    private final long analysisTimeMs;
-    private final long distributedPlanningTimeMs;
-    private final long totalSplitWallTimeMs;
-    private final long totalSplitCpuTimeMs;
-    private final long totalBytes;
-    private final long totalRows;
+    private final Long queuedTimeMs;
+    private final Long analysisTimeMs;
+    private final Long distributedPlanningTimeMs;
+    private final Long totalSplitWallTimeMs;
+    private final Long totalSplitCpuTimeMs;
+    private final Long totalBytes;
+    private final Long totalRows;
 
-    private final int splits;
+    private final Integer splits;
 
     private final String outputStageJson;
     private final String failuresJson;
@@ -47,14 +47,14 @@ public class QueryCompletionEvent
             DateTime createTime,
             DateTime executionStartTime,
             DateTime endTime,
-            long queuedTimeMs,
-            long analysisTimeMs,
-            long distributedPlanningTimeMs,
-            long totalSplitWallTimeMs,
-            long totalSplitCpuTimeMs,
-            long totalBytes,
-            long totalRows,
-            int splits,
+            Long queuedTimeMs,
+            Long analysisTimeMs,
+            Long distributedPlanningTimeMs,
+            Long totalSplitWallTimeMs,
+            Long totalSplitCpuTimeMs,
+            Long totalBytes,
+            Long totalRows,
+            Integer splits,
             String outputStageJson,
             String failuresJson)
     {
@@ -127,83 +127,97 @@ public class QueryCompletionEvent
     }
 
     @EventField
-    public long getQueryWallTimeMs()
+    public Long getQueryWallTimeMs()
     {
         if (createTime == null || endTime == null) {
-            return 0;
+            return null;
         }
         return endTime.getMillis() - createTime.getMillis();
     }
 
     @EventField
-    public long getQueuedTimeMs()
+    public Long getQueuedTimeMs()
     {
         return queuedTimeMs;
     }
 
     @EventField
-    public long getAnalysisTimeMs()
+    public Long getAnalysisTimeMs()
     {
         return analysisTimeMs;
     }
 
     @EventField
-    public long getDistributedPlanningTimeMs()
+    public Long getDistributedPlanningTimeMs()
     {
         return distributedPlanningTimeMs;
     }
 
     @EventField
-    public long getTotalSplitWallTimeMs()
+    public Long getTotalSplitWallTimeMs()
     {
         return totalSplitWallTimeMs;
     }
 
     @EventField
-    public long getTotalSplitCpuTimeMs()
+    public Long getTotalSplitCpuTimeMs()
     {
         return totalSplitCpuTimeMs;
     }
 
     @EventField
-    public long getBytesPerSec()
+    public Long getBytesPerSec()
     {
-        return (getQueryWallTimeMs() > 0) ? totalBytes * 1000 / getQueryWallTimeMs() : 0;
+        Long queryWallTimeMs = getQueryWallTimeMs();
+        if (totalBytes == null || queryWallTimeMs == null) {
+            return null;
+        }
+        return totalBytes * 1000 / (queryWallTimeMs + 1); // add 1 to avoid divide by zero
     }
 
     @EventField
-    public long getBytesPerCpuSec()
+    public Long getBytesPerCpuSec()
     {
-        return (getTotalSplitCpuTimeMs() > 0) ? totalBytes * 1000 / getTotalSplitCpuTimeMs() : 0;
+        if (totalBytes == null || totalSplitCpuTimeMs == null) {
+            return null;
+        }
+        return totalBytes * 1000 / (totalSplitCpuTimeMs + 1); // add 1 to avoid divide by zero
 
     }
 
     @EventField
-    public long getTotalBytes()
+    public Long getTotalBytes()
     {
         return totalBytes;
     }
 
     @EventField
-    public long getRowsPerSec()
+    public Long getRowsPerSec()
     {
-        return (getQueryWallTimeMs() > 0) ? totalRows * 1000 / getQueryWallTimeMs() : 0;
+        Long queryWallTimeMs = getQueryWallTimeMs();
+        if (totalRows == null || queryWallTimeMs == null) {
+            return null;
+        }
+        return totalRows * 1000 / (queryWallTimeMs + 1); // add 1 to avoid divide by zero
     }
 
     @EventField
-    public long getRowsPerCpuSec()
+    public Long getRowsPerCpuSec()
     {
-        return (getTotalSplitCpuTimeMs() > 0) ? totalRows * 1000 / getTotalSplitCpuTimeMs() : 0;
+        if (totalRows == null || totalSplitCpuTimeMs == null) {
+            return null;
+        }
+        return totalRows * 1000 / (totalSplitCpuTimeMs + 1); // add 1 to avoid divide by zero
     }
 
     @EventField
-    public long getTotalRows()
+    public Long getTotalRows()
     {
         return totalRows;
     }
 
     @EventField
-    public int getSplits()
+    public Integer getSplits()
     {
         return splits;
     }
