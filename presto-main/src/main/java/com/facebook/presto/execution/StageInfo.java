@@ -115,24 +115,24 @@ public class StageInfo
         return failures;
     }
 
-    public ExecutionStats getGlobalExecutionStats()
+    public static ExecutionStats globalExecutionStats(@Nullable StageInfo stageInfo)
     {
         ExecutionStats executionStats = new ExecutionStats();
-        sumStats(this, executionStats, false);
+        sumStats(stageInfo, executionStats, false);
         return executionStats;
     }
 
-    public ExecutionStats getLeafExecutionStats()
+    public static ExecutionStats leafExecutionStats(@Nullable StageInfo stageInfo)
     {
         ExecutionStats executionStats = new ExecutionStats();
-        sumStats(this, executionStats, true);
+        sumStats(stageInfo, executionStats, true);
         return executionStats;
     }
 
-    public ExecutionStats getStageOnlyExecutionStats()
+    public static ExecutionStats stageOnlyExecutionStats(@Nullable StageInfo stageInfo)
     {
         ExecutionStats executionStats = new ExecutionStats();
-        sumTaskStats(this, executionStats);
+        sumTaskStats(stageInfo, executionStats);
         return executionStats;
     }
 
@@ -173,7 +173,7 @@ public class StageInfo
         };
     }
 
-    private static void sumStats(StageInfo stageInfo, ExecutionStats executionStats, boolean sumLeafOnly)
+    private static void sumStats(@Nullable StageInfo stageInfo, ExecutionStats executionStats, boolean sumLeafOnly)
     {
         if (stageInfo == null) {
             return;
@@ -186,8 +186,11 @@ public class StageInfo
         }
     }
 
-    private static void sumTaskStats(StageInfo stageInfo, ExecutionStats executionStats)
+    private static void sumTaskStats(@Nullable StageInfo stageInfo, ExecutionStats executionStats)
     {
+        if (stageInfo == null) {
+            return;
+        }
         for (TaskInfo task : stageInfo.getTasks()) {
             executionStats.add(task.getStats());
         }
