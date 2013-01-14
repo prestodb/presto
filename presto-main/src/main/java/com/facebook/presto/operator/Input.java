@@ -1,4 +1,4 @@
-package com.facebook.presto.operator.aggregation;
+package com.facebook.presto.operator;
 
 import com.google.common.base.Objects;
 
