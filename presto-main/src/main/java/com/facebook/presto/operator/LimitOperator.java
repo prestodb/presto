@@ -17,7 +17,7 @@ public class LimitOperator
     public LimitOperator(Operator source, long limit)
     {
         checkNotNull(source, "source is null");
-        checkArgument(limit > 0, "limit must be at least 1");
+        checkArgument(limit >= 0, "limit must be at least zero");
 
         this.source = source;
         this.limit = limit;
