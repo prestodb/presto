@@ -4,7 +4,6 @@ import com.facebook.presto.execution.ExecutionStats;
 import com.facebook.presto.execution.PageBufferInfo;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.server.HttpQueryClient;
@@ -108,7 +107,6 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
         Duration wallTime = Duration.nanosSince(start);
 
         QueryInfo queryInfo = queryClient.getQueryInfo(true);
-        QueryStats queryStats = queryInfo.getQueryStats();
 
         StageInfo outputStage = queryInfo.getOutputStage();
 
