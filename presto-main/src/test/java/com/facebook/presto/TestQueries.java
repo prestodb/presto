@@ -213,6 +213,7 @@ public class TestQueries
         assertQuery("SELECT COUNT(1) FROM ORDERS");
 
         assertQuery("SELECT COUNT(NULLIF(orderstatus, 'F')) FROM ORDERS");
+        assertQuery("SELECT COUNT(CAST(NULL AS BIGINT)) FROM ORDERS"); // todo: make COUNT(null) work
     }
 
     @Test

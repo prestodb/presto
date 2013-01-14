@@ -34,8 +34,7 @@ public class CountColumnAggregation
     @Override
     public void initialize(Slice valueSlice, int valueOffset)
     {
-        // mark value null
-        SINGLE_LONG.setNull(valueSlice, valueOffset, 0);
+        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, 0);
     }
 
     @Override
@@ -46,9 +45,6 @@ public class CountColumnAggregation
             return;
         }
 
-        // mark value not null
-        SINGLE_LONG.setNotNull(valueSlice, valueOffset, 0);
-
         // update current value
         long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
         SINGLE_LONG.setLong(valueSlice, valueOffset, 0, currentValue + 1);
@@ -58,7 +54,6 @@ public class CountColumnAggregation
     public void addInput(int positionCount, Block block, Slice valueSlice, int valueOffset)
     {
         // initialize with current value
-        boolean hasNonNull = !SINGLE_LONG.isNull(valueSlice, valueOffset);
         long count = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
 
         // process block
@@ -66,17 +61,13 @@ public class CountColumnAggregation
         while (cursor.advanceNextPosition()) {
             // todo remove this assumption that the field is 0
             if (!cursor.isNull(0)) {
-                hasNonNull = true;
                 // todo remove this assumption that the field is 0
                 count++;
             }
         }
 
         // write new value
-        if (hasNonNull) {
-            SINGLE_LONG.setNotNull(valueSlice, valueOffset, 0);
-            SINGLE_LONG.setLong(valueSlice, valueOffset, 0, count);
-        }
+        SINGLE_LONG.setLong(valueSlice, valueOffset, 0, count);
     }
 
     @Override
@@ -85,9 +76,6 @@ public class CountColumnAggregation
         if (cursor.isNull(0)) {
             return;
         }
-
-        // mark value not null
-        SINGLE_LONG.setNotNull(valueSlice, valueOffset, 0);
 
         // update current value
         long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
@@ -104,11 +92,7 @@ public class CountColumnAggregation
     @Override
     public void evaluateFinal(Slice valueSlice, int valueOffset, BlockBuilder output)
     {
-        if (!SINGLE_LONG.isNull(valueSlice, valueOffset, 0)) {
-            long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
-            output.append(currentValue);
-        } else {
-            output.appendNull();
-        }
+        long currentValue = SINGLE_LONG.getLong(valueSlice, valueOffset, 0);
+        output.append(currentValue);
     }
 }
