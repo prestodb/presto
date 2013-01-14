@@ -29,9 +29,6 @@ public class TestCountColumnAggregation
     @Override
     public Number getExpectedValue(int start, int length)
     {
-        if (length == 0) {
-            return null;
-        }
         return (long) length;
     }
 }
