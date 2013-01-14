@@ -2,7 +2,6 @@ package com.facebook.presto.cli;
 
 import com.facebook.presto.execution.FailureInfo;
 import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.Operator;
@@ -63,27 +62,27 @@ public class Query
         QueryInfo queryInfo = queryClient.getQueryInfo(false);
         if (queryInfo == null) {
             out.println("Query is gone (server restarted?)");
+            return;
         }
-        else if (queryInfo.getState().isDone()) {
-            if (queryInfo.getState() == QueryState.CANCELED) {
-                out.printf("Query %s was canceled\n", queryInfo.getQueryId());
-            }
-            else if (queryInfo.getState() == QueryState.FAILED) {
-                renderFailure(queryInfo, out);
-            }
-            else {
-                out.printf("Query %s finished with no output\n", queryInfo.getQueryId());
-            }
-        }
-        else {
-            Operator operator = queryClient.getResultsOperator();
-            List<String> fieldNames = queryInfo.getFieldNames();
 
-            OutputStats stats = pageOutput(Pager.LESS, operator, fieldNames);
-
-            // print final info after the user exits from the pager
-            statusPrinter.printFinalInfo(stats);
+        if (queryInfo.getState().isDone()) {
+            switch (queryInfo.getState()) {
+                case CANCELED:
+                    out.printf("Query %s was canceled\n", queryInfo.getQueryId());
+                    return;
+                case FAILED:
+                    renderFailure(queryInfo, out);
+                    return;
+            }
         }
+
+        Operator operator = queryClient.getResultsOperator();
+        List<String> fieldNames = queryInfo.getFieldNames();
+
+        OutputStats stats = pageOutput(Pager.LESS, operator, fieldNames);
+
+        // print final info after the user exits from the pager
+        statusPrinter.printFinalInfo(stats);
     }
 
     private static OutputStats pageOutput(List<String> pagerCommand, Operator operator, List<String> fieldNames)
