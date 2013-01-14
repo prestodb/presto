@@ -10,6 +10,7 @@ import io.airlift.json.JsonCodec;
 
 import java.util.List;
 
+import static com.facebook.presto.execution.StageInfo.globalExecutionStats;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class QueryMonitor
@@ -40,7 +41,7 @@ public class QueryMonitor
 
     public void completionEvent(QueryInfo queryInfo)
     {
-        ExecutionStats globalExecutionStats = queryInfo.getOutputStage().getGlobalExecutionStats();
+        ExecutionStats globalExecutionStats = globalExecutionStats(queryInfo.getOutputStage());
         eventClient.post(
                 new QueryCompletionEvent(
                         queryInfo.getQueryId(),
