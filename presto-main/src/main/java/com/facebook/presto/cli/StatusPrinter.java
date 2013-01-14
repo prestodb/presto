@@ -24,6 +24,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.execution.StageInfo.globalExecutionStats;
+import static com.facebook.presto.execution.StageInfo.leafExecutionStats;
+import static com.facebook.presto.execution.StageInfo.stageOnlyExecutionStats;
 import static com.facebook.presto.operator.OutputProcessor.OutputStats;
 import static java.lang.Math.max;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -111,10 +114,10 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
         StageInfo outputStage = queryInfo.getOutputStage();
 
         // only include input (leaf) stages
-        ExecutionStats inputExecutionStats = outputStage.getLeafExecutionStats();
+        ExecutionStats inputExecutionStats = leafExecutionStats(outputStage);
 
         // sum all stats (used for global stats like cpu time)
-        ExecutionStats globalExecutionStats = outputStage.getGlobalExecutionStats();
+        ExecutionStats globalExecutionStats = globalExecutionStats(outputStage);
 
         int nodes = uniqueNodes(outputStage).size();
 
@@ -171,9 +174,9 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
         StageInfo outputStage = queryInfo.getOutputStage();
 
         // only include input (leaf) stages
-        ExecutionStats inputExecutionStats = outputStage.getLeafExecutionStats();
+        ExecutionStats inputExecutionStats = leafExecutionStats(outputStage);
 
-        ExecutionStats globalExecutionStats = outputStage.getGlobalExecutionStats();
+        ExecutionStats globalExecutionStats = globalExecutionStats(outputStage);
 
         int nodes = uniqueNodes(outputStage).size();
         if (REAL_TERMINAL) {
@@ -276,7 +279,7 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
     {
         Duration elapsedTime = Duration.nanosSince(start);
 
-        ExecutionStats executionStats = stage.getStageOnlyExecutionStats();
+        ExecutionStats executionStats = stageOnlyExecutionStats(stage);
 
         // STAGE  S    ROWS  ROWS/s  BYTES  BYTES/s   PEND    RUN   DONE
         // 0......Q     26M   9077M  9993G    9077M  9077M  9077M  9077M
