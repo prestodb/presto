@@ -8,7 +8,6 @@ import com.facebook.presto.execution.PageBuffer;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
-import com.facebook.presto.server.QueryDriversOperator.QueryDriversIterator;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -78,7 +77,7 @@ public class TestQueryDriversOperator
             QueryDriversOperator operator = new QueryDriversOperator(1, TUPLE_INFOS, provider, provider, provider);
 
             int count = 0;
-            QueryDriversIterator iterator = operator.iterator(new OperatorStats());
+            PageIterator iterator = operator.iterator(new OperatorStats());
             while (count < 20 && iterator.hasNext()) {
                 Page page = iterator.next();
                 BlockCursor cursor = page.getBlock(0).cursor();
