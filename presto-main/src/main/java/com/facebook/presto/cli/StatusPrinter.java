@@ -27,7 +27,6 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.execution.StageInfo.globalExecutionStats;
 import static com.facebook.presto.execution.StageInfo.leafExecutionStats;
 import static com.facebook.presto.execution.StageInfo.stageOnlyExecutionStats;
-import static com.facebook.presto.operator.OutputProcessor.OutputStats;
 import static java.lang.Math.max;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -105,7 +104,7 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
         }
     }
 
-    public void printFinalInfo(OutputStats stats)
+    public void printFinalInfo()
     {
         Duration wallTime = Duration.nanosSince(start);
 

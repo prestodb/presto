@@ -23,48 +23,26 @@ public class OutputProcessor
         this.sink = new OutputSink(source, createOutputSinkHandler(handler));
     }
 
-    public OutputStats process()
+    public void process()
     {
-        long rows = 0;
-        long bytes = 0;
         try (PageIterator pages = sink.iterator(new OperatorStats())) {
             while (pages.hasNext()) {
-                Page page = pages.next();
-                rows += page.getPositionCount();
-                bytes = page.getDataSize().toBytes();
+                pages.next();
             }
         }
         handler.finish();
-        return new OutputStats(rows, bytes);
     }
 
     public abstract static class OutputHandler
     {
-        public abstract void process(List<Object> values);
+        public abstract void processRow(List<Object> values);
 
         public void finish() {}
     }
 
-    public static class OutputStats
+    public static void processOutput(Operator operator, OutputHandler handler)
     {
-        private final long rows;
-        private final long bytes;
-
-        public OutputStats(long rows, long bytes)
-        {
-            this.rows = rows;
-            this.bytes = bytes;
-        }
-
-        public long getRows()
-        {
-            return rows;
-        }
-
-        public long getBytes()
-        {
-            return bytes;
-        }
+        new OutputProcessor(operator, handler).process();
     }
 
     private static OutputSinkHandler createOutputSinkHandler(final OutputHandler handler)
@@ -78,7 +56,7 @@ public class OutputProcessor
                 for (Tuple tuple : tuples) {
                     list.addAll(tuple.toValues());
                 }
-                handler.process(Collections.unmodifiableList(list));
+                handler.processRow(Collections.unmodifiableList(list));
             }
         };
     }

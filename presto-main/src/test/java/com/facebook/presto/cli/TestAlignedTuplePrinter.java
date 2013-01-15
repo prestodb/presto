@@ -19,10 +19,10 @@ public class TestAlignedTuplePrinter
         List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
         OutputHandler printer = new AlignedTuplePrinter(fieldNames, writer);
 
-        printer.process(row("hello", "world", 123));
-        printer.process(row("a", null, 4.5));
-        printer.process(row("some long\ntext that\ndoes not\nfit on\none line", "more\ntext", 4567));
-        printer.process(row("bye", "done", -15));
+        printer.processRow(row("hello", "world", 123));
+        printer.processRow(row("a", null, 4.5));
+        printer.processRow(row("some long\ntext that\ndoes not\nfit on\none line", "more\ntext", 4567));
+        printer.processRow(row("bye", "done", -15));
         printer.finish();
 
         String expected = "" +
