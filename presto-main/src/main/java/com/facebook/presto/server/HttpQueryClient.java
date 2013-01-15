@@ -175,7 +175,9 @@ public class HttpQueryClient
     public void cancelLeafStage()
     {
         QueryInfo queryInfo = getQueryInfo(false);
-        cancelLeafStage(queryInfo.getOutputStage());
+        if (queryInfo != null) {
+            cancelLeafStage(queryInfo.getOutputStage());
+        }
     }
 
     private boolean cancelLeafStage(StageInfo stage)
