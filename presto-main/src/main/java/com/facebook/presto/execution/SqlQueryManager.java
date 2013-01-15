@@ -187,6 +187,7 @@ public class SqlQueryManager
             // todo this is a hack until we have language support for import or create table as select
             ImmutableList<String> strings = ImmutableList.copyOf(Splitter.on(":").split(query));
             queryExecution = new ImportTableExecution(queryId,
+                    session,
                     locationFactory.createQueryLocation(queryId),
                     importClientFactory,
                     importManager,

@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.sql.analyzer.Session;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -17,6 +18,7 @@ import java.util.List;
 public class QueryInfo
 {
     private final String queryId;
+    private final Session session;
     private final QueryState state;
     private final URI self;
     private final List<String> fieldNames;
@@ -27,6 +29,7 @@ public class QueryInfo
 
     @JsonCreator
     public QueryInfo(@JsonProperty("queryId") String queryId,
+            @JsonProperty("session") Session session,
             @JsonProperty("state") QueryState state,
             @JsonProperty("self") URI self,
             @JsonProperty("fieldNames") List<String> fieldNames,
@@ -36,6 +39,7 @@ public class QueryInfo
             @JsonProperty("failures") List<FailureInfo> failures)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
+        Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkNotNull(state, "state is null");
         Preconditions.checkNotNull(self, "self is null");
         Preconditions.checkNotNull(fieldNames, "fieldNames is null");
@@ -44,6 +48,7 @@ public class QueryInfo
         Preconditions.checkNotNull(failures, "failures is null");
 
         this.queryId = queryId;
+        this.session = session;
         this.state = state;
         this.self = self;
         this.fieldNames = ImmutableList.copyOf(fieldNames);
@@ -57,6 +62,12 @@ public class QueryInfo
     public String getQueryId()
     {
         return queryId;
+    }
+
+    @JsonProperty
+    public Session getSession()
+    {
+        return session;
     }
 
     @JsonProperty

@@ -15,6 +15,7 @@ import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.ObjectNotFoundException;
 import com.facebook.presto.spi.SchemaField;
 import com.facebook.presto.split.ImportClientFactory;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 
@@ -32,6 +33,7 @@ public class ImportTableExecution
     private static final List<String> FIELD_NAMES = ImmutableList.of("dummy");
 
     private final String queryId;
+    private final Session session;
     private final URI self;
     private final ImportClientFactory importClientFactory;
     private final ImportManager importManager;
@@ -44,6 +46,7 @@ public class ImportTableExecution
 
     ImportTableExecution(
             String queryId,
+            Session session,
             URI self,
             ImportClientFactory importClientFactory,
             ImportManager importManager,
@@ -54,6 +57,7 @@ public class ImportTableExecution
             String query)
     {
         this.queryId = queryId;
+        this.session = session;
         this.self = self;
         this.importClientFactory = importClientFactory;
         this.importManager = importManager;
@@ -74,6 +78,7 @@ public class ImportTableExecution
     public QueryInfo getQueryInfo()
     {
         return new QueryInfo(queryId,
+                session,
                 QueryState.FINISHED,
                 self,
                 FIELD_NAMES,
