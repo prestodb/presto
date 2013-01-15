@@ -35,7 +35,7 @@ public class AlignedTuplePrinter
     }
 
     @Override
-    public void process(List<Object> values)
+    public void processRow(List<Object> values)
     {
         checkState(fieldNames.size() == values.size(), "field names size does not match row size");
         rowBuffer.add(values);

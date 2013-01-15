@@ -14,10 +14,11 @@ import java.util.List;
 
 import static com.facebook.presto.operator.OperatorAssertions.createOperator;
 import static com.facebook.presto.operator.OutputProcessor.OutputHandler;
-import static com.facebook.presto.operator.OutputProcessor.OutputStats;
+import static com.facebook.presto.operator.OutputProcessor.processOutput;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Charsets.UTF_8;
+import static com.google.common.base.Preconditions.checkState;
 import static org.testng.Assert.assertEquals;
 
 public class TestOutputProcessor
@@ -41,13 +42,9 @@ public class TestOutputProcessor
     {
         Operator source = createOperator(new Page(valueBlock));
         CollectingHandler handler = new CollectingHandler();
-        OutputProcessor processor = new OutputProcessor(source, handler);
-
-        OutputStats stats = processor.process();
+        processOutput(source, handler);
 
         assertEquals(handler.getRows(), list(list(0L, "zero"), list(1L, "one"), list(2L, "two")));
-        assertEquals(stats.getRows(), 3);
-        assertEquals(stats.getBytes(), 49);
     }
 
     @Test
@@ -55,31 +52,36 @@ public class TestOutputProcessor
     {
         Operator source = createOperator(new Page(valueBlock, valueBlock, valueBlock));
         CollectingHandler handler = new CollectingHandler();
-        OutputProcessor processor = new OutputProcessor(source, handler);
-
-        OutputStats stats = processor.process();
+        processOutput(source, handler);
 
         assertEquals(handler.getRows(), list(
                 list(0L, "zero", 0L, "zero", 0L, "zero"),
                 list(1L, "one", 1L, "one", 1L, "one"),
                 list(2L, "two", 2L, "two", 2L, "two")));
-        assertEquals(stats.getRows(), 3);
-        assertEquals(stats.getBytes(), 147);
     }
 
     private static class CollectingHandler
             extends OutputHandler
     {
         private final List<List<Object>> rows = new ArrayList<>();
+        private boolean finished;
 
         @Override
-        public void process(List<Object> values)
+        public void processRow(List<Object> values)
         {
             rows.add(values);
         }
 
+        @Override
+        public void finish()
+        {
+            checkState(!finished, "finish already called");
+            finished = true;
+        }
+
         public List<List<Object>> getRows()
         {
+            checkState(finished, "not finished");
             return rows;
         }
     }

@@ -1,11 +1,9 @@
 package com.facebook.presto.cli;
 
-import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.List;
 
@@ -18,11 +16,6 @@ public class DelimitedTuplePrinter
     private final Writer writer;
     private final String delimiter;
 
-    public DelimitedTuplePrinter()
-    {
-        this(new OutputStreamWriter(System.out, Charsets.UTF_8), "\t");
-    }
-
     public DelimitedTuplePrinter(Writer writer, String delimiter)
     {
         this.writer = checkNotNull(writer, "writer is null");
@@ -30,7 +23,7 @@ public class DelimitedTuplePrinter
     }
 
     @Override
-    public void process(List<Object> values)
+    public void processRow(List<Object> values)
     {
         try {
             Joiner.on(delimiter)
