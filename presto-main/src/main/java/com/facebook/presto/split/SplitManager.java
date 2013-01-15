@@ -23,8 +23,11 @@ import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
 import com.facebook.presto.sql.planner.SymbolResolver;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.util.IterableTransformer;
@@ -173,37 +176,56 @@ public class SplitManager
      */
     private List<PartitionInfo> getCandidatePartitions(final String sourceName, final String databaseName, final String tableName, Expression predicate, Map<Symbol, String> symbolToColumnName)
     {
-        List<String> partitionKeys = getPartitionKeys(sourceName, databaseName, tableName);
-
         // Look for any sub-expression in an AND expression of the form <partition key> = 'value'
         Set<ComparisonExpression> comparisons = IterableTransformer.on(extractConjuncts(predicate))
                 .select(instanceOf(ComparisonExpression.class))
                 .cast(ComparisonExpression.class)
-                .select(or(matchesPattern(ComparisonExpression.Type.EQUAL, QualifiedNameReference.class, StringLiteral.class),
-                        matchesPattern(ComparisonExpression.Type.EQUAL, StringLiteral.class, QualifiedNameReference.class)))
+                .select(or(
+                        matchesPattern(ComparisonExpression.Type.EQUAL, QualifiedNameReference.class, StringLiteral.class),
+                        matchesPattern(ComparisonExpression.Type.EQUAL, StringLiteral.class, QualifiedNameReference.class),
+                        matchesPattern(ComparisonExpression.Type.EQUAL, QualifiedNameReference.class, LongLiteral.class),
+                        matchesPattern(ComparisonExpression.Type.EQUAL, LongLiteral.class, QualifiedNameReference.class),
+                        matchesPattern(ComparisonExpression.Type.EQUAL, QualifiedNameReference.class, DoubleLiteral.class),
+                        matchesPattern(ComparisonExpression.Type.EQUAL, DoubleLiteral.class, QualifiedNameReference.class)))
                 .set();
 
-        // TODO: handle non-string values
+        Map<String, SchemaField> partitionKeys = Maps.uniqueIndex(getPartitionKeys(sourceName, databaseName, tableName), fieldNameGetter());
+
         final Map<String, Object> bindings = new HashMap<>(); // map of columnName -> value
         for (ComparisonExpression comparison : comparisons) {
             // Record binding if condition is an equality comparison over a partition key
-            QualifiedNameReference reference;
-            StringLiteral literal;
-
-            if (comparison.getLeft() instanceof QualifiedNameReference) {
-                reference = (QualifiedNameReference) comparison.getLeft();
-                literal = (StringLiteral) comparison.getRight();
-            }
-            else {
-                reference = (QualifiedNameReference) comparison.getRight();
-                literal = (StringLiteral) comparison.getRight();
-            }
-
+            QualifiedNameReference reference = extractReference(comparison);
             Symbol symbol = Symbol.fromQualifiedName(reference.getName());
-            String value = literal.getValue();
 
             String columnName = symbolToColumnName.get(symbol);
-            if (columnName != null && partitionKeys.contains(columnName)) {
+            SchemaField field = partitionKeys.get(columnName);
+            if (columnName != null && field != null) {
+                Literal literal = extractLiteral(comparison);
+
+                SchemaField.Type expectedType;
+                Object value;
+                if (literal instanceof DoubleLiteral) {
+                    value = ((DoubleLiteral) literal).getValue();
+                    expectedType = SchemaField.Type.DOUBLE;
+                }
+                else if (literal instanceof LongLiteral) {
+                    value = ((LongLiteral) literal).getValue();
+                    expectedType = SchemaField.Type.LONG;
+                }
+                else if (literal instanceof StringLiteral) {
+                    value = ((StringLiteral) literal).getSlice();
+                    expectedType = SchemaField.Type.STRING;
+                }
+                else {
+                    throw new AssertionError(String.format("Literal type (%s) not currently handled", literal.getClass().getName()));
+                }
+
+                if (field.getPrimitiveType() != expectedType) {
+                    // TODO: this should really be an analyzer error -- types don't match
+                    // TODO: add basic coercions for numeric types (long to double, etc)
+                    return ImmutableList.of();
+                }
+
                 Object previous = bindings.get(columnName);
                 if (previous != null && !previous.equals(value)) {
                     // Another conjunct has a different value for this column, so the predicate is necessarily false.
@@ -226,16 +248,40 @@ public class SplitManager
         });
     }
 
-    private List<String> getPartitionKeys(final String sourceName, final String databaseName, final String tableName)
+    private QualifiedNameReference extractReference(ComparisonExpression expression)
     {
-        return retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<List<String>>()
+        if (expression.getLeft() instanceof QualifiedNameReference) {
+            return (QualifiedNameReference) expression.getLeft();
+        }
+        else if (expression.getRight() instanceof QualifiedNameReference) {
+            return (QualifiedNameReference) expression.getRight();
+        }
+
+        throw new IllegalArgumentException("Comparison does not have a child of type QualifiedNameReference");
+    }
+
+    private Literal extractLiteral(ComparisonExpression expression)
+    {
+        if (expression.getLeft() instanceof Literal) {
+            return (Literal) expression.getLeft();
+        }
+        else if (expression.getRight() instanceof Literal) {
+            return (Literal) expression.getRight();
+        }
+
+        throw new IllegalArgumentException("Comparison does not have a child of type Literal");
+    }
+
+    private List<SchemaField> getPartitionKeys(final String sourceName, final String databaseName, final String tableName)
+    {
+        return retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<List<SchemaField>>()
         {
             @Override
-            public List<String> call()
+            public List<SchemaField> call()
                     throws Exception
             {
                 ImportClient client = importClientFactory.getClient(sourceName);
-                return Lists.transform(client.getPartitionKeys(databaseName, tableName), fieldNameGetter());
+                return client.getPartitionKeys(databaseName, tableName);
             }
         });
     }
