@@ -98,13 +98,15 @@ public class HttpRemoteTask
             }
         }));
 
+        ExecutionStats stats = new ExecutionStats();
+        stats.addSplits(splits.size());
         taskInfo.set(new TaskInfo(queryId,
                 stageId,
                 taskId,
                 TaskState.PLANNED,
                 location,
                 bufferStates,
-                new ExecutionStats(),
+                stats,
                 ImmutableList.<FailureInfo>of()));
     }
 
