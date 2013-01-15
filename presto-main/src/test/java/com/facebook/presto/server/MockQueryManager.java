@@ -155,6 +155,7 @@ public class MockQueryManager
             }
             String stageId = queryId + "-0";
             return new QueryInfo(queryId,
+                    new Session(null, "test_catalog", "test_schema"),
                     state,
                     self,
                     ImmutableList.of("out"),

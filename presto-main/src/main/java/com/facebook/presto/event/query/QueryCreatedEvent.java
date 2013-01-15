@@ -12,17 +12,26 @@ import java.net.URI;
 public class QueryCreatedEvent
 {
     private final String queryId;
+    private final String user;
+    private final String catalog;
+    private final String schema;
     private final URI uri;
     private final String query;
     private final DateTime createTime;
 
     public QueryCreatedEvent(
             String queryId,
+            String user,
+            String catalog,
+            String schema,
             URI uri,
             String query,
             DateTime createTime)
     {
         this.queryId = queryId;
+        this.user = user;
+        this.catalog = catalog;
+        this.schema = schema;
         this.uri = uri;
         this.query = query;
         this.createTime = createTime;
@@ -32,6 +41,24 @@ public class QueryCreatedEvent
     public String getQueryId()
     {
         return queryId;
+    }
+
+    @EventField
+    public String getUser()
+    {
+        return user;
+    }
+
+    @EventField
+    public String getCatalog()
+    {
+        return catalog;
+    }
+
+    @EventField
+    public String getSchema()
+    {
+        return schema;
     }
 
     @EventField

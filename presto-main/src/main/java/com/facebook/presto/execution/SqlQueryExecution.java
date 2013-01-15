@@ -131,6 +131,7 @@ public class SqlQueryExecution
         }
 
         return new QueryInfo(queryId,
+                session,
                 queryState.get(),
                 locationFactory.createQueryLocation(queryId),
                 fieldNames.get(),
