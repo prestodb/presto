@@ -18,6 +18,7 @@ import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.operator.OutputProcessor.OutputHandler;
 import static com.facebook.presto.operator.OutputProcessor.processOutput;
@@ -28,6 +29,7 @@ public class Query
 {
     private static final Signal SIGINT = new Signal("INT");
 
+    private final AtomicBoolean ignoreUserInterrupt = new AtomicBoolean();
     private final HttpQueryClient queryClient;
 
     public Query(HttpQueryClient queryClient)
@@ -42,7 +44,9 @@ public class Query
             @Override
             public void handle(Signal signal)
             {
-                cancelLeafStage();
+                if (!ignoreUserInterrupt.get()) {
+                    cancelLeafStage();
+                }
             }
         });
         try {
@@ -84,8 +88,12 @@ public class Query
         statusPrinter.printFinalInfo();
     }
 
-    private static void pageOutput(List<String> pagerCommand, Operator operator, List<String> fieldNames)
+    private void pageOutput(List<String> pagerCommand, Operator operator, List<String> fieldNames)
     {
+        // ignore the user pressing ctrl-C while in the pager
+        ignoreUserInterrupt.set(true);
+
+        // start pager as subprocess and write output to it
         try (Pager pager = Pager.create(pagerCommand)) {
             @SuppressWarnings("IOResourceOpenedButNotSafelyClosed")
             OutputStreamWriter writer = new OutputStreamWriter(pager, Charsets.UTF_8);
