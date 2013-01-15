@@ -32,6 +32,9 @@ public class QueryMonitor
         eventClient.post(
                 new QueryCreatedEvent(
                         queryInfo.getQueryId(),
+                        queryInfo.getSession().getUser(),
+                        queryInfo.getSession().getCatalog(),
+                        queryInfo.getSession().getSchema(),
                         queryInfo.getSelf(),
                         queryInfo.getQuery(),
                         queryInfo.getQueryStats().getCreateTime()
@@ -45,6 +48,9 @@ public class QueryMonitor
         eventClient.post(
                 new QueryCompletionEvent(
                         queryInfo.getQueryId(),
+                        queryInfo.getSession().getUser(),
+                        queryInfo.getSession().getCatalog(),
+                        queryInfo.getSession().getSchema(),
                         queryInfo.getState(),
                         queryInfo.getSelf(),
                         queryInfo.getFieldNames(),

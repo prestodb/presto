@@ -15,6 +15,9 @@ import java.util.List;
 public class QueryCompletionEvent
 {
     private final String queryId;
+    private final String user;
+    private final String catalog;
+    private final String schema;
     private final QueryState queryState;
     private final URI uri;
     private final List<String> fieldNames;
@@ -40,6 +43,9 @@ public class QueryCompletionEvent
 
     public QueryCompletionEvent(
             String queryId,
+            String user,
+            String catalog,
+            String schema,
             QueryState queryState,
             URI uri,
             List<String> fieldNames,
@@ -59,6 +65,9 @@ public class QueryCompletionEvent
             String failuresJson)
     {
         this.queryId = queryId;
+        this.user = user;
+        this.catalog = catalog;
+        this.schema = schema;
         this.queryState = queryState;
         this.uri = uri;
         this.fieldNames = ImmutableList.copyOf(fieldNames);
@@ -82,6 +91,24 @@ public class QueryCompletionEvent
     public String getQueryId()
     {
         return queryId;
+    }
+
+    @EventField
+    public String getUser()
+    {
+        return user;
+    }
+
+    @EventField
+    public String getCatalog()
+    {
+        return catalog;
+    }
+
+    @EventField
+    public String getSchema()
+    {
+        return schema;
     }
 
     @EventField
