@@ -11,12 +11,16 @@ import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 @ThreadSafe
 public class ExecutionStats
 {
+    private static final Duration ZERO_DURATION = new Duration(0, TimeUnit.SECONDS);
+    private static final DataSize ZERO_SIZE = new DataSize(0, DataSize.Unit.BYTE);
+
     private final DateTime createTime;
     @GuardedBy("this")
     private DateTime executionStartTime;
@@ -29,22 +33,28 @@ public class ExecutionStats
     private final AtomicInteger startedSplits;
     private final AtomicInteger completedSplits;
 
-    private final AtomicLong splitWallTime;
-    private final AtomicLong splitCpuTime;
-    private final AtomicLong splitUserTime;
+    @GuardedBy("this")
+    private Duration splitWallTime;
+    @GuardedBy("this")
+    private Duration splitCpuTime;
+    @GuardedBy("this")
+    private Duration splitUserTime;
 
-    private final AtomicLong inputDataSize;
-    private final AtomicLong completedDataSize;
+    @GuardedBy("this")
+    private DataSize inputDataSize;
+    @GuardedBy("this")
+    private DataSize completedDataSize;
 
     private final AtomicLong inputPositionCount;
     private final AtomicLong completedPositionCount;
 
-    private final AtomicLong outputDataSize;
+    @GuardedBy("this")
+    private DataSize outputDataSize;
     private final AtomicLong outputPositionCount;
 
     public ExecutionStats()
     {
-        this(DateTime.now(), null, DateTime.now(), null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        this(DateTime.now(), null, DateTime.now(), null, 0, 0, 0, ZERO_DURATION, ZERO_DURATION, ZERO_DURATION, ZERO_SIZE, ZERO_SIZE, 0, 0, ZERO_SIZE, 0);
     }
 
     @JsonCreator
@@ -56,14 +66,14 @@ public class ExecutionStats
             @JsonProperty("splits") int splits,
             @JsonProperty("startedSplits") int startedSplits,
             @JsonProperty("completedSplits") int completedSplits,
-            @JsonProperty("splitWallTime") long splitWallTime,
-            @JsonProperty("splitCpuTime") long splitCpuTime,
-            @JsonProperty("splitUserTime") long splitUserTime,
-            @JsonProperty("inputDataSize") long inputDataSize,
-            @JsonProperty("completedDataSize") long completedDataSize,
+            @JsonProperty("splitWallTime") Duration splitWallTime,
+            @JsonProperty("splitCpuTime") Duration splitCpuTime,
+            @JsonProperty("splitUserTime") Duration splitUserTime,
+            @JsonProperty("inputDataSize") DataSize inputDataSize,
+            @JsonProperty("completedDataSize") DataSize completedDataSize,
             @JsonProperty("inputPositionCount") long inputPositionCount,
             @JsonProperty("completedPositionCount") long completedPositionCount,
-            @JsonProperty("outputDataSize") long outputDataSize,
+            @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositionCount") long outputPositionCount)
     {
         this.createTime = createTime;
@@ -73,14 +83,14 @@ public class ExecutionStats
         this.splits = new AtomicInteger(splits);
         this.startedSplits = new AtomicInteger(startedSplits);
         this.completedSplits = new AtomicInteger(completedSplits);
-        this.splitWallTime = new AtomicLong(splitWallTime);
-        this.splitCpuTime = new AtomicLong(splitCpuTime);
-        this.splitUserTime = new AtomicLong(splitUserTime);
-        this.inputDataSize = new AtomicLong(inputDataSize);
+        this.splitWallTime = splitWallTime;
+        this.splitCpuTime = splitCpuTime;
+        this.splitUserTime = splitUserTime;
+        this.inputDataSize = inputDataSize;
         this.inputPositionCount = new AtomicLong(inputPositionCount);
-        this.completedDataSize = new AtomicLong(completedDataSize);
+        this.completedDataSize = completedDataSize;
         this.completedPositionCount = new AtomicLong(completedPositionCount);
-        this.outputDataSize = new AtomicLong(outputDataSize);
+        this.outputDataSize = outputDataSize;
         this.outputPositionCount = new AtomicLong(outputPositionCount);
     }
 
@@ -127,27 +137,27 @@ public class ExecutionStats
     }
 
     @JsonProperty
-    public long getSplitCpuTime()
+    public synchronized Duration getSplitCpuTime()
     {
-        return splitCpuTime.get();
+        return splitCpuTime;
     }
 
     @JsonProperty
-    public long getSplitWallTime()
+    public synchronized Duration getSplitWallTime()
     {
-        return splitWallTime.get();
+        return splitWallTime;
     }
 
     @JsonProperty
-    public long getSplitUserTime()
+    public synchronized Duration getSplitUserTime()
     {
-        return splitUserTime.get();
+        return splitUserTime;
     }
 
     @JsonProperty
-    public long getInputDataSize()
+    public synchronized DataSize getInputDataSize()
     {
-        return inputDataSize.get();
+        return inputDataSize;
     }
 
     @JsonProperty
@@ -157,9 +167,9 @@ public class ExecutionStats
     }
 
     @JsonProperty
-    public long getCompletedDataSize()
+    public synchronized DataSize getCompletedDataSize()
     {
-        return completedDataSize.get();
+        return completedDataSize;
     }
 
     @JsonProperty
@@ -169,9 +179,9 @@ public class ExecutionStats
     }
 
     @JsonProperty
-    public long getOutputDataSize()
+    public synchronized DataSize getOutputDataSize()
     {
-        return outputDataSize.get();
+        return outputDataSize;
     }
 
     @JsonProperty
@@ -195,19 +205,19 @@ public class ExecutionStats
         completedSplits.incrementAndGet();
     }
 
-    public void addSplitCpuTime(Duration duration)
+    public synchronized void addSplitCpuTime(Duration duration)
     {
-        splitCpuTime.addAndGet((long) duration.toMillis());
+        splitCpuTime = new Duration(splitCpuTime.toMillis() + duration.toMillis(), TimeUnit.MILLISECONDS);
     }
 
-    public void addSplitWallTime(Duration duration)
+    public synchronized void addSplitWallTime(Duration duration)
     {
-        splitWallTime.addAndGet((long) duration.toMillis());
+        splitWallTime = new Duration(splitWallTime.toMillis() + duration.toMillis(), TimeUnit.MILLISECONDS);
     }
 
-    public void addSplitUserTime(Duration duration)
+    public synchronized void addSplitUserTime(Duration duration)
     {
-        splitUserTime.addAndGet((long) duration.toMillis());
+        splitUserTime = new Duration(splitUserTime.toMillis() + duration.toMillis(), TimeUnit.MILLISECONDS);
     }
 
     public void addInputPositions(long inputPositions)
@@ -215,9 +225,9 @@ public class ExecutionStats
         this.inputPositionCount.addAndGet(inputPositions);
     }
 
-    public void addInputDataSize(DataSize inputDataSize)
+    public synchronized void addInputDataSize(DataSize addedDataSize)
     {
-        this.inputDataSize.addAndGet(inputDataSize.toBytes());
+        inputDataSize = new DataSize(inputDataSize.toBytes() + addedDataSize.toBytes(), DataSize.Unit.BYTE);
     }
 
     public void addCompletedPositions(long completedPositions)
@@ -225,9 +235,9 @@ public class ExecutionStats
         this.completedPositionCount.addAndGet(completedPositions);
     }
 
-    public void addCompletedDataSize(DataSize completedDataSize)
+    public synchronized void addCompletedDataSize(DataSize addedDataSize)
     {
-        this.completedDataSize.addAndGet(completedDataSize.toBytes());
+        completedDataSize = new DataSize(completedDataSize.toBytes() + addedDataSize.toBytes(), DataSize.Unit.BYTE);
     }
 
     public void addOutputPositions(long outputPositions)
@@ -235,9 +245,9 @@ public class ExecutionStats
         this.outputPositionCount.addAndGet(outputPositions);
     }
 
-    public void addOutputDataSize(DataSize outputDataSize)
+    public synchronized void addOutputDataSize(DataSize addedDataSize)
     {
-        this.outputDataSize.addAndGet(outputDataSize.toBytes());
+        outputDataSize = new DataSize(outputDataSize.toBytes() + addedDataSize.toBytes(), DataSize.Unit.BYTE);
     }
 
     public synchronized void recordExecutionStart()
@@ -261,15 +271,14 @@ public class ExecutionStats
         splits.addAndGet(stats.getSplits());
         startedSplits.addAndGet(stats.getStartedSplits());
         completedSplits.addAndGet(stats.getCompletedSplits());
-        splitWallTime.addAndGet(stats.getSplitWallTime());
-        splitCpuTime.addAndGet(stats.getSplitCpuTime());
-        splitUserTime.addAndGet(stats.getSplitUserTime());
-        inputDataSize.addAndGet(stats.getInputDataSize());
+        addSplitWallTime(stats.getSplitWallTime());
+        addSplitCpuTime(stats.getSplitCpuTime());
+        addSplitUserTime(stats.getSplitUserTime());
+        addInputDataSize(stats.getInputDataSize());
         inputPositionCount.addAndGet(stats.getInputPositionCount());
-        completedDataSize.addAndGet(stats.getCompletedDataSize());
+        addCompletedDataSize(stats.getCompletedDataSize());
         completedPositionCount.addAndGet(stats.getCompletedPositionCount());
-        outputDataSize.addAndGet(stats.getOutputDataSize());
+        addOutputDataSize(stats.getOutputDataSize());
         outputPositionCount.addAndGet(stats.getOutputPositionCount());
-
     }
 }

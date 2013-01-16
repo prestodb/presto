@@ -12,6 +12,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.fusesource.jansi.Ansi;
 import org.fusesource.jansi.Ansi.Erase;
@@ -27,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.execution.StageInfo.globalExecutionStats;
 import static com.facebook.presto.execution.StageInfo.leafExecutionStats;
 import static com.facebook.presto.execution.StageInfo.stageOnlyExecutionStats;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.max;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -141,12 +143,12 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
 
         if (queryClient.isDebug()) {
             // CPU Time: 565.2s total,   26K rows/s, 3.85MB/s
-            Duration cpuTime = new Duration(globalExecutionStats.getSplitCpuTime(), MILLISECONDS);
+            Duration cpuTime = globalExecutionStats.getSplitCpuTime();
             String cpuTimeSummary = String.format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
                     cpuTime.convertTo(SECONDS),
                     formatCountRate(inputExecutionStats.getCompletedPositionCount(), cpuTime, false),
                     formatDataRate(inputExecutionStats.getCompletedDataSize(), cpuTime, true),
-                    (int) (globalExecutionStats.getSplitCpuTime() * 100.0 / globalExecutionStats.getSplitWallTime()));
+                    (int) (globalExecutionStats.getSplitCpuTime().toMillis() * 100.0 / (globalExecutionStats.getSplitWallTime().toMillis() + 1))); // Add 1 to avoid divide by zero
             out.println(cpuTimeSummary);
 
             double parallelism = cpuTime.toMillis() / wallTime.toMillis();
@@ -155,7 +157,7 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
             String perNodeSummary = String.format("Per Node: %.1f parallelism, %5s rows/s, %8s",
                     parallelism / nodes,
                     formatCountRate(inputExecutionStats.getCompletedPositionCount() / nodes, wallTime, false),
-                    formatDataRate(inputExecutionStats.getCompletedDataSize() / nodes, wallTime, true));
+                    formatDataRate(new DataSize(inputExecutionStats.getCompletedDataSize().toBytes() / nodes, BYTE), wallTime, true));
             reprintLine(perNodeSummary);
 
             out.println(String.format("Parallelism: %.1f", parallelism));
@@ -213,12 +215,12 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
                 reprintLine(splitsSummary);
 
                 // CPU Time: 56.5s total, 36.4K rows/s, 4.44MB/s, 60% active
-                Duration cpuTime = new Duration(globalExecutionStats.getSplitCpuTime(), MILLISECONDS);
+                Duration cpuTime = globalExecutionStats.getSplitCpuTime();
                 String cpuTimeSummary = String.format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
                         cpuTime.convertTo(SECONDS),
                         formatCountRate(inputExecutionStats.getCompletedPositionCount(), cpuTime, false),
                         formatDataRate(inputExecutionStats.getCompletedDataSize(), cpuTime, true),
-                        (int) (globalExecutionStats.getSplitCpuTime() * 100.0 / globalExecutionStats.getSplitWallTime()));
+                        (int) (globalExecutionStats.getSplitCpuTime().toMillis() * 100.0 / (globalExecutionStats.getSplitWallTime().toMillis() + 1))); // Add 1 to avoid divide by zero
                 reprintLine(cpuTimeSummary);
 
                 double parallelism = cpuTime.toMillis() / wallTime.toMillis();
@@ -227,7 +229,7 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
                 String perNodeSummary = String.format("Per Node: %.1f parallelism, %5s rows/s, %8s",
                         parallelism / nodes,
                         formatCountRate(inputExecutionStats.getCompletedPositionCount() / nodes, wallTime, false),
-                        formatDataRate(inputExecutionStats.getCompletedDataSize() / nodes, wallTime, true));
+                        formatDataRate(new DataSize(inputExecutionStats.getCompletedDataSize().toBytes() / nodes, BYTE), wallTime, true));
                 reprintLine(perNodeSummary);
 
                 reprintLine(String.format("Parallelism: %.1f", parallelism));
@@ -417,9 +419,9 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
         return rateString;
     }
 
-    private static String formatDataSize(long size, boolean longForm)
+    private static String formatDataSize(DataSize size, boolean longForm)
     {
-        double fractional = size;
+        double fractional = size.toBytes();
         String unit = null;
         if (fractional >= 1024) {
             fractional /= 1024;
@@ -453,14 +455,14 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
         return String.format("%s%s", format.format(fractional), unit);
     }
 
-    private static String formatDataRate(double dataSize, Duration duration, boolean longForm)
+    private static String formatDataRate(DataSize dataSize, Duration duration, boolean longForm)
     {
-        double rate = dataSize / duration.convertTo(SECONDS);
+        double rate = dataSize.toBytes() / duration.convertTo(SECONDS);
         if (Double.isNaN(rate) || Double.isInfinite(rate)) {
             rate = 0;
         }
 
-        String rateString = formatDataSize((long) rate, false);
+        String rateString = formatDataSize(new DataSize(rate, BYTE), false);
         if (longForm) {
             if (!rateString.endsWith("B")) {
                 rateString += "B";
