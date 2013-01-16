@@ -10,6 +10,7 @@ import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import io.airlift.units.Duration;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
 
@@ -18,16 +19,21 @@ import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.operator.OutputProcessor.OutputHandler;
 import static com.facebook.presto.operator.OutputProcessor.processOutput;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class Query
         implements Closeable
 {
     private static final Signal SIGINT = new Signal("INT");
+    private static final Duration PING_INTERVAL = new Duration(1, SECONDS);
 
     private final AtomicBoolean ignoreUserInterrupt = new AtomicBoolean();
     private final HttpQueryClient queryClient;
@@ -93,12 +99,26 @@ public class Query
         // ignore the user pressing ctrl-C while in the pager
         ignoreUserInterrupt.set(true);
 
+        // ping the server while reading data to keep the query alive
+        ScheduledExecutorService executor = newSingleThreadScheduledExecutor();
+        executor.scheduleAtFixedRate(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                queryClient.getQueryInfo(false);
+            }
+        }, 0, (long) PING_INTERVAL.toMillis(), MILLISECONDS);
+
         // start pager as subprocess and write output to it
         try (Pager pager = Pager.create(pagerCommand)) {
             @SuppressWarnings("IOResourceOpenedButNotSafelyClosed")
             OutputStreamWriter writer = new OutputStreamWriter(pager, Charsets.UTF_8);
             OutputHandler outputHandler = new AlignedTuplePrinter(fieldNames, writer);
             processOutput(operator, outputHandler);
+        }
+        finally {
+            executor.shutdown();
         }
     }
 
