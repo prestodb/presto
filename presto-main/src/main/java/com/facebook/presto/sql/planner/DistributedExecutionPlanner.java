@@ -90,7 +90,7 @@ public class DistributedExecutionPlanner
             Iterable<SplitAssignments> splitAssignments = splitManager.getSplitAssignments(session, node.getTable(), inheritedPredicate, node.getAssignments());
 
             // divide splits amongst the nodes
-            Multimap<Node, Split> nodeSplits = SplitAssignments.randomNodeAssignment(random, splitAssignments);
+            Multimap<Node, Split> nodeSplits = SplitAssignments.balancedNodeAssignment(splitAssignments);
 
             // create a partition for each node
             ImmutableList.Builder<Partition> partitions = ImmutableList.builder();
