@@ -79,6 +79,14 @@ public class Console
                         case "exit":
                         case "quit":
                             return;
+
+                        case "help":
+                            System.out.println (Helper.help());
+                            continue;
+
+                        case "hint":
+                            System.out.println(Helper.hint());
+                            continue;
                     }
                 }
 
