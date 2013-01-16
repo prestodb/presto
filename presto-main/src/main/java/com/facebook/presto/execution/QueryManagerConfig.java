@@ -15,6 +15,7 @@ public class QueryManagerConfig
     private boolean coordinator = true;
     private boolean importsEnabled = true;
     private DataSize maxOperatorMemoryUsage = new DataSize(256, Unit.MEGABYTE);
+    private long maxSplitCount = 100_000;
     private int maxShardProcessorThreads = Runtime.getRuntime().availableProcessors() * 4;
     private Duration maxQueryAge = new Duration(15, TimeUnit.MINUTES);
     private Duration clientTimeout = new Duration(1, TimeUnit.MINUTES);
@@ -40,6 +41,18 @@ public class QueryManagerConfig
     public QueryManagerConfig setImportsEnabled(boolean importsEnabled)
     {
         this.importsEnabled = importsEnabled;
+        return this;
+    }
+
+    public long getMaxSplitCount()
+    {
+        return maxSplitCount;
+    }
+
+    @Config("query.max-splits")
+    public QueryManagerConfig setMaxSplitCount(long maxSplitCount)
+    {
+        this.maxSplitCount = maxSplitCount;
         return this;
     }
 
