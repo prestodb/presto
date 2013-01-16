@@ -1,15 +1,15 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.metadata.Node;
-import com.google.common.base.Function;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Multimaps;
+import com.google.common.collect.Ordering;
+import com.google.common.primitives.Ints;
 
 import javax.annotation.concurrent.Immutable;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Random;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -37,24 +37,25 @@ public class SplitAssignments
         return nodes;
     }
 
-    public static Multimap<Node, Split> randomNodeAssignment(final Random random, Iterable<SplitAssignments> splitAssignments)
+    public static Multimap<Node, Split> balancedNodeAssignment(Iterable<SplitAssignments> splitAssignments)
     {
-        ImmutableListMultimap<Node,SplitAssignments> index = Multimaps.index(splitAssignments, new Function<SplitAssignments, Node>()
+        final Multimap<Node, Split> result = HashMultimap.create();
+
+        Comparator<Node> byAssignedSplitsCount = new Comparator<Node>()
         {
             @Override
-            public Node apply(SplitAssignments splitAssignments)
+            public int compare(Node o1, Node o2)
             {
-                List<Node> nodes = splitAssignments.getNodes();
-                return nodes.get(random.nextInt(nodes.size()));
+                return Ints.compare(result.get(o1).size(), result.get(o2).size());
             }
-        });
+        };
 
-        return Multimaps.transformValues(index, new Function<SplitAssignments, Split>() {
-            @Override
-            public Split apply(SplitAssignments splitAssignments)
-            {
-                return splitAssignments.getSplit();
-            }
-        });
+        for (SplitAssignments assignment : splitAssignments) {
+            // for each split, pick the node with the smallest number of assignments
+            Node chosen = Ordering.from(byAssignedSplitsCount).min(assignment.getNodes());
+            result.put(chosen, assignment.getSplit());
+        }
+
+        return result;
     }
 }
