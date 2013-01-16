@@ -149,7 +149,16 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
                     (int) (globalExecutionStats.getSplitCpuTime() * 100.0 / globalExecutionStats.getSplitWallTime()));
             out.println(cpuTimeSummary);
 
-            out.println(String.format("Parallelism: %.1f", cpuTime.toMillis() / wallTime.toMillis()));
+            double parallelism = cpuTime.toMillis() / wallTime.toMillis();
+
+            // Per Node: 3.5 parallelism, 83.3K rows/s, 0.7 MB/s
+            String perNodeSummary = String.format("Per Node: %.1f parallelism, %5s rows/s, %8s",
+                    parallelism / nodes,
+                    formatCountRate(inputExecutionStats.getCompletedPositionCount() / nodes, wallTime, false),
+                    formatDataRate(inputExecutionStats.getCompletedDataSize() / nodes, wallTime, true));
+            reprintLine(perNodeSummary);
+
+            out.println(String.format("Parallelism: %.1f", parallelism));
         }
 
         // 0:32 [2.12GB, 15M rows] [67MB/s, 463K rows/s]
@@ -212,7 +221,16 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
                         (int) (globalExecutionStats.getSplitCpuTime() * 100.0 / globalExecutionStats.getSplitWallTime()));
                 reprintLine(cpuTimeSummary);
 
-                reprintLine(String.format("Parallelism: %.1f", cpuTime.toMillis() / wallTime.toMillis()));
+                double parallelism = cpuTime.toMillis() / wallTime.toMillis();
+
+                // Per Node: 3.5 parallelism, 83.3K rows/s, 0.7 MB/s
+                String perNodeSummary = String.format("Per Node: %.1f parallelism, %5s rows/s, %8s",
+                        parallelism / nodes,
+                        formatCountRate(inputExecutionStats.getCompletedPositionCount() / nodes, wallTime, false),
+                        formatDataRate(inputExecutionStats.getCompletedDataSize() / nodes, wallTime, true));
+                reprintLine(perNodeSummary);
+
+                reprintLine(String.format("Parallelism: %.1f", parallelism));
             }
 
             String progressBar = formatProgressBar(42, // 42 is to keep the total progress line width <= 100 chars
