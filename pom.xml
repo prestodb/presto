@@ -43,6 +43,7 @@
 
     <modules>
         <module>presto-main</module>
+        <module>presto-jdbc</module>
     </modules>
 
     <build>

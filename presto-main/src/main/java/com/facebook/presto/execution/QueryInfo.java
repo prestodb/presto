@@ -121,4 +121,19 @@ public class QueryInfo
                 .add("fieldNames", fieldNames)
                 .toString();
     }
+
+    public boolean resultsPending()
+    {
+        if (outputStage != null) {
+            List<TaskInfo> outStage = outputStage.getTasks();
+            for (TaskInfo outputTask : outStage) {
+                for (PageBufferInfo outputBuffer : outputTask.getOutputBuffers()) {
+                    if (outputBuffer.getBufferedPages() > 0) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
 }
