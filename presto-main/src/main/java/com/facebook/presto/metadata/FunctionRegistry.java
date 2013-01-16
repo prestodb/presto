@@ -77,6 +77,11 @@ public class FunctionRegistry
         functionsByHandle = Maps.uniqueIndex(functions, FunctionInfo.handleGetter());
     }
 
+    public List<FunctionInfo> list()
+    {
+        return ImmutableList.copyOf(functionsByName.values());
+    }
+
     public FunctionInfo get(QualifiedName name, List<TupleInfo.Type> parameterTypes)
     {
         // search for exact match

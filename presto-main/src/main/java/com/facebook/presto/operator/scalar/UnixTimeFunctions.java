@@ -28,7 +28,7 @@ public class UnixTimeFunctions
     private static final DateTimeField YEAR = UTC_CHRONOLOGY.year();
     private static final DateTimeField CENTURY = UTC_CHRONOLOGY.centuryOfEra();
 
-    @ScalarFunction(value = "current_timestamp", alias = "now")
+    @ScalarFunction("now")
     public static long currentTimestamp(Session session)
     {
         return session.getStartTime();

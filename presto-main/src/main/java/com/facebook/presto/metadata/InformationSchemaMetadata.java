@@ -24,6 +24,7 @@ public class InformationSchemaMetadata
 
     public static final String TABLE_COLUMNS = "columns";
     public static final String TABLE_TABLES = "tables";
+    public static final String TABLE_INTERNAL_FUNCTIONS = "__internal_functions__";
     public static final String TABLE_INTERNAL_PARTITIONS = "__internal_partitions__";
 
     private static final Map<String, List<ColumnMetadata>> METADATA = ImmutableMap.<String, List<ColumnMetadata>>builder()
@@ -42,6 +43,11 @@ public class InformationSchemaMetadata
                     .column("table_schema", VARIABLE_BINARY)
                     .column("table_name", VARIABLE_BINARY)
                     .column("table_type", VARIABLE_BINARY)
+                    .build())
+            .put(TABLE_INTERNAL_FUNCTIONS, columnsBuilder()
+                    .column("function_name", VARIABLE_BINARY)
+                    .column("argument_types", VARIABLE_BINARY)
+                    .column("return_type", VARIABLE_BINARY)
                     .build())
             .put(TABLE_INTERNAL_PARTITIONS, columnsBuilder()
                     .column("table_catalog", VARIABLE_BINARY)

@@ -22,6 +22,12 @@ public abstract class AbstractMetadata
     }
 
     @Override
+    public List<FunctionInfo> listFunctions()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<QualifiedTableName> listTables(String catalogName)
     {
         throw new UnsupportedOperationException();

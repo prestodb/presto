@@ -25,6 +25,7 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.ShowColumns;
+import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SortItem;
@@ -51,6 +52,7 @@ import java.util.Set;
 
 import static com.facebook.presto.metadata.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_COLUMNS;
+import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_INTERNAL_FUNCTIONS;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.sql.analyzer.AnalyzedExpression.rewrittenExpressionGetter;
@@ -260,6 +262,24 @@ public class Analyzer
                     ImmutableList.of(nameReference("partition_number")),
                     null,
                     ImmutableList.of(ascending("partition_number")),
+                    null);
+
+            return visitQuery(query, context);
+        }
+
+        @Override
+        protected AnalysisResult visitShowFunctions(ShowFunctions node, AnalysisContext context)
+        {
+            Query query = new Query(
+                    selectList(
+                            aliasedName("function_name", "Function"),
+                            aliasedName("return_type", "Return Type"),
+                            aliasedName("argument_types", "Argument Types")),
+                    table(QualifiedName.of(INFORMATION_SCHEMA, TABLE_INTERNAL_FUNCTIONS)),
+                    null,
+                    ImmutableList.<Expression>of(),
+                    null,
+                    ImmutableList.of(ascending("function_name")),
                     null);
 
             return visitQuery(query, context);

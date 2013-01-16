@@ -1,6 +1,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Joiner;
 
 import javax.inject.Inject;
 import java.util.List;
@@ -8,6 +9,7 @@ import java.util.Map;
 
 import static com.facebook.presto.metadata.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_COLUMNS;
+import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_INTERNAL_FUNCTIONS;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.informationSchemaColumnIndex;
@@ -15,6 +17,7 @@ import static com.facebook.presto.metadata.InformationSchemaMetadata.information
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
 
 public class InformationSchemaData
@@ -37,6 +40,8 @@ public class InformationSchemaData
                 return buildColumns(catalogName, filters);
             case TABLE_TABLES:
                 return buildTables(catalogName, filters);
+            case TABLE_INTERNAL_FUNCTIONS:
+                return buildFunctions();
             case TABLE_INTERNAL_PARTITIONS:
                 return buildPartitions(catalogName, filters);
         }
@@ -98,6 +103,21 @@ public class InformationSchemaData
             return metadata.listTables(catalogName, schemaName);
         }
         return metadata.listTables(catalogName);
+    }
+
+    private InternalTable buildFunctions()
+    {
+        TupleInfo tupleInfo = informationSchemaTupleInfo(TABLE_INTERNAL_FUNCTIONS);
+        InternalTable.Builder table = InternalTable.builder(tupleInfo);
+        for (FunctionInfo function : metadata.listFunctions()) {
+            Iterable<String> arguments = transform(function.getArgumentTypes(), TupleInfo.Type.nameGetter());
+            table.add(tupleInfo.builder()
+                    .append(function.getName().toString())
+                    .append(Joiner.on(", ").join(arguments))
+                    .append(function.getReturnType().getName())
+                    .build());
+        }
+        return table.build();
     }
 
     private InternalTable buildPartitions(String catalogName, Map<InternalColumnHandle, String> filters)
