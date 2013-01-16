@@ -31,6 +31,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
@@ -50,6 +51,7 @@ public class HttpQueryClient
     private final JsonCodec<QueryInfo> queryInfoCodec;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final boolean debug;
+    private final AtomicReference<QueryInfo> finalQueryInfo = new AtomicReference<>();
 
     public HttpQueryClient(ClientSession session,
             String query,
@@ -104,6 +106,11 @@ public class HttpQueryClient
 
     public QueryInfo getQueryInfo(boolean forceRefresh)
     {
+        QueryInfo queryInfo = finalQueryInfo.get();
+        if (queryInfo != null) {
+            return queryInfo;
+        }
+
         URI statusUri = uriBuilderFrom(queryLocation).build();
         Request.Builder requestBuilder = prepareGet().setUri(statusUri);
         if (forceRefresh) {
@@ -121,7 +128,13 @@ public class HttpQueryClient
                 response.getStatusCode(),
                 response.getStatusMessage());
 
-        QueryInfo queryInfo = response.getValue();
+        queryInfo = response.getValue();
+
+        // query info for a done query can be cached forever
+        if (queryInfo.getState().isDone()) {
+            finalQueryInfo.set(queryInfo);
+        }
+
         return queryInfo;
     }
 
