@@ -12,6 +12,8 @@ public interface Metadata
 
     FunctionInfo getFunction(FunctionHandle handle);
 
+    List<FunctionInfo> listFunctions();
+
     TableMetadata getTable(String catalogName, String schemaName, String tableName);
 
     List<QualifiedTableName> listTables(String catalogName);

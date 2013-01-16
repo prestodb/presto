@@ -48,6 +48,7 @@ statement returns [Statement value]
     | showTables      { $value = $showTables.value; }
     | showColumns     { $value = $showColumns.value; }
     | showPartitions  { $value = $showPartitions.value; }
+    | showFunctions   { $value = $showFunctions.value; }
     ;
 
 query returns [Query value]
@@ -338,4 +339,8 @@ showColumns returns [Statement value]
 
 showPartitions returns [Statement value]
     : ^(SHOW_PARTITIONS qname) { $value = new ShowPartitions($qname.value); }
+    ;
+
+showFunctions returns [Statement value]
+    : SHOW_FUNCTIONS { $value = new ShowFunctions(); }
     ;
