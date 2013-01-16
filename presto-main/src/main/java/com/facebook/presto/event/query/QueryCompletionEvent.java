@@ -4,8 +4,11 @@ import com.facebook.presto.execution.QueryState;
 import com.google.common.collect.ImmutableList;
 import io.airlift.event.client.EventField;
 import io.airlift.event.client.EventType;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import java.net.URI;
 import java.util.List;
@@ -27,7 +30,6 @@ public class QueryCompletionEvent
     private final DateTime executionStartTime;
     private final DateTime endTime;
 
-    // times are in ms
     private final Long queuedTimeMs;
     private final Long analysisTimeMs;
     private final Long distributedPlanningTimeMs;
@@ -53,12 +55,12 @@ public class QueryCompletionEvent
             DateTime createTime,
             DateTime executionStartTime,
             DateTime endTime,
-            Long queuedTimeMs,
-            Long analysisTimeMs,
-            Long distributedPlanningTimeMs,
-            Long totalSplitWallTimeMs,
-            Long totalSplitCpuTimeMs,
-            Long totalBytes,
+            Duration queuedTime,
+            Duration analysisTime,
+            Duration distributedPlanningTime,
+            Duration totalSplitWallTime,
+            Duration totalSplitCpuTime,
+            DataSize totalDataSize,
             Long totalRows,
             Integer splits,
             String outputStageJson,
@@ -75,16 +77,32 @@ public class QueryCompletionEvent
         this.createTime = createTime;
         this.executionStartTime = executionStartTime;
         this.endTime = endTime;
-        this.queuedTimeMs = queuedTimeMs;
-        this.analysisTimeMs = analysisTimeMs;
-        this.distributedPlanningTimeMs = distributedPlanningTimeMs;
-        this.totalSplitWallTimeMs = totalSplitWallTimeMs;
-        this.totalSplitCpuTimeMs = totalSplitCpuTimeMs;
-        this.totalBytes = totalBytes;
+        this.queuedTimeMs = durationToMillis(queuedTime);
+        this.analysisTimeMs = durationToMillis(analysisTime);
+        this.distributedPlanningTimeMs = durationToMillis(distributedPlanningTime);
+        this.totalSplitWallTimeMs = durationToMillis((totalSplitWallTime));
+        this.totalSplitCpuTimeMs = durationToMillis(totalSplitCpuTime);
+        this.totalBytes = sizeToBytes(totalDataSize);
         this.totalRows = totalRows;
         this.splits = splits;
         this.outputStageJson = outputStageJson;
         this.failuresJson = failuresJson;
+    }
+
+    private static @Nullable Long durationToMillis(@Nullable Duration duration)
+    {
+        if (duration == null) {
+            return null;
+        }
+        return (long) duration.toMillis();
+    }
+
+    private static @Nullable Long sizeToBytes(@Nullable DataSize dataSize)
+    {
+        if (dataSize == null) {
+            return null;
+        }
+        return dataSize.toBytes();
     }
 
     @EventField

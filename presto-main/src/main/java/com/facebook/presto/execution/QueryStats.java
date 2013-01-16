@@ -12,7 +12,6 @@ import org.joda.time.DateTime;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 @ThreadSafe
 public class QueryStats
@@ -25,13 +24,15 @@ public class QueryStats
     private DateTime lastHeartBeat;
     @GuardedBy("this")
     private DateTime endTime;
-    // todo these should be duration objects
-    // times are in ms
-    private AtomicLong queuedTime = new AtomicLong();
-    private AtomicLong analysisTime = new AtomicLong();
-    private AtomicLong distributedPlanningTime = new AtomicLong();
 
-    private AtomicInteger splits = new AtomicInteger();
+    @GuardedBy("this")
+    private Duration queuedTime;
+    @GuardedBy("this")
+    private Duration analysisTime;
+    @GuardedBy("this")
+    private Duration distributedPlanningTime;
+
+    private final AtomicInteger splits = new AtomicInteger();
 
     public QueryStats()
     {
@@ -46,17 +47,17 @@ public class QueryStats
             @JsonProperty("executionStartTime") DateTime executionStartTime,
             @JsonProperty("lastHeartBeat") DateTime lastHeartBeat,
             @JsonProperty("endTime") DateTime endTime,
-            @JsonProperty("queuedTime") long queuedTime,
-            @JsonProperty("analysisTime") long analysisTime,
-            @JsonProperty("distributedPlanningTime") long distributedPlanningTime,
+            @JsonProperty("queuedTime") Duration queuedTime,
+            @JsonProperty("analysisTime") Duration analysisTime,
+            @JsonProperty("distributedPlanningTime") Duration distributedPlanningTime,
             @JsonProperty("splits") int splits)
     {
         this.createTime = createTime;
         this.executionStartTime = executionStartTime;
         this.endTime = endTime;
-        this.queuedTime.set(queuedTime);
-        this.analysisTime.set(analysisTime);
-        this.distributedPlanningTime.set(distributedPlanningTime);
+        this.queuedTime = queuedTime;
+        this.analysisTime = analysisTime;
+        this.distributedPlanningTime = distributedPlanningTime;
         this.splits.set(splits);
 
         createNanos = -1;
@@ -87,21 +88,21 @@ public class QueryStats
     }
 
     @JsonProperty
-    public long getQueuedTime()
+    public synchronized Duration getQueuedTime()
     {
-        return queuedTime.get();
+        return queuedTime;
     }
 
     @JsonProperty
-    public long getAnalysisTime()
+    public synchronized Duration getAnalysisTime()
     {
-        return analysisTime.get();
+        return analysisTime;
     }
 
     @JsonProperty
-    public long getDistributedPlanningTime()
+    public synchronized Duration getDistributedPlanningTime()
     {
-        return distributedPlanningTime.get();
+        return distributedPlanningTime;
     }
 
     @JsonProperty
@@ -110,10 +111,10 @@ public class QueryStats
         return splits.get();
     }
 
-    public void recordAnalysisStart()
+    public synchronized void recordAnalysisStart()
     {
         Preconditions.checkState(createNanos > 0, "Can not record analysis start");
-        queuedTime.set((long) Duration.nanosSince(createNanos).toMillis());
+        queuedTime = Duration.nanosSince(createNanos);
     }
 
     public synchronized void recordHeartBeat()
@@ -133,14 +134,14 @@ public class QueryStats
         }
     }
 
-    public void recordAnalysisTime(long analysisStart)
+    public synchronized void recordAnalysisTime(long analysisStart)
     {
-        analysisTime.set((long) Duration.nanosSince(analysisStart).toMillis());
+        analysisTime = Duration.nanosSince(analysisStart);
     }
 
-    public void recordDistributedPlanningTime(long distributedPlanningStart)
+    public synchronized void recordDistributedPlanningTime(long distributedPlanningStart)
     {
-        distributedPlanningTime.set((long) Duration.nanosSince(distributedPlanningStart).toMillis());
+        distributedPlanningTime = Duration.nanosSince(distributedPlanningStart);
     }
 
     public void addSplits(int splits)
