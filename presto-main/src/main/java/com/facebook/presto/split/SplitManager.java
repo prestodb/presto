@@ -213,7 +213,7 @@ public class SplitManager
                     expectedType = SchemaField.Type.LONG;
                 }
                 else if (literal instanceof StringLiteral) {
-                    value = ((StringLiteral) literal).getSlice();
+                    value = ((StringLiteral) literal).getValue();
                     expectedType = SchemaField.Type.STRING;
                 }
                 else {
