@@ -21,7 +21,8 @@ public class TestQueryManagerConfig
                 .setMaxShardProcessorThreads(Runtime.getRuntime().availableProcessors() * 4)
                 .setMaxQueryAge(new Duration(15, TimeUnit.MINUTES))
                 .setClientTimeout(new Duration(1, TimeUnit.MINUTES))
-                .setMaxOperatorMemoryUsage(new DataSize(256, Unit.MEGABYTE)));
+                .setMaxOperatorMemoryUsage(new DataSize(256, Unit.MEGABYTE))
+                .setMaxSplitCount(100_000));
     }
 
     @Test
@@ -34,6 +35,7 @@ public class TestQueryManagerConfig
                 .put("query.shard.max-threads", "3")
                 .put("query.client.timeout", "10s")
                 .put("query.max-age", "30s")
+                .put("query.max-splits", "100")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -42,7 +44,8 @@ public class TestQueryManagerConfig
                 .setMaxShardProcessorThreads(3)
                 .setMaxQueryAge(new Duration(30, TimeUnit.SECONDS))
                 .setClientTimeout(new Duration(10, TimeUnit.SECONDS))
-                .setImportsEnabled(false);
+                .setImportsEnabled(false)
+                .setMaxSplitCount(100);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
