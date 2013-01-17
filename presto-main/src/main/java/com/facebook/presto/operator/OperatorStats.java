@@ -3,53 +3,123 @@
  */
 package com.facebook.presto.operator;
 
-import java.util.concurrent.atomic.AtomicLong;
+import com.facebook.presto.execution.TaskOutput;
+import com.google.common.base.Preconditions;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
+import io.airlift.units.Duration;
 
+import javax.annotation.concurrent.NotThreadSafe;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * This class is not thread safe, but the done state of the task is properly
+ * propagated from the TaskOutput, which is thread safe, to this class.
+ */
+@NotThreadSafe
 public class OperatorStats
 {
+    private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
-    private AtomicLong expectedDataSize = new AtomicLong();
-    private AtomicLong expectedPositionCount = new AtomicLong();
-    private AtomicLong actualDataSize = new AtomicLong();
-    private AtomicLong actualPositionCount = new AtomicLong();
+    private final TaskOutput taskOutput;
 
-    public long getExpectedDataSize()
+    private long declaredSize;
+    private long declaredPositions;
+
+    private long completedDataSize;
+    private long completedPositions;
+
+    long wallStartTime;
+    long cpuStartTime;
+    long userStartTime;
+
+    private boolean finished;
+
+    public OperatorStats()
     {
-        return expectedDataSize.get();
+        this.taskOutput = null;
     }
 
-    public void addExpectedDataSize(long expectedDataSize)
+    public OperatorStats(TaskOutput taskOutput)
     {
-        this.expectedDataSize.getAndAdd((expectedDataSize));
+        Preconditions.checkNotNull(taskOutput, "taskOutput is null");
+        this.taskOutput = taskOutput;
     }
 
-    public long getExpectedPositionCount()
+    public boolean isDone()
     {
-        return expectedPositionCount.get();
+        return finished || (taskOutput != null && taskOutput.getState().isDone());
     }
 
-    public void addExpectedPositionCount(long expectedPositionCount)
+    public void addDeclaredSize(long bytes)
     {
-        this.expectedPositionCount.getAndAdd((expectedPositionCount));
+        if (taskOutput == null) {
+            return;
+        }
+
+        taskOutput.getStats().addInputDataSize(new DataSize(bytes, Unit.BYTE));
+        declaredSize += bytes;
     }
 
-    public long getActualDataSize()
+    public void addCompletedDataSize(long bytes)
     {
-        return actualDataSize.get();
+        if (taskOutput == null) {
+            return;
+        }
+
+        taskOutput.getStats().addCompletedDataSize(new DataSize(bytes, Unit.BYTE));
+        completedDataSize += bytes;
+
+        if (completedDataSize > declaredSize) {
+            taskOutput.getStats().addInputDataSize(new DataSize(completedDataSize - declaredSize, Unit.BYTE));
+            declaredSize = completedDataSize;
+        }
     }
 
-    public void addActualDataSize(long actualDataSize)
+    public void addCompletedPositions(long positions)
     {
-        this.actualDataSize.getAndAdd((actualDataSize));
+        if (taskOutput == null) {
+            return;
+        }
+
+        taskOutput.getStats().addCompletedPositions(positions);
+        completedPositions += positions;
+
+        if (completedPositions > declaredPositions) {
+            taskOutput.getStats().addInputPositions(completedPositions - declaredPositions);
+            declaredPositions = completedPositions;
+        }
     }
 
-    public long getActualPositionCount()
+    public void start()
     {
-        return actualPositionCount.get();
+        if (taskOutput == null) {
+            return;
+        }
+
+        taskOutput.getStats().splitStarted();
+        wallStartTime = System.nanoTime();
+        cpuStartTime = THREAD_MX_BEAN.getCurrentThreadCpuTime();
+        userStartTime = THREAD_MX_BEAN.getCurrentThreadUserTime();
     }
 
-    public void addActualPositionCount(long actualPositionCount)
+    public void finish()
     {
-        this.actualPositionCount.getAndAdd((actualPositionCount));
+        if (finished) {
+            return;
+        }
+        finished = true;
+
+        if (taskOutput == null) {
+            return;
+        }
+
+        // update the timings
+        taskOutput.getStats().addSplitWallTime(Duration.nanosSince(wallStartTime));
+        taskOutput.getStats().addSplitCpuTime(new Duration(Math.max(0, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStartTime), TimeUnit.NANOSECONDS));
+        taskOutput.getStats().addSplitUserTime(new Duration(Math.max(0, THREAD_MX_BEAN.getCurrentThreadUserTime() - userStartTime), TimeUnit.NANOSECONDS));
+        taskOutput.getStats().splitCompleted();
     }
 }

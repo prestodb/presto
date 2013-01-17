@@ -67,29 +67,35 @@ public class RecordProjectOperator
     @Override
     public PageIterator iterator(OperatorStats operatorStats)
     {
-        operatorStats.addActualDataSize(dataSize.toBytes());
-        return new RecordProjectionOperator(source.cursor(operatorStats), tupleInfos, columnIds, operatorStats);
+        return new RecordProjectionOperator(source.cursor(operatorStats), dataSize, tupleInfos, columnIds, operatorStats);
     }
 
     private static class RecordProjectionOperator
             extends AbstractPageIterator
     {
         private final RecordCursor cursor;
+        private final DataSize dataSize;
         private final List<Integer> columnIds;
         private final OperatorStats operatorStats;
 
 
-        public RecordProjectionOperator(RecordCursor cursor, List<TupleInfo> tupleInfos, List<Integer> columnIds, OperatorStats operatorStats)
+        public RecordProjectionOperator(RecordCursor cursor, DataSize dataSize, List<TupleInfo> tupleInfos, List<Integer> columnIds, OperatorStats operatorStats)
         {
             super(tupleInfos);
 
             this.cursor = cursor;
+            this.dataSize = dataSize;
             this.columnIds = columnIds;
             this.operatorStats = operatorStats;
+            operatorStats.addDeclaredSize(dataSize.toBytes());
         }
 
         protected Page computeNext()
         {
+            if (operatorStats.isDone()) {
+                return endOfData();
+            }
+
             // todo convert this code to page builder
             BlockBuilder[] outputs = new BlockBuilder[getChannelCount()];
             for (int i = 0; i < outputs.length; i++) {
@@ -128,13 +134,14 @@ public class RecordProjectOperator
             }
 
             Page page = new Page(blocks);
-            operatorStats.addActualPositionCount(page.getPositionCount());
+            operatorStats.addCompletedPositions(page.getPositionCount());
             return page;
         }
 
         @Override
         protected void doClose()
         {
+            operatorStats.addCompletedDataSize(dataSize.toBytes());
             cursor.close();
         }
 

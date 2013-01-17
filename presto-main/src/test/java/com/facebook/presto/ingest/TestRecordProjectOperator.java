@@ -1,10 +1,17 @@
+/*
+ * Copyright 2004-present Facebook. All Rights Reserved.
+ */
 package com.facebook.presto.ingest;
 
+import com.facebook.presto.execution.TaskOutput;
 import com.facebook.presto.operator.AlignmentOperator;
+import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.operator.PageIterator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
+import java.net.URI;
 import java.util.List;
 
 import static com.facebook.presto.block.BlockAssertions.createLongsBlockIterable;
@@ -13,8 +20,9 @@ import static com.facebook.presto.operator.OperatorAssertions.assertOperatorEqua
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static org.testng.Assert.assertEquals;
 
-public class TestRecordProjectionOperator
+public class TestRecordProjectOperator
 {
     @Test
     public void testSingleColumn()
@@ -37,5 +45,32 @@ public class TestRecordProjectionOperator
                 createStringsBlockIterable("abc", "def", "g"),
                 createLongsBlockIterable(1, 2, 0)
         ));
+    }
+
+    @Test
+    public void testFinish()
+            throws Exception
+    {
+        InfiniteRecordSet records = new InfiniteRecordSet(ImmutableList.of(VARIABLE_BINARY, FIXED_INT_64), ImmutableList.of("abc", 1L));
+
+        RecordProjectOperator operator = new RecordProjectOperator(records, new DataSize(10, BYTE), records.getColumns());
+
+        TaskOutput taskOutput = new TaskOutput("unknown", "unknown", "unknown", URI.create("unknown://unknown"), ImmutableList.of("unknown"), 1000, 1000);
+
+        int pageCount = 0;
+        PageIterator iterator = operator.iterator(new OperatorStats(taskOutput));
+        while (iterator.hasNext()) {
+            iterator.next();
+            pageCount++;
+
+            // stop when page count is 2
+            if (pageCount == 2) {
+                taskOutput.finish();
+            }
+            if (pageCount > 2) {
+                break;
+            }
+        }
+        assertEquals(pageCount, 2);
     }
 }
