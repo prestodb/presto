@@ -1,6 +1,10 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.aggregation.LongStdDevAggregation;
+import com.facebook.presto.operator.aggregation.LongVarianceAggregation;
+import com.facebook.presto.operator.aggregation.DoubleStdDevAggregation;
+import com.facebook.presto.operator.aggregation.DoubleVarianceAggregation;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.StringFunctions;
@@ -37,7 +41,6 @@ import static com.facebook.presto.operator.aggregation.LongAverageAggregation.LO
 import static com.facebook.presto.operator.aggregation.LongMaxAggregation.LONG_MAX;
 import static com.facebook.presto.operator.aggregation.LongMinAggregation.LONG_MIN;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
-import static com.facebook.presto.operator.aggregation.LongVarianceAggregation.LONG_VARIANCE;
 import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
 import static com.facebook.presto.operator.aggregation.VarBinaryMinAggregation.VAR_BINARY_MIN;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
@@ -69,7 +72,18 @@ public class FunctionRegistry
                 .aggregate("min", FIXED_INT_64, ImmutableList.of(FIXED_INT_64), FIXED_INT_64, LONG_MIN)
                 .aggregate("min", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_MIN)
                 .aggregate("min", VARIABLE_BINARY, ImmutableList.of(VARIABLE_BINARY), VARIABLE_BINARY, VAR_BINARY_MIN)
-                .aggregate("variance", FIXED_INT_64, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, LONG_VARIANCE)
+                .aggregate("var_pop", DOUBLE, ImmutableList.of(DOUBLE), VARIABLE_BINARY, DoubleVarianceAggregation.VARIANCE_POP_INSTANCE)
+                .aggregate("var_pop", DOUBLE, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, LongVarianceAggregation.VARIANCE_POP_INSTANCE)
+                .aggregate("var_samp", DOUBLE, ImmutableList.of(DOUBLE), VARIABLE_BINARY, DoubleVarianceAggregation.VARIANCE_INSTANCE)
+                .aggregate("var_samp", DOUBLE, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, LongVarianceAggregation.VARIANCE_INSTANCE)
+                .aggregate("variance", DOUBLE, ImmutableList.of(DOUBLE), VARIABLE_BINARY, DoubleVarianceAggregation.VARIANCE_INSTANCE)
+                .aggregate("variance", DOUBLE, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, LongVarianceAggregation.VARIANCE_INSTANCE)
+                .aggregate("stddev_pop", DOUBLE, ImmutableList.of(DOUBLE), VARIABLE_BINARY, DoubleStdDevAggregation.STDDEV_POP_INSTANCE)
+                .aggregate("stddev_pop", DOUBLE, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, LongStdDevAggregation.STDDEV_POP_INSTANCE)
+                .aggregate("stddev_samp", DOUBLE, ImmutableList.of(DOUBLE), VARIABLE_BINARY, DoubleStdDevAggregation.STDDEV_INSTANCE)
+                .aggregate("stddev_samp", DOUBLE, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, LongStdDevAggregation.STDDEV_INSTANCE)
+                .aggregate("stddev", DOUBLE, ImmutableList.of(DOUBLE), VARIABLE_BINARY, DoubleStdDevAggregation.STDDEV_INSTANCE)
+                .aggregate("stddev", DOUBLE, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, LongStdDevAggregation.STDDEV_INSTANCE)
                 .scalar(StringFunctions.class)
                 .scalar(MathFunctions.class)
                 .scalar(UnixTimeFunctions.class)
