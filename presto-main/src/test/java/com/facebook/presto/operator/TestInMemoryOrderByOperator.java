@@ -7,6 +7,8 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.operator.CancelTester.assertCancel;
+import static com.facebook.presto.operator.CancelTester.createCancelableDataSource;
 import static com.facebook.presto.operator.OperatorAssertions.assertOperatorEquals;
 import static com.facebook.presto.operator.OperatorAssertions.createOperator;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
@@ -25,7 +27,7 @@ public class TestInMemoryOrderByOperator
                 ),
                 new Page(
                         BlockAssertions.createLongsBlock(-1, 4),
-                        BlockAssertions.createDoublesBlock( -0.1, 0.4)
+                        BlockAssertions.createDoublesBlock(-0.1, 0.4)
                 )
         );
 
@@ -85,7 +87,7 @@ public class TestInMemoryOrderByOperator
                 )
         );
 
-        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(source, 0, new int[]{0}, 10, new int[]{0}, new boolean[] {false}, new DataSize(1, Unit.MEGABYTE));
+        InMemoryOrderByOperator actual = new InMemoryOrderByOperator(source, 0, new int[]{0}, 10, new int[]{0}, new boolean[]{false}, new DataSize(1, Unit.MEGABYTE));
 
         Operator expected = createOperator(
                 new Page(
@@ -106,11 +108,21 @@ public class TestInMemoryOrderByOperator
                 ),
                 new Page(
                         BlockAssertions.createLongsBlock(-1, 4),
-                        BlockAssertions.createDoublesBlock( -0.1, 0.4)
+                        BlockAssertions.createDoublesBlock(-0.1, 0.4)
                 )
         );
 
         InMemoryOrderByOperator operator = new InMemoryOrderByOperator(source, 0, new int[]{1}, 10, new DataSize(10, Unit.BYTE));
-        operator.iterator(new OperatorStats());
+        PageIterator iterator = operator.iterator(new OperatorStats());
+        iterator.next();
+    }
+
+    @Test
+    public void testCancel()
+            throws Exception
+    {
+        BlockingOperator blockingOperator = createCancelableDataSource(new TupleInfo(VARIABLE_BINARY), new TupleInfo(VARIABLE_BINARY));
+        Operator operator = new InMemoryOrderByOperator(blockingOperator, 0, new int[]{1}, 10, new DataSize(10, Unit.MEGABYTE));
+        assertCancel(operator, blockingOperator);
     }
 }

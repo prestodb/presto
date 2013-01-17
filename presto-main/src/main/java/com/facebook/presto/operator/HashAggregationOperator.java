@@ -56,7 +56,7 @@ public class HashAggregationOperator
         Preconditions.checkNotNull(step, "step is null");
         Preconditions.checkNotNull(functionDefinitions, "functionDefinitions is null");
         Preconditions.checkNotNull(maxSize, "maxSize is null");
-        
+
         this.source = source;
         this.groupByChannel = groupByChannel;
         this.step = step;
@@ -99,7 +99,11 @@ public class HashAggregationOperator
             extends AbstractPageIterator
     {
         private final List<Aggregator> aggregates;
-        private final Iterator<UncompressedBlock> groupByBlocksIterator;
+        private final PageIterator iterator;
+        private final int groupChannel;
+        private final int expectedGroups;
+        private final DataSize maxSize;
+        private Iterator<UncompressedBlock> groupByBlocksIterator;
         private int currentPosition;
 
         public HashAggregationIterator(List<TupleInfo> tupleInfos,
@@ -112,6 +116,11 @@ public class HashAggregationOperator
                 OperatorStats operatorStats)
         {
             super(tupleInfos);
+            this.groupChannel = groupChannel;
+            this.expectedGroups = expectedGroups;
+            this.maxSize = maxSize;
+
+            iterator = source.iterator(operatorStats);
 
             // wrapper each function with an aggregator
             ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
@@ -119,22 +128,14 @@ public class HashAggregationOperator
                 builder.add(createAggregator(functionDefinition, step, expectedGroups));
             }
             aggregates = builder.build();
-
-            // initialize hash
-            TupleInfo groupByTupleInfo = source.getTupleInfos().get(groupChannel);
-            SliceHashStrategy hashStrategy = new SliceHashStrategy(groupByTupleInfo);
-            Long2IntOpenCustomHashMap addressToGroupId = new Long2IntOpenCustomHashMap(expectedGroups, hashStrategy);
-            addressToGroupId.defaultReturnValue(-1);
-
-            groupByBlocksIterator = aggregate(source, groupChannel, maxSize, operatorStats, groupByTupleInfo, hashStrategy, addressToGroupId);
         }
 
-        private Iterator<UncompressedBlock> aggregate(Operator source,
+        private Iterator<UncompressedBlock> aggregate(PageIterator iterator,
                 int groupChannel,
                 DataSize maxSize,
-                OperatorStats operatorStats,
                 TupleInfo groupByTupleInfo,
-                SliceHashStrategy hashStrategy, Long2IntOpenCustomHashMap addressToGroupId)
+                SliceHashStrategy hashStrategy,
+                Long2IntOpenCustomHashMap addressToGroupId)
         {
             // allocate the first group by (key side) slice
             Slice slice = Slices.allocate((int) BlockBuilder.DEFAULT_MAX_BLOCK_SIZE.toBytes());
@@ -144,8 +145,7 @@ public class HashAggregationOperator
             int nextGroupId = 0;
 
             List<UncompressedBlock> groupByBlocks = new ArrayList<>();
-            BlockCursor[] cursors = new BlockCursor[source.getChannelCount()];
-            PageIterator iterator = source.iterator(operatorStats);
+            BlockCursor[] cursors = new BlockCursor[iterator.getChannelCount()];
             while (iterator.hasNext()) {
                 checkMaxMemory(maxSize, hashStrategy);
 
@@ -224,6 +224,16 @@ public class HashAggregationOperator
         @Override
         protected Page computeNext()
         {
+            if (groupByBlocksIterator == null) {
+                // initialize hash
+                TupleInfo groupByTupleInfo = iterator.getTupleInfos().get(groupChannel);
+                SliceHashStrategy hashStrategy = new SliceHashStrategy(groupByTupleInfo);
+                Long2IntOpenCustomHashMap addressToGroupId = new Long2IntOpenCustomHashMap(expectedGroups, hashStrategy);
+                addressToGroupId.defaultReturnValue(-1);
+
+                groupByBlocksIterator = aggregate(iterator, groupChannel, maxSize, groupByTupleInfo, hashStrategy, addressToGroupId);
+            }
+
             // if no more data, return null
             if (!groupByBlocksIterator.hasNext()) {
                 endOfData();
@@ -252,8 +262,8 @@ public class HashAggregationOperator
         @Override
         protected void doClose()
         {
+            iterator.close();
         }
-
     }
 
     @SuppressWarnings("rawtypes")

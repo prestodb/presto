@@ -1,10 +1,14 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.tuple.TupleInfo;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.operator.CancelTester.assertCancel;
+import static com.facebook.presto.operator.CancelTester.createCancelableDataSource;
 import static com.facebook.presto.operator.OperatorAssertions.assertOperatorEquals;
 import static com.facebook.presto.operator.OperatorAssertions.createOperator;
+import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 
 public class TestLimitOperator
 {
@@ -42,5 +46,14 @@ public class TestLimitOperator
                         new Page(BlockAssertions.createLongsBlock(4))
                 );
         assertOperatorEquals(actual, expected);
+    }
+
+    @Test
+    public void testCancel()
+            throws Exception
+    {
+        BlockingOperator blockingOperator = createCancelableDataSource(new TupleInfo(VARIABLE_BINARY), new TupleInfo(VARIABLE_BINARY));
+        Operator operator = new LimitOperator(blockingOperator, 100_000);
+        assertCancel(operator, blockingOperator);
     }
 }

@@ -175,7 +175,7 @@ public abstract class AbstractPageIterator
     }
 
     @Override
-    public void remove()
+    public final void remove()
     {
         throw new UnsupportedOperationException();
     }
