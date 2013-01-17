@@ -15,7 +15,6 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import io.airlift.units.DataSize;
 
 import java.util.List;
 
@@ -25,23 +24,20 @@ public class RecordProjectOperator
         implements Operator
 {
     private final RecordSet source;
-    private final DataSize dataSize;
     private final List<TupleInfo> tupleInfos;
     private final List<Integer> columnIds;
 
-    public RecordProjectOperator(RecordSet source, DataSize dataSize, ImportColumnHandle... columns)
+    public RecordProjectOperator(RecordSet source, ImportColumnHandle... columns)
     {
-        this(source, dataSize, ImmutableList.copyOf(columns));
+        this(source, ImmutableList.copyOf(columns));
     }
 
-    public RecordProjectOperator(RecordSet source, DataSize dataSize, Iterable<ImportColumnHandle> columns)
+    public RecordProjectOperator(RecordSet source, Iterable<ImportColumnHandle> columns)
     {
         Preconditions.checkNotNull(source, "source is null");
-        Preconditions.checkNotNull(dataSize, "dataSize is null");
         Preconditions.checkNotNull(columns, "columns is null");
 
         this.source = source;
-        this.dataSize = dataSize;
 
         this.columnIds = ImmutableList.copyOf(Iterables.transform(columns, idGetter()));
 
@@ -67,27 +63,25 @@ public class RecordProjectOperator
     @Override
     public PageIterator iterator(OperatorStats operatorStats)
     {
-        return new RecordProjectionOperator(source.cursor(operatorStats), dataSize, tupleInfos, columnIds, operatorStats);
+        return new RecordProjectionOperator(source.cursor(operatorStats), tupleInfos, columnIds, operatorStats);
     }
 
     private static class RecordProjectionOperator
             extends AbstractPageIterator
     {
         private final RecordCursor cursor;
-        private final DataSize dataSize;
         private final List<Integer> columnIds;
         private final OperatorStats operatorStats;
+        private long currentCompletedSize;
 
-
-        public RecordProjectionOperator(RecordCursor cursor, DataSize dataSize, List<TupleInfo> tupleInfos, List<Integer> columnIds, OperatorStats operatorStats)
+        public RecordProjectionOperator(RecordCursor cursor, List<TupleInfo> tupleInfos, List<Integer> columnIds, OperatorStats operatorStats)
         {
             super(tupleInfos);
 
             this.cursor = cursor;
-            this.dataSize = dataSize;
             this.columnIds = columnIds;
             this.operatorStats = operatorStats;
-            operatorStats.addDeclaredSize(dataSize.toBytes());
+            operatorStats.addDeclaredSize(cursor.getTotalBytes());
         }
 
         protected Page computeNext()
@@ -124,6 +118,13 @@ public class RecordProjectOperator
                 }
             }
 
+            // update completed size after each page is produced
+            long completedDataSize = cursor.getCompletedBytes();
+            if (completedDataSize > currentCompletedSize) {
+                operatorStats.addCompletedDataSize(completedDataSize - currentCompletedSize);
+                currentCompletedSize = completedDataSize;
+            }
+
             if (outputs[0].isEmpty()) {
                 return endOfData();
             }
@@ -141,7 +142,6 @@ public class RecordProjectOperator
         @Override
         protected void doClose()
         {
-            operatorStats.addCompletedDataSize(dataSize.toBytes());
             cursor.close();
         }
 

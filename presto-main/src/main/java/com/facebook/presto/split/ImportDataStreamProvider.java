@@ -7,12 +7,8 @@ import com.facebook.presto.metadata.ImportColumnHandle;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
-import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.util.IterableTransformer;
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 
 import java.util.List;
 
@@ -47,8 +43,7 @@ public class ImportDataStreamProvider
                 .list();
 
         PartitionChunk partitionChunk = client.deserializePartitionChunk(importSplit.getSerializedChunk().getBytes());
-        DataSize partitionSize = new DataSize(partitionChunk.getLength(), Unit.BYTE);
         ImportPartition importPartition = new ImportPartition(client, partitionChunk);
-        return new RecordProjectOperator(importPartition, partitionSize, columnHandles);
+        return new RecordProjectOperator(importPartition, columnHandles);
     }
 }

@@ -13,8 +13,6 @@ import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.Resources;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 
 import java.io.File;
 import java.io.IOException;
@@ -147,8 +145,7 @@ public class GeneratingTpchDataProvider
                     Splitter.on("|")
             );
 
-            DataSize dataSize = new DataSize(cachedFile.length(), Unit.BYTE);
-            RecordProjectOperator source = new RecordProjectOperator(records, dataSize, new ImportColumnHandle("tpch", "column" + columnHandle.getFieldIndex(), columnHandle.getFieldIndex(), columnHandle.getType()));
+            RecordProjectOperator source = new RecordProjectOperator(records, new ImportColumnHandle("tpch", "column" + columnHandle.getFieldIndex(), columnHandle.getFieldIndex(), columnHandle.getType()));
 
             ImportingOperator.importData(source, new BlocksFileWriter(encoding, newOutputStreamSupplier(cachedFile)));
 

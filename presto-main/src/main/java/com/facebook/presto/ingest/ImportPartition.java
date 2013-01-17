@@ -53,6 +53,18 @@ public class ImportPartition
         }
 
         @Override
+        public long getTotalBytes()
+        {
+            return cursor.getTotalBytes();
+        }
+
+        @Override
+        public long getCompletedBytes()
+        {
+            return cursor.getCompletedBytes();
+        }
+
+        @Override
         public boolean advanceNextPosition()
         {
             return cursor.advanceNextPosition();
