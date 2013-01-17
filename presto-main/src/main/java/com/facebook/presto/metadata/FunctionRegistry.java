@@ -37,6 +37,7 @@ import static com.facebook.presto.operator.aggregation.LongAverageAggregation.LO
 import static com.facebook.presto.operator.aggregation.LongMaxAggregation.LONG_MAX;
 import static com.facebook.presto.operator.aggregation.LongMinAggregation.LONG_MIN;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
+import static com.facebook.presto.operator.aggregation.LongVarianceAggregation.LONG_VARIANCE;
 import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
 import static com.facebook.presto.operator.aggregation.VarBinaryMinAggregation.VAR_BINARY_MIN;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
@@ -68,6 +69,7 @@ public class FunctionRegistry
                 .aggregate("min", FIXED_INT_64, ImmutableList.of(FIXED_INT_64), FIXED_INT_64, LONG_MIN)
                 .aggregate("min", DOUBLE, ImmutableList.of(DOUBLE), DOUBLE, DOUBLE_MIN)
                 .aggregate("min", VARIABLE_BINARY, ImmutableList.of(VARIABLE_BINARY), VARIABLE_BINARY, VAR_BINARY_MIN)
+                .aggregate("variance", FIXED_INT_64, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, LONG_VARIANCE)
                 .scalar(StringFunctions.class)
                 .scalar(MathFunctions.class)
                 .scalar(UnixTimeFunctions.class)
