@@ -71,10 +71,16 @@ public class InMemoryOrderByOperator
     private static class InMemoryOrderByOperatorIterator
             extends AbstractPageIterator
     {
+        private final int orderByChannel;
         private final List<TupleInfo> tupleInfos;
         private final int[] outputChannels;
-        private final PagesIndex pageIndex;
+        private final int expectedPositions;
+        private final int[] sortFields;
+        private final boolean[] sortOrder;
+        private final DataSize maxSize;
+        private PagesIndex pageIndex;
         private int currentPosition;
+        private PageIterator source;
 
         private InMemoryOrderByOperatorIterator(Operator source,
                 int orderByChannel,
@@ -87,20 +93,28 @@ public class InMemoryOrderByOperator
                 OperatorStats operatorStats)
         {
             super(source.getTupleInfos());
+            this.orderByChannel = orderByChannel;
 
             this.tupleInfos = tupleInfos;
             this.outputChannels = outputChannels;
-
-            // index all pages
-            pageIndex = new PagesIndex(source, expectedPositions, maxSize, operatorStats);
-
-            // sort the index
-            pageIndex.sort(orderByChannel, sortFields, sortOrder);
+            this.source = source.iterator(operatorStats);
+            this.expectedPositions = expectedPositions;
+            this.sortFields = sortFields;
+            this.sortOrder = sortOrder;
+            this.maxSize = maxSize;
         }
 
         @Override
         protected Page computeNext()
         {
+            if (pageIndex == null) {
+                // index all pages
+                pageIndex = new PagesIndex(source, expectedPositions, maxSize);
+
+                // sort the index
+                pageIndex.sort(orderByChannel, sortFields, sortOrder);
+            }
+
             if (currentPosition >= pageIndex.getPositionCount()) {
                 return endOfData();
             }
@@ -125,6 +139,7 @@ public class InMemoryOrderByOperator
         @Override
         protected void doClose()
         {
+            source.close();
         }
     }
 
