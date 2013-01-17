@@ -275,17 +275,6 @@
                 </executions>
             </plugin>
 
-            <!-- Required to enable benchmarks to be run from their Main methods in Intellij -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <additionalClasspathElements>
-                        <additionalClasspathElement>${project.build.directory}/dependency/testdata-tpch-1g.jar</additionalClasspathElement>
-                    </additionalClasspathElements>
-                </configuration>
-            </plugin>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
