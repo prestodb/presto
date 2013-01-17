@@ -11,6 +11,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.airlift.units.Duration;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +24,7 @@ import static com.facebook.presto.execution.PageBuffer.stateGetter;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.Iterables.transform;
 
+@ThreadSafe
 public class TaskOutput
 {
     private final String queryId;
