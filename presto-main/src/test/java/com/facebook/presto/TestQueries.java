@@ -444,6 +444,13 @@ public class TestQueries
         );
     }
 
+    @Test(enabled = false) // TODO: fix this case
+    public void testSelfJoin()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM orders a JOIN orders b on a.orderkey = b.orderkey");
+    }
+
     @Test
     public void testWilcardFromJoin()
             throws Exception
