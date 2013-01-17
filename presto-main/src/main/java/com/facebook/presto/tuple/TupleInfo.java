@@ -285,6 +285,11 @@ public class TupleInfo
         return slice.getLong(offset + getOffset(field));
     }
 
+    public void setLong(Slice slice, int field, long value)
+    {
+        setLong(slice, 0, field, value);
+    }
+
     /**
      * Sets the specified field to the specified long value.
      *
@@ -307,6 +312,11 @@ public class TupleInfo
         checkState(types.get(field) == DOUBLE, "Expected DOUBLE");
 
         return slice.getDouble(offset + getOffset(field));
+    }
+
+    public void setDouble(Slice slice, int field, double value)
+    {
+        setDouble(slice, 0, field, value);
     }
 
     /**

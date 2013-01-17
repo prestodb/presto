@@ -8,8 +8,6 @@ import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 
-import static com.facebook.presto.slice.SizeOf.SIZE_OF_DOUBLE;
-import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 
@@ -107,8 +105,8 @@ public class DoubleAverageAggregation
         // decode value
         // todo remove this assumption that the field is 0
         Slice value = cursor.getSlice(0);
-        long count = value.getLong(0);
-        double sum = value.getDouble(SIZE_OF_LONG);
+        long count = TUPLE_INFO.getLong(value, 0);
+        double sum = TUPLE_INFO.getDouble(value, 1);
 
         // add counts
         TUPLE_INFO.setLong(valueSlice, valueOffset, 0, TUPLE_INFO.getLong(valueSlice, valueOffset, 0) + count);
@@ -121,9 +119,9 @@ public class DoubleAverageAggregation
     public void evaluateIntermediate(Slice valueSlice, int valueOffset, BlockBuilder output)
     {
         if (!TUPLE_INFO.isNull(valueSlice, valueOffset, 0)) {
-            Slice value = Slices.allocate(SIZE_OF_LONG + SIZE_OF_DOUBLE);
-            value.setLong(0, TUPLE_INFO.getLong(valueSlice, valueOffset, 0));
-            value.setDouble(SIZE_OF_LONG, TUPLE_INFO.getDouble(valueSlice, valueOffset, 1));
+            Slice value = Slices.allocate(TUPLE_INFO.getFixedSize());
+            TUPLE_INFO.setLong(value, 0, TUPLE_INFO.getLong(valueSlice, valueOffset, 0));
+            TUPLE_INFO.setDouble(value, 1, TUPLE_INFO.getDouble(valueSlice, valueOffset, 1));
             output.append(value);
         } else {
             output.appendNull();
