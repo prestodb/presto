@@ -105,9 +105,6 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
 
         StageInfo outputStage = queryInfo.getOutputStage();
 
-        // only include input (leaf) stages
-        ExecutionStats inputExecutionStats = leafExecutionStats(outputStage);
-
         // sum all stats (used for global stats like cpu time)
         ExecutionStats globalExecutionStats = globalExecutionStats(outputStage);
 
@@ -137,8 +134,8 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
             Duration cpuTime = globalExecutionStats.getSplitCpuTime();
             String cpuTimeSummary = String.format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
                     cpuTime.convertTo(SECONDS),
-                    formatCountRate(inputExecutionStats.getCompletedPositionCount(), cpuTime, false),
-                    formatDataRate(inputExecutionStats.getCompletedDataSize(), cpuTime, true),
+                    formatCountRate(globalExecutionStats.getCompletedPositionCount(), cpuTime, false),
+                    formatDataRate(globalExecutionStats.getCompletedDataSize(), cpuTime, true),
                     (int) (globalExecutionStats.getSplitCpuTime().toMillis() * 100.0 / (globalExecutionStats.getSplitWallTime().toMillis() + 1))); // Add 1 to avoid divide by zero
             out.println(cpuTimeSummary);
 
@@ -147,8 +144,8 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
             // Per Node: 3.5 parallelism, 83.3K rows/s, 0.7 MB/s
             String perNodeSummary = String.format("Per Node: %.1f parallelism, %5s rows/s, %8s",
                     parallelism / nodes,
-                    formatCountRate(inputExecutionStats.getCompletedPositionCount() / nodes, wallTime, false),
-                    formatDataRate(new DataSize(inputExecutionStats.getCompletedDataSize().toBytes() / nodes, BYTE), wallTime, true));
+                    formatCountRate(globalExecutionStats.getCompletedPositionCount() / nodes, wallTime, false),
+                    formatDataRate(new DataSize(globalExecutionStats.getCompletedDataSize().toBytes() / nodes, BYTE), wallTime, true));
             reprintLine(perNodeSummary);
 
             out.println(String.format("Parallelism: %.1f", parallelism));
@@ -157,10 +154,10 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
         // 0:32 [2.12GB, 15M rows] [67MB/s, 463K rows/s]
         String statsLine = String.format("%s [%s rows, %s] [%s rows/s, %s]",
                 formatTime(wallTime),
-                formatCount(inputExecutionStats.getCompletedPositionCount()),
-                formatDataSize(inputExecutionStats.getCompletedDataSize(), true),
-                formatCountRate(inputExecutionStats.getInputPositionCount(), wallTime, false),
-                formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTime, true));
+                formatCount(globalExecutionStats.getCompletedPositionCount()),
+                formatDataSize(globalExecutionStats.getCompletedDataSize(), true),
+                formatCountRate(globalExecutionStats.getInputPositionCount(), wallTime, false),
+                formatDataRate(globalExecutionStats.getCompletedDataSize(), wallTime, true));
 
         out.println(statsLine);
 
@@ -173,9 +170,6 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
         Duration wallTime = Duration.nanosSince(start);
 
         StageInfo outputStage = queryInfo.getOutputStage();
-
-        // only include input (leaf) stages
-        ExecutionStats inputExecutionStats = leafExecutionStats(outputStage);
 
         ExecutionStats globalExecutionStats = globalExecutionStats(outputStage);
 
@@ -209,8 +203,8 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
                 Duration cpuTime = globalExecutionStats.getSplitCpuTime();
                 String cpuTimeSummary = String.format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
                         cpuTime.convertTo(SECONDS),
-                        formatCountRate(inputExecutionStats.getCompletedPositionCount(), cpuTime, false),
-                        formatDataRate(inputExecutionStats.getCompletedDataSize(), cpuTime, true),
+                        formatCountRate(globalExecutionStats.getCompletedPositionCount(), cpuTime, false),
+                        formatDataRate(globalExecutionStats.getCompletedDataSize(), cpuTime, true),
                         (int) (globalExecutionStats.getSplitCpuTime().toMillis() * 100.0 / (globalExecutionStats.getSplitWallTime().toMillis() + 1))); // Add 1 to avoid divide by zero
                 reprintLine(cpuTimeSummary);
 
@@ -219,8 +213,8 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
                 // Per Node: 3.5 parallelism, 83.3K rows/s, 0.7 MB/s
                 String perNodeSummary = String.format("Per Node: %.1f parallelism, %5s rows/s, %8s",
                         parallelism / nodes,
-                        formatCountRate(inputExecutionStats.getCompletedPositionCount() / nodes, wallTime, false),
-                        formatDataRate(new DataSize(inputExecutionStats.getCompletedDataSize().toBytes() / nodes, BYTE), wallTime, true));
+                        formatCountRate(globalExecutionStats.getCompletedPositionCount() / nodes, wallTime, false),
+                        formatDataRate(new DataSize(globalExecutionStats.getCompletedDataSize().toBytes() / nodes, BYTE), wallTime, true));
                 reprintLine(perNodeSummary);
 
                 reprintLine(String.format("Parallelism: %.1f", parallelism));
@@ -234,10 +228,10 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
             // 0:17 [ 103MB,  802K rows] [5.74MB/s, 44.9K rows/s] [=====>>                                   ] 10%
             String progressLine = String.format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s] %d%%",
                     formatTime(wallTime),
-                    formatCount(inputExecutionStats.getCompletedPositionCount()),
-                    formatDataSize(inputExecutionStats.getCompletedDataSize(), true),
-                    formatCountRate(inputExecutionStats.getInputPositionCount(), wallTime, false),
-                    formatDataRate(inputExecutionStats.getCompletedDataSize(), wallTime, true),
+                    formatCount(globalExecutionStats.getCompletedPositionCount()),
+                    formatDataSize(globalExecutionStats.getCompletedDataSize(), true),
+                    formatCountRate(globalExecutionStats.getInputPositionCount(), wallTime, false),
+                    formatDataRate(globalExecutionStats.getCompletedDataSize(), wallTime, true),
                     progressBar,
                     // cap progress at 99%, otherwise it looks weird when the query is still running and it says 100%
                     Math.min(99, (int) (globalExecutionStats.getCompletedSplits() * 100.0 / globalExecutionStats.getSplits())));
