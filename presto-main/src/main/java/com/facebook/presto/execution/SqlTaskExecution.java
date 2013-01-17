@@ -22,12 +22,9 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
-import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadMXBean;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -35,13 +32,11 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SqlTaskExecution
         implements TaskExecution
 {
-    private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
     private final String taskId;
     private final TaskOutput taskOutput;
     private final List<PlanFragmentSource> splits;
@@ -230,8 +225,7 @@ public class SqlTaskExecution
         private final AtomicBoolean started = new AtomicBoolean();
         private final TaskOutput taskOutput;
         private final Operator operator;
-        private final OperatorStats operatorStats = new OperatorStats();
-
+        private final OperatorStats operatorStats;
 
         private SplitWorker(Session session,
                 TaskOutput taskOutput,
@@ -244,6 +238,8 @@ public class SqlTaskExecution
                 DataSize maxOperatorMemoryUsage)
         {
             this.taskOutput = taskOutput;
+
+            operatorStats = new OperatorStats(taskOutput);
 
             LocalExecutionPlanner planner = new LocalExecutionPlanner(session,
                     metadata,
@@ -268,17 +264,14 @@ public class SqlTaskExecution
                 return null;
             }
 
-            taskOutput.getStats().splitStarted();
-            long wallStartTime = System.nanoTime();
-            long cpuStartTime = THREAD_MX_BEAN.getCurrentThreadCpuTime();
-            long userStartTime = THREAD_MX_BEAN.getCurrentThreadUserTime();
+            operatorStats.start();
             try (PageIterator pages = operator.iterator(operatorStats)) {
                 while (pages.hasNext()) {
                     Page page = pages.next();
                     taskOutput.getStats().addOutputDataSize(page.getDataSize());
                     taskOutput.getStats().addOutputPositions(page.getPositionCount());
                     if (!taskOutput.addPage(page)) {
-                        pages.close();
+                        break;
                     }
                 }
                 return null;
@@ -288,15 +281,7 @@ public class SqlTaskExecution
                 throw e;
             }
             finally {
-                taskOutput.getStats().addSplitWallTime(Duration.nanosSince(wallStartTime));
-                taskOutput.getStats().addSplitCpuTime(new Duration(Math.max(0, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStartTime), TimeUnit.NANOSECONDS));
-                taskOutput.getStats().addSplitUserTime(new Duration(Math.max(0, THREAD_MX_BEAN.getCurrentThreadUserTime() - userStartTime), TimeUnit.NANOSECONDS));
-                taskOutput.getStats().splitCompleted();
-                // todo cleanup expected vs actual
-                taskOutput.getStats().addInputDataSize(new DataSize(operatorStats.getActualDataSize(), Unit.BYTE));
-                taskOutput.getStats().addInputPositions(operatorStats.getActualPositionCount());
-                taskOutput.getStats().addCompletedDataSize(new DataSize(operatorStats.getActualDataSize(), Unit.BYTE));
-                taskOutput.getStats().addCompletedPositions(operatorStats.getActualPositionCount());
+                operatorStats.finish();
             }
         }
     }

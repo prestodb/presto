@@ -5,6 +5,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.execution.PageBuffer;
+import com.facebook.presto.execution.TaskOutput;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
@@ -13,6 +14,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -60,6 +62,42 @@ public class TestQueryDriversOperator
                 }
             }
             assertEquals(count, expectedCount * 3);
+        }
+        finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    public void testFinishedQuery()
+            throws Exception
+    {
+        List<Page> pages = createPages();
+        ExecutorService executor = Executors.newCachedThreadPool();
+        try {
+            QueryDriversOperator operator = new QueryDriversOperator(10,
+                    TUPLE_INFOS,
+                    new StaticQueryDriverProvider(executor, pages),
+                    new StaticQueryDriverProvider(executor, pages),
+                    new StaticQueryDriverProvider(executor, pages)
+            );
+
+            TaskOutput taskOutput = new TaskOutput("unknown", "unknown", "unknown", URI.create("unknown://unknown"), ImmutableList.of("unknown"), 1000, 1000);
+
+            int pageCount = 0;
+            PageIterator iterator = operator.iterator(new OperatorStats(taskOutput));
+            while (iterator.hasNext()) {
+                iterator.next();
+                pageCount++;
+                // stop when page count is 2
+                if (pageCount == 2) {
+                    taskOutput.finish();
+                }
+                if (pageCount > 2) {
+                    break;
+                }
+            }
+            assertEquals(pageCount, 2);
         }
         finally {
             executor.shutdownNow();

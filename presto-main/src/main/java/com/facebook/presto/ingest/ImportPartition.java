@@ -39,7 +39,6 @@ public class ImportPartition
                 return importClient.getRecords(chunk);
             }
         });
-        operatorStats.addExpectedDataSize(chunk.getLength());
         return new ImportRecordCursor(records);
     }
 

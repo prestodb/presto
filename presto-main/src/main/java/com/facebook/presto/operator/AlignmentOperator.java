@@ -15,7 +15,6 @@ import io.airlift.units.DataSize;
 
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -89,9 +88,9 @@ public class AlignmentOperator implements Operator
         }
 
         if (expectedDataSize.isPresent()) {
-            operatorStats.addExpectedDataSize(expectedDataSize.get().toBytes());
+            operatorStats.addCompletedDataSize(expectedDataSize.get().toBytes());
         }
-        operatorStats.addExpectedPositionCount(expectedPositionCount.or(0));
+        operatorStats.addCompletedPositions(expectedPositionCount.or(0));
         return new AlignmentIterator(tupleInfos, iterators, operatorStats);
     }
 
@@ -117,6 +116,10 @@ public class AlignmentOperator implements Operator
 
         protected Page computeNext()
         {
+            if (operatorStats.isDone()) {
+                return endOfData();
+            }
+
             // all iterators should end together
             if (cursors[0].getRemainingPositions() <= 0 && !iterators[0].hasNext()) {
                 for (Iterator<? extends Block> iterator : iterators) {
@@ -146,8 +149,8 @@ public class AlignmentOperator implements Operator
             }
 
             Page page = new Page(blocks);
-            operatorStats.addActualDataSize(page.getDataSize().toBytes());
-            operatorStats.addActualPositionCount(page.getPositionCount());
+            operatorStats.addCompletedDataSize(page.getDataSize().toBytes());
+            operatorStats.addCompletedPositions(page.getPositionCount());
             return page;
         }
 

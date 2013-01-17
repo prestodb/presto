@@ -101,12 +101,12 @@ public class QueryDriversOperator
         {
             try {
                 // get the next page
-                while (!pageBuffer.isDone()) {
+                while (!operatorStats.isDone() && !pageBuffer.isDone()) {
                     List<Page> nextPages = pageBuffer.getNextPages(1, new Duration(1, TimeUnit.SECONDS));
                     if (!nextPages.isEmpty()) {
                         Page page = Iterables.getOnlyElement(nextPages);
-                        operatorStats.addActualDataSize(page.getDataSize().toBytes());
-                        operatorStats.addActualPositionCount(page.getPositionCount());
+                        operatorStats.addCompletedDataSize(page.getDataSize().toBytes());
+                        operatorStats.addCompletedPositions(page.getPositionCount());
                         return page;
                     }
                 }
