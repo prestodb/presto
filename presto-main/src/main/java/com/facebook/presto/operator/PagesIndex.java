@@ -32,18 +32,18 @@ public class PagesIndex
     private final int channelCount;
     private final int positionCount;
 
-    public PagesIndex(Operator source, int expectedPositions, DataSize maxIndexSize, OperatorStats operatorStats)
+    public PagesIndex(PageIterator iterator, int expectedPositions, DataSize maxIndexSize)
     {
-        channelCount = source.getChannelCount();
+        channelCount = iterator.getChannelCount();
         indexes = new ChannelIndex[channelCount];
-        List<TupleInfo> tupleInfos = source.getTupleInfos();
+        List<TupleInfo> tupleInfos = iterator.getTupleInfos();
         for (int channel = 0; channel < indexes.length; channel++) {
             indexes[channel] = new ChannelIndex(expectedPositions, tupleInfos.get(channel));
         }
 
         long maxIndexSizeBytes = maxIndexSize.toBytes();
         int positionCount = 0;
-        try (PageIterator pageIterator = source.iterator(operatorStats)) {
+        try (PageIterator pageIterator = iterator) {
             while (pageIterator.hasNext()) {
                 // check size before loading more data
                 Preconditions.checkState(getEstimatedSize().toBytes() <= maxIndexSizeBytes, "Query exceeded max operator memory size of %s", maxIndexSize.convertToMostSuccinctDataSize());

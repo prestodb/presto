@@ -58,8 +58,9 @@ public class HashJoinOperator
     {
         private final PageIterator probeIterator;
         private final int probeJoinChannel;
+        private final SourceHashProvider sourceHashProvider;
 
-        private final SourceHash hash;
+        private SourceHash hash;
 
         private final BlockCursor[] cursors;
         private int joinPosition = -1;
@@ -67,15 +68,21 @@ public class HashJoinOperator
         private HashJoinIterator(List<TupleInfo> tupleInfos, Operator probeSource, int probeJoinChannel, SourceHashProvider sourceHashProvider, OperatorStats operatorStats)
         {
             super(tupleInfos);
-            probeIterator = probeSource.iterator(operatorStats);
+
+            this.sourceHashProvider = sourceHashProvider;
+
+            this.probeIterator = probeSource.iterator(operatorStats);
             this.probeJoinChannel = probeJoinChannel;
 
-            hash = sourceHashProvider.get();
-            cursors = new BlockCursor[probeSource.getChannelCount()];
+            this.cursors = new BlockCursor[probeSource.getChannelCount()];
         }
 
         protected Page computeNext()
         {
+            if (hash == null) {
+                hash = sourceHashProvider.get();
+            }
+
             // create output
             PageBuilder pageBuilder = new PageBuilder(getTupleInfos());
 
@@ -115,6 +122,7 @@ public class HashJoinOperator
         @Override
         protected void doClose()
         {
+            sourceHashProvider.close();
             probeIterator.close();
         }
 

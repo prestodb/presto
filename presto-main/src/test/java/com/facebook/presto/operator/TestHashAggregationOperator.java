@@ -10,6 +10,8 @@ import io.airlift.units.DataSize.Unit;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
+import static com.facebook.presto.operator.CancelTester.assertCancel;
+import static com.facebook.presto.operator.CancelTester.createCancelableDataSource;
 import static com.facebook.presto.operator.OperatorAssertions.createOperator;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.CountColumnAggregation.COUNT_COLUMN;
@@ -172,6 +174,16 @@ public class TestHashAggregationOperator
                 100_000,
                 new DataSize(10, Unit.BYTE));
 
-        actual.iterator(new OperatorStats());
+        actual.iterator(new OperatorStats()).next();
     }
+
+    @Test
+    public void testCancel()
+            throws Exception
+    {
+        BlockingOperator blockingOperator = createCancelableDataSource(new TupleInfo(VARIABLE_BINARY), new TupleInfo(VARIABLE_BINARY));
+        Operator operator = new HashAggregationOperator(blockingOperator, 0, Step.SINGLE, ImmutableList.of(aggregation(COUNT, 0)), 10, new DataSize(1, Unit.MEGABYTE));
+        assertCancel(operator, blockingOperator);
+    }
+
 }

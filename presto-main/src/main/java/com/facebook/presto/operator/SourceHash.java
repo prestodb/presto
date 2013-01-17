@@ -15,10 +15,10 @@ public class SourceHash
     private final PagesIndex pagesIndex;
     private final ChannelHash channelHash;
 
-    public SourceHash(Operator source, int hashChannel, int expectedPositions, DataSize maxSize, OperatorStats operatorStats)
+    public SourceHash(PageIterator source, int hashChannel, int expectedPositions, DataSize maxSize)
     {
         this.hashChannel = hashChannel;
-        this.pagesIndex = new PagesIndex(source, expectedPositions, maxSize, operatorStats);
+        this.pagesIndex = new PagesIndex(source, expectedPositions, maxSize);
         DataSize remainingSize = new DataSize(maxSize.toBytes() - pagesIndex.getEstimatedSize().toBytes(), Unit.BYTE);
         this.channelHash = new ChannelHash(pagesIndex.getIndex(hashChannel), remainingSize);
     }

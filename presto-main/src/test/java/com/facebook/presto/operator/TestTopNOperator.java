@@ -8,6 +8,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.operator.CancelTester.assertCancel;
+import static com.facebook.presto.operator.CancelTester.createCancelableDataSource;
 import static com.facebook.presto.operator.OperatorAssertions.assertOperatorEquals;
 import static com.facebook.presto.operator.OperatorAssertions.createOperator;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
@@ -124,5 +126,14 @@ public class TestTopNOperator
                 )
         );
         assertOperatorEquals(actual, expected);
+    }
+
+    @Test
+    public void testCancel()
+            throws Exception
+    {
+        BlockingOperator blockingOperator = createCancelableDataSource(new TupleInfo(FIXED_INT_64), new TupleInfo(DOUBLE));
+        Operator operator = new TopNOperator(blockingOperator, 2, 0, ImmutableList.of(singleColumn(FIXED_INT_64, 0, 0), singleColumn(DOUBLE, 1, 0)));
+        assertCancel(operator, blockingOperator);
     }
 }

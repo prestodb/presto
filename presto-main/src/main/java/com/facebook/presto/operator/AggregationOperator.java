@@ -67,30 +67,63 @@ public class AggregationOperator
     @Override
     public PageIterator iterator(OperatorStats operatorStats)
     {
-        // wrapper each function with an aggregator
-        ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
-        for (AggregationFunctionDefinition functionDefinition : functionDefinitions) {
-            builder.add(createAggregator(functionDefinition, step));
-        }
-        List<Aggregator> aggregates = builder.build();
+        return new AggregationPageIterator(tupleInfos, source, operatorStats, step, functionDefinitions);
+    }
 
-        PageIterator iterator = source.iterator(operatorStats);
-        while (iterator.hasNext()) {
-            Page page = iterator.next();
+    private static class AggregationPageIterator
+            extends AbstractPageIterator
+    {
+        private final PageIterator source;
+        private final List<Aggregator> aggregates;
+        private boolean done;
 
-            // process the row
-            for (Aggregator aggregate : aggregates) {
-                aggregate.addValue(page);
+        private AggregationPageIterator(List<TupleInfo> tupleInfos,
+                Operator source,
+                OperatorStats operatorStats,
+                Step step,
+                List<AggregationFunctionDefinition> functionDefinitions)
+        {
+            super(tupleInfos);
+
+            // wrapper each function with an aggregator
+            ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
+            for (AggregationFunctionDefinition functionDefinition : functionDefinitions) {
+                builder.add(createAggregator(functionDefinition, step));
             }
+            aggregates = builder.build();
+
+            this.source = source.iterator(operatorStats);
         }
 
-        // project results into output blocks
-        Block[] blocks = new Block[aggregates.size()];
-        for (int i = 0; i < blocks.length; i++) {
-            blocks[i] = aggregates.get(i).getResult();
+        @Override
+        protected Page computeNext()
+        {
+            if (done) {
+                return endOfData();
+            }
+            while (source.hasNext()) {
+                Page page = source.next();
+
+                // process the row
+                for (Aggregator aggregate : aggregates) {
+                    aggregate.addValue(page);
+                }
+            }
+
+            // project results into output blocks
+            Block[] blocks = new Block[aggregates.size()];
+            for (int i = 0; i < blocks.length; i++) {
+                blocks[i] = aggregates.get(i).getResult();
+            }
+            done = true;
+            return new Page(blocks);
         }
 
-        return PageIterators.singletonIterator(new Page(blocks));
+        @Override
+        protected void doClose()
+        {
+            source.close();
+        }
     }
 
     @VisibleForTesting
@@ -108,7 +141,6 @@ public class AggregationOperator
     @VisibleForTesting
     public interface Aggregator
     {
-
         void addValue(Page page);
 
         void addValue(BlockCursor... cursors);
@@ -152,7 +184,6 @@ public class AggregationOperator
         @Override
         public void addValue(Page page)
         {
-
             // if this is a final aggregation, the input is an intermediate value
             if (step == Step.FINAL) {
                 BlockCursor cursor = page.getBlock(channel).cursor();

@@ -6,6 +6,8 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.operator.CancelTester.assertCancel;
+import static com.facebook.presto.operator.CancelTester.createCancelableDataSource;
 import static com.facebook.presto.operator.OperatorAssertions.assertOperatorEquals;
 import static com.facebook.presto.operator.OperatorAssertions.createOperator;
 import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
@@ -46,5 +48,14 @@ public class TestFilterAndProjectOperator
                 .build()));
 
         assertOperatorEquals(actual, expected);
+    }
+
+    @Test
+    public void testCancel()
+            throws Exception
+    {
+        BlockingOperator blockingOperator = createCancelableDataSource(new TupleInfo(VARIABLE_BINARY), new TupleInfo(VARIABLE_BINARY));
+        Operator operator = new FilterAndProjectOperator(blockingOperator, FilterFunctions.TRUE_FUNCTION, ProjectionFunctions.singleColumn(VARIABLE_BINARY, 0, 0));
+        assertCancel(operator, blockingOperator);
     }
 }
