@@ -333,12 +333,16 @@
                 </executions>
             </plugin>
         </plugins>
+
         <pluginManagement>
             <plugins>
                 <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
                 <plugin>
+                    <!--suppress MavenModelInspection -->
                     <groupId>org.eclipse.m2e</groupId>
+                    <!--suppress MavenModelInspection -->
                     <artifactId>lifecycle-mapping</artifactId>
+                    <!--suppress MavenModelInspection -->
                     <version>1.0.0</version>
                     <configuration>
                         <lifecycleMappingMetadata>
@@ -353,7 +357,7 @@
                                         </goals>
                                     </pluginExecutionFilter>
                                     <action>
-                                        <ignore></ignore>
+                                        <ignore/>
                                     </action>
                                 </pluginExecution>
                             </pluginExecutions>
