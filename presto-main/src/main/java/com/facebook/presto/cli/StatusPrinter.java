@@ -4,6 +4,7 @@ import com.facebook.presto.execution.ExecutionStats;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.StageInfo;
+import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.server.HttpQueryClient;
 import com.google.common.base.Preconditions;
@@ -300,15 +301,28 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
             nameBuilder.append('.');
         }
 
+
+        StageState state = stage.getState();
+        String bytesPerSecond;
+        String rowsPerSecond;
+        if (state.isDone()) {
+            bytesPerSecond = formatDataRate(new DataSize(0, BYTE), new Duration(0, SECONDS), false);
+            rowsPerSecond = formatCountRate(0, new Duration(0, SECONDS), false);
+        }
+        else {
+            bytesPerSecond = formatDataRate(executionStats.getCompletedDataSize(), elapsedTime, false);
+            rowsPerSecond = formatCountRate(executionStats.getInputPositionCount(), elapsedTime, false);
+        }
+
         String stageSummary = String.format("%10s%1s  %5s  %6s  %5s  %7s  %5s  %5s  %5s",
                 nameBuilder.toString(),
-                stage.getState().toString().charAt(0),
+                state.toString().charAt(0),
 
                 formatCount(executionStats.getInputPositionCount()),
-                formatCountRate(executionStats.getInputPositionCount(), elapsedTime, false),
+                rowsPerSecond,
 
                 formatDataSize(executionStats.getInputDataSize(), false),
-                formatDataRate(executionStats.getCompletedDataSize(), elapsedTime, false),
+                bytesPerSecond,
 
                 max(0, executionStats.getSplits() - executionStats.getStartedSplits()),
                 max(0, executionStats.getStartedSplits() - executionStats.getCompletedSplits()),
