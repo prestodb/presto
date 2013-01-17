@@ -258,6 +258,24 @@ public class TestQueries
     }
 
     @Test
+    public void testVarianceAll()
+            throws Exception
+    {
+        assertQuery("SELECT VAR_SAMP(custkey) FROM ORDERS");
+
+        assertQuery("SELECT VAR_POP(custkey) FROM ORDERS");
+    }
+
+    @Test
+    public void testStdDevAll()
+            throws Exception
+    {
+        assertQuery("SELECT STDDEV_SAMP(custkey) FROM ORDERS");
+
+        assertQuery("SELECT STDDEV_POP(custkey) FROM ORDERS");
+    }
+
+    @Test
     public void testCountAllWithPredicate()
             throws Exception
     {

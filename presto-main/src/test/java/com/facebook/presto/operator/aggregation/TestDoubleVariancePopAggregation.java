@@ -5,17 +5,17 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import org.apache.commons.math.stat.descriptive.moment.Variance;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 
-public class TestLongVarianceAggregation
+public class TestDoubleVariancePopAggregation
     extends AbstractTestAggregationFunction
 {
     @Override
     public Block getSequenceBlock(int start, int length)
     {
-        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_LONG);
+        BlockBuilder blockBuilder = new BlockBuilder(SINGLE_DOUBLE);
         for (int i = start; i < start + length; i++) {
-            blockBuilder.append(i);
+            blockBuilder.append((double)i);
         }
         return blockBuilder.build();
     }
@@ -23,7 +23,7 @@ public class TestLongVarianceAggregation
     @Override
     public AggregationFunction getFunction()
     {
-        return LongVarianceAggregation.VARIANCE_INSTANCE;
+        return DoubleVarianceAggregation.VARIANCE_POP_INSTANCE;
     }
 
     @Override
@@ -38,7 +38,7 @@ public class TestLongVarianceAggregation
             values[i] = start + i;
         }
 
-        final Variance variance = new Variance();
+        final Variance variance = new Variance(false);
         return variance.evaluate(values);
     }
 

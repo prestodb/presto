@@ -7,7 +7,7 @@ import org.apache.commons.math.stat.descriptive.moment.Variance;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
-public class TestLongVarianceAggregation
+public class TestLongVariancePopAggregation
     extends AbstractTestAggregationFunction
 {
     @Override
@@ -23,7 +23,7 @@ public class TestLongVarianceAggregation
     @Override
     public AggregationFunction getFunction()
     {
-        return LongVarianceAggregation.VARIANCE_INSTANCE;
+        return LongVarianceAggregation.VARIANCE_POP_INSTANCE;
     }
 
     @Override
@@ -38,7 +38,7 @@ public class TestLongVarianceAggregation
             values[i] = start + i;
         }
 
-        final Variance variance = new Variance();
+        final Variance variance = new Variance(false);
         return variance.evaluate(values);
     }
 
