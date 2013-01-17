@@ -54,6 +54,7 @@ tokens {
     SHOW_TABLES;
     SHOW_COLUMNS;
     SHOW_PARTITIONS;
+    SHOW_FUNCTIONS;
     CREATE_TABLE;
     TABLE_ELEMENT_LIST;
     COLUMN_DEF;
@@ -112,6 +113,7 @@ statement
     | showTablesStmt
     | showColumnsStmt
     | showPartitionsStmt
+    | showFunctionsStmt
     | createTableStmt
     ;
 
@@ -386,6 +388,10 @@ showPartitionsStmt
     : SHOW PARTITIONS (FROM | IN) qname -> ^(SHOW_PARTITIONS qname)
     ;
 
+showFunctionsStmt
+    : SHOW FUNCTIONS -> SHOW_FUNCTIONS
+    ;
+
 createTableStmt
     : CREATE TABLE qname tableElementList -> ^(CREATE_TABLE qname tableElementList)
     ;
@@ -464,7 +470,7 @@ integer
     ;
 
 nonReserved
-    : SHOW | TABLES | COLUMNS | PARTITIONS
+    : SHOW | TABLES | COLUMNS | PARTITIONS | FUNCTIONS
     ;
 
 SELECT: 'SELECT';
@@ -552,6 +558,7 @@ SHOW: 'SHOW';
 TABLES: 'TABLES';
 COLUMNS: 'COLUMNS';
 PARTITIONS: 'PARTITIONS';
+FUNCTIONS: 'FUNCTIONS';
 
 EQ  : '=';
 NEQ : '<>' | '!=';

@@ -40,13 +40,19 @@ public class MetadataManager
     @Override
     public FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes)
     {
-        return metadataSourceMap.get(DataSourceType.NATIVE).getFunction(name, parameterTypes);
+        return lookup(DataSourceType.NATIVE).getFunction(name, parameterTypes);
     }
 
     @Override
     public FunctionInfo getFunction(FunctionHandle handle)
     {
-        return metadataSourceMap.get(DataSourceType.NATIVE).getFunction(handle);
+        return lookup(DataSourceType.NATIVE).getFunction(handle);
+    }
+
+    @Override
+    public List<FunctionInfo> listFunctions()
+    {
+        return lookup(DataSourceType.NATIVE).listFunctions();
     }
 
     @Override

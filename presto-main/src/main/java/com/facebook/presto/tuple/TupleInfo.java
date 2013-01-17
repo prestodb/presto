@@ -7,10 +7,9 @@ import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Charsets;
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonValue;
@@ -28,6 +27,7 @@ import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Maps.uniqueIndex;
 import static java.util.Arrays.asList;
 
 /**
@@ -50,7 +50,7 @@ import static java.util.Arrays.asList;
  *     ...
  *     var_N
  * </pre>
- *
+ * <p/>
  * Note: the null flag for each field is independent of the value of the field.  Specifically
  * this api will allow you to read and write the value of fields with the null flag set.
  */
@@ -60,25 +60,19 @@ public class TupleInfo
     public static final TupleInfo SINGLE_VARBINARY = new TupleInfo(VARIABLE_BINARY);
     public static final TupleInfo SINGLE_DOUBLE = new TupleInfo(DOUBLE);
 
-    public enum Type implements Comparable<Type>
+    public enum Type
+            implements Comparable<Type>
     {
         FIXED_INT_64(SIZE_OF_LONG, "long"),
         VARIABLE_BINARY(-1, "string"),
         DOUBLE(SIZE_OF_DOUBLE, "double");
 
-        private static final Map<String, Type> NAME_MAP;
-        static {
-            ImmutableMap.Builder<String, Type> builder = ImmutableMap.builder();
-            for (Type encoding : Type.values()) {
-                builder.put(encoding.getName(), encoding);
-            }
-            NAME_MAP = builder.build();
-        }
+        private static final Map<String, Type> NAMES = uniqueIndex(asList(values()), nameGetter());
 
         private final int size;
         private final String name;
 
-        private Type(int size, String name)
+        Type(int size, String name)
         {
             this.size = size;
             this.name = name;
@@ -86,7 +80,7 @@ public class TupleInfo
 
         int getSize()
         {
-            Preconditions.checkState(isFixedSize(), "Can't get size of variable length field");
+            checkState(isFixedSize(), "Can't get size of variable length field");
             return size;
         }
 
@@ -105,9 +99,21 @@ public class TupleInfo
         public static Type fromName(String name)
         {
             checkNotNull(name, "name is null");
-            Type encoding = NAME_MAP.get(name);
+            Type encoding = NAMES.get(name);
             checkArgument(encoding != null, "Invalid type name: %s", name);
             return encoding;
+        }
+
+        public static Function<Type, String> nameGetter()
+        {
+            return new Function<Type, String>()
+            {
+                @Override
+                public String apply(Type type)
+                {
+                    return type.getName();
+                }
+            };
         }
     }
 
@@ -134,7 +140,7 @@ public class TupleInfo
     public TupleInfo(List<Type> typeIterable)
     {
         checkNotNull(typeIterable, "typeIterable is null");
-        // Preconditions.checkArgument(!types.isEmpty(), "types is empty");
+        // checkArgument(!typeIterable.isEmpty(), "types is empty");
 
         this.types = ImmutableList.copyOf(typeIterable);
 
@@ -287,7 +293,7 @@ public class TupleInfo
 
     /**
      * Sets the specified field to the specified long value.
-     *
+     * <p/>
      * Note: this DOES NOT modify the null flag fo this field.
      */
     public void setLong(Slice slice, int offset, int field, long value)
@@ -311,7 +317,7 @@ public class TupleInfo
 
     /**
      * Sets the specified field to the specified double value.
-     *
+     * <p/>
      * Note: this DOES NOT modify the null flag fo this field.
      */
     public void setDouble(Slice slice, int offset, int field, double value)
@@ -360,7 +366,7 @@ public class TupleInfo
 
     /**
      * Marks the specified field as null.
-     *
+     * <p/>
      * Note: this DOES NOT clear the current value of the field.
      */
     public void setNull(Slice slice, int offset, int field)
@@ -373,7 +379,7 @@ public class TupleInfo
 
     /**
      * Marks the specified field as not null.
-     *
+     * <p/>
      * Note this DOES NOT clear the current value of the field.
      */
     public void setNotNull(Slice slice, int offset, int field)

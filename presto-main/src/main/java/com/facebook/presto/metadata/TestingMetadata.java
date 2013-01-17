@@ -37,6 +37,12 @@ public class TestingMetadata
     }
 
     @Override
+    public List<FunctionInfo> listFunctions()
+    {
+        return functions.list();
+    }
+
+    @Override
     public TableMetadata getTable(String catalogName, String schemaName, String tableName)
     {
         checkTableName(catalogName, schemaName, tableName);
