@@ -45,7 +45,7 @@ public abstract class StatisticsBenchmark
     }
 
     public static class LongVarianceBenchmark
-        extends StatisticsBenchmark
+            extends StatisticsBenchmark
     {
         public LongVarianceBenchmark()
         {
@@ -54,7 +54,7 @@ public abstract class StatisticsBenchmark
     }
 
     public static class LongVariancePopBenchmark
-        extends StatisticsBenchmark
+            extends StatisticsBenchmark
     {
         public LongVariancePopBenchmark()
         {
@@ -63,7 +63,7 @@ public abstract class StatisticsBenchmark
     }
 
     public static class DoubleVarianceBenchmark
-        extends StatisticsBenchmark
+            extends StatisticsBenchmark
     {
         public DoubleVarianceBenchmark()
         {
@@ -72,7 +72,7 @@ public abstract class StatisticsBenchmark
     }
 
     public static class DoubleVariancePopBenchmark
-        extends StatisticsBenchmark
+            extends StatisticsBenchmark
     {
         public DoubleVariancePopBenchmark()
         {
@@ -81,7 +81,7 @@ public abstract class StatisticsBenchmark
     }
 
     public static class LongStdDevBenchmark
-        extends StatisticsBenchmark
+            extends StatisticsBenchmark
     {
         public LongStdDevBenchmark()
         {
@@ -90,7 +90,7 @@ public abstract class StatisticsBenchmark
     }
 
     public static class LongStdDevPopBenchmark
-        extends StatisticsBenchmark
+            extends StatisticsBenchmark
     {
         public LongStdDevPopBenchmark()
         {
@@ -99,7 +99,7 @@ public abstract class StatisticsBenchmark
     }
 
     public static class DoubleStdDevBenchmark
-        extends StatisticsBenchmark
+            extends StatisticsBenchmark
     {
         public DoubleStdDevBenchmark()
         {
@@ -108,7 +108,7 @@ public abstract class StatisticsBenchmark
     }
 
     public static class DoubleStdDevPopBenchmark
-        extends StatisticsBenchmark
+            extends StatisticsBenchmark
     {
         public DoubleStdDevPopBenchmark()
         {
