@@ -74,8 +74,8 @@ public abstract class AbstractVarianceAggregation
     {
         boolean hasValue = !VARIANCE_CONTEXT_INFO.isNull(valueSlice, valueOffset, 0);
         long count = hasValue ? VARIANCE_CONTEXT_INFO.getLong(valueSlice, valueOffset, 0) : 0;
-        double mean = hasValue ? VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 1) : 0;
-        double m2 = hasValue ? VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 2) : 0;
+        double mean = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 1);
+        double m2 = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 2);
 
         final BlockCursor cursor = block.cursor();
 
@@ -112,8 +112,8 @@ public abstract class AbstractVarianceAggregation
         }
 
         long count = hasValue ? VARIANCE_CONTEXT_INFO.getLong(valueSlice, valueOffset, 0) : 0;
-        double mean = hasValue ? VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 1) : 0;
-        double m2 = hasValue ? VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 2) : 0;
+        double mean = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 1);
+        double m2 = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 2);
 
         count++;
         final double x = getX(cursor);
@@ -195,7 +195,7 @@ public abstract class AbstractVarianceAggregation
         VARIANCE_CONTEXT_INFO.setDouble(valueSlice, valueOffset, 2, totalM2);
     }
 
-    protected Double buildFinal(final Slice valueSlice, final int valueOffset, final BlockBuilder output)
+    protected Double buildFinal(final Slice valueSlice, final int valueOffset)
     {
         if (VARIANCE_CONTEXT_INFO.isNull(valueSlice, valueOffset, 0)) {
             return null;
@@ -219,7 +219,7 @@ public abstract class AbstractVarianceAggregation
     @Override
     public void evaluateFinal(final Slice valueSlice, final int valueOffset, final BlockBuilder output)
     {
-        final Double result = buildFinal(valueSlice, valueOffset, output);
+        final Double result = buildFinal(valueSlice, valueOffset);
 
         if (result == null) {
             output.appendNull();
