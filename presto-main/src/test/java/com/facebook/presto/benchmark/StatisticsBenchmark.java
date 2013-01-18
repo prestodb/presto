@@ -34,14 +34,14 @@ public abstract class StatisticsBenchmark
 
     public static final void main(String ... args) throws Exception
     {
-        new LongVarianceBenchmark().runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
-        new LongVariancePopBenchmark().runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
-        new DoubleVarianceBenchmark().runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
-        new DoubleVariancePopBenchmark().runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
-        new LongStdDevBenchmark().runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
-        new LongStdDevPopBenchmark().runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
-        new DoubleStdDevBenchmark().runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
-        new DoubleStdDevPopBenchmark().runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
+        new LongVarianceBenchmark().runBenchmark(new AverageBenchmarkResults());
+        new LongVariancePopBenchmark().runBenchmark(new AverageBenchmarkResults());
+        new DoubleVarianceBenchmark().runBenchmark(new AverageBenchmarkResults());
+        new DoubleVariancePopBenchmark().runBenchmark(new AverageBenchmarkResults());
+        new LongStdDevBenchmark().runBenchmark(new AverageBenchmarkResults());
+        new LongStdDevPopBenchmark().runBenchmark(new AverageBenchmarkResults());
+        new DoubleStdDevBenchmark().runBenchmark(new AverageBenchmarkResults());
+        new DoubleStdDevPopBenchmark().runBenchmark(new AverageBenchmarkResults());
     }
 
     public static class LongVarianceBenchmark
@@ -49,7 +49,7 @@ public abstract class StatisticsBenchmark
     {
         public LongVarianceBenchmark()
         {
-            super("stat_long_variance", 5, 50, "select var_samp(orderkey) from orders");
+            super("stat_long_variance", 25, 150, "select var_samp(orderkey) from orders");
         }
     }
 
@@ -58,7 +58,7 @@ public abstract class StatisticsBenchmark
     {
         public LongVariancePopBenchmark()
         {
-            super("stat_long_variance_pop", 5, 50, "select var_pop(orderkey) from orders");
+            super("stat_long_variance_pop", 25, 150, "select var_pop(orderkey) from orders");
         }
     }
 
@@ -67,7 +67,7 @@ public abstract class StatisticsBenchmark
     {
         public DoubleVarianceBenchmark()
         {
-            super("stat_double_variance", 5, 50, "select var_samp(totalprice) from orders");
+            super("stat_double_variance", 25, 150, "select var_samp(totalprice) from orders");
         }
     }
 
@@ -76,7 +76,7 @@ public abstract class StatisticsBenchmark
     {
         public DoubleVariancePopBenchmark()
         {
-            super("stat_double_variance_pop", 5, 50, "select var_pop(totalprice) from orders");
+            super("stat_double_variance_pop", 25, 150, "select var_pop(totalprice) from orders");
         }
     }
 
@@ -85,7 +85,7 @@ public abstract class StatisticsBenchmark
     {
         public LongStdDevBenchmark()
         {
-            super("stat_long_stddev", 5, 50, "select stddev_samp(orderkey) from orders");
+            super("stat_long_stddev", 25, 150, "select stddev_samp(orderkey) from orders");
         }
     }
 
@@ -94,7 +94,7 @@ public abstract class StatisticsBenchmark
     {
         public LongStdDevPopBenchmark()
         {
-            super("stat_long_stddev_pop", 5, 50, "select stddev_pop(orderkey) from orders");
+            super("stat_long_stddev_pop", 25, 150, "select stddev_pop(orderkey) from orders");
         }
     }
 
@@ -103,7 +103,7 @@ public abstract class StatisticsBenchmark
     {
         public DoubleStdDevBenchmark()
         {
-            super("stat_double_stddev", 5, 50, "select stddev_samp(totalprice) from orders");
+            super("stat_double_stddev", 25, 150, "select stddev_samp(totalprice) from orders");
         }
     }
 
@@ -112,7 +112,7 @@ public abstract class StatisticsBenchmark
     {
         public DoubleStdDevPopBenchmark()
         {
-            super("stat_double_stddev_pop", 5, 50, "select stddev_pop(totalprice) from orders");
+            super("stat_double_stddev_pop", 25, 150, "select stddev_pop(totalprice) from orders");
         }
     }
 }
