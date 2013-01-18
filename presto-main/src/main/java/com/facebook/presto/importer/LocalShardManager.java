@@ -12,8 +12,6 @@ import com.facebook.presto.util.ShardBoundedExecutor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -106,13 +104,12 @@ public class LocalShardManager
             List<Long> columnIds = getColumnIds(shardImport.getFields());
 
             ImportPartition importPartition = new ImportPartition(importClient, chunk);
-            DataSize partitionSize = new DataSize(chunk.getLength(), Unit.BYTE);
 
             ImmutableList.Builder<ImportColumnHandle> columns = ImmutableList.builder();
             for (ImportField field : shardImport.getFields()) {
                 columns.add(new ImportColumnHandle(shardImport.getSourceName(), field.getImportFieldName(), Ints.checkedCast(field.getColumnId()), field.getColumnType()));
             }
-            RecordProjectOperator source = new RecordProjectOperator(importPartition, partitionSize, columns.build());
+            RecordProjectOperator source = new RecordProjectOperator(importPartition, columns.build());
 
             storageManager.importShard(shardId, columnIds, source);
         }

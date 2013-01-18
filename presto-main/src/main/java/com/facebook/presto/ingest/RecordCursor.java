@@ -8,6 +8,10 @@ import java.io.Closeable;
 public interface RecordCursor
         extends Closeable
 {
+    long getTotalBytes();
+
+    long getCompletedBytes();
+
     boolean advanceNextPosition();
 
     long getLong(int field);
