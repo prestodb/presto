@@ -258,21 +258,43 @@ public class TestQueries
     }
 
     @Test
-    public void testVarianceAll()
+    public void testVariance()
             throws Exception
     {
         assertQuery("SELECT VAR_SAMP(custkey) FROM ORDERS");
-
-        assertQuery("SELECT VAR_POP(custkey) FROM ORDERS");
+        assertQuery("SELECT VAR_SAMP(custkey) FROM ORDERS LIMIT 0");
+        assertQuery("SELECT VAR_SAMP(custkey) FROM ORDERS LIMIT 1");
+        assertQuery("SELECT VAR_SAMP(custkey) FROM ORDERS LIMIT 2");
     }
 
     @Test
-    public void testStdDevAll()
+    public void testVariancePop()
+            throws Exception
+    {
+        assertQuery("SELECT VAR_POP(custkey) FROM ORDERS");
+        assertQuery("SELECT VAR_POP(custkey) FROM ORDERS LIMIT 0");
+        assertQuery("SELECT VAR_POP(custkey) FROM ORDERS LIMIT 1");
+        assertQuery("SELECT VAR_POP(custkey) FROM ORDERS LIMIT 2");
+    }
+
+    @Test
+    public void testStdDev()
             throws Exception
     {
         assertQuery("SELECT STDDEV_SAMP(custkey) FROM ORDERS");
+        assertQuery("SELECT STDDEV_SAMP(custkey) FROM ORDERS LIMIT 0");
+        assertQuery("SELECT STDDEV_SAMP(custkey) FROM ORDERS LIMIT 1");
+        assertQuery("SELECT STDDEV_SAMP(custkey) FROM ORDERS LIMIT 2");
+    }
 
+    @Test
+    public void testStdDevPop()
+            throws Exception
+    {
         assertQuery("SELECT STDDEV_POP(custkey) FROM ORDERS");
+        assertQuery("SELECT STDDEV_POP(custkey) FROM ORDERS LIMIT 0");
+        assertQuery("SELECT STDDEV_POP(custkey) FROM ORDERS LIMIT 1");
+        assertQuery("SELECT STDDEV_POP(custkey) FROM ORDERS LIMIT 2");
     }
 
     @Test

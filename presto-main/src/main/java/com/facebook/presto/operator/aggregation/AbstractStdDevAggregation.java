@@ -12,9 +12,9 @@ public abstract class AbstractStdDevAggregation
     }
 
     @Override
-    protected Double buildFinal(final Slice valueSlice, final int valueOffset, final BlockBuilder output)
+    protected Double buildFinal(final Slice valueSlice, final int valueOffset)
     {
-        final Double variance = super.buildFinal(valueSlice, valueOffset, output);
+        final Double variance = super.buildFinal(valueSlice, valueOffset);
         if (variance == null) {
             return null;
         }
