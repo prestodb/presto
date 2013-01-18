@@ -25,7 +25,6 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.execution.StageInfo.globalExecutionStats;
-import static com.facebook.presto.execution.StageInfo.leafExecutionStats;
 import static com.facebook.presto.execution.StageInfo.stageOnlyExecutionStats;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.max;
@@ -157,7 +156,7 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
                 formatTime(wallTime),
                 formatCount(globalExecutionStats.getCompletedPositionCount()),
                 formatDataSize(globalExecutionStats.getCompletedDataSize(), true),
-                formatCountRate(globalExecutionStats.getInputPositionCount(), wallTime, false),
+                formatCountRate(globalExecutionStats.getCompletedPositionCount(), wallTime, false),
                 formatDataRate(globalExecutionStats.getCompletedDataSize(), wallTime, true));
 
         out.println(statsLine);
@@ -231,7 +230,7 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
                     formatTime(wallTime),
                     formatCount(globalExecutionStats.getCompletedPositionCount()),
                     formatDataSize(globalExecutionStats.getCompletedDataSize(), true),
-                    formatCountRate(globalExecutionStats.getInputPositionCount(), wallTime, false),
+                    formatCountRate(globalExecutionStats.getCompletedPositionCount(), wallTime, false),
                     formatDataRate(globalExecutionStats.getCompletedDataSize(), wallTime, true),
                     progressBar,
                     // cap progress at 99%, otherwise it looks weird when the query is still running and it says 100%
@@ -265,8 +264,8 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
                     queryInfo.getQueryId(),
                     queryInfo.getState().toString().charAt(0),
 
-                    formatCount(globalExecutionStats.getInputPositionCount()),
-                    formatDataSize(globalExecutionStats.getInputDataSize(), false),
+                    formatCount(globalExecutionStats.getCompletedPositionCount()),
+                    formatDataSize(globalExecutionStats.getCompletedDataSize(), false),
                     formatDataRate(globalExecutionStats.getCompletedDataSize(), wallTime, false),
 
                     formatCount(globalExecutionStats.getOutputPositionCount()),
@@ -311,17 +310,17 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
         }
         else {
             bytesPerSecond = formatDataRate(executionStats.getCompletedDataSize(), elapsedTime, false);
-            rowsPerSecond = formatCountRate(executionStats.getInputPositionCount(), elapsedTime, false);
+            rowsPerSecond = formatCountRate(executionStats.getCompletedPositionCount(), elapsedTime, false);
         }
 
         String stageSummary = String.format("%10s%1s  %5s  %6s  %5s  %7s  %5s  %5s  %5s",
                 nameBuilder.toString(),
                 state.toString().charAt(0),
 
-                formatCount(executionStats.getInputPositionCount()),
+                formatCount(executionStats.getCompletedPositionCount()),
                 rowsPerSecond,
 
-                formatDataSize(executionStats.getInputDataSize(), false),
+                formatDataSize(executionStats.getCompletedDataSize(), false),
                 bytesPerSecond,
 
                 max(0, executionStats.getSplits() - executionStats.getStartedSplits()),
