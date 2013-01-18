@@ -37,7 +37,6 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchColumnHandle;
@@ -647,7 +646,7 @@ public class TestQueries
         return getTuples(plan(sql));
     }
 
-    private List<Tuple> getTuples(Operator root)
+    public static List<Tuple> getTuples(Operator root)
     {
         ImmutableList.Builder<Tuple> output = ImmutableList.builder();
         PageIterator iterator = root.iterator(new OperatorStats());
@@ -925,12 +924,12 @@ public class TestQueries
         }
     }
 
-    private static class Concat
+    public static class Concat
             implements ProjectionFunction
     {
         private final TupleInfo tupleInfo;
 
-        private Concat(List<TupleInfo> infos)
+        public Concat(List<TupleInfo> infos)
         {
             List<TupleInfo.Type> types = new ArrayList<>();
             for (TupleInfo info : infos) {

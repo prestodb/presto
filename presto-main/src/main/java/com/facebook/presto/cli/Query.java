@@ -130,7 +130,7 @@ public class Query
     @Override
     public void close()
     {
-        queryClient.destroy();
+        queryClient.close();
     }
 
     public void renderFailure(QueryInfo queryInfo, PrintStream out)
