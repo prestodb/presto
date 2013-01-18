@@ -17,6 +17,7 @@ import java.io.File;
 import java.io.Flushable;
 import java.io.IOException;
 
+import static com.facebook.presto.cli.Help.getHelpText;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
 import static jline.internal.Configuration.getUserHome;
 
@@ -79,6 +80,10 @@ public class Console
                         case "exit":
                         case "quit":
                             return;
+                        case "help":
+                            System.out.println();
+                            System.out.println(getHelpText());
+                            continue;
                     }
                 }
 
