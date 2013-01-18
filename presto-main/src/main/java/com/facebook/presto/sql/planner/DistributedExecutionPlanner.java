@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.split.Split;
@@ -33,6 +34,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.collect.Iterables.transform;
 
@@ -40,14 +42,16 @@ public class DistributedExecutionPlanner
 {
     private final NodeManager nodeManager;
     private final SplitManager splitManager;
+    private final AtomicReference<QueryState> queryState;
     private final Session session;
     private final Random random = new Random();
 
     @Inject
-    public DistributedExecutionPlanner(NodeManager nodeManager, SplitManager splitManager, Session session)
+    public DistributedExecutionPlanner(NodeManager nodeManager, SplitManager splitManager, AtomicReference<QueryState> queryState, Session session)
     {
         this.nodeManager = nodeManager;
         this.splitManager = splitManager;
+        this.queryState = queryState;
         this.session = session;
     }
 
@@ -90,7 +94,7 @@ public class DistributedExecutionPlanner
             Iterable<SplitAssignments> splitAssignments = splitManager.getSplitAssignments(session, node.getTable(), inheritedPredicate, node.getAssignments());
 
             // divide splits amongst the nodes
-            Multimap<Node, Split> nodeSplits = SplitAssignments.balancedNodeAssignment(splitAssignments);
+            Multimap<Node, Split> nodeSplits = SplitAssignments.balancedNodeAssignment(queryState, splitAssignments);
 
             // create a partition for each node
             ImmutableList.Builder<Partition> partitions = ImmutableList.builder();

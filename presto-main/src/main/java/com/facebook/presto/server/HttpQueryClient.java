@@ -188,7 +188,17 @@ public class HttpQueryClient
     public void cancelLeafStage()
     {
         QueryInfo queryInfo = getQueryInfo(false);
-        if (queryInfo != null) {
+        if (queryInfo == null) {
+            return;
+        }
+
+        if (queryInfo.getOutputStage() == null) {
+            // query is not running yet, cancel the entire query
+            Request.Builder requestBuilder = prepareDelete().setUri(queryInfo.getSelf());
+            Request request = requestBuilder.build();
+            httpClient.execute(request, createStatusResponseHandler());
+        } else {
+            // query is running, cancel the leaf-most running stage
             cancelLeafStage(queryInfo.getOutputStage());
         }
     }

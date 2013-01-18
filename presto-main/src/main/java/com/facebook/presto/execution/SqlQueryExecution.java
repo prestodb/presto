@@ -156,7 +156,7 @@ public class SqlQueryExecution
             queryStats.recordAnalysisStart();
 
             // analyze query
-            SubPlan subplan = analyseQuery();
+            SubPlan subplan = analyzeQuery();
 
             // plan distribution of query
             planDistribution(subplan);
@@ -182,7 +182,7 @@ public class SqlQueryExecution
         }
     }
 
-    private SubPlan analyseQuery()
+    private SubPlan analyzeQuery()
             throws RecognitionException
     {
         Preconditions.checkState(!Thread.holdsLock(this), "Can not analyse while holding a lock on this");
@@ -216,7 +216,7 @@ public class SqlQueryExecution
         long distributedPlanningStart = System.nanoTime();
 
         // plan the execution on the active nodes
-        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(nodeManager, splitManager, session);
+        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(nodeManager, splitManager, queryState, session);
         StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(subplan);
 
         synchronized (this) {
