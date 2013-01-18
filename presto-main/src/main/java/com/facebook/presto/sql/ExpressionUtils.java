@@ -23,4 +23,18 @@ public class ExpressionUtils
         return ImmutableList.of(expression);
     }
 
+    public static Expression and(List<Expression> expressions)
+    {
+        Preconditions.checkNotNull(expressions, "expressions is null");
+        Preconditions.checkArgument(!expressions.isEmpty(), "expressions is empty");
+
+        Iterator<Expression> iterator = expressions.iterator();
+
+        Expression result = iterator.next();
+        while (iterator.hasNext()) {
+            result = new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND, result, iterator.next());
+        }
+
+        return result;
+    }
 }
