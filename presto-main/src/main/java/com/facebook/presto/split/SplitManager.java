@@ -27,7 +27,6 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Literal;
-import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
@@ -56,6 +55,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 
 import static com.facebook.presto.metadata.ImportColumnHandle.columnNameGetter;
+import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.tree.ComparisonExpression.matchesPattern;
 import static com.facebook.presto.util.IterableUtils.limit;
 import static com.facebook.presto.util.IterableUtils.shuffle;
@@ -386,19 +386,6 @@ public class SplitManager
             }
         }
         return filters.build();
-    }
-
-    private static List<Expression> extractConjuncts(Expression expression)
-    {
-        if (expression instanceof LogicalBinaryExpression && ((LogicalBinaryExpression) expression).getType() == LogicalBinaryExpression.Type.AND) {
-            LogicalBinaryExpression and = (LogicalBinaryExpression) expression;
-            return ImmutableList.<Expression>builder()
-                    .addAll(extractConjuncts(and.getLeft()))
-                    .addAll(extractConjuncts(and.getRight()))
-                    .build();
-        }
-
-        return ImmutableList.of(expression);
     }
 
     private Function<PartitionChunk, SplitAssignments> createImportSplitFunction(final String sourceName)
