@@ -1,10 +1,11 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.aggregation.AggregationFunction;
-import com.facebook.presto.operator.aggregation.LongStdDevAggregation;
-import com.facebook.presto.operator.aggregation.LongVarianceAggregation;
 import com.facebook.presto.operator.aggregation.DoubleStdDevAggregation;
 import com.facebook.presto.operator.aggregation.DoubleVarianceAggregation;
+import com.facebook.presto.operator.aggregation.LongStdDevAggregation;
+import com.facebook.presto.operator.aggregation.LongVarianceAggregation;
+import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.StringFunctions;
@@ -87,6 +88,7 @@ public class FunctionRegistry
                 .scalar(StringFunctions.class)
                 .scalar(MathFunctions.class)
                 .scalar(UnixTimeFunctions.class)
+                .scalar(JsonFunctions.class)
                 .build();
 
         functionsByName = Multimaps.index(functions, FunctionInfo.nameGetter());
