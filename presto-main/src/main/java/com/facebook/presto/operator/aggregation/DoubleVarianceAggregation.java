@@ -19,23 +19,23 @@ import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
  * TODO - This code assumes that the values are in offset 0 of the various cursors. Remove this assumption.
  */
 public class DoubleVarianceAggregation
-    implements FixedWidthAggregationFunction
+        implements FixedWidthAggregationFunction
 {
     public static final DoubleVarianceAggregation VARIANCE_INSTANCE = new DoubleVarianceAggregation(false);
     public static final DoubleVarianceAggregation VARIANCE_POP_INSTANCE = new DoubleVarianceAggregation(true);
 
     protected final boolean population;
 
-    DoubleVarianceAggregation(final boolean population)
+    DoubleVarianceAggregation(boolean population)
     {
         this.population = population;
     }
 
     /** Decribes the tuple used by to calculate the variance. */
     static final TupleInfo VARIANCE_CONTEXT_INFO =
-        new TupleInfo(Type.FIXED_INT_64,  // n
-                      Type.DOUBLE,        // mean
-                      Type.DOUBLE         // m2
+            new TupleInfo(Type.FIXED_INT_64,  // n
+                          Type.DOUBLE,        // mean
+                          Type.DOUBLE         // m2
             );
 
     @Override
@@ -60,7 +60,7 @@ public class DoubleVarianceAggregation
     }
 
     @Override
-    public void initialize(final Slice valueSlice, final int valueOffset)
+    public void initialize(Slice valueSlice, int valueOffset)
     {
         // n == null --> No value has been calculated yet.
         VARIANCE_CONTEXT_INFO.setNull(valueSlice, valueOffset, 0);
@@ -73,14 +73,14 @@ public class DoubleVarianceAggregation
     }
 
     @Override
-    public void addInput(final int positionCount, final Block block, final Slice valueSlice, final int valueOffset)
+    public void addInput(int positionCount, Block block, Slice valueSlice, int valueOffset)
     {
         boolean hasValue = !VARIANCE_CONTEXT_INFO.isNull(valueSlice, valueOffset, 0);
         long count = hasValue ? VARIANCE_CONTEXT_INFO.getLong(valueSlice, valueOffset, 0) : 0;
         double mean = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 1);
         double m2 = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 2);
 
-        final BlockCursor cursor = block.cursor();
+        BlockCursor cursor = block.cursor();
 
         while (cursor.advanceNextPosition()) {
             if (cursor.isNull(0)) {
@@ -91,8 +91,8 @@ public class DoubleVarianceAggregation
             hasValue = true;
 
             count++;
-            final double x = cursor.getDouble(0);
-            final double delta = x - mean;
+            double x = cursor.getDouble(0);
+            double delta = x - mean;
             mean += (delta / count);
             m2 += (delta * (x - mean));
         }
@@ -106,7 +106,7 @@ public class DoubleVarianceAggregation
     }
 
     @Override
-    public void addInput(final BlockCursor cursor, final Slice valueSlice, final int valueOffset)
+    public void addInput(BlockCursor cursor, Slice valueSlice, int valueOffset)
     {
         boolean hasValue = !VARIANCE_CONTEXT_INFO.isNull(valueSlice, valueOffset, 0);
 
@@ -119,8 +119,8 @@ public class DoubleVarianceAggregation
         double m2 = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 2);
 
         count++;
-        final double x = cursor.getDouble(0);
-        final double delta = x - mean;
+        double x = cursor.getDouble(0);
+        double delta = x - mean;
         mean += (delta / count);
         m2 += (delta * (x - mean));
 
@@ -134,19 +134,19 @@ public class DoubleVarianceAggregation
     }
 
     @Override
-    public void evaluateIntermediate(final Slice valueSlice, final int valueOffset, final BlockBuilder output)
+    public void evaluateIntermediate(Slice valueSlice, int valueOffset, BlockBuilder output)
     {
-        final boolean isEmpty = VARIANCE_CONTEXT_INFO.isNull(valueSlice, valueOffset, 0);
+        boolean isEmpty = VARIANCE_CONTEXT_INFO.isNull(valueSlice, valueOffset, 0);
         if (isEmpty) {
             output.appendNull();
             return;
         }
 
-        final long count = VARIANCE_CONTEXT_INFO.getLong(valueSlice, valueOffset, 0);
-        final double mean = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 1);
-        final double m2 = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 2);
+        long count = VARIANCE_CONTEXT_INFO.getLong(valueSlice, valueOffset, 0);
+        double mean = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 1);
+        double m2 = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 2);
 
-        final Slice intermediateValue = Slices.allocate(VARIANCE_CONTEXT_INFO.getFixedSize());
+        Slice intermediateValue = Slices.allocate(VARIANCE_CONTEXT_INFO.getFixedSize());
         VARIANCE_CONTEXT_INFO.setNotNull(intermediateValue, 0);
         VARIANCE_CONTEXT_INFO.setLong(intermediateValue, 0, count);
         VARIANCE_CONTEXT_INFO.setDouble(intermediateValue, 1, mean);
@@ -156,20 +156,20 @@ public class DoubleVarianceAggregation
     }
 
     @Override
-    public void addIntermediate(final BlockCursor cursor, final Slice valueSlice, final int valueOffset)
+    public void addIntermediate(BlockCursor cursor, Slice valueSlice, int valueOffset)
     {
         if (cursor.isNull(0)) {
             return;
         }
 
-        final Slice otherVariance = cursor.getSlice(0);
-        final long otherCount = VARIANCE_CONTEXT_INFO.getLong(otherVariance, 0);
-        final double otherMean = VARIANCE_CONTEXT_INFO.getDouble(otherVariance, 1);
-        final double otherM2 = VARIANCE_CONTEXT_INFO.getDouble(otherVariance, 2);
+        Slice otherVariance = cursor.getSlice(0);
+        long otherCount = VARIANCE_CONTEXT_INFO.getLong(otherVariance, 0);
+        double otherMean = VARIANCE_CONTEXT_INFO.getDouble(otherVariance, 1);
+        double otherM2 = VARIANCE_CONTEXT_INFO.getDouble(otherVariance, 2);
 
-        final long totalCount;
-        final double totalMean;
-        final double totalM2;
+        long totalCount;
+        double totalMean;
+        double totalM2;
 
         if (VARIANCE_CONTEXT_INFO.isNull(valueSlice, valueOffset, 0)) {
             totalCount = otherCount;
@@ -177,11 +177,11 @@ public class DoubleVarianceAggregation
             totalM2 = otherM2;
         }
         else {
-            final long count = VARIANCE_CONTEXT_INFO.getLong(valueSlice, valueOffset, 0);
-            final double mean = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 1);
-            final double m2 = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 2);
+            long count = VARIANCE_CONTEXT_INFO.getLong(valueSlice, valueOffset, 0);
+            double mean = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 1);
+            double m2 = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 2);
 
-            final double delta = otherMean - mean;
+            double delta = otherMean - mean;
 
             totalCount = count + otherCount;
 
@@ -196,14 +196,14 @@ public class DoubleVarianceAggregation
         VARIANCE_CONTEXT_INFO.setDouble(valueSlice, valueOffset, 2, totalM2);
     }
 
-    static final Double buildFinalVariance(final boolean population, final Slice valueSlice, final int valueOffset)
+    static Double buildFinalVariance(boolean population, Slice valueSlice, int valueOffset)
     {
         if (VARIANCE_CONTEXT_INFO.isNull(valueSlice, valueOffset, 0)) {
             return null;
         }
 
-        final long count = VARIANCE_CONTEXT_INFO.getLong(valueSlice, valueOffset, 0);
-        final double m2 = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 2);
+        long count = VARIANCE_CONTEXT_INFO.getLong(valueSlice, valueOffset, 0);
+        double m2 = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 2);
 
         if (population) {
             return m2/count;
@@ -214,7 +214,7 @@ public class DoubleVarianceAggregation
     }
 
     @Override
-    public void evaluateFinal(final Slice valueSlice, final int valueOffset, final BlockBuilder output)
+    public void evaluateFinal(Slice valueSlice, int valueOffset, BlockBuilder output)
     {
         final Double result = DoubleVarianceAggregation.buildFinalVariance(population, valueSlice, valueOffset);
 

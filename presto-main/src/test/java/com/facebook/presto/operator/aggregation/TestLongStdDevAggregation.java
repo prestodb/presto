@@ -8,7 +8,7 @@ import org.apache.commons.math.stat.descriptive.moment.StandardDeviation;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
 public class TestLongStdDevAggregation
-    extends AbstractTestAggregationFunction
+        extends AbstractTestAggregationFunction
 {
     @Override
     public Block getSequenceBlock(int start, int length)
@@ -38,7 +38,7 @@ public class TestLongStdDevAggregation
             values[i] = start + i;
         }
 
-        final StandardDeviation stdDev = new StandardDeviation();
+        StandardDeviation stdDev = new StandardDeviation();
         return stdDev.evaluate(values);
     }
 
