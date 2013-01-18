@@ -8,7 +8,7 @@ import org.apache.commons.math.stat.descriptive.moment.Variance;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 
 public class TestDoubleVarianceAggregation
-    extends AbstractTestAggregationFunction
+        extends AbstractTestAggregationFunction
 {
     @Override
     public Block getSequenceBlock(int start, int length)
@@ -38,7 +38,7 @@ public class TestDoubleVarianceAggregation
             values[i] = start + i;
         }
 
-        final Variance variance = new Variance();
+        Variance variance = new Variance();
         return variance.evaluate(values);
     }
 

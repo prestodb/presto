@@ -4,20 +4,20 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.slice.Slice;
 
 public class LongStdDevAggregation
-    extends LongVarianceAggregation
+        extends LongVarianceAggregation
 {
     public static final LongStdDevAggregation STDDEV_INSTANCE = new LongStdDevAggregation(false);
     public static final LongStdDevAggregation STDDEV_POP_INSTANCE = new LongStdDevAggregation(true);
 
-    LongStdDevAggregation(final boolean population)
+    LongStdDevAggregation(boolean population)
     {
         super(population);
     }
 
     @Override
-    public void evaluateFinal(final Slice valueSlice, final int valueOffset, final BlockBuilder output)
+    public void evaluateFinal(Slice valueSlice, int valueOffset, BlockBuilder output)
     {
-        final Double result = DoubleStdDevAggregation.buildFinalStdDev(population, valueSlice, valueOffset);
+        Double result = DoubleStdDevAggregation.buildFinalStdDev(population, valueSlice, valueOffset);
 
         if (result == null) {
             output.appendNull();

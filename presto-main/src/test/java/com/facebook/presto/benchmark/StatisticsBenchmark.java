@@ -11,20 +11,20 @@ import org.intellij.lang.annotations.Language;
 public abstract class StatisticsBenchmark
         extends AbstractSqlBenchmark
 {
-    protected StatisticsBenchmark(final String benchmarkName, final int warmupIterations, final int measuredIterations, @Language("SQL") final String query)
+    protected StatisticsBenchmark(String benchmarkName, int warmupIterations, int measuredIterations, @Language("SQL") String query)
     {
         super(benchmarkName, warmupIterations, measuredIterations, query);
     }
 
     @Override
-    protected long execute(final TpchBlocksProvider blocksProvider)
+    protected long execute(TpchBlocksProvider blocksProvider)
     {
-        final Operator operator = createBenchmarkedOperator(blocksProvider);
+        Operator operator = createBenchmarkedOperator(blocksProvider);
 
         long outputRows = 0;
-        for (final PageIterator iterator = operator.iterator(new OperatorStats());  iterator.hasNext(); ) {
-            final Page page = iterator.next();
-            final BlockCursor cursor = page.getBlock(0).cursor();
+        for (PageIterator iterator = operator.iterator(new OperatorStats());  iterator.hasNext(); ) {
+            Page page = iterator.next();
+            BlockCursor cursor = page.getBlock(0).cursor();
             while (cursor.advanceNextPosition()) {
                 outputRows++;
             }

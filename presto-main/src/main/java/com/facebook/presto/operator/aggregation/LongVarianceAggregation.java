@@ -6,25 +6,25 @@ import com.facebook.presto.slice.Slice;
 import com.facebook.presto.block.BlockCursor;
 
 public class LongVarianceAggregation
-    extends DoubleVarianceAggregation
+        extends DoubleVarianceAggregation
 {
     public static final LongVarianceAggregation VARIANCE_INSTANCE = new LongVarianceAggregation(false);
     public static final LongVarianceAggregation VARIANCE_POP_INSTANCE = new LongVarianceAggregation(true);
 
-    LongVarianceAggregation(final boolean population)
+    LongVarianceAggregation(boolean population)
     {
         super(population);
     }
 
     @Override
-    public void addInput(final int positionCount, final Block block, final Slice valueSlice, final int valueOffset)
+    public void addInput(int positionCount, Block block, Slice valueSlice, int valueOffset)
     {
         boolean hasValue = !VARIANCE_CONTEXT_INFO.isNull(valueSlice, valueOffset, 0);
         long count = hasValue ? VARIANCE_CONTEXT_INFO.getLong(valueSlice, valueOffset, 0) : 0;
         double mean = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 1);
         double m2 = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 2);
 
-        final BlockCursor cursor = block.cursor();
+        BlockCursor cursor = block.cursor();
 
         while (cursor.advanceNextPosition()) {
             if (cursor.isNull(0)) {
@@ -35,8 +35,8 @@ public class LongVarianceAggregation
             hasValue = true;
 
             count++;
-            final double x = cursor.getLong(0);
-            final double delta = x - mean;
+            double x = cursor.getLong(0);
+            double delta = x - mean;
             mean += (delta / count);
             m2 += (delta * (x - mean));
         }
@@ -50,7 +50,7 @@ public class LongVarianceAggregation
     }
 
     @Override
-    public void addInput(final BlockCursor cursor, final Slice valueSlice, final int valueOffset)
+    public void addInput(BlockCursor cursor, Slice valueSlice, int valueOffset)
     {
         boolean hasValue = !VARIANCE_CONTEXT_INFO.isNull(valueSlice, valueOffset, 0);
 
@@ -63,8 +63,8 @@ public class LongVarianceAggregation
         double m2 = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 2);
 
         count++;
-        final double x = cursor.getLong(0);
-        final double delta = x - mean;
+        double x = cursor.getLong(0);
+        double delta = x - mean;
         mean += (delta / count);
         m2 += (delta * (x - mean));
 

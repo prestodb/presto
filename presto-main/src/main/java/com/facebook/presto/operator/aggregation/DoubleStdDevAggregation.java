@@ -5,26 +5,26 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.slice.Slice;
 
 public class DoubleStdDevAggregation
-    extends DoubleVarianceAggregation
+        extends DoubleVarianceAggregation
 {
     public static final DoubleStdDevAggregation STDDEV_INSTANCE = new DoubleStdDevAggregation(false);
     public static final DoubleStdDevAggregation STDDEV_POP_INSTANCE = new DoubleStdDevAggregation(true);
 
-    DoubleStdDevAggregation(final boolean population)
+    DoubleStdDevAggregation(boolean population)
     {
         super(population);
     }
 
-    static final Double buildFinalStdDev(final boolean population, final Slice valueSlice, final int valueOffset)
+    static final Double buildFinalStdDev(boolean population, Slice valueSlice, int valueOffset)
     {
-        final Double variance = DoubleVarianceAggregation.buildFinalVariance(population, valueSlice, valueOffset);
+        Double variance = DoubleVarianceAggregation.buildFinalVariance(population, valueSlice, valueOffset);
         return (variance == null) ? null : Math.sqrt(variance);
     }
 
     @Override
-    public void evaluateFinal(final Slice valueSlice, final int valueOffset, final BlockBuilder output)
+    public void evaluateFinal(Slice valueSlice, int valueOffset, BlockBuilder output)
     {
-        final Double result = DoubleStdDevAggregation.buildFinalStdDev(population, valueSlice, valueOffset);
+        Double result = DoubleStdDevAggregation.buildFinalStdDev(population, valueSlice, valueOffset);
 
         if (result == null) {
             output.appendNull();
