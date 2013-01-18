@@ -42,6 +42,7 @@
     </properties>
 
     <modules>
+        <module>presto-spi</module>
         <module>presto-main</module>
         <module>presto-jdbc</module>
     </modules>
