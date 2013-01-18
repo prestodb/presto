@@ -72,7 +72,7 @@ public class PruneUnreferencedOutputs
         {
             Set<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(expectedOutputs)
-                    .addAll(new DependencyExtractor().extract(node.getCriteria()))
+                    .addAll(DependencyExtractor.extract(node.getCriteria()))
                     .build();
 
             PlanNode left = node.getLeft().accept(this, expectedInputs);
@@ -94,7 +94,7 @@ public class PruneUnreferencedOutputs
 
                 if (expectedOutputs.contains(symbol)) {
                     FunctionCall call = entry.getValue();
-                    expectedInputs.addAll(new DependencyExtractor().extract(call));
+                    expectedInputs.addAll(DependencyExtractor.extract(call));
 
                     functionCalls.put(symbol, call);
                     functions.put(symbol, node.getFunctions().get(symbol));
@@ -134,7 +134,7 @@ public class PruneUnreferencedOutputs
         public PlanNode visitFilter(FilterNode node, Set<Symbol> expectedOutputs)
         {
             Set<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
-                    .addAll(new DependencyExtractor().extract(node.getPredicate()))
+                    .addAll(DependencyExtractor.extract(node.getPredicate()))
                     .addAll(expectedOutputs)
                     .build();
 
@@ -161,7 +161,7 @@ public class PruneUnreferencedOutputs
                 Expression expression = node.getExpressions().get(i);
 
                 if (expectedOutputs.contains(output)) {
-                    expectedInputs.addAll(new DependencyExtractor().extract(expression));
+                    expectedInputs.addAll(DependencyExtractor.extract(expression));
                     builder.put(output, expression);
                 }
             }

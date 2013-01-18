@@ -10,7 +10,7 @@ import java.util.Set;
 
 public class DependencyExtractor
 {
-    public Set<Symbol> extract(Expression expression)
+    public static Set<Symbol> extract(Expression expression)
     {
         ImmutableSet.Builder<Symbol> builder = ImmutableSet.builder();
 
