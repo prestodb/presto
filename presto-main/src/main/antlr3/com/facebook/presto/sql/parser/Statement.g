@@ -382,6 +382,7 @@ showTablesStmt
 showColumnsStmt
     : SHOW COLUMNS (FROM | IN) qname -> ^(SHOW_COLUMNS qname)
     | DESCRIBE qname                 -> ^(SHOW_COLUMNS qname)
+    | DESC qname                     -> ^(SHOW_COLUMNS qname)
     ;
 
 showPartitionsStmt
