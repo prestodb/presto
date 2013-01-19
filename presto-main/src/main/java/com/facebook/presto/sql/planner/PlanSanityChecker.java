@@ -48,7 +48,7 @@ public class PlanSanityChecker
             Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getGroupBy()), "Invalid node. Group by symbols (%s) not in source plan output (%s)", node.getGroupBy(), node.getSource().getOutputSymbols());
 
             for (FunctionCall call : node.getAggregations().values()) {
-                Set<Symbol> dependencies = new DependencyExtractor().extract(call);
+                Set<Symbol> dependencies = DependencyExtractor.extract(call);
                 Preconditions.checkArgument(source.getOutputSymbols().containsAll(dependencies), "Invalid node. Aggregation dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
             }
 
@@ -63,7 +63,7 @@ public class PlanSanityChecker
 
             Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOutputSymbols()), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
 
-            Set<Symbol> dependencies = new DependencyExtractor().extract(node.getPredicate());
+            Set<Symbol> dependencies = DependencyExtractor.extract(node.getPredicate());
 
             Preconditions.checkArgument(source.getOutputSymbols().containsAll(dependencies), "Invalid node. Predicate dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
 
@@ -77,7 +77,7 @@ public class PlanSanityChecker
             source.accept(this, context); // visit child
 
             for (Expression expression : node.getExpressions()) {
-                Set<Symbol> dependencies = new DependencyExtractor().extract(expression);
+                Set<Symbol> dependencies = DependencyExtractor.extract(expression);
                 Preconditions.checkArgument(source.getOutputSymbols().containsAll(dependencies), "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
             }
 
@@ -134,7 +134,7 @@ public class PlanSanityChecker
             node.getLeft().accept(this, context);
             node.getRight().accept(this, context);
 
-            Set<Symbol> dependencies = new DependencyExtractor().extract(node.getCriteria());
+            Set<Symbol> dependencies = DependencyExtractor.extract(node.getCriteria());
             Set<Symbol> sourceSymbols = ImmutableSet.copyOf(Iterables.concat(node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols()));
 
             Preconditions.checkArgument(sourceSymbols.containsAll(dependencies), "Invalid node. Join criteria dependencies (%s) not in source plan output (%s)", dependencies, sourceSymbols);

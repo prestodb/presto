@@ -6,7 +6,9 @@ import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitAssignments;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -31,9 +33,12 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.collect.Iterables.transform;
@@ -57,15 +62,19 @@ public class DistributedExecutionPlanner
 
     public StageExecutionPlan plan(SubPlan root)
     {
+        return plan(root, BooleanLiteral.TRUE_LITERAL);
+    }
+
+    public StageExecutionPlan plan(SubPlan root, Expression inheritedPredicate)
+    {
         PlanFragment currentFragment = root.getFragment();
 
         // get partitions for this fragment
-        List<Partition> partitions;
-        if (currentFragment.isPartitioned()) {
-            // partitioned plan is based on an underlying table scan or distributed aggregation
-            partitions = currentFragment.getRoot().accept(new Visitor(), BooleanLiteral.TRUE_LITERAL);
-        }
-        else {
+
+        Visitor visitor = new Visitor();
+
+        List<Partition> partitions = currentFragment.getRoot().accept(visitor, inheritedPredicate);
+        if (!currentFragment.isPartitioned()) {
             // create a single partition on a random node for this fragment
             ArrayList<Node> nodes = new ArrayList<>(nodeManager.getActiveNodes());
             Preconditions.checkState(!nodes.isEmpty(), "Cluster does not have any active nodes");
@@ -77,16 +86,27 @@ public class DistributedExecutionPlanner
         // create child stages
         ImmutableList.Builder<StageExecutionPlan> dependencies = ImmutableList.builder();
         for (SubPlan childPlan : root.getChildren()) {
-            StageExecutionPlan dependency = plan(childPlan);
+            Expression predicate = visitor.getInheritedPredicatesBySourceFragmentId().get(childPlan.getFragment().getId());
+            Preconditions.checkNotNull(predicate, "Expected to find a predicate for fragment %s", childPlan.getFragment().getId());
+
+            StageExecutionPlan dependency = plan(childPlan, predicate);
             dependencies.add(dependency);
         }
 
         return new StageExecutionPlan(currentFragment, partitions, dependencies.build());
     }
 
+
     private final class Visitor
         extends PlanVisitor<Expression, List<Partition>>
     {
+        private final Map<Integer, Expression> inheritedPredicatesBySourceFragmentId = new HashMap<>();
+
+        public Map<Integer, Expression> getInheritedPredicatesBySourceFragmentId()
+        {
+            return inheritedPredicatesBySourceFragmentId;
+        }
+
         @Override
         public List<Partition> visitTableScan(TableScanNode node, Expression inheritedPredicate)
         {
@@ -115,8 +135,33 @@ public class DistributedExecutionPlanner
         @Override
         public List<Partition> visitJoin(JoinNode node, Expression inheritedPredicate)
         {
-            List<Partition> leftPartitions = node.getLeft().accept(this, BooleanLiteral.TRUE_LITERAL);
-            List<Partition> rightPartitions = node.getRight().accept(this, BooleanLiteral.TRUE_LITERAL);
+            List<Expression> leftConjuncts = new ArrayList<>();
+            List<Expression> rightConjuncts = new ArrayList<>();
+
+            for (Expression conjunct : ExpressionUtils.extractConjuncts(inheritedPredicate)) {
+                Set<Symbol> symbols = DependencyExtractor.extract(conjunct);
+
+                // is the expression "fully bound" by the either side? If so, it's safe to push it down
+                if (node.getLeft().getOutputSymbols().containsAll(symbols)) {
+                    leftConjuncts.add(conjunct);
+                }
+                else if (node.getRight().getOutputSymbols().containsAll(symbols)) {
+                    rightConjuncts.add(conjunct);
+                }
+            }
+
+            Expression leftPredicate = BooleanLiteral.TRUE_LITERAL;
+            if (!leftConjuncts.isEmpty()) {
+                leftPredicate = ExpressionUtils.and(leftConjuncts);
+            }
+
+            Expression rightPredicate = BooleanLiteral.TRUE_LITERAL;
+            if (!rightConjuncts.isEmpty()) {
+                rightPredicate = ExpressionUtils.and(rightConjuncts);
+            }
+
+            List<Partition> leftPartitions = node.getLeft().accept(this, leftPredicate);
+            List<Partition> rightPartitions = node.getRight().accept(this, rightPredicate);
             if (!leftPartitions.isEmpty() && !rightPartitions.isEmpty()) {
                 throw new IllegalArgumentException("Both left and right join nodes are partitioned"); // TODO: "partitioned" may not be the right term
             }
@@ -131,6 +176,8 @@ public class DistributedExecutionPlanner
         @Override
         public List<Partition> visitExchange(ExchangeNode node, Expression inheritedPredicate)
         {
+            inheritedPredicatesBySourceFragmentId.put(node.getSourceFragmentId(), inheritedPredicate);
+
             // exchange node is unpartitioned
             return ImmutableList.of();
         }
