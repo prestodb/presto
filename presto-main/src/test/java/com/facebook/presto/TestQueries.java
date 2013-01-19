@@ -258,6 +258,74 @@ public class TestQueries
     }
 
     @Test
+    public void testVariance()
+            throws Exception
+    {
+        // int64
+        assertQuery("SELECT VAR_SAMP(custkey) FROM ORDERS");
+        assertQuery("SELECT VAR_SAMP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 2) T");
+        assertQuery("SELECT VAR_SAMP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 1) T");
+        assertQuery("SELECT VAR_SAMP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 0) T");
+
+        // double
+        assertQuery("SELECT VAR_SAMP(totalprice) FROM ORDERS");
+        assertQuery("SELECT VAR_SAMP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 2) T");
+        assertQuery("SELECT VAR_SAMP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 1) T");
+        assertQuery("SELECT VAR_SAMP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 0) T");
+    }
+
+    @Test
+    public void testVariancePop()
+            throws Exception
+    {
+        // int64
+        assertQuery("SELECT VAR_POP(custkey) FROM ORDERS");
+        assertQuery("SELECT VAR_POP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 2) T");
+        assertQuery("SELECT VAR_POP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 1) T");
+        assertQuery("SELECT VAR_POP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 0) T");
+
+        // double
+        assertQuery("SELECT VAR_POP(totalprice) FROM ORDERS");
+        assertQuery("SELECT VAR_POP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 2) T");
+        assertQuery("SELECT VAR_POP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 1) T");
+        assertQuery("SELECT VAR_POP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 0) T");
+    }
+
+    @Test
+    public void testStdDev()
+            throws Exception
+    {
+        // int64
+        assertQuery("SELECT STDDEV_SAMP(custkey) FROM ORDERS");
+        assertQuery("SELECT STDDEV_SAMP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 2) T");
+        assertQuery("SELECT STDDEV_SAMP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 1) T");
+        assertQuery("SELECT STDDEV_SAMP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 0) T");
+
+        // double
+        assertQuery("SELECT STDDEV_SAMP(totalprice) FROM ORDERS");
+        assertQuery("SELECT STDDEV_SAMP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 2) T");
+        assertQuery("SELECT STDDEV_SAMP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 1) T");
+        assertQuery("SELECT STDDEV_SAMP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 0) T");
+    }
+
+    @Test
+    public void testStdDevPop()
+            throws Exception
+    {
+        // int64
+        assertQuery("SELECT STDDEV_POP(custkey) FROM ORDERS");
+        assertQuery("SELECT STDDEV_POP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 2) T");
+        assertQuery("SELECT STDDEV_POP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 1) T");
+        assertQuery("SELECT STDDEV_POP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 0) T");
+
+        // double
+        assertQuery("SELECT STDDEV_POP(totalprice) FROM ORDERS");
+        assertQuery("SELECT STDDEV_POP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 2) T");
+        assertQuery("SELECT STDDEV_POP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 1) T");
+        assertQuery("SELECT STDDEV_POP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 0) T");
+    }
+
+    @Test
     public void testCountAllWithPredicate()
             throws Exception
     {
@@ -772,10 +840,22 @@ public class TestQueries
                     TupleInfo.Type type = types.get(i - 1);
                     switch (type) {
                         case FIXED_INT_64:
-                            builder.append(rs.getLong(i));
+                            long longValue = rs.getLong(i);
+                            if (rs.wasNull()) {
+                                builder.appendNull();
+                            }
+                            else {
+                                builder.append(longValue);
+                            }
                             break;
                         case DOUBLE:
-                            builder.append(rs.getDouble(i));
+                            double doubleValue = rs.getDouble(i);
+                            if (rs.wasNull()) {
+                                builder.appendNull();
+                            }
+                            else {
+                                builder.append(doubleValue);
+                            }
                             break;
                         case VARIABLE_BINARY:
                             String value = rs.getString(i);

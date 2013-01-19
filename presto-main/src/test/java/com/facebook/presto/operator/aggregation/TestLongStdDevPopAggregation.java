@@ -3,11 +3,11 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
-import org.apache.commons.math.stat.descriptive.moment.Variance;
+import org.apache.commons.math.stat.descriptive.moment.StandardDeviation;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 
-public class TestLongVarianceAggregation
+public class TestLongStdDevPopAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
@@ -23,13 +23,13 @@ public class TestLongVarianceAggregation
     @Override
     public AggregationFunction getFunction()
     {
-        return LongVarianceAggregation.VARIANCE_INSTANCE;
+        return LongStdDevAggregation.STDDEV_POP_INSTANCE;
     }
 
     @Override
     public Number getExpectedValue(int start, int length)
     {
-        if (length < 2) {
+        if (length == 0) {
             return null;
         }
 
@@ -38,8 +38,8 @@ public class TestLongVarianceAggregation
             values[i] = start + i;
         }
 
-        Variance variance = new Variance();
-        return variance.evaluate(values);
+        StandardDeviation stdDev = new StandardDeviation(false);
+        return stdDev.evaluate(values);
     }
 
 }

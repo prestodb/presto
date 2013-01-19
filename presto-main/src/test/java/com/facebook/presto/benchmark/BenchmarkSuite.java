@@ -41,7 +41,17 @@ public class BenchmarkSuite
             new RawStreamingSqlBenchmark(),
             new Top100SqlBenchmark(),
             new SqlHashJoinBenchmark(),
-            new VarBinaryMaxAggregationSqlBenchmark()
+            new VarBinaryMaxAggregationSqlBenchmark(),
+
+            // statistics benchmarks
+            new StatisticsBenchmark.LongVarianceBenchmark(),
+            new StatisticsBenchmark.LongVariancePopBenchmark(),
+            new StatisticsBenchmark.DoubleVarianceBenchmark(),
+            new StatisticsBenchmark.DoubleVariancePopBenchmark(),
+            new StatisticsBenchmark.LongStdDevBenchmark(),
+            new StatisticsBenchmark.LongStdDevPopBenchmark(),
+            new StatisticsBenchmark.DoubleStdDevBenchmark(),
+            new StatisticsBenchmark.DoubleStdDevPopBenchmark()
     );
 
     private final String outputDirectory;

@@ -1,22 +1,26 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.Block;
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 
-import com.facebook.presto.block.BlockCursor;
-
-public class LongVarianceAggregation
+/**
+ * Generate the variance for a given set of values.
+ *
+ * This implements the online algorithm as described at http://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm.
+ *
+ * TODO - This code assumes that the values are in offset 0 of the various cursors. Remove this assumption.
+ */
+public class DoubleVarianceAggregation
         extends AbstractVarianceAggregation
 {
-    public static final LongVarianceAggregation VARIANCE_INSTANCE = new LongVarianceAggregation(false);
-    public static final LongVarianceAggregation VARIANCE_POP_INSTANCE = new LongVarianceAggregation(true);
+    public static final DoubleVarianceAggregation VARIANCE_INSTANCE = new DoubleVarianceAggregation(false);
+    public static final DoubleVarianceAggregation VARIANCE_POP_INSTANCE = new DoubleVarianceAggregation(true);
 
-    LongVarianceAggregation(boolean population)
+    DoubleVarianceAggregation(boolean population)
     {
         super(population);
     }
-
-    protected static long value = 0;
 
     @Override
     public void addInput(int positionCount, Block block, Slice valueSlice, int valueOffset)
@@ -37,7 +41,7 @@ public class LongVarianceAggregation
             hasValue = true;
 
             count++;
-            double x = cursor.getLong(0);
+            double x = cursor.getDouble(0);
             double delta = x - mean;
             mean += (delta / count);
             m2 += (delta * (x - mean));
@@ -65,7 +69,7 @@ public class LongVarianceAggregation
         double m2 = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 2);
 
         count++;
-        double x = cursor.getLong(0);
+        double x = cursor.getDouble(0);
         double delta = x - mean;
         mean += (delta / count);
         m2 += (delta * (x - mean));
