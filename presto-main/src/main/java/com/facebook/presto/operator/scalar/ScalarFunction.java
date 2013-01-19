@@ -9,4 +9,5 @@ import java.lang.annotation.Target;
 public @interface ScalarFunction {
     String value() default "";
     String[] alias() default {};
+    boolean deterministic() default true;
 }

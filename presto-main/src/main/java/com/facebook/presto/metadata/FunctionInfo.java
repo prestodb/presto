@@ -31,6 +31,7 @@ public class FunctionInfo implements Comparable<FunctionInfo>
     private final AggregationFunction aggregationFunction;
 
     private final MethodHandle scalarFunction;
+    private final boolean deterministic;
 
     public FunctionInfo(int id, QualifiedName name, TupleInfo.Type returnType, List<TupleInfo.Type> argumentTypes, TupleInfo.Type intermediateType, AggregationFunction function)
     {
@@ -42,14 +43,16 @@ public class FunctionInfo implements Comparable<FunctionInfo>
         this.aggregationFunction = function;
         this.isAggregate = true;
         this.scalarFunction = null;
+        this.deterministic = true;
     }
 
-    public FunctionInfo(int id, QualifiedName name, TupleInfo.Type returnType, List<TupleInfo.Type> argumentTypes, MethodHandle function)
+    public FunctionInfo(int id, QualifiedName name, Type returnType, List<Type> argumentTypes, MethodHandle function, boolean deterministic)
     {
         this.id = id;
         this.name = name;
         this.returnType = returnType;
         this.argumentTypes = argumentTypes;
+        this.deterministic = deterministic;
 
         this.isAggregate = false;
         this.intermediateType = null;
@@ -107,6 +110,11 @@ public class FunctionInfo implements Comparable<FunctionInfo>
     {
         checkState(scalarFunction != null, "not a scalar function");
         return scalarFunction;
+    }
+
+    public boolean isDeterministic()
+    {
+        return deterministic;
     }
 
     @Override

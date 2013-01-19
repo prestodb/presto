@@ -60,29 +60,33 @@ public class ExpressionInterpreter
     private final InputResolver inputResolver;
     private final Metadata metadata;
     private final Session session;
+    private final boolean optimize;
 
-    public ExpressionInterpreter(SymbolResolver symbolResolver, Metadata metadata, Session session)
-    {
-        checkNotNull(symbolResolver, "resolver is null");
-        checkNotNull(metadata, "metadata is null");
-        checkNotNull(session, "session is null");
-
-        this.symbolResolver = symbolResolver;
-        this.inputResolver = null;
-        this.metadata = metadata;
-        this.session = session;
-    }
-
-    public ExpressionInterpreter(InputResolver inputResolver, Metadata metadata, Session session)
+    public static ExpressionInterpreter expressionInterpreter(InputResolver inputResolver, Metadata metadata, Session session)
     {
         checkNotNull(inputResolver, "resolver is null");
         checkNotNull(metadata, "metadata is null");
         checkNotNull(session, "session is null");
 
-        this.symbolResolver = null;
+        return new ExpressionInterpreter(null, inputResolver, metadata, session, false);
+    }
+
+    public static ExpressionInterpreter expressionOptimizer(SymbolResolver symbolResolver, Metadata metadata, Session session)
+    {
+        checkNotNull(symbolResolver, "resolver is null");
+        checkNotNull(metadata, "metadata is null");
+        checkNotNull(session, "session is null");
+
+        return new ExpressionInterpreter(symbolResolver, null, metadata, session, true);
+    }
+
+    public ExpressionInterpreter(SymbolResolver symbolResolver, InputResolver inputResolver, Metadata metadata, Session session, boolean optimize)
+    {
+        this.symbolResolver = symbolResolver;
         this.inputResolver = inputResolver;
         this.metadata = metadata;
         this.session = session;
+        this.optimize = optimize;
     }
 
     @Override
@@ -556,7 +560,7 @@ public class ExpressionInterpreter
                 type = Type.BOOLEAN;
             }
             else if (value instanceof Expression) {
-                // TODO construct new FunctionCall node with optimized arguments
+                // TODO when we know the type of this expresstion, construct new FunctionCall node with optimized arguments
                 return node;
             }
             else {
@@ -566,6 +570,10 @@ public class ExpressionInterpreter
             argumentTypes.add(type);
         }
         FunctionInfo function = metadata.getFunction(node.getName(), Lists.transform(argumentTypes, Type.toRaw()));
+        // do not optimize non-deterministic functions
+        if (optimize && !function.isDeterministic()) {
+            return new FunctionCall(node.getName(), node.isDistinct(), toExpressions(argumentValues));
+        }
         MethodHandle handle = function.getScalarFunction();
         if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == Session.class) {
             handle = handle.bindTo(session);

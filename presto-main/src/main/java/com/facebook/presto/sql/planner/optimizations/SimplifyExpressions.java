@@ -40,7 +40,7 @@ public class SimplifyExpressions
     @Override
     public PlanNode optimize(PlanNode plan, Map<Symbol, Type> types)
     {
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(new SymbolResolver()
+        ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(new SymbolResolver()
         {
             @Override
             public Object getValue(Symbol symbol)
