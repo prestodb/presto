@@ -261,40 +261,68 @@ public class TestQueries
     public void testVariance()
             throws Exception
     {
+        // int64
         assertQuery("SELECT VAR_SAMP(custkey) FROM ORDERS");
-        assertQuery("SELECT VAR_SAMP(custkey) FROM ORDERS LIMIT 0");
-        assertQuery("SELECT VAR_SAMP(custkey) FROM ORDERS LIMIT 1");
-        assertQuery("SELECT VAR_SAMP(custkey) FROM ORDERS LIMIT 2");
+        assertQuery("SELECT VAR_SAMP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 2) T");
+        assertQuery("SELECT VAR_SAMP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 1) T");
+        assertQuery("SELECT VAR_SAMP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 0) T");
+
+        // double
+        assertQuery("SELECT VAR_SAMP(totalprice) FROM ORDERS");
+        assertQuery("SELECT VAR_SAMP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 2) T");
+        assertQuery("SELECT VAR_SAMP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 1) T");
+        assertQuery("SELECT VAR_SAMP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 0) T");
     }
 
     @Test
     public void testVariancePop()
             throws Exception
     {
+        // int64
         assertQuery("SELECT VAR_POP(custkey) FROM ORDERS");
-        assertQuery("SELECT VAR_POP(custkey) FROM ORDERS LIMIT 0");
-        assertQuery("SELECT VAR_POP(custkey) FROM ORDERS LIMIT 1");
-        assertQuery("SELECT VAR_POP(custkey) FROM ORDERS LIMIT 2");
+        assertQuery("SELECT VAR_POP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 2) T");
+        assertQuery("SELECT VAR_POP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 1) T");
+        assertQuery("SELECT VAR_POP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 0) T");
+
+        // double
+        assertQuery("SELECT VAR_POP(totalprice) FROM ORDERS");
+        assertQuery("SELECT VAR_POP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 2) T");
+        assertQuery("SELECT VAR_POP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 1) T");
+        assertQuery("SELECT VAR_POP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 0) T");
     }
 
     @Test
     public void testStdDev()
             throws Exception
     {
+        // int64
         assertQuery("SELECT STDDEV_SAMP(custkey) FROM ORDERS");
-        assertQuery("SELECT STDDEV_SAMP(custkey) FROM ORDERS LIMIT 0");
-        assertQuery("SELECT STDDEV_SAMP(custkey) FROM ORDERS LIMIT 1");
-        assertQuery("SELECT STDDEV_SAMP(custkey) FROM ORDERS LIMIT 2");
+        assertQuery("SELECT STDDEV_SAMP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 2) T");
+        assertQuery("SELECT STDDEV_SAMP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 1) T");
+        assertQuery("SELECT STDDEV_SAMP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 0) T");
+
+        // double
+        assertQuery("SELECT STDDEV_SAMP(totalprice) FROM ORDERS");
+        assertQuery("SELECT STDDEV_SAMP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 2) T");
+        assertQuery("SELECT STDDEV_SAMP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 1) T");
+        assertQuery("SELECT STDDEV_SAMP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 0) T");
     }
 
     @Test
     public void testStdDevPop()
             throws Exception
     {
+        // int64
         assertQuery("SELECT STDDEV_POP(custkey) FROM ORDERS");
-        assertQuery("SELECT STDDEV_POP(custkey) FROM ORDERS LIMIT 0");
-        assertQuery("SELECT STDDEV_POP(custkey) FROM ORDERS LIMIT 1");
-        assertQuery("SELECT STDDEV_POP(custkey) FROM ORDERS LIMIT 2");
+        assertQuery("SELECT STDDEV_POP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 2) T");
+        assertQuery("SELECT STDDEV_POP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 1) T");
+        assertQuery("SELECT STDDEV_POP(custkey) FROM (SELECT custkey FROM ORDERS LIMIT 0) T");
+
+        // double
+        assertQuery("SELECT STDDEV_POP(totalprice) FROM ORDERS");
+        assertQuery("SELECT STDDEV_POP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 2) T");
+        assertQuery("SELECT STDDEV_POP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 1) T");
+        assertQuery("SELECT STDDEV_POP(totalprice) FROM (SELECT totalprice FROM ORDERS LIMIT 0) T");
     }
 
     @Test
