@@ -31,6 +31,8 @@ public class Driver
     private static final String JDBC_URL_START = "jdbc:";
     private static final String DRIVER_URL_START = "jdbc:presto:";
 
+    private static final String USER_PROPERTY = "user";
+
     static {
         try {
             DriverManager.registerDriver(new Driver());
@@ -47,7 +49,7 @@ public class Driver
         if (!acceptsURL(url)) {
             return null;
         }
-        String user = info.getProperty("user");
+        String user = info.getProperty(USER_PROPERTY);
         return new JdbcConnection(parseDriverUrl(url), user);
     }
 
