@@ -29,7 +29,7 @@ public class TestLongStdDevAggregation
     @Override
     public Number getExpectedValue(int start, int length)
     {
-        if (length == 0) {
+        if (length < 2) {
             return null;
         }
 
