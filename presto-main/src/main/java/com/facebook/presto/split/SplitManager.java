@@ -344,7 +344,7 @@ public class SplitManager
             }
 
             SymbolResolver resolver = new LookupSymbolResolver(assignments.build());
-            Object optimized = new ExpressionInterpreter(resolver, metadata, session).process(predicate, null);
+            Object optimized = ExpressionInterpreter.expressionOptimizer(resolver, metadata, session).process(predicate, null);
             if (!Boolean.FALSE.equals(optimized) && optimized != null) {
                 builder.add(partition);
             }

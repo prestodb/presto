@@ -29,7 +29,7 @@ public class InterpretedProjectionFunction
         // pre-compute symbol -> input mappings and replace the corresponding nodes in the tree
         this.expression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToChannelMapping), expression);
 
-        evaluator = new ExpressionInterpreter(resolver, metadata, session);
+        evaluator = ExpressionInterpreter.expressionInterpreter(resolver, metadata, session);
     }
 
     @Override

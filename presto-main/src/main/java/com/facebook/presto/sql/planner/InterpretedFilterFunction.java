@@ -23,7 +23,7 @@ public class InterpretedFilterFunction
     {
         // pre-compute symbol -> input mappings and replace the corresponding nodes in the tree
         this.predicate = TreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToChannelMapping), predicate);
-        evaluator = new ExpressionInterpreter(resolver, metadata, session);
+        evaluator = ExpressionInterpreter.expressionInterpreter(resolver, metadata, session);
     }
 
     @Override

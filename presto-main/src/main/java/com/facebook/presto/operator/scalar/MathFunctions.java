@@ -146,7 +146,7 @@ public final class MathFunctions
         return Math.pow(num, exponent);
     }
 
-    @ScalarFunction(alias = "rand")
+    @ScalarFunction(alias = "rand", deterministic = false)
     public static double random()
     {
         return ThreadLocalRandom.current().nextDouble();
