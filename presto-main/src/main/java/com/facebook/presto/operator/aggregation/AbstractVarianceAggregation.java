@@ -145,7 +145,7 @@ public abstract class AbstractVarianceAggregation
             return m2/count;
         }
         else {
-            return (count == 1) ? 0.0 : (m2 / (count - 1));
+            return (count == 1) ? null : (m2 / (count - 1));
         }
     }
 
