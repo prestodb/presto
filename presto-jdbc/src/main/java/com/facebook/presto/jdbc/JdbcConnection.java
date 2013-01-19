@@ -200,14 +200,15 @@ public class JdbcConnection
     public SQLWarning getWarnings()
             throws SQLException
     {
-        throw new UnsupportedOperationException("getWarnings");
+        checkOpen();
+        return null;
     }
 
     @Override
     public void clearWarnings()
             throws SQLException
     {
-        throw new UnsupportedOperationException("clearWarnings");
+        checkOpen();
     }
 
     @Override
@@ -372,14 +373,14 @@ public class JdbcConnection
     public void setClientInfo(String name, String value)
             throws SQLClientInfoException
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("setClientInfo");
     }
 
     @Override
     public void setClientInfo(Properties properties)
             throws SQLClientInfoException
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("setClientInfo");
     }
 
     @Override
