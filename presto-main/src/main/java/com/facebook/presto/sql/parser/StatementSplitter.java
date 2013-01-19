@@ -86,9 +86,8 @@ public class StatementSplitter
 
     private static String getTokenText(Token token)
     {
-        // TODO: handle escaping after the parser supports it
         if (token.getType() == StatementLexer.STRING) {
-            return "'" + token.getText() + "'";
+            return "'" + token.getText().replace("'", "''") + "'";
         }
         return token.getText();
     }

@@ -571,8 +571,8 @@ GTE : '>=';
 SEMICOLON: ';';
 
 STRING
-    : '\'' ( ~'\'' | '\'' '\'' )* '\''
-        { setText(getText().substring(1, getText().length() - 1)); }
+    : '\'' ( ~'\'' | '\'\'' )* '\''
+        { setText(getText().substring(1, getText().length() - 1).replace("''", "'")); }
     ;
 
 INTEGER_VALUE

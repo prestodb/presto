@@ -67,6 +67,15 @@ public class TestStatementSplitter
     }
 
     @Test
+    public void testSplitterWithEscapedSingleQuote()
+    {
+        String sql = "select 'hello''world' from dual";
+        StatementSplitter splitter = new StatementSplitter(sql + ";");
+        assertEquals(splitter.getCompleteStatements(), ImmutableList.of(sql));
+        assertEquals(splitter.getPartialStatement(), "");
+    }
+
+    @Test
     public void testSqueezeStatement()
     {
         String sql = "select   *  from\n foo\n  order by x ; ";
