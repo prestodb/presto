@@ -17,7 +17,7 @@ public class LongStdDevAggregation
     @Override
     public void evaluateFinal(Slice valueSlice, int valueOffset, BlockBuilder output)
     {
-        Double result = DoubleStdDevAggregation.buildFinalStdDev(population, valueSlice, valueOffset);
+        Double result = AbstractVarianceAggregation.buildFinalStdDev(population, valueSlice, valueOffset);
 
         if (result == null) {
             output.appendNull();

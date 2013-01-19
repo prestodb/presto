@@ -6,7 +6,7 @@ import com.facebook.presto.slice.Slice;
 import com.facebook.presto.block.BlockCursor;
 
 public class LongVarianceAggregation
-        extends DoubleVarianceAggregation
+        extends AbstractVarianceAggregation
 {
     public static final LongVarianceAggregation VARIANCE_INSTANCE = new LongVarianceAggregation(false);
     public static final LongVarianceAggregation VARIANCE_POP_INSTANCE = new LongVarianceAggregation(true);
@@ -15,6 +15,8 @@ public class LongVarianceAggregation
     {
         super(population);
     }
+
+    protected static long value = 0;
 
     @Override
     public void addInput(int positionCount, Block block, Slice valueSlice, int valueOffset)

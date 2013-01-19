@@ -15,16 +15,10 @@ public class DoubleStdDevAggregation
         super(population);
     }
 
-    static final Double buildFinalStdDev(boolean population, Slice valueSlice, int valueOffset)
-    {
-        Double variance = DoubleVarianceAggregation.buildFinalVariance(population, valueSlice, valueOffset);
-        return (variance == null) ? null : Math.sqrt(variance);
-    }
-
     @Override
     public void evaluateFinal(Slice valueSlice, int valueOffset, BlockBuilder output)
     {
-        Double result = DoubleStdDevAggregation.buildFinalStdDev(population, valueSlice, valueOffset);
+        Double result = AbstractVarianceAggregation.buildFinalStdDev(population, valueSlice, valueOffset);
 
         if (result == null) {
             output.appendNull();
