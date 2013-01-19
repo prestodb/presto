@@ -812,10 +812,22 @@ public class TestQueries
                     TupleInfo.Type type = types.get(i - 1);
                     switch (type) {
                         case FIXED_INT_64:
-                            builder.append(rs.getLong(i));
+                            long longValue = rs.getLong(i);
+                            if (rs.wasNull()) {
+                                builder.appendNull();
+                            }
+                            else {
+                                builder.append(longValue);
+                            }
                             break;
                         case DOUBLE:
-                            builder.append(rs.getDouble(i));
+                            double doubleValue = rs.getDouble(i);
+                            if (rs.wasNull()) {
+                                builder.appendNull();
+                            }
+                            else {
+                                builder.append(doubleValue);
+                            }
                             break;
                         case VARIABLE_BINARY:
                             String value = rs.getString(i);
