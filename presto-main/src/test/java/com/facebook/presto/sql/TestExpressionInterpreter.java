@@ -1,10 +1,12 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.metadata.TestingMetadata;
+import com.facebook.presto.operator.Input;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
+import com.facebook.presto.sql.planner.InputResolver;
 import com.facebook.presto.sql.planner.SymbolResolver;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -91,6 +93,20 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("abs(-boundLong)", "1234");
         assertOptimizedEquals("abs(a)", "abs(a)");
         assertOptimizedEquals("abs(a + 1)", "abs(a + 1)");
+    }
+
+    @Test
+    public void testNonDeterministicFunctionCall()
+            throws Exception
+    {
+        // optimize should do nothing
+        assertOptimizedEquals("random()", "random()");
+
+        // evaluate should execute
+        Object value = evaluate("random()");
+        Assert.assertTrue(value instanceof Double);
+        double randomValue = (double) value;
+        Assert.assertTrue(0 <= randomValue && randomValue < 1);
     }
 
     @Test
@@ -438,14 +454,14 @@ public class TestExpressionInterpreter
     private void assertOptimizedEquals(String actual, String expected)
             throws RecognitionException
     {
-        assertEquals(evaluate(actual), evaluate(expected));
+        assertEquals(optimize(actual), optimize(expected));
     }
 
     private void assertInvalidCast(String expression)
             throws RecognitionException
     {
         try {
-            Object value = evaluate(expression);
+            Object value = optimize(expression);
             Assert.fail(String.format("Expected '%s' to fail but it returned %s", expression, value));
         }
         catch (IllegalArgumentException e) {
@@ -453,10 +469,10 @@ public class TestExpressionInterpreter
         }
     }
 
-    private Object evaluate(String expression)
+    private Object optimize(String expression)
             throws RecognitionException
     {
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(new SymbolResolver()
+        ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(new SymbolResolver()
         {
             @Override
             public Object getValue(Symbol symbol)
@@ -473,6 +489,27 @@ public class TestExpressionInterpreter
                 }
 
                 return new QualifiedNameReference(symbol.toQualifiedName());
+            }
+        }, new TestingMetadata(), new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA));
+
+        Expression parsedExpression = createExpression(expression);
+
+        // verify roundtrip
+        Expression roundtrip = createExpression(ExpressionFormatter.toString(parsedExpression));
+        assertEquals(parsedExpression, roundtrip);
+
+        return interpreter.process(parsedExpression, null);
+    }
+
+    private Object evaluate(String expression)
+            throws RecognitionException
+    {
+        ExpressionInterpreter interpreter = ExpressionInterpreter.expressionInterpreter(new InputResolver()
+        {
+            @Override
+            public Object getValue(Input input)
+            {
+                throw new UnsupportedOperationException();
             }
         }, new TestingMetadata(), new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA));
 

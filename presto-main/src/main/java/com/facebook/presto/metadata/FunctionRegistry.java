@@ -170,14 +170,14 @@ public class FunctionRegistry
             return this;
         }
 
-        public FunctionListBuilder scalar(String name, MethodHandle function)
+        public FunctionListBuilder scalar(String name, MethodHandle function, boolean deterministic)
         {
             name = name.toLowerCase();
 
             int id = functions.size() + 1;
             TupleInfo.Type returnType = type(function.type().returnType());
             List<TupleInfo.Type> argumentTypes = types(function);
-            functions.add(new FunctionInfo(id, QualifiedName.of(name), returnType, argumentTypes, function));
+            functions.add(new FunctionInfo(id, QualifiedName.of(name), returnType, argumentTypes, function, deterministic));
             return this;
         }
 
@@ -196,9 +196,9 @@ public class FunctionRegistry
                     if (name.isEmpty()) {
                         name = method.getName();
                     }
-                    scalar(name, methodHandle);
+                    scalar(name, methodHandle, scalarFunction.deterministic());
                     for (String alias : scalarFunction.alias()) {
-                        scalar(alias, methodHandle);
+                        scalar(alias, methodHandle, scalarFunction.deterministic());
                     }
                     foundOne = true;
                 }
