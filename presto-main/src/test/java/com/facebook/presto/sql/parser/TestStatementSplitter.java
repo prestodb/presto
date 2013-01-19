@@ -76,6 +76,15 @@ public class TestStatementSplitter
     }
 
     @Test
+    public void testSplitterWithQuotedIdentifier()
+    {
+        String sql = "select \"0\"\"bar\" from dual";
+        StatementSplitter splitter = new StatementSplitter(sql + ";");
+        assertEquals(splitter.getCompleteStatements(), ImmutableList.of(sql));
+        assertEquals(splitter.getPartialStatement(), "");
+    }
+
+    @Test
     public void testSqueezeStatement()
     {
         String sql = "select   *  from\n foo\n  order by x ; ";
