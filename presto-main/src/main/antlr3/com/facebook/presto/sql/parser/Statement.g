@@ -453,7 +453,8 @@ qname
 
 ident
     : IDENT
-    | nonReserved -> IDENT[$nonReserved.text]
+    | QUOTED_IDENT
+    | nonReserved  -> IDENT[$nonReserved.text]
     ;
 
 number
@@ -571,8 +572,8 @@ GTE : '>=';
 SEMICOLON: ';';
 
 STRING
-    : '\'' ( ~'\'' | '\'' '\'' )* '\''
-        { setText(getText().substring(1, getText().length() - 1)); }
+    : '\'' ( ~'\'' | '\'\'' )* '\''
+        { setText(getText().substring(1, getText().length() - 1).replace("''", "'")); }
     ;
 
 INTEGER_VALUE
@@ -586,6 +587,11 @@ DECIMAL_VALUE
 
 IDENT
     : (LETTER | '_') (LETTER | DIGIT | '_')*
+    ;
+
+QUOTED_IDENT
+    : '"' ( ~'"' | '""' )* '"'
+        { setText(getText().substring(1, getText().length() - 1).replace("\"\"", "\"")); }
     ;
 
 fragment DIGIT
