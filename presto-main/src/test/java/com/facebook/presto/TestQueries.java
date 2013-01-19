@@ -37,7 +37,6 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchColumnHandle;
@@ -509,14 +508,12 @@ public class TestQueries
         assertQueryOrdered("SELECT orderstatus orderdate FROM orders ORDER BY orderdate ASC");
     }
 
-
     @Test
     public void testScalarFunction()
             throws Exception
     {
         assertQuery("SELECT SUBSTR('Quadratically', 5, 6) FROM orders LIMIT 1");
     }
-
 
     @Test
     public void testCast()
@@ -525,6 +522,13 @@ public class TestQueries
         assertQuery("SELECT CAST(totalprice AS BIGINT) FROM orders");
         assertQuery("SELECT CAST(orderkey AS DOUBLE) FROM orders");
         assertQuery("SELECT CAST(orderkey AS VARCHAR) FROM orders");
+    }
+
+    @Test
+    public void testQuotedIdentifiers()
+            throws Exception
+    {
+        assertQuery("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"");
     }
 
     @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = ".*orderkey_1.*")
@@ -577,7 +581,6 @@ public class TestQueries
         insertRows(TpchSchema.createLineItem(), handle, lineItemRecords);
 
         metadata = TpchSchema.createMetadata();
-
 
         TestTpchBlocksProvider testTpchBlocksProvider = new TestTpchBlocksProvider(
                 ImmutableMap.of(

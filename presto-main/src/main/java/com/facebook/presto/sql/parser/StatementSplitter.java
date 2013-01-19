@@ -86,8 +86,11 @@ public class StatementSplitter
 
     private static String getTokenText(Token token)
     {
-        if (token.getType() == StatementLexer.STRING) {
-            return "'" + token.getText().replace("'", "''") + "'";
+        switch (token.getType()) {
+            case StatementLexer.STRING:
+                return "'" + token.getText().replace("'", "''") + "'";
+            case StatementLexer.QUOTED_IDENT:
+                return "\"" + token.getText().replace("\"", "\"\"") + "\"";
         }
         return token.getText();
     }
