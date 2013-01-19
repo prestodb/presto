@@ -230,7 +230,8 @@ identList returns [List<String> value = new ArrayList<>()]
     ;
 
 ident returns [String value]
-    : i=IDENT { $value = $i.text; }
+    : i=IDENT        { $value = $i.text; }
+    | q=QUOTED_IDENT { $value = $q.text; }
     ;
 
 string returns [String value]
