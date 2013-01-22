@@ -5,6 +5,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -14,8 +15,9 @@ public class AnalyzedFunction
     private final FunctionInfo info;
     private final List<AnalyzedExpression> arguments;
     private final FunctionCall rewrittenCall;
+    private final boolean distinct;
 
-    public AnalyzedFunction(FunctionInfo info, List<AnalyzedExpression> arguments, FunctionCall rewrittenCall)
+    public AnalyzedFunction(FunctionInfo info, List<AnalyzedExpression> arguments, FunctionCall rewrittenCall, boolean distinct)
     {
         Preconditions.checkNotNull(info, "info is null");
         Preconditions.checkNotNull(arguments, "arguments is null");
@@ -24,6 +26,7 @@ public class AnalyzedFunction
         this.info = info;
         this.arguments = ImmutableList.copyOf(arguments);
         this.rewrittenCall = rewrittenCall;
+        this.distinct = distinct;
     }
 
     public QualifiedName getFunctionName()
@@ -49,6 +52,11 @@ public class AnalyzedFunction
     public FunctionCall getRewrittenCall()
     {
         return rewrittenCall;
+    }
+
+    public boolean isDistinct()
+    {
+        return distinct;
     }
 
     @Override
@@ -96,4 +104,18 @@ public class AnalyzedFunction
             }
         };
     }
+
+    public static Predicate<AnalyzedFunction> distinctPredicate()
+    {
+        return new Predicate<AnalyzedFunction>()
+        {
+            @Override
+            public boolean apply(AnalyzedFunction input)
+            {
+                return input.isDistinct();
+            }
+        };
+    }
+
+
 }
