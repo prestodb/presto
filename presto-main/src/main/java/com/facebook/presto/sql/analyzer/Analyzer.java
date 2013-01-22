@@ -56,6 +56,7 @@ import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_INTER
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.sql.analyzer.AnalyzedExpression.rewrittenExpressionGetter;
+import static com.facebook.presto.sql.analyzer.AnalyzedFunction.distinctPredicate;
 import static com.facebook.presto.sql.analyzer.AnalyzedOrdering.expressionGetter;
 import static com.facebook.presto.sql.analyzer.AnalyzedOrdering.nodeGetter;
 import static com.facebook.presto.sql.analyzer.Field.nameGetter;
@@ -414,6 +415,9 @@ public class Analyzer
                     scalarTerms.add(term);
                 }
                 else {
+                    if (Iterables.any(aggregations, distinctPredicate())) {
+                        throw new SemanticException(select, "DISTINCT in aggregation parameters not yet supported");
+                    }
                     aggregateTermsBuilder.addAll(aggregations);
                 }
             }
@@ -481,7 +485,7 @@ public class Analyzer
                 }
 
                 FunctionCall rewritten = TreeRewriter.rewriteWith(new NameToSymbolRewriter(descriptor), node);
-                aggregations.add(new AnalyzedFunction(info, argumentsAnalysis.build(), rewritten));
+                aggregations.add(new AnalyzedFunction(info, argumentsAnalysis.build(), rewritten, node.isDistinct()));
                 return super.visitFunctionCall(node, node); // visit children
             }
 

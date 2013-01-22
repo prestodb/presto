@@ -113,6 +113,14 @@ public class TestQueries
         assertQuery("SELECT DISTINCT custkey FROM orders");
     }
 
+    // TODO: make this work
+    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = "DISTINCT in aggregation parameters not yet supported")
+    public void testCountDistinct()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(DISTINCT custkey) FROM orders");
+    }
+
     @Test
     public void testDistinctWithOrderBy()
             throws Exception
