@@ -107,6 +107,13 @@ public class TestQueries
     private TpchDataStreamProvider dataProvider;
 
     @Test
+    public void testArithmeticNegation()
+            throws Exception
+    {
+        assertQuery("SELECT -custkey FROM orders");
+    }
+
+    @Test
     public void testDistinct()
             throws Exception
     {
