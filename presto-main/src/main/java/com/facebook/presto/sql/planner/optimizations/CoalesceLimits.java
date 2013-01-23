@@ -8,6 +8,8 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
+import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
@@ -25,85 +27,26 @@ public class CoalesceLimits
     @Override
     public PlanNode optimize(PlanNode plan, Map<Symbol, Type> types)
     {
-        Visitor visitor = new Visitor();
-        return plan.accept(visitor, null);
+        return PlanRewriter.rewriteWith(new Rewriter(), plan);
     }
 
-    private static class Visitor
-        extends PlanVisitor<Void, PlanNode>
+    private static class Rewriter
+        extends PlanNodeRewriter<Void>
     {
         @Override
-        protected PlanNode visitPlan(PlanNode node, Void context)
+        public PlanNode rewriteLimit(LimitNode node, Void context, PlanRewriter<Void> planRewriter)
         {
-            throw new UnsupportedOperationException("not yet implemented");
-        }
+            PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
-        @Override
-        public PlanNode visitLimit(LimitNode node, Void context)
-        {
-            PlanNode child = node.getSource().accept(this, context);
-            if (child instanceof LimitNode) {
-                return new LimitNode(((LimitNode) child).getSource(), Math.min(node.getCount(), ((LimitNode) child).getCount()));
+            if (source instanceof LimitNode) {
+                LimitNode limitNode = (LimitNode) source;
+                return new LimitNode(limitNode.getSource(), Math.min(node.getCount(), limitNode.getCount()));
+            }
+            else if (source != node.getSource()) {
+                return new LimitNode(source, node.getCount());
             }
 
             return node;
-        }
-
-        @Override
-        public PlanNode visitAggregation(AggregationNode node, Void context)
-        {
-            PlanNode source = node.getSource().accept(this, context);
-            return new AggregationNode(source, node.getGroupBy(), node.getAggregations(), node.getFunctions());
-        }
-
-        @Override
-        public PlanNode visitTableScan(TableScanNode node, Void context)
-        {
-            return node;
-        }
-
-        @Override
-        public PlanNode visitFilter(FilterNode node, Void context)
-        {
-            PlanNode source = node.getSource().accept(this, context);
-            return new FilterNode(source, node.getPredicate(), node.getOutputSymbols());
-        }
-
-        @Override
-        public PlanNode visitProject(ProjectNode node, Void context)
-        {
-            PlanNode source = node.getSource().accept(this, context);
-            return new ProjectNode(source, node.getOutputMap());
-        }
-
-        @Override
-        public PlanNode visitOutput(OutputNode node, Void context)
-        {
-            PlanNode source = node.getSource().accept(this, context);
-            return new OutputNode(source, node.getColumnNames(), node.getAssignments());
-        }
-
-        @Override
-        public PlanNode visitTopN(TopNNode node, Void context)
-        {
-            PlanNode source = node.getSource().accept(this, context);
-            return new TopNNode(source, node.getCount(), node.getOrderBy(), node.getOrderings());
-        }
-
-        @Override
-        public PlanNode visitSort(SortNode node, Void context)
-        {
-            PlanNode source = node.getSource().accept(this, context);
-            return new SortNode(source, node.getOrderBy(), node.getOrderings());
-        }
-
-        @Override
-        public PlanNode visitJoin(JoinNode node, Void context)
-        {
-            PlanNode left = node.getLeft().accept(this, context);
-            PlanNode right = node.getRight().accept(this, context);
-
-            return new JoinNode(left, right, node.getCriteria());
         }
     }
 }
