@@ -2,7 +2,6 @@ package com.facebook.presto.sql.tree;
 
 import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.parser.SqlParser;
-import org.antlr.runtime.RecognitionException;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.JsonParser;
 import org.codehaus.jackson.map.DeserializationContext;
@@ -34,12 +33,7 @@ public final class Serialization
         public Expression deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
                 throws IOException
         {
-            try {
-                return SqlParser.createExpression(jsonParser.readValueAs(String.class));
-            }
-            catch (RecognitionException e) {
-                throw new IOException(e);
-            }
+            return SqlParser.createExpression(jsonParser.readValueAs(String.class));
         }
     }
 
@@ -50,12 +44,7 @@ public final class Serialization
         public FunctionCall deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
                 throws IOException
         {
-            try {
-                return (FunctionCall) SqlParser.createExpression(jsonParser.readValueAs(String.class));
-            }
-            catch (RecognitionException e) {
-                throw new IOException(e);
-            }
+            return (FunctionCall) SqlParser.createExpression(jsonParser.readValueAs(String.class));
         }
     }
 }

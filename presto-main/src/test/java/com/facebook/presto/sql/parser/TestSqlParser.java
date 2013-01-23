@@ -3,13 +3,14 @@ package com.facebook.presto.sql.parser;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
-import org.antlr.runtime.RecognitionException;
 import org.antlr.runtime.tree.CommonTree;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 
 import static com.facebook.presto.sql.parser.TreePrinter.treeToString;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 public class TestSqlParser
 {
@@ -42,8 +43,64 @@ public class TestSqlParser
         }
     }
 
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: no viable alternative at character '@'")
+    public void testTokenizeErrorStartOfLine()
+    {
+        SqlParser.createStatement("@select");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:25: no viable alternative at character '@'")
+    public void testTokenizeErrorMiddleOfLine()
+    {
+        SqlParser.createStatement("select * from foo where @what");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:20: mismatched character '<EOF>' expecting '''")
+    public void testTokenizeErrorIncompleteToken()
+    {
+        SqlParser.createStatement("select * from 'oops");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 3:1: mismatched input 'from' expecting EOF")
+    public void testParseErrorStartOfLine()
+    {
+        SqlParser.createStatement("select *\nfrom x\nfrom");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 3:7: no viable alternative at input 'from'")
+    public void testParseErrorMiddleOfLine()
+    {
+        SqlParser.createStatement("select *\nfrom x\nwhere from");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:14: no viable alternative at input '<EOF>'")
+    public void testParseErrorEndOfInput()
+    {
+        SqlParser.createStatement("select * from");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:16: no viable alternative at input '<EOF>'")
+    public void testParseErrorEndOfInputWhitespace()
+    {
+        SqlParser.createStatement("select * from  ");
+    }
+
+    @Test
+    public void testParsingExceptionPositionInfo()
+    {
+        try {
+            SqlParser.createStatement("select *\nfrom x\nwhere from");
+            fail("expected exception");
+        }
+        catch (ParsingException e) {
+            assertEquals(e.getMessage(), "line 3:7: no viable alternative at input 'from'");
+            assertEquals(e.getErrorMessage(), "no viable alternative at input 'from'");
+            assertEquals(e.getLineNumber(), 3);
+            assertEquals(e.getCharPositionInLine(), 7);
+        }
+    }
+
     private static void printStatement(String sql)
-            throws RecognitionException
     {
         println(sql.trim());
         println("");
@@ -59,7 +116,7 @@ public class TestSqlParser
 
     private static void println(String s)
     {
-        if (Boolean.getBoolean("printParse")) {
+        if (Boolean.parseBoolean(System.getProperty("printParse"))) {
             System.out.println(s);
         }
     }

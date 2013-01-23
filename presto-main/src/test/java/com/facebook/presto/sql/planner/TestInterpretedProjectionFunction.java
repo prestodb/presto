@@ -13,10 +13,6 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.analyzer.Type;
-import com.facebook.presto.sql.parser.CaseInsensitiveStream;
-import com.facebook.presto.sql.parser.StatementBuilder;
-import com.facebook.presto.sql.parser.StatementLexer;
-import com.facebook.presto.sql.parser.StatementParser;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -24,14 +20,9 @@ import com.facebook.presto.sql.tree.TreeRewriter;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Optional;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import org.antlr.runtime.ANTLRStringStream;
-import org.antlr.runtime.CommonTokenStream;
-import org.antlr.runtime.RecognitionException;
-import org.antlr.runtime.tree.BufferedTreeNodeStream;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
@@ -40,6 +31,7 @@ import java.util.Map;
 import static com.facebook.presto.sql.analyzer.Type.DOUBLE;
 import static com.facebook.presto.sql.analyzer.Type.LONG;
 import static com.facebook.presto.sql.analyzer.Type.STRING;
+import static com.facebook.presto.sql.parser.SqlParser.createExpression;
 import static com.facebook.presto.tuple.Tuples.NULL_DOUBLE_TUPLE;
 import static com.facebook.presto.tuple.Tuples.NULL_LONG_TUPLE;
 import static com.facebook.presto.tuple.Tuples.NULL_STRING_TUPLE;
@@ -168,27 +160,17 @@ public class TestInterpretedProjectionFunction
 
     public static Expression toExpression(String expression)
     {
-        return toExpression(expression, Type.DOUBLE);
+        return toExpression(expression, DOUBLE);
     }
 
     public static Expression toExpression(String expression, Type type)
     {
-        try {
-            StatementLexer lexer = new StatementLexer(new CaseInsensitiveStream(new ANTLRStringStream(expression)));
-            StatementParser parser = new StatementParser(new CommonTokenStream(lexer));
-            StatementBuilder builder = new StatementBuilder(new BufferedTreeNodeStream(parser.expr().getTree()));
+        Expression raw = createExpression(expression);
 
-            Expression raw = builder.expr().value;
+        Optional<QualifiedName> prefix = Optional.of(QualifiedName.of("T"));
+        TupleDescriptor descriptor = new TupleDescriptor(ImmutableList.of(
+                new Field(prefix, Optional.of("symbol"), Optional.<ColumnHandle>absent(), new Symbol("symbol"), type)));
 
-            Optional<QualifiedName> prefix = Optional.of(QualifiedName.of("T"));
-            TupleDescriptor descriptor = new TupleDescriptor(ImmutableList.of(
-                    new Field(prefix, Optional.of("symbol"), Optional.<ColumnHandle>absent(), new Symbol("symbol"), type)));
-
-            Expression rewritten = TreeRewriter.rewriteWith(new NameToSymbolRewriter(descriptor), raw);
-            return rewritten;
-        }
-        catch (RecognitionException e) {
-            throw Throwables.propagate(e);
-        }
+        return TreeRewriter.rewriteWith(new NameToSymbolRewriter(descriptor), raw);
     }
 }

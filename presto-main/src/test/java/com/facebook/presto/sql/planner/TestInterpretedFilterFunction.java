@@ -9,9 +9,7 @@ import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
-import org.antlr.runtime.RecognitionException;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
@@ -178,15 +176,10 @@ public class TestInterpretedFilterFunction
 
     public static void assertFilter(String expression, boolean expectedValue)
     {
-        try {
-            Expression parsed = SqlParser.createExpression(expression);
-            Session session = new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA);
-            InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(parsed, ImmutableMap.<Symbol, Integer>of(), new TestingMetadata(), session);
-            boolean result = filterFunction.filter();
-            assertEquals(result, expectedValue);
-        }
-        catch (RecognitionException e) {
-            throw Throwables.propagate(e);
-        }
+        Expression parsed = SqlParser.createExpression(expression);
+        Session session = new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA);
+        InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(parsed, ImmutableMap.<Symbol, Integer>of(), new TestingMetadata(), session);
+        boolean result = filterFunction.filter();
+        assertEquals(result, expectedValue);
     }
 }
