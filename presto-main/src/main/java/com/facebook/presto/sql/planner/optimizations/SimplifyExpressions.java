@@ -12,6 +12,8 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
+import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
@@ -49,88 +51,32 @@ public class SimplifyExpressions
             }
         }, metadata, session);
 
-        return plan.accept(new Visitor(interpreter), null);
+        return PlanRewriter.rewriteWith(new Rewriter(interpreter), plan);
     }
 
-    private static class Visitor
-            extends PlanVisitor<Void, PlanNode>
+    private static class Rewriter
+            extends PlanNodeRewriter<Void>
     {
         private final ExpressionInterpreter interpreter;
 
-        private Visitor(ExpressionInterpreter interpreter)
+        private Rewriter(ExpressionInterpreter interpreter)
         {
             this.interpreter = interpreter;
         }
 
         @Override
-        public PlanNode visitProject(ProjectNode node, Void context)
+        public PlanNode rewriteProject(ProjectNode node, Void context, PlanRewriter<Void> planRewriter)
         {
-            PlanNode source = node.getSource().accept(this, context);
+            PlanNode source = planRewriter.rewrite(node.getSource(), context);
             Map<Symbol, Expression> assignments = ImmutableMap.copyOf(Maps.transformValues(node.getOutputMap(), simplifyExpressionFunction()));
             return new ProjectNode(source, assignments);
         }
 
         @Override
-        public PlanNode visitAggregation(AggregationNode node, Void context)
+        public PlanNode rewriteFilter(FilterNode node, Void context, PlanRewriter<Void> planRewriter)
         {
-            PlanNode source = node.getSource().accept(this, context);
-            return new AggregationNode(source, node.getGroupBy(), node.getAggregations(), node.getFunctions());
-        }
-
-        @Override
-        public PlanNode visitTableScan(TableScanNode node, Void context)
-        {
-            return node;
-        }
-
-        @Override
-        public PlanNode visitFilter(FilterNode node, Void context)
-        {
-            PlanNode source = node.getSource().accept(this, context);
+            PlanNode source = planRewriter.rewrite(node.getSource(), context);
             return new FilterNode(source, simplifyExpression(node.getPredicate()), node.getOutputSymbols());
-        }
-
-        @Override
-        public PlanNode visitOutput(OutputNode node, Void context)
-        {
-            PlanNode source = node.getSource().accept(this, context);
-            return new OutputNode(source, node.getColumnNames(), node.getAssignments());
-        }
-
-        @Override
-        public PlanNode visitLimit(LimitNode node, Void context)
-        {
-            PlanNode source = node.getSource().accept(this, context);
-            return new LimitNode(source, node.getCount());
-        }
-
-        @Override
-        public PlanNode visitTopN(TopNNode node, Void context)
-        {
-            PlanNode source = node.getSource().accept(this, context);
-            return new TopNNode(source, node.getCount(), node.getOrderBy(), node.getOrderings());
-        }
-
-        @Override
-        public PlanNode visitSort(SortNode node, Void context)
-        {
-            PlanNode source = node.getSource().accept(this, context);
-            return new SortNode(source, node.getOrderBy(), node.getOrderings());
-        }
-
-        @Override
-        public PlanNode visitJoin(JoinNode node, Void context)
-        {
-            PlanNode left = node.getLeft().accept(this, context);
-            PlanNode right = node.getRight().accept(this, context);
-
-            return new JoinNode(left, right, node.getCriteria());
-        }
-
-        @Override
-        protected PlanNode visitPlan(PlanNode node, Void context)
-        {
-            throw new UnsupportedOperationException("not yet implemented: " + getClass().getName());
         }
 
         private Function<Expression, Expression> simplifyExpressionFunction()
