@@ -197,6 +197,11 @@ public final class TreeRewriter<C>
                 }
             }
 
+            Expression child = rewrite(node.getValue(), context.get());
+            if (child != node.getValue()) {
+                return new NegativeExpression(child);
+            }
+
             return node;
         }
 
