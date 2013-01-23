@@ -27,7 +27,7 @@ public class StatementSplitter
                 token = tokens.nextToken();
                 index = ((CommonToken) token).getStopIndex() + 1;
             }
-            catch (TokenizationException e) {
+            catch (ParsingException e) {
                 sb.append(sql.substring(index));
                 break;
             }
@@ -67,7 +67,7 @@ public class StatementSplitter
                 token = tokens.nextToken();
                 index = ((CommonToken) token).getStopIndex() + 1;
             }
-            catch (TokenizationException e) {
+            catch (ParsingException e) {
                 sb.append(sql.substring(index));
                 break;
             }

@@ -28,7 +28,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
-import org.antlr.runtime.RecognitionException;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -183,7 +182,6 @@ public class SqlQueryExecution
     }
 
     private SubPlan analyzeQuery()
-            throws RecognitionException
     {
         Preconditions.checkState(!Thread.holdsLock(this), "Can not analyse while holding a lock on this");
 

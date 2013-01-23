@@ -12,48 +12,64 @@ import org.antlr.runtime.tree.BufferedTreeNodeStream;
 import org.antlr.runtime.tree.CommonTree;
 import org.antlr.runtime.tree.TreeNodeStream;
 
-public class SqlParser
+public final class SqlParser
 {
+    private SqlParser() {}
+
     public static Statement createStatement(String sql)
-            throws RecognitionException
     {
         return createStatement(parseStatement(sql));
     }
 
     public static Expression createExpression(String expression)
-            throws RecognitionException
     {
         return createExpression(parseExpression(expression));
     }
 
     @VisibleForTesting
     static Statement createStatement(CommonTree tree)
-            throws RecognitionException
     {
         TreeNodeStream stream = new BufferedTreeNodeStream(tree);
         StatementBuilder builder = new StatementBuilder(stream);
-        return builder.statement().value;
+        try {
+            return builder.statement().value;
+        }
+        catch (RecognitionException e) {
+            throw new AssertionError(e); // RecognitionException is not thrown
+        }
     }
 
     private static Expression createExpression(CommonTree tree)
-            throws RecognitionException
     {
         TreeNodeStream stream = new BufferedTreeNodeStream(tree);
         StatementBuilder builder = new StatementBuilder(stream);
-        return builder.expr().value;
+        try {
+            return builder.expr().value;
+        }
+        catch (RecognitionException e) {
+            throw new AssertionError(e); // RecognitionException is not thrown
+        }
     }
 
     @VisibleForTesting
     static CommonTree parseStatement(String sql)
-            throws RecognitionException
     {
-        return (CommonTree) getParser(sql).singleStatement().getTree();
+        try {
+            return (CommonTree) getParser(sql).singleStatement().getTree();
+        }
+        catch (RecognitionException e) {
+            throw new AssertionError(e); // RecognitionException is not thrown
+        }
     }
 
     private static CommonTree parseExpression(String expression)
-            throws RecognitionException
     {
-        return (CommonTree) getParser(expression).expr().getTree();
+        try {
+            return (CommonTree) getParser(expression).expr().getTree();
+        }
+        catch (RecognitionException e) {
+            throw new AssertionError(e); // RecognitionException is not thrown
+        }
     }
 
     private static StatementParser getParser(String sql)
