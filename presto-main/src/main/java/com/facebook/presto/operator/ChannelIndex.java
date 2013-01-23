@@ -17,11 +17,11 @@ import it.unimi.dsi.fastutil.longs.LongIterable;
 import it.unimi.dsi.fastutil.longs.LongListIterator;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
-import static com.facebook.presto.hive.shaded.com.google.common.base.Preconditions.checkState;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceOffset;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.facebook.presto.slice.SizeOf.sizeOf;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * ChannelIndex a low-level data structure which contains the address of every value position with a channel.
