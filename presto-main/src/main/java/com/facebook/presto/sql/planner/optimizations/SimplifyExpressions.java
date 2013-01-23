@@ -76,7 +76,7 @@ public class SimplifyExpressions
         public PlanNode rewriteFilter(FilterNode node, Void context, PlanRewriter<Void> planRewriter)
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
-            return new FilterNode(source, simplifyExpression(node.getPredicate()), node.getOutputSymbols());
+            return new FilterNode(source, simplifyExpression(node.getPredicate()));
         }
 
         private Function<Expression, Expression> simplifyExpressionFunction()
