@@ -44,13 +44,11 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
-import org.antlr.runtime.RecognitionException;
 
 import java.util.Arrays;
 import java.util.List;
@@ -161,13 +159,7 @@ public final class FunctionAssertions
 
     private static Operator plan(String sql, Session session)
     {
-        Statement statement;
-        try {
-            statement = SqlParser.createStatement(sql);
-        }
-        catch (RecognitionException e) {
-            throw Throwables.propagate(e);
-        }
+        Statement statement = SqlParser.createStatement(sql);
 
         Analyzer analyzer = new Analyzer(session, METADATA);
 

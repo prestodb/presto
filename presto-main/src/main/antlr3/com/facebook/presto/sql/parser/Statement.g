@@ -89,13 +89,13 @@ tokens {
     @Override
     public void reportError(RecognitionException e)
     {
-        throw new TokenizationException(e);
+        throw new ParsingException(getErrorMessage(e, getTokenNames()), e);
     }
 }
 
 @rulecatch {
     catch (RecognitionException re) {
-        throw re;
+        throw new ParsingException(getErrorMessage(re, getTokenNames()), re);
     }
 }
 

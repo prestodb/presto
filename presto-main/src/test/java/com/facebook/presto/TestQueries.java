@@ -751,7 +751,6 @@ public class TestQueries
     }
 
     private Operator plan(String sql)
-            throws RecognitionException
     {
         Statement statement = SqlParser.createStatement(sql);
 

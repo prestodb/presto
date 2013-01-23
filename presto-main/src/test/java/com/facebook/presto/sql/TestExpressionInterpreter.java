@@ -10,7 +10,6 @@ import com.facebook.presto.sql.planner.InputResolver;
 import com.facebook.presto.sql.planner.SymbolResolver;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
-import org.antlr.runtime.RecognitionException;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.Assert;
@@ -136,7 +135,6 @@ public class TestExpressionInterpreter
 
     @Test
     public void testExtract()
-            throws RecognitionException
     {
         DateTime dateTime = new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC);
         long millis = dateTime.getMillis();
@@ -451,14 +449,12 @@ public class TestExpressionInterpreter
                         "end");
     }
 
-    private void assertOptimizedEquals(String actual, String expected)
-            throws RecognitionException
+    private static void assertOptimizedEquals(String actual, String expected)
     {
         assertEquals(optimize(actual), optimize(expected));
     }
 
-    private void assertInvalidCast(String expression)
-            throws RecognitionException
+    private static void assertInvalidCast(String expression)
     {
         try {
             Object value = optimize(expression);
@@ -469,8 +465,7 @@ public class TestExpressionInterpreter
         }
     }
 
-    private Object optimize(String expression)
-            throws RecognitionException
+    private static Object optimize(String expression)
     {
         ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(new SymbolResolver()
         {
@@ -501,8 +496,7 @@ public class TestExpressionInterpreter
         return interpreter.process(parsedExpression, null);
     }
 
-    private Object evaluate(String expression)
-            throws RecognitionException
+    private static Object evaluate(String expression)
     {
         ExpressionInterpreter interpreter = ExpressionInterpreter.expressionInterpreter(new InputResolver()
         {

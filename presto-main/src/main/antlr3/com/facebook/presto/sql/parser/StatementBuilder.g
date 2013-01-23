@@ -37,8 +37,7 @@ options {
 
 @rulecatch {
     catch (RecognitionException re) {
-        reportError(re);
-        throw re;
+        throw new IllegalArgumentException("bad tree from parser: " + getErrorMessage(re, getTokenNames()), re);
     }
 }
 

@@ -26,10 +26,8 @@ import com.facebook.presto.tpch.TpchDataStreamProvider;
 import com.facebook.presto.tpch.TpchSchema;
 import com.facebook.presto.tpch.TpchSplit;
 import com.facebook.presto.tpch.TpchTableHandle;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
-import org.antlr.runtime.RecognitionException;
 import org.intellij.lang.annotations.Language;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -47,28 +45,23 @@ public abstract class AbstractSqlBenchmark
     {
         super(benchmarkName, warmupIterations, measuredIterations);
 
-        try {
-            Statement statement = SqlParser.createStatement(query);
+        Statement statement = SqlParser.createStatement(query);
 
-            metadata = TpchSchema.createMetadata();
+        metadata = TpchSchema.createMetadata();
 
-            session = new Session(null, TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
-            analysis = new Analyzer(session, metadata).analyze(statement);
+        session = new Session(null, TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
+        analysis = new Analyzer(session, metadata).analyze(statement);
 
-            PlanNode plan = new LogicalPlanner(session, metadata).plan(analysis);
-            fragment = new DistributedLogicalPlanner(metadata)
-                    .createSubplans(plan, analysis.getSymbolAllocator(), true)
-                    .getFragment();
+        PlanNode plan = new LogicalPlanner(session, metadata).plan(analysis);
+        fragment = new DistributedLogicalPlanner(metadata)
+                .createSubplans(plan, analysis.getSymbolAllocator(), true)
+                .getFragment();
 
-            new PlanPrinter().print(fragment.getRoot(), analysis.getTypes());
-        }
-        catch (RecognitionException e) {
-            throw Throwables.propagate(e);
-        }
+        new PlanPrinter().print(fragment.getRoot(), analysis.getTypes());
     }
 
     @Override
-    protected Operator createBenchmarkedOperator(final TpchBlocksProvider provider)
+    protected Operator createBenchmarkedOperator(TpchBlocksProvider provider)
     {
         ImmutableMap.Builder<TableHandle, TableScanPlanFragmentSource> builder = ImmutableMap.builder();
         for (PlanNode source : fragment.getSources()) {
