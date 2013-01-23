@@ -15,14 +15,12 @@ public class FilterNode
 {
     private final PlanNode source;
     private final Expression predicate;
-    private final List<Symbol> outputs;
 
     @JsonCreator
-    public FilterNode(@JsonProperty("source") PlanNode source, @JsonProperty("predicate") Expression predicate, @JsonProperty("outputs") List<Symbol> outputs)
+    public FilterNode(@JsonProperty("source") PlanNode source, @JsonProperty("predicate") Expression predicate)
     {
         this.source = source;
         this.predicate = predicate;
-        this.outputs = outputs;
     }
 
     @JsonProperty("predicate")
@@ -32,10 +30,9 @@ public class FilterNode
     }
 
     @Override
-    @JsonProperty("outputs")
     public List<Symbol> getOutputSymbols()
     {
-        return outputs;
+        return source.getOutputSymbols();
     }
 
     @Override

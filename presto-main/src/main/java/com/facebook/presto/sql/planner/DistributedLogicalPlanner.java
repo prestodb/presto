@@ -112,7 +112,7 @@ public class DistributedLogicalPlanner
         public SubPlanBuilder visitFilter(FilterNode node, Void context)
         {
             SubPlanBuilder current = node.getSource().accept(this, context);
-            current.setRoot(new FilterNode(current.getRoot(), node.getPredicate(), node.getOutputSymbols()));
+            current.setRoot(new FilterNode(current.getRoot(), node.getPredicate()));
             return current;
         }
 

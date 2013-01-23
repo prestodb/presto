@@ -135,14 +135,7 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
 
-            List<Symbol> outputs = ImmutableList.copyOf(Iterables.filter(source.getOutputSymbols(), in(expectedOutputs)));
-
-            // TODO: remove once filterandproject supports empty projections
-            if (expectedOutputs.isEmpty()) {
-                outputs = ImmutableList.copyOf(Iterables.limit(source.getOutputSymbols(), 1));
-            }
-
-            return new FilterNode(source, node.getPredicate(), outputs);
+            return new FilterNode(source, node.getPredicate());
         }
 
         @Override

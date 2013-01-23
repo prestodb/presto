@@ -328,7 +328,7 @@ public class LogicalPlanner
 
     private FilterNode createFilterPlan(PlanNode source, AnalyzedExpression predicate)
     {
-        return new FilterNode(source, predicate.getRewrittenExpression(), source.getOutputSymbols());
+        return new FilterNode(source, predicate.getRewrittenExpression());
     }
 
     private PlanNode createRelationPlan(List<Relation> relations, AnalysisResult analysis)

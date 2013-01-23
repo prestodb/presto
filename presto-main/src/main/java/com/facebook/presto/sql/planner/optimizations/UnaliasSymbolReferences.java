@@ -98,7 +98,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
-            return new FilterNode(source, canonicalize(node.getPredicate()), canonicalize(node.getOutputSymbols()));
+            return new FilterNode(source, canonicalize(node.getPredicate()));
         }
 
         @Override
