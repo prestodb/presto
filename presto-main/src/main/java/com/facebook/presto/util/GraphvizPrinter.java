@@ -1,15 +1,15 @@
-package com.facebook.presto;
+package com.facebook.presto.util;
 
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.analyzer.Symbol;
+import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
-import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -20,6 +20,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
@@ -27,9 +28,12 @@ import java.util.List;
 import java.util.Map;
 
 import static java.lang.String.format;
+import static java.lang.System.identityHashCode;
 
-public class GraphvizPrinter
+public final class GraphvizPrinter
 {
+    private GraphvizPrinter() {}
+
     public static String print(List<PlanFragment> fragments)
     {
         Map<Integer, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, new Function<PlanFragment, Integer>()
@@ -67,7 +71,6 @@ public class GraphvizPrinter
                 .append(" {")
                 .append('\n');
 
-
         output.append(format("label = \"%s\"", fragment.isPartitioned() ? "partitioned" : "unpartitioned"))
                 .append('\n');
 
@@ -91,8 +94,7 @@ public class GraphvizPrinter
         @Override
         protected Void visitPlan(PlanNode node, Void context)
         {
-            output.append(format("/* plannode_%s: %s*/", System.identityHashCode(node), node.getClass().getName()))
-                    .append('\n');
+            output.append(format("/* plannode_%s: %s*/\n", identityHashCode(node), node.getClass().getName()));
 
             return null;
         }
@@ -113,7 +115,7 @@ public class GraphvizPrinter
                 builder.append(format("%s := %s\\n", entry.getKey(), ExpressionFormatter.toString(entry.getValue())));
             }
 
-            printNode(node, String.format("Aggregate[%s]", node.getStep()), builder.toString());
+            printNode(node, format("Aggregate[%s]", node.getStep()), builder.toString());
 
             return node.getSource().accept(this, context);
         }
@@ -135,7 +137,8 @@ public class GraphvizPrinter
         {
             StringBuilder builder = new StringBuilder();
             for (Map.Entry<Symbol, Expression> entry : node.getOutputMap().entrySet()) {
-                if (entry.getValue() instanceof QualifiedNameReference && ((QualifiedNameReference) entry.getValue()).getName().equals(entry.getKey().toQualifiedName())) {
+                if ((entry.getValue() instanceof QualifiedNameReference) &&
+                        ((QualifiedNameReference) entry.getValue()).getName().equals(entry.getKey().toQualifiedName())) {
                     // skip identity assignments
                     continue;
                 }
@@ -240,7 +243,7 @@ public class GraphvizPrinter
         public EdgePrinter(StringBuilder output, Map<Integer, PlanFragment> fragmentsById)
         {
             this.output = output;
-            this.fragmentsById = fragmentsById;
+            this.fragmentsById = ImmutableMap.copyOf(fragmentsById);
         }
 
         @Override
@@ -279,6 +282,6 @@ public class GraphvizPrinter
 
     private static String getNodeId(PlanNode from)
     {
-        return format("plannode_%s", System.identityHashCode(from));
+        return format("plannode_%s", identityHashCode(from));
     }
 }
