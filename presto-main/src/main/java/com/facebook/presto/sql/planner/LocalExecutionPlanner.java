@@ -133,11 +133,7 @@ public class LocalExecutionPlanner
 
             List<ProjectionFunction> projections = new ArrayList<>();
             for (Symbol symbol : resultSymbols) {
-                ProjectionFunction function = new InterpretedProjectionFunction(types.get(symbol),
-                        new QualifiedNameReference(symbol.toQualifiedName()),
-                        symbolToChannelMappings,
-                        metadata, session);
-
+                ProjectionFunction function = ProjectionFunctions.singleColumn(types.get(symbol).getRawType(), symbolToChannelMappings.get(symbol), 0);
                 projections.add(function);
             }
 
@@ -273,11 +269,22 @@ public class LocalExecutionPlanner
 
             Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
 
+
             List<ProjectionFunction> projections = new ArrayList<>();
             for (int i = 0; i < node.getExpressions().size(); i++) {
                 Symbol symbol = node.getOutputSymbols().get(i);
                 Expression expression = node.getExpressions().get(i);
-                ProjectionFunction function = new InterpretedProjectionFunction(types.get(symbol), expression, symbolToChannelMappings, metadata, session);
+
+                ProjectionFunction function;
+                if (expression instanceof QualifiedNameReference) {
+                    // fast path when we know it's a direct symbol reference
+                    Symbol reference = Symbol.fromQualifiedName(((QualifiedNameReference) expression).getName());
+                    function = ProjectionFunctions.singleColumn(types.get(reference).getRawType(), symbolToChannelMappings.get(symbol), 0);
+                }
+                else {
+                    function = new InterpretedProjectionFunction(types.get(symbol), expression, symbolToChannelMappings, metadata, session);
+                }
+
                 projections.add(function);
             }
 
