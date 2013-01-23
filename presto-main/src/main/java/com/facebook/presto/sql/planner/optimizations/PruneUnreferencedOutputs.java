@@ -4,14 +4,15 @@ import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.DependencyExtractor;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
+import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
+import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -48,41 +49,35 @@ public class PruneUnreferencedOutputs
     @Override
     public PlanNode optimize(PlanNode plan, Map<Symbol, Type> types)
     {
-        return plan.accept(new Visitor(types), ImmutableSet.<Symbol>of());
+        return PlanRewriter.rewriteWith(new Rewriter(types), plan, ImmutableSet.<Symbol>of());
     }
 
-    private static class Visitor
-            extends PlanVisitor<Set<Symbol>, PlanNode>
+    private static class Rewriter
+            extends PlanNodeRewriter<Set<Symbol>>
     {
         private final Map<Symbol, Type> types;
 
-        public Visitor(Map<Symbol, Type> types)
+        public Rewriter(Map<Symbol, Type> types)
         {
             this.types = types;
         }
 
         @Override
-        protected PlanNode visitPlan(PlanNode node, Set<Symbol> expectedOutputs)
-        {
-            throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
-        }
-
-        @Override
-        public PlanNode visitJoin(JoinNode node, Set<Symbol> expectedOutputs)
+        public PlanNode rewriteJoin(JoinNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
             Set<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(expectedOutputs)
                     .addAll(DependencyExtractor.extract(node.getCriteria()))
                     .build();
 
-            PlanNode left = node.getLeft().accept(this, expectedInputs);
-            PlanNode right = node.getRight().accept(this, expectedInputs);
+            PlanNode left = planRewriter.rewrite(node.getLeft(), expectedInputs);
+            PlanNode right = planRewriter.rewrite(node.getRight(), expectedInputs);
 
             return new JoinNode(left, right, node.getCriteria());
         }
 
         @Override
-        public PlanNode visitAggregation(AggregationNode node, Set<Symbol> expectedOutputs)
+        public PlanNode rewriteAggregation(AggregationNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(node.getGroupBy());
@@ -101,13 +96,13 @@ public class PruneUnreferencedOutputs
                 }
             }
 
-            PlanNode source = node.getSource().accept(this, expectedInputs.build());
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
             return new AggregationNode(source, node.getGroupBy(), functionCalls.build(), functions.build());
         }
 
         @Override
-        public PlanNode visitTableScan(TableScanNode node, Set<Symbol> expectedOutputs)
+        public PlanNode rewriteTableScan(TableScanNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
             Map<Symbol, ColumnHandle> assignments = new HashMap<>();
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
@@ -131,14 +126,14 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitFilter(FilterNode node, Set<Symbol> expectedOutputs)
+        public PlanNode rewriteFilter(FilterNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
             Set<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(DependencyExtractor.extract(node.getPredicate()))
                     .addAll(expectedOutputs)
                     .build();
 
-            PlanNode source = node.getSource().accept(this, expectedInputs);
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
 
             List<Symbol> outputs = ImmutableList.copyOf(Iterables.filter(source.getOutputSymbols(), in(expectedOutputs)));
 
@@ -151,7 +146,7 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
-        public PlanNode visitProject(ProjectNode node, Set<Symbol> expectedOutputs)
+        public PlanNode rewriteProject(ProjectNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.builder();
 
@@ -166,42 +161,42 @@ public class PruneUnreferencedOutputs
                 }
             }
 
-            PlanNode source = node.getSource().accept(this, expectedInputs.build());
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
             return new ProjectNode(source, builder.build());
         }
 
         @Override
-        public PlanNode visitOutput(OutputNode node, Set<Symbol> expectedOutputs)
+        public PlanNode rewriteOutput(OutputNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
             Set<Symbol> expectedInputs = ImmutableSet.copyOf(node.getAssignments().values());
-            PlanNode source = node.getSource().accept(this, expectedInputs);
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
             return new OutputNode(source, node.getColumnNames(), node.getAssignments());
         }
 
         @Override
-        public PlanNode visitLimit(LimitNode node, Set<Symbol> expectedOutputs)
+        public PlanNode rewriteLimit(LimitNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
-            PlanNode source = node.getSource().accept(this, expectedOutputs);
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedOutputs);
             return new LimitNode(source, node.getCount());
         }
 
         @Override
-        public PlanNode visitTopN(TopNNode node, Set<Symbol> expectedOutputs)
+        public PlanNode rewriteTopN(TopNNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
             Set<Symbol> expectedInputs = ImmutableSet.copyOf(concat(expectedOutputs, node.getOrderBy()));
 
-            PlanNode source = node.getSource().accept(this, expectedInputs);
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
 
             return new TopNNode(source, node.getCount(), node.getOrderBy(), node.getOrderings());
         }
 
         @Override
-        public PlanNode visitSort(SortNode node, Set<Symbol> expectedOutputs)
+        public PlanNode rewriteSort(SortNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
             Set<Symbol> expectedInputs = ImmutableSet.copyOf(concat(expectedOutputs, node.getOrderBy()));
 
-            PlanNode source = node.getSource().accept(this, expectedInputs);
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
 
             return new SortNode(source, node.getOrderBy(), node.getOrderings());
         }
