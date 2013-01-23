@@ -10,6 +10,8 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
+import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
@@ -34,7 +36,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Re-maps symbol references that are just aliases of each other (e.g., due to projects like $0 := $1)
+ * Re-maps symbol references that are just aliases of each other (e.g., due to projections like $0 := $1)
  *
  * E.g.,
  *
@@ -50,24 +52,23 @@ public class UnaliasSymbolReferences
     @Override
     public PlanNode optimize(PlanNode plan, Map<Symbol, Type> types)
     {
-        Visitor visitor = new Visitor(new HashMap<Symbol, Symbol>());
-        return plan.accept(visitor, null);
+        return PlanRewriter.rewriteWith(new Rewriter(new HashMap<Symbol, Symbol>()), plan);
     }
 
-    private static class Visitor
-            extends PlanVisitor<Void, PlanNode>
+    private static class Rewriter
+            extends PlanNodeRewriter<Void>
     {
         private final Map<Symbol, Symbol> mapping;
 
-        public Visitor(Map<Symbol, Symbol> mapping)
+        public Rewriter(Map<Symbol, Symbol> mapping)
         {
             this.mapping = mapping;
         }
 
         @Override
-        public PlanNode visitAggregation(AggregationNode node, Void context)
+        public PlanNode rewriteAggregation(AggregationNode node, Void context, PlanRewriter<Void> planRewriter)
         {
-            PlanNode source = node.getSource().accept(this, context);
+            PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
             ImmutableMap.Builder<Symbol, FunctionHandle> functionInfos = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
@@ -82,7 +83,7 @@ public class UnaliasSymbolReferences
         }
 
         @Override
-        public PlanNode visitTableScan(TableScanNode node, Void context)
+        public PlanNode rewriteTableScan(TableScanNode node, Void context, PlanRewriter<Void> planRewriter)
         {
             ImmutableMap.Builder<Symbol, ColumnHandle> builder = ImmutableMap.builder();
             for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
@@ -93,17 +94,17 @@ public class UnaliasSymbolReferences
         }
 
         @Override
-        public PlanNode visitFilter(FilterNode node, Void context)
+        public PlanNode rewriteFilter(FilterNode node, Void context, PlanRewriter<Void> planRewriter)
         {
-            PlanNode source = node.getSource().accept(this, context);
+            PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
             return new FilterNode(source, canonicalize(node.getPredicate()), canonicalize(node.getOutputSymbols()));
         }
 
         @Override
-        public PlanNode visitProject(ProjectNode node, Void context)
+        public PlanNode rewriteProject(ProjectNode node, Void context, PlanRewriter<Void> planRewriter)
         {
-            PlanNode source = node.getSource().accept(this, context);
+            PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
             Map<Symbol, Expression> assignments = new HashMap<>();
             for (Map.Entry<Symbol, Expression> entry : node.getOutputMap().entrySet()) {
@@ -127,25 +128,18 @@ public class UnaliasSymbolReferences
         }
 
         @Override
-        public PlanNode visitOutput(OutputNode node, Void context)
+        public PlanNode rewriteOutput(OutputNode node, Void context, PlanRewriter<Void> planRewriter)
         {
-            PlanNode source = node.getSource().accept(this, context);
+            PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
             Map<String, Symbol> canonical = Maps.transformValues(node.getAssignments(), canonicalizeFunction());
             return new OutputNode(source, node.getColumnNames(), canonical);
         }
 
         @Override
-        public PlanNode visitLimit(LimitNode node, Void context)
+        public PlanNode rewriteTopN(TopNNode node, Void context, PlanRewriter<Void> planRewriter)
         {
-            PlanNode source = node.getSource().accept(this, context);
-            return new LimitNode(source, node.getCount());
-        }
-
-        @Override
-        public PlanNode visitTopN(TopNNode node, Void context)
-        {
-            PlanNode source = node.getSource().accept(this, context);
+            PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
             ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
             ImmutableMap.Builder<Symbol, SortItem.Ordering> orderings = ImmutableMap.builder();
@@ -159,9 +153,9 @@ public class UnaliasSymbolReferences
         }
 
         @Override
-        public PlanNode visitSort(SortNode node, Void context)
+        public PlanNode rewriteSort(SortNode node, Void context, PlanRewriter<Void> planRewriter)
         {
-            PlanNode source = node.getSource().accept(this, context);
+            PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
             ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
             ImmutableMap.Builder<Symbol, SortItem.Ordering> orderings = ImmutableMap.builder();
@@ -175,18 +169,12 @@ public class UnaliasSymbolReferences
         }
 
         @Override
-        public PlanNode visitJoin(JoinNode node, Void context)
+        public PlanNode rewriteJoin(JoinNode node, Void context, PlanRewriter<Void> planRewriter)
         {
-            PlanNode left = node.getLeft().accept(this, context);
-            PlanNode right = node.getRight().accept(this, context);
+            PlanNode left = planRewriter.rewrite(node.getLeft(), context);
+            PlanNode right = planRewriter.rewrite(node.getRight(), context);
 
             return new JoinNode(left, right, canonicalize(node.getCriteria()));
-        }
-
-        @Override
-        protected PlanNode visitPlan(PlanNode node, Void context)
-        {
-            throw new UnsupportedOperationException("not yet implemented");
         }
 
         private void map(Symbol symbol, Symbol canonical)
