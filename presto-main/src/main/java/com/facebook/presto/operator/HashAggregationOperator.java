@@ -308,7 +308,7 @@ public class HashAggregationOperator
             this.channel = channel;
             this.step = step;
             this.fixedWidthSize = this.function.getFixedSize();
-            this.sliceSize = (int) (BlockBuilder.DEFAULT_MAX_BLOCK_SIZE.toBytes() / fixedWidthSize);
+            this.sliceSize = (int) (BlockBuilder.DEFAULT_MAX_BLOCK_SIZE.toBytes() / fixedWidthSize) * fixedWidthSize;
             Slice slice = Slices.allocate(sliceSize);
             slices.add(slice);
             currentMaxPosition = sliceSize / fixedWidthSize;
