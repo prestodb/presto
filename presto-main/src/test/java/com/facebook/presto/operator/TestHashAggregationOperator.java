@@ -178,6 +178,28 @@ public class TestHashAggregationOperator
     }
 
     @Test
+    public void testMultiSliceAggregationOutput()
+    {
+        long fixedWidthSize = new TupleInfo(TupleInfo.Type.FIXED_INT_64, TupleInfo.Type.DOUBLE).getFixedSize();
+        int multiSlicePositionCount = (int) (BlockBuilder.DEFAULT_MAX_BLOCK_SIZE.toBytes() / fixedWidthSize) * 2;
+        Operator source = createOperator(
+                new Page(
+                        BlockAssertions.createStringSequenceBlock(0, multiSlicePositionCount),
+                        BlockAssertions.createLongSequenceBlock(0, multiSlicePositionCount))
+        );
+
+        HashAggregationOperator actual = new HashAggregationOperator(source,
+                1,
+                Step.SINGLE,
+                ImmutableList.of(aggregation(COUNT, 0),
+                        aggregation(LONG_AVERAGE, 1)),
+                100_000,
+                new DataSize(100, Unit.MEGABYTE));
+
+        actual.iterator(new OperatorStats()).next();
+    }
+
+    @Test
     public void testCancel()
             throws Exception
     {
