@@ -17,6 +17,7 @@ import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
+import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -71,6 +72,7 @@ import static com.facebook.presto.sql.tree.QueryUtil.selectAll;
 import static com.facebook.presto.sql.tree.QueryUtil.selectList;
 import static com.facebook.presto.sql.tree.QueryUtil.table;
 import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
+import static com.google.common.base.Predicates.and;
 import static com.google.common.base.Predicates.compose;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.instanceOf;
@@ -177,10 +179,19 @@ public class Analyzer
             }
 
             // TODO: throw SemanticException if schema does not exist
+
+            Expression predicate = equal(nameReference("table_schema"), new StringLiteral(schemaName));
+
+            String likePattern = showTables.getLikePattern();
+            if (likePattern != null) {
+                Expression likePredicate = new LikePredicate(nameReference("table_name"), new StringLiteral(likePattern), null);
+                predicate = logicalAnd(predicate, likePredicate);
+            }
+
             Query query = new Query(
                     selectList(aliasedName("table_name", "Table")),
                     table(QualifiedName.of(catalogName, INFORMATION_SCHEMA, TABLE_TABLES)),
-                    equal(nameReference("table_schema"), new StringLiteral(schemaName)),
+                    predicate,
                     ImmutableList.<Expression>of(),
                     null,
                     ImmutableList.of(ascending("table_name")),

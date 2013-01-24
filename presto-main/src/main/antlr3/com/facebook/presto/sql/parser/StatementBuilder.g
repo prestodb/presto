@@ -330,7 +330,15 @@ whenList returns [List<WhenClause> value = new ArrayList<>()]
     ;
 
 showTables returns [Statement value]
-    : ^(SHOW_TABLES qname?) { $value = new ShowTables($qname.value); }
+    : ^(SHOW_TABLES from=showTablesFrom? like=showTablesLike?) { $value = new ShowTables($from.value, $like.value); }
+    ;
+
+showTablesFrom returns [QualifiedName value]
+    : ^(FROM qname) { $value = $qname.value; }
+    ;
+
+showTablesLike returns [String value]
+    : ^(LIKE string) { $value = $string.value; }
     ;
 
 showColumns returns [Statement value]
