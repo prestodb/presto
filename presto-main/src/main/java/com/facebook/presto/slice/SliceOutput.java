@@ -51,9 +51,9 @@ public abstract class SliceOutput extends OutputStream implements DataOutput
      * and increases the {@code writerIndex} by {@code 1} in this buffer.
      * The 24 high-order bits of the specified value are ignored.
      *
-     * @throws IndexOutOfBoundsException
-     *         if {@code this.writableBytes} is less than {@code 1}
+     * @throws IndexOutOfBoundsException if {@code this.writableBytes} is less than {@code 1}
      */
+    @Override
     public abstract void writeByte(int value);
 
     /**
@@ -61,18 +61,18 @@ public abstract class SliceOutput extends OutputStream implements DataOutput
      * {@code writerIndex} and increases the {@code writerIndex} by {@code 2}
      * in this buffer.  The 16 high-order bits of the specified value are ignored.
      *
-     * @throws IndexOutOfBoundsException
-     *         if {@code this.writableBytes} is less than {@code 2}
+     * @throws IndexOutOfBoundsException if {@code this.writableBytes} is less than {@code 2}
      */
+    @Override
     public abstract void writeShort(int value);
 
     /**
      * Sets the specified 32-bit integer at the current {@code writerIndex}
      * and increases the {@code writerIndex} by {@code 4} in this buffer.
      *
-     * @throws IndexOutOfBoundsException
-     *         if {@code this.writableBytes} is less than {@code 4}
+     * @throws IndexOutOfBoundsException if {@code this.writableBytes} is less than {@code 4}
      */
+    @Override
     public abstract void writeInt(int value);
 
     /**
@@ -80,9 +80,9 @@ public abstract class SliceOutput extends OutputStream implements DataOutput
      * {@code writerIndex} and increases the {@code writerIndex} by {@code 8}
      * in this buffer.
      *
-     * @throws IndexOutOfBoundsException
-     *         if {@code this.writableBytes} is less than {@code 8}
+     * @throws IndexOutOfBoundsException if {@code this.writableBytes} is less than {@code 8}
      */
+    @Override
     public abstract void writeLong(long value);
 
     /**
@@ -90,9 +90,9 @@ public abstract class SliceOutput extends OutputStream implements DataOutput
      * {@code writerIndex} and increases the {@code writerIndex} by {@code 8}
      * in this buffer.
      *
-     * @throws IndexOutOfBoundsException
-     *         if {@code this.writableBytes} is less than {@code 8}
+     * @throws IndexOutOfBoundsException if {@code this.writableBytes} is less than {@code 8}
      */
+    @Override
     public abstract void writeDouble(double value);
 
     /**
@@ -105,10 +105,7 @@ public abstract class SliceOutput extends OutputStream implements DataOutput
      * the transferred bytes while {@link #writeBytes(Slice, int, int)}
      * does not.
      *
-     * @throws IndexOutOfBoundsException
-     *         if {@code source.readableBytes} is greater than
-     *            {@code this.writableBytes}
-     *
+     * @throws IndexOutOfBoundsException if {@code source.readableBytes} is greater than {@code this.writableBytes}
      */
     public abstract void writeBytes(Slice source);
 
@@ -118,13 +115,10 @@ public abstract class SliceOutput extends OutputStream implements DataOutput
      * by the number of the transferred bytes (= {@code length}).
      *
      * @param sourceIndex the first index of the source
-     * @param length   the number of bytes to transfer
-     *
-     * @throws IndexOutOfBoundsException
-     *         if the specified {@code sourceIndex} is less than {@code 0},
-     *         if {@code sourceIndex + length} is greater than
-     *            {@code source.capacity}, or
-     *         if {@code length} is greater than {@code this.writableBytes}
+     * @param length the number of bytes to transfer
+     * @throws IndexOutOfBoundsException if the specified {@code sourceIndex} is less than {@code 0},
+     * if {@code sourceIndex + length} is greater than {@code source.capacity}, or
+     * if {@code length} is greater than {@code this.writableBytes}
      */
     public abstract void writeBytes(Slice source, int sourceIndex, int length);
 
@@ -140,8 +134,7 @@ public abstract class SliceOutput extends OutputStream implements DataOutput
      * the current {@code writerIndex} and increases the {@code writerIndex}
      * by the number of the transferred bytes (= {@code source.length}).
      *
-     * @throws IndexOutOfBoundsException
-     *         if {@code source.length} is greater than {@code this.writableBytes}
+     * @throws IndexOutOfBoundsException if {@code source.length} is greater than {@code this.writableBytes}
      */
     public abstract void writeBytes(byte[] source);
 
@@ -157,13 +150,10 @@ public abstract class SliceOutput extends OutputStream implements DataOutput
      * by the number of the transferred bytes (= {@code length}).
      *
      * @param sourceIndex the first index of the source
-     * @param length   the number of bytes to transfer
-     *
-     * @throws IndexOutOfBoundsException
-     *         if the specified {@code sourceIndex} is less than {@code 0},
-     *         if {@code sourceIndex + length} is greater than
-     *            {@code source.length}, or
-     *         if {@code length} is greater than {@code this.writableBytes}
+     * @param length the number of bytes to transfer
+     * @throws IndexOutOfBoundsException if the specified {@code sourceIndex} is less than {@code 0},
+     * if {@code sourceIndex + length} is greater than {@code source.length}, or
+     * if {@code length} is greater than {@code this.writableBytes}
      */
     public abstract void writeBytes(byte[] source, int sourceIndex, int length);
 
@@ -173,15 +163,12 @@ public abstract class SliceOutput extends OutputStream implements DataOutput
      * {@code writerIndex} by the number of the transferred bytes.
      *
      * @param length the number of bytes to transfer
-     *
      * @return the actual number of bytes read in from the specified stream
-     *
-     * @throws IndexOutOfBoundsException
-     *         if {@code length} is greater than {@code this.writableBytes}
-     * @throws java.io.IOException
-     *         if the specified stream threw an exception during I/O
+     * @throws IndexOutOfBoundsException if {@code length} is greater than {@code this.writableBytes}
+     * @throws java.io.IOException if the specified stream threw an exception during I/O
      */
-    public abstract int  writeBytes(InputStream in, int length) throws IOException;
+    public abstract int writeBytes(InputStream in, int length)
+            throws IOException;
 
     /**
      * Fills this buffer with <tt>NUL (0x00)</tt> starting at the current
@@ -189,11 +176,10 @@ public abstract class SliceOutput extends OutputStream implements DataOutput
      * specified {@code length}.
      *
      * @param length the number of <tt>NUL</tt>s to write to the buffer
-     *
-     * @throws IndexOutOfBoundsException
-     *         if {@code length} is greater than {@code this.writableBytes}
+     * @throws IndexOutOfBoundsException if {@code length} is greater than {@code this.writableBytes}
      */
-    public void writeZero(int length) {
+    public void writeZero(int length)
+    {
         if (length == 0) {
             return;
         }

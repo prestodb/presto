@@ -89,7 +89,8 @@ public class QueryCompletionEvent
         this.failuresJson = failuresJson;
     }
 
-    private static @Nullable Long durationToMillis(@Nullable Duration duration)
+    @Nullable
+    private static Long durationToMillis(@Nullable Duration duration)
     {
         if (duration == null) {
             return null;
@@ -97,7 +98,8 @@ public class QueryCompletionEvent
         return (long) duration.toMillis();
     }
 
-    private static @Nullable Long sizeToBytes(@Nullable DataSize dataSize)
+    @Nullable
+    private static Long sizeToBytes(@Nullable DataSize dataSize)
     {
         if (dataSize == null) {
             return null;

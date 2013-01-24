@@ -32,15 +32,16 @@ import static org.codehaus.jackson.JsonToken.VALUE_NULL;
 
 /**
  * Extracts values from JSON
- *
+ * <p/>
  * Supports the following JSON path primitives:
- *
+ * <pre>
  *    $ : Root object
  *    . : Child operator
  *   [] : Subscript operator for array
- *
+ * </pre>
+ * <p/>
  * Supported JSON Path Examples:
- *
+ * <pre>
  *    { "store": {
  *        "book": [
  *          { "category": "reference",
@@ -63,23 +64,26 @@ import static org.codehaus.jackson.JsonToken.VALUE_NULL;
  *        }
  *      }
  *    }
- *
- *    With only scalar values:
+ * </pre>
+ * <p/>
+ * With only scalar values:
+ * <pre>
  *    $.store.book[0].author => Nigel Rees
  *    $.store.bicycle.price => 19.95
  *    $.store.book[0].isbn => NULL (Doesn't exist becomes java null)
  *    $.store.book[1].last_owner => NULL (json null becomes java null)
  *    $.store.book[0].contributors[0][1] => Levine
- *
- *    With json values:
+ * </pre>
+ * <p/>
+ * With json values:
+ * <pre>
  *    $.store.book[0].author => "Nigel Rees"
  *    $.store.bicycle.price => 19.95
  *    $.store.book[0].isbn => NULL (Doesn't exist becomes java null)
  *    $.store.book[1].last_owner => null (json null becomes the string "null")
  *    $.store.book[0].contributors[0] => ["Adam", "Levine"]
  *    $.store.bicycle => {"color": "red", "price": 19.95}
- *
- *
+ * </pre>
  */
 public class JsonExtract
 {
@@ -213,12 +217,14 @@ public class JsonExtract
     {
         /**
          * Executes the extraction on the existing content of the JasonParser and outputs the value as a Slice.
+         * <p/>
+         * Notes:
+         * <ul>
+         * <li>JsonParser must be on the FIRST token of the value to be processed when extract is called</li>
+         * <li>INVARIANT: when extract() returns, the current token of the parser will be the LAST token of the value</li>
+         * </ul>
          *
          * @return Slice of the value, or null if not applicable
-         *
-         * Notes:
-         *  - JsonParser must be on the FIRST token of the value to be processed when extract is called
-         *  - INVARIANT: when extract() returns, the current token of the parser will be the LAST token of the value
          */
         Slice extract(JsonParser jsonParser)
                 throws IOException;

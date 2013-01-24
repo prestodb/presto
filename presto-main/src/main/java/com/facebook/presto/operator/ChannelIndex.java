@@ -26,9 +26,11 @@ import static com.google.common.base.Preconditions.checkState;
 /**
  * ChannelIndex a low-level data structure which contains the address of every value position with a channel.
  * This data structure is not general purpose and is designed for a few specific uses:
- *   Sort via the swap method
- *   Hash build via the iterator method
- *   Positional output via the appendTo method
+ * <ul>
+ * <li>Sort via the {@link #swap} method</li>
+ * <li>Hash build via the {@link #iterator} method</li>
+ * <li>Positional output via the {@link #appendTo} method</li>
+ * </ul>
  */
 public class ChannelIndex
         implements LongIterable, Swapper
