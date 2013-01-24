@@ -2,6 +2,7 @@ package com.facebook.presto.spi;
 
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * This wants to be part of the SPI at some point.
@@ -19,20 +20,14 @@ public interface MetadataCache
     List<SchemaField> getPartitionKeys(ImportClient backingClient, String databaseName, String tableName)
             throws ObjectNotFoundException;
 
-/*
-    List<PartitionInfo> getPartitions(String databaseName, String tableName)
+    List<PartitionInfo> getPartitions(ImportClient backingClient, String databaseName, String tableName)
             throws ObjectNotFoundException;
 
-    List<PartitionInfo> getPartitions(String databaseName, String tableName, Map<String, Object> filters)
+    List<String> getPartitionNames(ImportClient backingClient, String databaseName, String tableName)
             throws ObjectNotFoundException;
 
-    List<String> getPartitionNames(String databaseName, String tableName)
-            throws ObjectNotFoundException;
-
-    List<PartitionChunk> getPartitionChunks(String databaseName, String tableName, String partitionName, List<String> columns)
-            throws ObjectNotFoundException;
-
-    Iterable<List<PartitionChunk>> getPartitionChunks(String databaseName, String tableName, List<String> partitionNames, List<String> columns)
-            throws ObjectNotFoundException;
-*/
+    /**
+     * Internal Cache elements that can be exposed through JMX.
+     */
+    Map<String, Object> getJmxExposed();
 }
