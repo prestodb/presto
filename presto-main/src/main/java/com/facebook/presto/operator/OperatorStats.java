@@ -31,9 +31,9 @@ public class OperatorStats
     private long completedDataSize;
     private long completedPositions;
 
-    long wallStartTime;
-    long cpuStartTime;
-    long userStartTime;
+    private long wallStartTime;
+    private long cpuStartTime;
+    private long userStartTime;
 
     private boolean finished;
 
