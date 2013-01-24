@@ -11,9 +11,8 @@ import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 
 /**
- * Generate the variance for a given set of values.
- *
- * This implements the online algorithm as described at http://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm.
+ * Generate the variance for a given set of values. This implements the
+ * <a href="http://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm">online algorithm</a>.
  */
 public abstract class AbstractVarianceAggregation
         implements FixedWidthAggregationFunction
@@ -25,12 +24,13 @@ public abstract class AbstractVarianceAggregation
         this.population = population;
     }
 
-    /** Decribes the tuple used by to calculate the variance. */
-    static final TupleInfo VARIANCE_CONTEXT_INFO =
-            new TupleInfo(Type.FIXED_INT_64,  // n
-                          Type.DOUBLE,        // mean
-                          Type.DOUBLE         // m2
-            );
+    /**
+     * Describes the tuple used by to calculate the variance.
+     */
+    static final TupleInfo VARIANCE_CONTEXT_INFO = new TupleInfo(
+            Type.FIXED_INT_64,  // n
+            Type.DOUBLE,        // mean
+            Type.DOUBLE);       // m2
 
     @Override
     public TupleInfo getFinalTupleInfo()
@@ -146,22 +146,22 @@ public abstract class AbstractVarianceAggregation
         }
     }
 
-    static final Double buildFinalStdDev(boolean population, Slice valueSlice, int valueOffset)
+    static Double buildFinalStdDev(boolean population, Slice valueSlice, int valueOffset)
     {
-        Double variance = DoubleVarianceAggregation.buildFinalVariance(population, valueSlice, valueOffset);
+        Double variance = buildFinalVariance(population, valueSlice, valueOffset);
         return (variance == null) ? null : Math.sqrt(variance);
     }
 
     @Override
     public void evaluateFinal(Slice valueSlice, int valueOffset, BlockBuilder output)
     {
-        final Double result = AbstractVarianceAggregation.buildFinalVariance(population, valueSlice, valueOffset);
+        Double result = buildFinalVariance(population, valueSlice, valueOffset);
 
         if (result == null) {
             output.appendNull();
         }
         else {
-            output.append(result.doubleValue());
+            output.append(result);
         }
     }
 }

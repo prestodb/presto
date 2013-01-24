@@ -21,9 +21,11 @@ import java.util.List;
 /**
  * PagesIndex a low-level data structure which contains the address of every value position of every channel.
  * This data structure is not general purpose and is designed for a few specific uses:
- *   Sort via the sort method
- *   Hash build via the iterator method
- *   Positional output via the appendTo method
+ * <ul>
+ * <li>Sort via the {@link #sort} method</li>
+ * <li>Hash build via the {@link #getIndex} method</li>
+ * <li>Positional output via the {@link #appendTupleTo} method</li>
+ * </ul>
  */
 public class PagesIndex
         implements Swapper
