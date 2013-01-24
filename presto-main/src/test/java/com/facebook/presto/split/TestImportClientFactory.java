@@ -1,6 +1,6 @@
 package com.facebook.presto.split;
 
-import com.facebook.presto.hive.HiveClient;
+import com.facebook.presto.hive.CachingHiveClient;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.testing.StaticServiceSelector;
 import org.testng.annotations.Test;
@@ -22,8 +22,8 @@ public class TestImportClientFactory
                 serviceDescriptor("hive-metastore").build());
 
         ImportClientFactory factory = new ImportClientFactory(selector, new HiveClientConfig());
-        assertInstanceOf(factory.getClient("hive_fuu"), HiveClient.class);
-        assertInstanceOf(factory.getClient("hive_bar"), HiveClient.class);
+        assertInstanceOf(factory.getClient("hive_fuu"), CachingHiveClient.class);
+        assertInstanceOf(factory.getClient("hive_bar"), CachingHiveClient.class);
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "hive metastore not available for name fuu in pool general")
