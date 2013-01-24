@@ -10,6 +10,7 @@ import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
@@ -32,6 +33,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class Query
         implements Closeable
 {
+    private static final Logger log = Logger.get(Query.class);
+
     private static final Signal SIGINT = new Signal("INT");
     private static final Duration PING_INTERVAL = new Duration(1, SECONDS);
 
@@ -50,8 +53,17 @@ public class Query
             @Override
             public void handle(Signal signal)
             {
-                if (!ignoreUserInterrupt.get()) {
-                    cancelLeafStage();
+                if (ignoreUserInterrupt.get() || queryClient.isCanceled()) {
+                    return;
+                }
+                try {
+                    if (!queryClient.cancelLeafStage()) {
+                        queryClient.cancelQuery();
+                    }
+                }
+                catch (RuntimeException e) {
+                    log.debug(e, "error canceling leaf stage");
+                    queryClient.cancelQuery();
                 }
             }
         });
@@ -70,7 +82,12 @@ public class Query
 
         QueryInfo queryInfo = queryClient.getQueryInfo(false);
         if (queryInfo == null) {
-            out.println("Query is gone (server restarted?)");
+            if (queryClient.isCanceled()) {
+                out.println("Query aborted by user");
+            }
+            else {
+                out.println("Query is gone (server restarted?)");
+            }
             return;
         }
 
@@ -122,15 +139,10 @@ public class Query
         }
     }
 
-    public void cancelLeafStage()
-    {
-        queryClient.cancelLeafStage();
-    }
-
     @Override
     public void close()
     {
-        queryClient.destroy();
+        queryClient.cancelQuery();
     }
 
     public void renderFailure(QueryInfo queryInfo, PrintStream out)
