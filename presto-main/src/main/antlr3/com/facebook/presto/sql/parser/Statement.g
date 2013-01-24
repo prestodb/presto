@@ -376,7 +376,15 @@ function
     ;
 
 showTablesStmt
-    : SHOW TABLES ((FROM | IN) qname)? -> ^(SHOW_TABLES qname?)
+    : SHOW TABLES from=showTablesFrom? like=showTablesLike? -> ^(SHOW_TABLES $from? $like?)
+    ;
+
+showTablesFrom
+    : (FROM | IN) qname -> ^(FROM qname)
+    ;
+
+showTablesLike
+    : LIKE s=STRING -> ^(LIKE $s)
     ;
 
 showColumnsStmt

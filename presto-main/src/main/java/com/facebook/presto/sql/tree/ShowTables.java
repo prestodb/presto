@@ -6,15 +6,22 @@ public class ShowTables
         extends Statement
 {
     private final QualifiedName schema;
+    private final String likePattern;
 
-    public ShowTables(QualifiedName schema)
+    public ShowTables(QualifiedName schema, String likePattern)
     {
         this.schema = schema;
+        this.likePattern = likePattern;
     }
 
     public QualifiedName getSchema()
     {
         return schema;
+    }
+
+    public String getLikePattern()
+    {
+        return likePattern;
     }
 
     @Override
@@ -26,7 +33,7 @@ public class ShowTables
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(schema);
+        return Objects.hashCode(schema, likePattern);
     }
 
     @Override
@@ -39,7 +46,8 @@ public class ShowTables
             return false;
         }
         ShowTables o = (ShowTables) obj;
-        return Objects.equal(schema, o.schema);
+        return Objects.equal(schema, o.schema) &&
+                Objects.equal(likePattern, o.likePattern);
     }
 
     @Override
@@ -47,6 +55,7 @@ public class ShowTables
     {
         return Objects.toStringHelper(this)
                 .add("schema", schema)
+                .add("likePattern", likePattern)
                 .toString();
     }
 }
