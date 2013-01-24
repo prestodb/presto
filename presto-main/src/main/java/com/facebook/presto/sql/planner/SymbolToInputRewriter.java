@@ -16,20 +16,20 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class SymbolToInputRewriter
         extends NodeRewriter<Void>
 {
-    private final Map<Symbol, Integer> symbolToChannelMapping;
+    private final Map<Symbol, Input> symbolToInputMapping;
 
-    public SymbolToInputRewriter(Map<Symbol, Integer> symbolToChannelMapping)
+    public SymbolToInputRewriter(Map<Symbol, Input> symbolToInputMapping)
     {
-        checkNotNull(symbolToChannelMapping, "symbolToChannelMapping is null");
-        this.symbolToChannelMapping = symbolToChannelMapping;
+        checkNotNull(symbolToInputMapping, "symbolToInputMapping is null");
+        this.symbolToInputMapping = symbolToInputMapping;
     }
 
     @Override
     public Node rewriteQualifiedNameReference(QualifiedNameReference node, Void context, TreeRewriter<Void> treeRewriter)
     {
-        Integer channel = symbolToChannelMapping.get(Symbol.fromQualifiedName(node.getName()));
-        Preconditions.checkArgument(channel != null, "Cannot resolve symbol %s", node.getName());
+        Input input = symbolToInputMapping.get(Symbol.fromQualifiedName(node.getName()));
+        Preconditions.checkArgument(input != null, "Cannot resolve symbol %s", node.getName());
 
-        return new InputReference(new Input(channel, 0)); // TODO: support fields != 0
+        return new InputReference(input);
     }
 }
