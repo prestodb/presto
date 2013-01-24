@@ -9,6 +9,7 @@ import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 
 import java.lang.invoke.MethodHandle;
@@ -95,14 +96,11 @@ public class FunctionInfo implements Comparable<FunctionInfo>
     {
         checkState(isAggregate, "function is not an aggregate");
         if (inputs.isEmpty()) {
-            return aggregation(aggregationFunction, -1);
+            return aggregation(aggregationFunction, null);
         }
         else {
             Preconditions.checkArgument(inputs.size() == 1, "expected at most one input");
-            Input input = inputs.get(0);
-            // todo remove this assumption that field is 0 when we add field support
-            Preconditions.checkArgument(input.getField() == 0, "expected field to be 0");
-            return aggregation(aggregationFunction, input.getChannel());
+            return aggregation(aggregationFunction, Iterables.getOnlyElement(inputs));
         }
     }
 

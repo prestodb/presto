@@ -33,25 +33,23 @@ public class VarBinaryMinAggregation
     }
 
     @Override
-    public Slice addInput(int positionCount, Block block, Slice currentMin)
+    public Slice addInput(int positionCount, Block block, int field, Slice currentMin)
     {
         BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {
-            currentMin = addInput(cursor, currentMin);
+            currentMin = addInput(cursor, field, currentMin);
         }
         return currentMin;
     }
 
     @Override
-    public Slice addInput(BlockCursor cursor, Slice currentMin)
+    public Slice addInput(BlockCursor cursor, int field, Slice currentMin)
     {
-        // todo remove this assumption that the field is 0
-        if (cursor.isNull(0)) {
+        if (cursor.isNull(field)) {
             return currentMin;
         }
 
-        // todo remove this assumption that the field is 0
-        Slice value = cursor.getSlice(0);
+        Slice value = cursor.getSlice(field);
         if (currentMin == null) {
             return value;
         }
@@ -61,9 +59,9 @@ public class VarBinaryMinAggregation
     }
 
     @Override
-    public Slice addIntermediate(BlockCursor cursor, Slice currentMin)
+    public Slice addIntermediate(BlockCursor cursor, int field, Slice currentMin)
     {
-        return addInput(cursor, currentMin);
+        return addInput(cursor, field, currentMin);
     }
 
     @Override

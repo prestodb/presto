@@ -46,10 +46,9 @@ public class LongAverageAggregation
     }
 
     @Override
-    public void addInput(BlockCursor cursor, Slice valueSlice, int valueOffset)
+    public void addInput(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
     {
-        // todo remove this assumption that the field is 0
-        if (cursor.isNull(0)) {
+        if (cursor.isNull(field)) {
             return;
         }
 
@@ -60,13 +59,12 @@ public class LongAverageAggregation
         TUPLE_INFO.setLong(valueSlice, valueOffset, 0, TUPLE_INFO.getLong(valueSlice, valueOffset, 0) + 1);
 
         // add value to sum
-        // todo remove this assumption that the field is 0
-        long newValue = cursor.getLong(0);
+        long newValue = cursor.getLong(field);
         TUPLE_INFO.setDouble(valueSlice, valueOffset, 1, TUPLE_INFO.getDouble(valueSlice, valueOffset, 1) + newValue);
     }
 
     @Override
-    public void addInput(int positionCount, Block block, Slice valueSlice, int valueOffset)
+    public void addInput(int positionCount, Block block, int field, Slice valueSlice, int valueOffset)
     {
         // initialize with current value
         boolean hasNonNull = !TUPLE_INFO.isNull(valueSlice, valueOffset);
@@ -76,12 +74,10 @@ public class LongAverageAggregation
         // process block
         BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {
-            // todo remove this assumption that the field is 0
-            if (!cursor.isNull(0)) {
+            if (!cursor.isNull(field)) {
                 hasNonNull = true;
                 count++;
-                // todo remove this assumption that the field is 0
-                sum += cursor.getLong(0);
+                sum += cursor.getLong(field);
             }
         }
 
@@ -94,10 +90,9 @@ public class LongAverageAggregation
     }
 
     @Override
-    public void addIntermediate(BlockCursor cursor, Slice valueSlice, int valueOffset)
+    public void addIntermediate(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
     {
-        // todo remove this assumption that the field is 0
-        if (cursor.isNull(0)) {
+        if (cursor.isNull(field)) {
             return;
         }
 
@@ -105,8 +100,7 @@ public class LongAverageAggregation
         TUPLE_INFO.setNotNull(valueSlice, valueOffset, 0);
 
         // decode value
-        // todo remove this assumption that the field is 0
-        Slice value = cursor.getSlice(0);
+        Slice value = cursor.getSlice(field);
         long count = value.getLong(0);
         double sum = value.getDouble(SIZE_OF_LONG);
 

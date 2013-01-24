@@ -5,13 +5,19 @@ import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
-import com.facebook.presto.block.rle.RunLengthEncodedBlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
+import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.AggregationOperator.Aggregator;
+import com.facebook.presto.operator.Input;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
+
+import java.util.Arrays;
 
 import static com.facebook.presto.operator.AggregationFunctionDefinition.aggregation;
 import static com.facebook.presto.operator.AggregationOperator.createAggregator;
@@ -31,39 +37,49 @@ public abstract class AbstractTestAggregationFunction
     public void testNoPositions()
             throws Exception
     {
-        testMultiplePositions(getSequenceBlock(0, 10).cursor(), getExpectedValue(0, 0), 0);
+        testMultiplePositions(getSequenceBlock(0, 10), getExpectedValue(0, 0), 0);
     }
 
     @Test
     public void testSinglePosition()
             throws Exception
     {
-        testMultiplePositions(getSequenceBlock(0, 10).cursor(), getExpectedValue(0, 1), 1);
+        testMultiplePositions(getSequenceBlock(0, 10), getExpectedValue(0, 1), 1);
     }
 
     @Test
     public void testMultiplePositions()
     {
-        testMultiplePositions(getSequenceBlock(0, 10).cursor(), getExpectedValue(0, 5), 5);
+        testMultiplePositions(getSequenceBlock(0, 10), getExpectedValue(0, 5), 5);
     }
     @Test
     public void testAllPositionsNull()
             throws Exception
     {
-        BlockCursor nullsCursor = new RunLengthEncodedBlockCursor(nullTuple(getSequenceBlock(0, 10).getTupleInfo()), 11);
-        testMultiplePositions(nullsCursor, getExpectedValue(0, 0), 10);
+        Block block = new RunLengthEncodedBlock(nullTuple(getSequenceBlock(0, 10).getTupleInfo()), 11);
+        testMultiplePositions(block, getExpectedValue(0, 0), 10);
     }
 
     @Test
     public void testMixedNullAndNonNullPositions()
     {
         Block alternatingNullsBlock = createAlternatingNullsBlock(getSequenceBlock(0, 10));
-        testMultiplePositions(alternatingNullsBlock.cursor(), getExpectedValue(0, 5), 10);
+        testMultiplePositions(alternatingNullsBlock, getExpectedValue(0, 5), 10);
     }
 
-    protected void testMultiplePositions(BlockCursor cursor, Object expectedValue, int positions)
+    protected void testMultiplePositions(Block block, Object expectedValue, int positions)
     {
-        Aggregator function = createAggregator(aggregation(getFunction(), 0), Step.SINGLE);
+        // test with input at field 0
+        testMultiplePositions(block, expectedValue, positions, 0);
+
+        // test with input and field != 0
+        testMultiplePositions(block, expectedValue, positions, 1);
+    }
+
+    private void testMultiplePositions(Block block, Object expectedValue, int positions, int field)
+    {
+        BlockCursor cursor = createCompositeTupleBlock(block, field).cursor();
+        Aggregator function = createAggregator(aggregation(getFunction(), new Input(0, field)), Step.SINGLE);
 
         for (int i = 0; i < positions; i++) {
             assertTrue(cursor.advanceNextPosition());
@@ -120,11 +136,21 @@ public abstract class AbstractTestAggregationFunction
 
     protected void testVectorMultiplePositions(Block block, Object expectedValue)
     {
-        Aggregator function = createAggregator(aggregation(getFunction(), 0), Step.SINGLE);
+        // test with input at field 0
+        testVectorMultiplePositions(block, expectedValue, 0);
 
-        function.addValue(new Page(block));
+        // test with input and field != 0
+        testVectorMultiplePositions(block, expectedValue, 1);
+    }
+
+    private void testVectorMultiplePositions(Block block, Object expectedValue, int field)
+    {
+        Aggregator function = createAggregator(aggregation(getFunction(), new Input(0, field)), Step.SINGLE);
+
+        function.addValue(new Page(createCompositeTupleBlock(block, field)));
         assertEquals(getActualValue(function), expectedValue);
     }
+
 
     @Test
     public void testPartialWithMultiplePositions()
@@ -142,7 +168,7 @@ public abstract class AbstractTestAggregationFunction
     protected void testPartialWithMultiplePositions(Block block, Object expectedValue)
     {
         UncompressedBlock partialsBlock = performPartialAggregation(block);
-        Aggregator function = createAggregator(aggregation(getFunction(), 0), Step.FINAL);
+        Aggregator function = createAggregator(aggregation(getFunction(), new Input(0, 0)), Step.FINAL);
         BlockCursor partialsCursor = partialsBlock.cursor();
         while (partialsCursor.advanceNextPosition()) {
             function.addValue(partialsCursor);
@@ -174,10 +200,37 @@ public abstract class AbstractTestAggregationFunction
         return blockBuilder.build();
     }
 
+    /**
+     * Produce a block with "field" number of columns and place column 0 from the
+     * provided block into the last column of the resulting block
+     *
+     * Fields 0 to "field - 1" are set to null
+     */
+    private Block createCompositeTupleBlock(Block sequenceBlock, int field)
+    {
+        TupleInfo.Type[] types = new TupleInfo.Type[field + 1];
+        Arrays.fill(types, TupleInfo.Type.VARIABLE_BINARY);
+
+        types[field] = Iterables.getOnlyElement(sequenceBlock.getTupleInfo().getTypes());
+
+        BlockBuilder blockBuilder = new BlockBuilder(new TupleInfo(types));
+        BlockCursor cursor = sequenceBlock.cursor();
+        while (cursor.advanceNextPosition()) {
+            for (int i = 0; i < field; i++) {
+                blockBuilder.appendNull();
+            }
+            blockBuilder.append(cursor.getTuple());
+        }
+
+        return blockBuilder.build();
+    }
+
+
+
     protected void testVectorPartialWithMultiplePositions(Block block, Object expectedValue)
     {
         UncompressedBlock partialsBlock = performPartialAggregation(block);
-        Aggregator function = createAggregator(aggregation(getFunction(), 0), Step.FINAL);
+        Aggregator function = createAggregator(aggregation(getFunction(), new Input(0, 0)), Step.FINAL);
 
         BlockCursor blockCursor = partialsBlock.cursor();
         while (blockCursor.advanceNextPosition()) {
@@ -191,7 +244,7 @@ public abstract class AbstractTestAggregationFunction
         BlockBuilder blockBuilder = new BlockBuilder(getFunction().getIntermediateTupleInfo());
         BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {
-            Aggregator function = createAggregator(aggregation(getFunction(), 0), Step.PARTIAL);
+            Aggregator function = createAggregator(aggregation(getFunction(), new Input(0, 0)), Step.PARTIAL);
             function.addValue(cursor);
             BlockCursor result = function.getResult().cursor();
             assertTrue(result.advanceNextPosition());

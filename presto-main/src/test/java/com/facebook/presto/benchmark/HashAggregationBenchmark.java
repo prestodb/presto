@@ -4,6 +4,7 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.HashAggregationOperator;
+import com.facebook.presto.operator.Input;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
@@ -43,7 +44,7 @@ public class HashAggregationBenchmark
         return new HashAggregationOperator(alignmentOperator,
                 0,
                 Step.SINGLE,
-                ImmutableList.of(aggregation(DOUBLE_SUM, 1)),
+                ImmutableList.of(aggregation(DOUBLE_SUM, new Input(1, 0))),
                 100_000,
                 new DataSize(100, Unit.MEGABYTE));
 

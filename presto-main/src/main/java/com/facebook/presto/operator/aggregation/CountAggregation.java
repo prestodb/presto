@@ -37,13 +37,13 @@ public class CountAggregation
     }
 
     @Override
-    public void addInput(int positionCount, Block block, Slice valueSlice, int valueOffset)
+    public void addInput(int positionCount, Block block, int field, Slice valueSlice, int valueOffset)
     {
         addCount(positionCount, valueSlice, valueOffset);
     }
 
     @Override
-    public void addInput(BlockCursor cursor, Slice valueSlice, int valueOffset)
+    public void addInput(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
     {
         addCount(1, valueSlice, valueOffset);
     }
@@ -55,7 +55,7 @@ public class CountAggregation
     }
 
     @Override
-    public void addIntermediate(BlockCursor cursor, Slice valueSlice, int valueOffset)
+    public void addIntermediate(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
     {
         if (cursor.isNull(0)) {
             return;

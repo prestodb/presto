@@ -131,10 +131,10 @@ public class AggregationOperator
     {
         AggregationFunction function = functionDefinition.getFunction();
         if (function instanceof VariableWidthAggregationFunction) {
-            return new VariableWidthAggregator<>((VariableWidthAggregationFunction<Object>) functionDefinition.getFunction(), functionDefinition.getChannel(), step);
+            return new VariableWidthAggregator<>((VariableWidthAggregationFunction<Object>) functionDefinition.getFunction(), functionDefinition.getInput(), step);
         }
         else {
-            return new FixedWidthAggregator((FixedWidthAggregationFunction) functionDefinition.getFunction(), functionDefinition.getChannel(), step);
+            return new FixedWidthAggregator((FixedWidthAggregationFunction) functionDefinition.getFunction(), functionDefinition.getInput(), step);
         }
     }
 
@@ -152,16 +152,16 @@ public class AggregationOperator
             implements Aggregator
     {
         private final FixedWidthAggregationFunction function;
-        private final int channel;
+        private final Input input;
         private final Step step;
         private final Slice intermediateValue;
 
-        private FixedWidthAggregator(FixedWidthAggregationFunction function, int channel, Step step)
+        private FixedWidthAggregator(FixedWidthAggregationFunction function, Input input, Step step)
         {
             Preconditions.checkNotNull(function, "function is null");
             Preconditions.checkNotNull(step, "step is null");
             this.function = function;
-            this.channel = channel;
+            this.input = input;
             this.step = step;
             this.intermediateValue = Slices.allocate(function.getFixedSize());
             function.initialize(intermediateValue, 0);
@@ -170,14 +170,14 @@ public class AggregationOperator
         @Override
         public void addValue(BlockCursor... cursors)
         {
-            BlockCursor cursor = cursors[channel];
+            BlockCursor cursor = cursors[input.getChannel()];
 
             // if this is a final aggregation, the input is an intermediate value
             if (step == Step.FINAL) {
-                function.addIntermediate(cursor, intermediateValue, 0);
+                function.addIntermediate(cursor, input.getField(), intermediateValue, 0);
             }
             else {
-                function.addInput(cursor, intermediateValue, 0);
+                function.addInput(cursor, input.getField(), intermediateValue, 0);
             }
         }
 
@@ -186,20 +186,22 @@ public class AggregationOperator
         {
             // if this is a final aggregation, the input is an intermediate value
             if (step == Step.FINAL) {
-                BlockCursor cursor = page.getBlock(channel).cursor();
+                BlockCursor cursor = page.getBlock(input.getChannel()).cursor();
                 while (cursor.advanceNextPosition()) {
-                    function.addIntermediate(cursor, intermediateValue, 0);
+                    function.addIntermediate(cursor, input.getField(), intermediateValue, 0);
                 }
             }
             else {
                 Block block;
-                if (channel >= 0) {
-                    block = page.getBlock(channel);
+                int field = -1;
+                if (input != null) {
+                    block = page.getBlock(input.getChannel());
+                    field = input.getField();
                 }
                 else {
                     block = null;
                 }
-                function.addInput(page.getPositionCount(), block, intermediateValue, 0);
+                function.addInput(page.getPositionCount(), block, field, intermediateValue, 0);
             }
         }
 
@@ -224,16 +226,16 @@ public class AggregationOperator
             implements Aggregator
     {
         private final VariableWidthAggregationFunction<T> function;
-        private final int channel;
+        private final Input input;
         private final Step step;
         private T intermediateValue;
 
-        private VariableWidthAggregator(VariableWidthAggregationFunction<T> function, int channel, Step step)
+        private VariableWidthAggregator(VariableWidthAggregationFunction<T> function, Input input, Step step)
         {
             Preconditions.checkNotNull(function, "function is null");
             Preconditions.checkNotNull(step, "step is null");
             this.function = function;
-            this.channel = channel;
+            this.input = input;
             this.step = step;
             this.intermediateValue = function.initialize();
         }
@@ -243,34 +245,37 @@ public class AggregationOperator
         {
             // if this is a final aggregation, the input is an intermediate value
             if (step == Step.FINAL) {
-                BlockCursor cursor = page.getBlock(channel).cursor();
+                BlockCursor cursor = page.getBlock(input.getChannel()).cursor();
                 while (cursor.advanceNextPosition()) {
-                    intermediateValue = function.addIntermediate(cursor, intermediateValue);
+                    intermediateValue = function.addIntermediate(cursor, 0, intermediateValue);
                 }
             }
             else {
                 Block block;
-                if (channel >= 0) {
-                    block = page.getBlock(channel);
+                int field;
+                if (input != null) {
+                    block = page.getBlock(input.getChannel());
+                    field = input.getField();
                 }
                 else {
                     block = null;
+                    field = -1;
                 }
-                intermediateValue = function.addInput(page.getPositionCount(), block, intermediateValue);
+                intermediateValue = function.addInput(page.getPositionCount(), block, field, intermediateValue);
             }
         }
 
         @Override
         public void addValue(BlockCursor... cursors)
         {
-            BlockCursor cursor = cursors[channel];
+            BlockCursor cursor = cursors[input.getChannel()];
 
             // if this is a final aggregation, the input is an intermediate value
             if (step == Step.FINAL) {
-                intermediateValue = function.addIntermediate(cursor, intermediateValue);
+                intermediateValue = function.addIntermediate(cursor, input.getField(), intermediateValue);
             }
             else {
-                intermediateValue = function.addInput(cursor, intermediateValue);
+                intermediateValue = function.addInput(cursor, input.getField(), intermediateValue);
             }
         }
 

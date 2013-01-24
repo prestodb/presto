@@ -4,6 +4,7 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.AlignmentOperator;
+import com.facebook.presto.operator.Input;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
@@ -35,7 +36,7 @@ public class DoubleSumAggregationBenchmark
         TpchColumnHandle totalprice = columnHandle(orders, "totalprice");
         BlockIterable blockIterable = blocksProvider.getBlocks(orders, totalprice, BlocksFileEncoding.RAW);
         AlignmentOperator alignmentOperator = new AlignmentOperator(blockIterable);
-        return new AggregationOperator(alignmentOperator, Step.SINGLE, ImmutableList.of(aggregation(DOUBLE_SUM, 0)));
+        return new AggregationOperator(alignmentOperator, Step.SINGLE, ImmutableList.of(aggregation(DOUBLE_SUM, new Input(0,0))));
     }
 
     @Override

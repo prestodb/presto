@@ -1,6 +1,5 @@
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
@@ -15,8 +14,6 @@ import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
  * Generate the variance for a given set of values.
  *
  * This implements the online algorithm as described at http://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm.
- *
- * TODO - This code assumes that the values are in offset 0 of the various cursors. Remove this assumption.
  */
 public abstract class AbstractVarianceAggregation
         implements FixedWidthAggregationFunction
@@ -92,13 +89,13 @@ public abstract class AbstractVarianceAggregation
     }
 
     @Override
-    public void addIntermediate(BlockCursor cursor, Slice valueSlice, int valueOffset)
+    public void addIntermediate(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
     {
-        if (cursor.isNull(0)) {
+        if (cursor.isNull(field)) {
             return;
         }
 
-        Slice otherVariance = cursor.getSlice(0);
+        Slice otherVariance = cursor.getSlice(field);
         long otherCount = VARIANCE_CONTEXT_INFO.getLong(otherVariance, 0);
         double otherMean = VARIANCE_CONTEXT_INFO.getDouble(otherVariance, 1);
         double otherM2 = VARIANCE_CONTEXT_INFO.getDouble(otherVariance, 2);
