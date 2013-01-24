@@ -35,6 +35,8 @@ public class TestSqlParser
 
         printStatement("show tables");
         printStatement("show tables from information_schema");
+        printStatement("show tables like '%'");
+        printStatement("show tables from information_schema like '%'");
 
         for (int i = 1; i <= 22; i++) {
             if (i != 15) {
