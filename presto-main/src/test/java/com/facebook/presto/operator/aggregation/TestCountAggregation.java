@@ -38,14 +38,14 @@ public class TestCountAggregation
             throws Exception
     {
         Block nullsBlock = new RunLengthEncodedBlock(nullTuple(getSequenceBlock(0, 10).getTupleInfo()), 11);
-        testMultiplePositions(nullsBlock.cursor(), 10L, 10);
+        testMultiplePositions(nullsBlock, 10L, 10);
     }
 
     @Override
     public void testMixedNullAndNonNullPositions()
     {
         Block alternatingNullsBlock = createAlternatingNullsBlock(getSequenceBlock(0, 10));
-        testMultiplePositions(alternatingNullsBlock.cursor(), 10L, 10);
+        testMultiplePositions(alternatingNullsBlock, 10L, 10);
     }
 
     @Override

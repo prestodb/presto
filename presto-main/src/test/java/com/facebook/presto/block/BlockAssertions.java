@@ -188,6 +188,19 @@ public class BlockAssertions
         return builder.build();
     }
 
+    public static Block createCompositeTupleSequenceBlock(int start, int end)
+    {
+        BlockBuilder builder = new BlockBuilder(new TupleInfo(Type.FIXED_INT_64, Type.DOUBLE, Type.VARIABLE_BINARY));
+
+        for (int i = start; i < end; i++) {
+            builder.append((long) i)
+                    .append((double) i)
+                    .append(Long.toString(i));
+        }
+
+        return builder.build();
+    }
+
     public static Block createDoublesBlock(@Nullable Double... values)
     {
         BlockBuilder builder = new BlockBuilder(TupleInfo.SINGLE_DOUBLE);

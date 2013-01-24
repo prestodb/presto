@@ -15,6 +15,7 @@ import static com.facebook.presto.operator.CancelTester.createCancelableDataSour
 import static com.facebook.presto.operator.OperatorAssertions.createOperator;
 import static com.facebook.presto.operator.aggregation.CountAggregation.COUNT;
 import static com.facebook.presto.operator.aggregation.CountColumnAggregation.COUNT_COLUMN;
+import static com.facebook.presto.operator.aggregation.DoubleSumAggregation.DOUBLE_SUM;
 import static com.facebook.presto.operator.aggregation.LongAverageAggregation.LONG_AVERAGE;
 import static com.facebook.presto.operator.aggregation.LongSumAggregation.LONG_SUM;
 import static com.facebook.presto.operator.aggregation.VarBinaryMaxAggregation.VAR_BINARY_MAX;
@@ -102,6 +103,42 @@ public class TestHashAggregationOperator
                         .append(3)
                         .append(3)
                         .append(3)
+                        .build(),
+                new BlockBuilder(new TupleInfo(FIXED_INT_64))
+                        .append(500 * 3)
+                        .append(501 * 3)
+                        .append(502 * 3)
+                        .append(503 * 3)
+                        .append(504 * 3)
+                        .append(505 * 3)
+                        .append(506 * 3)
+                        .append(507 * 3)
+                        .append(508 * 3)
+                        .append(509 * 3)
+                        .build(),
+                new BlockBuilder(new TupleInfo(DOUBLE))
+                        .append(500.0 * 3)
+                        .append(501.0 * 3)
+                        .append(502.0 * 3)
+                        .append(503.0 * 3)
+                        .append(504.0 * 3)
+                        .append(505.0 * 3)
+                        .append(506.0 * 3)
+                        .append(507.0 * 3)
+                        .append(508.0 * 3)
+                        .append(509.0 * 3)
+                        .build(),
+                new BlockBuilder(new TupleInfo(VARIABLE_BINARY))
+                        .append("500")
+                        .append("501")
+                        .append("502")
+                        .append("503")
+                        .append("504")
+                        .append("505")
+                        .append("506")
+                        .append("507")
+                        .append("508")
+                        .append("509")
                         .build()
         );
 
@@ -110,34 +147,40 @@ public class TestHashAggregationOperator
                         BlockAssertions.createStringSequenceBlock(100, 110),
                         BlockAssertions.createStringSequenceBlock(0, 10),
                         BlockAssertions.createStringSequenceBlock(100, 110),
-                        BlockAssertions.createLongSequenceBlock(0, 10)),
+                        BlockAssertions.createLongSequenceBlock(0, 10),
+                        BlockAssertions.createCompositeTupleSequenceBlock(500, 510)),
                 new Page(
                         BlockAssertions.createStringSequenceBlock(100, 110),
                         BlockAssertions.createStringSequenceBlock(0, 10),
                         BlockAssertions.createStringSequenceBlock(200, 210),
-                        BlockAssertions.createLongSequenceBlock(0, 10)),
+                        BlockAssertions.createLongSequenceBlock(0, 10),
+                        BlockAssertions.createCompositeTupleSequenceBlock(500, 510)),
                 new Page(
                         BlockAssertions.createStringSequenceBlock(100, 110),
                         BlockAssertions.createStringSequenceBlock(0, 10),
                         BlockAssertions.createStringSequenceBlock(300, 310),
-                        BlockAssertions.createLongSequenceBlock(0, 10))
+                        BlockAssertions.createLongSequenceBlock(0, 10),
+                        BlockAssertions.createCompositeTupleSequenceBlock(500, 510))
         );
 
         HashAggregationOperator actual = new HashAggregationOperator(source,
                 1,
                 Step.SINGLE,
-                ImmutableList.of(aggregation(COUNT, 0),
-                        aggregation(LONG_SUM, 3),
-                        aggregation(LONG_AVERAGE, 3),
-                        aggregation(VAR_BINARY_MAX, 2),
-                        aggregation(COUNT_COLUMN, 0)),
+                ImmutableList.of(aggregation(COUNT, new Input(0, 0)),
+                        aggregation(LONG_SUM, new Input(3, 0)),
+                        aggregation(LONG_AVERAGE, new Input(3, 0)),
+                        aggregation(VAR_BINARY_MAX, new Input(2, 0)),
+                        aggregation(COUNT_COLUMN, new Input(0, 0)),
+                        aggregation(LONG_SUM, new Input(4, 0)),
+                        aggregation(DOUBLE_SUM, new Input(4, 1)),
+                        aggregation(VAR_BINARY_MAX, new Input(4, 2))),
                 100_000,
                 new DataSize(100, Unit.MEGABYTE));
 
         PageIterator pages = actual.iterator(new OperatorStats());
 
         Page actualPage = pages.next();
-        assertEquals(actualPage.getChannelCount(), 6);
+        assertEquals(actualPage.getChannelCount(), 9);
         PageAssertions.assertPageEquals(actualPage, expectedPage);
 
         assertFalse(pages.hasNext());
@@ -167,10 +210,10 @@ public class TestHashAggregationOperator
         HashAggregationOperator actual = new HashAggregationOperator(source,
                 1,
                 Step.SINGLE,
-                ImmutableList.of(aggregation(COUNT, 0),
-                        aggregation(LONG_SUM, 3),
-                        aggregation(LONG_AVERAGE, 3),
-                        aggregation(VAR_BINARY_MAX, 2)),
+                ImmutableList.of(aggregation(COUNT, new Input(0, 0)),
+                        aggregation(LONG_SUM, new Input(3, 0)),
+                        aggregation(LONG_AVERAGE, new Input(3, 0)),
+                        aggregation(VAR_BINARY_MAX, new Input(2, 0))),
                 100_000,
                 new DataSize(10, Unit.BYTE));
 
@@ -191,8 +234,8 @@ public class TestHashAggregationOperator
         HashAggregationOperator actual = new HashAggregationOperator(source,
                 1,
                 Step.SINGLE,
-                ImmutableList.of(aggregation(COUNT, 0),
-                        aggregation(LONG_AVERAGE, 1)),
+                ImmutableList.of(aggregation(COUNT, new Input(0, 0)),
+                        aggregation(LONG_AVERAGE, new Input(1, 0))),
                 100_000,
                 new DataSize(100, Unit.MEGABYTE));
 
@@ -204,7 +247,7 @@ public class TestHashAggregationOperator
             throws Exception
     {
         BlockingOperator blockingOperator = createCancelableDataSource(new TupleInfo(VARIABLE_BINARY), new TupleInfo(VARIABLE_BINARY));
-        Operator operator = new HashAggregationOperator(blockingOperator, 0, Step.SINGLE, ImmutableList.of(aggregation(COUNT, 0)), 10, new DataSize(1, Unit.MEGABYTE));
+        Operator operator = new HashAggregationOperator(blockingOperator, 0, Step.SINGLE, ImmutableList.of(aggregation(COUNT, new Input(0, 0))), 10, new DataSize(1, Unit.MEGABYTE));
         assertCancel(operator, blockingOperator);
     }
 

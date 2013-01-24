@@ -19,7 +19,7 @@ public class LongVarianceAggregation
     protected static long value = 0;
 
     @Override
-    public void addInput(int positionCount, Block block, Slice valueSlice, int valueOffset)
+    public void addInput(int positionCount, Block block, int field, Slice valueSlice, int valueOffset)
     {
         boolean hasValue = !VARIANCE_CONTEXT_INFO.isNull(valueSlice, valueOffset, 0);
         long count = hasValue ? VARIANCE_CONTEXT_INFO.getLong(valueSlice, valueOffset, 0) : 0;
@@ -29,7 +29,7 @@ public class LongVarianceAggregation
         BlockCursor cursor = block.cursor();
 
         while (cursor.advanceNextPosition()) {
-            if (cursor.isNull(0)) {
+            if (cursor.isNull(field)) {
                 continue;
             }
 
@@ -37,7 +37,7 @@ public class LongVarianceAggregation
             hasValue = true;
 
             count++;
-            double x = cursor.getLong(0);
+            double x = cursor.getLong(field);
             double delta = x - mean;
             mean += (delta / count);
             m2 += (delta * (x - mean));
@@ -52,11 +52,11 @@ public class LongVarianceAggregation
     }
 
     @Override
-    public void addInput(BlockCursor cursor, Slice valueSlice, int valueOffset)
+    public void addInput(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
     {
         boolean hasValue = !VARIANCE_CONTEXT_INFO.isNull(valueSlice, valueOffset, 0);
 
-        if (cursor.isNull(0)) {
+        if (cursor.isNull(field)) {
             return;
         }
 
@@ -65,7 +65,7 @@ public class LongVarianceAggregation
         double m2 = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 2);
 
         count++;
-        double x = cursor.getLong(0);
+        double x = cursor.getLong(field);
         double delta = x - mean;
         mean += (delta / count);
         m2 += (delta * (x - mean));

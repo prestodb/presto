@@ -6,21 +6,23 @@ package com.facebook.presto.operator;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.google.common.base.Preconditions;
 
+import javax.annotation.Nullable;
+
 public class AggregationFunctionDefinition
 {
-    public static AggregationFunctionDefinition aggregation(AggregationFunction function, int channel)
+    public static AggregationFunctionDefinition aggregation(AggregationFunction function, @Nullable Input input)
     {
         Preconditions.checkNotNull(function, "function is null");
-        return new AggregationFunctionDefinition(function, channel);
+        return new AggregationFunctionDefinition(function, input);
     }
 
     private final AggregationFunction function;
-    private final int channel;
+    private final Input input;
 
-    AggregationFunctionDefinition(AggregationFunction function, int channel)
+    AggregationFunctionDefinition(AggregationFunction function, Input input)
     {
         this.function = function;
-        this.channel = channel;
+        this.input = input;
     }
 
     public AggregationFunction getFunction()
@@ -28,8 +30,8 @@ public class AggregationFunctionDefinition
         return function;
     }
 
-    public int getChannel()
+    public Input getInput()
     {
-        return channel;
+        return input;
     }
 }
