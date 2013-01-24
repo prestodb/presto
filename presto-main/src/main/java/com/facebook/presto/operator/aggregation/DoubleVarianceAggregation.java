@@ -5,10 +5,9 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.slice.Slice;
 
 /**
- * Generate the variance for a given set of values.
- *
- * This implements the online algorithm as described at http://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm.
- *
+ * Generate the variance for a given set of values. This implements the
+ * <a href="http://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm">online algorithm</a>.
+ * <p/>
  * TODO - This code assumes that the values are in offset 0 of the various cursors. Remove this assumption.
  */
 public class DoubleVarianceAggregation
