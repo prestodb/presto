@@ -31,6 +31,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -52,6 +53,7 @@ public class HttpQueryClient
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final boolean debug;
     private final AtomicReference<QueryInfo> finalQueryInfo = new AtomicReference<>();
+    private final AtomicBoolean canceled = new AtomicBoolean();
 
     public HttpQueryClient(ClientSession session,
             String query,
@@ -109,6 +111,10 @@ public class HttpQueryClient
         QueryInfo queryInfo = finalQueryInfo.get();
         if (queryInfo != null) {
             return queryInfo;
+        }
+
+        if (isCanceled()) {
+            return null;
         }
 
         URI statusUri = uriBuilderFrom(queryLocation).build();
@@ -185,22 +191,25 @@ public class HttpQueryClient
         }));
     }
 
-    public void cancelLeafStage()
+    public boolean isCanceled()
+    {
+        return canceled.get();
+    }
+
+    public boolean cancelLeafStage()
     {
         QueryInfo queryInfo = getQueryInfo(false);
         if (queryInfo == null) {
-            return;
+            return false;
         }
 
         if (queryInfo.getOutputStage() == null) {
-            // query is not running yet, cancel the entire query
-            Request.Builder requestBuilder = prepareDelete().setUri(queryInfo.getSelf());
-            Request request = requestBuilder.build();
-            httpClient.execute(request, createStatusResponseHandler());
-        } else {
-            // query is running, cancel the leaf-most running stage
-            cancelLeafStage(queryInfo.getOutputStage());
+            // query is not running yet, cannot cancel leaf stage
+            return false;
         }
+
+        // query is running, cancel the leaf-most running stage
+        return cancelLeafStage(queryInfo.getOutputStage());
     }
 
     private boolean cancelLeafStage(StageInfo stage)
@@ -227,8 +236,9 @@ public class HttpQueryClient
         return true;
     }
 
-    public void destroy()
+    public void cancelQuery()
     {
+        canceled.set(true);
         try {
             Request.Builder requestBuilder = prepareDelete().setUri(queryLocation);
             Request request = requestBuilder.build();
