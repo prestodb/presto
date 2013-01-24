@@ -61,7 +61,6 @@ import com.google.common.io.InputSupplier;
 import com.google.common.io.Resources;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
-import org.antlr.runtime.RecognitionException;
 import org.intellij.lang.annotations.Language;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -106,6 +105,42 @@ public class TestQueries
     private Metadata metadata;
     private TpchDataStreamProvider dataProvider;
 
+
+    @Test(enabled = false) // TODO: fix this by inserting projections that re-organize channels/fields (see LocalExecutionPlanner.visitJoin())
+    public void testJoinWithMultiFieldGroupBy()
+            throws Exception
+    {
+        assertQuery("SELECT orderstatus FROM lineitem JOIN (SELECT DISTINCT orderkey, orderstatus FROM ORDERS) T on lineitem.orderkey = T.orderkey");
+    }
+
+    @Test
+    public void testGroupByMultipleFieldsWithPredicateOnAggregationArgument()
+            throws Exception
+    {
+        assertQuery("SELECT custkey, orderstatus, MAX(orderkey) FROM ORDERS WHERE orderkey = 1 GROUP BY custkey, orderstatus");
+    }
+
+    @Test
+    public void testReorderOutputsOfGroupByAggregation()
+            throws Exception
+    {
+        assertQuery("SELECT orderstatus, a, custkey, b FROM (SELECT custkey, orderstatus, -COUNT(*) a, MAX(orderkey) b FROM ORDERS WHERE orderkey = 1 GROUP BY custkey, orderstatus) T");
+    }
+
+    @Test
+    public void testGroupAggregationOverNestedGroupByAggregation()
+            throws Exception
+    {
+        assertQuery("SELECT sum(custkey), max(orderstatus), min(c) FROM (SELECT orderstatus, custkey, COUNT(*) c FROM ORDERS GROUP BY orderstatus, custkey) T");
+    }
+
+    @Test
+    public void testDistinctMultipleFields()
+            throws Exception
+    {
+        assertQuery("SELECT DISTINCT custkey, orderstatus FROM ORDERS");
+    }
+
     @Test
     public void testArithmeticNegation()
             throws Exception
@@ -146,21 +181,21 @@ public class TestQueries
     public void testOrderByLimit()
             throws Exception
     {
-        assertQueryOrdered("SELECT custkey, orderstatus FROM ORDERS ORDER BY orderkey desc LIMIT 10");
+        assertQueryOrdered("SELECT custkey, orderstatus FROM ORDERS ORDER BY orderkey DESC LIMIT 10");
     }
 
     @Test
     public void testOrderByExpressionWithLimit()
             throws Exception
     {
-        assertQueryOrdered("SELECT custkey, orderstatus FROM ORDERS ORDER BY orderkey + 1 desc LIMIT 10");
+        assertQueryOrdered("SELECT custkey, orderstatus FROM ORDERS ORDER BY orderkey + 1 DESC LIMIT 10");
     }
 
     @Test
     public void testGroupByOrderByLimit()
             throws Exception
     {
-        assertQueryOrdered("SELECT custkey, sum(totalprice) FROM ORDERS GROUP BY custkey ORDER BY sum(totalprice) desc LIMIT 10");
+        assertQueryOrdered("SELECT custkey, SUM(totalprice) FROM ORDERS GROUP BY custkey ORDER BY SUM(totalprice) DESC LIMIT 10");
     }
 
     @Test
@@ -174,7 +209,7 @@ public class TestQueries
     public void testRepeatedAggregations()
             throws Exception
     {
-        assertQuery("SELECT sum(orderkey), sum(orderkey) FROM ORDERS");
+        assertQuery("SELECT SUM(orderkey), SUM(orderkey) FROM ORDERS");
     }
 
     @Test
@@ -199,8 +234,8 @@ public class TestQueries
     public void testAggregationWithLimit()
             throws Exception
     {
-        List<Tuple> all = computeExpected("SELECT custkey, sum(totalprice) FROM ORDERS GROUP BY custkey", FIXED_INT_64, DOUBLE);
-        List<Tuple> actual = computeActual("SELECT custkey, sum(totalprice) FROM ORDERS GROUP BY custkey LIMIT 10");
+        List<Tuple> all = computeExpected("SELECT custkey, SUM(totalprice) FROM ORDERS GROUP BY custkey", FIXED_INT_64, DOUBLE);
+        List<Tuple> actual = computeActual("SELECT custkey, SUM(totalprice) FROM ORDERS GROUP BY custkey LIMIT 10");
 
         assertEquals(actual.size(), 10);
         assertTrue(all.containsAll(actual));
@@ -362,6 +397,13 @@ public class TestQueries
                 "SELECT orderstatus, COUNT(*) FROM ORDERS GROUP BY orderstatus",
                 "SELECT orderstatus, CAST(COUNT(*) AS INTEGER) FROM orders GROUP BY orderstatus"
         );
+    }
+
+    @Test
+    public void testGroupByMultipleFields()
+            throws Exception
+    {
+        assertQuery("SELECT custkey, orderstatus, COUNT(*) FROM ORDERS GROUP BY custkey, orderstatus");
     }
 
     @Test
@@ -577,6 +619,13 @@ public class TestQueries
         assertQueryOrdered("SELECT orderstatus FROM orders ORDER BY orderkey DESC");
     }
 
+    @Test
+    public void testOrderByMultipleFields()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey, orderstatus FROM orders ORDER BY custkey DESC, orderstatus");
+    }
+
     @Test(enabled = false)
     public void testOrderByAlias()
             throws Exception
@@ -786,9 +835,11 @@ public class TestQueries
                 maxOperatorMemoryUsage
         );
 
-        return new FilterAndProjectOperator(executionPlanner.plan(plan),
+        Operator operator = executionPlanner.plan(plan);
+
+        return new FilterAndProjectOperator(operator,
                 FilterFunctions.TRUE_FUNCTION,
-                new Concat(executionPlanner.plan(plan).getTupleInfos()));
+                new Concat(operator.getTupleInfos()));
     }
 
     @SuppressWarnings("UnusedDeclaration")
