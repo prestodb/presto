@@ -124,7 +124,7 @@ public class LocalExecutionPlanner
             PlanNode source = node.getSource();
             Operator sourceOperator = plan(node.getSource());
 
-            Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
+            Map<Symbol, Input> symbolToInputMappings = mapSymbolsToInputs(source.getOutputSymbols());
 
             List<Symbol> resultSymbols = Lists.transform(node.getColumnNames(), forMap(node.getAssignments()));
             if (resultSymbols.equals(source.getOutputSymbols())) {
@@ -134,7 +134,7 @@ public class LocalExecutionPlanner
 
             List<ProjectionFunction> projections = new ArrayList<>();
             for (Symbol symbol : resultSymbols) {
-                ProjectionFunction function = ProjectionFunctions.singleColumn(types.get(symbol).getRawType(), symbolToChannelMappings.get(symbol), 0);
+                ProjectionFunction function = ProjectionFunctions.singleColumn(types.get(symbol).getRawType(), symbolToInputMappings.get(symbol));
                 projections.add(function);
             }
 
@@ -149,12 +149,12 @@ public class LocalExecutionPlanner
 
             PlanNode source = node.getSource();
 
-            Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
+            Map<Symbol, Input> symbolToInputMappings = mapSymbolsToInputs(source.getOutputSymbols());
 
             List<ProjectionFunction> projections = new ArrayList<>();
             for (int i = 0; i < node.getOutputSymbols().size(); i++) {
                 Symbol symbol = node.getOutputSymbols().get(i);
-                ProjectionFunction function = ProjectionFunctions.singleColumn(types.get(symbol).getRawType(), symbolToChannelMappings.get(symbol), 0);
+                ProjectionFunction function = ProjectionFunctions.singleColumn(types.get(symbol).getRawType(), symbolToInputMappings.get(symbol));
                 projections.add(function);
             }
 
@@ -163,7 +163,7 @@ public class LocalExecutionPlanner
                 ordering = ordering.reverse();
             }
 
-            return new TopNOperator(plan(source), (int) node.getCount(), symbolToChannelMappings.get(orderBySymbol), projections, ordering);
+            return new TopNOperator(plan(source), (int) node.getCount(), symbolToInputMappings.get(orderBySymbol).getChannel(), projections, ordering);
         }
 
         @Override
@@ -171,12 +171,12 @@ public class LocalExecutionPlanner
         {
             PlanNode source = node.getSource();
 
-            Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
+            Map<Symbol, Input> symbolToChannelMappings = mapSymbolsToInputs(source.getOutputSymbols());
 
             int[] outputChannels = new int[node.getOutputSymbols().size()];
             for (int i = 0; i < node.getOutputSymbols().size(); i++) {
                 Symbol symbol = node.getOutputSymbols().get(i);
-                outputChannels[i] = symbolToChannelMappings.get(symbol);
+                outputChannels[i] = symbolToChannelMappings.get(symbol).getChannel();
             }
 
             Preconditions.checkArgument(node.getOrderBy().size() == 1, "Order by multiple fields not yet supported");
@@ -185,7 +185,7 @@ public class LocalExecutionPlanner
             int[] sortFields = new int[] { 0 };
             boolean[] sortOrder = new boolean[] { node.getOrderings().get(orderBySymbol) == SortItem.Ordering.ASCENDING};
 
-            return new InMemoryOrderByOperator(plan(source), symbolToChannelMappings.get(orderBySymbol), outputChannels, 1_000_000, sortFields, sortOrder, maxOperatorMemoryUsage);
+            return new InMemoryOrderByOperator(plan(source), symbolToChannelMappings.get(orderBySymbol).getChannel(), outputChannels, 1_000_000, sortFields, sortOrder, maxOperatorMemoryUsage);
         }
 
         @Override
@@ -201,16 +201,14 @@ public class LocalExecutionPlanner
             PlanNode source = node.getSource();
             Operator sourceOperator = plan(source);
 
-            Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
+            Map<Symbol, Input> symbolToInputMappings = mapSymbolsToInputs(source.getOutputSymbols());
 
             List<AggregationFunctionDefinition> functionDefinitions = new ArrayList<>();
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
                 List<Input> arguments = new ArrayList<>();
                 for (Expression argument : entry.getValue().getArguments()) {
-                    int channel = symbolToChannelMappings.get(Symbol.fromQualifiedName(((QualifiedNameReference) argument).getName()));
-                    int field = 0; // TODO: support composite channels
-
-                    arguments.add(new Input(channel, field));
+                    Input input = symbolToInputMappings.get(Symbol.fromQualifiedName(((QualifiedNameReference) argument).getName()));
+                    arguments.add(input);
                 }
 
                 FunctionHandle functionHandle = node.getFunctions().get(entry.getKey());
@@ -226,7 +224,7 @@ public class LocalExecutionPlanner
                 Preconditions.checkArgument(node.getGroupBy().size() <= 1, "Only single GROUP BY key supported at this time");
                 Symbol groupBySymbol = Iterables.getOnlyElement(node.getGroupBy());
                 aggregationOperator = new HashAggregationOperator(sourceOperator,
-                        symbolToChannelMappings.get(groupBySymbol),
+                        symbolToInputMappings.get(groupBySymbol).getChannel(),
                         node.getStep(),
                         functionDefinitions,
                         100_000,
@@ -248,14 +246,14 @@ public class LocalExecutionPlanner
             PlanNode source = node.getSource();
             Operator sourceOperator = plan(source);
 
-            Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
+            Map<Symbol, Input> symboToInputMappings = mapSymbolsToInputs(source.getOutputSymbols());
 
-            FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), symbolToChannelMappings, metadata, session);
+            FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), symboToInputMappings, metadata, session);
 
             List<ProjectionFunction> projections = new ArrayList<>();
             for (int i = 0; i < node.getOutputSymbols().size(); i++) {
                 Symbol symbol = node.getOutputSymbols().get(i);
-                ProjectionFunction function = ProjectionFunctions.singleColumn(types.get(symbol).getRawType(), symbolToChannelMappings.get(symbol), 0);
+                ProjectionFunction function = ProjectionFunctions.singleColumn(types.get(symbol).getRawType(), symboToInputMappings.get(symbol));
                 projections.add(function);
             }
 
@@ -268,7 +266,7 @@ public class LocalExecutionPlanner
             PlanNode source = node.getSource();
             Operator sourceOperator = plan(node.getSource());
 
-            Map<Symbol, Integer> symbolToChannelMappings = mapSymbolsToChannels(source.getOutputSymbols());
+            Map<Symbol, Input> symbolToInputMappings = mapSymbolsToInputs(source.getOutputSymbols());
 
 
             List<ProjectionFunction> projections = new ArrayList<>();
@@ -280,10 +278,10 @@ public class LocalExecutionPlanner
                 if (expression instanceof QualifiedNameReference) {
                     // fast path when we know it's a direct symbol reference
                     Symbol reference = Symbol.fromQualifiedName(((QualifiedNameReference) expression).getName());
-                    function = ProjectionFunctions.singleColumn(types.get(reference).getRawType(), symbolToChannelMappings.get(symbol), 0);
+                    function = ProjectionFunctions.singleColumn(types.get(reference).getRawType(), symbolToInputMappings.get(symbol));
                 }
                 else {
-                    function = new InterpretedProjectionFunction(types.get(symbol), expression, symbolToChannelMappings, metadata, session);
+                    function = new InterpretedProjectionFunction(types.get(symbol), expression, symbolToInputMappings, metadata, session);
                 }
 
                 projections.add(function);
@@ -319,18 +317,18 @@ public class LocalExecutionPlanner
             Symbol first = Symbol.fromQualifiedName(((QualifiedNameReference) comparison.getLeft()).getName());
             Symbol second = Symbol.fromQualifiedName(((QualifiedNameReference) comparison.getRight()).getName());
 
-            Map<Symbol, Integer> probeMappings = mapSymbolsToChannels(node.getLeft().getOutputSymbols());
-            Map<Symbol, Integer> buildMappings = mapSymbolsToChannels(node.getRight().getOutputSymbols());
+            Map<Symbol, Input> probeMappings = mapSymbolsToInputs(node.getLeft().getOutputSymbols());
+            Map<Symbol, Input> buildMappings = mapSymbolsToInputs(node.getRight().getOutputSymbols());
 
             int probeChannel;
             int buildChannel;
             if (node.getLeft().getOutputSymbols().contains(first)) {
-                probeChannel = probeMappings.get(first);
-                buildChannel = buildMappings.get(second);
+                probeChannel = probeMappings.get(first).getChannel();
+                buildChannel = buildMappings.get(second).getChannel();
             }
             else {
-                probeChannel = probeMappings.get(second);
-                buildChannel = buildMappings.get(first);
+                probeChannel = probeMappings.get(second).getChannel();
+                buildChannel = buildMappings.get(first).getChannel();
             }
 
             SourceHashProvider hashProvider = joinHashFactory.getSourceHashProvider(node, LocalExecutionPlanner.this, buildChannel, operatorStats);
@@ -352,12 +350,12 @@ public class LocalExecutionPlanner
         }
     }
 
-    private Map<Symbol, Integer> mapSymbolsToChannels(List<Symbol> outputs)
+    private Map<Symbol, Input> mapSymbolsToInputs(List<Symbol> outputs)
     {
-        Map<Symbol, Integer> symbolToChannelMappings = new HashMap<>();
+        Map<Symbol, Input> result = new HashMap<>();
         for (int i = 0; i < outputs.size(); i++) {
-            symbolToChannelMappings.put(outputs.get(i), i);
+            result.put(outputs.get(i), new Input(i, 0)); // TODO: one symbol per channel for now
         }
-        return symbolToChannelMappings;
+        return result;
     }
 }
