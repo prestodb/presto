@@ -109,7 +109,7 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new FilterNode(source, node.getPredicate(), node.getOutputSymbols());
+                return new FilterNode(source, node.getPredicate());
             }
 
             return node;

@@ -2,6 +2,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.operator.Input;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.sql.analyzer.Session;
@@ -22,12 +23,12 @@ public class InterpretedProjectionFunction
     private final TupleInputResolver resolver = new TupleInputResolver();
     private final ExpressionInterpreter evaluator;
 
-    public InterpretedProjectionFunction(Type type, Expression expression, Map<Symbol, Integer> symbolToChannelMapping, Metadata metadata, Session session)
+    public InterpretedProjectionFunction(Type type, Expression expression, Map<Symbol, Input> symbolToInputMapping, Metadata metadata, Session session)
     {
         this.type = type;
 
         // pre-compute symbol -> input mappings and replace the corresponding nodes in the tree
-        this.expression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToChannelMapping), expression);
+        this.expression = TreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolToInputMapping), expression);
 
         evaluator = ExpressionInterpreter.expressionInterpreter(resolver, metadata, session);
     }

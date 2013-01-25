@@ -18,6 +18,7 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
@@ -227,6 +228,12 @@ public class DistributedExecutionPlanner
         public List<Partition> visitSort(SortNode node, Expression inheritedPredicate)
         {
             return node.getSource().accept(this, inheritedPredicate);
+        }
+
+        @Override
+        public List<Partition> visitSink(SinkNode node, Expression context)
+        {
+            return node.getSource().accept(this, context);
         }
 
         @Override

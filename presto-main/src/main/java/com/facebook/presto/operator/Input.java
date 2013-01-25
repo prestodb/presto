@@ -1,5 +1,6 @@
 package com.facebook.presto.operator;
 
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 
 /**
@@ -33,5 +34,29 @@ public class Input
                 .add("channel", channel)
                 .add("field", field)
                 .toString();
+    }
+
+    public static Function<Input, Integer> channelGetter()
+    {
+        return new Function<Input, Integer>()
+        {
+            @Override
+            public Integer apply(Input input)
+            {
+                return input.getChannel();
+            }
+        };
+    }
+
+    public static Function<Input, Integer> fieldGetter()
+    {
+        return new Function<Input, Integer>()
+        {
+            @Override
+            public Integer apply(Input input)
+            {
+                return input.getField();
+            }
+        };
     }
 }

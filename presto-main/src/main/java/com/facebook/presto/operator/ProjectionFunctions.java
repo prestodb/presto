@@ -19,6 +19,11 @@ public class ProjectionFunctions
         return new SingleColumnProjection(columnType, channelIndex, fieldIndex);
     }
 
+    public static ProjectionFunction singleColumn(Type columnType, Input input)
+    {
+        return new SingleColumnProjection(columnType, input.getChannel(), input.getField());
+    }
+
     public static List<TupleInfo> toTupleInfos(List<ProjectionFunction> projections)
     {
         ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
