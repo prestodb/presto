@@ -34,14 +34,14 @@ import static com.google.common.collect.Iterables.concat;
 
 /**
  * Removes all computation that does is not referenced transitively from the root of the plan
- *
+ * <p/>
  * E.g.,
- *
- * Output[$0] -> Project[$0 := $1 + $2, $3 = $4 / $5] -> ...
- *
+ * <p/>
+ * {@code Output[$0] -> Project[$0 := $1 + $2, $3 = $4 / $5] -> ...}
+ * <p/>
  * gets rewritten as
- *
- * Output[$0] -> Project[$0 := $1 + $2] -> ...
+ * <p/>
+ * {@code Output[$0] -> Project[$0 := $1 + $2] -> ...}
  */
 public class PruneUnreferencedOutputs
         extends PlanOptimizer
