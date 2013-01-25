@@ -34,25 +34,23 @@ public class VarBinaryMaxAggregation
     }
 
     @Override
-    public Slice addInput(int positionCount, Block block, Slice currentMax)
+    public Slice addInput(int positionCount, Block block, int field, Slice currentMax)
     {
         BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {
-            currentMax = addInput(cursor, currentMax);
+            currentMax = addInput(cursor, field, currentMax);
         }
         return currentMax;
     }
 
     @Override
-    public Slice addInput(BlockCursor cursor, Slice currentMax)
+    public Slice addInput(BlockCursor cursor, int field, Slice currentMax)
     {
-        // todo remove this assumption that the field is 0
-        if (cursor.isNull(0)) {
+        if (cursor.isNull(field)) {
             return currentMax;
         }
 
-        // todo remove this assumption that the field is 0
-        Slice value = cursor.getSlice(0);
+        Slice value = cursor.getSlice(field);
         if (currentMax == null) {
             return value;
         }
@@ -62,9 +60,9 @@ public class VarBinaryMaxAggregation
     }
 
     @Override
-    public Slice addIntermediate(BlockCursor cursor, Slice currentMax)
+    public Slice addIntermediate(BlockCursor cursor, int field, Slice currentMax)
     {
-        return addInput(cursor, currentMax);
+        return addInput(cursor, field, currentMax);
     }
 
     @Override

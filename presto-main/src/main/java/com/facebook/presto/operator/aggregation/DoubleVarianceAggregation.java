@@ -8,8 +8,6 @@ import com.facebook.presto.slice.Slice;
  * Generate the variance for a given set of values.
  *
  * This implements the online algorithm as described at http://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm.
- *
- * TODO - This code assumes that the values are in offset 0 of the various cursors. Remove this assumption.
  */
 public class DoubleVarianceAggregation
         extends AbstractVarianceAggregation
@@ -23,7 +21,7 @@ public class DoubleVarianceAggregation
     }
 
     @Override
-    public void addInput(int positionCount, Block block, Slice valueSlice, int valueOffset)
+    public void addInput(int positionCount, Block block, int field, Slice valueSlice, int valueOffset)
     {
         boolean hasValue = !VARIANCE_CONTEXT_INFO.isNull(valueSlice, valueOffset, 0);
         long count = hasValue ? VARIANCE_CONTEXT_INFO.getLong(valueSlice, valueOffset, 0) : 0;
@@ -33,7 +31,7 @@ public class DoubleVarianceAggregation
         BlockCursor cursor = block.cursor();
 
         while (cursor.advanceNextPosition()) {
-            if (cursor.isNull(0)) {
+            if (cursor.isNull(field)) {
                 continue;
             }
 
@@ -41,7 +39,7 @@ public class DoubleVarianceAggregation
             hasValue = true;
 
             count++;
-            double x = cursor.getDouble(0);
+            double x = cursor.getDouble(field);
             double delta = x - mean;
             mean += (delta / count);
             m2 += (delta * (x - mean));
@@ -56,11 +54,11 @@ public class DoubleVarianceAggregation
     }
 
     @Override
-    public void addInput(BlockCursor cursor, Slice valueSlice, int valueOffset)
+    public void addInput(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
     {
         boolean hasValue = !VARIANCE_CONTEXT_INFO.isNull(valueSlice, valueOffset, 0);
 
-        if (cursor.isNull(0)) {
+        if (cursor.isNull(field)) {
             return;
         }
 
@@ -69,7 +67,7 @@ public class DoubleVarianceAggregation
         double m2 = VARIANCE_CONTEXT_INFO.getDouble(valueSlice, valueOffset, 2);
 
         count++;
-        double x = cursor.getDouble(0);
+        double x = cursor.getDouble(field);
         double delta = x - mean;
         mean += (delta / count);
         m2 += (delta * (x - mean));

@@ -3,6 +3,7 @@ package com.facebook.presto.tuple;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceOutput;
 import com.facebook.presto.tuple.TupleInfo.Type;
+import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 
 import java.util.ArrayList;
@@ -134,9 +135,11 @@ public class Tuple
     @Override
     public String toString()
     {
+        String value = Joiner.on(",").useForNull("NULL").join(toValues()).replace("\n", "\\n");
         return Objects.toStringHelper(this)
                 .add("slice", slice)
                 .add("tupleInfo", tupleInfo)
+                .add("value", "{" + value + "}")
                 .toString();
     }
 }

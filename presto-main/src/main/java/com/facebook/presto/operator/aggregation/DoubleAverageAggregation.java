@@ -44,10 +44,9 @@ public class DoubleAverageAggregation
     }
 
     @Override
-    public void addInput(BlockCursor cursor, Slice valueSlice, int valueOffset)
+    public void addInput(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
     {
-        // todo remove this assumption that the field is 0
-        if (cursor.isNull(0)) {
+        if (cursor.isNull(field)) {
             return;
         }
 
@@ -58,13 +57,12 @@ public class DoubleAverageAggregation
         TUPLE_INFO.setLong(valueSlice, valueOffset, 0, TUPLE_INFO.getLong(valueSlice, valueOffset, 0) + 1);
 
         // add value to sum
-        // todo remove this assumption that the field is 0
-        double newValue = cursor.getDouble(0);
+        double newValue = cursor.getDouble(field);
         TUPLE_INFO.setDouble(valueSlice, valueOffset, 1, TUPLE_INFO.getDouble(valueSlice, valueOffset, 1) + newValue);
     }
 
     @Override
-    public void addInput(int positionCount, Block block, Slice valueSlice, int valueOffset)
+    public void addInput(int positionCount, Block block, int field, Slice valueSlice, int valueOffset)
     {
         // initialize with current value
         boolean hasNonNull = !TUPLE_INFO.isNull(valueSlice, valueOffset);
@@ -74,12 +72,10 @@ public class DoubleAverageAggregation
         // process block
         BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {
-            // todo remove this assumption that the field is 0
-            if (!cursor.isNull(0)) {
+            if (!cursor.isNull(field)) {
                 hasNonNull = true;
                 count++;
-                // todo remove this assumption that the field is 0
-                sum += cursor.getDouble(0);
+                sum += cursor.getDouble(field);
             }
         }
 
@@ -92,10 +88,9 @@ public class DoubleAverageAggregation
     }
 
     @Override
-    public void addIntermediate(BlockCursor cursor, Slice valueSlice, int valueOffset)
+    public void addIntermediate(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
     {
-        // todo remove this assumption that the field is 0
-        if (cursor.isNull(0)) {
+        if (cursor.isNull(field)) {
             return;
         }
 
@@ -103,8 +98,7 @@ public class DoubleAverageAggregation
         TUPLE_INFO.setNotNull(valueSlice, valueOffset, 0);
 
         // decode value
-        // todo remove this assumption that the field is 0
-        Slice value = cursor.getSlice(0);
+        Slice value = cursor.getSlice(field);
         long count = TUPLE_INFO.getLong(value, 0);
         double sum = TUPLE_INFO.getDouble(value, 1);
 

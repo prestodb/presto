@@ -18,21 +18,24 @@ public interface VariableWidthAggregationFunction<T>
      * Add all of the values in the specified block to the aggregation.
      * @param positionCount number of positions in this page
      * @param block the block containing values for the aggregation; null for no-arg aggregations
+     * @param field
      */
-    T addInput(int positionCount, @Nullable Block block, T currentValue);
+    T addInput(int positionCount, @Nullable Block block, int field, T currentValue);
 
     /**
      * Add the current value of the specified cursor to the aggregation.
      * @param cursor the value to add to the aggregation; null for no-arg aggregations
+     * @param field
      */
-    T addInput(@Nullable BlockCursor cursor, T currentValue);
+    T addInput(@Nullable BlockCursor cursor, int field, T currentValue);
 
     /**
      * Add the intermediate value at specified cursor to the aggregation.
      * The intermediate value is a value produced by the <code>evaluateIntermediate</code> function.
      * @param cursor the value to add to the aggregation; null for no-arg aggregations
+     * @param field
      */
-    T addIntermediate(BlockCursor cursor, T currentValue);
+    T addIntermediate(BlockCursor cursor, int field, T currentValue);
 
     /**
      * Converts the current value to an intermediate value and adds it to the specified output.

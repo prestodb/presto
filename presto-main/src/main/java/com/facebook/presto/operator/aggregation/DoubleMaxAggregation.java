@@ -40,10 +40,9 @@ public class DoubleMaxAggregation
     }
 
     @Override
-    public void addInput(BlockCursor cursor, Slice valueSlice, int valueOffset)
+    public void addInput(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
     {
-        // todo remove this assumption that the field is 0
-        if (cursor.isNull(0)) {
+        if (cursor.isNull(field)) {
             return;
         }
 
@@ -52,13 +51,12 @@ public class DoubleMaxAggregation
 
         // update current value
         double currentValue = SINGLE_DOUBLE.getDouble(valueSlice, valueOffset, 0);
-        // todo remove this assumption that the field is 0
-        double newValue = cursor.getDouble(0);
+        double newValue = cursor.getDouble(field);
         SINGLE_DOUBLE.setDouble(valueSlice, valueOffset, 0, Math.max(currentValue, newValue));
     }
 
     @Override
-    public void addInput(int positionCount, Block block, Slice valueSlice, int valueOffset)
+    public void addInput(int positionCount, Block block, int field, Slice valueSlice, int valueOffset)
     {
         // initialize
         boolean hasNonNull = !SINGLE_DOUBLE.isNull(valueSlice, valueOffset);
@@ -67,11 +65,9 @@ public class DoubleMaxAggregation
         // process block
         BlockCursor cursor = block.cursor();
         while (cursor.advanceNextPosition()) {
-            // todo remove this assumption that the field is 0
-            if (!cursor.isNull(0)) {
+            if (!cursor.isNull(field)) {
                 hasNonNull = true;
-                // todo remove this assumption that the field is 0
-                max = Math.max(max, cursor.getDouble(0));
+                max = Math.max(max, cursor.getDouble(field));
             }
         }
 
@@ -83,9 +79,9 @@ public class DoubleMaxAggregation
     }
 
     @Override
-    public void addIntermediate(BlockCursor cursor, Slice valueSlice, int valueOffset)
+    public void addIntermediate(BlockCursor cursor, int field, Slice valueSlice, int valueOffset)
     {
-        addInput(cursor, valueSlice, valueOffset);
+        addInput(cursor, field, valueSlice, valueOffset);
     }
 
     @Override
