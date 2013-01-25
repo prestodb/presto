@@ -11,7 +11,6 @@ import com.facebook.presto.util.ShardBoundedExecutor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
@@ -26,6 +25,7 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
+
 import java.net.URI;
 import java.util.Iterator;
 import java.util.List;
@@ -36,11 +36,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.importer.ImportField.sourceColumnHandleGetter;
+import static com.facebook.presto.metadata.ImportColumnHandle.columnNameGetter;
 import static com.facebook.presto.util.RetryDriver.retry;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Lists.transform;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
@@ -128,7 +131,7 @@ public class ImportManager
         }
         log.info("Dropping %d old partitions: table %d", partitionsToRemove.size(), tableId);
 
-        List<String> columns = Lists.transform(fields, ImportField.nameGetter());
+        List<String> columns = transform(transform(fields, sourceColumnHandleGetter()), columnNameGetter());
 
         for (String partition : Iterables.concat(partitionsToAdd, repairPartitions)) {
             PartitionChunkSupplier supplier = new PartitionChunkSupplier(importClientFactory, sourceName, databaseName, tableName, partition, columns);

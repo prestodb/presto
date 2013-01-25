@@ -1,73 +1,62 @@
 package com.facebook.presto.importer;
 
-import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.metadata.ImportColumnHandle;
+import com.facebook.presto.metadata.NativeColumnHandle;
 import com.google.common.base.Function;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 @Immutable
 public class ImportField
 {
-    private final long columnId;
-    private final TupleInfo.Type columnType;
-    private final String importFieldName;
+    private final ImportColumnHandle sourceColumnHandle;
+    private final NativeColumnHandle targetColumnHandle;
 
     @JsonCreator
     public ImportField(
-            @JsonProperty("columnId") long columnId,
-            @JsonProperty("columnType") TupleInfo.Type columnType,
-            @JsonProperty("importFieldName") String importFieldName)
+            @JsonProperty("sourceColumnHandle") ImportColumnHandle sourceColumnHandle,
+            @JsonProperty("targetColumnHandle") NativeColumnHandle targetColumnHandle)
     {
-        checkArgument(columnId > 0, "columnId must be greater than zero");
-        this.columnId = columnId;
-        this.columnType = checkNotNull(columnType, "columnType is null");
-        this.importFieldName = checkNotNull(importFieldName, "importFieldName is null");
+        this.sourceColumnHandle = checkNotNull(sourceColumnHandle, "sourceColumnHandle is null");
+        this.targetColumnHandle = checkNotNull(targetColumnHandle, "targetColumnHandle is null");
     }
 
     @JsonProperty
-    public long getColumnId()
+    public ImportColumnHandle getSourceColumnHandle()
     {
-        return columnId;
+        return sourceColumnHandle;
     }
 
     @JsonProperty
-    public TupleInfo.Type getColumnType()
+    public NativeColumnHandle getTargetColumnHandle()
     {
-        return columnType;
+        return targetColumnHandle;
     }
 
-    @JsonProperty
-    public String getImportFieldName()
+    public static Function<ImportField, ImportColumnHandle> sourceColumnHandleGetter()
     {
-        return importFieldName;
-    }
-
-    public static Function<ImportField, String> nameGetter()
-    {
-        return new Function<ImportField, String>()
+        return new Function<ImportField, ImportColumnHandle>()
         {
             @Override
-            public String apply(ImportField input)
+            public ImportColumnHandle apply(ImportField input)
             {
-                return input.getImportFieldName();
+                return input.getSourceColumnHandle();
             }
         };
     }
 
-    public static Function<ImportField, Type> typeGetter()
+    public static Function<ImportField, Long> targetColumnIdGetter()
     {
-        return new Function<ImportField, Type>()
+        return new Function<ImportField, Long>()
         {
             @Override
-            public Type apply(ImportField input)
+            public Long apply(ImportField input)
             {
-                return input.getColumnType();
+                return input.getTargetColumnHandle().getColumnId();
             }
         };
     }

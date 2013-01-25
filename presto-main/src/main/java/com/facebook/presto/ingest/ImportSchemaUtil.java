@@ -1,28 +1,35 @@
 package com.facebook.presto.ingest;
 
+import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ColumnMetadata;
+import com.facebook.presto.metadata.ImportColumnHandle;
 import com.facebook.presto.spi.SchemaField;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.Function;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Lists.transform;
 
 public class ImportSchemaUtil
 {
-    public static List<ColumnMetadata> createColumnMetadata(List<SchemaField> schemaFields)
+    public static List<ColumnMetadata> convertToMetadata(final String sourceName, List<SchemaField> schemaFields)
     {
-        ImmutableList.Builder<ColumnMetadata> list = ImmutableList.builder();
-        for (SchemaField field : schemaFields) {
-            checkArgument(field.getCategory() == SchemaField.Category.PRIMITIVE, "Unhandled category: %s", field.getCategory());
-            TupleInfo.Type type = getTupleType(field.getPrimitiveType());
-            list.add(new ColumnMetadata(field.getFieldName(), type));
-        }
-        return list.build();
+        return transform(schemaFields, new Function<SchemaField, ColumnMetadata>()
+        {
+            @Override
+            public ColumnMetadata apply(SchemaField field)
+            {
+                checkArgument(field.getCategory() == SchemaField.Category.PRIMITIVE, "Unhandled category: %s", field.getCategory());
+                TupleInfo.Type type = getTupleType(field.getPrimitiveType());
+                ColumnHandle handle = new ImportColumnHandle(sourceName, field.getFieldName(), field.getFieldId(), type);
+                return new ColumnMetadata(field.getFieldName(), type, handle);
+            }
+        });
     }
 
-    public static TupleInfo.Type getTupleType(SchemaField.Type type)
+    private static TupleInfo.Type getTupleType(SchemaField.Type type)
     {
         switch (type) {
             case LONG:

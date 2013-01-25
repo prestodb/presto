@@ -9,20 +9,22 @@ import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.split.ImportClientFactory;
 import com.facebook.presto.util.ShardBoundedExecutor;
-import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.importer.ImportField.sourceColumnHandleGetter;
+import static com.facebook.presto.importer.ImportField.targetColumnIdGetter;
 import static com.facebook.presto.util.RetryDriver.retry;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Lists.transform;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
 public class LocalShardManager
@@ -101,17 +103,13 @@ public class LocalShardManager
             ImportClient importClient = importClientFactory.getClient(shardImport.getSourceName());
 
             PartitionChunk chunk = shardImport.getPartitionChunk().deserialize(importClient);
-            List<Long> columnIds = getColumnIds(shardImport.getFields());
+            List<Long> targetColumnIds = transform(shardImport.getFields(), targetColumnIdGetter());
 
             ImportPartition importPartition = new ImportPartition(importClient, chunk);
+            List<ImportColumnHandle> sourceColumns = transform(shardImport.getFields(), sourceColumnHandleGetter());
+            RecordProjectOperator source = new RecordProjectOperator(importPartition, sourceColumns);
 
-            ImmutableList.Builder<ImportColumnHandle> columns = ImmutableList.builder();
-            for (ImportField field : shardImport.getFields()) {
-                columns.add(new ImportColumnHandle(shardImport.getSourceName(), field.getImportFieldName(), Ints.checkedCast(field.getColumnId()), field.getColumnType()));
-            }
-            RecordProjectOperator source = new RecordProjectOperator(importPartition, columns.build());
-
-            storageManager.importShard(shardId, columnIds, source);
+            storageManager.importShard(shardId, targetColumnIds, source);
         }
     }
 
@@ -143,14 +141,5 @@ public class LocalShardManager
                 log.error(e, "shard drop failed");
             }
         }
-    }
-
-    private List<Long> getColumnIds(List<ImportField> fields)
-    {
-        ImmutableList.Builder<Long> columnIds = ImmutableList.builder();
-        for (ImportField field : fields) {
-            columnIds.add(field.getColumnId());
-        }
-        return columnIds.build();
     }
 }

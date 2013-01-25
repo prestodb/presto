@@ -5,8 +5,8 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.importer.ImportField;
 import com.facebook.presto.importer.ImportManager;
-import com.facebook.presto.ingest.ImportSchemaUtil;
 import com.facebook.presto.metadata.ColumnMetadata;
+import com.facebook.presto.metadata.ImportColumnHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeColumnHandle;
 import com.facebook.presto.metadata.NativeTableHandle;
@@ -23,8 +23,10 @@ import java.net.URI;
 import java.util.List;
 import java.util.concurrent.Callable;
 
+import static com.facebook.presto.ingest.ImportSchemaUtil.convertToMetadata;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.util.RetryDriver.retry;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class ImportTableExecution
         implements QueryExecution
@@ -41,7 +43,7 @@ public class ImportTableExecution
     private final String sourceName;
     private final String databaseName;
     private final String tableName;
-    private String query;
+    private final String query;
     private final QueryStats queryStats = new QueryStats();
 
     ImportTableExecution(
@@ -101,8 +103,8 @@ public class ImportTableExecution
     {
         queryStats.recordExecutionStart();
 
-        String catalogName = "default";
-        String schemaName = "default";
+        String catalogName = session.getCatalog();
+        String schemaName = session.getSchema();
 
         List<SchemaField> schema = retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<List<SchemaField>>()
         {
@@ -114,13 +116,14 @@ public class ImportTableExecution
                 return importClient.getTableSchema(databaseName, tableName);
             }
         });
-        List<ColumnMetadata> columns = ImportSchemaUtil.createColumnMetadata(schema);
-        TableMetadata table = new TableMetadata(catalogName, schemaName, tableName, columns);
+
+        List<ColumnMetadata> sourceColumns = convertToMetadata(sourceName, schema);
+        TableMetadata table = new TableMetadata(catalogName, schemaName, tableName, sourceColumns);
         metadata.createTable(table);
 
         table = metadata.getTable(catalogName, schemaName, tableName);
         long tableId = ((NativeTableHandle) table.getTableHandle().get()).getTableId();
-        List<ImportField> fields = getImportFields(table.getColumns());
+        List<ImportField> fields = getImportFields(sourceColumns, table.getColumns());
 
         importManager.importTable(tableId, sourceName, databaseName, tableName, fields);
     }
@@ -136,12 +139,14 @@ public class ImportTableExecution
         // imports are global background tasks, so canceling this "scheduling" query doesn't mean anything
     }
 
-    private static List<ImportField> getImportFields(List<ColumnMetadata> columns)
+    private static List<ImportField> getImportFields(List<ColumnMetadata> sourceColumns, List<ColumnMetadata> targetColumns)
     {
+        checkArgument(sourceColumns.size() == targetColumns.size(), "column size mismatch");
         ImmutableList.Builder<ImportField> fields = ImmutableList.builder();
-        for (ColumnMetadata column : columns) {
-            long columnId = ((NativeColumnHandle) column.getColumnHandle().get()).getColumnId();
-            fields.add(new ImportField(columnId, column.getType(), column.getName()));
+        for (int i = 0; i < sourceColumns.size(); i++) {
+            ImportColumnHandle sourceColumn = (ImportColumnHandle) sourceColumns.get(i).getColumnHandle().get();
+            NativeColumnHandle targetColumn = (NativeColumnHandle) targetColumns.get(i).getColumnHandle().get();
+            fields.add(new ImportField(sourceColumn, targetColumn));
         }
         return fields.build();
     }
