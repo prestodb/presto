@@ -6,7 +6,7 @@ import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.server.ShardImport;
 import com.facebook.presto.spi.ImportClient;
-import com.facebook.presto.split.ImportClientFactory;
+import com.facebook.presto.split.ImportClientManager;
 import com.facebook.presto.util.ShardBoundedExecutor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -65,7 +65,7 @@ public class ImportManager
     private final ScheduledExecutorService shardExecutor = newScheduledThreadPool(50, threadsNamed("import-shard-%s"));
     private final PartitionOperationTracker partitionOperationTracker = new PartitionOperationTracker();
 
-    private final ImportClientFactory importClientFactory;
+    private final ImportClientManager importClientManager;
     private final ShardManager shardManager;
     private final NodeWorkerQueue nodeWorkerQueue;
     private final HttpClient httpClient;
@@ -74,14 +74,14 @@ public class ImportManager
 
     @Inject
     public ImportManager(
-            ImportClientFactory importClientFactory,
+            ImportClientManager importClientManager,
             ShardManager shardManager,
             NodeWorkerQueue nodeWorkerQueue,
             @ForImportManager HttpClient httpClient,
             JsonCodec<ShardImport> shardImportCodec,
             NodeManager nodeManager)
     {
-        this.importClientFactory = checkNotNull(importClientFactory, "importClientFactory is null");
+        this.importClientManager = checkNotNull(importClientManager, "importClientFactory is null");
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
         this.nodeWorkerQueue = checkNotNull(nodeWorkerQueue, "nodeWorkerQueue is null");
         this.httpClient = checkNotNull(httpClient, "httpClient is null");
@@ -105,7 +105,7 @@ public class ImportManager
             public Set<String> call()
                     throws Exception
             {
-                ImportClient importClient = importClientFactory.getClient(sourceName);
+                ImportClient importClient = importClientManager.getClient(sourceName);
                 return ImmutableSet.copyOf(importClient.getPartitionNames(databaseName, tableName));
             }
         });
@@ -134,7 +134,7 @@ public class ImportManager
         List<String> columns = transform(transform(fields, sourceColumnHandleGetter()), columnNameGetter());
 
         for (String partition : Iterables.concat(partitionsToAdd, repairPartitions)) {
-            PartitionChunkSupplier supplier = new PartitionChunkSupplier(importClientFactory, sourceName, databaseName, tableName, partition, columns);
+            PartitionChunkSupplier supplier = new PartitionChunkSupplier(importClientManager, sourceName, databaseName, tableName, partition, columns);
             PartitionImportJob importJob = new PartitionImportJob(tableId, sourceName, partition, supplier, fields);
             partitionBoundedExecutor.execute(PartitionMarker.from(tableId, partition), importJob);
         }

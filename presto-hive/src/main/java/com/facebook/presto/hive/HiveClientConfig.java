@@ -1,7 +1,7 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto.split;
+package com.facebook.presto.hive;
 
 import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;

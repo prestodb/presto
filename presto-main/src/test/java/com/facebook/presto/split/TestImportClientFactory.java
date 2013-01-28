@@ -1,60 +1,136 @@
 package com.facebook.presto.split;
 
-import com.facebook.presto.hive.CachingHiveClient;
-import com.facebook.presto.hive.HivePartitionChunk;
-import com.facebook.presto.hive.PathJsonDeserializer;
-import com.google.common.collect.ImmutableMap;
-import io.airlift.discovery.client.ServiceSelector;
-import io.airlift.discovery.client.testing.StaticServiceSelector;
-import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
-import org.apache.hadoop.fs.Path;
-import org.codehaus.jackson.map.JsonDeserializer;
-import org.codehaus.jackson.map.JsonSerializer;
-import org.codehaus.jackson.map.ser.ToStringSerializer;
+import com.facebook.presto.spi.ImportClient;
+import com.facebook.presto.spi.ImportClientFactory;
+import com.facebook.presto.spi.ObjectNotFoundException;
+import com.facebook.presto.spi.PartitionChunk;
+import com.facebook.presto.spi.PartitionInfo;
+import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.SchemaField;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
-import org.weakref.jmx.MBeanExporter;
-import org.weakref.jmx.testing.TestingMBeanServer;
 
-import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
+import java.util.List;
+import java.util.Map;
+
 import static io.airlift.testing.Assertions.assertInstanceOf;
 
 public class TestImportClientFactory
 {
-    private final MBeanExporter testExporter = new MBeanExporter(new TestingMBeanServer());
-
     @Test
     public void testGetClient()
             throws Exception
     {
-        ServiceSelector selector = new StaticServiceSelector(
-                serviceDescriptor("hive-metastore").addProperty("thrift", "meta1.test:9083").addProperty("name", "fuu").build(),
-                serviceDescriptor("hive-metastore").addProperty("thrift", "meta2.text:9083").addProperty("name", "fuu").build(),
-                serviceDescriptor("hive-metastore").addProperty("thrift", "meta3.text:9083").addProperty("name", "bar").build(),
-                serviceDescriptor("hive-metastore").addProperty("thrift", "missing-port").build(),
-                serviceDescriptor("hive-metastore").build());
-
-        ImportClientFactory factory = new ImportClientFactory(selector, new HiveClientConfig(), getHivePartitionChunkCodec(), testExporter);
-        assertInstanceOf(factory.getClient("hive_fuu"), CachingHiveClient.class);
-        assertInstanceOf(factory.getClient("hive_bar"), CachingHiveClient.class);
+        ImportClientManager factory = new ImportClientManager(ImmutableSet.<ImportClientFactory>of(new MockImportClientFactor("apple"), new MockImportClientFactor("banana")));
+        assertInstanceOf(factory.getClient("apple"), ImportClient.class);
+        assertInstanceOf(factory.getClient("banana"), ImportClient.class);
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "hive metastore not available for name fuu in pool general")
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Unknown source 'unknown'")
     public void testGetClientFailure()
     {
-        ServiceSelector selector = new StaticServiceSelector(
-                serviceDescriptor("hive-metastore").addProperty("thrift", "missing-port").addProperty("name", "fuu").build(),
-                serviceDescriptor("hive-metastore").build());
-
-        new ImportClientFactory(selector, new HiveClientConfig(), getHivePartitionChunkCodec(), testExporter).getClient("hive_fuu");
+        new ImportClientManager(ImmutableSet.<ImportClientFactory>of()).getClient("unknown");
     }
 
-    protected JsonCodec<HivePartitionChunk> getHivePartitionChunkCodec()
+    private class MockImportClientFactor
+            implements ImportClientFactory
     {
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>of(Path.class, PathJsonDeserializer.INSTANCE));
-        objectMapperProvider.setJsonSerializers(ImmutableMap.<Class<?>, JsonSerializer<?>>of(Path.class, ToStringSerializer.instance));
-        return new JsonCodecFactory(objectMapperProvider).jsonCodec(HivePartitionChunk.class);
+        private final String sourceName;
+
+        private MockImportClientFactor(String sourceName)
+        {
+            this.sourceName = sourceName;
+        }
+
+        @Override
+        public ImportClient createClient(String sourceName)
+        {
+            if (!this.sourceName.equals(sourceName)) {
+                return null;
+            }
+
+            return new ImportClient()
+            {
+                @Override
+                public List<String> getDatabaseNames()
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public List<String> getTableNames(String databaseName)
+                        throws ObjectNotFoundException
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public List<SchemaField> getTableSchema(String databaseName, String tableName)
+                        throws ObjectNotFoundException
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public List<SchemaField> getPartitionKeys(String databaseName, String tableName)
+                        throws ObjectNotFoundException
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public List<PartitionInfo> getPartitions(String databaseName, String tableName)
+                        throws ObjectNotFoundException
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public List<PartitionInfo> getPartitions(String databaseName, String tableName, Map<String, Object> filters)
+                        throws ObjectNotFoundException
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public List<String> getPartitionNames(String databaseName, String tableName)
+                        throws ObjectNotFoundException
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public List<PartitionChunk> getPartitionChunks(String databaseName, String tableName, String partitionName, List<String> columns)
+                        throws ObjectNotFoundException
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public Iterable<List<PartitionChunk>> getPartitionChunks(String databaseName, String tableName, List<String> partitionNames, List<String> columns)
+                        throws ObjectNotFoundException
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public RecordCursor getRecords(PartitionChunk partitionChunk)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public byte[] serializePartitionChunk(PartitionChunk partitionChunk)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public PartitionChunk deserializePartitionChunk(byte[] bytes)
+                {
+                    throw new UnsupportedOperationException();
+                }
+            };
+        }
     }
 }

@@ -4,7 +4,7 @@ import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.ObjectNotFoundException;
 import com.facebook.presto.spi.PartitionInfo;
 import com.facebook.presto.spi.SchemaField;
-import com.facebook.presto.split.ImportClientFactory;
+import com.facebook.presto.split.ImportClientManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
@@ -24,19 +24,19 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class ImportMetadata
         extends AbstractMetadata
 {
-    private final ImportClientFactory importClientFactory;
+    private final ImportClientManager importClientManager;
 
     @Inject
-    public ImportMetadata(ImportClientFactory importClientFactory)
+    public ImportMetadata(ImportClientManager importClientManager)
     {
-        this.importClientFactory = checkNotNull(importClientFactory, "importClientFactory is null");
+        this.importClientManager = checkNotNull(importClientManager, "importClientFactory is null");
     }
 
     @Override
     public TableMetadata getTable(String catalogName, String schemaName, String tableName)
     {
         checkTableName(catalogName, schemaName, tableName);
-        ImportClient client = importClientFactory.getClient(catalogName);
+        ImportClient client = importClientManager.getClient(catalogName);
 
         List<SchemaField> tableSchema = getTableSchema(client, schemaName, tableName);
 
@@ -51,7 +51,7 @@ public class ImportMetadata
     public List<QualifiedTableName> listTables(String catalogName)
     {
         checkCatalogName(catalogName);
-        ImportClient client = importClientFactory.getClient(catalogName);
+        ImportClient client = importClientManager.getClient(catalogName);
 
         ImmutableList.Builder<QualifiedTableName> list = ImmutableList.builder();
         for (String schema : getDatabaseNames(client)) {
@@ -67,7 +67,7 @@ public class ImportMetadata
     public List<QualifiedTableName> listTables(String catalogName, String schemaName)
     {
         checkSchemaName(catalogName, schemaName);
-        ImportClient client = importClientFactory.getClient(catalogName);
+        ImportClient client = importClientManager.getClient(catalogName);
 
         ImmutableList.Builder<QualifiedTableName> list = ImmutableList.builder();
         for (String table : getTableNames(client, schemaName)) {
@@ -80,7 +80,7 @@ public class ImportMetadata
     public List<TableColumn> listTableColumns(String catalogName)
     {
         checkCatalogName(catalogName);
-        ImportClient client = importClientFactory.getClient(catalogName);
+        ImportClient client = importClientManager.getClient(catalogName);
 
         ImmutableList.Builder<TableColumn> list = ImmutableList.builder();
         for (String schema : getDatabaseNames(client)) {
@@ -93,7 +93,7 @@ public class ImportMetadata
     public List<TableColumn> listTableColumns(String catalogName, String schemaName)
     {
         checkSchemaName(catalogName, schemaName);
-        ImportClient client = importClientFactory.getClient(catalogName);
+        ImportClient client = importClientManager.getClient(catalogName);
 
         ImmutableList.Builder<TableColumn> list = ImmutableList.builder();
         for (String table : getTableNames(client, schemaName)) {
@@ -106,7 +106,7 @@ public class ImportMetadata
     public List<TableColumn> listTableColumns(String catalogName, String schemaName, String tableName)
     {
         checkTableName(catalogName, schemaName, tableName);
-        ImportClient client = importClientFactory.getClient(catalogName);
+        ImportClient client = importClientManager.getClient(catalogName);
 
         List<SchemaField> tableSchema = getTableSchema(client, schemaName, tableName);
         Map<String, List<ColumnMetadata>> map = ImmutableMap.of(tableName, convertToMetadata(catalogName, tableSchema));
@@ -117,7 +117,7 @@ public class ImportMetadata
     public List<String> listTablePartitionKeys(String catalogName, String schemaName, String tableName)
     {
         checkTableName(catalogName, schemaName, tableName);
-        ImportClient client = importClientFactory.getClient(catalogName);
+        ImportClient client = importClientManager.getClient(catalogName);
 
         ImmutableList.Builder<String> list = ImmutableList.builder();
         for (SchemaField partition : getPartitionKeys(client, schemaName, tableName)) {
@@ -130,7 +130,7 @@ public class ImportMetadata
     public List<Map<String, String>> listTablePartitionValues(String catalogName, String schemaName, String tableName)
     {
         checkTableName(catalogName, schemaName, tableName);
-        ImportClient client = importClientFactory.getClient(catalogName);
+        ImportClient client = importClientManager.getClient(catalogName);
 
         ImmutableList.Builder<Map<String, String>> list = ImmutableList.builder();
         for (PartitionInfo partition : getPartitions(client, schemaName, tableName)) {

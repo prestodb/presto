@@ -14,7 +14,7 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.ObjectNotFoundException;
 import com.facebook.presto.spi.SchemaField;
-import com.facebook.presto.split.ImportClientFactory;
+import com.facebook.presto.split.ImportClientManager;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
@@ -37,7 +37,7 @@ public class ImportTableExecution
     private final String queryId;
     private final Session session;
     private final URI self;
-    private final ImportClientFactory importClientFactory;
+    private final ImportClientManager importClientManager;
     private final ImportManager importManager;
     private final Metadata metadata;
     private final String sourceName;
@@ -50,7 +50,7 @@ public class ImportTableExecution
             String queryId,
             Session session,
             URI self,
-            ImportClientFactory importClientFactory,
+            ImportClientManager importClientManager,
             ImportManager importManager,
             Metadata metadata,
             String sourceName,
@@ -61,7 +61,7 @@ public class ImportTableExecution
         this.queryId = queryId;
         this.session = session;
         this.self = self;
-        this.importClientFactory = importClientFactory;
+        this.importClientManager = importClientManager;
         this.importManager = importManager;
         this.metadata = metadata;
         this.sourceName = sourceName;
@@ -112,7 +112,7 @@ public class ImportTableExecution
             public List<SchemaField> call()
                     throws Exception
             {
-                ImportClient importClient = importClientFactory.getClient(sourceName);
+                ImportClient importClient = importClientManager.getClient(sourceName);
                 return importClient.getTableSchema(databaseName, tableName);
             }
         });
