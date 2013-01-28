@@ -14,6 +14,7 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import jline.TerminalFactory;
 import org.fusesource.jansi.Ansi;
 import org.fusesource.jansi.Ansi.Erase;
 
@@ -28,6 +29,7 @@ import static com.facebook.presto.execution.StageInfo.globalExecutionStats;
 import static com.facebook.presto.execution.StageInfo.stageOnlyExecutionStats;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.fusesource.jansi.internal.CLibrary.STDOUT_FILENO;
@@ -50,10 +52,12 @@ public class StatusPrinter
 
 /*
 
-Query 4: RUNNING, 1 nodes, 16.1s elapsed
-Splits:  707 total,  562 pending,   66 running,   79 done
-CPU user:  38.4s 2.14MB/s total,  38.4s 2.14MB/s per node
-CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
+Query 16, RUNNING, 1 node, 855 splits
+Splits:   646 pending, 34 running, 175 done
+CPU Time: 33.7s total,  191K rows/s, 16.6MB/s, 22% active
+Per Node: 2.5 parallelism,  473K rows/s, 41.1MB/s
+Parallelism: 2.5
+0:13 [6.45M rows,  560MB] [ 473K rows/s, 41.1MB/s] [=========>>           ] 20%
 
      STAGES   ROWS  ROWS/s  BYTES  BYTES/s   PEND    RUN   DONE
 0.........R  13.8M    336K  1.99G    49.5M      0      1    706
@@ -128,7 +132,6 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
                 Math.min(100, globalExecutionStats.getCompletedSplits() * 100.0 / globalExecutionStats.getSplits()));
         out.println(splitsSummary);
 
-
         if (queryClient.isDebug()) {
             // CPU Time: 565.2s total,   26K rows/s, 3.85MB/s
             Duration cpuTime = globalExecutionStats.getSplitCpuTime();
@@ -173,10 +176,26 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
 
         ExecutionStats globalExecutionStats = globalExecutionStats(outputStage);
 
+        // cap progress at 99%, otherwise it looks weird when the query is still running and it says 100%
+        int progressPercentage = min(99, (int) ((globalExecutionStats.getCompletedSplits() * 100.0) / globalExecutionStats.getSplits()));
+
         int nodes = uniqueNodes(outputStage).size();
         if (REAL_TERMINAL) {
             // blank line
             reprintLine("");
+
+            // TODO: inject this dependency properly
+            int terminalWidth = TerminalFactory.get().getWidth();
+
+            if (terminalWidth < 75) {
+                reprintLine("WARNING: Terminal");
+                reprintLine("must be at least");
+                reprintLine("80 characters wide");
+                reprintLine("");
+                reprintLine(queryInfo.getState().toString());
+                reprintLine(String.format("%s %d%%", formatTime(wallTime), progressPercentage));
+                return;
+            }
 
             // Query 10, RUNNING, 1 node, 778 splits
             String querySummary = String.format("Query %s, %s, %,d %s, %,d splits",
@@ -220,7 +239,9 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
                 reprintLine(String.format("Parallelism: %.1f", parallelism));
             }
 
-            String progressBar = formatProgressBar(42, // 42 is to keep the total progress line width <= 100 chars
+            assert terminalWidth >= 75;
+            int progressWidth = (min(terminalWidth, 100) - 75) + 17; // progress bar is 17-42 characters wide
+            String progressBar = formatProgressBar(progressWidth,
                     globalExecutionStats.getCompletedSplits(),
                     max(0, globalExecutionStats.getStartedSplits() - globalExecutionStats.getCompletedSplits()),
                     globalExecutionStats.getSplits());
@@ -233,8 +254,7 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
                     formatCountRate(globalExecutionStats.getCompletedPositionCount(), wallTime, false),
                     formatDataRate(globalExecutionStats.getCompletedDataSize(), wallTime, true),
                     progressBar,
-                    // cap progress at 99%, otherwise it looks weird when the query is still running and it says 100%
-                    Math.min(99, (int) (globalExecutionStats.getCompletedSplits() * 100.0 / globalExecutionStats.getSplits())));
+                    progressPercentage);
 
             reprintLine(progressLine);
 
@@ -299,7 +319,6 @@ CPU wall:  16.1s 5.12MB/s total,  16.1s 5.12MB/s per node
         while (nameBuilder.length() < 10) {
             nameBuilder.append('.');
         }
-
 
         StageState state = stage.getState();
         String bytesPerSecond;
