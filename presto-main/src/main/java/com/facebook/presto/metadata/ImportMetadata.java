@@ -1,22 +1,19 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.ingest.ImportSchemaUtil;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.ObjectNotFoundException;
 import com.facebook.presto.spi.PartitionInfo;
 import com.facebook.presto.spi.SchemaField;
 import com.facebook.presto.split.ImportClientFactory;
-import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import com.google.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
+import static com.facebook.presto.ingest.ImportSchemaUtil.convertToMetadata;
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
@@ -203,20 +200,6 @@ public class ImportMetadata
                     throws Exception
             {
                 return client.getPartitions(database, table);
-            }
-        });
-    }
-
-    private static List<ColumnMetadata> convertToMetadata(final String sourceName, List<SchemaField> schemaFields)
-    {
-        return Lists.transform(schemaFields, new Function<SchemaField, ColumnMetadata>()
-        {
-            @Override
-            public ColumnMetadata apply(SchemaField schemaField)
-            {
-                TupleInfo.Type type = ImportSchemaUtil.getTupleType(schemaField.getPrimitiveType());
-                ImportColumnHandle columnHandle = new ImportColumnHandle(sourceName, schemaField.getFieldName(), schemaField.getFieldId(), type);
-                return new ColumnMetadata(schemaField.getFieldName(), type, columnHandle);
             }
         });
     }
