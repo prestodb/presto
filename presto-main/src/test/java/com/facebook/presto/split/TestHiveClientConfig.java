@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.presto.hive.HiveClientConfig;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;

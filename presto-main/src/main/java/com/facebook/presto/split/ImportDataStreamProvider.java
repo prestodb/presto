@@ -18,12 +18,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class ImportDataStreamProvider
         implements DataStreamProvider
 {
-    private final ImportClientFactory importClientFactory;
+    private final ImportClientManager importClientManager;
 
     @Inject
-    public ImportDataStreamProvider(ImportClientFactory importClientFactory)
+    public ImportDataStreamProvider(ImportClientManager importClientManager)
     {
-        this.importClientFactory = checkNotNull(importClientFactory, "importClientFactory is null");
+        this.importClientManager = checkNotNull(importClientManager, "importClientFactory is null");
     }
 
     @Override
@@ -36,7 +36,7 @@ public class ImportDataStreamProvider
         checkArgument(!columns.isEmpty(), "must provide at least one column");
 
         ImportSplit importSplit = (ImportSplit) split;
-        ImportClient client = importClientFactory.getClient(importSplit.getSourceName());
+        ImportClient client = importClientManager.getClient(importSplit.getSourceName());
 
         List<ImportColumnHandle> columnHandles = IterableTransformer.on(columns)
                 .cast(ImportColumnHandle.class)

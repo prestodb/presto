@@ -70,16 +70,16 @@ public class SplitManager
 {
     private final NodeManager nodeManager;
     private final ShardManager shardManager;
-    private final ImportClientFactory importClientFactory;
+    private final ImportClientManager importClientManager;
     private final Metadata metadata;
     private final long maxSplitCount;
 
     @Inject
-    public SplitManager(NodeManager nodeManager, ShardManager shardManager, ImportClientFactory importClientFactory, Metadata metadata, QueryManagerConfig config)
+    public SplitManager(NodeManager nodeManager, ShardManager shardManager, ImportClientManager importClientManager, Metadata metadata, QueryManagerConfig config)
     {
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
-        this.importClientFactory = checkNotNull(importClientFactory, "importClientFactory is null");
+        this.importClientManager = checkNotNull(importClientManager, "importClientFactory is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.maxSplitCount = checkNotNull(config, "config is null").getMaxSplitCount();
     }
@@ -189,7 +189,7 @@ public class SplitManager
             public Iterable<List<PartitionChunk>> call()
                     throws Exception
             {
-                ImportClient importClient = importClientFactory.getClient(sourceName);
+                ImportClient importClient = importClientManager.getClient(sourceName);
                 return importClient.getPartitionChunks(databaseName, tableName, partitions, columns);
             }
         });
@@ -285,7 +285,7 @@ public class SplitManager
             public List<PartitionInfo> call()
                     throws Exception
             {
-                ImportClient importClient = importClientFactory.getClient(sourceName);
+                ImportClient importClient = importClientManager.getClient(sourceName);
                 return importClient.getPartitions(databaseName, tableName, bindings);
             }
         });
@@ -323,7 +323,7 @@ public class SplitManager
             public List<SchemaField> call()
                     throws Exception
             {
-                ImportClient client = importClientFactory.getClient(sourceName);
+                ImportClient client = importClientManager.getClient(sourceName);
                 return client.getPartitionKeys(databaseName, tableName);
             }
         });
@@ -395,7 +395,7 @@ public class SplitManager
             @Override
             public SplitAssignments apply(PartitionChunk chunk)
             {
-                ImportClient importClient = importClientFactory.getClient(sourceName);
+                ImportClient importClient = importClientManager.getClient(sourceName);
                 Split split = new ImportSplit(sourceName, SerializedPartitionChunk.create(importClient, chunk));
                 List<Node> nodes = limit(shuffle(nodeManager.getActiveDatasourceNodes(sourceName)), 3);
                 Preconditions.checkState(!nodes.isEmpty(), "No active %s data nodes", sourceName);
