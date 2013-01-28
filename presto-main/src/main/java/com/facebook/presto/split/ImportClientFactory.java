@@ -1,7 +1,9 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.hive.CachingHiveClient;
+import com.facebook.presto.hive.HiveClient;
 import com.facebook.presto.hive.HiveMetadataCache;
+import com.facebook.presto.hive.HivePartitionChunk;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.MetadataCache;
 import com.google.common.base.Throwables;
@@ -13,6 +15,7 @@ import com.google.inject.Inject;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.ServiceType;
+import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.MBeanExporter;
@@ -35,13 +38,18 @@ public class ImportClientFactory
 
     private final Cache<String, MetadataCache> metadataCaches;
     private final MBeanExporter mbeanExporter;
+    private final JsonCodec<HivePartitionChunk> partitionChunkCodec;
 
     @Inject
-    public ImportClientFactory(@ServiceType("hive-metastore") ServiceSelector selector, HiveClientConfig hiveClientConfig, MBeanExporter mbeanExporter)
+    public ImportClientFactory(@ServiceType("hive-metastore") ServiceSelector selector,
+            HiveClientConfig hiveClientConfig,
+            JsonCodec<HivePartitionChunk> partitionChunkCodec,
+            MBeanExporter mbeanExporter)
     {
         this.selector = selector;
         this.maxChunkSize = hiveClientConfig.getMaxChunkSize();
         this.metadataCaches = CacheBuilder.newBuilder().build();
+        this.partitionChunkCodec = partitionChunkCodec;
         this.mbeanExporter = mbeanExporter;
     }
 
@@ -73,6 +81,8 @@ public class ImportClientFactory
         if (metastores.isEmpty()) {
             throw new RuntimeException(String.format("hive metastore not available for name %s in pool %s", metastoreName, selector.getPool()));
         }
+        HostAndPort metastore = shuffle(metastores).get(0);
+        HiveClient hiveClient = new HiveClient(metastore.getHostText(), metastore.getPort(), maxChunkSize.toBytes(), partitionChunkCodec);
 
         MetadataCache metadataCache;
         try {
@@ -96,7 +106,6 @@ public class ImportClientFactory
             throw Throwables.propagate(e.getCause());
         }
 
-        HostAndPort metastore = shuffle(metastores).get(0);
-        return new CachingHiveClient(metastore.getHostText(), metastore.getPort(), metadataCache, maxChunkSize.toBytes());
+        return new CachingHiveClient(metadataCache, hiveClient);
     }
 }
