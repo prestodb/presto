@@ -2,6 +2,7 @@ package com.facebook.presto.cli;
 
 import com.facebook.presto.event.scribe.client.ScribeClientModule;
 import com.facebook.presto.event.scribe.payload.ScribeEventModule;
+import com.facebook.presto.hive.HiveClientModule;
 import com.facebook.presto.server.ServerMainModule;
 import com.facebook.swift.codec.guice.ThriftCodecModule;
 import com.facebook.swift.service.guice.ThriftClientModule;
@@ -46,6 +47,7 @@ public class Server
                 new ThriftClientModule(),
                 new ScribeClientModule(),
                 new ScribeEventModule(),
+                new HiveClientModule(),
                 new ServerMainModule());
 
         try {
