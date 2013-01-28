@@ -60,7 +60,7 @@ public class TpchSchema
                         createColumn("orderstatus", VARIABLE_BINARY, 2), // 3 unique
                         createColumn("totalprice", DOUBLE, 3), // High cardinality
                         createColumn("orderdate", VARIABLE_BINARY, 4), // 2400 unique
-                        createColumn("orderpriorty", VARIABLE_BINARY, 5), // 5 unique
+                        createColumn("orderpriority", VARIABLE_BINARY, 5), // 5 unique
                         createColumn("clerk", VARIABLE_BINARY, 6), // High cardinality
                         createColumn("shippriority", VARIABLE_BINARY, 7), // 1 unique
                         createColumn("comment", VARIABLE_BINARY, 8) // Arbitrary strings
