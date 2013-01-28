@@ -1,0 +1,97 @@
+package com.facebook.presto.hive;
+
+import com.google.common.base.Charsets;
+import org.testng.annotations.Test;
+
+import static com.facebook.presto.hive.NumberParser.parseDouble;
+import static com.facebook.presto.hive.NumberParser.parseLong;
+import static org.testng.Assert.assertEquals;
+
+public class TestNumberParser
+{
+    @Test
+    public void testLong()
+            throws Exception
+    {
+        assertParseLong("1");
+        assertParseLong("12");
+        assertParseLong("123");
+        assertParseLong("-1");
+        assertParseLong("-12");
+        assertParseLong("-123");
+        assertParseLong("+1");
+        assertParseLong("+12");
+        assertParseLong("+123");
+        assertParseLong("0");
+        assertParseLong("-0");
+        assertParseLong("+0");
+        assertParseLong(Long.toString(Long.MAX_VALUE));
+        assertParseLong(Long.toString(Long.MIN_VALUE));
+    }
+
+    @Test
+    public void testDouble()
+            throws Exception
+    {
+        assertParseDouble("123");
+        assertParseDouble("123.0");
+        assertParseDouble("123.456");
+        assertParseDouble("123.456e5");
+        assertParseDouble("123.456e-5");
+        assertParseDouble("123e5");
+        assertParseDouble("123e-5");
+        assertParseDouble("0");
+        assertParseDouble("0.0");
+        assertParseDouble("0.456");
+        assertParseDouble("-0");
+        assertParseDouble("-0.0");
+        assertParseDouble("-0.456");
+        assertParseDouble("-123");
+        assertParseDouble("-123.0");
+        assertParseDouble("-123.456");
+        assertParseDouble("-123.456e-5");
+        assertParseDouble("-123e5");
+        assertParseDouble("-123e-5");
+        assertParseDouble("+123");
+        assertParseDouble("+123.0");
+        assertParseDouble("+123.456");
+        assertParseDouble("+123.456e5");
+        assertParseDouble("+123.456e-5");
+        assertParseDouble("+123e5");
+        assertParseDouble("+123e-5");
+        assertParseDouble("+0");
+        assertParseDouble("+0.0");
+        assertParseDouble("+0.456");
+
+
+        assertParseDouble("NaN");
+        assertParseDouble("-Infinity");
+        assertParseDouble("Infinity");
+        assertParseDouble("+Infinity");
+
+        assertParseDouble(Double.toString(Double.MAX_VALUE));
+        assertParseDouble(Double.toString(-Double.MAX_VALUE));
+        assertParseDouble(Double.toString(Double.MIN_VALUE));
+        assertParseDouble(Double.toString(-Double.MIN_VALUE));
+    }
+
+    private void assertParseLong(String string)
+    {
+        assertEquals(parseLong(string.getBytes(Charsets.US_ASCII), 0, string.length()), Long.parseLong(string));
+
+        // verify we can parse using a non-zero offset
+        String padding = "9999";
+        String padded = padding + string + padding;
+        assertEquals(parseLong(padded.getBytes(Charsets.US_ASCII), padding.length(), string.length()), Long.parseLong(string));
+    }
+
+    private void assertParseDouble(String string)
+    {
+        assertEquals(parseDouble(string.getBytes(Charsets.US_ASCII), 0, string.length()), Double.parseDouble(string));
+
+        // verify we can parse using a non-zero offset
+        String padding = "9999";
+        String padded = padding + string + padding;
+        assertEquals(parseDouble(padded.getBytes(Charsets.US_ASCII), padding.length(), string.length()), Double.parseDouble(string));
+    }
+}

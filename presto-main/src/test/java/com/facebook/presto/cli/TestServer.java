@@ -1,5 +1,6 @@
 package com.facebook.presto.cli;
 
+import com.facebook.presto.hive.HiveClientModule;
 import com.facebook.presto.server.ServerMainModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -71,6 +72,7 @@ public class TestServer
                 new LogJmxModule(),
                 new InMemoryEventModule(),
                 new TraceTokenModule(),
+                new HiveClientModule(),
                 new ServerMainModule());
 
         server = serverInjector.getInstance(TestingHttpServer.class);
