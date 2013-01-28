@@ -4,9 +4,6 @@ package com.facebook.presto.spi;
 import java.util.List;
 import java.util.Map;
 
-/**
- * This wants to be part of the SPI at some point.
- */
 public interface MetadataCache
 {
     List<String> getDatabaseNames(ImportClient backingClient);
@@ -27,7 +24,7 @@ public interface MetadataCache
             throws ObjectNotFoundException;
 
     /**
-     * Internal Cache elements that can be exposed through JMX.
+     * @TODO This is not a great API to have. Revisit that once we have better ways to expose stats.
      */
-    Map<String, Object> getJmxExposed();
+    Map<String, Object> getMetadataCacheStats();
 }

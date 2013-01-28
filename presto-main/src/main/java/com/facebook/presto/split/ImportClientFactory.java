@@ -45,7 +45,6 @@ public class ImportClientFactory
         this.mbeanExporter = mbeanExporter;
     }
 
-
     // TODO: includes hack to support presto installations supporting multiple hive dbs
     public ImportClient getClient(String sourceName)
     {
@@ -80,13 +79,14 @@ public class ImportClientFactory
             metadataCache = metadataCaches.get(metastoreName, new Callable<MetadataCache>()
             {
                 @Override
-                public MetadataCache call() throws Exception
+                public MetadataCache call()
+                        throws Exception
                 {
-                    String jmxName=format("com.facebook.presto:type=metadatacache,group=%s", metastoreName);
+                    String jmxName = format("com.facebook.presto:type=metadatacache,group=%s", metastoreName);
                     MetadataCache cache = new HiveMetadataCache(new Duration(60.0, TimeUnit.MINUTES)); // TODO - not fixed.
-                    Map<String, Object> jmxExposed = cache.getJmxExposed();
+                    Map<String, Object> jmxExposed = cache.getMetadataCacheStats();
                     for (Map.Entry<String, Object> jmx : jmxExposed.entrySet()) {
-                        mbeanExporter.export(format("%s,name=%s",jmxName, jmx.getKey()), jmx.getValue());
+                        mbeanExporter.export(format("%s,name=%s", jmxName, jmx.getKey()), jmx.getValue());
                     }
                     return cache;
                 }
