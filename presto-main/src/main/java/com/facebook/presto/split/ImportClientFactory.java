@@ -15,15 +15,18 @@ import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.ServiceType;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.weakref.jmx.MBeanExporter;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.util.IterableUtils.shuffle;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 
 public class ImportClientFactory
 {
@@ -31,21 +34,24 @@ public class ImportClientFactory
     private final DataSize maxChunkSize;
 
     private final Cache<String, MetadataCache> metadataCaches;
+    private final MBeanExporter mbeanExporter;
 
     @Inject
-    public ImportClientFactory(@ServiceType("hive-metastore") ServiceSelector selector, HiveClientConfig hiveClientConfig)
+    public ImportClientFactory(@ServiceType("hive-metastore") ServiceSelector selector, HiveClientConfig hiveClientConfig, MBeanExporter mbeanExporter)
     {
         this.selector = selector;
         this.maxChunkSize = hiveClientConfig.getMaxChunkSize();
         this.metadataCaches = CacheBuilder.newBuilder().build();
+        this.mbeanExporter = mbeanExporter;
     }
+
 
     // TODO: includes hack to support presto installations supporting multiple hive dbs
     public ImportClient getClient(String sourceName)
     {
         checkArgument(sourceName.startsWith("hive_"), "bad source name: %s", sourceName);
 
-        String metastoreName = sourceName.split("_", 2)[1];
+        final String metastoreName = sourceName.split("_", 2)[1];
         checkArgument(!metastoreName.isEmpty(), "bad metastore name: %s", metastoreName);
 
         List<ServiceDescriptor> descriptors = ImmutableList.copyOf(selector.selectAllServices());
@@ -76,7 +82,13 @@ public class ImportClientFactory
                 @Override
                 public MetadataCache call() throws Exception
                 {
-                    return new HiveMetadataCache(new Duration(60.0, TimeUnit.MINUTES)); // TODO - not fixed.
+                    String jmxName=format("com.facebook.presto:type=metadatacache,group=%s", metastoreName);
+                    MetadataCache cache = new HiveMetadataCache(new Duration(60.0, TimeUnit.MINUTES)); // TODO - not fixed.
+                    Map<String, Object> jmxExposed = cache.getJmxExposed();
+                    for (Map.Entry<String, Object> jmx : jmxExposed.entrySet()) {
+                        mbeanExporter.export(format("%s,name=%s",jmxName, jmx.getKey()), jmx.getValue());
+                    }
+                    return cache;
                 }
             });
         }

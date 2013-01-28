@@ -4,12 +4,16 @@ import com.facebook.presto.hive.CachingHiveClient;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.testing.StaticServiceSelector;
 import org.testng.annotations.Test;
+import org.weakref.jmx.MBeanExporter;
+import org.weakref.jmx.testing.TestingMBeanServer;
 
 import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 
 public class TestImportClientFactory
 {
+    private final MBeanExporter testExporter = new MBeanExporter(new TestingMBeanServer());
+
     @Test
     public void testGetClient()
             throws Exception
@@ -21,7 +25,7 @@ public class TestImportClientFactory
                 serviceDescriptor("hive-metastore").addProperty("thrift", "missing-port").build(),
                 serviceDescriptor("hive-metastore").build());
 
-        ImportClientFactory factory = new ImportClientFactory(selector, new HiveClientConfig());
+        ImportClientFactory factory = new ImportClientFactory(selector, new HiveClientConfig(), testExporter);
         assertInstanceOf(factory.getClient("hive_fuu"), CachingHiveClient.class);
         assertInstanceOf(factory.getClient("hive_bar"), CachingHiveClient.class);
     }
@@ -33,6 +37,6 @@ public class TestImportClientFactory
                 serviceDescriptor("hive-metastore").addProperty("thrift", "missing-port").addProperty("name", "fuu").build(),
                 serviceDescriptor("hive-metastore").build());
 
-        new ImportClientFactory(selector, new HiveClientConfig()).getClient("hive_fuu");
+        new ImportClientFactory(selector, new HiveClientConfig(), testExporter).getClient("hive_fuu");
     }
 }
