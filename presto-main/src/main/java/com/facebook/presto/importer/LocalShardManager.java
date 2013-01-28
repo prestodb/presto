@@ -7,7 +7,7 @@ import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.server.ShardImport;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
-import com.facebook.presto.split.ImportClientFactory;
+import com.facebook.presto.split.ImportClientManager;
 import com.facebook.presto.util.ShardBoundedExecutor;
 import io.airlift.log.Logger;
 
@@ -35,13 +35,13 @@ public class LocalShardManager
 
     private final ExecutorService executor = newFixedThreadPool(TASKS_PER_NODE, threadsNamed("local-shard-manager-%s"));
     private final ShardBoundedExecutor<Long> shardBoundedExecutor = new ShardBoundedExecutor<>(executor);
-    private final ImportClientFactory importClientFactory;
+    private final ImportClientManager importClientManager;
     private final StorageManager storageManager;
 
     @Inject
-    public LocalShardManager(ImportClientFactory importClientFactory, StorageManager storageManager)
+    public LocalShardManager(ImportClientManager importClientManager, StorageManager storageManager)
     {
-        this.importClientFactory = checkNotNull(importClientFactory, "importClientFactory is null");
+        this.importClientManager = checkNotNull(importClientManager, "importClientFactory is null");
         this.storageManager = checkNotNull(storageManager, "storageManager is null");
     }
 
@@ -100,7 +100,7 @@ public class LocalShardManager
         private void importShard()
                 throws IOException
         {
-            ImportClient importClient = importClientFactory.getClient(shardImport.getSourceName());
+            ImportClient importClient = importClientManager.getClient(shardImport.getSourceName());
 
             PartitionChunk chunk = shardImport.getPartitionChunk().deserialize(importClient);
             List<Long> targetColumnIds = transform(shardImport.getFields(), targetColumnIdGetter());

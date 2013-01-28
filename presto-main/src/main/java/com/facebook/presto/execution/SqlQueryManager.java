@@ -7,7 +7,7 @@ import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.importer.ImportManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
-import com.facebook.presto.split.ImportClientFactory;
+import com.facebook.presto.split.ImportClientManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Session;
 import com.google.common.base.Function;
@@ -43,7 +43,7 @@ public class SqlQueryManager
     private static final Logger log = Logger.get(SqlQueryManager.class);
 
     private final ExecutorService queryExecutor;
-    private final ImportClientFactory importClientFactory;
+    private final ImportClientManager importClientManager;
     private final ImportManager importManager;
     private final Metadata metadata;
     private final NodeManager nodeManager;
@@ -62,7 +62,7 @@ public class SqlQueryManager
 
 
     @Inject
-    public SqlQueryManager(ImportClientFactory importClientFactory,
+    public SqlQueryManager(ImportClientManager importClientManager,
             ImportManager importManager,
             Metadata metadata,
             NodeManager nodeManager,
@@ -73,7 +73,7 @@ public class SqlQueryManager
             QueryManagerConfig config,
             QueryMonitor queryMonitor)
     {
-        checkNotNull(importClientFactory, "importClientFactory is null");
+        checkNotNull(importClientManager, "importClientFactory is null");
         checkNotNull(importManager, "importManager is null");
         checkNotNull(metadata, "metadata is null");
         checkNotNull(nodeManager, "nodeManager is null");
@@ -86,7 +86,7 @@ public class SqlQueryManager
 
         this.queryExecutor = Executors.newCachedThreadPool(threadsNamed("query-processor-%d"));
 
-        this.importClientFactory = importClientFactory;
+        this.importClientManager = importClientManager;
         this.importManager = importManager;
         this.metadata = metadata;
         this.nodeManager = nodeManager;
@@ -189,7 +189,7 @@ public class SqlQueryManager
             queryExecution = new ImportTableExecution(queryId,
                     session,
                     locationFactory.createQueryLocation(queryId),
-                    importClientFactory,
+                    importClientManager,
                     importManager,
                     metadata,
                     strings.get(1),

@@ -41,10 +41,10 @@ import com.facebook.presto.metadata.StorageManagerConfig;
 import com.facebook.presto.metadata.SystemTables;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
+import com.facebook.presto.spi.ImportClientFactory;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.DataStreamProvider;
-import com.facebook.presto.split.HiveClientConfig;
-import com.facebook.presto.split.ImportClientFactory;
+import com.facebook.presto.split.ImportClientManager;
 import com.facebook.presto.split.ImportDataStreamProvider;
 import com.facebook.presto.split.InternalDataStreamProvider;
 import com.facebook.presto.split.NativeDataStreamProvider;
@@ -54,6 +54,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.multibindings.Multibinder;
 import io.airlift.dbpool.H2EmbeddedDataSource;
 import io.airlift.dbpool.H2EmbeddedDataSourceConfig;
 import io.airlift.dbpool.H2EmbeddedDataSourceModule;
@@ -121,8 +122,9 @@ public class ServerMainModule
         binder.bind(InformationSchemaData.class).in(Scopes.SINGLETON);
         binder.bind(SystemTables.class).in(Scopes.SINGLETON);
 
-        binder.bind(ImportClientFactory.class).in(Scopes.SINGLETON);
-        bindConfig(binder).to(HiveClientConfig.class);
+        binder.bind(ImportClientManager.class).in(Scopes.SINGLETON);
+        // kick off binding of import client factories
+        Multibinder.newSetBinder(binder, ImportClientFactory.class);
         binder.bind(ImportMetadata.class).in(Scopes.SINGLETON);
 
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
@@ -139,7 +141,6 @@ public class ServerMainModule
         eventBinder(binder).bindEventClient(QueryCompletionEvent.class);
 
         discoveryBinder(binder).bindSelector("presto");
-        discoveryBinder(binder).bindSelector("hive-metastore");
 
         binder.bind(NodeManager.class).in(Scopes.SINGLETON);
         binder.bind(NodeWorkerQueue.class).in(Scopes.SINGLETON);
