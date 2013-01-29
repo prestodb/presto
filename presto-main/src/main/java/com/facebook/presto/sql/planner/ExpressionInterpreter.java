@@ -111,6 +111,11 @@ public class ExpressionInterpreter
     @Override
     protected Object visitQualifiedNameReference(QualifiedNameReference node, Void context)
     {
+        if (node.getName().getPrefix().isPresent()) {
+            // not a symbol
+            return node;
+        }
+
         Symbol symbol = Symbol.fromQualifiedName(node.getName());
         return symbolResolver.getValue(symbol);
     }

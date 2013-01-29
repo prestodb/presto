@@ -566,6 +566,20 @@ public class TestQueries
     }
 
     @Test
+    public void testJoinWithConstantExpression()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND 123 = 123");
+    }
+
+    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = ".*not supported.*")
+    public void testJoinOnConstantExpression()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON 123 = 123");
+    }
+
+    @Test
     public void testJoinUsing()
             throws Exception
     {
