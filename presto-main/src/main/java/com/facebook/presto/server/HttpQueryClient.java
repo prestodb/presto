@@ -34,6 +34,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Iterables.transform;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
@@ -48,7 +49,6 @@ public class HttpQueryClient
     private final AsyncHttpClient httpClient;
     private final URI queryLocation;
     private final JsonCodec<QueryInfo> queryInfoCodec;
-    private final JsonCodec<TaskInfo> taskInfoCodec;
     private final boolean debug;
     private final AtomicReference<QueryInfo> finalQueryInfo = new AtomicReference<>();
     private final AtomicBoolean canceled = new AtomicBoolean();
@@ -56,18 +56,15 @@ public class HttpQueryClient
     public HttpQueryClient(ClientSession session,
             String query,
             AsyncHttpClient httpClient,
-            JsonCodec<QueryInfo> queryInfoCodec,
-            JsonCodec<TaskInfo> taskInfoCodec)
+            JsonCodec<QueryInfo> queryInfoCodec)
     {
         checkNotNull(session, "session is null");
         checkNotNull(query, "query is null");
         checkNotNull(httpClient, "httpClient is null");
         checkNotNull(queryInfoCodec, "queryInfoCodec is null");
-        checkNotNull(taskInfoCodec, "taskInfoCodec is null");
 
         this.httpClient = httpClient;
         this.queryInfoCodec = queryInfoCodec;
-        this.taskInfoCodec = taskInfoCodec;
         this.debug = session.isDebug();
 
         URI queryUri = HttpUriBuilder.uriBuilderFrom(session.getServer()).appendPath("/v1/query").build();
@@ -166,23 +163,26 @@ public class HttpQueryClient
         }
 
         StageInfo outputStage = queryInfo.getOutputStage();
-        return new QueryDriversOperator(10, outputStage.getTupleInfos(), Iterables.transform(outputStage.getTasks(), new Function<TaskInfo, QueryDriverProvider>()
-        {
-            @Override
-            public QueryDriverProvider apply(TaskInfo taskInfo)
-            {
-                Preconditions.checkState(taskInfo.getOutputBuffers().size() == 1,
-                        "Expected a single output buffer for task %s, but found %s",
-                        taskInfo.getTaskId(),
-                        taskInfo.getOutputBuffers());
+        return new ExchangeOperator(httpClient,
+                outputStage.getTupleInfos(),
+                100,
+                10,
+                3,
+                transform(outputStage.getTasks(),
+                        new Function<TaskInfo, URI>()
+                        {
+                            @Override
+                            public URI apply(TaskInfo taskInfo)
+                            {
+                                Preconditions.checkState(taskInfo.getOutputBuffers().size() == 1,
+                                        "Expected a single output buffer for task %s, but found %s",
+                                        taskInfo.getTaskId(),
+                                        taskInfo.getOutputBuffers());
 
-                return new HttpTaskClient(taskInfo.getTaskId(),
-                        taskInfo.getSelf(),
-                        Iterables.getOnlyElement(taskInfo.getOutputBuffers()).getBufferId(),
-                        httpClient,
-                        taskInfoCodec);
-            }
-        }));
+                                String bufferId = Iterables.getOnlyElement(taskInfo.getOutputBuffers()).getBufferId();
+                                return uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(bufferId).build();
+                            }
+                        }));
     }
 
     public boolean isCanceled()
