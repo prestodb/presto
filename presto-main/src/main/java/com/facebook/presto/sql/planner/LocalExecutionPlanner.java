@@ -38,7 +38,6 @@ import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
-import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -338,26 +337,15 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitJoin(JoinNode node, Void context)
         {
-            ComparisonExpression comparison = (ComparisonExpression) node.getCriteria();
-            Symbol first = Symbol.fromQualifiedName(((QualifiedNameReference) comparison.getLeft()).getName());
-            Symbol second = Symbol.fromQualifiedName(((QualifiedNameReference) comparison.getRight()).getName());
+            Preconditions.checkArgument(node.getCriteria().size() == 1, "Joining by multiple conditions not yet supported");
 
-            Symbol left;
-            Symbol right;
-            if (node.getLeft().getOutputSymbols().contains(first)) {
-                left = first;
-                right = second;
-            }
-            else {
-                left = second;
-                right = first;
-            }
+            JoinNode.EquiJoinClause clause = Iterables.getOnlyElement(node.getCriteria());
 
             PhysicalOperation leftSource = node.getLeft().accept(this, context);
-            int probeChannel = leftSource.getLayout().get(left).getChannel();
+            int probeChannel = leftSource.getLayout().get(clause.getLeft()).getChannel();
 
             PhysicalOperation rightSource = node.getRight().accept(this, context);
-            int buildChannel = rightSource.getLayout().get(right).getChannel();
+            int buildChannel = rightSource.getLayout().get(clause.getRight()).getChannel();
 
             Preconditions.checkState(leftSource.getOperator().getTupleInfos().get(probeChannel).getFieldCount() == 1 &&
                     rightSource.getOperator().getTupleInfos().get(buildChannel).getFieldCount() == 1,

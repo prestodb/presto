@@ -5,6 +5,8 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.ExpressionFormatter;
+import com.facebook.presto.sql.ExpressionUtils;
+import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
@@ -72,7 +74,6 @@ import static com.facebook.presto.sql.tree.QueryUtil.selectAll;
 import static com.facebook.presto.sql.tree.QueryUtil.selectList;
 import static com.facebook.presto.sql.tree.QueryUtil.table;
 import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
-import static com.google.common.base.Predicates.and;
 import static com.google.common.base.Predicates.compose;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.instanceOf;
@@ -601,68 +602,77 @@ public class Analyzer
                 throw new SemanticException(node, "Only inner joins are supported");
             }
 
-            TupleDescriptor left = process(node.getLeft(), context);
-            TupleDescriptor right = process(node.getRight(), context);
+            TupleDescriptor leftTuple = process(node.getLeft(), context);
+            TupleDescriptor rightTuple = process(node.getRight(), context);
 
-            TupleDescriptor descriptor = new TupleDescriptor(ImmutableList.copyOf(Iterables.concat(left.getFields(), right.getFields())));
-
-            AnalyzedExpression analyzedCriteria;
+            TupleDescriptor descriptor = new TupleDescriptor(ImmutableList.copyOf(Iterables.concat(leftTuple.getFields(), rightTuple.getFields())));
 
             JoinCriteria criteria = node.getCriteria();
             if (criteria instanceof NaturalJoin) {
                 throw new SemanticException(node, "Natural join not supported");
             }
             else if (criteria instanceof JoinUsing) {
+                // TODO: implement proper "using" semantics with respect to output columns
                 List<String> columns = ((JoinUsing) criteria).getColumns();
-                if (columns.size() > 1) {
-                    throw new SemanticException(node, "Only single-column join criteria supported at this time");
+
+                ImmutableList.Builder<AnalyzedJoinClause> clauses = ImmutableList.builder();
+                for (String column : columns) {
+                    AnalyzedExpression left = new ExpressionAnalyzer(metadata).analyze(new QualifiedNameReference(new QualifiedName(column)), leftTuple);
+                    AnalyzedExpression right = new ExpressionAnalyzer(metadata).analyze(new QualifiedNameReference(new QualifiedName(column)), rightTuple);
+
+                    clauses.add(new AnalyzedJoinClause(left, right));
                 }
-
-                String column = Iterables.getOnlyElement(columns);
-                Field leftField = resolveSingleField(node, left, column);
-                Field rightField = resolveSingleField(node, right, column);
-
-                Expression expression = new ComparisonExpression(ComparisonExpression.Type.EQUAL,
-                        new QualifiedNameReference(leftField.getName()),
-                        new QualifiedNameReference(rightField.getName()));
-
-                analyzedCriteria = new ExpressionAnalyzer(metadata)
-                        .analyze(expression, descriptor);
+                context.registerJoin(node, clauses.build());
+                return descriptor;
             }
             else if (criteria instanceof JoinOn) {
-                analyzedCriteria = new ExpressionAnalyzer(metadata)
-                        .analyze(((JoinOn) criteria).getExpression(), descriptor);
+                // verify the types are correct, etc
+                new ExpressionAnalyzer(metadata).analyze(((JoinOn) criteria).getExpression(), descriptor);
 
-                Expression expression = analyzedCriteria.getRewrittenExpression();
-                if (!(expression instanceof ComparisonExpression)) {
-                    throw new SemanticException(node, "Non-equi joins not supported");
+                ImmutableList.Builder<AnalyzedJoinClause> clauses = ImmutableList.builder();
+                for (Expression conjunct : ExpressionUtils.extractConjuncts(((JoinOn) criteria).getExpression())) {
+                    if (!(conjunct instanceof ComparisonExpression)) {
+                        throw new SemanticException(node, "Non-equi joins not supported");
+                    }
+
+                    ComparisonExpression comparison = (ComparisonExpression) conjunct;
+                    if (comparison.getType() != ComparisonExpression.Type.EQUAL) {
+                        throw new SemanticException(node, "Non-equi joins not supported");
+                    }
+
+                    AnalyzedExpression first = new ExpressionAnalyzer(metadata).analyze(comparison.getLeft(), descriptor);
+                    Set<Symbol> firstDependencies = DependencyExtractor.extract(first.getRewrittenExpression());
+
+                    AnalyzedExpression second = new ExpressionAnalyzer(metadata).analyze(comparison.getRight(), descriptor);
+                    Set<Symbol> secondDependencies = DependencyExtractor.extract(second.getRewrittenExpression());
+
+                    Set<Symbol> leftSymbols = leftTuple.getSymbols().keySet();
+                    Set<Symbol> rightSymbols = rightTuple.getSymbols().keySet();
+
+                    AnalyzedExpression leftExpression;
+                    AnalyzedExpression rightExpression;
+                    if (leftSymbols.containsAll(firstDependencies) && rightSymbols.containsAll(secondDependencies)) {
+                        leftExpression = first;
+                        rightExpression = second;
+                    }
+                    else if (leftSymbols.containsAll(secondDependencies) && rightSymbols.containsAll(firstDependencies)) {
+                        leftExpression = second;
+                        rightExpression = first;
+                    }
+                    else {
+                        // must have a complex expression that involves both tuples on one side of the comparison expression (e.g., coalesce(left.x, right.x) = 1)
+                        throw new SemanticException(node, "Non-equi joins not supported");
+                    }
+
+                    clauses.add(new AnalyzedJoinClause(leftExpression, rightExpression));
                 }
 
-                ComparisonExpression comparison = (ComparisonExpression) expression;
-                if (comparison.getType() != ComparisonExpression.Type.EQUAL || !(comparison.getLeft() instanceof QualifiedNameReference) || !(comparison.getRight() instanceof QualifiedNameReference)) {
-                    throw new SemanticException(node, "Non-equi joins not supported");
-                }
+                context.registerJoin(node, clauses.build());
+                return descriptor;
             }
             else {
                 throw new UnsupportedOperationException("unsupported join criteria: " + criteria.getClass().getName());
             }
-
-            context.registerJoin(node, analyzedCriteria);
-
-            return descriptor;
-        }
-
-        private Field resolveSingleField(Node node, TupleDescriptor descriptor, String column)
-        {
-            List<Field> matches = descriptor.resolve(QualifiedName.of(column));
-            if (matches.isEmpty()) {
-                throw new SemanticException(node, "Attribute '%s' cannot be resolved", column);
-            }
-            else if (matches.size() > 1) {
-                throw new SemanticException(node, "Attribute '%s' is ambiguous. Possible matches: %s", column, Iterables.transform(matches, nameGetter()));
-            }
-
-            return Iterables.getOnlyElement(matches);
         }
     }
 }
