@@ -35,6 +35,8 @@ public class OperatorStats
     private long cpuStartTime;
     private long userStartTime;
 
+    private long exchangeWaitTime;
+
     private boolean finished;
 
     public OperatorStats()
@@ -95,6 +97,14 @@ public class OperatorStats
         }
 
         updateTimings();
+    }
+
+    public void addExchangeWaitTime(Duration duration)
+    {
+        if (taskOutput == null) {
+            return;
+        }
+        taskOutput.getStats().addExchangeWaitTime(duration);
     }
 
     public void start()

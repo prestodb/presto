@@ -2,7 +2,6 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.cli.ClientSession;
 import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.tuple.TupleInfo;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -48,17 +47,14 @@ public class ExecuteResource
 {
     private final AsyncHttpClient httpClient;
     private final JsonCodec<QueryInfo> queryInfoCodec;
-    private final JsonCodec<TaskInfo> taskInfoCodec;
 
     @Inject
     public ExecuteResource(
             @ForExecute AsyncHttpClient httpClient,
-            JsonCodec<QueryInfo> queryInfoCodec,
-            JsonCodec<TaskInfo> taskInfoCodec)
+            JsonCodec<QueryInfo> queryInfoCodec)
     {
         this.httpClient = checkNotNull(httpClient, "httpClient is null");
         this.queryInfoCodec = checkNotNull(queryInfoCodec, "queryInfoCodec is null");
-        this.taskInfoCodec = checkNotNull(taskInfoCodec, "taskInfoCodec is null");
     }
 
     @POST
@@ -75,7 +71,7 @@ public class ExecuteResource
         URI uri = uriInfo.getRequestUriBuilder().replacePath("/").replaceQuery("").build();
         ClientSession session = new ClientSession(uri, user, catalog, schema, false);
 
-        HttpQueryClient queryClient = new HttpQueryClient(session, query, httpClient, queryInfoCodec, taskInfoCodec);
+        HttpQueryClient queryClient = new HttpQueryClient(session, query, httpClient, queryInfoCodec);
 
         QueryInfo queryInfo = waitForResults(queryClient);
         Operator operator = queryClient.getResultsOperator();

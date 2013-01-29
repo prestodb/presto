@@ -2,7 +2,6 @@ package com.facebook.presto.jdbc;
 
 import com.facebook.presto.cli.ClientSession;
 import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.server.HttpQueryClient;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -32,16 +31,12 @@ public class QueryExecutor
 {
     private final ExecutorService executor = Executors.newCachedThreadPool();
     private final JsonCodec<QueryInfo> queryInfoCodec;
-    private final JsonCodec<TaskInfo> taskInfoCodec;
     private final AsyncHttpClient httpClient;
 
-    public QueryExecutor(String userAgent,
-            JsonCodec<QueryInfo> queryInfoCodec,
-            JsonCodec<TaskInfo> taskInfoCodec)
+    public QueryExecutor(String userAgent, JsonCodec<QueryInfo> queryInfoCodec)
     {
         checkNotNull(userAgent, "userAgent is null");
         this.queryInfoCodec = checkNotNull(queryInfoCodec, "queryInfoCodec is null");
-        this.taskInfoCodec = checkNotNull(taskInfoCodec, "taskInfoCodec is null");
         this.httpClient = new ApacheAsyncHttpClient(new HttpClientConfig()
                 .setConnectTimeout(new Duration(1, TimeUnit.DAYS))
                 .setReadTimeout(new Duration(10, TimeUnit.DAYS)),
@@ -50,7 +45,7 @@ public class QueryExecutor
 
     public HttpQueryClient startQuery(ClientSession session, String query)
     {
-        return new HttpQueryClient(session, query, httpClient, queryInfoCodec, taskInfoCodec);
+        return new HttpQueryClient(session, query, httpClient, queryInfoCodec);
     }
 
     @PreDestroy
@@ -65,8 +60,7 @@ public class QueryExecutor
     {
         JsonCodecFactory codecs = createCodecFactory();
         JsonCodec<QueryInfo> queryInfoCodec = codecs.jsonCodec(QueryInfo.class);
-        JsonCodec<TaskInfo> taskInfoCodec = codecs.jsonCodec(TaskInfo.class);
-        return new QueryExecutor(userAgent, queryInfoCodec, taskInfoCodec);
+        return new QueryExecutor(userAgent, queryInfoCodec);
     }
 
     private static JsonCodecFactory createCodecFactory()

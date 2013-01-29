@@ -22,7 +22,10 @@ public class TestQueryManagerConfig
                 .setMaxQueryAge(new Duration(15, TimeUnit.MINUTES))
                 .setClientTimeout(new Duration(1, TimeUnit.MINUTES))
                 .setMaxOperatorMemoryUsage(new DataSize(256, Unit.MEGABYTE))
-                .setMaxSplitCount(100_000));
+                .setMaxSplitCount(100_000)
+                .setExchangeMaxBufferedPages(100)
+                .setExchangeExpectedPagesPerRequest(10)
+                .setExchangeConcurrentRequestMultiplier(3));
     }
 
     @Test
@@ -36,6 +39,9 @@ public class TestQueryManagerConfig
                 .put("query.client.timeout", "10s")
                 .put("query.max-age", "30s")
                 .put("query.max-splits", "100")
+                .put("exchange.page-buffer-max", "11")
+                .put("exchange.expected-pages-per-request", "12")
+                .put("exchange.concurrent-request-multiplier", "13")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -45,7 +51,10 @@ public class TestQueryManagerConfig
                 .setMaxQueryAge(new Duration(30, TimeUnit.SECONDS))
                 .setClientTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setImportsEnabled(false)
-                .setMaxSplitCount(100);
+                .setMaxSplitCount(100)
+                .setExchangeMaxBufferedPages(11)
+                .setExchangeExpectedPagesPerRequest(12)
+                .setExchangeConcurrentRequestMultiplier(13);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

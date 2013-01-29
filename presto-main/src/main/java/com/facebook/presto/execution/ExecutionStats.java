@@ -30,32 +30,36 @@ public class ExecutionStats
     @GuardedBy("this")
     private DateTime endTime;
 
-    private final AtomicInteger splits;
-    private final AtomicInteger startedSplits;
-    private final AtomicInteger completedSplits;
+    private final AtomicInteger splits = new AtomicInteger();
+    private final AtomicInteger startedSplits = new AtomicInteger();
+    private final AtomicInteger completedSplits = new AtomicInteger();
 
     @GuardedBy("this")
-    private Duration splitWallTime;
+    private Duration splitWallTime = ZERO_DURATION;
     @GuardedBy("this")
-    private Duration splitCpuTime;
+    private Duration splitCpuTime = ZERO_DURATION;
     @GuardedBy("this")
-    private Duration splitUserTime;
+    private Duration splitUserTime = ZERO_DURATION;
 
     @GuardedBy("this")
-    private DataSize inputDataSize;
-    @GuardedBy("this")
-    private DataSize completedDataSize;
-
-    private final AtomicLong inputPositionCount;
-    private final AtomicLong completedPositionCount;
+    private Duration exchangeWaitTime = ZERO_DURATION;
 
     @GuardedBy("this")
-    private DataSize outputDataSize;
-    private final AtomicLong outputPositionCount;
+    private DataSize inputDataSize = ZERO_SIZE;
+    @GuardedBy("this")
+    private DataSize completedDataSize = ZERO_SIZE;
+
+    private final AtomicLong inputPositionCount = new AtomicLong();
+    private final AtomicLong completedPositionCount = new AtomicLong();
+
+    @GuardedBy("this")
+    private DataSize outputDataSize = ZERO_SIZE;
+    private final AtomicLong outputPositionCount = new AtomicLong();
 
     public ExecutionStats()
     {
-        this(DateTime.now(), null, DateTime.now(), null, 0, 0, 0, ZERO_DURATION, ZERO_DURATION, ZERO_DURATION, ZERO_SIZE, ZERO_SIZE, 0, 0, ZERO_SIZE, 0);
+        createTime = DateTime.now();
+        lastHeartBeat = DateTime.now();
     }
 
     @JsonCreator
@@ -70,6 +74,7 @@ public class ExecutionStats
             @JsonProperty("splitWallTime") Duration splitWallTime,
             @JsonProperty("splitCpuTime") Duration splitCpuTime,
             @JsonProperty("splitUserTime") Duration splitUserTime,
+            @JsonProperty("exchangeWaitTime") Duration exchangeWaitTime,
             @JsonProperty("inputDataSize") DataSize inputDataSize,
             @JsonProperty("completedDataSize") DataSize completedDataSize,
             @JsonProperty("inputPositionCount") long inputPositionCount,
@@ -81,18 +86,19 @@ public class ExecutionStats
         this.executionStartTime = executionStartTime;
         this.lastHeartBeat = lastHeartBeat;
         this.endTime = endTime;
-        this.splits = new AtomicInteger(splits);
-        this.startedSplits = new AtomicInteger(startedSplits);
-        this.completedSplits = new AtomicInteger(completedSplits);
+        this.splits.addAndGet(splits);
+        this.startedSplits.addAndGet(startedSplits);
+        this.completedSplits.addAndGet(completedSplits);
         this.splitWallTime = splitWallTime;
         this.splitCpuTime = splitCpuTime;
         this.splitUserTime = splitUserTime;
+        this.exchangeWaitTime = exchangeWaitTime;
         this.inputDataSize = inputDataSize;
-        this.inputPositionCount = new AtomicLong(inputPositionCount);
+        this.inputPositionCount.addAndGet(inputPositionCount);
         this.completedDataSize = completedDataSize;
-        this.completedPositionCount = new AtomicLong(completedPositionCount);
+        this.completedPositionCount.addAndGet(completedPositionCount);
         this.outputDataSize = outputDataSize;
-        this.outputPositionCount = new AtomicLong(outputPositionCount);
+        this.outputPositionCount.addAndGet(outputPositionCount);
     }
 
     @JsonProperty
@@ -153,6 +159,12 @@ public class ExecutionStats
     public synchronized Duration getSplitUserTime()
     {
         return splitUserTime;
+    }
+
+    @JsonProperty
+    public synchronized Duration getExchangeWaitTime()
+    {
+        return exchangeWaitTime;
     }
 
     @JsonProperty
@@ -221,6 +233,11 @@ public class ExecutionStats
         splitUserTime = new Duration(splitUserTime.toMillis() + duration.toMillis(), TimeUnit.MILLISECONDS);
     }
 
+    public synchronized void addExchangeWaitTime(Duration duration)
+    {
+        exchangeWaitTime = new Duration(exchangeWaitTime.toMillis() + duration.toMillis(), TimeUnit.MILLISECONDS);
+    }
+
     public void addInputPositions(long inputPositions)
     {
         this.inputPositionCount.addAndGet(inputPositions);
@@ -275,6 +292,7 @@ public class ExecutionStats
         addSplitWallTime(stats.getSplitWallTime());
         addSplitCpuTime(stats.getSplitCpuTime());
         addSplitUserTime(stats.getSplitUserTime());
+        addExchangeWaitTime(stats.getExchangeWaitTime());
         addInputDataSize(stats.getInputDataSize());
         inputPositionCount.addAndGet(stats.getInputPositionCount());
         addCompletedDataSize(stats.getCompletedDataSize());

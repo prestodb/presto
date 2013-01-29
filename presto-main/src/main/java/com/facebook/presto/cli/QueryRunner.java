@@ -1,7 +1,6 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.server.HttpQueryClient;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -32,18 +31,15 @@ public class QueryRunner
 {
     private final ExecutorService executor = Executors.newCachedThreadPool();
     private final JsonCodec<QueryInfo> queryInfoCodec;
-    private final JsonCodec<TaskInfo> taskInfoCodec;
     private final ClientSession session;
     private final AsyncHttpClient httpClient;
 
     public QueryRunner(
             ClientSession session,
-            JsonCodec<QueryInfo> queryInfoCodec,
-            JsonCodec<TaskInfo> taskInfoCodec)
+            JsonCodec<QueryInfo> queryInfoCodec)
     {
         this.session = checkNotNull(session, "session is null");
         this.queryInfoCodec = checkNotNull(queryInfoCodec, "queryInfoCodec is null");
-        this.taskInfoCodec = checkNotNull(taskInfoCodec, "taskInfoCodec is null");
         this.httpClient = new ApacheAsyncHttpClient(new HttpClientConfig()
                 .setConnectTimeout(new Duration(1, TimeUnit.DAYS))
                 .setReadTimeout(new Duration(10, TimeUnit.DAYS)));
@@ -57,7 +53,7 @@ public class QueryRunner
     public Query startQuery(String query)
     {
         Preconditions.checkNotNull(query, "query is null");
-        HttpQueryClient client = new HttpQueryClient(session, query, httpClient, queryInfoCodec, taskInfoCodec);
+        HttpQueryClient client = new HttpQueryClient(session, query, httpClient, queryInfoCodec);
         return new Query(client);
     }
 
@@ -73,8 +69,7 @@ public class QueryRunner
     {
         JsonCodecFactory codecs = createCodecFactory();
         JsonCodec<QueryInfo> queryInfoCodec = codecs.jsonCodec(QueryInfo.class);
-        JsonCodec<TaskInfo> taskInfoCodec = codecs.jsonCodec(TaskInfo.class);
-        return new QueryRunner(session, queryInfoCodec, taskInfoCodec);
+        return new QueryRunner(session, queryInfoCodec);
     }
 
     private static JsonCodecFactory createCodecFactory()

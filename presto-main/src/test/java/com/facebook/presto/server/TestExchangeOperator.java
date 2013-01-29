@@ -41,17 +41,20 @@ import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.json.JsonModule;
 import io.airlift.node.testing.TestingNodeModule;
+import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
+import java.net.URI;
 
 import static com.facebook.presto.server.MockQueryManager.TUPLE_INFOS;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.preparePut;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -59,7 +62,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class TestHttpQueryProvider
+public class TestExchangeOperator
 {
     private AsyncHttpClient httpClient;
     private TestingHttpServer server1;
@@ -124,17 +127,20 @@ public class TestHttpQueryProvider
         if (server3 != null) {
             server3.stop();
         }
+        if (httpClient != null) {
+            httpClient.close();
+        }
     }
 
     @Test
     public void testQuery()
             throws Exception
     {
-        QueryDriversOperator operator = new QueryDriversOperator(10,
+        ExchangeOperator operator = new ExchangeOperator(httpClient,
                 TUPLE_INFOS,
-                createHttpQueryProvider(server1),
-                createHttpQueryProvider(server2),
-                createHttpQueryProvider(server3)
+                scheduleTask(server1),
+                scheduleTask(server2),
+                scheduleTask(server3)
         );
 
         int count = 0;
@@ -153,11 +159,11 @@ public class TestHttpQueryProvider
     public void testCancel()
             throws Exception
     {
-        QueryDriversOperator operator = new QueryDriversOperator(10,
+        ExchangeOperator operator = new ExchangeOperator(httpClient,
                 TUPLE_INFOS,
-                createHttpQueryProvider(server1),
-                createHttpQueryProvider(server2),
-                createHttpQueryProvider(server3)
+                scheduleTask(server1),
+                scheduleTask(server2),
+                scheduleTask(server3)
         );
 
         int count = 0;
@@ -180,7 +186,8 @@ public class TestHttpQueryProvider
         assertFalse(iterator.hasNext());
     }
 
-    private HttpTaskClient createHttpQueryProvider(TestingHttpServer httpServer)
+    private URI scheduleTask(TestingHttpServer httpServer)
+            throws Exception
     {
         PlanFragment planFragment = new PlanFragment(new PlanFragmentId("32"), false, ImmutableMap.<Symbol, Type>of(), new ExchangeNode(new PlanNodeId("1"), new PlanFragmentId("22"), ImmutableList.<Symbol>of()));
 
@@ -207,11 +214,8 @@ public class TestHttpQueryProvider
                 response.getStatusMessage());
         TaskInfo taskInfo = response.getValue();
 
-        // schedule table scan task on remote node
-        return new HttpTaskClient(taskInfo.getTaskId(),
-                taskInfo.getSelf(),
-                "out",
-                httpClient,
-                jsonCodec(TaskInfo.class));
+        Assert.assertEquals(taskInfo.getOutputBuffers().size(), 1);
+        String bufferId = taskInfo.getOutputBuffers().get(0).getBufferId();
+        return uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(bufferId).build();
     }
 }

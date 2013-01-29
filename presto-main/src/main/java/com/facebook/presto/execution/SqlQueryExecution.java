@@ -6,7 +6,6 @@ package com.facebook.presto.execution;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
-import com.facebook.presto.server.HttpTaskClient;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.AnalysisResult;
 import com.facebook.presto.sql.analyzer.Analyzer;
@@ -29,10 +28,8 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -51,7 +48,6 @@ import static com.facebook.presto.execution.StageInfo.stageStateGetter;
 import static com.facebook.presto.sql.planner.Partition.nodeIdentifierGetter;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.any;
-import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 
 @ThreadSafe
@@ -394,45 +390,4 @@ public class SqlQueryExecution
             }
         };
     }
-
-    private static void waitForRunning(List<HttpTaskClient> taskClients)
-    {
-        while (true) {
-            long start = System.nanoTime();
-
-            // remove tasks that have started running
-            taskClients = ImmutableList.copyOf(filter(taskClients, new Predicate<HttpTaskClient>()
-            {
-                @Override
-                public boolean apply(HttpTaskClient taskClient)
-                {
-                    TaskInfo taskInfo = taskClient.getTaskInfo();
-                    if (taskInfo == null) {
-                        return false;
-                    }
-                    TaskState state = taskInfo.getState();
-                    return state == TaskState.PLANNED || state == TaskState.QUEUED;
-                }
-            }));
-
-            // if no tasks are left, the stage has started
-            if (taskClients.isEmpty()) {
-                return;
-            }
-
-            // sleep for 100ms (minus the time we spent fetching the task states)
-            Duration duration = Duration.nanosSince(start);
-            long waitTime = (long) (100 - duration.toMillis());
-            if (waitTime > 0) {
-                try {
-                    Thread.sleep(waitTime);
-                }
-                catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw Throwables.propagate(e);
-                }
-            }
-        }
-    }
-
 }

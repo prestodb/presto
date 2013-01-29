@@ -1,7 +1,7 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.execution.ExchangePlanFragmentSource;
-import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
@@ -31,7 +31,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
 
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public abstract class AbstractSqlBenchmark
@@ -77,7 +76,7 @@ public abstract class AbstractSqlBenchmark
         DataSize maxOperatorMemoryUsage = new DataSize(100, MEGABYTE);
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(session,
                 metadata,
-                new HackPlanFragmentSourceProvider(new TpchDataStreamProvider(provider), null, jsonCodec(TaskInfo.class)),
+                new HackPlanFragmentSourceProvider(new TpchDataStreamProvider(provider), null, new QueryManagerConfig()),
                 analysis.getTypes(),
                 null,
                 builder.build(),

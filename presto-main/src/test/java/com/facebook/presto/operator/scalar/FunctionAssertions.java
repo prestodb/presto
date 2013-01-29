@@ -5,7 +5,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.execution.ExchangePlanFragmentSource;
-import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.metadata.AbstractMetadata;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.DualTable;
@@ -48,7 +48,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 
 import java.util.Arrays;
@@ -69,7 +68,6 @@ public final class FunctionAssertions
     {
     }
 
-    private static final JsonCodec<TaskInfo> TASK_INFO_CODEC = JsonCodec.jsonCodec(TaskInfo.class);
     private static final Metadata METADATA = new DualTableMetadata();
     private static final DualTableDataStreamProvider DATA_PROVIDER = new DualTableDataStreamProvider();
 
@@ -183,7 +181,7 @@ public final class FunctionAssertions
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 session,
                 METADATA,
-                new HackPlanFragmentSourceProvider(DATA_PROVIDER, null, TASK_INFO_CODEC),
+                new HackPlanFragmentSourceProvider(DATA_PROVIDER, null, new QueryManagerConfig()),
                 analysis.getTypes(),
                 null,
                 builder.build(),
