@@ -58,6 +58,7 @@
                     <mavenExecutorId>forked-path</mavenExecutorId>
                     <pushChanges>false</pushChanges>
                     <localCheckout>true</localCheckout>
+                    <useReleaseProfile>false</useReleaseProfile>
                     <preparationGoals>clean install</preparationGoals>
                     <autoVersionSubmodules>true</autoVersionSubmodules>
                     <tagNameFormat>@{project.version}</tagNameFormat>
