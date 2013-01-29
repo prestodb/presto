@@ -23,7 +23,7 @@ public class ParsingException
         return getCause().line;
     }
 
-    public int getCharPositionInLine()
+    public int getColumnNumber()
     {
         return getCause().charPositionInLine + 1;
     }
@@ -36,6 +36,6 @@ public class ParsingException
     @Override
     public String getMessage()
     {
-        return format("line %s:%s: %s", getLineNumber(), getCharPositionInLine(), getErrorMessage());
+        return format("line %s:%s: %s", getLineNumber(), getColumnNumber(), getErrorMessage());
     }
 }
