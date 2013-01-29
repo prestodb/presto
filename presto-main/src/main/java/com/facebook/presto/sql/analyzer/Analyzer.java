@@ -7,6 +7,9 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.DependencyExtractor;
+import com.facebook.presto.sql.planner.ExpressionInterpreter;
+import com.facebook.presto.sql.planner.LookupSymbolResolver;
+import com.facebook.presto.sql.planner.SymbolResolver;
 import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
@@ -630,7 +633,15 @@ public class Analyzer
                 new ExpressionAnalyzer(metadata).analyze(((JoinOn) criteria).getExpression(), descriptor);
 
                 ImmutableList.Builder<AnalyzedJoinClause> clauses = ImmutableList.builder();
-                for (Expression conjunct : ExpressionUtils.extractConjuncts(((JoinOn) criteria).getExpression())) {
+                Expression expression = ((JoinOn) criteria).getExpression();
+
+                Object optimizedExpression = ExpressionInterpreter.expressionOptimizer(new NoOpSymbolResolver(), metadata, session).process(expression, null);
+
+                if (!(optimizedExpression instanceof Expression)) {
+                    throw new SemanticException(node, "Joins on constant expressions (i.e., cross joins) not supported");
+                }
+
+                for (Expression conjunct : ExpressionUtils.extractConjuncts((Expression) optimizedExpression)) {
                     if (!(conjunct instanceof ComparisonExpression)) {
                         throw new SemanticException(node, "Non-equi joins not supported");
                     }
@@ -673,6 +684,16 @@ public class Analyzer
             else {
                 throw new UnsupportedOperationException("unsupported join criteria: " + criteria.getClass().getName());
             }
+        }
+    }
+
+    private static class NoOpSymbolResolver
+            implements SymbolResolver
+    {
+        @Override
+        public Object getValue(Symbol symbol)
+        {
+            return new QualifiedNameReference(symbol.toQualifiedName());
         }
     }
 }
