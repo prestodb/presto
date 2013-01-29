@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.sql.parser.ParsingException;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -10,7 +11,8 @@ import com.google.common.collect.Lists;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
-import java.util.Arrays;
+import javax.annotation.Nullable;
+
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -21,7 +23,6 @@ import static java.util.Arrays.asList;
 
 public class FailureInfo
 {
-
     private static final Pattern STACK_TRACE_PATTERN = Pattern.compile("(.*)\\.(.*)\\(([^:]*)(?::(.*))?\\)");
 
     public static FailureInfo toFailure(Throwable failure)
@@ -33,8 +34,9 @@ public class FailureInfo
         return new FailureInfo(failure.getClass().getCanonicalName(),
                 failure.getMessage(),
                 toFailure(failure.getCause()),
-                toFailures(Arrays.asList(failure.getSuppressed())),
-                Lists.transform(asList(failure.getStackTrace()), toStringFunction()));
+                toFailures(asList(failure.getSuppressed())),
+                Lists.transform(asList(failure.getStackTrace()), toStringFunction()),
+                getErrorLocation(failure));
     }
 
     public static List<FailureInfo> toFailures(Iterable<? extends Throwable> failures)
@@ -54,11 +56,23 @@ public class FailureInfo
         };
     }
 
+    @Nullable
+    private static ErrorLocation getErrorLocation(Throwable throwable)
+    {
+        // TODO: this is a big hack
+        if (throwable instanceof ParsingException) {
+            ParsingException e = (ParsingException) throwable;
+            return new ErrorLocation(e.getLineNumber(), e.getColumnNumber());
+        }
+        return null;
+    }
+
     private final String type;
     private final String message;
     private final FailureInfo cause;
     private final List<FailureInfo> suppressed;
     private final List<String> stack;
+    private final ErrorLocation errorLocation;
 
     @JsonCreator
     public FailureInfo(
@@ -66,7 +80,8 @@ public class FailureInfo
             @JsonProperty("message") String message,
             @JsonProperty("cause") FailureInfo cause,
             @JsonProperty("suppressed") List<FailureInfo> suppressed,
-            @JsonProperty("stack") List<String> stack)
+            @JsonProperty("stack") List<String> stack,
+            @JsonProperty("errorLocation") @Nullable ErrorLocation errorLocation)
     {
         Preconditions.checkNotNull(type, "type is null");
         Preconditions.checkNotNull(suppressed, "suppressed is null");
@@ -77,6 +92,7 @@ public class FailureInfo
         this.cause = cause;
         this.suppressed = ImmutableList.copyOf(suppressed);
         this.stack = ImmutableList.copyOf(stack);
+        this.errorLocation = errorLocation;
     }
 
     @JsonProperty
@@ -107,6 +123,13 @@ public class FailureInfo
     public List<String> getStack()
     {
         return stack;
+    }
+
+    @JsonProperty
+    @Nullable
+    public ErrorLocation getErrorLocation()
+    {
+        return errorLocation;
     }
 
     public RuntimeException toException()
@@ -175,9 +198,19 @@ public class FailureInfo
             if (message != null) {
                 return type + ": " + message;
             }
-            else {
-                return type;
-            }
+            return type;
         }
+    }
+
+    public static Function<FailureInfo, String> messageGetter()
+    {
+        return new Function<FailureInfo, String>()
+        {
+            @Override
+            public String apply(FailureInfo input)
+            {
+                return input.getMessage();
+            }
+        };
     }
 }

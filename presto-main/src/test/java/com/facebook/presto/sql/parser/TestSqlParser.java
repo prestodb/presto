@@ -98,7 +98,7 @@ public class TestSqlParser
             assertEquals(e.getMessage(), "line 3:7: no viable alternative at input 'from'");
             assertEquals(e.getErrorMessage(), "no viable alternative at input 'from'");
             assertEquals(e.getLineNumber(), 3);
-            assertEquals(e.getCharPositionInLine(), 7);
+            assertEquals(e.getColumnNumber(), 7);
         }
     }
 

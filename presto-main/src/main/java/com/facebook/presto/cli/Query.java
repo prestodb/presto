@@ -1,5 +1,6 @@
 package com.facebook.presto.cli;
 
+import com.facebook.presto.execution.ErrorLocation;
 import com.facebook.presto.execution.FailureInfo;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.StageInfo;
@@ -7,11 +8,15 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.server.HttpQueryClient;
 import com.google.common.base.Charsets;
+import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import org.fusesource.jansi.Ansi;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
 
@@ -23,9 +28,11 @@ import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.cli.StatusPrinter.REAL_TERMINAL;
 import static com.facebook.presto.operator.OutputProcessor.OutputHandler;
 import static com.facebook.presto.operator.OutputProcessor.processOutput;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.String.format;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -150,6 +157,7 @@ public class Query
         if (queryClient.isDebug()) {
             out.printf("Query %s failed:\n", queryInfo.getQueryId());
             renderStacks(queryInfo, out);
+            renderQueryLocationError(queryInfo, out);
             return;
         }
 
@@ -159,12 +167,58 @@ public class Query
         }
         else if (failureMessages.size() == 1) {
             out.printf("Query %s failed: %s\n", queryInfo.getQueryId(), Iterables.getOnlyElement(failureMessages));
+            renderQueryLocationError(queryInfo, out);
         }
         else {
             out.printf("Query %s failed:\n", queryInfo.getQueryId());
             for (String failureMessage : failureMessages) {
                 out.println("    " + failureMessage);
             }
+        }
+    }
+
+    private static void renderQueryLocationError(QueryInfo queryInfo, PrintStream out)
+    {
+        List<FailureInfo> failureInfos = getFailureInfos(queryInfo);
+        if (failureInfos.size() == 1) {
+            ErrorLocation location = failureInfos.get(0).getErrorLocation();
+            if (location != null) {
+                renderQueryLocationError(queryInfo.getQuery(), location, out);
+            }
+        }
+    }
+
+    private static void renderQueryLocationError(String query, ErrorLocation location, PrintStream out)
+    {
+        List<String> lines = ImmutableList.copyOf(Splitter.on('\n').split(query).iterator());
+
+        String errorLine = lines.get(location.getLineNumber() - 1);
+        String good = errorLine.substring(0, location.getColumnNumber() - 1);
+        String bad = errorLine.substring(location.getColumnNumber() - 1);
+
+        if (REAL_TERMINAL) {
+            Ansi ansi = Ansi.ansi();
+
+            ansi.fg(Ansi.Color.CYAN);
+            for (int i = 1; i < location.getLineNumber(); i++) {
+                ansi.a(lines.get(i - 1)).newline();
+            }
+            ansi.a(good);
+
+            ansi.fg(Ansi.Color.RED);
+            ansi.a(bad).newline();
+            for (int i = location.getLineNumber(); i < lines.size(); i++) {
+                ansi.a(lines.get(i)).newline();
+            }
+
+            ansi.reset();
+            out.println(ansi);
+        }
+        else {
+            String prefix = format("LINE %s: ", location.getLineNumber());
+            String padding = Strings.repeat(" ", prefix.length() + (location.getColumnNumber() - 1));
+            out.println(prefix + errorLine);
+            out.println(padding + "^");
         }
     }
 
@@ -206,36 +260,30 @@ public class Query
 
     public static List<String> getFailureMessages(QueryInfo queryInfo)
     {
-        ImmutableList.Builder<String> builder = ImmutableList.builder();
-        for (FailureInfo failureInfo : queryInfo.getFailures()) {
-            builder.add(failureInfo.getMessage());
-        }
+        return Lists.transform(getFailureInfos(queryInfo), FailureInfo.messageGetter());
+    }
+
+    public static List<FailureInfo> getFailureInfos(QueryInfo queryInfo)
+    {
+        ImmutableList.Builder<FailureInfo> builder = ImmutableList.builder();
+        builder.addAll(queryInfo.getFailures());
         if (queryInfo.getOutputStage() != null) {
-            builder.addAll(getFailureMessages(queryInfo.getOutputStage()));
+            builder.addAll(getFailureInfos(queryInfo.getOutputStage()));
         }
         return builder.build();
     }
 
-    public static List<String> getFailureMessages(StageInfo stageInfo)
+    public static List<FailureInfo> getFailureInfos(StageInfo stageInfo)
     {
-        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        ImmutableList.Builder<FailureInfo> builder = ImmutableList.builder();
         for (FailureInfo failureInfo : stageInfo.getFailures()) {
-            builder.add(failureInfo.getMessage());
+            builder.add(failureInfo);
         }
         for (TaskInfo taskInfo : stageInfo.getTasks()) {
-            builder.addAll(getFailureMessages(taskInfo));
+            builder.addAll(taskInfo.getFailures());
         }
         for (StageInfo subStageInfo : stageInfo.getSubStages()) {
-            builder.addAll(getFailureMessages(subStageInfo));
-        }
-        return builder.build();
-    }
-
-    private static List<String> getFailureMessages(TaskInfo taskInfo)
-    {
-        ImmutableList.Builder<String> builder = ImmutableList.builder();
-        for (FailureInfo failureInfo : taskInfo.getFailures()) {
-            builder.add(failureInfo.getMessage());
+            builder.addAll(getFailureInfos(subStageInfo));
         }
         return builder.build();
     }
