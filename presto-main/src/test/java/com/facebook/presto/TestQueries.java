@@ -562,9 +562,47 @@ public class TestQueries
     public void testSimpleJoin()
             throws Exception
     {
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey");
+    }
+
+    @Test
+    public void testJoinUsing()
+            throws Exception
+    {
         assertQuery(
                 "SELECT COUNT(*) FROM lineitem join orders using (orderkey)",
                 "SELECT COUNT(*) FROM lineitem join orders on lineitem.orderkey = orders.orderkey"
+        );
+    }
+
+    @Test
+    public void testJoinWithReversedComparison()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON orders.orderkey = lineitem.orderkey");
+    }
+
+    @Test
+    public void testJoinWithComplexExpressions()
+            throws Exception
+    {
+        assertQuery("SELECT SUM(custkey) FROM lineitem JOIN orders ON lineitem.orderkey = CAST(orders.orderkey AS BIGINT)");
+    }
+
+    @Test
+    public void testJoinWithComplexExpressions2()
+            throws Exception
+    {
+        assertQuery("SELECT SUM(custkey) FROM lineitem JOIN orders ON lineitem.orderkey = CASE WHEN orders.custkey = 1 and orders.orderstatus = 'F' THEN orders.orderkey ELSE NULL END");
+    }
+
+    @Test
+    public void testJoinWithComplexExpressions3()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT SUM(custkey) FROM lineitem JOIN orders ON lineitem.orderkey + 1 = orders.orderkey + 1",
+                "SELECT SUM(custkey) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey " // H2 takes a million years because it can't join efficiently on a non-indexed field/expression
         );
     }
 

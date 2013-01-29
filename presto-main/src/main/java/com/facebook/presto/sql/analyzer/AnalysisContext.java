@@ -7,6 +7,7 @@ import com.facebook.presto.sql.tree.Subquery;
 import com.facebook.presto.sql.tree.Table;
 
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 
 class AnalysisContext
@@ -17,7 +18,7 @@ class AnalysisContext
     private final IdentityHashMap<Subquery, AnalysisResult> inlineViews = new IdentityHashMap<>();
     private final IdentityHashMap<Relation, TupleDescriptor> tableDescriptors = new IdentityHashMap<>();
     private final IdentityHashMap<Relation, TableMetadata> tableMetadata = new IdentityHashMap<>();
-    private final IdentityHashMap<Join, AnalyzedExpression> joinCriteria = new IdentityHashMap<>();
+    private final IdentityHashMap<Join, List<AnalyzedJoinClause>> joinCriteria = new IdentityHashMap<>();
 
     public AnalysisContext(Session session)
     {
@@ -72,7 +73,7 @@ class AnalysisContext
      * We really want to expose an unmodifiable identity map here. Unfortunately there's no such a thing, so we expose the raw reference.
      * Callers should *not* modify its contents.
      */
-    IdentityHashMap<Join, AnalyzedExpression> getJoinCriteria()
+    IdentityHashMap<Join, List<AnalyzedJoinClause>> getJoinCriteria()
     {
         return joinCriteria;
     }
@@ -87,7 +88,7 @@ class AnalysisContext
         return symbolAllocator.getTypes();
     }
 
-    public void registerJoin(Join node, AnalyzedExpression criteria)
+    public void registerJoin(Join node, List<AnalyzedJoinClause> criteria)
     {
         joinCriteria.put(node, criteria);
     }

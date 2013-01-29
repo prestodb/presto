@@ -134,10 +134,10 @@ public class PlanSanityChecker
             node.getLeft().accept(this, context);
             node.getRight().accept(this, context);
 
-            Set<Symbol> dependencies = DependencyExtractor.extract(node.getCriteria());
-            Set<Symbol> sourceSymbols = ImmutableSet.copyOf(Iterables.concat(node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols()));
-
-            Preconditions.checkArgument(sourceSymbols.containsAll(dependencies), "Invalid node. Join criteria dependencies (%s) not in source plan output (%s)", dependencies, sourceSymbols);
+            for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
+                Preconditions.checkArgument(node.getLeft().getOutputSymbols().contains(clause.getLeft()), "Symbol from join clause (%s) not in left source (%s)", clause.getLeft(), node.getLeft().getOutputSymbols());
+                Preconditions.checkArgument(node.getRight().getOutputSymbols().contains(clause.getRight()), "Symbol from join clause (%s) not in right source (%s)", clause.getRight(), node.getRight().getOutputSymbols());
+            }
 
             return null;
         }

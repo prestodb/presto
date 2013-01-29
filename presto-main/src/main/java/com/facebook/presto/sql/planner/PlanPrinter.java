@@ -17,6 +17,7 @@ import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -25,6 +26,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -63,7 +65,15 @@ public class PlanPrinter
         @Override
         public Void visitJoin(JoinNode node, Integer indent)
         {
-            print(indent, "- Join[%s] => [%s]", ExpressionFormatter.toString(node.getCriteria()), formatOutputs(node.getOutputSymbols()));
+            List<String> joinExpressions = new ArrayList<>();
+            for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
+                joinExpressions.add(ExpressionFormatter.toString(
+                        new ComparisonExpression(ComparisonExpression.Type.EQUAL,
+                                new QualifiedNameReference(clause.getLeft().toQualifiedName()),
+                                new QualifiedNameReference(clause.getRight().toQualifiedName()))));
+            }
+
+            print(indent, "- Join[%s] => [%s]", Joiner.on(" AND ").join(joinExpressions), formatOutputs(node.getOutputSymbols()));
             node.getLeft().accept(this, indent + 1);
             node.getRight().accept(this, indent + 1);
 

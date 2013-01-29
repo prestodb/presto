@@ -29,7 +29,7 @@ public class AnalysisResult
     private final Set<AnalyzedFunction> aggregations;
     private final Long limit;
     private final List<AnalyzedOrdering> orderBy;
-    private final IdentityHashMap<Join, AnalyzedExpression> joinCriteria;
+    private final IdentityHashMap<Join, List<AnalyzedJoinClause>> joinCriteria;
     private final boolean distinct;
     private final Query rewrittenQuery;
 
@@ -63,7 +63,7 @@ public class AnalysisResult
             IdentityHashMap<Relation, TupleDescriptor> tableDescriptors,
             IdentityHashMap<Relation, TableMetadata> tableMetadata,
             IdentityHashMap<Subquery, AnalysisResult> inlineViews,
-            IdentityHashMap<Join, AnalyzedExpression> joinCriteria,
+            IdentityHashMap<Join, List<AnalyzedJoinClause>> joinCriteria,
             boolean distinct,
             Set<AnalyzedFunction> aggregations,
             @Nullable AnalyzedExpression predicate,
@@ -132,7 +132,7 @@ public class AnalysisResult
         return inlineViews.get(inlineView);
     }
 
-    public AnalyzedExpression getJoinCriteria(Join join)
+    public List<AnalyzedJoinClause> getJoinCriteria(Join join)
     {
         Preconditions.checkArgument(joinCriteria.containsKey(join), "Analysis for join is missing. Broken analysis?");
         return joinCriteria.get(join);

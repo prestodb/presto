@@ -19,16 +19,20 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.util.IterableTransformer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
+import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.Iterables.concat;
 
@@ -65,13 +69,18 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode rewriteJoin(JoinNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
-            Set<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+            Set<Symbol> leftInputs = ImmutableSet.<Symbol>builder()
                     .addAll(expectedOutputs)
-                    .addAll(DependencyExtractor.extract(node.getCriteria()))
+                    .addAll(Iterables.transform(node.getCriteria(), leftGetter()))
                     .build();
 
-            PlanNode left = planRewriter.rewrite(node.getLeft(), expectedInputs);
-            PlanNode right = planRewriter.rewrite(node.getRight(), expectedInputs);
+            Set<Symbol> rightInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(expectedOutputs)
+                    .addAll(Iterables.transform(node.getCriteria(), rightGetter()))
+                    .build();
+
+            PlanNode left = planRewriter.rewrite(node.getLeft(), leftInputs);
+            PlanNode right = planRewriter.rewrite(node.getRight(), rightInputs);
 
             return new JoinNode(left, right, node.getCriteria());
         }

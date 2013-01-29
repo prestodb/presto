@@ -15,6 +15,7 @@ import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -24,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -201,10 +203,15 @@ public final class GraphvizPrinter
         @Override
         public Void visitJoin(JoinNode node, Void context)
         {
-            String criteria = ExpressionFormatter.toString(node.getCriteria());
-            criteria = criteria.replace(">", "\\>");
-            criteria = criteria.replace("<", "\\<");
+            List<String> joinExpressions = new ArrayList<>();
+            for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
+                joinExpressions.add(ExpressionFormatter.toString(
+                        new ComparisonExpression(ComparisonExpression.Type.EQUAL,
+                                new QualifiedNameReference(clause.getLeft().toQualifiedName()),
+                                new QualifiedNameReference(clause.getRight().toQualifiedName()))));
+            }
 
+            String criteria = Joiner.on(" AND ").join(joinExpressions);
             printNode(node, "Join", criteria);
 
             node.getLeft().accept(this, context);

@@ -7,6 +7,7 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.analyzer.AnalysisResult;
 import com.facebook.presto.sql.analyzer.AnalyzedFunction;
 import com.facebook.presto.sql.analyzer.AnalyzedExpression;
+import com.facebook.presto.sql.analyzer.AnalyzedJoinClause;
 import com.facebook.presto.sql.analyzer.AnalyzedOrdering;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.Session;
@@ -354,12 +355,44 @@ public class LogicalPlanner
 
     private PlanNode createJoinPlan(Join join, AnalysisResult analysis)
     {
-        PlanNode left = createRelationPlan(ImmutableList.of(join.getLeft()), analysis);
-        PlanNode right = createRelationPlan(ImmutableList.of(join.getRight()), analysis);
+        PlanNode leftPlan = createRelationPlan(ImmutableList.of(join.getLeft()), analysis);
+        PlanNode rightPlan = createRelationPlan(ImmutableList.of(join.getRight()), analysis);
 
-        AnalyzedExpression criteria = analysis.getJoinCriteria(join);
+        // We insert a projection on the left side and right side blindly -- they'll get optimized out later if not needed
+        Map<Symbol, Expression> leftProjections = new HashMap<>();
+        Map<Symbol, Expression> rightProjections = new HashMap<>();
 
-        return new JoinNode(left, right, criteria.getRewrittenExpression());
+        // add a pass-through projection for the outputs of left and right
+        for (Symbol symbol : leftPlan.getOutputSymbols()) {
+            leftProjections.put(symbol, new QualifiedNameReference(symbol.toQualifiedName()));
+        }
+        for (Symbol symbol : rightPlan.getOutputSymbols()) {
+            rightProjections.put(symbol, new QualifiedNameReference(symbol.toQualifiedName()));
+        }
+
+        // next, handle the join clause...
+        List<AnalyzedJoinClause> criteria = analysis.getJoinCriteria(join);
+
+        ImmutableList.Builder<JoinNode.EquiJoinClause> equiJoinClauses = ImmutableList.builder();
+        for (AnalyzedJoinClause analyzedClause : criteria) {
+            // insert a projection for the sub-expression corresponding to the left side and assign it to
+            // a new symbol. If the expression is already a simple symbol reference, this will result in an identity projection
+            AnalyzedExpression left = analyzedClause.getLeft();
+            Symbol leftSymbol = analysis.getSymbolAllocator().newSymbol(left.getRewrittenExpression(), left.getType());
+            leftProjections.put(leftSymbol, left.getRewrittenExpression());
+
+            // do the same for the right side
+            AnalyzedExpression right = analyzedClause.getRight();
+            Symbol rightSymbol = analysis.getSymbolAllocator().newSymbol(right.getRewrittenExpression(), right.getType());
+            rightProjections.put(rightSymbol, right.getRewrittenExpression());
+
+            equiJoinClauses.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
+        }
+
+        leftPlan = new ProjectNode(leftPlan, leftProjections);
+        rightPlan = new ProjectNode(rightPlan, rightProjections);
+
+        return new JoinNode(leftPlan, rightPlan, equiJoinClauses.build());
     }
 
     private PlanNode createScanNode(Table table, AnalysisResult analysis)

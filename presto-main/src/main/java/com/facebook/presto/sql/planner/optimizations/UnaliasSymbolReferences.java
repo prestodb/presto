@@ -7,12 +7,10 @@ import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -174,7 +172,7 @@ public class UnaliasSymbolReferences
             PlanNode left = planRewriter.rewrite(node.getLeft(), context);
             PlanNode right = planRewriter.rewrite(node.getRight(), context);
 
-            return new JoinNode(left, right, canonicalize(node.getCriteria()));
+            return new JoinNode(left, right, canonicalizeJoinCriteria(node.getCriteria()));
         }
 
         private void map(Symbol symbol, Symbol canonical)
@@ -208,6 +206,16 @@ public class UnaliasSymbolReferences
         private List<Symbol> canonicalize(List<Symbol> outputs)
         {
             return Lists.transform(outputs, canonicalizeFunction());
+        }
+
+        private List<JoinNode.EquiJoinClause> canonicalizeJoinCriteria(List<JoinNode.EquiJoinClause> criteria)
+        {
+            ImmutableList.Builder<JoinNode.EquiJoinClause> builder = ImmutableList.builder();
+            for (JoinNode.EquiJoinClause clause : criteria) {
+                builder.add(new JoinNode.EquiJoinClause(canonicalize(clause.getLeft()), canonicalize(clause.getRight())));
+            }
+
+            return builder.build();
         }
 
         private Function<Symbol, Symbol> canonicalizeFunction()
