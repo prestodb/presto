@@ -35,7 +35,10 @@ public class StatementSplitter
                 break;
             }
             if (token.getType() == StatementLexer.SEMICOLON) {
-                list.add(sb.toString().trim());
+                String statement = sb.toString().trim();
+                if (!statement.isEmpty()) {
+                    list.add(statement);
+                }
                 sb = new StringBuilder();
             }
             else {

@@ -17,6 +17,22 @@ public class TestStatementSplitter
     }
 
     @Test
+    public void testSplitterEmptyInput()
+    {
+        StatementSplitter splitter = new StatementSplitter("");
+        assertEquals(splitter.getCompleteStatements(), ImmutableList.of());
+        assertEquals(splitter.getPartialStatement(), "");
+    }
+
+    @Test
+    public void testSplitterEmptyStatements()
+    {
+        StatementSplitter splitter = new StatementSplitter(";;;");
+        assertEquals(splitter.getCompleteStatements(), ImmutableList.of());
+        assertEquals(splitter.getPartialStatement(), "");
+    }
+
+    @Test
     public void testSplitterSingle()
     {
         StatementSplitter splitter = new StatementSplitter("select * from foo;");
@@ -28,6 +44,14 @@ public class TestStatementSplitter
     public void testSplitterMultiple()
     {
         StatementSplitter splitter = new StatementSplitter(" select * from  foo ; select * from t; select * from ");
+        assertEquals(splitter.getCompleteStatements(), ImmutableList.of("select * from  foo", "select * from t"));
+        assertEquals(splitter.getPartialStatement(), "select * from");
+    }
+
+    @Test
+    public void testSplitterMultipleWithEmpty()
+    {
+        StatementSplitter splitter = new StatementSplitter("; select * from  foo ; select * from t;;;select * from ");
         assertEquals(splitter.getCompleteStatements(), ImmutableList.of("select * from  foo", "select * from t"));
         assertEquals(splitter.getPartialStatement(), "select * from");
     }
