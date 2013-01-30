@@ -10,6 +10,7 @@ import com.google.common.base.Functions;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
@@ -24,6 +25,7 @@ public class PlanFragment
     private final boolean partitioned;
     private final Map<Symbol, Type> symbols;
 
+    @JsonCreator
     public PlanFragment(@JsonProperty("id") int id, @JsonProperty("partitioned") boolean isPartitioned, @JsonProperty("symbols") Map<Symbol, Type> symbols, @JsonProperty("root") PlanNode root)
     {
         Preconditions.checkArgument(id >= 0, "id must be positive");
