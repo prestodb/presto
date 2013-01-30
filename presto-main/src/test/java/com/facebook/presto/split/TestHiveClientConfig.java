@@ -18,7 +18,9 @@ public class TestHiveClientConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(HiveClientConfig.class)
-                .setMaxChunkSize(new DataSize(1, Unit.GIGABYTE)));
+                .setMaxChunkSize(new DataSize(1, Unit.GIGABYTE))
+                .setMaxOutstandingChunks(10_000)
+                .setMaxChunkIteratorThreads(50));
     }
 
     @Test
@@ -26,10 +28,14 @@ public class TestHiveClientConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.max-chunk-size", "256MB")
+                .put("hive.max-outstanding-chunks", "10")
+                .put("hive.max-chunk-iterator-threads", "2")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
-                .setMaxChunkSize(new DataSize(256, Unit.MEGABYTE));
+                .setMaxChunkSize(new DataSize(256, Unit.MEGABYTE))
+                .setMaxOutstandingChunks(10)
+                .setMaxChunkIteratorThreads(2);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

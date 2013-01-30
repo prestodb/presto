@@ -107,7 +107,7 @@ public class TestImportClientFactory
                 }
 
                 @Override
-                public Iterable<List<PartitionChunk>> getPartitionChunks(String databaseName, String tableName, List<String> partitionNames, List<String> columns)
+                public Iterable<PartitionChunk> getPartitionChunks(String databaseName, String tableName, List<String> partitionNames, List<String> columns)
                         throws ObjectNotFoundException
                 {
                     throw new UnsupportedOperationException();
