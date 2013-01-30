@@ -5,290 +5,137 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.operator.Page;
 import com.google.common.base.Function;
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
-import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * QueryState contains the current state of the query and output buffer.
- */
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+
 @ThreadSafe
 public class PageBuffer
 {
-    private static final Logger log = Logger.get(PageBuffer.class);
-
     public static enum BufferState
     {
-        CREATED(false),
-        RUNNING(false),
-        FINISHED(true),
-        CANCELED(true),
-        FAILED(true);
-
-        private final boolean doneState;
-
-        private BufferState(boolean doneState)
-        {
-            this.doneState = doneState;
-        }
-
-        public boolean isDone() {
-            return doneState;
-        }
-
-        public static Predicate<BufferState> inDoneState()
-        {
-            return new Predicate<BufferState>()
-            {
-                @Override
-                public boolean apply(BufferState bufferState)
-                {
-                    return bufferState.isDone();
-                }
-            };
-        }
+        /**
+         * Additional pages can be added to the buffer.
+         */
+        OPEN,
+        /**
+         * No more pages can be added to the buffer, and buffer is waiting for the buffered pages to be consumed.
+         */
+        FINISHING,
+        /**
+         * There are no pages in the buffer and no more pages can be added to the buffer.
+         */
+        FINISHED
     }
 
     private final String bufferId;
+    private final BlockingQueue<Page> buffer;
 
-    @GuardedBy("pageBuffer")
-    private final ArrayDeque<Page> pageBuffer;
+    private AtomicReference<BufferState> state = new AtomicReference<>(BufferState.OPEN);
 
-    @GuardedBy("pageBuffer")
-    private BufferState bufferState = BufferState.CREATED;
-
-    @GuardedBy("pageBuffer")
-    private final List<Throwable> causes = new ArrayList<>();
-
-    @GuardedBy("pageBuffer")
-    private int sourceCount;
-
-    private final Semaphore notFull;
-    private final Semaphore notEmpty;
-
-    public PageBuffer(String bufferId, int sourceCount, int pageBufferMax)
+    public PageBuffer(String bufferId, int pageBufferMax)
     {
-        Preconditions.checkNotNull(bufferId, "bufferId is null");
-        Preconditions.checkArgument(sourceCount > 0, "sourceCount must be at least 1");
-        Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
-
         this.bufferId = bufferId;
-        this.sourceCount = sourceCount;
-        this.pageBuffer = new ArrayDeque<>(pageBufferMax);
-        this.notFull = new Semaphore(pageBufferMax);
-        this.notEmpty = new Semaphore(0);
+        buffer = new ArrayBlockingQueue<>(pageBufferMax);
     }
 
     public PageBufferInfo getBufferInfo()
     {
-        return new PageBufferInfo(bufferId, getState(), getBufferedPageCount());
-    }
-
-    public BufferState getState()
-    {
-        synchronized (pageBuffer) {
-            return bufferState;
-        }
-    }
-
-    public boolean isDone()
-    {
-        synchronized (pageBuffer) {
-            return bufferState.isDone();
-        }
-    }
-
-    public boolean isFailed()
-    {
-        synchronized (pageBuffer) {
-            return bufferState == BufferState.FAILED;
-        }
-    }
-
-    public int getBufferedPageCount()
-    {
-        synchronized (pageBuffer) {
-            return pageBuffer.size();
-        }
+        return new PageBufferInfo(bufferId, state.get(), buffer.size());
     }
 
     /**
-     * Marks a source as finished and drop all buffered pages.  Once all sources are finished, no more pages can be added to the buffer.
+     * A buffer is finished when it has been closed and all pages have been consumed,
+     * or the buffer is destroyed.
+     */
+    public boolean isFinished()
+    {
+        return state.get() == BufferState.FINISHED;
+    }
+
+    /**
+     * Moves the buffer to the finishing state where no more pages can be added.
      */
     public void finish()
     {
-        synchronized (pageBuffer) {
-            if (isDone()) {
-                return;
-            }
+        // transition to finishing
+        state.compareAndSet(BufferState.OPEN, BufferState.FINISHING);
 
-            bufferState = BufferState.FINISHED;
-            sourceCount = 0;
-            pageBuffer.clear();
-            // free up threads quickly
-            notEmpty.release();
-            notFull.release();
+        // if buffer is empty transition to finished
+        if (buffer.isEmpty()) {
+            state.set(BufferState.FINISHED);
+
+            // clear the buffer in case there was a failed race
+            buffer.clear();
         }
     }
 
     /**
-     * Marks a source as finished.  Once all sources are finished, no more pages can be added to the buffer.
+     * Discards all pages in the buffer and marks it as finished.
      */
-    public void sourceFinished()
+    public void cancel()
     {
-        synchronized (pageBuffer) {
-            if (isDone()) {
-                return;
-            }
-            sourceCount--;
-            if (sourceCount == 0) {
-                if (pageBuffer.isEmpty()) {
-                    bufferState = BufferState.FINISHED;
-                }
-                // free up threads quickly
-                notEmpty.release();
-                notFull.release();
-            }
-        }
+        state.set(BufferState.FINISHED);
+        buffer.clear();
     }
 
-    /**
-     * Marks the query as failed and finished.  Once the query if failed, no more pages can be added to the buffer.
-     */
-    public void queryFailed(Throwable cause)
-    {
-        log.error(cause, "Query buffer failed");
-        synchronized (pageBuffer) {
-            // if query is already done, nothing can be done here
-            if (isDone()) {
-                causes.add(cause);
-                return;
-            }
-            bufferState = BufferState.FAILED;
-            causes.add(cause);
-            sourceCount = 0;
-            pageBuffer.clear();
-            // free up threads quickly
-            notEmpty.release();
-            notFull.release();
-        }
-    }
-
-    /**
-     * Add a page to the buffer.  The buffers space is limited, so the caller will be blocked until
-     * space is available in the buffer.
-     *
-     * @return true if the page was added; false if the query has already been canceled or failed
-     * @throws InterruptedException if the thread is interrupted while waiting for buffer space to be freed
-     */
-    public boolean addPage(Page page)
+    public void addPage(Page page)
             throws InterruptedException
     {
-        // acquire write permit
-        while (!isDone() && !notFull.tryAcquire(1, TimeUnit.SECONDS)) {
-        }
-
-        synchronized (pageBuffer) {
-            // don't throw an exception if the query was canceled or failed as the caller may not be aware of this
-            if (bufferState.isDone()) {
-                // release an additional thread blocked in the code above
-                // all blocked threads will be release due to the chain reaction
-                notFull.release();
-                return false;
+        // try to add the page while the buffer is open
+        do {
+            if (state.get() != BufferState.OPEN) {
+                return;
             }
+        } while (!buffer.offer(page, 1, SECONDS));
 
-            bufferState = BufferState.RUNNING;
-            pageBuffer.addLast(page);
-            notEmpty.release();
+
+        // if the buffer was destroyed while pages were being added, clean up the buffers to be safe
+        if (isFinished()) {
+            buffer.clear();
         }
-        return true;
     }
 
     /**
      * Gets the next pages from the buffer.  The caller will block until at least one page is available, the
-     * query is canceled, the query fails or the max wait period elapses.
+     * buffer is destroyed, or the max wait period elapses.
      *
-     * @return between 0 and {@code maxPageCount} pages if the query is not done
-     * @throws FailedQueryException if the query failed
+     * @return between 0 and {@code maxPageCount} pages
      * @throws InterruptedException if the thread is interrupted while waiting for pages to be buffered
      */
     public List<Page> getNextPages(int maxPageCount, Duration maxWait)
             throws InterruptedException
     {
-        Preconditions.checkArgument(maxPageCount > 0, "pageBufferMax must be at least 1");
+        Preconditions.checkArgument(maxPageCount > 0, "maxPageCount must be at least 1");
+        Preconditions.checkNotNull(maxWait, "maxWait is null");
 
-        long start = System.nanoTime();
-        long maxWaitNanos = (long) maxWait.convertTo(TimeUnit.NANOSECONDS);
+        List<Page> pages = new ArrayList<>(maxPageCount);
+        if (!isFinished()){
+            // wait for a single page
+            Page page = buffer.poll((long) maxWait.convertTo(NANOSECONDS), NANOSECONDS);
+            if (page != null) {
+                pages.add(page);
 
-        // block until first page is available
-        while (!isDone() && !notEmpty.tryAcquire(1, TimeUnit.SECONDS)) {
-            if (System.nanoTime() - start  > maxWaitNanos) {
-                return ImmutableList.of();
+                // fill the output list with the immediately available pages
+                buffer.drainTo(pages, maxPageCount - 1);
+
+                // mark the buffer as finished if it is not open and we consumed all of the pages
+                if (state.get() == BufferState.FINISHING && buffer.isEmpty()) {
+                    state.set(BufferState.FINISHED);
+                }
             }
         }
-
-        synchronized (pageBuffer) {
-            if (bufferState == BufferState.FAILED) {
-                // release an additional thread blocked in the code above
-                // all blocked threads will be release due to the chain reaction
-                notEmpty.release();
-                // todo remove this when airlift log prints suppressed exceptions
-                FailedQueryException failedQueryException = new FailedQueryException(causes);
-                failedQueryException.printStackTrace(System.err);
-                throw failedQueryException;
-            }
-
-            // verify state
-            if (bufferState.isDone()) {
-                // release an additional thread blocked in the code above
-                // all blocked threads will be release due to the chain reaction
-                notEmpty.release();
-                return ImmutableList.of();
-            }
-
-            // acquire all available pages up to the limit
-            ImmutableList.Builder<Page> nextPages = ImmutableList.builder();
-            int count = 0;
-            // use a do while because we have "reserved" a page in the above acquire call
-            do {
-                if (pageBuffer.isEmpty()) {
-                    // there is one extra permit when all sources are finished
-                    Preconditions.checkState(sourceCount == 0, "A read permit was acquired but no pages are available");
-
-                    // release an additional thread blocked in the code above
-                    // all blocked threads will be release due to the chain reaction
-                    notEmpty.release();
-                    break;
-                }
-                else {
-                    nextPages.add(pageBuffer.removeFirst());
-                }
-                count++;
-                // tryAcquire can fail even if more pages are available, because the pages may have been "reserved" by the above acquire call
-            } while (count < maxPageCount && notEmpty.tryAcquire());
-
-            // allow pages to be replaced
-            notFull.release(count);
-
-            // check for end condition
-            List<Page> pages = nextPages.build();
-            if (sourceCount == 0 && pageBuffer.isEmpty()) {
-                bufferState = BufferState.FINISHED;
-            }
-
-            return pages;
-        }
+        return ImmutableList.copyOf(pages);
     }
 
     public static Function<PageBuffer, BufferState> stateGetter()
@@ -298,7 +145,7 @@ public class PageBuffer
             @Override
             public BufferState apply(PageBuffer pageBuffer)
             {
-                return pageBuffer.getState();
+                return pageBuffer.state.get();
             }
         };
     }
@@ -313,18 +160,5 @@ public class PageBuffer
                 return pageBuffer.getBufferInfo();
             }
         };
-    }
-
-    @Override
-    public String toString()
-    {
-        return Objects.toStringHelper(this)
-                .add("state", bufferState)
-                .add("pageBuffer", pageBuffer.size())
-                .add("sourceCount", sourceCount)
-                .add("causes", causes)
-                .add("notFull", notFull.availablePermits())
-                .add("notEmpty", notEmpty.availablePermits())
-                .toString();
     }
 }
