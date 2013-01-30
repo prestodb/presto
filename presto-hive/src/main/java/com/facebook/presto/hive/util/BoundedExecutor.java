@@ -1,4 +1,4 @@
-package com.facebook.presto.util;
+package com.facebook.presto.hive.util;
 
 import com.google.common.base.Preconditions;
 import io.airlift.log.Logger;
@@ -10,6 +10,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
+ * THIS CLASS IS COPIED FROM com.facebook.presto.util.BoundedExecutor
+ *
  * Guarantees that no more than maxThreads will be used to execute tasks submitted
  * through execute().
  *

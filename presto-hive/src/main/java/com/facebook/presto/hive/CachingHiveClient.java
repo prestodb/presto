@@ -78,14 +78,14 @@ public class CachingHiveClient
     }
 
     @Override
-    public List<PartitionChunk> getPartitionChunks(String databaseName, String tableName, String partitionName, List<String> columns)
+    public Iterable<PartitionChunk> getPartitionChunks(String databaseName, String tableName, String partitionName, List<String> columns)
             throws ObjectNotFoundException
     {
         return backingClient.getPartitionChunks(databaseName, tableName, partitionName, columns);
     }
 
     @Override
-    public Iterable<List<PartitionChunk>> getPartitionChunks(String databaseName, String tableName, List<String> partitionNames, List<String> columns)
+    public Iterable<PartitionChunk> getPartitionChunks(String databaseName, String tableName, List<String> partitionNames, List<String> columns)
             throws ObjectNotFoundException
     {
         return backingClient.getPartitionChunks(databaseName, tableName, partitionNames, columns);

@@ -13,7 +13,6 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
@@ -159,11 +158,10 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         List<String> partitions = client.getPartitionNames(DATABASE, TABLE);
-        Iterable<List<PartitionChunk>> iterator = client.getPartitionChunks(DATABASE, TABLE, partitions, ImmutableList.<String>of());
+        Iterable<PartitionChunk> iterator = client.getPartitionChunks(DATABASE, TABLE, partitions, ImmutableList.<String>of());
 
-        List<List<PartitionChunk>> chunks = ImmutableList.copyOf(iterator);
+        List<PartitionChunk> chunks = ImmutableList.copyOf(iterator);
         assertEquals(chunks.size(), 3);
-        assertEquals(Iterables.size(Iterables.concat(chunks)), 3);
     }
 
     @Test(expectedExceptions = ObjectNotFoundException.class)
@@ -182,14 +180,23 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
+    public void testGetPartitionChunksEmpty()
+            throws Exception
+    {
+        Iterable<PartitionChunk> iterator = client.getPartitionChunks(DATABASE, TABLE, ImmutableList.<String>of(), ImmutableList.<String>of());
+        List<PartitionChunk> chunks = ImmutableList.copyOf(iterator);
+        assertTrue(chunks.isEmpty());
+    }
+
+    @Test
     public void testGetRecords()
             throws Exception
     {
         List<SchemaField> schema = client.getTableSchema(DATABASE, TABLE);
-        Iterable<List<PartitionChunk>> partitions = client.getPartitionChunks(DATABASE, TABLE, PARTITIONS, Lists.transform(schema, nameGetter()));
-        for (List<PartitionChunk> chunks : partitions) {
-            assertEquals(chunks.size(), 1);
-            HivePartitionChunk chunk = (HivePartitionChunk) chunks.get(0);
+        List<PartitionChunk> partitions = ImmutableList.copyOf(client.getPartitionChunks(DATABASE, TABLE, PARTITIONS, Lists.transform(schema, nameGetter())));
+        assertEquals(partitions.size(), PARTITIONS.size());
+        for (PartitionChunk partitionChunk : partitions) {
+            HivePartitionChunk chunk = (HivePartitionChunk) partitionChunk;
 
             byte[] bytes = client.serializePartitionChunk(chunk);
             chunk = (HivePartitionChunk) client.deserializePartitionChunk(bytes);
@@ -266,10 +273,10 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         List<SchemaField> schema = client.getTableSchema(DATABASE, TABLE);
-        Iterable<List<PartitionChunk>> partitions = client.getPartitionChunks(DATABASE, TABLE, PARTITIONS, ImmutableList.of("t_double"));
-        for (List<PartitionChunk> chunks : partitions) {
-            assertEquals(chunks.size(), 1);
-            HivePartitionChunk chunk = (HivePartitionChunk) chunks.get(0);
+        List<PartitionChunk> partitions = ImmutableList.copyOf(client.getPartitionChunks(DATABASE, TABLE, PARTITIONS, ImmutableList.of("t_double")));
+        assertEquals(partitions.size(), PARTITIONS.size());
+        for (PartitionChunk partitionChunk : partitions) {
+            HivePartitionChunk chunk = (HivePartitionChunk) partitionChunk;
 
             byte[] bytes = client.serializePartitionChunk(chunk);
             chunk = (HivePartitionChunk) client.deserializePartitionChunk(bytes);

@@ -25,10 +25,10 @@ public interface ImportClient
     List<String> getPartitionNames(String databaseName, String tableName)
             throws ObjectNotFoundException;
 
-    List<PartitionChunk> getPartitionChunks(String databaseName, String tableName, String partitionName, List<String> columns)
+    Iterable<PartitionChunk> getPartitionChunks(String databaseName, String tableName, String partitionName, List<String> columns)
             throws ObjectNotFoundException;
 
-    Iterable<List<PartitionChunk>> getPartitionChunks(String databaseName, String tableName, List<String> partitionNames, List<String> columns)
+    Iterable<PartitionChunk> getPartitionChunks(String databaseName, String tableName, List<String> partitionNames, List<String> columns)
             throws ObjectNotFoundException;
 
     RecordCursor getRecords(PartitionChunk partitionChunk);

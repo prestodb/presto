@@ -38,10 +38,10 @@ class PartitionChunkSupplier
     @Override
     public Iterable<SerializedPartitionChunk> get()
     {
-        List<PartitionChunk> chunks = retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<List<PartitionChunk>>()
+        Iterable<PartitionChunk> chunks = retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<Iterable<PartitionChunk>>()
         {
             @Override
-            public List<PartitionChunk> call()
+            public Iterable<PartitionChunk> call()
                     throws Exception
             {
                 ImportClient importClient = importClientManager.getClient(sourceName);
