@@ -196,6 +196,10 @@ public class Query
         String good = errorLine.substring(0, location.getColumnNumber() - 1);
         String bad = errorLine.substring(location.getColumnNumber() - 1);
 
+        if ((location.getLineNumber() == lines.size()) && bad.trim().isEmpty()) {
+            bad = " <EOF>";
+        }
+
         if (REAL_TERMINAL) {
             Ansi ansi = Ansi.ansi();
 
