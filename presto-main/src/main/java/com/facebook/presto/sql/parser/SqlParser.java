@@ -65,7 +65,7 @@ public final class SqlParser
     private static CommonTree parseExpression(String expression)
     {
         try {
-            return (CommonTree) getParser(expression).expr().getTree();
+            return (CommonTree) getParser(expression).singleExpression().getTree();
         }
         catch (RecognitionException e) {
             throw new AssertionError(e); // RecognitionException is not thrown

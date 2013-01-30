@@ -108,6 +108,10 @@ statementList
     : (statement SEMICOLON)* EOF -> ^(STATEMENT_LIST statement*)
     ;
 
+singleExpression
+    : expr EOF -> expr
+    ;
+
 statement
     : selectStmt      -> ^(QUERY selectStmt)
     | showTablesStmt
