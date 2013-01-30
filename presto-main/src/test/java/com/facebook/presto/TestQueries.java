@@ -106,7 +106,7 @@ public class TestQueries
     private TpchDataStreamProvider dataProvider;
 
 
-    @Test(enabled = false) // TODO: fix this by inserting projections that re-organize channels/fields (see LocalExecutionPlanner.visitJoin())
+    @Test
     public void testJoinWithMultiFieldGroupBy()
             throws Exception
     {
@@ -155,7 +155,6 @@ public class TestQueries
         assertQuery("SELECT DISTINCT custkey FROM orders");
     }
 
-    // TODO: make this work
     @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = "DISTINCT in aggregation parameters not yet supported")
     public void testCountDistinct()
             throws Exception
@@ -655,6 +654,30 @@ public class TestQueries
                 "SELECT x + y FROM (" +
                         "   SELECT orderdate, COUNT(*) x FROM orders GROUP BY orderdate) a JOIN (" +
                         "   SELECT orderdate, COUNT(*) y FROM orders GROUP BY orderdate) b USING (orderdate)");
+    }
+
+    @Test
+    public void testJoinOnMultipleFields()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate = orders.orderdate");
+    }
+
+    @Test
+    public void testJoinUsingMultipleFields()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT COUNT(*) FROM lineitem JOIN (SELECT orderkey, orderdate shipdate FROM ORDERS) T USING (orderkey, shipdate)",
+                "SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate = orders.orderdate"
+        );
+    }
+
+    @Test
+    public void testJoinWithNonJoinExpression()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.custkey = 1");
     }
 
     @Test

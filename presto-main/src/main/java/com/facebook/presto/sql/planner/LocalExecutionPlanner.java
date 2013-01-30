@@ -68,6 +68,8 @@ import java.util.Set;
 
 import static com.facebook.presto.operator.Input.channelGetter;
 import static com.facebook.presto.operator.Input.fieldGetter;
+import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
+import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
 import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.equalTo;
@@ -336,19 +338,20 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitJoin(JoinNode node, Void context)
         {
-            Preconditions.checkArgument(node.getCriteria().size() == 1, "Joining by multiple conditions not yet supported");
+            List<JoinNode.EquiJoinClause> clauses = node.getCriteria();
 
-            JoinNode.EquiJoinClause clause = Iterables.getOnlyElement(node.getCriteria());
-
+            // introduce a projection to put all fields from the left side into a single channel if necessary
             PhysicalOperation leftSource = node.getLeft().accept(this, context);
-            int probeChannel = leftSource.getLayout().get(clause.getLeft()).getChannel();
+            List<Symbol> leftSymbols = Lists.transform(clauses, leftGetter());
+            leftSource = packIfNecessary(leftSymbols, leftSource);
 
+            // do the same on the right side
             PhysicalOperation rightSource = node.getRight().accept(this, context);
-            int buildChannel = rightSource.getLayout().get(clause.getRight()).getChannel();
+            List<Symbol> rightSymbols = Lists.transform(clauses, rightGetter());
+            rightSource = packIfNecessary(rightSymbols, rightSource);
 
-            Preconditions.checkState(leftSource.getOperator().getTupleInfos().get(probeChannel).getFieldCount() == 1 &&
-                    rightSource.getOperator().getTupleInfos().get(buildChannel).getFieldCount() == 1,
-                    "JOIN with the results of a multi-field GROUP BY, DISTINCT or ORDER BY not yet supported");
+            int probeChannel = Iterables.getOnlyElement(getChannelsForSymbols(leftSymbols, leftSource.getLayout()));
+            int buildChannel = Iterables.getOnlyElement(getChannelsForSymbols(rightSymbols, rightSource.getLayout()));
 
             SourceHashProvider hashProvider = joinHashFactory.getSourceHashProvider(node, rightSource.getOperator(), buildChannel, operatorStats);
 
@@ -499,6 +502,19 @@ public class LocalExecutionPlanner
         }
 
         return new IdentityProjectionInfo(outputLayout, projections);
+    }
+
+    /**
+     * Inserts a projection if the provided symbols are not in a single channel by themselves
+     */
+    private PhysicalOperation packIfNecessary(List<Symbol> symbols, PhysicalOperation source)
+    {
+        Set<Integer> channels = getChannelsForSymbols(symbols, source.getLayout());
+        List<TupleInfo> tupleInfos = source.getOperator().getTupleInfos();
+        if (channels.size() > 1 || tupleInfos.get(Iterables.getOnlyElement(channels)).getFieldCount() > 1) {
+            source = pack(source, symbols, types);
+        }
+        return source;
     }
 
     /**
