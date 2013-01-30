@@ -9,7 +9,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>rest-server-base</artifactId>
-        <version>0.68</version>
+        <version>0.69-SNAPSHOT</version>
         <relativePath/>
     </parent>
 
@@ -136,6 +136,16 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>dbpool</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.codehaus.jackson</groupId>
+            <artifactId>jackson-mapper-asl</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.codehaus.jackson</groupId>
+            <artifactId>jackson-core-asl</artifactId>
         </dependency>
 
         <dependency>

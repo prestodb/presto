@@ -250,9 +250,7 @@ public class JsonExtract
                 throw new JsonParseException("Expected a Json object", jsonParser.getCurrentLocation());
             }
 
-            // TODO: switch to the much more efficient nextFieldName method when https://github.com/FasterXML/jackson-core/issues/38 gets deployed
-            //while (!jsonParser.nextFieldName(fieldName)) {
-            while (jsonParser.nextToken() != JsonToken.FIELD_NAME || !fieldName.getValue().equals(jsonParser.getCurrentName())) {
+            while (!jsonParser.nextFieldName(fieldName)) {
                 if (!jsonParser.hasCurrentToken()) {
                     throw new JsonParseException("Unexpected end of object", jsonParser.getCurrentLocation());
                 }
