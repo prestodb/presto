@@ -47,6 +47,7 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
 import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.MoreFunctions;
+import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
@@ -209,10 +210,8 @@ public class LocalExecutionPlanner
             List<Symbol> orderBySymbols = node.getOrderBy();
 
             // see if the order-by fields are in the same channel
-            Set<Integer> channels = IterableTransformer.on(orderBySymbols)
-                    .transform(forMap(source.getLayout()))
-                    .transform(channelGetter())
-                    .set();
+            Map<Symbol, Input> layout = source.getLayout();
+            Set<Integer> channels = getChannelsForSymbols(orderBySymbols, layout);
 
             if (channels.size() > 1) {
                 // insert a projection to pack the order-by fields into the same channel
@@ -427,10 +426,7 @@ public class LocalExecutionPlanner
 
             // see if the group-by fields are in the same channel and are the only fields in that channel
             // first, compute the unique set of channels
-            Set<Integer> channels = IterableTransformer.on(groupBySymbols)
-                    .transform(forMap(source.getLayout()))
-                    .transform(channelGetter())
-                    .set();
+            Set<Integer> channels = getChannelsForSymbols(groupBySymbols, source.getLayout());
 
             boolean needsProjection = true;
 
@@ -545,6 +541,14 @@ public class LocalExecutionPlanner
 
         Operator operator = new FilterAndProjectOperator(source.getOperator(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections());
         return new PhysicalOperation(operator, mappings.getOutputLayout());
+    }
+
+    private static Set<Integer> getChannelsForSymbols(List<Symbol> symbols, Map<Symbol, Input> layout)
+    {
+        return IterableTransformer.on(symbols)
+                .transform(Functions.forMap(layout))
+                .transform(Input.channelGetter())
+                .set();
     }
 
     private static class IdentityProjectionInfo
