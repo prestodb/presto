@@ -595,6 +595,8 @@ INTEGER_VALUE
 DECIMAL_VALUE
     : DIGIT+ '.' DIGIT*
     | '.' DIGIT+
+    | DIGIT+ ('.' DIGIT*)? EXPONENT
+    | '.' DIGIT+ EXPONENT
     ;
 
 IDENT
@@ -604,6 +606,10 @@ IDENT
 QUOTED_IDENT
     : '"' ( ~'"' | '""' )* '"'
         { setText(getText().substring(1, getText().length() - 1).replace("\"\"", "\"")); }
+    ;
+
+fragment EXPONENT
+    : 'E' ('+' | '-')? DIGIT+
     ;
 
 fragment DIGIT

@@ -2,6 +2,7 @@ package com.facebook.presto.sql;
 
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Relation;
@@ -17,6 +18,7 @@ import com.google.common.collect.Iterables;
 import java.util.Iterator;
 
 import static com.facebook.presto.sql.ExpressionFormatter.expressionFormatterFunction;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class SqlFormatter
 {
@@ -43,6 +45,14 @@ public class SqlFormatter
         protected Void visitNode(Node node, Integer indent)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node);
+        }
+
+        @Override
+        protected Void visitExpression(Expression node, Integer indent)
+        {
+            checkArgument(indent == 0, "visitExpression should only be called at root");
+            builder.append(ExpressionFormatter.toString(node));
+            return null;
         }
 
         @Override
