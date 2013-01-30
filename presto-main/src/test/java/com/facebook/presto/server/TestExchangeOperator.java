@@ -155,7 +155,7 @@ public class TestExchangeOperator
         assertEquals(count, 312 * 3);
     }
 
-    @Test(enabled = false)
+    @Test
     public void testCancel()
             throws Exception
     {

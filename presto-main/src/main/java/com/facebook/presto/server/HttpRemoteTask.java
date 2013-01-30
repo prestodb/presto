@@ -95,7 +95,7 @@ public class HttpRemoteTask
             @Override
             public PageBufferInfo apply(String outputId)
             {
-                return new PageBufferInfo(outputId, BufferState.CREATED, 0);
+                return new PageBufferInfo(outputId, BufferState.OPEN, 0);
             }
         }));
 
