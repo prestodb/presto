@@ -4,7 +4,6 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.execution.ExchangePlanFragmentSource;
-import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.operator.ForExchange;
@@ -12,8 +11,9 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
+import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
 import com.google.common.base.Function;
-import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.json.JsonCodec;
 
 import javax.annotation.concurrent.Immutable;
@@ -21,10 +21,7 @@ import javax.inject.Inject;
 import java.net.URI;
 import java.util.List;
 import java.util.Map.Entry;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
-import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 
@@ -33,20 +30,17 @@ public class HackPlanFragmentSourceProvider
         implements PlanFragmentSourceProvider
 {
     private final DataStreamProvider dataStreamProvider;
-    private final ExecutorService executor;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final int pageBufferMax;
 
-    private final HttpClient httpClient;
+    private final AsyncHttpClient httpClient;
 
     @Inject
-    public HackPlanFragmentSourceProvider(DataStreamProvider dataStreamProvider, @ForExchange HttpClient httpClient, JsonCodec<TaskInfo> taskInfoCodec)
+    public HackPlanFragmentSourceProvider(DataStreamProvider dataStreamProvider, @ForExchange AsyncHttpClient httpClient, JsonCodec<TaskInfo> taskInfoCodec)
     {
         this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
         this.httpClient = httpClient;
         this.taskInfoCodec = checkNotNull(taskInfoCodec, "taskInfoCodec is null");
-
-        executor = Executors.newCachedThreadPool(threadsNamed("http-exchange-worker-%d"));
 
         this.pageBufferMax = 10;
     }
@@ -68,7 +62,6 @@ public class HackPlanFragmentSourceProvider
                                     source.getValue(),
                                     exchangeSource.getOutputId(),
                                     httpClient,
-                                    executor,
                                     taskInfoCodec
                             );
                         }

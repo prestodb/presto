@@ -8,7 +8,8 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.http.client.ApacheHttpClient;
+import io.airlift.http.client.ApacheAsyncHttpClient;
+import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
@@ -33,7 +34,7 @@ public class QueryRunner
     private final JsonCodec<QueryInfo> queryInfoCodec;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final ClientSession session;
-    private final ApacheHttpClient httpClient;
+    private final AsyncHttpClient httpClient;
 
     public QueryRunner(
             ClientSession session,
@@ -43,7 +44,7 @@ public class QueryRunner
         this.session = checkNotNull(session, "session is null");
         this.queryInfoCodec = checkNotNull(queryInfoCodec, "queryInfoCodec is null");
         this.taskInfoCodec = checkNotNull(taskInfoCodec, "taskInfoCodec is null");
-        this.httpClient = new ApacheHttpClient(new HttpClientConfig()
+        this.httpClient = new ApacheAsyncHttpClient(new HttpClientConfig()
                 .setConnectTimeout(new Duration(1, TimeUnit.DAYS))
                 .setReadTimeout(new Duration(10, TimeUnit.DAYS)));
     }
@@ -56,7 +57,7 @@ public class QueryRunner
     public Query startQuery(String query)
     {
         Preconditions.checkNotNull(query, "query is null");
-        HttpQueryClient client = new HttpQueryClient(session, query, httpClient, executor, queryInfoCodec, taskInfoCodec);
+        HttpQueryClient client = new HttpQueryClient(session, query, httpClient, queryInfoCodec, taskInfoCodec);
         return new Query(client);
     }
 

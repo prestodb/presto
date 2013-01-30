@@ -19,8 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.net.HttpHeaders;
+import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
-import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
@@ -30,7 +30,6 @@ import javax.ws.rs.core.Response.Status;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -46,8 +45,7 @@ import static io.airlift.http.client.StatusResponseHandler.createStatusResponseH
 @ThreadSafe
 public class HttpQueryClient
 {
-    private final HttpClient httpClient;
-    private final ExecutorService executor;
+    private final AsyncHttpClient httpClient;
     private final URI queryLocation;
     private final JsonCodec<QueryInfo> queryInfoCodec;
     private final JsonCodec<TaskInfo> taskInfoCodec;
@@ -57,20 +55,17 @@ public class HttpQueryClient
 
     public HttpQueryClient(ClientSession session,
             String query,
-            HttpClient httpClient,
-            ExecutorService executor,
+            AsyncHttpClient httpClient,
             JsonCodec<QueryInfo> queryInfoCodec,
             JsonCodec<TaskInfo> taskInfoCodec)
     {
         checkNotNull(session, "session is null");
         checkNotNull(query, "query is null");
         checkNotNull(httpClient, "httpClient is null");
-        checkNotNull(executor, "executor is null");
         checkNotNull(queryInfoCodec, "queryInfoCodec is null");
         checkNotNull(taskInfoCodec, "taskInfoCodec is null");
 
         this.httpClient = httpClient;
-        this.executor = executor;
         this.queryInfoCodec = queryInfoCodec;
         this.taskInfoCodec = taskInfoCodec;
         this.debug = session.isDebug();
@@ -185,7 +180,6 @@ public class HttpQueryClient
                         taskInfo.getSelf(),
                         Iterables.getOnlyElement(taskInfo.getOutputBuffers()).getBufferId(),
                         httpClient,
-                        executor,
                         taskInfoCodec);
             }
         }));

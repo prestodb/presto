@@ -105,7 +105,7 @@ public class ServerMainModule
         binder.bind(LocationFactory.class).to(HttpLocationFactory.class).in(Scopes.SINGLETON);
         binder.bind(RemoteTaskFactory.class).to(HttpRemoteTaskFactory.class).in(Scopes.SINGLETON);
 
-        HttpClientBinder.httpClientBinder(binder).bindHttpClient("exchange", ForExchange.class).withTracing();
+        HttpClientBinder.httpClientBinder(binder).bindAsyncHttpClient("exchange", ForExchange.class).withTracing();
         HttpClientBinder.httpClientBinder(binder).bindHttpClient("scheduler", ForScheduler.class).withTracing();
         binder.bind(PlanFragmentSourceProvider.class).to(HackPlanFragmentSourceProvider.class).in(Scopes.SINGLETON);
 
@@ -174,7 +174,7 @@ public class ServerMainModule
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         binder.bind(ExecuteResource.class).in(Scopes.SINGLETON);
-        httpClientBinder(binder).bindHttpClient("execute", ExecuteResource.ForExecute.class);
+        httpClientBinder(binder).bindAsyncHttpClient("execute", ExecuteResource.ForExecute.class);
     }
 
     @Provides

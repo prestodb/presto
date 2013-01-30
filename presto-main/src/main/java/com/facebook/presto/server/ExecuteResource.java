@@ -10,7 +10,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Uninterruptibles;
-import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
@@ -23,20 +23,17 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
-
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.net.URI;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.cli.Query.getFailureMessages;
 import static com.facebook.presto.server.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.server.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.server.PrestoHeaders.PRESTO_USER;
-import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
@@ -44,20 +41,18 @@ import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
-import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @Path("/v1/execute")
 public class ExecuteResource
 {
-    private final ExecutorService executor = newFixedThreadPool(50, threadsNamed("query-execute-%s"));
-    private final HttpClient httpClient;
+    private final AsyncHttpClient httpClient;
     private final JsonCodec<QueryInfo> queryInfoCodec;
     private final JsonCodec<TaskInfo> taskInfoCodec;
 
     @Inject
     public ExecuteResource(
-            @ForExecute HttpClient httpClient,
+            @ForExecute AsyncHttpClient httpClient,
             JsonCodec<QueryInfo> queryInfoCodec,
             JsonCodec<TaskInfo> taskInfoCodec)
     {
@@ -80,7 +75,7 @@ public class ExecuteResource
         URI uri = uriInfo.getRequestUriBuilder().replacePath("/").replaceQuery("").build();
         ClientSession session = new ClientSession(uri, user, catalog, schema, false);
 
-        HttpQueryClient queryClient = new HttpQueryClient(session, query, httpClient, executor, queryInfoCodec, taskInfoCodec);
+        HttpQueryClient queryClient = new HttpQueryClient(session, query, httpClient, queryInfoCodec, taskInfoCodec);
 
         QueryInfo queryInfo = waitForResults(queryClient);
         Operator operator = queryClient.getResultsOperator();

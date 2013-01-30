@@ -174,7 +174,7 @@ public class HttpQuery
 
         private void rescheduleRequest()
         {
-            setCurrentRequest(httpClient.execute(prepareGet().setUri(queryUri).build(), this));
+            setCurrentRequest(httpClient.executeAsync(prepareGet().setUri(queryUri).build(), this));
         }
     }
 }

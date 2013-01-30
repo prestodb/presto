@@ -1,11 +1,13 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.Main;
+import com.google.common.base.Throwables;
 import io.airlift.command.Command;
 import io.airlift.command.Option;
 import org.fusesource.jansi.AnsiConsole;
 
 import javax.inject.Inject;
+import java.io.IOException;
 
 @Command(name = "execute", description = "Execute a query")
 public class Execute

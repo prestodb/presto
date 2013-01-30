@@ -9,14 +9,12 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
-import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.ws.rs.core.Response.Status;
 import java.net.URI;
-import java.util.concurrent.ExecutorService;
 
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -29,8 +27,7 @@ public class HttpTaskClient
         implements QueryDriverProvider
 {
     private final String taskId;
-    private final HttpClient httpClient;
-    private final ExecutorService executor;
+    private final AsyncHttpClient httpClient;
     private final URI location;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final String outputId;
@@ -39,13 +36,11 @@ public class HttpTaskClient
     public HttpTaskClient(String taskId,
             URI location,
             String outputId,
-            HttpClient httpClient,
-            ExecutorService executor,
+            AsyncHttpClient httpClient,
             JsonCodec<TaskInfo> taskInfoCodec)
     {
         this.taskId = taskId;
         this.httpClient = httpClient;
-        this.executor = executor;
         this.location = location;
         this.taskInfoCodec = taskInfoCodec;
         this.outputId = outputId;
@@ -84,7 +79,7 @@ public class HttpTaskClient
     @Override
     public QueryDriver create(PageBuffer outputBuffer)
     {
-        HttpQuery httpQuery = new HttpQuery(resultsLocation, outputBuffer, new AsyncHttpClient(httpClient, executor));
+        HttpQuery httpQuery = new HttpQuery(resultsLocation, outputBuffer, httpClient);
         return httpQuery;
     }
 

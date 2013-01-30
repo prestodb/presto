@@ -10,7 +10,8 @@ import com.facebook.presto.sql.tree.Serialization;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.http.client.ApacheHttpClient;
+import io.airlift.http.client.ApacheAsyncHttpClient;
+import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.HttpRequestFilter;
 import io.airlift.json.JsonCodec;
@@ -19,7 +20,6 @@ import io.airlift.json.ObjectMapperProvider;
 import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
-
 import java.io.Closeable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -33,7 +33,7 @@ public class QueryExecutor
     private final ExecutorService executor = Executors.newCachedThreadPool();
     private final JsonCodec<QueryInfo> queryInfoCodec;
     private final JsonCodec<TaskInfo> taskInfoCodec;
-    private final ApacheHttpClient httpClient;
+    private final AsyncHttpClient httpClient;
 
     public QueryExecutor(String userAgent,
             JsonCodec<QueryInfo> queryInfoCodec,
@@ -42,7 +42,7 @@ public class QueryExecutor
         checkNotNull(userAgent, "userAgent is null");
         this.queryInfoCodec = checkNotNull(queryInfoCodec, "queryInfoCodec is null");
         this.taskInfoCodec = checkNotNull(taskInfoCodec, "taskInfoCodec is null");
-        this.httpClient = new ApacheHttpClient(new HttpClientConfig()
+        this.httpClient = new ApacheAsyncHttpClient(new HttpClientConfig()
                 .setConnectTimeout(new Duration(1, TimeUnit.DAYS))
                 .setReadTimeout(new Duration(10, TimeUnit.DAYS)),
                 ImmutableSet.<HttpRequestFilter>of(new UserAgentRequestFilter(userAgent)));
@@ -50,7 +50,7 @@ public class QueryExecutor
 
     public HttpQueryClient startQuery(ClientSession session, String query)
     {
-        return new HttpQueryClient(session, query, httpClient, executor, queryInfoCodec, taskInfoCodec);
+        return new HttpQueryClient(session, query, httpClient, queryInfoCodec, taskInfoCodec);
     }
 
     @PreDestroy
