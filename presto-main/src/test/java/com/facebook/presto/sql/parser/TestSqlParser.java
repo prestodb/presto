@@ -25,11 +25,34 @@ import static org.testng.Assert.fail;
 
 public class TestSqlParser
 {
-    @Test(enabled = false) // TODO: this is currently broken
+    @Test
     public void testDouble()
             throws Exception
     {
-        assertParse("SELECT 123.456E7 FROM DUAL",
+        assertExpression("123.", new DoubleLiteral("123"));
+        assertExpression("123.0", new DoubleLiteral("123"));
+        assertExpression(".5", new DoubleLiteral(".5"));
+        assertExpression("123.5", new DoubleLiteral("123.5"));
+
+        assertExpression("123E7", new DoubleLiteral("123E7"));
+        assertExpression("123.E7", new DoubleLiteral("123E7"));
+        assertExpression("123.0E7", new DoubleLiteral("123E7"));
+        assertExpression("123E+7", new DoubleLiteral("123E7"));
+        assertExpression("123E-7", new DoubleLiteral("123E-7"));
+
+        assertExpression("123.456E7", new DoubleLiteral("123.456E7"));
+        assertExpression("123.456E+7", new DoubleLiteral("123.456E7"));
+        assertExpression("123.456E-7", new DoubleLiteral("123.456E-7"));
+
+        assertExpression(".4E42", new DoubleLiteral(".4E42"));
+        assertExpression(".4E+42", new DoubleLiteral(".4E42"));
+        assertExpression(".4E-42", new DoubleLiteral(".4E-42"));
+    }
+
+    @Test
+    public void testDoubleInQuery()
+    {
+        assertStatement("SELECT 123.456E7 FROM DUAL",
                 new Query(
                         selectList(new DoubleLiteral("123.456E7")),
                         table(QualifiedName.of("DUAL")),
@@ -177,13 +200,21 @@ public class TestSqlParser
         return s;
     }
 
-    private static void assertParse(String query, Node expected)
+    private static void assertStatement(String query, Statement expected)
     {
-        Statement parsed = SqlParser.createStatement(query);
+        assertParsed(query, expected, SqlParser.createStatement(query));
+    }
 
+    private static void assertExpression(String expression, Expression expected)
+    {
+        assertParsed(expression, expected, SqlParser.createExpression(expression));
+    }
+
+    private static void assertParsed(String input, Node expected, Node parsed)
+    {
         if (!parsed.equals(expected)) {
             fail(format("expected\n\n%s\n\nto parse as\n\n%s\n\nbut was\n\n%s\n",
-                    indent(query),
+                    indent(input),
                     indent(SqlFormatter.toString(expected)),
                     indent(SqlFormatter.toString(parsed))));
         }
