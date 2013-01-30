@@ -6,18 +6,15 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
-import com.facebook.presto.sql.tree.QueryUtil;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import org.antlr.runtime.tree.CommonTree;
-import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.util.regex.Pattern;
 
 import static com.facebook.presto.sql.parser.TreePrinter.treeToString;
 import static com.facebook.presto.sql.tree.QueryUtil.selectList;
@@ -41,6 +38,12 @@ public class TestSqlParser
                         null,
                         ImmutableList.<SortItem>of(),
                         null));
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:7: mismatched input 'x' expecting EOF")
+    public void testExpressionWithTrailingJunk()
+    {
+        SqlParser.createExpression("1 + 1 x");
     }
 
     @Test
@@ -179,7 +182,7 @@ public class TestSqlParser
         Statement parsed = SqlParser.createStatement(query);
 
         if (!parsed.equals(expected)) {
-            Assert.fail(format("expected\n\n%s\n\nto parse as\n\n%s\n\nbut was\n\n%s\n",
+            fail(format("expected\n\n%s\n\nto parse as\n\n%s\n\nbut was\n\n%s\n",
                     indent(query),
                     indent(SqlFormatter.toString(expected)),
                     indent(SqlFormatter.toString(parsed))));
