@@ -32,7 +32,8 @@ import com.google.inject.Scopes;
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.configuration.ConfigurationModule;
 import io.airlift.event.client.InMemoryEventModule;
-import io.airlift.http.client.ApacheHttpClient;
+import io.airlift.http.client.ApacheAsyncHttpClient;
+import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.Request;
 import io.airlift.http.server.testing.TestingHttpServer;
@@ -46,8 +47,6 @@ import org.testng.annotations.Test;
 
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static com.facebook.presto.server.MockQueryManager.TUPLE_INFOS;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
@@ -62,11 +61,10 @@ import static org.testng.Assert.assertTrue;
 
 public class TestHttpQueryProvider
 {
-    private ApacheHttpClient httpClient;
+    private AsyncHttpClient httpClient;
     private TestingHttpServer server1;
     private TestingHttpServer server2;
     private TestingHttpServer server3;
-    private ExecutorService executor;
 
     @BeforeMethod
     public void setup()
@@ -76,8 +74,7 @@ public class TestHttpQueryProvider
             server1 = createServer();
             server2 = createServer();
             server3 = createServer();
-            executor = Executors.newCachedThreadPool();
-            httpClient = new ApacheHttpClient();
+            httpClient = new ApacheAsyncHttpClient();
         }
         catch (Exception | Error e) {
             teardown();
@@ -127,9 +124,6 @@ public class TestHttpQueryProvider
         if (server3 != null) {
             server3.stop();
         }
-        if (executor != null) {
-            executor.shutdownNow();
-        }
     }
 
     @Test
@@ -155,7 +149,7 @@ public class TestHttpQueryProvider
         assertEquals(count, 312 * 3);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testCancel()
             throws Exception
     {
@@ -218,7 +212,6 @@ public class TestHttpQueryProvider
                 taskInfo.getSelf(),
                 "out",
                 httpClient,
-                executor,
                 jsonCodec(TaskInfo.class));
     }
 }
