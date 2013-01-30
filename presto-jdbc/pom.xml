@@ -9,7 +9,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>library</artifactId>
-        <version>0.68</version>
+        <version>0.69-SNAPSHOT</version>
         <relativePath/>
     </parent>
 
