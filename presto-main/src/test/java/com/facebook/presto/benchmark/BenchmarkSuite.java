@@ -42,6 +42,8 @@ public class BenchmarkSuite
             new Top100SqlBenchmark(),
             new SqlHashJoinBenchmark(),
             new VarBinaryMaxAggregationSqlBenchmark(),
+            new SqlDistinctMultipleFields(),
+            new SqlDistinctSingleField(),
 
             // statistics benchmarks
             new StatisticsBenchmark.LongVarianceBenchmark(),
