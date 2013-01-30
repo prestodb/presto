@@ -1,19 +1,48 @@
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.sql.SqlFormatter;
+import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.QueryUtil;
+import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Charsets;
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import org.antlr.runtime.tree.CommonTree;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.sql.parser.TreePrinter.treeToString;
+import static com.facebook.presto.sql.tree.QueryUtil.selectList;
+import static com.facebook.presto.sql.tree.QueryUtil.table;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public class TestSqlParser
 {
+    @Test(enabled = false) // TODO: this is currently broken
+    public void testDouble()
+            throws Exception
+    {
+        assertParse("SELECT 123.456E7 FROM DUAL",
+                new Query(
+                        selectList(new DoubleLiteral("123.456E7")),
+                        table(QualifiedName.of("DUAL")),
+                        null,
+                        ImmutableList.<Expression>of(),
+                        null,
+                        ImmutableList.<SortItem>of(),
+                        null));
+    }
+
     @Test
     public void testStatementBuilder()
             throws Exception
@@ -143,5 +172,23 @@ public class TestSqlParser
         s = s.replaceAll("(?m)^:n ([0-9]+)$", "LIMIT $1");
         s = s.replaceAll("([^']):([0-9]+)", "$1$2");
         return s;
+    }
+
+    private static void assertParse(String query, Node expected)
+    {
+        Statement parsed = SqlParser.createStatement(query);
+
+        if (!parsed.equals(expected)) {
+            Assert.fail(format("expected\n\n%s\n\nto parse as\n\n%s\n\nbut was\n\n%s\n",
+                    indent(query),
+                    indent(SqlFormatter.toString(expected)),
+                    indent(SqlFormatter.toString(parsed))));
+        }
+    }
+
+    private static String indent(String value)
+    {
+        String indent = "    ";
+        return indent + value.trim().replaceAll("\n", "\n" + indent);
     }
 }
