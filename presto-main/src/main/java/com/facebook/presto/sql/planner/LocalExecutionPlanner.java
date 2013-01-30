@@ -38,7 +38,6 @@ import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
-import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -48,6 +47,7 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
 import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.MoreFunctions;
+import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
@@ -66,8 +66,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.operator.Input.channelGetter;
 import static com.facebook.presto.operator.Input.fieldGetter;
+import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
+import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
 import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.equalTo;
@@ -209,24 +210,10 @@ public class LocalExecutionPlanner
 
             List<Symbol> orderBySymbols = node.getOrderBy();
 
-            // see if the order-by fields are in the same channel
-            Set<Integer> channels = IterableTransformer.on(orderBySymbols)
-                    .transform(forMap(source.getLayout()))
-                    .transform(channelGetter())
-                    .set();
+            // insert a projection to put all the sort fields in a single channel if necessary
+            source = packIfNecessary(orderBySymbols, source);
 
-            if (channels.size() > 1) {
-                // insert a projection to pack the order-by fields into the same channel
-                source = pack(source, orderBySymbols, types);
-
-                // get the channels where the orderBySymbols were placed
-                channels = IterableTransformer.on(orderBySymbols)
-                        .transform(forMap(source.getLayout()))
-                        .transform(channelGetter())
-                        .set();
-            }
-
-            int orderByChannel = Iterables.getOnlyElement(channels);
+            int orderByChannel = Iterables.getOnlyElement(getChannelsForSymbols(orderBySymbols, source.getLayout()));
 
             int[] sortFields = new int[orderBySymbols.size()];
             boolean[] sortOrder = new boolean[orderBySymbols.size()];
@@ -338,30 +325,20 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitJoin(JoinNode node, Void context)
         {
-            ComparisonExpression comparison = (ComparisonExpression) node.getCriteria();
-            Symbol first = Symbol.fromQualifiedName(((QualifiedNameReference) comparison.getLeft()).getName());
-            Symbol second = Symbol.fromQualifiedName(((QualifiedNameReference) comparison.getRight()).getName());
+            List<JoinNode.EquiJoinClause> clauses = node.getCriteria();
 
-            Symbol left;
-            Symbol right;
-            if (node.getLeft().getOutputSymbols().contains(first)) {
-                left = first;
-                right = second;
-            }
-            else {
-                left = second;
-                right = first;
-            }
-
+            // introduce a projection to put all fields from the left side into a single channel if necessary
             PhysicalOperation leftSource = node.getLeft().accept(this, context);
-            int probeChannel = leftSource.getLayout().get(left).getChannel();
+            List<Symbol> leftSymbols = Lists.transform(clauses, leftGetter());
+            leftSource = packIfNecessary(leftSymbols, leftSource);
 
+            // do the same on the right side
             PhysicalOperation rightSource = node.getRight().accept(this, context);
-            int buildChannel = rightSource.getLayout().get(right).getChannel();
+            List<Symbol> rightSymbols = Lists.transform(clauses, rightGetter());
+            rightSource = packIfNecessary(rightSymbols, rightSource);
 
-            Preconditions.checkState(leftSource.getOperator().getTupleInfos().get(probeChannel).getFieldCount() == 1 &&
-                    rightSource.getOperator().getTupleInfos().get(buildChannel).getFieldCount() == 1,
-                    "JOIN with the results of a multi-field GROUP BY, DISTINCT or ORDER BY not yet supported");
+            int probeChannel = Iterables.getOnlyElement(getChannelsForSymbols(leftSymbols, leftSource.getLayout()));
+            int buildChannel = Iterables.getOnlyElement(getChannelsForSymbols(rightSymbols, rightSource.getLayout()));
 
             SourceHashProvider hashProvider = joinHashFactory.getSourceHashProvider(node, rightSource.getOperator(), buildChannel, operatorStats);
 
@@ -437,36 +414,8 @@ public class LocalExecutionPlanner
         {
             List<Symbol> groupBySymbols = node.getGroupBy();
 
-            // see if the group-by fields are in the same channel and are the only fields in that channel
-            // first, compute the unique set of channels
-            Set<Integer> channels = IterableTransformer.on(groupBySymbols)
-                    .transform(forMap(source.getLayout()))
-                    .transform(channelGetter())
-                    .set();
-
-            boolean needsProjection = true;
-
-            // if there's more than one channel, we need to pack the group-by fields into the same channel
-            if (channels.size() == 1) {
-                int channel = Iterables.getOnlyElement(channels);
-
-                // otherwise, verify that the only the group by symbols are in the group-by channel
-                TupleInfo channelTupleInfo = source.getOperator().getTupleInfos().get(channel);
-                if (channelTupleInfo.getFieldCount() == groupBySymbols.size()) {
-                    needsProjection = false;
-                }
-            }
-
-            // insert a projection that packs all the group-by fields into the same channel if necessary
-            if (needsProjection) {
-                source = pack(source, groupBySymbols, types);
-
-                // get the channels where the groupBySymbols were placed
-                channels = IterableTransformer.on(groupBySymbols)
-                        .transform(forMap(source.getLayout()))
-                        .transform(channelGetter())
-                        .set();
-            }
+            // introduce a projection to put all group by fields from the source into a single channel if necessary
+            source = packIfNecessary(groupBySymbols, source);
 
             List<Symbol> aggregationOutputSymbols = new ArrayList<>();
             List<AggregationFunctionDefinition> functionDefinitions = new ArrayList<>();
@@ -491,7 +440,7 @@ public class LocalExecutionPlanner
             }
 
             Operator aggregationOperator = new HashAggregationOperator(source.getOperator(),
-                    Iterables.getOnlyElement(channels),
+                    Iterables.getOnlyElement(getChannelsForSymbols(groupBySymbols, source.getLayout())),
                     node.getStep(),
                     functionDefinitions,
                     100_000,
@@ -515,6 +464,19 @@ public class LocalExecutionPlanner
         }
 
         return new IdentityProjectionInfo(outputLayout, projections);
+    }
+
+    /**
+     * Inserts a projection if the provided symbols are not in a single channel by themselves
+     */
+    private PhysicalOperation packIfNecessary(List<Symbol> symbols, PhysicalOperation source)
+    {
+        Set<Integer> channels = getChannelsForSymbols(symbols, source.getLayout());
+        List<TupleInfo> tupleInfos = source.getOperator().getTupleInfos();
+        if (channels.size() > 1 || tupleInfos.get(Iterables.getOnlyElement(channels)).getFieldCount() > 1) {
+            source = pack(source, symbols, types);
+        }
+        return source;
     }
 
     /**
@@ -557,6 +519,14 @@ public class LocalExecutionPlanner
 
         Operator operator = new FilterAndProjectOperator(source.getOperator(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections());
         return new PhysicalOperation(operator, mappings.getOutputLayout());
+    }
+
+    private static Set<Integer> getChannelsForSymbols(List<Symbol> symbols, Map<Symbol, Input> layout)
+    {
+        return IterableTransformer.on(symbols)
+                .transform(Functions.forMap(layout))
+                .transform(Input.channelGetter())
+                .set();
     }
 
     private static class IdentityProjectionInfo
