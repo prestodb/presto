@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-hive</artifactId>
-    <version>0.1</version>
+    <version>0.2-SNAPSHOT</version>
     <name>presto-hive</name>
     <description>Presto - Hive Connector</description>
 
@@ -29,7 +29,7 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
-            <version>0.1</version>
+            <version>0.2-SNAPSHOT</version>
         </dependency>
 
         <dependency>
@@ -183,8 +183,4 @@
             </build>
         </profile>
     </profiles>
-
-  <scm>
-    <tag>0.1</tag>
-  </scm>
 </project>

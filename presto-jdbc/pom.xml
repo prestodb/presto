@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-jdbc</artifactId>
-    <version>0.1</version>
+    <version>0.2-SNAPSHOT</version>
     <name>presto-jdbc</name>
 
     <parent>
@@ -28,7 +28,7 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
-            <version>0.1</version>
+            <version>0.2-SNAPSHOT</version>
         </dependency>
 
         <dependency>
@@ -175,8 +175,4 @@
             </plugin>
         </plugins>
     </build>
-
-  <scm>
-    <tag>0.1</tag>
-  </scm>
 </project>
