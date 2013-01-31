@@ -108,6 +108,10 @@ statementList
     : (statement SEMICOLON)* EOF -> ^(STATEMENT_LIST statement*)
     ;
 
+singleExpression
+    : expr EOF -> expr
+    ;
+
 statement
     : selectStmt      -> ^(QUERY selectStmt)
     | showTablesStmt
@@ -591,6 +595,8 @@ INTEGER_VALUE
 DECIMAL_VALUE
     : DIGIT+ '.' DIGIT*
     | '.' DIGIT+
+    | DIGIT+ ('.' DIGIT*)? EXPONENT
+    | '.' DIGIT+ EXPONENT
     ;
 
 IDENT
@@ -600,6 +606,10 @@ IDENT
 QUOTED_IDENT
     : '"' ( ~'"' | '""' )* '"'
         { setText(getText().substring(1, getText().length() - 1).replace("\"\"", "\"")); }
+    ;
+
+fragment EXPONENT
+    : 'E' ('+' | '-')? DIGIT+
     ;
 
 fragment DIGIT
