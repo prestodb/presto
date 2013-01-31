@@ -76,6 +76,8 @@ public class OperatorStats
             taskOutput.getStats().addInputDataSize(new DataSize(completedDataSize - declaredSize, Unit.BYTE));
             declaredSize = completedDataSize;
         }
+
+        updateTimings();
     }
 
     public void addCompletedPositions(long positions)
@@ -91,6 +93,8 @@ public class OperatorStats
             taskOutput.getStats().addInputPositions(completedPositions - declaredPositions);
             declaredPositions = completedPositions;
         }
+
+        updateTimings();
     }
 
     public void start()
@@ -116,10 +120,26 @@ public class OperatorStats
             return;
         }
 
-        // update the timings
-        taskOutput.getStats().addSplitWallTime(Duration.nanosSince(wallStartTime));
-        taskOutput.getStats().addSplitCpuTime(new Duration(Math.max(0, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStartTime), TimeUnit.NANOSECONDS));
-        taskOutput.getStats().addSplitUserTime(new Duration(Math.max(0, THREAD_MX_BEAN.getCurrentThreadUserTime() - userStartTime), TimeUnit.NANOSECONDS));
+        updateTimings();
         taskOutput.getStats().splitCompleted();
+    }
+
+    private void updateTimings()
+    {
+        if (taskOutput == null) {
+            return;
+        }
+
+        long now = System.nanoTime();
+        long cpuNow = THREAD_MX_BEAN.getCurrentThreadCpuTime();
+        long userNow = THREAD_MX_BEAN.getCurrentThreadUserTime();
+
+        taskOutput.getStats().addSplitWallTime(new Duration(Math.max(0, now - wallStartTime), TimeUnit.NANOSECONDS));
+        taskOutput.getStats().addSplitCpuTime(new Duration(Math.max(0, cpuNow - cpuStartTime), TimeUnit.NANOSECONDS));
+        taskOutput.getStats().addSplitUserTime(new Duration(Math.max(0, userNow - userStartTime), TimeUnit.NANOSECONDS));
+
+        wallStartTime = now;
+        cpuStartTime = cpuNow;
+        userStartTime = userNow;
     }
 }
