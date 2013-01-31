@@ -183,10 +183,10 @@ public class SplitManager
                 .transform(columnNameGetter())
                 .list();
 
-        Iterable<List<PartitionChunk>> chunks = retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<Iterable<List<PartitionChunk>>>()
+        Iterable<PartitionChunk> chunks = retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<Iterable<PartitionChunk>>()
         {
             @Override
-            public Iterable<List<PartitionChunk>> call()
+            public Iterable<PartitionChunk> call()
                     throws Exception
             {
                 ImportClient importClient = importClientManager.getClient(sourceName);
@@ -194,7 +194,7 @@ public class SplitManager
             }
         });
 
-        return Iterables.transform(Iterables.concat(chunks), createImportSplitFunction(sourceName));
+        return Iterables.transform(chunks, createImportSplitFunction(sourceName));
     }
 
     private List<String> getPartitions(Session session, String sourceName, String databaseName, String tableName, Expression predicate, Map<Symbol, ColumnHandle> mappings)

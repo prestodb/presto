@@ -36,6 +36,8 @@ public class HiveImportClientFactory
 {
     private final ServiceSelector selector;
     private final DataSize maxChunkSize;
+    private final int maxOutstandingChunks;
+    private final int maxChunkIteratorThreads;
 
     private final Cache<String, MetadataCache> metadataCaches;
     private final MBeanExporter mbeanExporter;
@@ -49,6 +51,8 @@ public class HiveImportClientFactory
     {
         this.selector = selector;
         this.maxChunkSize = hiveClientConfig.getMaxChunkSize();
+        this.maxOutstandingChunks = hiveClientConfig.getMaxOutstandingChunks();
+        this.maxChunkIteratorThreads = hiveClientConfig.getMaxChunkIteratorThreads();
         this.metadataCaches = CacheBuilder.newBuilder().build();
         this.partitionChunkCodec = partitionChunkCodec;
         this.mbeanExporter = mbeanExporter;
@@ -65,7 +69,7 @@ public class HiveImportClientFactory
         checkArgument(!metastoreName.isEmpty(), "bad metastore name: %s", metastoreName);
 
         HostAndPort metastore = getMetaStoreAddress(metastoreName);
-        HiveClient hiveClient = new HiveClient(metastore.getHostText(), metastore.getPort(), maxChunkSize.toBytes(), partitionChunkCodec);
+        HiveClient hiveClient = new HiveClient(metastore.getHostText(), metastore.getPort(), maxChunkSize.toBytes(), maxOutstandingChunks, maxChunkIteratorThreads, partitionChunkCodec);
 
         MetadataCache metadataCache;
         try {

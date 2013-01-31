@@ -16,7 +16,6 @@ public class TestCachingHiveClient
     public void setup(String host, int port)
             throws Exception
     {
-        this.client = new CachingHiveClient(new HiveMetadataCache(new Duration(60.0, TimeUnit.MINUTES)), new HiveClient(host, port, 1024 * 1024 * 1024, getHivePartitionChunkCodec()) /* 1 GB */);
+        this.client = new CachingHiveClient(new HiveMetadataCache(new Duration(60.0, TimeUnit.MINUTES)), new HiveClient(host, port, 1024 * 1024 * 1024 /* 1 GB */, 100, 50, getHivePartitionChunkCodec()));
     }
-
 }

@@ -1,5 +1,9 @@
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.util.AsyncRecursiveWalker;
+import com.facebook.presto.hive.util.BoundedExecutor;
+import com.facebook.presto.hive.util.FileStatusCallback;
+import com.facebook.presto.hive.util.SuspendingExecutor;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.ObjectNotFoundException;
 import com.facebook.presto.spi.PartitionChunk;
@@ -11,10 +15,15 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.airlift.json.JsonCodec;
 import org.apache.hadoop.fs.FileStatus;
@@ -52,17 +61,17 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Queue;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.hive.HadoopConfiguration.HADOOP_CONFIGURATION;
 import static com.facebook.presto.hive.HiveColumn.indexGetter;
@@ -80,18 +89,10 @@ public class HiveClient
 {
     private static final int PARTITION_BATCH_SIZE = 1000;
 
-    // TODO: consider injecting these static instances
-    private static final ExecutorService PARTITION_LIST_EXECUTOR = Executors.newFixedThreadPool(
-            50,
+    // TODO: consider injecting this static instance
+    private static final ExecutorService HIVE_CLIENT_EXECUTOR = Executors.newCachedThreadPool(
             new ThreadFactoryBuilder()
-                    .setNameFormat("hive-client-partition-lister-%d")
-                    .setDaemon(true)
-                    .build()
-    );
-    private static final ExecutorService HDFS_LIST_EXECUTOR = Executors.newFixedThreadPool(
-            50,
-            new ThreadFactoryBuilder()
-                    .setNameFormat("hive-client-hdfs-lister-%d")
+                    .setNameFormat("hive-client-%d")
                     .setDaemon(true)
                     .build()
     );
@@ -99,13 +100,17 @@ public class HiveClient
     private final String metastoreHost;
     private final int metastorePort;
     private final long maxChunkBytes;
+    private final int maxOutstandingChunks;
+    private final int maxChunkIteratorThreads;
     private final JsonCodec<HivePartitionChunk> partitionChunkCodec;
 
-    public HiveClient(String metastoreHost, int metastorePort, long maxChunkBytes, JsonCodec<HivePartitionChunk> partitionChunkCodec)
+    public HiveClient(String metastoreHost, int metastorePort, long maxChunkBytes, int maxOutstandingChunks, int maxChunkIteratorThreads, JsonCodec<HivePartitionChunk> partitionChunkCodec)
     {
         this.metastoreHost = metastoreHost;
         this.metastorePort = metastorePort;
         this.maxChunkBytes = maxChunkBytes;
+        this.maxOutstandingChunks = maxOutstandingChunks;
+        this.maxChunkIteratorThreads = maxChunkIteratorThreads;
         this.partitionChunkCodec = partitionChunkCodec;
 
         HadoopNative.requireHadoopNative();
@@ -259,14 +264,14 @@ public class HiveClient
     }
 
     @Override
-    public List<PartitionChunk> getPartitionChunks(String databaseName, String tableName, String partitionName, List<String> columns)
+    public Iterable<PartitionChunk> getPartitionChunks(String databaseName, String tableName, String partitionName, List<String> columns)
             throws ObjectNotFoundException
     {
         try (HiveMetastoreClient metastore = getClient()) {
             Table table = metastore.get_table(databaseName, tableName);
             Partition partition = metastore.get_partition_by_name(databaseName, tableName, partitionName);
 
-            return getPartitionChunks(table, partition, getHiveColumns(table, columns));
+            return getPartitionChunks(table, ImmutableList.of(partition), getHiveColumns(table, columns));
         }
         catch (NoSuchObjectException e) {
             throw new ObjectNotFoundException(e.getMessage());
@@ -277,7 +282,7 @@ public class HiveClient
     }
 
     @Override
-    public Iterable<List<PartitionChunk>> getPartitionChunks(String databaseName, String tableName, List<String> partitionNames, List<String> columns)
+    public Iterable<PartitionChunk> getPartitionChunks(String databaseName, String tableName, List<String> partitionNames, List<String> columns)
             throws ObjectNotFoundException
     {
         Table table = getTable(databaseName, tableName);
@@ -295,22 +300,8 @@ public class HiveClient
             throw Throwables.propagate(e);
         }
 
-        int count = 0;
-        ImmutableList.Builder<List<PartitionChunk>> builder = ImmutableList.builder();
-        ExecutorCompletionService<List<PartitionChunk>> executorCompletionService = new ExecutorCompletionService<>(PARTITION_LIST_EXECUTOR);
-        for (Partition partition : partitionsBuilder.build()) {
-            count++;
-            executorCompletionService.submit(createPartitionCallable(table, partition, getHiveColumns(table, columns)));
-        }
-        try {
-            for (int i = 0; i < count; i++) {
-                builder.add(executorCompletionService.take().get());
-            }
-        }
-        catch (InterruptedException | ExecutionException e) {
-            throw Throwables.propagate(e);
-        }
-        return builder.build();
+        return getPartitionChunks(table, partitionsBuilder.build(), getHiveColumns(table, columns));
+
     }
 
     @Override
@@ -369,7 +360,7 @@ public class HiveClient
         }
     }
 
-    private InputFormat getInputFormat(Properties schema)
+    private static InputFormat getInputFormat(Properties schema)
     {
         String inputFormatName = getInputFormatName(schema);
         try {
@@ -490,34 +481,160 @@ public class HiveClient
         }
     }
 
-    private List<PartitionChunk> getPartitionChunks(Table table, Partition partition, List<HiveColumn> columns)
-            throws IOException
+    private Iterable<PartitionChunk> getPartitionChunks(Table table, List<Partition> partitions, List<HiveColumn> columns)
     {
-        Properties schema = MetaStoreUtils.getSchema(partition, table);
-        List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition);
-
-        InputFormat inputFormat = getInputFormat(schema);
-
-        Path partitionLocation = new CachingPath(partition.getSd().getLocation());
-        FileSystem fs = partitionLocation.getFileSystem(HADOOP_CONFIGURATION.get());
-        ImmutableList.Builder<PartitionChunk> list = ImmutableList.builder();
-        List<FileStatus> files = new RecursiveFileSystemTraversal(fs, partitionLocation, HDFS_LIST_EXECUTOR).list();
-
-        for (FileStatus file : files) {
-            boolean splittable = isSplittable(inputFormat,
-                    file.getPath().getFileSystem(HADOOP_CONFIGURATION.get()),
-                    file.getPath());
-
-            long splitSize = splittable ? maxChunkBytes : file.getLen();
-            for (long start = 0; start < file.getLen(); start += splitSize) {
-                long length = min(splitSize, file.getLen() - start);
-                list.add(new HivePartitionChunk(file.getPath(), start, length, schema, partitionKeys, columns));
-            }
-        }
-        return list.build();
+        return new PartitionChunkIterable(table, partitions, columns, maxChunkBytes, maxOutstandingChunks, maxChunkIteratorThreads, HIVE_CLIENT_EXECUTOR);
     }
 
-    private boolean isSplittable(InputFormat inputFormat, FileSystem fileSystem, Path path)
+    private static class PartitionChunkIterable
+            implements Iterable<PartitionChunk>
+    {
+        private static final PartitionChunk FINISHED_MARKER = new PartitionChunk()
+        {
+            @Override
+            public long getLength()
+            {
+                throw new UnsupportedOperationException();
+            }
+        };
+
+        private final Table table;
+        private final List<Partition> partitions;
+        private final List<HiveColumn> columns;
+        private final long maxChunkBytes;
+        private final int maxOutstandingChunks;
+        private final int maxThreads;
+        private final Executor executor;
+
+        private PartitionChunkIterable(Table table, List<Partition> partitions, List<HiveColumn> columns, long maxChunkBytes, int maxOutstandingChunks, int maxThreads, Executor executor)
+        {
+            this.table = table;
+            this.partitions = ImmutableList.copyOf(partitions);
+            this.columns = ImmutableList.copyOf(columns);
+            this.maxChunkBytes = maxChunkBytes;
+            this.maxOutstandingChunks = maxOutstandingChunks;
+            this.maxThreads = maxThreads;
+            this.executor = executor;
+        }
+
+        @Override
+        public Iterator<PartitionChunk> iterator()
+        {
+            // Each iterator has its own bounded executor and can be independently suspended
+            SuspendingExecutor suspendingExecutor = new SuspendingExecutor(new BoundedExecutor(executor, maxThreads));
+            final PartitionChunkQueue partitionChunkQueue = new PartitionChunkQueue(maxOutstandingChunks, suspendingExecutor);
+            ImmutableList.Builder<ListenableFuture<Void>> futureBuilder = ImmutableList.builder();
+            try {
+                for (Partition partition : partitions) {
+                    final Properties schema = MetaStoreUtils.getSchema(partition, table);
+                    final List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition);
+                    final InputFormat inputFormat = getInputFormat(schema);
+                    Path partitionPath = new CachingPath(partition.getSd().getLocation());
+                    FileSystem fs = partitionPath.getFileSystem(HADOOP_CONFIGURATION.get());
+
+                    futureBuilder.add(new AsyncRecursiveWalker(fs, suspendingExecutor).beginWalk(partitionPath, new FileStatusCallback()
+                    {
+                        @Override
+                        public void process(FileStatus file)
+                        {
+                            try {
+                                boolean splittable = isSplittable(inputFormat,
+                                        file.getPath().getFileSystem(HADOOP_CONFIGURATION.get()),
+                                        file.getPath());
+
+                                long splitSize = splittable ? maxChunkBytes : file.getLen();
+                                for (long start = 0; start < file.getLen(); start += splitSize) {
+                                    long length = min(splitSize, file.getLen() - start);
+                                    partitionChunkQueue.addToQueue(new HivePartitionChunk(file.getPath(), start, length, schema, partitionKeys, columns));
+                                }
+                            }
+                            catch (IOException e) {
+                                partitionChunkQueue.fail(e);
+                            }
+                        }
+                    }));
+                }
+
+                Futures.addCallback(Futures.allAsList(futureBuilder.build()), new FutureCallback<List<Void>>()
+                {
+                    @Override
+                    public void onSuccess(List<Void> result)
+                    {
+                        partitionChunkQueue.finished();
+                    }
+
+                    @Override
+                    public void onFailure(Throwable t)
+                    {
+                        partitionChunkQueue.fail(t);
+                    }
+                });
+            }
+            catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
+            return partitionChunkQueue;
+        }
+
+        private static class PartitionChunkQueue
+                extends AbstractIterator<PartitionChunk>
+        {
+            private final BlockingQueue<PartitionChunk> queue = new LinkedBlockingQueue<>();
+            private final AtomicInteger outstandingChunkCount = new AtomicInteger();
+            private final AtomicReference<Throwable> throwable = new AtomicReference<>();
+            private final int maxOutstandingChunks;
+            private final SuspendingExecutor suspendingExecutor;
+
+            private PartitionChunkQueue(int maxOutstandingChunks, SuspendingExecutor suspendingExecutor)
+            {
+                this.maxOutstandingChunks = maxOutstandingChunks;
+                this.suspendingExecutor = suspendingExecutor;
+            }
+
+            private void addToQueue(PartitionChunk chunk)
+            {
+                queue.add(chunk);
+                if (outstandingChunkCount.incrementAndGet() == maxOutstandingChunks) {
+                    suspendingExecutor.suspend();
+                }
+            }
+
+            private void finished()
+            {
+                queue.add(FINISHED_MARKER);
+            }
+
+            private void fail(Throwable e)
+            {
+                throwable.set(e);
+            }
+
+            @Override
+            protected PartitionChunk computeNext()
+            {
+                if (throwable.get() != null) {
+                    throw Throwables.propagate(throwable.get());
+                }
+
+                try {
+                    PartitionChunk chunk = queue.take();
+                    if (chunk == FINISHED_MARKER) {
+                        return endOfData();
+                    }
+                    if (outstandingChunkCount.getAndDecrement() == maxOutstandingChunks) {
+                        suspendingExecutor.resume();
+                    }
+                    return chunk;
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw Throwables.propagate(e);
+                }
+            }
+        }
+    }
+
+    private static boolean isSplittable(InputFormat inputFormat, FileSystem fileSystem, Path path)
     {
         // use reflection to get isSplitable method on InputFormat
         Method method = null;
@@ -580,19 +697,6 @@ public class HiveClient
                     }
                 }
                 return true;
-            }
-        };
-    }
-
-    private Callable<List<PartitionChunk>> createPartitionCallable(final Table table, final Partition partition, final List<HiveColumn> columns)
-    {
-        return new Callable<List<PartitionChunk>>()
-        {
-            @Override
-            public List<PartitionChunk> call()
-                    throws Exception
-            {
-                return getPartitionChunks(table, partition, columns);
             }
         };
     }
@@ -695,74 +799,5 @@ public class HiveClient
             partitionKeys.add(new HivePartitionKey(name, type, hiveType, value));
         }
         return partitionKeys.build();
-    }
-
-    // TODO: clean this code up
-    private static class RecursiveFileSystemTraversal
-    {
-        private final FileSystem fileSystem;
-        private final Path rootPath;
-        private final ExecutorCompletionService<Object> executorCompletionService;
-        private final Queue<FileStatus> fileStatuses = new LinkedBlockingQueue<>();
-        private final AtomicLong taskCount = new AtomicLong(0);
-
-        private RecursiveFileSystemTraversal(FileSystem fileSystem, Path rootPath, ExecutorService executorService)
-        {
-            this.fileSystem = fileSystem;
-            this.rootPath = rootPath;
-            this.executorCompletionService = new ExecutorCompletionService<>(executorService);
-        }
-
-        private List<FileStatus> list()
-        {
-            // Launch job
-            listRecursively(rootPath);
-
-            // Wait for all jobs to complete
-            while (taskCount.get() > 0) {
-                try {
-                    executorCompletionService.take();
-                }
-                catch (InterruptedException e) {
-                    throw Throwables.propagate(e);
-                }
-            }
-            return ImmutableList.copyOf(fileStatuses);
-        }
-
-        private void listRecursively(Path path)
-        {
-            try {
-                FileStatus[] statuses = fileSystem.listStatus(path);
-                checkState(statuses != null, "Partition location %s does not exist", path);
-                assert statuses != null; // IDEA-60343
-                for (final FileStatus status : statuses) {
-                    if (status.isDir()) {
-                        taskCount.addAndGet(1);
-                        executorCompletionService.submit(new Runnable()
-                        {
-                            @Override
-                            public void run()
-                            {
-                                try {
-                                    listRecursively(status.getPath());
-                                }
-                                finally {
-                                    taskCount.addAndGet(-1);
-                                }
-                            }
-                        },
-                                new Object()
-                        );
-                    }
-                    else {
-                        fileStatuses.add(status);
-                    }
-                }
-            }
-            catch (IOException e) {
-                throw Throwables.propagate(e);
-            }
-        }
     }
 }
