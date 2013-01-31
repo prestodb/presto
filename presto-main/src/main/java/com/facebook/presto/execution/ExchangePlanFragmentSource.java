@@ -8,6 +8,7 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.concurrent.Immutable;
@@ -30,6 +31,12 @@ public class ExchangePlanFragmentSource
             @JsonProperty("outputId") String outputId,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos)
     {
+        Preconditions.checkNotNull(sources, "sources is null");
+        Preconditions.checkArgument(!sources.isEmpty(), "sources is empty");
+        Preconditions.checkNotNull(outputId, "outputId is null");
+        Preconditions.checkArgument(!outputId.isEmpty(), "outputId is empty");
+        Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
+
         this.sources = ImmutableMap.copyOf(sources);
         this.outputId = outputId;
         this.tupleInfos = tupleInfos;
