@@ -10,7 +10,8 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>library</artifactId>
-        <version>0.69-SNAPSHOT</version>
+        <version>0.69</version>
+        <relativePath/>
     </parent>
 
     <distributionManagement>
@@ -59,6 +60,11 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>configuration</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>discovery-experimental</artifactId>
         </dependency>
 
@@ -68,14 +74,35 @@
         </dependency>
 
         <dependency>
-            <groupId>org.weakref</groupId>
-            <artifactId>jmxutils</artifactId>
-            <version>1.13</version>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
         </dependency>
 
         <dependency>
+            <groupId>com.google.inject.extensions</groupId>
+            <artifactId>guice-multibindings</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.validation</groupId>
+            <artifactId>validation-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.weakref</groupId>
+            <artifactId>jmxutils</artifactId>
+        </dependency>
+
+        <!-- for testing -->
+        <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
