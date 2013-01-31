@@ -3,14 +3,14 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-spi</artifactId>
-    <version>0.1-SNAPSHOT</version>
+    <version>0.1</version>
     <name>presto-spi</name>
 
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>library</artifactId>
         <version>0.69</version>
-        <relativePath/>
+        <relativePath />
     </parent>
 
     <distributionManagement>
@@ -41,4 +41,8 @@
             </plugin>
         </plugins>
     </build>
+
+  <scm>
+    <tag>0.1</tag>
+  </scm>
 </project>

@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-hive</artifactId>
-    <version>0.1-SNAPSHOT</version>
+    <version>0.1</version>
     <name>presto-hive</name>
     <description>Presto - Hive Connector</description>
 
@@ -11,7 +11,7 @@
         <groupId>io.airlift</groupId>
         <artifactId>library</artifactId>
         <version>0.69</version>
-        <relativePath/>
+        <relativePath />
     </parent>
 
     <distributionManagement>
@@ -29,7 +29,7 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
-            <version>0.1-SNAPSHOT</version>
+            <version>0.1</version>
         </dependency>
 
         <dependency>
@@ -183,4 +183,8 @@
             </build>
         </profile>
     </profiles>
+
+  <scm>
+    <tag>0.1</tag>
+  </scm>
 </project>

@@ -3,14 +3,14 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-jdbc</artifactId>
-    <version>0.1-SNAPSHOT</version>
+    <version>0.1</version>
     <name>presto-jdbc</name>
 
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>library</artifactId>
         <version>0.69</version>
-        <relativePath/>
+        <relativePath />
     </parent>
 
     <distributionManagement>
@@ -28,7 +28,7 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
-            <version>0.1-SNAPSHOT</version>
+            <version>0.1</version>
         </dependency>
 
         <dependency>
@@ -175,4 +175,8 @@
             </plugin>
         </plugins>
     </build>
+
+  <scm>
+    <tag>0.1</tag>
+  </scm>
 </project>
