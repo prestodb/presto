@@ -196,6 +196,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testCountBoolean()
+            throws Exception
+    {
+        assertQuery("SELECT COUNT(true) FROM orders");
+    }
+
+    @Test
     public void testJoinWithMultiFieldGroupBy()
             throws Exception
     {
