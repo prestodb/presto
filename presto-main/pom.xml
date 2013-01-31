@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-main</artifactId>
-    <version>0.1</version>
+    <version>0.2-SNAPSHOT</version>
     <name>presto-main</name>
 
     <parent>
@@ -38,13 +38,13 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
-            <version>0.1</version>
+            <version>0.2-SNAPSHOT</version>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hive</artifactId>
-            <version>0.1</version>
+            <version>0.2-SNAPSHOT</version>
         </dependency>
 
         <dependency>
@@ -492,8 +492,4 @@
             </build>
         </profile>
     </profiles>
-
-  <scm>
-    <tag>0.1</tag>
-  </scm>
 </project>
