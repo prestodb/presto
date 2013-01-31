@@ -3,14 +3,14 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-main</artifactId>
-    <version>0.1-SNAPSHOT</version>
+    <version>0.1</version>
     <name>presto-main</name>
 
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>rest-server-base</artifactId>
         <version>0.69</version>
-        <relativePath/>
+        <relativePath />
     </parent>
 
     <distributionManagement>
@@ -38,13 +38,13 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
-            <version>0.1-SNAPSHOT</version>
+            <version>0.1</version>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hive</artifactId>
-            <version>0.1-SNAPSHOT</version>
+            <version>0.1</version>
         </dependency>
 
         <dependency>
@@ -418,7 +418,7 @@
                                         </goals>
                                     </pluginExecutionFilter>
                                     <action>
-                                        <ignore/>
+                                        <ignore />
                                     </action>
                                 </pluginExecution>
                             </pluginExecutions>
@@ -453,7 +453,7 @@
                                 <argument>-DtpchDataJar=${project.build.directory}/dependency/testdata-tpch-1g.jar</argument>
                                 <argument>-Dmyproperty=myvalue</argument>
                                 <argument>-classpath</argument>
-                                <classpath/>
+                                <classpath />
                                 <argument>com.facebook.presto.benchmark.BenchmarkSuite</argument>
                             </arguments>
                             <classpathScope>test</classpathScope>
@@ -492,4 +492,8 @@
             </build>
         </profile>
     </profiles>
+
+  <scm>
+    <tag>0.1</tag>
+  </scm>
 </project>
