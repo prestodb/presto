@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.split.SplitAssignments;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
@@ -21,15 +22,16 @@ import static com.google.common.base.Preconditions.checkState;
 public class StageExecutionPlan
 {
     private final PlanFragment fragment;
-    private final List<Partition> partitions;
+    private final Optional<Iterable<SplitAssignments>> splits;
     private final List<StageExecutionPlan> subStages;
     private final List<TupleInfo> tupleInfos;
     private final Optional<List<String>> fieldNames;
 
-    public StageExecutionPlan(PlanFragment fragment, List<Partition> partitions, List<StageExecutionPlan> subStages)
+    public StageExecutionPlan(PlanFragment fragment, Optional<Iterable<SplitAssignments>> splits, List<StageExecutionPlan> subStages)
     {
         this.fragment = checkNotNull(fragment, "fragment is null");
-        this.partitions = ImmutableList.copyOf(checkNotNull(partitions, "partitions is null"));
+        // do not copy splits, we want this to be streaming
+        this.splits = checkNotNull(splits, "splits is null");
         this.subStages = ImmutableList.copyOf(checkNotNull(subStages, "dependencies is null"));
 
         tupleInfos = ImmutableList.copyOf(IterableTransformer.on(fragment.getRoot().getOutputSymbols())
@@ -65,9 +67,9 @@ public class StageExecutionPlan
         return fragment;
     }
 
-    public List<Partition> getPartitions()
+    public Optional<Iterable<SplitAssignments>> getSplits()
     {
-        return partitions;
+        return splits;
     }
 
     public List<StageExecutionPlan> getSubStages()
@@ -80,7 +82,7 @@ public class StageExecutionPlan
     {
         return Objects.toStringHelper(this)
                 .add("fragment", fragment)
-                .add("partitions", partitions)
+                .add("partitions", splits)
                 .add("subStages", subStages)
                 .toString();
     }
