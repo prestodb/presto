@@ -3,17 +3,23 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.metadata.NodeManager;
+import com.facebook.presto.split.SplitAssignments;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 
+import javax.inject.Inject;
 import java.net.URI;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
@@ -22,6 +28,16 @@ public class SqlStageManager
         implements StageManager
 {
     private final ConcurrentMap<String, StageExecution> stages = new ConcurrentHashMap<>();
+
+    private final NodeManager nodeManager;
+    private final RemoteTaskFactory remoteTaskFactory;
+
+    @Inject
+    public SqlStageManager(NodeManager nodeManager, RemoteTaskFactory remoteTaskFactory)
+    {
+        this.nodeManager = nodeManager;
+        this.remoteTaskFactory = remoteTaskFactory;
+    }
 
     @Override
     public List<StageInfo> getAllStage()
@@ -42,14 +58,16 @@ public class SqlStageManager
     }
 
     @Override
-    public StageExecution createStage(String queryId,
+    public StageExecution createStage(Session session,
+            String queryId,
             String stageId,
             URI location,
+            AtomicReference<QueryState> queryState,
             PlanFragment plan,
-            Iterable<? extends RemoteTask> tasks,
+            Optional<Iterable<SplitAssignments>> splits,
             Iterable<? extends StageExecution> subStages)
     {
-        SqlStageExecution stageExecution = new SqlStageExecution(queryId, stageId, location, plan, tasks, subStages);
+        SqlStageExecution stageExecution = new SqlStageExecution(queryId, stageId, location, plan, subStages, nodeManager, splits, remoteTaskFactory, session, queryState);
         stages.put(stageExecution.getStageId(), stageExecution);
         return stageExecution;
     }

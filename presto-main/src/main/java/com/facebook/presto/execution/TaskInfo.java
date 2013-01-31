@@ -115,6 +115,18 @@ public class TaskInfo
     }
 
 
+    public static Function<TaskInfo, String> taskIdGetter()
+    {
+        return new Function<TaskInfo, String>()
+        {
+            @Override
+            public String apply(TaskInfo taskInfo)
+            {
+                return taskInfo.getTaskId();
+            }
+        };
+    }
+
     public static Function<TaskInfo, TaskState> taskStateGetter()
     {
         return new Function<TaskInfo, TaskState>()

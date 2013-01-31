@@ -122,7 +122,7 @@ public class DistributedLogicalPlanner
 
                 // create a new non-partitioned fragment
                 current = newSubPlan(new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols()))
-                        .setPartitioned(false)
+                        .setPartitionedSource(null)
                         .addChild(current.build());
             }
 
