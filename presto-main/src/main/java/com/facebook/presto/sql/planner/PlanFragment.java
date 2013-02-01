@@ -2,6 +2,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
+import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.IterableTransformer;
@@ -20,15 +21,15 @@ import java.util.Map;
 @Immutable
 public class PlanFragment
 {
-    private final int id;
+    private final PlanFragmentId id;
     private final PlanNode root;
     private final boolean partitioned;
     private final Map<Symbol, Type> symbols;
 
     @JsonCreator
-    public PlanFragment(@JsonProperty("id") int id, @JsonProperty("partitioned") boolean isPartitioned, @JsonProperty("symbols") Map<Symbol, Type> symbols, @JsonProperty("root") PlanNode root)
+    public PlanFragment(@JsonProperty("id") PlanFragmentId id, @JsonProperty("partitioned") boolean isPartitioned, @JsonProperty("symbols") Map<Symbol, Type> symbols, @JsonProperty("root") PlanNode root)
     {
-        Preconditions.checkArgument(id >= 0, "id must be positive");
+        Preconditions.checkNotNull(id, "id is null");
         Preconditions.checkNotNull(symbols, "symbols is null");
         Preconditions.checkNotNull(root, "root is null");
 
@@ -39,7 +40,7 @@ public class PlanFragment
     }
 
     @JsonProperty("id")
-    public int getId()
+    public PlanFragmentId getId()
     {
         return id;
     }
@@ -105,12 +106,12 @@ public class PlanFragment
                 .toString();
     }
 
-    public static Function<PlanFragment, Integer> idGetter()
+    public static Function<PlanFragment, PlanFragmentId> idGetter()
     {
-        return new Function<PlanFragment, Integer>()
+        return new Function<PlanFragment, PlanFragmentId>()
         {
             @Override
-            public Integer apply(PlanFragment input)
+            public PlanFragmentId apply(PlanFragment input)
             {
                 return input.getId();
             }

@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.tree.Statement;
@@ -266,7 +267,7 @@ public class SqlQueryExecution
                 .cast(ExchangeNode.class)
                 .set();
 
-        Map<String, StageExecution> subStages = IterableTransformer.on(stageExecutionPlan.getSubStages())
+        Map<PlanFragmentId, StageExecution> subStages = IterableTransformer.on(stageExecutionPlan.getSubStages())
                 .uniqueIndex(fragmentIdGetter())
                 .transformValues(stageCreator(nextStageId, stageExecutionPlan.getPartitions()))
                 .immutableMap();
@@ -279,7 +280,7 @@ public class SqlQueryExecution
 
             ImmutableMap.Builder<PlanNodeId, ExchangePlanFragmentSource> exchangeSources = ImmutableMap.builder();
             for (ExchangeNode exchange : exchanges) {
-                StageExecution childStage = subStages.get(String.valueOf(exchange.getSourceFragmentId()));
+                StageExecution childStage = subStages.get(exchange.getSourceFragmentId());
                 ExchangePlanFragmentSource source = childStage.getExchangeSourceFor(nodeIdentifier);
 
                 exchangeSources.put(exchange.getId(), source);
@@ -382,14 +383,14 @@ public class SqlQueryExecution
         };
     }
 
-    private Function<StageExecutionPlan, String> fragmentIdGetter()
+    private Function<StageExecutionPlan, PlanFragmentId> fragmentIdGetter()
     {
-        return new Function<StageExecutionPlan, String>()
+        return new Function<StageExecutionPlan, PlanFragmentId>()
         {
             @Override
-            public String apply(@Nullable StageExecutionPlan input)
+            public PlanFragmentId apply(@Nullable StageExecutionPlan input)
             {
-                return String.valueOf(input.getFragment().getId());
+                return input.getFragment().getId();
             }
         };
     }
