@@ -2,13 +2,16 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
@@ -18,6 +21,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -33,6 +38,8 @@ public class PlanSanityChecker
     private static class Visitor
         extends PlanVisitor<Void, Void>
     {
+        private final Map<PlanNodeId, PlanNode> nodesById = new HashMap<>();
+
         @Override
         protected Void visitPlan(PlanNode node, Void context)
         {
@@ -44,6 +51,8 @@ public class PlanSanityChecker
         {
             PlanNode source = node.getSource();
             source.accept(this, context); // visit child
+
+            verifyUniqueId(node);
 
             Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getGroupBy()), "Invalid node. Group by symbols (%s) not in source plan output (%s)", node.getGroupBy(), node.getSource().getOutputSymbols());
 
@@ -61,6 +70,8 @@ public class PlanSanityChecker
             PlanNode source = node.getSource();
             source.accept(this, context); // visit child
 
+            verifyUniqueId(node);
+
             Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOutputSymbols()), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
 
             Set<Symbol> dependencies = DependencyExtractor.extract(node.getPredicate());
@@ -76,6 +87,8 @@ public class PlanSanityChecker
             PlanNode source = node.getSource();
             source.accept(this, context); // visit child
 
+            verifyUniqueId(node);
+
             for (Expression expression : node.getExpressions()) {
                 Set<Symbol> dependencies = DependencyExtractor.extract(expression);
                 Preconditions.checkArgument(source.getOutputSymbols().containsAll(dependencies), "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
@@ -90,6 +103,8 @@ public class PlanSanityChecker
             PlanNode source = node.getSource();
             source.accept(this, context); // visit child
 
+            verifyUniqueId(node);
+
             Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOutputSymbols()), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
             Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOrderBy()), "Invalid node. Order by dependencies (%s) not in source plan output (%s)", node.getOrderBy(), node.getSource().getOutputSymbols());
 
@@ -101,6 +116,8 @@ public class PlanSanityChecker
         {
             PlanNode source = node.getSource();
             source.accept(this, context); // visit child
+
+            verifyUniqueId(node);
 
             Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOutputSymbols()), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
             Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getOrderBy()), "Invalid node. Order by dependencies (%s) not in source plan output (%s)", node.getOrderBy(), node.getSource().getOutputSymbols());
@@ -114,6 +131,8 @@ public class PlanSanityChecker
             PlanNode source = node.getSource();
             source.accept(this, context); // visit child
 
+            verifyUniqueId(node);
+
             Preconditions.checkArgument(source.getOutputSymbols().containsAll(node.getAssignments().values()), "Invalid node. Output column dependencies (%s) not in source plan output (%s)", node.getAssignments().values(), node.getSource().getOutputSymbols());
 
             return null;
@@ -125,6 +144,8 @@ public class PlanSanityChecker
             PlanNode source = node.getSource();
             source.accept(this, context); // visit child
 
+            verifyUniqueId(node);
+
             return null;
         }
 
@@ -133,6 +154,8 @@ public class PlanSanityChecker
         {
             node.getLeft().accept(this, context);
             node.getRight().accept(this, context);
+
+            verifyUniqueId(node);
 
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
                 Preconditions.checkArgument(node.getLeft().getOutputSymbols().contains(clause.getLeft()), "Symbol from join clause (%s) not in left source (%s)", clause.getLeft(), node.getLeft().getOutputSymbols());
@@ -145,7 +168,36 @@ public class PlanSanityChecker
         @Override
         public Void visitTableScan(TableScanNode node, Void context)
         {
+            verifyUniqueId(node);
+
             return null;
+        }
+
+        @Override
+        public Void visitExchange(ExchangeNode node, Void context)
+        {
+            verifyUniqueId(node);
+
+            return null;
+        }
+
+        @Override
+        public Void visitSink(SinkNode node, Void context)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, context); // visit child
+
+            verifyUniqueId(node);
+
+            return null;
+        }
+
+        private void verifyUniqueId(PlanNode node)
+        {
+            PlanNodeId id = node.getId();
+            Preconditions.checkArgument(!nodesById.containsKey(id), "Duplicate node id found %s between %s and %s", node.getId(), node, nodesById.get(id));
+
+            nodesById.put(id, node);
         }
     }
 }
