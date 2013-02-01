@@ -15,6 +15,7 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -40,7 +41,7 @@ public class SqlTaskExecution
     private final String taskId;
     private final TaskOutput taskOutput;
     private final List<PlanFragmentSource> splits;
-    private final Map<String, ExchangePlanFragmentSource> exchangeSources;
+    private final Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources;
     private final PlanFragmentSourceProvider sourceProvider;
     private final FairBatchExecutor shardExecutor;
     private final PlanFragment fragment;
@@ -55,7 +56,7 @@ public class SqlTaskExecution
             URI location,
             PlanFragment fragment,
             List<PlanFragmentSource> splits,
-            Map<String, ExchangePlanFragmentSource> exchangeSources,
+            Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
             List<String> outputIds,
             int pageBufferMax,
             PlanFragmentSourceProvider sourceProvider,
@@ -231,7 +232,7 @@ public class SqlTaskExecution
                 TaskOutput taskOutput,
                 PlanFragment fragment,
                 @Nullable PlanFragmentSource split,
-                Map<String, ExchangePlanFragmentSource> exchangeSources,
+                Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
                 SourceHashProviderFactory sourceHashProviderFactory,
                 PlanFragmentSourceProvider sourceProvider,
                 Metadata metadata,

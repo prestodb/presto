@@ -23,8 +23,13 @@ public class OutputNode
     private final Map<String, Symbol> assignments; // column name = symbol
 
     @JsonCreator
-    public OutputNode(@JsonProperty("source") PlanNode source, @JsonProperty("columns") List<String> columnNames, @JsonProperty("assignments") Map<String, Symbol> assignments)
+    public OutputNode(@JsonProperty("id") PlanNodeId id,
+            @JsonProperty("source") PlanNode source,
+            @JsonProperty("columns") List<String> columnNames,
+            @JsonProperty("assignments") Map<String, Symbol> assignments)
     {
+        super(id);
+
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkNotNull(columnNames, "columnNames is null");
         Preconditions.checkArgument(columnNames.size() == assignments.size(), "columnNames and assignments sizes don't match");

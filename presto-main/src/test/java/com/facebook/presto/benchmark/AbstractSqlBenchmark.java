@@ -16,9 +16,11 @@ import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tpch.TpchBlocksProvider;
@@ -52,8 +54,10 @@ public abstract class AbstractSqlBenchmark
         session = new Session(null, TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
         analysis = new Analyzer(session, metadata).analyze(statement);
 
-        PlanNode plan = new LogicalPlanner(session, metadata).plan(analysis);
-        fragment = new DistributedLogicalPlanner(metadata)
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+
+        PlanNode plan = new LogicalPlanner(session, metadata, idAllocator).plan(analysis);
+        fragment = new DistributedLogicalPlanner(metadata, idAllocator)
                 .createSubplans(plan, analysis.getSymbolAllocator(), true)
                 .getFragment();
 
@@ -78,7 +82,7 @@ public abstract class AbstractSqlBenchmark
                 analysis.getTypes(),
                 null,
                 builder.build(),
-                ImmutableMap.<String, ExchangePlanFragmentSource>of(),
+                ImmutableMap.<PlanNodeId, ExchangePlanFragmentSource>of(),
                 new OperatorStats(),
                 new SourceHashProviderFactory(maxOperatorMemoryUsage),
                 maxOperatorMemoryUsage

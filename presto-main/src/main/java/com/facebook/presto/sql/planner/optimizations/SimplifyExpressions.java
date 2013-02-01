@@ -69,14 +69,14 @@ public class SimplifyExpressions
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
             Map<Symbol, Expression> assignments = ImmutableMap.copyOf(Maps.transformValues(node.getOutputMap(), simplifyExpressionFunction()));
-            return new ProjectNode(source, assignments);
+            return new ProjectNode(node.getId(), source, assignments);
         }
 
         @Override
         public PlanNode rewriteFilter(FilterNode node, Void context, PlanRewriter<Void> planRewriter)
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
-            return new FilterNode(source, simplifyExpression(node.getPredicate()));
+            return new FilterNode(node.getId(), source, simplifyExpression(node.getPredicate()));
         }
 
         private Function<Expression, Expression> simplifyExpressionFunction()

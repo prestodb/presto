@@ -22,11 +22,14 @@ public class TopNNode
     private final Map<Symbol, SortItem.Ordering> orderings;
 
     @JsonCreator
-    public TopNNode(@JsonProperty("source") PlanNode source,
+    public TopNNode(@JsonProperty("id") PlanNodeId id,
+            @JsonProperty("source") PlanNode source,
             @JsonProperty("count") long count,
             @JsonProperty("orderBy") List<Symbol> orderBy,
             @JsonProperty("orderings") Map<Symbol, SortItem.Ordering> orderings)
     {
+        super(id);
+
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkArgument(count > 0, "count must be positive");
         Preconditions.checkNotNull(orderBy, "orderBy is null");

@@ -19,8 +19,12 @@ public class ExchangeNode
     private final List<Symbol> outputs;
 
     @JsonCreator
-    public ExchangeNode(@JsonProperty("sourceFragmentId") int sourceFragmentId, @JsonProperty("outputs") List<Symbol> outputs)
+    public ExchangeNode(@JsonProperty("id") PlanNodeId id,
+            @JsonProperty("sourceFragmentId") int sourceFragmentId,
+            @JsonProperty("outputs") List<Symbol> outputs)
     {
+        super(id);
+
         Preconditions.checkNotNull(outputs, "outputs is null");
 
         this.sourceFragmentId = sourceFragmentId;

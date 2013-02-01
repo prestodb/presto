@@ -16,14 +16,18 @@ import com.facebook.presto.sql.planner.DistributedExecutionPlanner;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Partition;
+import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.SubPlan;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -35,7 +39,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -195,12 +199,13 @@ public class SqlQueryExecution
         Analyzer analyzer = new Analyzer(session, metadata);
         AnalysisResult analysis = analyzer.analyze(statement);
 
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         // plan query
-        LogicalPlanner logicalPlanner = new LogicalPlanner(session, metadata);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(session, metadata, idAllocator);
         PlanNode plan = logicalPlanner.plan(analysis);
 
         // fragment the plan
-        SubPlan subplan = new DistributedLogicalPlanner(metadata).createSubplans(plan, analysis.getSymbolAllocator(), false);
+        SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubplans(plan, analysis.getSymbolAllocator(), false);
 
         queryStats.recordAnalysisTime(analysisStart);
         return subplan;
@@ -256,6 +261,11 @@ public class SqlQueryExecution
     {
         String stageId = queryId + "." + nextStageId.getAndIncrement();
 
+        Set<ExchangeNode> exchanges = IterableTransformer.on(stageExecutionPlan.getFragment().getSources())
+                .select(Predicates.instanceOf(ExchangeNode.class))
+                .cast(ExchangeNode.class)
+                .set();
+
         Map<String, StageExecution> subStages = IterableTransformer.on(stageExecutionPlan.getSubStages())
                 .uniqueIndex(fragmentIdGetter())
                 .transformValues(stageCreator(nextStageId, stageExecutionPlan.getPartitions()))
@@ -267,9 +277,12 @@ public class SqlQueryExecution
         for (Partition partition : stageExecutionPlan.getPartitions()) {
             String nodeIdentifier = partition.getNode().getNodeIdentifier();
 
-            ImmutableMap.Builder<String, ExchangePlanFragmentSource> exchangeSources = ImmutableMap.builder();
-            for (Entry<String, StageExecution> entry : subStages.entrySet()) {
-                exchangeSources.put(entry.getKey(), entry.getValue().getExchangeSourceFor(nodeIdentifier));
+            ImmutableMap.Builder<PlanNodeId, ExchangePlanFragmentSource> exchangeSources = ImmutableMap.builder();
+            for (ExchangeNode exchange : exchanges) {
+                StageExecution childStage = subStages.get(String.valueOf(exchange.getSourceFragmentId()));
+                ExchangePlanFragmentSource source = childStage.getExchangeSourceFor(nodeIdentifier);
+
+                exchangeSources.put(exchange.getId(), source);
             }
 
             tasks.add(remoteTaskFactory.createRemoteTask(session,

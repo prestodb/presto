@@ -40,10 +40,10 @@ public class CoalesceLimits
 
             if (source instanceof LimitNode) {
                 LimitNode limitNode = (LimitNode) source;
-                return new LimitNode(limitNode.getSource(), Math.min(node.getCount(), limitNode.getCount()));
+                return new LimitNode(node.getId(), limitNode.getSource(), Math.min(node.getCount(), limitNode.getCount()));
             }
             else if (source != node.getSource()) {
-                return new LimitNode(source, node.getCount());
+                return new LimitNode(node.getId(), source, node.getCount());
             }
 
             return node;

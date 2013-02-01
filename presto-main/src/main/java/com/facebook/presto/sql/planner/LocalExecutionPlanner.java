@@ -32,6 +32,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
@@ -85,7 +86,7 @@ public class LocalExecutionPlanner
     private final Map<TableHandle, TableScanPlanFragmentSource> tableScans;
     private final OperatorStats operatorStats;
 
-    private final Map<String, ExchangePlanFragmentSource> exchangeSources;
+    private final Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources;
 
     private final SourceHashProviderFactory joinHashFactory;
     private final DataSize maxOperatorMemoryUsage;
@@ -95,7 +96,7 @@ public class LocalExecutionPlanner
             Map<Symbol, Type> types,
             PlanFragmentSource split,
             Map<TableHandle, TableScanPlanFragmentSource> tableScans,
-            Map<String, ExchangePlanFragmentSource> exchangeSources,
+            Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
             OperatorStats operatorStats,
             SourceHashProviderFactory joinHashFactory,
             DataSize maxOperatorMemoryUsage)
@@ -123,9 +124,8 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitExchange(ExchangeNode node, Void context)
         {
-            int sourceFragmentId = node.getSourceFragmentId();
-            ExchangePlanFragmentSource source = exchangeSources.get(String.valueOf(sourceFragmentId));
-            Preconditions.checkState(source != null, "Exchange source for fragment %s was not found: available sources %s", sourceFragmentId, exchangeSources.keySet());
+            ExchangePlanFragmentSource source = exchangeSources.get(node.getId());
+            Preconditions.checkState(source != null, "Source for exchange (%s) not found. Available sources %s", node.getId(), exchangeSources.keySet());
 
             Operator operator = sourceProvider.createDataStream(source, ImmutableList.<ColumnHandle>of());
 

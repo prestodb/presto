@@ -90,7 +90,7 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new AggregationNode(source, node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getStep());
+                return new AggregationNode(node.getId(), source, node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getStep());
             }
 
             return node;
@@ -109,7 +109,7 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new FilterNode(source, node.getPredicate());
+                return new FilterNode(node.getId(), source, node.getPredicate());
             }
 
             return node;
@@ -128,7 +128,7 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new ProjectNode(source, node.getOutputMap());
+                return new ProjectNode(node.getId(), source, node.getOutputMap());
             }
 
             return node;
@@ -147,7 +147,7 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new TopNNode(source, node.getCount(), node.getOrderBy(), node.getOrderings());
+                return new TopNNode(node.getId(), source, node.getCount(), node.getOrderBy(), node.getOrderings());
             }
 
             return node;
@@ -166,7 +166,7 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new OutputNode(source, node.getColumnNames(), node.getAssignments());
+                return new OutputNode(node.getId(), source, node.getColumnNames(), node.getAssignments());
             }
 
             return node;
@@ -185,7 +185,7 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new LimitNode(source, node.getCount());
+                return new LimitNode(node.getId(), source, node.getCount());
             }
 
             return node;
@@ -218,7 +218,7 @@ public final class PlanRewriter<C>
             PlanNode right = rewrite(node.getRight(), context.get());
 
             if (left != node.getLeft() || right != node.getRight()) {
-                return new JoinNode(left, right, node.getCriteria());
+                return new JoinNode(node.getId(), left, right, node.getCriteria());
             }
 
             return node;
@@ -237,7 +237,7 @@ public final class PlanRewriter<C>
             PlanNode source = rewrite(node.getSource(), context.get());
 
             if (source != node.getSource()) {
-                return new SortNode(source, node.getOrderBy(), node.getOrderings());
+                return new SortNode(node.getId(), source, node.getOrderBy(), node.getOrderings());
             }
 
             return node;

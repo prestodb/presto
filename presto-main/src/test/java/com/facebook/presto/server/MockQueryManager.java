@@ -15,6 +15,7 @@ import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -98,7 +99,7 @@ public class MockQueryManager
                 "queryId",
                 null,
                 ImmutableList.<PlanFragmentSource>of(),
-                ImmutableMap.<String, ExchangePlanFragmentSource>of(),
+                ImmutableMap.<PlanNodeId, ExchangePlanFragmentSource>of(),
                 ImmutableList.<String>of("out")
         );
 

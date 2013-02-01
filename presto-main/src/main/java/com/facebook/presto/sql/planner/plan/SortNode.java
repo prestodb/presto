@@ -19,10 +19,13 @@ public class SortNode
     private final Map<Symbol, SortItem.Ordering> orderings;
 
     @JsonCreator
-    public SortNode(@JsonProperty("source") PlanNode source,
+    public SortNode(@JsonProperty("id") PlanNodeId id,
+            @JsonProperty("source") PlanNode source,
             @JsonProperty("orderBy") List<Symbol> orderBy,
             @JsonProperty("orderings") Map<Symbol, SortItem.Ordering> orderings)
     {
+        super(id);
+
         Preconditions.checkNotNull(source, "source is null");
         Preconditions.checkNotNull(orderBy, "orderBy is null");
         Preconditions.checkArgument(!orderBy.isEmpty(), "orderBy is empty");

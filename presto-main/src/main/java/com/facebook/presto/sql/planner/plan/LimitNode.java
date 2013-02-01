@@ -16,8 +16,10 @@ public class LimitNode
     private final long count;
 
     @JsonCreator
-    public LimitNode(@JsonProperty("source") PlanNode source, @JsonProperty("count") long count)
+    public LimitNode(@JsonProperty("id") PlanNodeId id, @JsonProperty("source") PlanNode source, @JsonProperty("count") long count)
     {
+        super(id);
+
         this.source = source;
         this.count = count;
     }

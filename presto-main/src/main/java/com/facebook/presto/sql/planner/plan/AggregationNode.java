@@ -29,18 +29,21 @@ public class AggregationNode
         SINGLE
     }
 
-    public AggregationNode(PlanNode source, List<Symbol> groupByKeys, Map<Symbol, FunctionCall> aggregations, Map<Symbol, FunctionHandle> functions)
+    public AggregationNode(PlanNodeId id, PlanNode source, List<Symbol> groupByKeys, Map<Symbol, FunctionCall> aggregations, Map<Symbol, FunctionHandle> functions)
     {
-        this(source, groupByKeys, aggregations, functions, Step.SINGLE);
+        this(id, source, groupByKeys, aggregations, functions, Step.SINGLE);
     }
 
     @JsonCreator
-    public AggregationNode(@JsonProperty("source") PlanNode source,
+    public AggregationNode(@JsonProperty("id") PlanNodeId id,
+            @JsonProperty("source") PlanNode source,
             @JsonProperty("groupBy") List<Symbol> groupByKeys,
             @JsonProperty("aggregations") Map<Symbol, FunctionCall> aggregations,
             @JsonProperty("functions") Map<Symbol, FunctionHandle> functions,
             @JsonProperty("step") Step step)
     {
+        super(id);
+
         this.source = source;
         this.groupByKeys = groupByKeys;
         this.aggregations = aggregations;

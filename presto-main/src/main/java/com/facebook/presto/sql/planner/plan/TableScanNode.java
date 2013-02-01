@@ -21,8 +21,12 @@ public class TableScanNode
     private final Map<Symbol, ColumnHandle> attributes; // symbol -> column
 
     @JsonCreator
-    public TableScanNode(@JsonProperty("table") TableHandle table, @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments)
+    public TableScanNode(@JsonProperty("id") PlanNodeId id,
+            @JsonProperty("table") TableHandle table,
+            @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments)
     {
+        super(id);
+
         Preconditions.checkNotNull(table, "table is null");
         Preconditions.checkNotNull(assignments, "assignments is null");
         Preconditions.checkArgument(!assignments.isEmpty(), "assignments is empty");

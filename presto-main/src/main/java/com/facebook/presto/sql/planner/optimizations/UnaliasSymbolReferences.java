@@ -77,7 +77,7 @@ public class UnaliasSymbolReferences
                 functionInfos.put(canonical, node.getFunctions().get(symbol));
             }
 
-            return new AggregationNode(source, canonicalize(node.getGroupBy()), functionCalls.build(), functionInfos.build());
+            return new AggregationNode(node.getId(), source, canonicalize(node.getGroupBy()), functionCalls.build(), functionInfos.build());
         }
 
         @Override
@@ -88,7 +88,7 @@ public class UnaliasSymbolReferences
                 builder.put(canonicalize(entry.getKey()), entry.getValue());
             }
 
-            return new TableScanNode(node.getTable(), builder.build());
+            return new TableScanNode(node.getId(), node.getTable(), builder.build());
         }
 
         @Override
@@ -96,7 +96,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
-            return new FilterNode(source, canonicalize(node.getPredicate()));
+            return new FilterNode(node.getId(), source, canonicalize(node.getPredicate()));
         }
 
         @Override
@@ -122,7 +122,7 @@ public class UnaliasSymbolReferences
                 }
             }
 
-            return new ProjectNode(source, assignments);
+            return new ProjectNode(node.getId(), source, assignments);
         }
 
         @Override
@@ -131,7 +131,7 @@ public class UnaliasSymbolReferences
             PlanNode source = planRewriter.rewrite(node.getSource(), context);
 
             Map<String, Symbol> canonical = Maps.transformValues(node.getAssignments(), canonicalizeFunction());
-            return new OutputNode(source, node.getColumnNames(), canonical);
+            return new OutputNode(node.getId(), source, node.getColumnNames(), canonical);
         }
 
         @Override
@@ -147,7 +147,7 @@ public class UnaliasSymbolReferences
                 orderings.put(canonical, node.getOrderings().get(symbol));
             }
 
-            return new TopNNode(source, node.getCount(), symbols.build(), orderings.build());
+            return new TopNNode(node.getId(), source, node.getCount(), symbols.build(), orderings.build());
         }
 
         @Override
@@ -163,7 +163,7 @@ public class UnaliasSymbolReferences
                 orderings.put(canonical, node.getOrderings().get(symbol));
             }
 
-            return new SortNode(source, symbols.build(), orderings.build());
+            return new SortNode(node.getId(), source, symbols.build(), orderings.build());
         }
 
         @Override
@@ -172,7 +172,7 @@ public class UnaliasSymbolReferences
             PlanNode left = planRewriter.rewrite(node.getLeft(), context);
             PlanNode right = planRewriter.rewrite(node.getRight(), context);
 
-            return new JoinNode(left, right, canonicalizeJoinCriteria(node.getCriteria()));
+            return new JoinNode(node.getId(), left, right, canonicalizeJoinCriteria(node.getCriteria()));
         }
 
         private void map(Symbol symbol, Symbol canonical)

@@ -35,9 +35,11 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
@@ -165,9 +167,10 @@ public final class FunctionAssertions
 
         AnalysisResult analysis = analyzer.analyze(statement);
 
-        PlanNode plan = new LogicalPlanner(session, METADATA).plan(analysis);
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+        PlanNode plan = new LogicalPlanner(session, METADATA, idAllocator).plan(analysis);
 
-        SubPlan subplan = new DistributedLogicalPlanner(METADATA).createSubplans(plan, analysis.getSymbolAllocator(), true);
+        SubPlan subplan = new DistributedLogicalPlanner(METADATA, idAllocator).createSubplans(plan, analysis.getSymbolAllocator(), true);
         assertTrue(subplan.getChildren().isEmpty(), "Expected subplan to have no children");
 
         ImmutableMap.Builder<TableHandle, TableScanPlanFragmentSource> builder = ImmutableMap.builder();
@@ -185,7 +188,7 @@ public final class FunctionAssertions
                 analysis.getTypes(),
                 null,
                 builder.build(),
-                ImmutableMap.<String, ExchangePlanFragmentSource>of(),
+                ImmutableMap.<PlanNodeId, ExchangePlanFragmentSource>of(),
                 new OperatorStats(),
                 new SourceHashProviderFactory(maxOperatorMemoryUsage),
                 maxOperatorMemoryUsage
