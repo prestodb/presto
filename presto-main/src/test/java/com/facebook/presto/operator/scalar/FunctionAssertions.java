@@ -15,7 +15,6 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.InternalTableHandle;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
@@ -173,11 +172,11 @@ public final class FunctionAssertions
         SubPlan subplan = new DistributedLogicalPlanner(METADATA, idAllocator).createSubplans(plan, analysis.getSymbolAllocator(), true);
         assertTrue(subplan.getChildren().isEmpty(), "Expected subplan to have no children");
 
-        ImmutableMap.Builder<TableHandle, TableScanPlanFragmentSource> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<PlanNodeId, TableScanPlanFragmentSource> builder = ImmutableMap.builder();
         for (PlanNode source : subplan.getFragment().getSources()) {
             TableScanNode tableScan = (TableScanNode) source;
             InternalTableHandle handle = (InternalTableHandle) tableScan.getTable();
-            builder.put(handle, new TableScanPlanFragmentSource(new InternalSplit(handle)));
+            builder.put(tableScan.getId(), new TableScanPlanFragmentSource(new InternalSplit(handle)));
         }
 
         DataSize maxOperatorMemoryUsage = new DataSize(50, MEGABYTE);

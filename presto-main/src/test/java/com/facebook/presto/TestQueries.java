@@ -11,7 +11,6 @@ import com.facebook.presto.ingest.RecordCursor;
 import com.facebook.presto.ingest.RecordSet;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunctions;
@@ -621,7 +620,7 @@ public class TestQueries
         );
     }
 
-    @Test(enabled = false) // TODO: fix this case
+    @Test
     public void testSelfJoin()
             throws Exception
     {
@@ -648,14 +647,14 @@ public class TestQueries
         );
     }
 
-    @Test(enabled = false) // TODO: doesn't work because the underlying table appears twice in the same fragment
+    @Test
     public void testJoinAggregations()
             throws Exception
     {
         assertQuery(
                 "SELECT x + y FROM (" +
                         "   SELECT orderdate, COUNT(*) x FROM orders GROUP BY orderdate) a JOIN (" +
-                        "   SELECT orderdate, COUNT(*) y FROM orders GROUP BY orderdate) b USING (orderdate)");
+                        "   SELECT orderdate, COUNT(*) y FROM orders GROUP BY orderdate) b ON a.orderdate = b.orderdate");
     }
 
     @Test
@@ -894,12 +893,12 @@ public class TestQueries
         SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubplans(plan, analysis.getSymbolAllocator(), true);
         assertTrue(subplan.getChildren().isEmpty(), "Expected subplan to have no children");
 
-        ImmutableMap.Builder<TableHandle, TableScanPlanFragmentSource> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<PlanNodeId, TableScanPlanFragmentSource> builder = ImmutableMap.builder();
         for (PlanNode source : subplan.getFragment().getSources()) {
             TableScanNode tableScan = (TableScanNode) source;
             TpchTableHandle handle = (TpchTableHandle) tableScan.getTable();
 
-            builder.put(handle, new TableScanPlanFragmentSource(new TpchSplit(handle)));
+            builder.put(tableScan.getId(), new TableScanPlanFragmentSource(new TpchSplit(handle)));
         }
 
         DataSize maxOperatorMemoryUsage = new DataSize(50, MEGABYTE);
