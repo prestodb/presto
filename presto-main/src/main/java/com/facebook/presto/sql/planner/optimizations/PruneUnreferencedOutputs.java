@@ -19,21 +19,16 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.util.IterableTransformer;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
-import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.Iterables.concat;
 
 /**
@@ -82,7 +77,7 @@ public class PruneUnreferencedOutputs
             PlanNode left = planRewriter.rewrite(node.getLeft(), leftInputs);
             PlanNode right = planRewriter.rewrite(node.getRight(), rightInputs);
 
-            return new JoinNode(left, right, node.getCriteria());
+            return new JoinNode(node.getId(), left, right, node.getCriteria());
         }
 
         @Override
@@ -107,7 +102,7 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
-            return new AggregationNode(source, node.getGroupBy(), functionCalls.build(), functions.build());
+            return new AggregationNode(node.getId(), source, node.getGroupBy(), functionCalls.build(), functions.build());
         }
 
         @Override
@@ -131,7 +126,7 @@ public class PruneUnreferencedOutputs
                 assignments.put(first.getKey(), first.getValue());
             }
 
-            return new TableScanNode(node.getTable(), assignments);
+            return new TableScanNode(node.getId(), node.getTable(), assignments);
         }
 
         @Override
@@ -144,7 +139,7 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
 
-            return new FilterNode(source, node.getPredicate());
+            return new FilterNode(node.getId(), source, node.getPredicate());
         }
 
         @Override
@@ -165,7 +160,7 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
-            return new ProjectNode(source, builder.build());
+            return new ProjectNode(node.getId(), source, builder.build());
         }
 
         @Override
@@ -173,14 +168,14 @@ public class PruneUnreferencedOutputs
         {
             Set<Symbol> expectedInputs = ImmutableSet.copyOf(node.getAssignments().values());
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
-            return new OutputNode(source, node.getColumnNames(), node.getAssignments());
+            return new OutputNode(node.getId(), source, node.getColumnNames(), node.getAssignments());
         }
 
         @Override
         public PlanNode rewriteLimit(LimitNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
         {
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedOutputs);
-            return new LimitNode(source, node.getCount());
+            return new LimitNode(node.getId(), source, node.getCount());
         }
 
         @Override
@@ -190,7 +185,7 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
 
-            return new TopNNode(source, node.getCount(), node.getOrderBy(), node.getOrderings());
+            return new TopNNode(node.getId(), source, node.getCount(), node.getOrderBy(), node.getOrderings());
         }
 
         @Override
@@ -200,7 +195,7 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
 
-            return new SortNode(source, node.getOrderBy(), node.getOrderings());
+            return new SortNode(node.getId(), source, node.getOrderBy(), node.getOrderings());
         }
 
     }

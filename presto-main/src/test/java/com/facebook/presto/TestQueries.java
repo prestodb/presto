@@ -11,7 +11,6 @@ import com.facebook.presto.ingest.RecordCursor;
 import com.facebook.presto.ingest.RecordSet;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunctions;
@@ -32,10 +31,12 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tpch.TpchBlocksProvider;
@@ -619,7 +620,7 @@ public class TestQueries
         );
     }
 
-    @Test(enabled = false) // TODO: fix this case
+    @Test
     public void testSelfJoin()
             throws Exception
     {
@@ -646,14 +647,14 @@ public class TestQueries
         );
     }
 
-    @Test(enabled = false) // TODO: doesn't work because the underlying table appears twice in the same fragment
+    @Test
     public void testJoinAggregations()
             throws Exception
     {
         assertQuery(
                 "SELECT x + y FROM (" +
                         "   SELECT orderdate, COUNT(*) x FROM orders GROUP BY orderdate) a JOIN (" +
-                        "   SELECT orderdate, COUNT(*) y FROM orders GROUP BY orderdate) b USING (orderdate)");
+                        "   SELECT orderdate, COUNT(*) y FROM orders GROUP BY orderdate) b ON a.orderdate = b.orderdate");
     }
 
     @Test
@@ -884,18 +885,20 @@ public class TestQueries
 
         AnalysisResult analysis = analyzer.analyze(statement);
 
-        PlanNode plan = new LogicalPlanner(session, metadata).plan(analysis);
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+
+        PlanNode plan = new LogicalPlanner(session, metadata, idAllocator).plan(analysis);
         new PlanPrinter().print(plan, analysis.getTypes());
 
-        SubPlan subplan = new DistributedLogicalPlanner(metadata).createSubplans(plan, analysis.getSymbolAllocator(), true);
+        SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubplans(plan, analysis.getSymbolAllocator(), true);
         assertTrue(subplan.getChildren().isEmpty(), "Expected subplan to have no children");
 
-        ImmutableMap.Builder<TableHandle, TableScanPlanFragmentSource> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<PlanNodeId, TableScanPlanFragmentSource> builder = ImmutableMap.builder();
         for (PlanNode source : subplan.getFragment().getSources()) {
             TableScanNode tableScan = (TableScanNode) source;
             TpchTableHandle handle = (TpchTableHandle) tableScan.getTable();
 
-            builder.put(handle, new TableScanPlanFragmentSource(new TpchSplit(handle)));
+            builder.put(tableScan.getId(), new TableScanPlanFragmentSource(new TpchSplit(handle)));
         }
 
         DataSize maxOperatorMemoryUsage = new DataSize(50, MEGABYTE);
@@ -904,7 +907,7 @@ public class TestQueries
                 analysis.getTypes(),
                 null,
                 builder.build(),
-                ImmutableMap.<String, ExchangePlanFragmentSource>of(),
+                ImmutableMap.<PlanNodeId, ExchangePlanFragmentSource>of(),
                 new OperatorStats(),
                 new SourceHashProviderFactory(maxOperatorMemoryUsage),
                 maxOperatorMemoryUsage

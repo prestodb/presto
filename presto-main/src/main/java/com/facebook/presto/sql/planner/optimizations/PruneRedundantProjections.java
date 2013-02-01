@@ -2,19 +2,10 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.FilterNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.LimitNode;
-import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.SortNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 
@@ -42,7 +33,7 @@ public class PruneRedundantProjections
 
             if (node.getOutputSymbols().size() != source.getOutputSymbols().size()) {
                 // Can't get rid of this projection. It constrains the output tuple from the underlying operator
-                return new ProjectNode(source, node.getOutputMap());
+                return new ProjectNode(node.getId(), source, node.getOutputMap());
             }
 
             boolean canElide = true;
@@ -59,7 +50,7 @@ public class PruneRedundantProjections
                 return source;
             }
 
-            return new ProjectNode(source, node.getOutputMap());
+            return new ProjectNode(node.getId(), source, node.getOutputMap());
         }
     }
 }

@@ -7,6 +7,7 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import io.airlift.units.Duration;
 
 import java.util.List;
@@ -22,7 +23,7 @@ public interface TaskManager
             String taskId,
             PlanFragment fragment,
             List<PlanFragmentSource> splits,
-            Map<String, ExchangePlanFragmentSource> exchangeSources,
+            Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
             List<String> outputIds);
 
     TaskInfo getTaskInfo(String taskId);

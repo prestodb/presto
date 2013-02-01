@@ -18,8 +18,12 @@ public class ProjectNode
     private final Map<Symbol, Expression> outputs;
 
     @JsonCreator
-    public ProjectNode(@JsonProperty("source") PlanNode source, @JsonProperty("assignments") Map<Symbol, Expression> outputs)
+    public ProjectNode(@JsonProperty("id") PlanNodeId id,
+            @JsonProperty("source") PlanNode source,
+            @JsonProperty("assignments") Map<Symbol, Expression> outputs)
     {
+        super(id);
+
         this.source = source;
         this.outputs = outputs;
     }

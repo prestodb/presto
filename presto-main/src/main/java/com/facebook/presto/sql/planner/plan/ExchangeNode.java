@@ -7,7 +7,6 @@ import com.google.common.collect.ImmutableList;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import java.util.List;
 
@@ -19,8 +18,12 @@ public class ExchangeNode
     private final List<Symbol> outputs;
 
     @JsonCreator
-    public ExchangeNode(@JsonProperty("sourceFragmentId") int sourceFragmentId, @JsonProperty("outputs") List<Symbol> outputs)
+    public ExchangeNode(@JsonProperty("id") PlanNodeId id,
+            @JsonProperty("sourceFragmentId") int sourceFragmentId,
+            @JsonProperty("outputs") List<Symbol> outputs)
     {
+        super(id);
+
         Preconditions.checkNotNull(outputs, "outputs is null");
 
         this.sourceFragmentId = sourceFragmentId;

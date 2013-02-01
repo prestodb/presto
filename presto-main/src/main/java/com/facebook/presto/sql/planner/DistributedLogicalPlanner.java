@@ -38,10 +38,12 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 public class DistributedLogicalPlanner
 {
     private final Metadata metadata;
+    private final PlanNodeIdAllocator idAllocator;
 
-    public DistributedLogicalPlanner(Metadata metadata)
+    public DistributedLogicalPlanner(Metadata metadata, PlanNodeIdAllocator idAllocator)
     {
         this.metadata = metadata;
+        this.idAllocator = idAllocator;
     }
 
     public SubPlan createSubplans(PlanNode plan, SymbolAllocator allocator, boolean createSingleNodePlan)
@@ -76,7 +78,7 @@ public class DistributedLogicalPlanner
 
             if (!current.isPartitioned()) {
                 // add the aggregation node as the root of the current fragment
-                current.setRoot(new AggregationNode(current.getRoot(), node.getGroupBy(), node.getAggregations(), node.getFunctions(), SINGLE));
+                current.setRoot(new AggregationNode(node.getId(), current.getRoot(), node.getGroupBy(), node.getAggregations(), node.getFunctions(), SINGLE));
                 return current;
             }
 
@@ -96,12 +98,12 @@ public class DistributedLogicalPlanner
                 finalCalls.put(entry.getKey(), new FunctionCall(function.getName(), ImmutableList.<Expression>of(new QualifiedNameReference(intermediateSymbol.toQualifiedName()))));
             }
 
-            AggregationNode aggregation = new AggregationNode(current.getRoot(), node.getGroupBy(), intermediateCalls, intermediateFunctions, PARTIAL);
-            current.setRoot(new SinkNode(current.getId(), aggregation));
+            AggregationNode aggregation = new AggregationNode(idAllocator.getNextId(), current.getRoot(), node.getGroupBy(), intermediateCalls, intermediateFunctions, PARTIAL);
+            current.setRoot(new SinkNode(idAllocator.getNextId(), aggregation));
 
             // create merge + aggregation plan
-            ExchangeNode source = new ExchangeNode(current.getId(), current.getRoot().getOutputSymbols());
-            AggregationNode merged = new AggregationNode(source, node.getGroupBy(), finalCalls, node.getFunctions(), FINAL);
+            ExchangeNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
+            AggregationNode merged = new AggregationNode(idAllocator.getNextId(), source, node.getGroupBy(), finalCalls, node.getFunctions(), FINAL);
 
             return newSubPlan(merged)
                     .setPartitioned(false)
@@ -112,7 +114,7 @@ public class DistributedLogicalPlanner
         public SubPlanBuilder visitFilter(FilterNode node, Void context)
         {
             SubPlanBuilder current = node.getSource().accept(this, context);
-            current.setRoot(new FilterNode(current.getRoot(), node.getPredicate()));
+            current.setRoot(new FilterNode(node.getId(), current.getRoot(), node.getPredicate()));
             return current;
         }
 
@@ -120,7 +122,7 @@ public class DistributedLogicalPlanner
         public SubPlanBuilder visitProject(ProjectNode node, Void context)
         {
             SubPlanBuilder current = node.getSource().accept(this, context);
-            current.setRoot(new ProjectNode(current.getRoot(), node.getOutputMap()));
+            current.setRoot(new ProjectNode(node.getId(), current.getRoot(), node.getOutputMap()));
             return current;
         }
 
@@ -129,14 +131,14 @@ public class DistributedLogicalPlanner
         {
             SubPlanBuilder current = node.getSource().accept(this, context);
 
-            current.setRoot(new TopNNode(current.getRoot(), node.getCount(), node.getOrderBy(), node.getOrderings()));
+            current.setRoot(new TopNNode(node.getId(), current.getRoot(), node.getCount(), node.getOrderBy(), node.getOrderings()));
 
             if (current.isPartitioned()) {
-                current.setRoot(new SinkNode(current.getId(), current.getRoot()));
+                current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot()));
 
                 // create merge plan fragment
-                PlanNode source = new ExchangeNode(current.getId(), current.getRoot().getOutputSymbols());
-                TopNNode merge = new TopNNode(source, node.getCount(), node.getOrderBy(), node.getOrderings());
+                PlanNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
+                TopNNode merge = new TopNNode(idAllocator.getNextId(), source, node.getCount(), node.getOrderBy(), node.getOrderings());
                 current = newSubPlan(merge)
                         .setPartitioned(false)
                         .addChild(current.build());
@@ -151,15 +153,15 @@ public class DistributedLogicalPlanner
             SubPlanBuilder current = node.getSource().accept(this, context);
 
             if (current.isPartitioned()) {
-                current.setRoot(new SinkNode(current.getId(), current.getRoot()));
+                current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot()));
 
                 // create a new non-partitioned fragment
-                current = newSubPlan(new ExchangeNode(current.getId(), current.getRoot().getOutputSymbols()))
+                current = newSubPlan(new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols()))
                         .setPartitioned(false)
                         .addChild(current.build());
             }
 
-            current.setRoot(new SortNode(current.getRoot(), node.getOrderBy(), node.getOrderings()));
+            current.setRoot(new SortNode(node.getId(), current.getRoot(), node.getOrderBy(), node.getOrderings()));
 
             return current;
         }
@@ -171,15 +173,15 @@ public class DistributedLogicalPlanner
             SubPlanBuilder current = node.getSource().accept(this, context);
 
             if (current.isPartitioned()) {
-                current.setRoot(new SinkNode(current.getId(), current.getRoot()));
+                current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot()));
 
                 // create a new non-partitioned fragment
-                current = newSubPlan(new ExchangeNode(current.getId(), current.getRoot().getOutputSymbols()))
+                current = newSubPlan(new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols()))
                         .setPartitioned(false)
                         .addChild(current.build());
             }
 
-            current.setRoot(new OutputNode(current.getRoot(), node.getColumnNames(), node.getAssignments()));
+            current.setRoot(new OutputNode(node.getId(), current.getRoot(), node.getColumnNames(), node.getAssignments()));
 
             return current;
         }
@@ -189,14 +191,14 @@ public class DistributedLogicalPlanner
         {
             SubPlanBuilder current = node.getSource().accept(this, context);
 
-            current.setRoot(new LimitNode(current.getRoot(), node.getCount()));
+            current.setRoot(new LimitNode(node.getId(), current.getRoot(), node.getCount()));
 
             if (current.isPartitioned()) {
-                current.setRoot(new SinkNode(current.getId(), current.getRoot()));
+                current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot()));
 
                 // create merge plan fragment
-                PlanNode source = new ExchangeNode(current.getId(), current.getRoot().getOutputSymbols());
-                LimitNode merge = new LimitNode(source, node.getCount());
+                PlanNode source = new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols());
+                LimitNode merge = new LimitNode(idAllocator.getNextId(), source, node.getCount());
                 current = newSubPlan(merge)
                         .setPartitioned(false)
                         .addChild(current.build());
@@ -219,17 +221,17 @@ public class DistributedLogicalPlanner
             SubPlanBuilder right = node.getRight().accept(this, context);
 
             if (left.isPartitioned() || right.isPartitioned()) {
-                right.setRoot(new SinkNode(right.getId(), right.getRoot()));
+                right.setRoot(new SinkNode(idAllocator.getNextId(), right.getRoot()));
 
-                ExchangeNode exchange = new ExchangeNode(right.getId(), right.getRoot().getOutputSymbols());
-                JoinNode join = new JoinNode(left.getRoot(), exchange, node.getCriteria());
+                ExchangeNode exchange = new ExchangeNode(idAllocator.getNextId(), right.getId(), right.getRoot().getOutputSymbols());
+                JoinNode join = new JoinNode(node.getId(), left.getRoot(), exchange, node.getCriteria());
                 left.setRoot(join)
                     .addChild(right.build());
 
                 return left;
             }
             else {
-                JoinNode join = new JoinNode(left.getRoot(), right.getRoot(), node.getCriteria());
+                JoinNode join = new JoinNode(node.getId(), left.getRoot(), right.getRoot(), node.getCriteria());
                 return newSubPlan(join)
                         .setPartitioned(false)
                         .setChildren(Iterables.concat(left.getChildren(), right.getChildren()));
