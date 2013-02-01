@@ -4,10 +4,10 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.PageBuffer.BufferState;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonProperty;
 
 public class PageBufferInfo
 {

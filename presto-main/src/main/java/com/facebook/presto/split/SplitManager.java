@@ -151,7 +151,7 @@ public class SplitManager
     private Iterable<SplitAssignments> getInternalSplitAssignments(InternalTableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
     {
         Map<Symbol, InternalColumnHandle> symbols = filterValueInstances(mappings, InternalColumnHandle.class);
-        Split split = InternalSplit.create(handle, extractFilters(predicate, symbols));
+        Split split = new InternalSplit(handle, extractFilters(predicate, symbols));
         List<Node> nodes = ImmutableList.of(nodeManager.getCurrentNode());
         return ImmutableList.of(new SplitAssignments(split, nodes));
     }

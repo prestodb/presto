@@ -1,11 +1,11 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.PartitionChunk;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.fs.Path;
-import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonProperty;
 
 import java.util.List;
 import java.util.Properties;

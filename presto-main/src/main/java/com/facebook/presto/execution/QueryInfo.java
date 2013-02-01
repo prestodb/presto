@@ -4,13 +4,14 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.sql.analyzer.Session;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
+
 import java.net.URI;
 import java.util.List;
 

@@ -1,10 +1,10 @@
 package com.facebook.presto.benchmark;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import io.airlift.json.JsonCodec;
-import org.codehaus.jackson.annotate.JsonProperty;
 
 import java.io.IOException;
 import java.io.OutputStream;

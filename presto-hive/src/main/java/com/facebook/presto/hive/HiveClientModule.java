@@ -4,10 +4,10 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ImportClientFactory;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import org.apache.hadoop.fs.Path;
-import org.codehaus.jackson.map.ser.ToStringSerializer;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
