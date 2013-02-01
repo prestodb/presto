@@ -15,6 +15,7 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -101,9 +102,9 @@ public class DistributedExecutionPlanner
     private final class Visitor
         extends PlanVisitor<Expression, List<Partition>>
     {
-        private final Map<Integer, Expression> inheritedPredicatesBySourceFragmentId = new HashMap<>();
+        private final Map<PlanFragmentId, Expression> inheritedPredicatesBySourceFragmentId = new HashMap<>();
 
-        public Map<Integer, Expression> getInheritedPredicatesBySourceFragmentId()
+        public Map<PlanFragmentId, Expression> getInheritedPredicatesBySourceFragmentId()
         {
             return inheritedPredicatesBySourceFragmentId;
         }

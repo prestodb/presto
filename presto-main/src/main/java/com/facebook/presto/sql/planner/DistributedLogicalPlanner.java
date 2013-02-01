@@ -12,6 +12,7 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -60,7 +61,7 @@ public class DistributedLogicalPlanner
     private class Visitor
             extends PlanVisitor<Void, SubPlanBuilder>
     {
-        private int fragmentId = 0;
+        private int nextFragmentId = 0;
 
         private final SymbolAllocator allocator;
         private final boolean createSingleNodePlan;
@@ -246,7 +247,7 @@ public class DistributedLogicalPlanner
 
         private SubPlanBuilder newSubPlan(PlanNode root)
         {
-            return new SubPlanBuilder(fragmentId++, allocator, root);
+            return new SubPlanBuilder(new PlanFragmentId(String.valueOf(nextFragmentId++)), allocator, root);
         }
     }
 

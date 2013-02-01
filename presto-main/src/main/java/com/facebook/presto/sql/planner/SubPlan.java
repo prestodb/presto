@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -39,13 +40,13 @@ public class SubPlan
 
     public void sanityCheck()
     {
-        Multiset<Integer> exchangeIds = IterableTransformer.on(fragment.getSources())
+        Multiset<PlanFragmentId> exchangeIds = IterableTransformer.on(fragment.getSources())
                 .select(instanceOf(ExchangeNode.class))
                 .cast(ExchangeNode.class)
                 .transform(ExchangeNode.sourceFragmentIdGetter())
                 .bag();
 
-        Multiset<Integer> childrenIds = IterableTransformer.on(children)
+        Multiset<PlanFragmentId> childrenIds = IterableTransformer.on(children)
                 .transform(SubPlan.fragmentGetter())
                 .transform(PlanFragment.idGetter())
                 .bag();
