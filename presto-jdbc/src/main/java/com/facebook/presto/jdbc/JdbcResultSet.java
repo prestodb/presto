@@ -1500,7 +1500,7 @@ public class JdbcResultSet
                 case FAILED:
                     throw new SQLException(failureMessage(queryInfo));
                 default:
-                    throw new SQLException("Query finished with no output (#%s)", queryInfo.getQueryId());
+                    throw new SQLException(format("Query finished with no output (#%s)", queryInfo.getQueryId()));
             }
         }
         return queryInfo;
