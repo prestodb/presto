@@ -1,8 +1,8 @@
 package com.facebook.presto.execution;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
-import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonProperty;
 
 import static com.google.common.base.Preconditions.checkArgument;
 

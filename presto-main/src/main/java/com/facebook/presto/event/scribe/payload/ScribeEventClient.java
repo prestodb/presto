@@ -3,6 +3,8 @@ package com.facebook.presto.event.scribe.payload;
 import com.facebook.presto.event.Event;
 import com.facebook.presto.event.scribe.client.AsyncScribeLogger;
 import com.facebook.presto.event.scribe.client.LogEntry;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.util.TokenBuffer;
 import com.google.common.base.CaseFormat;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.CheckedFuture;
@@ -13,8 +15,6 @@ import io.airlift.event.client.EventSubmissionFailedException;
 import io.airlift.event.client.JsonEventSerializer;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
-import org.codehaus.jackson.map.ObjectMapper;
-import org.codehaus.jackson.util.TokenBuffer;
 
 import java.io.IOException;
 import java.net.URI;

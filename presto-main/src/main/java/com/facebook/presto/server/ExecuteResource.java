@@ -5,13 +5,13 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.tuple.TupleInfo;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonCodec;
-import org.codehaus.jackson.annotate.JsonProperty;
 
 import javax.inject.Inject;
 import javax.inject.Qualifier;

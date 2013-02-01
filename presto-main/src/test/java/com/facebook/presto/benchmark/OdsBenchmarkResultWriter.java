@@ -1,10 +1,10 @@
 package com.facebook.presto.benchmark;
 
+import com.fasterxml.jackson.core.JsonEncoding;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import org.codehaus.jackson.JsonEncoding;
-import org.codehaus.jackson.JsonFactory;
-import org.codehaus.jackson.JsonGenerator;
 
 import java.io.IOException;
 import java.io.OutputStream;

@@ -2,8 +2,8 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.facebook.presto.metadata.DataSourceType;
-import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 

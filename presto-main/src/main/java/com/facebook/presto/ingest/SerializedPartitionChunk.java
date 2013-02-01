@@ -2,8 +2,8 @@ package com.facebook.presto.ingest;
 
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
-import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonValue;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
 
 import javax.annotation.concurrent.Immutable;
 

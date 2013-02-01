@@ -1,7 +1,7 @@
 package com.facebook.presto.metadata;
 
-import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 import static java.lang.String.format;

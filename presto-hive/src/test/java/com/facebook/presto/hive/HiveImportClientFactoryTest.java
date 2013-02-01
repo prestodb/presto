@@ -3,6 +3,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.testing.StaticServiceSelector;
@@ -10,9 +13,6 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import org.apache.hadoop.fs.Path;
-import org.codehaus.jackson.map.JsonDeserializer;
-import org.codehaus.jackson.map.JsonSerializer;
-import org.codehaus.jackson.map.ser.ToStringSerializer;
 import org.testng.annotations.Test;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.testing.TestingMBeanServer;

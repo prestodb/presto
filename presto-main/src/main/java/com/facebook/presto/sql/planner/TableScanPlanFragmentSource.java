@@ -4,9 +4,9 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.split.Split;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
-import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonProperty;
 
 public class TableScanPlanFragmentSource
         implements PlanFragmentSource

@@ -6,13 +6,13 @@ import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.SliceOutput;
 import com.facebook.presto.slice.Slices;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonValue;
 
 import java.util.ArrayList;
 import java.util.List;
