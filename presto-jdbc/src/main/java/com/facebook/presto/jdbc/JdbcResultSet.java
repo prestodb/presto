@@ -3,6 +3,7 @@ package com.facebook.presto.jdbc;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.server.HttpQueryClient;
+import com.facebook.presto.server.ResultsIterator;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
