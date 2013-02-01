@@ -4,6 +4,7 @@ import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -21,7 +22,7 @@ public class QueryFragmentRequest
     private final String stageId;
     private final PlanFragment fragment;
     private final List<PlanFragmentSource> splits;
-    private final Map<String, ExchangePlanFragmentSource> exchangeSources;
+    private final Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources;
     private final List<String> outputIds;
 
     @JsonCreator
@@ -31,7 +32,7 @@ public class QueryFragmentRequest
             @JsonProperty("stageId") String stageId,
             @JsonProperty("fragment") PlanFragment fragment,
             @JsonProperty("splits") List<PlanFragmentSource> splits,
-            @JsonProperty("exchangeSources") Map<String, ExchangePlanFragmentSource> exchangeSources,
+            @JsonProperty("exchangeSources") Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
             @JsonProperty("outputIds") List<String> outputIds)
     {
         Preconditions.checkNotNull(session, "session is null");
@@ -82,7 +83,7 @@ public class QueryFragmentRequest
     }
 
     @JsonProperty
-    public Map<String, ExchangePlanFragmentSource> getExchangeSources()
+    public Map<PlanNodeId, ExchangePlanFragmentSource> getExchangeSources()
     {
         return exchangeSources;
     }

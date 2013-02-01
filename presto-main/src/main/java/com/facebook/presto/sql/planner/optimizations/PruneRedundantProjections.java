@@ -42,7 +42,7 @@ public class PruneRedundantProjections
 
             if (node.getOutputSymbols().size() != source.getOutputSymbols().size()) {
                 // Can't get rid of this projection. It constrains the output tuple from the underlying operator
-                return new ProjectNode(source, node.getOutputMap());
+                return new ProjectNode(node.getId(), source, node.getOutputMap());
             }
 
             boolean canElide = true;
@@ -59,7 +59,7 @@ public class PruneRedundantProjections
                 return source;
             }
 
-            return new ProjectNode(source, node.getOutputMap());
+            return new ProjectNode(node.getId(), source, node.getOutputMap());
         }
     }
 }

@@ -69,11 +69,13 @@ public class LogicalPlanner
 {
     private final Metadata metadata;
     private final Session session;
+    private final PlanNodeIdAllocator idAllocator;
 
-    public LogicalPlanner(Session session, Metadata metadata)
+    public LogicalPlanner(Session session, Metadata metadata, PlanNodeIdAllocator idAllocator)
     {
         this.metadata = metadata;
         this.session = session;
+        this.idAllocator = idAllocator;
     }
 
     public PlanNode plan(AnalysisResult analysis)
@@ -121,7 +123,7 @@ public class LogicalPlanner
             assignments.put(name, field.getSymbol());
         }
 
-        return new OutputNode(result, names, assignments.build());
+        return new OutputNode(idAllocator.getNextId(), result, names, assignments.build());
     }
 
     private PlanNode createQueryPlan(AnalysisResult analysis)
@@ -172,13 +174,13 @@ public class LogicalPlanner
 
     private PlanNode createDistinctPlan(PlanNode source)
     {
-        AggregationNode aggregation = new AggregationNode(source, source.getOutputSymbols(), ImmutableMap.<Symbol, FunctionCall>of(), ImmutableMap.<Symbol, FunctionHandle>of());
+        AggregationNode aggregation = new AggregationNode(idAllocator.getNextId(), source, source.getOutputSymbols(), ImmutableMap.<Symbol, FunctionCall>of(), ImmutableMap.<Symbol, FunctionHandle>of());
         return aggregation;
     }
 
     private PlanNode createLimitPlan(PlanNode source, long limit)
     {
-        return new LimitNode(source, limit);
+        return new LimitNode(idAllocator.getNextId(), source, limit);
     }
 
     private PlanNode createTopNPlan(PlanNode source, long limit, List<AnalyzedOrdering> orderBy, SymbolAllocator allocator, Map<Expression, Symbol> substitutions)
@@ -209,8 +211,8 @@ public class LogicalPlanner
             orderings.put(symbol, item.getOrdering());
         }
 
-        ProjectNode preProject = new ProjectNode(source, preProjectAssignments);
-        return new TopNNode(preProject, limit, orderBySymbols, orderings);
+        ProjectNode preProject = new ProjectNode(idAllocator.getNextId(), source, preProjectAssignments);
+        return new TopNNode(idAllocator.getNextId(), preProject, limit, orderBySymbols, orderings);
     }
 
     private PlanNode createSortPlan(PlanNode source, List<AnalyzedOrdering> orderBy, SymbolAllocator allocator, Map<Expression, Symbol> substitutions)
@@ -234,8 +236,8 @@ public class LogicalPlanner
             orderings.put(symbol, item.getOrdering());
         }
 
-        ProjectNode preProject = new ProjectNode(source, preProjectAssignments);
-        return new SortNode(preProject, orderBySymbols, orderings);
+        ProjectNode preProject = new ProjectNode(idAllocator.getNextId(), source, preProjectAssignments);
+        return new SortNode(idAllocator.getNextId(), preProject, orderBySymbols, orderings);
     }
 
     private PlanNode createAggregatePlan(PlanNode source,
@@ -269,7 +271,7 @@ public class LogicalPlanner
 
         PlanNode preProjectNode = source;
         if (!scalarAssignments.isEmpty()) { // workaround to deal with COUNT's lack of inputs
-            preProjectNode = new ProjectNode(source, scalarAssignments);
+            preProjectNode = new ProjectNode(idAllocator.getNextId(), source, scalarAssignments);
         }
 
         // 2. Aggregate
@@ -296,7 +298,7 @@ public class LogicalPlanner
             groupBySymbols.add(symbol);
         }
 
-        PlanNode aggregationNode = new AggregationNode(preProjectNode, groupBySymbols, aggregationAssignments, functions);
+        PlanNode aggregationNode = new AggregationNode(idAllocator.getNextId(), preProjectNode, groupBySymbols, aggregationAssignments, functions);
 
         // 3. Post-project scalar expressions based on aggregations
         BiMap<Symbol, Expression> postProjectScalarAssignments = HashBiMap.create();
@@ -310,7 +312,7 @@ public class LogicalPlanner
             outputSubstitutions.put(expression.getRewrittenExpression(), symbol);
         }
 
-        return new ProjectNode(aggregationNode, postProjectScalarAssignments);
+        return new ProjectNode(idAllocator.getNextId(), aggregationNode, postProjectScalarAssignments);
     }
 
     private PlanNode createProjectPlan(PlanNode root, Map<Symbol, AnalyzedExpression> outputAnalysis, final Map<Expression, Symbol> substitutions)
@@ -324,12 +326,12 @@ public class LogicalPlanner
             }
         });
 
-        return new ProjectNode(root, outputs);
+        return new ProjectNode(idAllocator.getNextId(), root, outputs);
     }
 
     private FilterNode createFilterPlan(PlanNode source, AnalyzedExpression predicate)
     {
-        return new FilterNode(source, predicate.getRewrittenExpression());
+        return new FilterNode(idAllocator.getNextId(), source, predicate.getRewrittenExpression());
     }
 
     private PlanNode createRelationPlan(List<Relation> relations, AnalysisResult analysis)
@@ -389,10 +391,10 @@ public class LogicalPlanner
             equiJoinClauses.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
         }
 
-        leftPlan = new ProjectNode(leftPlan, leftProjections);
-        rightPlan = new ProjectNode(rightPlan, rightProjections);
+        leftPlan = new ProjectNode(idAllocator.getNextId(), leftPlan, leftProjections);
+        rightPlan = new ProjectNode(idAllocator.getNextId(), rightPlan, rightProjections);
 
-        return new JoinNode(leftPlan, rightPlan, equiJoinClauses.build());
+        return new JoinNode(idAllocator.getNextId(), leftPlan, rightPlan, equiJoinClauses.build());
     }
 
     private PlanNode createScanNode(Table table, AnalysisResult analysis)
@@ -407,7 +409,7 @@ public class LogicalPlanner
             columns.put(field.getSymbol(), field.getColumn().get());
         }
 
-        return new TableScanNode(metadata.getTableHandle().get(), columns.build());
+        return new TableScanNode(idAllocator.getNextId(), metadata.getTableHandle().get(), columns.build());
     }
 
     private NodeRewriter<Void> substitution(final Map<Expression, Symbol> substitutions)

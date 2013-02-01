@@ -11,6 +11,7 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -84,7 +85,7 @@ public class MockTaskManager
             String taskId,
             PlanFragment fragment,
             List<PlanFragmentSource> splits,
-            Map<String, ExchangePlanFragmentSource> exchangeSources,
+            Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
             List<String> outputIds)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");

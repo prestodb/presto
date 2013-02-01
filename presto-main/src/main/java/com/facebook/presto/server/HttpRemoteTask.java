@@ -14,6 +14,7 @@ import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -49,7 +50,7 @@ public class HttpRemoteTask
     private final AtomicReference<TaskInfo> taskInfo = new AtomicReference<>();
     private final PlanFragment planFragment;
     private final List<PlanFragmentSource> splits;
-    private final Map<String, ExchangePlanFragmentSource> exchangeSources;
+    private final Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources;
 
     private final HttpClient httpClient;
     private final JsonCodec<TaskInfo> taskInfoCodec;
@@ -62,7 +63,7 @@ public class HttpRemoteTask
             URI location,
             PlanFragment planFragment,
             List<PlanFragmentSource> splits,
-            Map<String, ExchangePlanFragmentSource> exchangeSources,
+            Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
             List<String> outputIds,
             HttpClient httpClient,
             JsonCodec<TaskInfo> taskInfoCodec,

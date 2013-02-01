@@ -13,6 +13,7 @@ import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonCodec;
 
@@ -48,7 +49,7 @@ public class HttpRemoteTaskFactory
             Node node,
             PlanFragment fragment,
             List<PlanFragmentSource> splits,
-            Map<String, ExchangePlanFragmentSource> exchangeSources,
+            Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
             List<String> outputIds)
     {
         return new HttpRemoteTask(session,

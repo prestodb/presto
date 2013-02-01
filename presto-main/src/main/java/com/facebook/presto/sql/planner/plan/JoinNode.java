@@ -20,8 +20,13 @@ public class JoinNode
     private final List<EquiJoinClause> criteria;
 
     @JsonCreator
-    public JoinNode(@JsonProperty("left") PlanNode left, @JsonProperty("right") PlanNode right, @JsonProperty("criteria") List<EquiJoinClause> criteria)
+    public JoinNode(@JsonProperty("id") PlanNodeId id,
+            @JsonProperty("left") PlanNode left,
+            @JsonProperty("right") PlanNode right,
+            @JsonProperty("criteria") List<EquiJoinClause> criteria)
     {
+        super(id);
+
         Preconditions.checkNotNull(left, "left is null");
         Preconditions.checkNotNull(right, "right is null");
         Preconditions.checkNotNull(criteria, "criteria is null");

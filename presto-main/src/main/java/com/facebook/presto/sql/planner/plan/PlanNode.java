@@ -1,10 +1,13 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.analyzer.Symbol;
+import org.codehaus.jackson.annotate.JsonProperty;
 import org.codehaus.jackson.annotate.JsonSubTypes;
 import org.codehaus.jackson.annotate.JsonTypeInfo;
 
 import java.util.List;
+
+import static com.google.common.base.Preconditions.*;
 
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
@@ -24,6 +27,20 @@ import java.util.List;
         @JsonSubTypes.Type(value = JoinNode.class, name = "join")})
 public abstract class PlanNode
 {
+    private final PlanNodeId id;
+
+    protected PlanNode(PlanNodeId id)
+    {
+        checkNotNull(id, "id is null");
+        this.id = id;
+    }
+
+    @JsonProperty("id")
+    public PlanNodeId getId()
+    {
+        return id;
+    }
+
     public abstract List<PlanNode> getSources();
     public abstract List<Symbol> getOutputSymbols();
 
