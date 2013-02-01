@@ -3,7 +3,6 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.SourceHashProviderFactory;
@@ -67,12 +66,12 @@ public abstract class AbstractSqlBenchmark
     @Override
     protected Operator createBenchmarkedOperator(TpchBlocksProvider provider)
     {
-        ImmutableMap.Builder<TableHandle, TableScanPlanFragmentSource> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<PlanNodeId, TableScanPlanFragmentSource> builder = ImmutableMap.builder();
         for (PlanNode source : fragment.getSources()) {
             TableScanNode tableScan = (TableScanNode) source;
             TpchTableHandle handle = (TpchTableHandle) tableScan.getTable();
 
-            builder.put(handle, new TableScanPlanFragmentSource(new TpchSplit(handle)));
+            builder.put(tableScan.getId(), new TableScanPlanFragmentSource(new TpchSplit(handle)));
         }
 
         DataSize maxOperatorMemoryUsage = new DataSize(100, MEGABYTE);

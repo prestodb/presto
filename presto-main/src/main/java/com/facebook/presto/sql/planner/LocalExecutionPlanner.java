@@ -83,7 +83,7 @@ public class LocalExecutionPlanner
     private final Map<Symbol, Type> types;
 
     private final PlanFragmentSource split;
-    private final Map<TableHandle, TableScanPlanFragmentSource> tableScans;
+    private final Map<PlanNodeId, TableScanPlanFragmentSource> tableScans;
     private final OperatorStats operatorStats;
 
     private final Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources;
@@ -95,7 +95,7 @@ public class LocalExecutionPlanner
             PlanFragmentSourceProvider sourceProvider,
             Map<Symbol, Type> types,
             PlanFragmentSource split,
-            Map<TableHandle, TableScanPlanFragmentSource> tableScans,
+            Map<PlanNodeId, TableScanPlanFragmentSource> tableScans,
             Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
             OperatorStats operatorStats,
             SourceHashProviderFactory joinHashFactory,
@@ -304,7 +304,7 @@ public class LocalExecutionPlanner
 
             PlanFragmentSource tableSplit = split;
             if (tableSplit == null) {
-                tableSplit = tableScans.get(node.getTable());
+                tableSplit = tableScans.get(node.getId());
             }
 
             Map<Symbol, Input> mappings = new HashMap<>();
