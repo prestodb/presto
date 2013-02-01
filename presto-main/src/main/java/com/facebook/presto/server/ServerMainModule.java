@@ -8,6 +8,7 @@ import com.facebook.presto.event.query.QueryCreatedEvent;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.FailureInfo;
 import com.facebook.presto.execution.LocationFactory;
+import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTaskFactory;
@@ -66,6 +67,7 @@ import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Singleton;
+
 import java.io.File;
 import java.lang.annotation.Annotation;
 
@@ -168,6 +170,11 @@ public class ServerMainModule
         }
 
         bindDataSource("presto-metastore", ForMetadata.class, ForShardManager.class);
+
+        jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
+        binder.bind(ExecuteResource.class).in(Scopes.SINGLETON);
+        httpClientBinder(binder).bindHttpClient("execute", ExecuteResource.ForExecute.class);
     }
 
     @Provides
