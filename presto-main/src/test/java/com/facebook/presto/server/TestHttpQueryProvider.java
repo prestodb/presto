@@ -18,6 +18,7 @@ import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -187,7 +188,7 @@ public class TestHttpQueryProvider
 
     private HttpTaskClient createHttpQueryProvider(TestingHttpServer httpServer)
     {
-        PlanFragment planFragment = new PlanFragment(32, false, ImmutableMap.<Symbol, Type>of(), new ExchangeNode(new PlanNodeId("1"), 22, ImmutableList.<Symbol>of()));
+        PlanFragment planFragment = new PlanFragment(new PlanFragmentId("32"), false, ImmutableMap.<Symbol, Type>of(), new ExchangeNode(new PlanNodeId("1"), new PlanFragmentId("22"), ImmutableList.<Symbol>of()));
 
         Session session = new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA);
         QueryFragmentRequest fragmentRequest = new QueryFragmentRequest(session,

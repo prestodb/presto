@@ -14,12 +14,12 @@ import java.util.List;
 public class ExchangeNode
         extends PlanNode
 {
-    private final int sourceFragmentId;
+    private final PlanFragmentId sourceFragmentId;
     private final List<Symbol> outputs;
 
     @JsonCreator
     public ExchangeNode(@JsonProperty("id") PlanNodeId id,
-            @JsonProperty("sourceFragmentId") int sourceFragmentId,
+            @JsonProperty("sourceFragmentId") PlanFragmentId sourceFragmentId,
             @JsonProperty("outputs") List<Symbol> outputs)
     {
         super(id);
@@ -43,7 +43,7 @@ public class ExchangeNode
     }
 
     @JsonProperty("sourceFragmentId")
-    public int getSourceFragmentId()
+    public PlanFragmentId getSourceFragmentId()
     {
         return sourceFragmentId;
     }
@@ -54,12 +54,12 @@ public class ExchangeNode
         return visitor.visitExchange(this, context);
     }
 
-    public static Function<ExchangeNode, Integer> sourceFragmentIdGetter()
+    public static Function<ExchangeNode, PlanFragmentId> sourceFragmentIdGetter()
     {
-        return new Function<ExchangeNode, Integer>()
+        return new Function<ExchangeNode, PlanFragmentId>()
         {
             @Override
-            public Integer apply(ExchangeNode input)
+            public PlanFragmentId apply(ExchangeNode input)
             {
                 return input.getSourceFragmentId();
             }

@@ -2,6 +2,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.SymbolAllocator;
+import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
@@ -15,16 +16,16 @@ import static com.google.common.base.Predicates.in;
 
 public class SubPlanBuilder
 {
-    private final int id;
+    private final PlanFragmentId id;
     private PlanNode root;
     private boolean isPartitioned;
     private List<SubPlan> children = new ArrayList<>();
 
     private final SymbolAllocator allocator;
 
-    public SubPlanBuilder(int id, SymbolAllocator allocator, PlanNode root)
+    public SubPlanBuilder(PlanFragmentId id, SymbolAllocator allocator, PlanNode root)
     {
-        Preconditions.checkArgument(id >= 0, "id must be >= 0");
+        Preconditions.checkNotNull(id, "id is null");
         Preconditions.checkNotNull(allocator, "allocator is null");
         Preconditions.checkNotNull(root, "root is null");
 
@@ -33,7 +34,7 @@ public class SubPlanBuilder
         this.root = root;
     }
 
-    public int getId()
+    public PlanFragmentId getId()
     {
         return id;
     }
