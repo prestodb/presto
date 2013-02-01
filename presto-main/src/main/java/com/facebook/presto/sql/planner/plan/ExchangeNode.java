@@ -7,7 +7,6 @@ import com.google.common.collect.ImmutableList;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import java.util.List;
 
