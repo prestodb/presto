@@ -3,6 +3,7 @@ package com.facebook.presto.jdbc;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.server.HttpQueryClient;
+import com.facebook.presto.server.ResultsIterator;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -1500,7 +1501,7 @@ public class JdbcResultSet
                 case FAILED:
                     throw new SQLException(failureMessage(queryInfo));
                 default:
-                    throw new SQLException("Query finished with no output (#%s)", queryInfo.getQueryId());
+                    throw new SQLException(format("Query finished with no output (#%s)", queryInfo.getQueryId()));
             }
         }
         return queryInfo;
