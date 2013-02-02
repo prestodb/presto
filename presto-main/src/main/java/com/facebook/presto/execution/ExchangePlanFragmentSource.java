@@ -5,12 +5,13 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.tuple.TupleInfo;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
-import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
+
 import java.net.URI;
 import java.util.List;
 import java.util.Map;

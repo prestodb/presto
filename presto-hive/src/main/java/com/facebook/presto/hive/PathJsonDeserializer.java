@@ -3,9 +3,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import org.apache.hadoop.fs.Path;
-import org.codehaus.jackson.map.DeserializationContext;
-import org.codehaus.jackson.map.deser.std.FromStringDeserializer;
 
 import java.io.IOException;
 

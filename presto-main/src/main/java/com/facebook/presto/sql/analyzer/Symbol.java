@@ -1,9 +1,9 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.base.Preconditions;
-import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonValue;
 
 public class Symbol
 {
