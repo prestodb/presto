@@ -2,17 +2,16 @@ package com.facebook.presto.tpch;
 
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.serde.BlocksFileEncoding;
+import com.facebook.presto.util.CpuTimer;
+import com.facebook.presto.util.CpuTimer.CpuDuration;
 import com.google.common.base.Preconditions;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
-
-import java.util.concurrent.TimeUnit;
 
 public class MetricRecordingTpchBlocksProvider
         implements TpchBlocksProvider
 {
     private final TpchBlocksProvider tpchBlocksProvider;
-    private long dataFetchElapsedMillis;
+    private CpuDuration dataFetchCpuDuration = new CpuDuration();
     private long cumulativeDataByteSize;
 
     public MetricRecordingTpchBlocksProvider(TpchBlocksProvider tpchBlocksProvider)
@@ -26,13 +25,13 @@ public class MetricRecordingTpchBlocksProvider
         Preconditions.checkNotNull(tableHandle, "tableHandle is null");
         Preconditions.checkNotNull(columnHandle, "columnHandle is null");
         Preconditions.checkNotNull(encoding, "encoding is null");
-        long start = System.nanoTime();
+        CpuTimer cpuTimer = new CpuTimer();
         try {
             BlockIterable blocks = tpchBlocksProvider.getBlocks(tableHandle, columnHandle, encoding);
             cumulativeDataByteSize += tpchBlocksProvider.getColumnDataSize(tableHandle, columnHandle, encoding).toBytes();
             return blocks;
         } finally {
-            dataFetchElapsedMillis += Duration.nanosSince(start).toMillis();
+            dataFetchCpuDuration = dataFetchCpuDuration.add(cpuTimer.elapsedTime());
         }
     }
 
@@ -42,11 +41,11 @@ public class MetricRecordingTpchBlocksProvider
         return tpchBlocksProvider.getColumnDataSize(tableHandle, columnHandle, encoding);
     }
 
-    public Duration getDataFetchElapsedTime()
+    public CpuDuration getDataFetchCpuDuration()
     {
-        return new Duration(dataFetchElapsedMillis, TimeUnit.MILLISECONDS);
+        return dataFetchCpuDuration;
     }
-    
+
     public DataSize getCumulativeDataSize()
     {
         return new DataSize(cumulativeDataByteSize, DataSize.Unit.BYTE);

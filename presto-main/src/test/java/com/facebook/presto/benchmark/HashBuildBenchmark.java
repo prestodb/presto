@@ -26,14 +26,14 @@ public class HashBuildBenchmark
     }
 
     @Override
-    protected long execute(TpchBlocksProvider blocksProvider)
+    protected long[] execute(TpchBlocksProvider blocksProvider)
     {
         BlockIterable orderOrderKey = getBlockIterable(blocksProvider, "orders", "orderkey", BlocksFileEncoding.RAW);
         BlockIterable totalPrice = getBlockIterable(blocksProvider, "orders", "totalprice", BlocksFileEncoding.RAW);
         AlignmentOperator ordersTableScan = new AlignmentOperator(orderOrderKey, totalPrice);
         SourceHashProvider sourceHashProvider = new SourceHashProvider(ordersTableScan, 0, 1_500_000, new DataSize(100, MEGABYTE), new OperatorStats());
         sourceHashProvider.get();
-        return 0;
+        return new long[] {0, 0};
     }
 
     public static void main(String[] args)
