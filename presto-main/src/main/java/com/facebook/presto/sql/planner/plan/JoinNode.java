@@ -78,6 +78,7 @@ public class JoinNode
         private final Symbol left;
         private final Symbol right;
 
+        @JsonCreator
         public EquiJoinClause(@JsonProperty("left") Symbol left, @JsonProperty("right") Symbol right)
         {
             Preconditions.checkNotNull(left, "left is null");
