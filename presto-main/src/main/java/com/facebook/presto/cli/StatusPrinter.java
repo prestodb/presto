@@ -372,7 +372,7 @@ Parallelism: 2.5
         return nodes.build();
     }
 
-    private static String formatCount(long count)
+    public static String formatCount(long count)
     {
         double fractional = count;
         String unit = "";
@@ -421,7 +421,7 @@ Parallelism: 2.5
         return format;
     }
 
-    private static String formatCountRate(double count, Duration duration, boolean longForm)
+    public static String formatCountRate(double count, Duration duration, boolean longForm)
     {
         double rate = count / duration.convertTo(SECONDS);
         if (Double.isNaN(rate) || Double.isInfinite(rate)) {
@@ -438,7 +438,7 @@ Parallelism: 2.5
         return rateString;
     }
 
-    private static String formatDataSize(DataSize size, boolean longForm)
+    public static String formatDataSize(DataSize size, boolean longForm)
     {
         double fractional = size.toBytes();
         String unit = null;
@@ -474,7 +474,7 @@ Parallelism: 2.5
         return String.format("%s%s", format.format(fractional), unit);
     }
 
-    private static String formatDataRate(DataSize dataSize, Duration duration, boolean longForm)
+    public static String formatDataRate(DataSize dataSize, Duration duration, boolean longForm)
     {
         double rate = dataSize.toBytes() / duration.convertTo(SECONDS);
         if (Double.isNaN(rate) || Double.isInfinite(rate)) {
@@ -575,7 +575,7 @@ Parallelism: 2.5
         return word;
     }
 
-    private static String formatTime(Duration duration)
+    public static String formatTime(Duration duration)
     {
         int totalSeconds = (int) duration.convertTo(TimeUnit.SECONDS);
         int minutes = totalSeconds / 60;
