@@ -31,9 +31,11 @@ public class OperatorStats
     private long completedDataSize;
     private long completedPositions;
 
-    long wallStartTime;
-    long cpuStartTime;
-    long userStartTime;
+    private long wallStartTime;
+    private long cpuStartTime;
+    private long userStartTime;
+
+    private long exchangeWaitTime;
 
     private boolean finished;
 
@@ -95,6 +97,14 @@ public class OperatorStats
         }
 
         updateTimings();
+    }
+
+    public void addExchangeWaitTime(Duration duration)
+    {
+        if (taskOutput == null) {
+            return;
+        }
+        taskOutput.getStats().addExchangeWaitTime(duration);
     }
 
     public void start()

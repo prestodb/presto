@@ -56,7 +56,7 @@ public class TaskOutput
         stats.addSplits(splits);
         ImmutableMap.Builder<String, PageBuffer> builder = ImmutableMap.builder();
         for (String outputId : outputIds) {
-            builder.put(outputId, new PageBuffer(outputId, 1, pageBufferMax));
+            builder.put(outputId, new PageBuffer(outputId, pageBufferMax));
         }
         outputBuffers = builder.build();
     }
@@ -76,89 +76,14 @@ public class TaskOutput
         return stats;
     }
 
-    public List<PageBufferInfo> getBufferInfos()
-    {
-        return ImmutableList.copyOf(transform(outputBuffers.values(), infoGetter()));
-    }
-
-    private void updateState()
-    {
-        TaskState overallState = taskState.get();
-        if (!overallState.isDone()) {
-            ImmutableList<BufferState> bufferStates = ImmutableList.copyOf(transform(outputBuffers.values(), stateGetter()));
-
-            if (Iterables.any(bufferStates, equalTo(BufferState.FAILED))) {
-                taskState.set(TaskState.FAILED);
-                stats.recordEnd();
-                // this shouldn't be necessary, but be safe
-                finishAllBuffers();
-            }
-            else if (Iterables.all(bufferStates, equalTo(BufferState.FINISHED))) {
-                taskState.set(TaskState.FINISHED);
-                stats.recordEnd();
-            }
-        }
-    }
-
-    /**
-     * Marks the output as complete.  After this method is called no more data can be added but there may still be buffered output pages.
-     */
-    public void finish()
-    {
-        // finish all buffers
-        for (PageBuffer outputBuffer : outputBuffers.values()) {
-            outputBuffer.sourceFinished();
-        }
-        // the output will only transition to finished if it isn't already marked as failed or cancel
-        updateState();
-    }
-
-    public void cancel()
-    {
-        while (true) {
-            TaskState taskState = this.taskState.get();
-            if (taskState.isDone()) {
-                return;
-            }
-            if (this.taskState.compareAndSet(taskState, TaskState.CANCELED)) {
-                stats.recordEnd();
-                break;
-            }
-        }
-
-        // cancel all buffers
-        finishAllBuffers();
-        // the output will only transition to cancel if it isn't already marked as failed
-        updateState();
-    }
-
-    private void finishAllBuffers()
-    {
-        for (PageBuffer outputBuffer : outputBuffers.values()) {
-            outputBuffer.finish();
-        }
-    }
-
-    public void queryFailed(Throwable cause)
-    {
-        failureCauses.add(cause);
-        taskState.set(TaskState.FAILED);
-        stats.recordEnd();
-        for (PageBuffer outputBuffer : outputBuffers.values()) {
-            outputBuffer.queryFailed(cause);
-        }
-    }
-
     public boolean addPage(Page page)
             throws InterruptedException
     {
         for (PageBuffer outputBuffer : outputBuffers.values()) {
-            if (!outputBuffer.addPage(page)) {
-                updateState();
-                TaskState state = getState();
-                Preconditions.checkState(state.isDone(), "Expected a done state but state is %s", state);
+            if (getState().isDone()) {
                 return false;
             }
+            outputBuffer.addPage(page);
         }
         return true;
     }
@@ -175,18 +100,83 @@ public class TaskOutput
     {
         PageBuffer outputBuffer = outputBuffers.get(outputId);
         Preconditions.checkArgument(outputBuffer != null, "Unknown output %s: available outputs %s", outputId, outputBuffers.keySet());
-        outputBuffer.finish();
+        outputBuffer.cancel();
+        updateFinishedState();
+    }
+
+    /**
+     * Marks the output as complete.  After this method is called no more data can be added but there may still be buffered output pages.
+     */
+    public void finish()
+    {
+        // finish all buffers
+        for (PageBuffer outputBuffer : outputBuffers.values()) {
+            outputBuffer.finish();
+        }
+
+        // the output will only transition to finished if it isn't already marked as failed or cancel
+        updateFinishedState();
+    }
+
+    public void cancel()
+    {
+        transitionToDoneState(TaskState.CANCELED);
+    }
+
+    public void queryFailed(Throwable cause)
+    {
+        if (transitionToDoneState(TaskState.FAILED)) {
+            failureCauses.add(cause);
+        }
+    }
+
+    private void updateFinishedState()
+    {
+        TaskState overallState = taskState.get();
+        if (overallState.isDone()) {
+            return;
+        }
+
+        // if all buffers are finished, transition to finished
+        if (Iterables.all(transform(outputBuffers.values(), stateGetter()), equalTo(BufferState.FINISHED))) {
+            transitionToDoneState(TaskState.FINISHED);
+        }
+    }
+
+    private boolean transitionToDoneState(TaskState doneState)
+    {
+        Preconditions.checkNotNull(doneState, "doneState is null");
+        Preconditions.checkArgument(doneState.isDone(), "doneState %s is not a done state", doneState);
+
+        while (true) {
+            TaskState taskState = this.taskState.get();
+            if (taskState.isDone()) {
+                return false;
+            }
+
+            if (this.taskState.compareAndSet(taskState, doneState)) {
+
+                stats.recordEnd();
+
+                // cancel all buffers
+                for (PageBuffer outputBuffer : outputBuffers.values()) {
+                    outputBuffer.cancel();
+                }
+
+                return true;
+            }
+        }
     }
 
     public TaskInfo getTaskInfo()
     {
-        updateState();
+        updateFinishedState();
         return new TaskInfo(queryId,
                 stageId,
                 taskId,
                 getState(),
                 location,
-                getBufferInfos(),
+                ImmutableList.copyOf(transform(outputBuffers.values(), infoGetter())),
                 stats,
                 toFailures(failureCauses));
     }

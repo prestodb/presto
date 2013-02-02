@@ -5,7 +5,7 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.execution.ExchangePlanFragmentSource;
-import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.ingest.DelimitedRecordSet;
 import com.facebook.presto.ingest.RecordCursor;
 import com.facebook.presto.ingest.RecordSet;
@@ -60,7 +60,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.Resources;
-import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
 import org.skife.jdbi.v2.DBI;
@@ -98,8 +97,6 @@ import static org.testng.Assert.assertTrue;
 
 public class TestQueries
 {
-    private static final JsonCodec<TaskInfo> TASK_INFO_CODEC = JsonCodec.jsonCodec(TaskInfo.class);
-
     private Handle handle;
     private RecordSet ordersRecords;
     private RecordSet lineItemRecords;
@@ -903,7 +900,7 @@ public class TestQueries
 
         DataSize maxOperatorMemoryUsage = new DataSize(50, MEGABYTE);
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(session, metadata,
-                new HackPlanFragmentSourceProvider(dataProvider, null, TASK_INFO_CODEC),
+                new HackPlanFragmentSourceProvider(dataProvider, null, new QueryManagerConfig()),
                 analysis.getTypes(),
                 null,
                 builder.build(),
