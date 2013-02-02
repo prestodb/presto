@@ -17,7 +17,6 @@ public class UncompressedBlock
     private final int positionCount;
     private final TupleInfo tupleInfo;
     private final Slice slice;
-    private final int sliceOffset;
 
     public UncompressedBlock(int positionCount, TupleInfo tupleInfo, Slice slice)
     {
@@ -27,21 +26,7 @@ public class UncompressedBlock
 
         this.tupleInfo = tupleInfo;
         this.slice = slice;
-        this.sliceOffset = 0;
         this.positionCount = positionCount;
-    }
-
-    public UncompressedBlock(int positionCount, TupleInfo tupleInfo, Slice slice, int sliceOffset)
-    {
-        Preconditions.checkArgument(positionCount >= 0, "positionCount is negative");
-        Preconditions.checkNotNull(tupleInfo, "tupleInfo is null");
-        Preconditions.checkNotNull(slice, "data is null");
-        Preconditions.checkArgument(sliceOffset >= 0, "sliceOffset is negative");
-
-        this.positionCount = positionCount;
-        this.tupleInfo = tupleInfo;
-        this.slice = slice;
-        this.sliceOffset = sliceOffset;
     }
 
     public TupleInfo getTupleInfo()
@@ -52,6 +37,11 @@ public class UncompressedBlock
     public Slice getSlice()
     {
         return slice;
+    }
+
+    public int getSliceOffset()
+    {
+        return 0;
     }
 
     public int getPositionCount()
@@ -71,16 +61,16 @@ public class UncompressedBlock
         if (tupleInfo.getFieldCount() == 1) {
             Type type = tupleInfo.getTypes().get(0);
             if (type == Type.FIXED_INT_64) {
-                return new UncompressedLongBlockCursor(positionCount, slice, sliceOffset);
+                return new UncompressedLongBlockCursor(positionCount, slice);
             }
             if (type == Type.DOUBLE) {
-                return new UncompressedDoubleBlockCursor(positionCount, slice, sliceOffset);
+                return new UncompressedDoubleBlockCursor(positionCount, slice);
             }
             if (type == Type.VARIABLE_BINARY) {
-                return new UncompressedSliceBlockCursor(positionCount, slice, sliceOffset);
+                return new UncompressedSliceBlockCursor(positionCount, slice);
             }
         }
-        return new UncompressedBlockCursor(tupleInfo, positionCount, slice, sliceOffset);
+        return new UncompressedBlockCursor(tupleInfo, positionCount, slice);
     }
 
     @Override
@@ -103,7 +93,6 @@ public class UncompressedBlock
                 .add("positionCount", positionCount)
                 .add("tupleInfo", tupleInfo)
                 .add("slice", slice)
-                .add("sliceOffset", sliceOffset)
                 .toString();
     }
 }
