@@ -4,6 +4,8 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskOutput;
+import com.facebook.presto.util.CpuTimer;
+import com.facebook.presto.util.CpuTimer.CpuDuration;
 import com.google.common.base.Preconditions;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -12,7 +14,6 @@ import io.airlift.units.Duration;
 import javax.annotation.concurrent.NotThreadSafe;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
-import java.util.concurrent.TimeUnit;
 
 /**
  * This class is not thread safe, but the done state of the task is properly
@@ -31,10 +32,7 @@ public class OperatorStats
     private long completedDataSize;
     private long completedPositions;
 
-    private long wallStartTime;
-    private long cpuStartTime;
-    private long userStartTime;
-
+    private CpuTimer cpuTimer = new CpuTimer();
     private long exchangeWaitTime;
 
     private boolean finished;
@@ -114,9 +112,7 @@ public class OperatorStats
         }
 
         taskOutput.getStats().splitStarted();
-        wallStartTime = System.nanoTime();
-        cpuStartTime = THREAD_MX_BEAN.getCurrentThreadCpuTime();
-        userStartTime = THREAD_MX_BEAN.getCurrentThreadUserTime();
+        cpuTimer = new CpuTimer();
     }
 
     public void finish()
@@ -140,16 +136,9 @@ public class OperatorStats
             return;
         }
 
-        long now = System.nanoTime();
-        long cpuNow = THREAD_MX_BEAN.getCurrentThreadCpuTime();
-        long userNow = THREAD_MX_BEAN.getCurrentThreadUserTime();
-
-        taskOutput.getStats().addSplitWallTime(new Duration(Math.max(0, now - wallStartTime), TimeUnit.NANOSECONDS));
-        taskOutput.getStats().addSplitCpuTime(new Duration(Math.max(0, cpuNow - cpuStartTime), TimeUnit.NANOSECONDS));
-        taskOutput.getStats().addSplitUserTime(new Duration(Math.max(0, userNow - userStartTime), TimeUnit.NANOSECONDS));
-
-        wallStartTime = now;
-        cpuStartTime = cpuNow;
-        userStartTime = userNow;
+        CpuDuration splitTime = cpuTimer.startNewInterval();
+        taskOutput.getStats().addSplitWallTime(splitTime.getWall());
+        taskOutput.getStats().addSplitCpuTime(splitTime.getCpu());
+        taskOutput.getStats().addSplitUserTime(splitTime.getUser());
     }
 }
