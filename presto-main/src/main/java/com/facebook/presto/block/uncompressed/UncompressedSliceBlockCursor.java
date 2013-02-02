@@ -22,16 +22,15 @@ public class UncompressedSliceBlockCursor
     private int offset;
     private int size;
 
-    public UncompressedSliceBlockCursor(int positionCount, Slice slice, int sliceOffset)
+    public UncompressedSliceBlockCursor(int positionCount, Slice slice)
     {
         Preconditions.checkArgument(positionCount >= 0, "positionCount is negative");
         Preconditions.checkNotNull(positionCount, "positionCount is null");
-        Preconditions.checkPositionIndex(sliceOffset, slice.length(), "sliceOffset");
 
         this.positionCount = positionCount;
 
         this.slice = slice;
-        offset = sliceOffset;
+        offset = 0;
         size = 0;
 
         // start one position before the start
@@ -114,7 +113,8 @@ public class UncompressedSliceBlockCursor
             size = slice.getInt(offset + SIZE_OF_BYTE);
         }
 
-        return new UncompressedBlock(length, SINGLE_VARBINARY, slice, startOffset);
+        Slice newSlice = slice.slice(startOffset, offset + size - startOffset);
+        return new UncompressedBlock(length, SINGLE_VARBINARY, newSlice);
     }
 
     @Override

@@ -22,11 +22,10 @@ public class UncompressedDoubleBlockCursor
     private int position;
     private int offset;
 
-    public UncompressedDoubleBlockCursor(int positionCount, Slice slice, int sliceOffset)
+    public UncompressedDoubleBlockCursor(int positionCount, Slice slice)
     {
         Preconditions.checkArgument(positionCount >= 0, "positionCount is negative");
         Preconditions.checkNotNull(positionCount, "positionCount is null");
-        Preconditions.checkPositionIndex(sliceOffset, slice.length(), "sliceOffset");
 
         this.positionCount = positionCount;
 
@@ -34,7 +33,7 @@ public class UncompressedDoubleBlockCursor
 
         // start one position before the start
         position = -1;
-        offset = sliceOffset - ENTRY_SIZE;
+        offset = -ENTRY_SIZE;
     }
 
     @Override
@@ -107,7 +106,8 @@ public class UncompressedDoubleBlockCursor
         offset += length * ENTRY_SIZE;
         position += length;
 
-        return new UncompressedBlock(length, SINGLE_DOUBLE, slice, startOffset);
+        Slice newSlice = slice.slice(startOffset, length * ENTRY_SIZE);
+        return new UncompressedBlock(length, SINGLE_DOUBLE, newSlice);
     }
 
     @Override
