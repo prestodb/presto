@@ -1,5 +1,6 @@
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.operator.AlignmentOperator;
@@ -39,11 +40,12 @@ public class PredicateFilterBenchmark
     }
 
     @Override
-    protected long execute(TpchBlocksProvider blocksProvider)
+    protected long[] execute(TpchBlocksProvider blocksProvider)
     {
         Operator operator = createBenchmarkedOperator(blocksProvider);
 
         long outputRows = 0;
+        long outputBytes = 0;
         PageIterator iterator = operator.iterator(new OperatorStats());
         while (iterator.hasNext()) {
             Page page = iterator.next();
@@ -51,8 +53,12 @@ public class PredicateFilterBenchmark
             while (cursor.advanceNextPosition()) {
                 outputRows++;
             }
+
+            for (Block block : page.getBlocks()) {
+                outputBytes += block.getDataSize().toBytes();
+            }
         }
-        return outputRows;
+        return new long[] {outputRows, outputBytes};
     }
 
     public static class DoubleFilter implements FilterFunction {

@@ -1,12 +1,19 @@
 package com.facebook.presto.benchmark;
 
-import com.google.common.base.Joiner;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import java.util.Map;
 
+import static com.facebook.presto.cli.StatusPrinter.formatCount;
+import static com.facebook.presto.cli.StatusPrinter.formatCountRate;
+import static com.facebook.presto.cli.StatusPrinter.formatDataRate;
+import static com.facebook.presto.cli.StatusPrinter.formatDataSize;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public abstract class AbstractBenchmark
 {
@@ -84,9 +91,27 @@ public abstract class AbstractBenchmark
             benchmarkResultHook.finished();
         }
 
-        Map<String, String> resultsAvg = averageBenchmarkResults.getAverageResultsStrings();
-        String avg = Joiner.on(", ").withKeyValueSeparator(": ").join(resultsAvg);
+        Map<String, Double> resultsAvg = averageBenchmarkResults.getAverageResultsValues();
+        Duration cpuNanos = new Duration(resultsAvg.get("cpu_nanos"), NANOSECONDS);
 
-        System.out.printf("%35s avg results :: %s%n", getBenchmarkName(), avg);
+        long inputRows = resultsAvg.get("input_rows").longValue();
+        DataSize inputBytes = new DataSize(resultsAvg.get("input_bytes"), BYTE);
+
+        long outputRows = resultsAvg.get("output_rows").longValue();
+        DataSize outputBytes = new DataSize(resultsAvg.get("output_bytes"), BYTE);
+
+        System.out.printf("%35s :: %8.3f cpu ms :: in %5s,  %6s,  %8s,  %8s :: out %5s,  %6s,  %8s,  %8s%n",
+                getBenchmarkName(),
+                cpuNanos.toMillis(),
+
+                formatCount(inputRows),
+                formatDataSize(inputBytes, true),
+                formatCountRate(inputRows, cpuNanos, true),
+                formatDataRate(inputBytes, cpuNanos, true),
+
+                formatCount(outputRows),
+                formatDataSize(outputBytes, true),
+                formatCountRate(outputRows, cpuNanos, true),
+                formatDataRate(outputBytes, cpuNanos, true));
     }
 }
