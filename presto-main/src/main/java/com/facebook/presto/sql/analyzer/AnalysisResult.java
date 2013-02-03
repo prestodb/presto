@@ -11,6 +11,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nullable;
+
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -181,5 +182,23 @@ public class AnalysisResult
     public Query getRewrittenQuery()
     {
         return rewrittenQuery;
+    }
+
+    public AnalysisResult withOutput(AnalyzedOutput output)
+    {
+        return new AnalysisResult(
+                symbolAllocator,
+                tableDescriptors,
+                tableMetadata,
+                inlineViews,
+                joinCriteria,
+                distinct,
+                aggregations,
+                predicate,
+                output,
+                groupBy,
+                orderBy,
+                limit,
+                rewrittenQuery);
     }
 }

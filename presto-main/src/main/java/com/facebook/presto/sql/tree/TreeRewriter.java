@@ -12,7 +12,12 @@ public final class TreeRewriter<C>
 
     public static <C, T extends Node> T rewriteWith(NodeRewriter<C> rewriter, T node)
     {
-        return new TreeRewriter<C>(rewriter).rewrite(node, null);
+        return rewriteWith(rewriter, node, null);
+    }
+
+    public static <C, T extends Node> T rewriteWith(NodeRewriter<C> rewriter, T node, C context)
+    {
+        return new TreeRewriter<>(rewriter).rewrite(node, context);
     }
 
     public TreeRewriter(NodeRewriter<C> nodeRewriter)
@@ -72,6 +77,11 @@ public final class TreeRewriter<C>
                 }
             }
 
+            With with = null;
+            if (node.getWith() != null) {
+                with = rewrite(node.getWith(), context.get());
+            }
+
             Select select = rewrite(node.getSelect(), context.get());
 
             ImmutableList.Builder<Relation> from = ImmutableList.builder();
@@ -99,13 +109,54 @@ public final class TreeRewriter<C>
                 orderBy.add(rewrite(sortItem, context.get()));
             }
 
-            if (select != node.getSelect() ||
+            if ((with != node.getWith()) ||
+                    (select != node.getSelect()) ||
                     !sameElements(node.getFrom(), from.build()) ||
-                    where != node.getWhere() ||
+                    (where != node.getWhere()) ||
                     !sameElements(node.getGroupBy(), groupBy.build()) ||
-                    having != node.getHaving() ||
+                    (having != node.getHaving()) ||
                     !sameElements(orderBy.build(), node.getOrderBy())) {
-                return new Query(select, from.build(), where, groupBy.build(), having, orderBy.build(), node.getLimit());
+                return new Query(with, select, from.build(), where, groupBy.build(), having, orderBy.build(), node.getLimit());
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Node visitWith(With node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteWith(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            ImmutableList.Builder<WithQuery> builder = ImmutableList.builder();
+            for (WithQuery query : node.getQueries()) {
+                builder.add(rewrite(query, context.get()));
+            }
+
+            if (!sameElements(node.getQueries(), builder.build())) {
+                return new With(node.isRecursive(), builder.build());
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Node visitWithQuery(WithQuery node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteWithQuery(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Query child = rewrite(node.getQuery(), context.get());
+            if (child != node.getQuery()) {
+                return new WithQuery(node.getName(), child, node.getColumnNames());
             }
 
             return node;
@@ -128,6 +179,44 @@ public final class TreeRewriter<C>
 
             if (!sameElements(node.getSelectItems(), builder.build())) {
                 return new Select(node.isDistinct(), builder.build());
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Node visitSortItem(SortItem node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteSortItem(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression child = rewrite(node.getSortKey(), context.get());
+            if (child != node.getSortKey()) {
+                return new SortItem(child, node.getOrdering(), node.getNullOrdering());
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Node visitJoin(Join node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteJoin(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Relation left = rewrite(node.getLeft(), context.get());
+            Relation right = rewrite(node.getRight(), context.get());
+
+            if (left != node.getLeft() || right != node.getRight()) {
+                return new Join(node.getType(), left, right, node.getCriteria());
             }
 
             return node;

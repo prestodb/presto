@@ -73,4 +73,14 @@ public class TupleDescriptor
             }
         }));
     }
+
+    public TupleDescriptor prefixFields(String prefix)
+    {
+        Optional<QualifiedName> fieldPrefix = Optional.of(QualifiedName.of(prefix));
+        ImmutableList.Builder<Field> builder = ImmutableList.builder();
+        for (Field field : getFields()) {
+            builder.add(new Field(fieldPrefix, field.getAttribute(), field.getColumn(), field.getSymbol(), field.getType()));
+        }
+        return new TupleDescriptor(builder.build());
+    }
 }
