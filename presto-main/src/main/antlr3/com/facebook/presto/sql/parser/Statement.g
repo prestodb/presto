@@ -28,6 +28,8 @@ tokens {
     ORDERBY;
     SORT_ITEM;
     QUERY;
+    WITH_LIST;
+    WITH_QUERY;
     ALL_COLUMNS;
     SELECT_LIST;
     SELECT_ITEM;
@@ -122,12 +124,17 @@ statement
     ;
 
 selectStmt
-    : selectClause
+    : withClause?
+      selectClause
       fromClause?
       whereClause?
       (groupClause havingClause?)?
       orderClause?
       limitClause?
+    ;
+
+withClause
+    : WITH r=RECURSIVE? withList -> ^(WITH $r? withList)
     ;
 
 selectClause
@@ -156,6 +163,14 @@ orderClause
 
 limitClause
     : LIMIT integer -> ^(LIMIT integer)
+    ;
+
+withList
+    : withQuery (',' withQuery)* -> ^(WITH_LIST withQuery+)
+    ;
+
+withQuery
+    : ident aliasedColumns? AS subquery -> ^(WITH_QUERY ident subquery aliasedColumns?)
     ;
 
 selectExpr
@@ -550,6 +565,8 @@ FULL: 'FULL';
 NATURAL: 'NATURAL';
 USING: 'USING';
 ON: 'ON';
+WITH: 'WITH';
+RECURSIVE: 'RECURSIVE';
 CREATE: 'CREATE';
 TABLE: 'TABLE';
 CHAR: 'CHAR';

@@ -49,6 +49,7 @@ import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.tuple.TupleReadable;
+import com.facebook.presto.tuple.Tuples;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -86,6 +87,7 @@ import java.util.zip.GZIPInputStream;
 
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.tuple.Tuples.createTuple;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
@@ -741,6 +743,34 @@ public class TestQueries
             throws Exception
     {
         computeActual("select * from lineitem l join (select orderkey_1, custkey from orders) o on l.orderkey = o.orderkey_1");
+    }
+
+    @Test
+    public void testWithChaining()
+            throws Exception
+    {
+        List<Tuple> actual = computeActual("" +
+                "WITH a AS (SELECT 1 n FROM orders LIMIT 1)" +
+                ", b AS (SELECT n + 1 n FROM a)" +
+                ", c AS (SELECT n + 1 n FROM b) " +
+                "SELECT n + 1 FROM c");
+
+        assertEquals(actual, ImmutableList.of(createTuple(4)));
+    }
+
+    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = "recursive queries are not supported")
+    public void testWithRecursive()
+            throws Exception
+    {
+        computeActual("WITH RECURSIVE a AS (SELECT 123 FROM dual) SELECT * FROM a");
+    }
+
+    // TODO: make column aliasing work
+    @Test(expectedExceptions = UnsupportedOperationException.class, expectedExceptionsMessageRegExp = ".* column mappings .*")
+    public void testWithColumnAliasing()
+            throws Exception
+    {
+        computeActual("WITH a (id) AS (SELECT 123 FROM dual) SELECT * FROM a");
     }
 
     @BeforeSuite

@@ -8,7 +8,6 @@ import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
-import com.facebook.presto.sql.planner.LookupSymbolResolver;
 import com.facebook.presto.sql.planner.SymbolResolver;
 import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.AliasedRelation;
@@ -25,6 +24,7 @@ import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeRewriter;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
@@ -40,6 +40,8 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.Subquery;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TreeRewriter;
+import com.facebook.presto.sql.tree.With;
+import com.facebook.presto.sql.tree.WithQuery;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
@@ -65,7 +67,6 @@ import static com.facebook.presto.sql.analyzer.AnalyzedExpression.rewrittenExpre
 import static com.facebook.presto.sql.analyzer.AnalyzedFunction.distinctPredicate;
 import static com.facebook.presto.sql.analyzer.AnalyzedOrdering.expressionGetter;
 import static com.facebook.presto.sql.analyzer.AnalyzedOrdering.nodeGetter;
-import static com.facebook.presto.sql.analyzer.Field.nameGetter;
 import static com.facebook.presto.sql.tree.QueryUtil.aliasedName;
 import static com.facebook.presto.sql.tree.QueryUtil.ascending;
 import static com.facebook.presto.sql.tree.QueryUtil.caseWhen;
@@ -77,6 +78,7 @@ import static com.facebook.presto.sql.tree.QueryUtil.selectAll;
 import static com.facebook.presto.sql.tree.QueryUtil.selectList;
 import static com.facebook.presto.sql.tree.QueryUtil.table;
 import static com.facebook.presto.sql.tree.SortItem.sortKeyGetter;
+import static com.google.common.base.Objects.firstNonNull;
 import static com.google.common.base.Predicates.compose;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.instanceOf;
@@ -138,6 +140,11 @@ public class Analyzer
                 }
             }
 
+            // analyze WITH clause
+            if (query.getWith() != null) {
+                analyzeWithClause(query.getWith(), context, metadata);
+            }
+
             // analyze FROM clause
             Relation relation = Iterables.getOnlyElement(query.getFrom());
             TupleDescriptor sourceDescriptor = new RelationAnalyzer(metadata, context.getSession()).process(relation, context);
@@ -160,6 +167,9 @@ public class Analyzer
             if (query.getLimit() != null) {
                 limit = Long.parseLong(query.getLimit());
             }
+
+            // rewrite query to inline WITH queries
+            query = TreeRewriter.rewriteWith(new WithQueryNameRewriter(), query, context);
 
             return AnalysisResult.newInstance(context, query.getSelect().isDistinct(), output, predicate, groupBy, aggregations, limit, orderBy, query);
         }
@@ -193,6 +203,7 @@ public class Analyzer
             }
 
             Query query = new Query(
+                    null,
                     selectList(aliasedName("table_name", "Table")),
                     table(QualifiedName.of(catalogName, INFORMATION_SCHEMA, TABLE_TABLES)),
                     predicate,
@@ -219,6 +230,7 @@ public class Analyzer
 
             // TODO: throw SemanticException if table does not exist
             Query query = new Query(
+                    null,
                     selectList(
                             aliasedName("column_name", "Column"),
                             aliasedName("data_type", "Type"),
@@ -270,6 +282,7 @@ public class Analyzer
 
             // TODO: throw SemanticException if table does not exist
             Query query = new Query(
+                    null,
                     selectAll(selectList.build()),
                     table(QualifiedName.of(catalogName, INFORMATION_SCHEMA, TABLE_INTERNAL_PARTITIONS)),
                     logicalAnd(
@@ -287,6 +300,7 @@ public class Analyzer
         protected AnalysisResult visitShowFunctions(ShowFunctions node, AnalysisContext context)
         {
             Query query = new Query(
+                    null,
                     selectList(
                             aliasedName("function_name", "Function"),
                             aliasedName("return_type", "Return Type"),
@@ -524,6 +538,46 @@ public class Analyzer
         };
     }
 
+    private static void analyzeWithClause(With with, AnalysisContext context, Metadata metadata)
+    {
+        if (with.isRecursive()) {
+            throw new SemanticException(with, "recursive queries are not supported");
+        }
+
+        for (WithQuery query : with.getQueries()) {
+            if ((query.getColumnNames() != null) && !query.getColumnNames().isEmpty()) {
+                throw new UnsupportedOperationException("not yet implemented: column mappings in with query");
+            }
+
+            // analyze the query recursively
+            Analyzer analyzer = new Analyzer(context.getSession(), metadata);
+            AnalysisResult analysis = analyzer.analyze(query.getQuery(), new AnalysisContext(context));
+
+            // rewrite the output names in terms of the query name
+            TupleDescriptor descriptor = analysis.getOutputDescriptor().prefixFields(query.getName());
+            analysis = analysis.withOutput(new AnalyzedOutput(descriptor, analysis.getOutputExpressions()));
+
+            // register the query name and the query as a subquery
+            Subquery subquery = new Subquery(query.getQuery());
+            context.registerWithQuery(query.getName(), subquery);
+            context.registerInlineView(subquery, analysis);
+        }
+    }
+
+    private static class WithAnalyzer
+    {
+        private final Metadata metadata;
+
+        public WithAnalyzer(Metadata metadata)
+        {
+            this.metadata = metadata;
+        }
+
+        public void process(With with, AnalysisContext context)
+        {
+        }
+    }
+
     private static class RelationAnalyzer
             extends DefaultTraversalVisitor<TupleDescriptor, AnalysisContext>
     {
@@ -543,6 +597,15 @@ public class Analyzer
 
             if (name.getParts().size() > 3) {
                 throw new SemanticException(table, "Too many dots in table name: %s", name);
+            }
+
+            // try to resolve against a WITH query name
+            if (name.getParts().size() == 1) {
+                Subquery subquery = context.getWithQueries().get(name.getSuffix());
+                if (subquery != null) {
+                    context.registerWithQueryReference(table, subquery);
+                    return context.getInlineViews().get(subquery).getOutputDescriptor();
+                }
             }
 
             List<String> parts = Lists.reverse(name.getParts());
@@ -577,21 +640,14 @@ public class Analyzer
                 throw new UnsupportedOperationException("not yet implemented: column mappings in relation alias");
             }
 
-            TupleDescriptor child = process(relation.getRelation(), context);
-
-            ImmutableList.Builder<Field> builder = ImmutableList.builder();
-            for (Field field : child.getFields()) {
-                builder.add(new Field(Optional.of(QualifiedName.of(relation.getAlias())), field.getAttribute(), field.getColumn(), field.getSymbol(), field.getType()));
-            }
-
-            return new TupleDescriptor(builder.build());
+            return process(relation.getRelation(), context).prefixFields(relation.getAlias());
         }
 
         @Override
         protected TupleDescriptor visitSubquery(Subquery node, AnalysisContext context)
         {
             // Analyze the subquery recursively
-            AnalysisResult analysis = new Analyzer(context.getSession(), metadata).analyze(node.getQuery(), new AnalysisContext(context.getSession(), context.getSymbolAllocator()));
+            AnalysisResult analysis = new Analyzer(context.getSession(), metadata).analyze(node.getQuery(), new AnalysisContext(context));
 
             context.registerInlineView(node, analysis);
 
@@ -694,6 +750,16 @@ public class Analyzer
         public Object getValue(Symbol symbol)
         {
             return new QualifiedNameReference(symbol.toQualifiedName());
+        }
+    }
+
+    private static class WithQueryNameRewriter
+            extends NodeRewriter<AnalysisContext>
+    {
+        @Override
+        public Node rewriteTable(Table table, AnalysisContext context, TreeRewriter<AnalysisContext> treeRewriter)
+        {
+            return firstNonNull(context.getWithQueryReferences().get(table), table);
         }
     }
 }

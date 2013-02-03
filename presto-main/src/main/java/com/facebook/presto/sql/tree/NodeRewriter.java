@@ -17,7 +17,22 @@ public class NodeRewriter<C>
         return rewriteStatement(node, context, treeRewriter);
     }
 
+    public Node rewriteWith(With node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteNode(node, context, treeRewriter);
+    }
+
+    public Node rewriteWithQuery(WithQuery node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteNode(node, context, treeRewriter);
+    }
+
     public Node rewriteSelect(Select node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteNode(node, context, treeRewriter);
+    }
+
+    public Node rewriteSortItem(SortItem node, C context, TreeRewriter<C> treeRewriter)
     {
         return rewriteNode(node, context, treeRewriter);
     }
@@ -38,6 +53,11 @@ public class NodeRewriter<C>
     }
 
     public Node rewriteSubquery(Subquery node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteRelation(node, context, treeRewriter);
+    }
+
+    public Node rewriteJoin(Join node, C context, TreeRewriter<C> treeRewriter)
     {
         return rewriteRelation(node, context, treeRewriter);
     }

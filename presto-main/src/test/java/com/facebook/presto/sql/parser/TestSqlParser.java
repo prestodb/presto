@@ -48,6 +48,7 @@ public class TestSqlParser
     {
         assertStatement("SELECT 123.456E7 FROM DUAL",
                 new Query(
+                        null,
                         selectList(new DoubleLiteral("123.456E7")),
                         table(QualifiedName.of("DUAL")),
                         null,

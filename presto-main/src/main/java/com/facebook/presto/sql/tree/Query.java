@@ -8,6 +8,7 @@ import java.util.List;
 public class Query
         extends Statement
 {
+    private final With with;
     private final Select select;
     private final List<Relation> from;
     private final Expression where;
@@ -17,6 +18,7 @@ public class Query
     private final String limit;
 
     public Query(
+            With with,
             Select select,
             List<Relation> from,
             Expression where,
@@ -31,6 +33,7 @@ public class Query
         Preconditions.checkNotNull(groupBy, "groupBy is null");
         Preconditions.checkNotNull(orderBy, "orderBy is null");
 
+        this.with = with;
         this.select = select;
         this.from = from;
         this.where = where;
@@ -38,6 +41,11 @@ public class Query
         this.having = having;
         this.orderBy = orderBy;
         this.limit = limit;
+    }
+
+    public With getWith()
+    {
+        return with;
     }
 
     public Select getSelect()
@@ -85,6 +93,7 @@ public class Query
     public String toString()
     {
         return Objects.toStringHelper(this)
+                .add("with", with)
                 .add("select", select)
                 .add("from", from)
                 .add("where", where)
@@ -96,52 +105,28 @@ public class Query
     }
 
     @Override
-    public boolean equals(Object o)
+    public int hashCode()
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        Query query = (Query) o;
-
-        if (!from.equals(query.from)) {
-            return false;
-        }
-        if (!groupBy.equals(query.groupBy)) {
-            return false;
-        }
-        if (having != null ? !having.equals(query.having) : query.having != null) {
-            return false;
-        }
-        if (limit != null ? !limit.equals(query.limit) : query.limit != null) {
-            return false;
-        }
-        if (!orderBy.equals(query.orderBy)) {
-            return false;
-        }
-        if (!select.equals(query.select)) {
-            return false;
-        }
-        if (where != null ? !where.equals(query.where) : query.where != null) {
-            return false;
-        }
-
-        return true;
+        return Objects.hashCode(with, select, from, where, groupBy, having, orderBy, limit);
     }
 
     @Override
-    public int hashCode()
+    public boolean equals(Object obj)
     {
-        int result = select.hashCode();
-        result = 31 * result + from.hashCode();
-        result = 31 * result + (where != null ? where.hashCode() : 0);
-        result = 31 * result + groupBy.hashCode();
-        result = 31 * result + (having != null ? having.hashCode() : 0);
-        result = 31 * result + orderBy.hashCode();
-        result = 31 * result + (limit != null ? limit.hashCode() : 0);
-        return result;
+        if (this == obj) {
+            return true;
+        }
+        if ((obj == null) || (getClass() != obj.getClass())) {
+            return false;
+        }
+        Query o = (Query) obj;
+        return Objects.equal(with, o.with) &&
+                Objects.equal(select, o.select) &&
+                Objects.equal(from, o.from) &&
+                Objects.equal(where, o.where) &&
+                Objects.equal(groupBy, o.groupBy) &&
+                Objects.equal(having, o.having) &&
+                Objects.equal(orderBy, o.orderBy) &&
+                Objects.equal(limit, o.limit);
     }
 }

@@ -55,13 +55,15 @@ query returns [Query value]
     ;
 
 selectStmt returns [Query value]
-    : selectClause
+    : withClause?
+      selectClause
       fromClause?
       whereClause?
       (groupClause havingClause?)?
       orderClause?
       limitClause?
         { $value = new Query(
+            $withClause.value,
             $selectClause.value,
             $fromClause.value,
             $whereClause.value,
@@ -72,6 +74,23 @@ selectStmt returns [Query value]
         }
     ;
 
+
+withClause returns [With value]
+    : ^(WITH recursive withList) { $value = new With($recursive.value, $withList.value); }
+    ;
+
+recursive returns [boolean value]
+    : RECURSIVE { $value = true; }
+    |           { $value = false; }
+    ;
+
+withList returns [List<WithQuery> value = new ArrayList<>()]
+    : ^(WITH_LIST ( withQuery { $value.add($withQuery.value); } )+ )
+    ;
+
+withQuery returns [WithQuery value]
+    : ^(WITH_QUERY i=ident q=subquery c=aliasedColumns?) { $value = new WithQuery($i.value, $q.value, $c.value); }
+    ;
 
 selectClause returns [Select value]
     : ^(SELECT d=distinct ALL_COLUMNS)  { $value = new Select($d.value, ImmutableList.<Expression>of(new AllColumns())); }
