@@ -19,18 +19,17 @@ public class UncompressedBlockCursor
     private int offset;
     private int size;
 
-    public UncompressedBlockCursor(TupleInfo tupleInfo, int positionCount, Slice slice, int sliceOffset)
+    public UncompressedBlockCursor(TupleInfo tupleInfo, int positionCount, Slice slice)
     {
         Preconditions.checkNotNull(tupleInfo, "tupleInfo is null");
         Preconditions.checkArgument(positionCount >= 0, "positionCount is negative");
         Preconditions.checkNotNull(positionCount, "positionCount is null");
-        Preconditions.checkPositionIndex(sliceOffset, slice.length(), "sliceOffset");
 
         this.tupleInfo = tupleInfo;
         this.positionCount = positionCount;
 
         this.slice = slice;
-        offset = sliceOffset;
+        offset = 0;
         size = 0;
 
         // start one position before the start
@@ -112,8 +111,8 @@ public class UncompressedBlockCursor
             offset += size;
             size = tupleInfo.size(slice, offset);
         }
-
-        return new UncompressedBlock(length, tupleInfo, slice, startOffset);
+        Slice newSlice = slice.slice(startOffset, offset + size - startOffset);
+        return new UncompressedBlock(length, tupleInfo, newSlice);
     }
 
     @Override
