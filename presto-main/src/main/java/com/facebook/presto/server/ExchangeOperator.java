@@ -30,7 +30,7 @@ import static java.util.Collections.synchronizedSet;
 public class ExchangeOperator
         implements Operator
 {
-    private static final Duration WAIT_TIME = new Duration(1, TimeUnit.SECONDS);
+    private static final Duration WAIT_TIME = new Duration(10, TimeUnit.MILLISECONDS);
     private static final int WAIT_TIME_IN_MILLIS = (int) WAIT_TIME.toMillis();
 
     private final AsyncHttpClient httpClient;
@@ -190,6 +190,10 @@ public class ExchangeOperator
             int neededPages = maxBufferedPages - bufferedPages;
             int clientCount = (int) ((1.0 * neededPages / expectedPagesPerRequest) * concurrentRequestMultiplier);
             clientCount = Math.min(clientCount, 1);
+
+            int pendingClients = allClients.size() - queuedClients.size() - completedClients.size();
+            clientCount -= pendingClients;
+
             for (int i = 0; i < clientCount; i++) {
                 HttpPageBufferClient client = queuedClients.poll();
                 if (client == null) {
