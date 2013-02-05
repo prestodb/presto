@@ -2,62 +2,31 @@ package com.facebook.presto;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.execution.ExchangePlanFragmentSource;
-import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.ingest.DelimitedRecordSet;
 import com.facebook.presto.ingest.RecordCursor;
 import com.facebook.presto.ingest.RecordSet;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.operator.FilterAndProjectOperator;
-import com.facebook.presto.operator.FilterFunctions;
-import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.operator.Page;
-import com.facebook.presto.operator.PageIterator;
-import com.facebook.presto.operator.ProjectionFunction;
-import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.serde.BlocksFileEncoding;
-import com.facebook.presto.server.HackPlanFragmentSourceProvider;
 import com.facebook.presto.slice.Slices;
-import com.facebook.presto.sql.analyzer.AnalysisResult;
-import com.facebook.presto.sql.analyzer.Analyzer;
-import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
-import com.facebook.presto.sql.planner.LocalExecutionPlanner;
-import com.facebook.presto.sql.planner.LogicalPlanner;
-import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.PlanPrinter;
-import com.facebook.presto.sql.planner.SubPlan;
-import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
-import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.tpch.TpchBlocksProvider;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
 import com.facebook.presto.tpch.TpchSchema;
-import com.facebook.presto.tpch.TpchSplit;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.tuple.TupleInfo.Type;
-import com.facebook.presto.tuple.TupleReadable;
-import com.google.common.base.Function;
+import com.facebook.presto.util.MaterializedResult;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableMultiset;
 import com.google.common.io.InputSupplier;
 import com.google.common.io.Resources;
 import io.airlift.units.DataSize;
@@ -68,8 +37,9 @@ import org.skife.jdbi.v2.PreparedBatch;
 import org.skife.jdbi.v2.PreparedBatchPart;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
-import org.testng.annotations.AfterSuite;
-import org.testng.annotations.BeforeSuite;
+import org.testng.Assert;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -77,32 +47,25 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
 
-import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
-import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-public class TestQueries
+public abstract class AbstractTestQueries
 {
     private Handle handle;
-    private RecordSet ordersRecords;
-    private RecordSet lineItemRecords;
     private Metadata metadata;
     private TpchDataStreamProvider dataProvider;
-
 
     @Test
     public void testJoinWithMultiFieldGroupBy()
@@ -153,7 +116,8 @@ public class TestQueries
         assertQuery("SELECT DISTINCT custkey FROM orders");
     }
 
-    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = "DISTINCT in aggregation parameters not yet supported")
+    // TODO: we need to properly propagate exceptions with their actual classes
+    @Test(expectedExceptions = Exception.class, expectedExceptionsMessageRegExp = "DISTINCT in aggregation parameters not yet supported")
     public void testCountDistinct()
             throws Exception
     {
@@ -167,7 +131,7 @@ public class TestQueries
         assertQuery("SELECT DISTINCT custkey FROM orders ORDER BY custkey LIMIT 10");
     }
 
-    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = "Expressions must appear in select list for SELECT DISTINCT, ORDER BY.*")
+    @Test(expectedExceptions = Exception.class, expectedExceptionsMessageRegExp = "Expressions must appear in select list for SELECT DISTINCT, ORDER BY.*")
     public void testDistinctWithOrderByNotInSelect()
             throws Exception
     {
@@ -220,33 +184,34 @@ public class TestQueries
     public void testLimit()
             throws Exception
     {
-        List<Tuple> all = computeExpected("SELECT orderkey FROM ORDERS", FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT orderkey FROM ORDERS LIMIT 10");
+        MaterializedResult actual = computeActual("SELECT orderkey FROM ORDERS LIMIT 10");
+        MaterializedResult all = computeExpected("SELECT orderkey FROM ORDERS", actual.getTupleInfo());
 
-        assertEquals(actual.size(), 10);
-        assertTrue(all.containsAll(actual));
+
+        assertEquals(actual.getMaterializedTuples().size(), 10);
+        assertTrue(all.getMaterializedTuples().containsAll(actual.getMaterializedTuples()));
     }
 
     @Test
     public void testAggregationWithLimit()
             throws Exception
     {
-        List<Tuple> all = computeExpected("SELECT custkey, SUM(totalprice) FROM ORDERS GROUP BY custkey", FIXED_INT_64, DOUBLE);
-        List<Tuple> actual = computeActual("SELECT custkey, SUM(totalprice) FROM ORDERS GROUP BY custkey LIMIT 10");
+        MaterializedResult actual = computeActual("SELECT custkey, SUM(totalprice) FROM ORDERS GROUP BY custkey LIMIT 10");
+        MaterializedResult all = computeExpected("SELECT custkey, SUM(totalprice) FROM ORDERS GROUP BY custkey", actual.getTupleInfo());
 
-        assertEquals(actual.size(), 10);
-        assertTrue(all.containsAll(actual));
+        assertEquals(actual.getMaterializedTuples().size(), 10);
+        assertTrue(all.getMaterializedTuples().containsAll(actual.getMaterializedTuples()));
     }
 
     @Test
     public void testLimitInInlineView()
             throws Exception
     {
-        List<Tuple> all = computeExpected("SELECT orderkey FROM ORDERS", FIXED_INT_64);
-        List<Tuple> actual = computeActual("SELECT orderkey FROM (SELECT orderkey FROM ORDERS LIMIT 100) T LIMIT 10");
+        MaterializedResult actual = computeActual("SELECT orderkey FROM (SELECT orderkey FROM ORDERS LIMIT 100) T LIMIT 10");
+        MaterializedResult all = computeExpected("SELECT orderkey FROM ORDERS", actual.getTupleInfo());
 
-        assertEquals(actual.size(), 10);
-        assertTrue(all.containsAll(actual));
+        assertEquals(actual.getMaterializedTuples().size(), 10);
+        assertTrue(all.getMaterializedTuples().containsAll(actual.getMaterializedTuples()));
     }
 
     @Test
@@ -569,7 +534,7 @@ public class TestQueries
         assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND 123 = 123");
     }
 
-    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = ".*not supported.*")
+    @Test(expectedExceptions = Exception.class, expectedExceptionsMessageRegExp = ".*not supported.*")
     public void testJoinOnConstantExpression()
             throws Exception
     {
@@ -743,20 +708,20 @@ public class TestQueries
         assertQuery("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"");
     }
 
-    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = ".*orderkey_1.*")
+    @Test(expectedExceptions = Exception.class, expectedExceptionsMessageRegExp = ".*orderkey_1.*")
     public void testInvalidColumn()
             throws Exception
     {
         computeActual("select * from lineitem l join (select orderkey_1, custkey from orders) o on l.orderkey = o.orderkey_1");
     }
 
-    @BeforeSuite
+    @BeforeClass(alwaysRun = true)
     public void setupDatabase()
-            throws IOException
+            throws Exception
     {
         handle = DBI.open("jdbc:h2:mem:test" + System.nanoTime());
 
-        ordersRecords = readRecords("tpch/orders.dat.gz");
+        RecordSet ordersRecords = readRecords("tpch/orders.dat.gz");
         handle.execute("CREATE TABLE orders (\n" +
                 "  orderkey BIGINT PRIMARY KEY,\n" +
                 "  custkey BIGINT NOT NULL,\n" +
@@ -770,7 +735,7 @@ public class TestQueries
                 ")");
         insertRows(TpchSchema.createOrders(), handle, ordersRecords);
 
-        lineItemRecords = readRecords("tpch/lineitem.dat.gz");
+        RecordSet lineItemRecords = readRecords("tpch/lineitem.dat.gz");
         handle.execute("CREATE TABLE lineitem (\n" +
                 "  orderkey BIGINT,\n" +
                 "  partkey BIGINT NOT NULL,\n" +
@@ -802,13 +767,21 @@ public class TestQueries
         );
 
         dataProvider = new TpchDataStreamProvider(testTpchBlocksProvider);
+
+        setUpQueryFramework(TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME, dataProvider, metadata);
     }
 
-    @AfterSuite
+    @AfterClass(alwaysRun = true)
     public void cleanupDatabase()
+            throws Exception
     {
+        tearDownQueryFramework();
         handle.close();
     }
+
+    protected void setUpQueryFramework(String catalog, String schema, DataStreamProvider dataStreamProvider, Metadata metadata) throws Exception {}
+    protected void tearDownQueryFramework() throws Exception {}
+    protected abstract MaterializedResult computeActual(@Language("SQL") String sql);
 
     private void assertQuery(@Language("SQL") String sql)
             throws Exception
@@ -831,110 +804,110 @@ public class TestQueries
     private void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected, boolean ensureOrdering)
             throws Exception
     {
-        Operator operator = plan(actual);
-
-        List<Tuple> actualResults = getTuples(operator);
-        List<Tuple> expectedResults = computeExpected(expected, Iterables.getOnlyElement(operator.getTupleInfos()));
+        MaterializedResult actualResults = computeActual(actual);
+        MaterializedResult expectedResults = computeExpected(expected, actualResults.getTupleInfo());
 
         if (ensureOrdering) {
-            assertEquals(actualResults, expectedResults);
+            assertEquals(actualResults.getMaterializedTuples(), expectedResults.getMaterializedTuples());
         }
         else {
-            assertEqualsIgnoreOrder(actualResults, expectedResults);
+            assertEqualsIgnoreOrder(actualResults.getMaterializedTuples(), expectedResults.getMaterializedTuples());
         }
     }
 
-    private List<Tuple> computeExpected(@Language("SQL") final String sql, TupleInfo tupleInfo)
+    public static void assertEqualsIgnoreOrder(Iterable<?> actual, Iterable<?> expected)
     {
-        return handle.createQuery(sql)
-                .map(tupleMapper(tupleInfo))
-                .list();
-    }
+        assertNotNull(actual, "actual is null");
+        assertNotNull(expected, "expected is null");
 
-    private List<Tuple> computeExpected(@Language("SQL") final String sql, TupleInfo.Type... types)
-    {
-        return computeExpected(sql, new TupleInfo(types));
-    }
-
-    private List<Tuple> computeActual(@Language("SQL") String sql)
-            throws Exception
-    {
-        return getTuples(plan(sql));
-    }
-
-    private List<Tuple> getTuples(Operator root)
-    {
-        ImmutableList.Builder<Tuple> output = ImmutableList.builder();
-        PageIterator iterator = root.iterator(new OperatorStats());
-        while (iterator.hasNext()) {
-            Page page = iterator.next();
-            Preconditions.checkState(page.getChannelCount() == 1, "Expected result to produce 1 channel");
-
-            BlockCursor cursor = Iterables.getOnlyElement(Arrays.asList(page.getBlocks())).cursor();
-            while (cursor.advanceNextPosition()) {
-                output.add(cursor.getTuple());
-            }
+        ImmutableMultiset<?> actualSet = ImmutableMultiset.copyOf(actual);
+        ImmutableMultiset<?> expectedSet = ImmutableMultiset.copyOf(expected);
+        if (!actualSet.equals(expectedSet)) {
+            Assert.fail("not equal");
         }
-
-        return output.build();
     }
 
-    private Operator plan(String sql)
+    private MaterializedResult computeExpected(@Language("SQL") final String sql, TupleInfo resultTupleInfo)
     {
-        Statement statement = SqlParser.createStatement(sql);
-
-        Session session = new Session(null, TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
-
-        Analyzer analyzer = new Analyzer(session, metadata);
-
-        AnalysisResult analysis = analyzer.analyze(statement);
-
-        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-
-        PlanNode plan = new LogicalPlanner(session, metadata, idAllocator).plan(analysis);
-        new PlanPrinter().print(plan, analysis.getTypes());
-
-        SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubplans(plan, analysis.getSymbolAllocator(), true);
-        assertTrue(subplan.getChildren().isEmpty(), "Expected subplan to have no children");
-
-        ImmutableMap.Builder<PlanNodeId, TableScanPlanFragmentSource> builder = ImmutableMap.builder();
-        for (PlanNode source : subplan.getFragment().getSources()) {
-            TableScanNode tableScan = (TableScanNode) source;
-            TpchTableHandle handle = (TpchTableHandle) tableScan.getTable();
-
-            builder.put(tableScan.getId(), new TableScanPlanFragmentSource(new TpchSplit(handle)));
-        }
-
-        DataSize maxOperatorMemoryUsage = new DataSize(50, MEGABYTE);
-        LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(session, metadata,
-                new HackPlanFragmentSourceProvider(dataProvider, null, new QueryManagerConfig()),
-                analysis.getTypes(),
-                null,
-                builder.build(),
-                ImmutableMap.<PlanNodeId, ExchangePlanFragmentSource>of(),
-                new OperatorStats(),
-                new SourceHashProviderFactory(maxOperatorMemoryUsage),
-                maxOperatorMemoryUsage
+        return new MaterializedResult(
+                handle.createQuery(sql)
+                        .map(tupleMapper(resultTupleInfo))
+                        .list(),
+                resultTupleInfo
         );
-
-        Operator operator = executionPlanner.plan(plan);
-
-        return new FilterAndProjectOperator(operator,
-                FilterFunctions.TRUE_FUNCTION,
-                new Concat(operator.getTupleInfos()));
     }
 
-    @SuppressWarnings("UnusedDeclaration")
-    private static Iterable<List<Object>> tupleValues(Iterable<Tuple> tuples)
+    private static ResultSetMapper<Tuple> tupleMapper(final TupleInfo tupleInfo)
     {
-        return Iterables.transform(tuples, new Function<Tuple, List<Object>>()
+        return new ResultSetMapper<Tuple>()
         {
             @Override
-            public List<Object> apply(Tuple input)
+            public Tuple map(int index, ResultSet resultSet, StatementContext ctx)
+                    throws SQLException
             {
-                return input.toValues();
+                List<TupleInfo.Type> types = tupleInfo.getTypes();
+                int count = resultSet.getMetaData().getColumnCount();
+                checkArgument(types.size() == count, "tuple info does not match result");
+                TupleInfo.Builder builder = tupleInfo.builder();
+                for (int i = 1; i <= count; i++) {
+                    TupleInfo.Type type = types.get(i - 1);
+                    switch (type) {
+                        case FIXED_INT_64:
+                            long longValue = resultSet.getLong(i);
+                            if (resultSet.wasNull()) {
+                                builder.appendNull();
+                            }
+                            else {
+                                builder.append(longValue);
+                            }
+                            break;
+                        case DOUBLE:
+                            double doubleValue = resultSet.getDouble(i);
+                            if (resultSet.wasNull()) {
+                                builder.appendNull();
+                            }
+                            else {
+                                builder.append(doubleValue);
+                            }
+                            break;
+                        case VARIABLE_BINARY:
+                            String value = resultSet.getString(i);
+                            if (resultSet.wasNull()) {
+                                builder.appendNull();
+                            }
+                            builder.append(Slices.wrappedBuffer(value.getBytes(UTF_8)));
+                            break;
+                        default:
+                            throw new AssertionError("unhandled type: " + type);
+                    }
+                }
+                return builder.build();
             }
-        });
+        };
+    }
+
+    private static RecordSet readRecords(String name)
+            throws IOException
+    {
+        // tpch does not contain nulls, but does have a trailing pipe character,
+        // so omitting empty strings will prevent an extra column at the end being added
+        Splitter splitter = Splitter.on('|').omitEmptyStrings();
+        return new DelimitedRecordSet(readResource(name), splitter);
+    }
+
+    private static InputSupplier<InputStreamReader> readResource(final String name)
+    {
+        return new InputSupplier<InputStreamReader>()
+        {
+            @Override
+            public InputStreamReader getInput()
+                    throws IOException
+            {
+                URL url = Resources.getResource(name);
+                GZIPInputStream gzip = new GZIPInputStream(url.openStream());
+                return new InputStreamReader(gzip, UTF_8);
+            }
+        };
     }
 
     private static void insertRows(TableMetadata tableMetadata, Handle handle, RecordSet data)
@@ -971,95 +944,6 @@ public class TestQueries
         }
     }
 
-    private static ResultSetMapper<Tuple> tupleMapper(final TupleInfo tupleInfo)
-    {
-        return new ResultSetMapper<Tuple>()
-        {
-            @Override
-            public Tuple map(int index, ResultSet rs, StatementContext ctx)
-                    throws SQLException
-            {
-                List<TupleInfo.Type> types = tupleInfo.getTypes();
-                int count = rs.getMetaData().getColumnCount();
-                checkArgument(types.size() == count, "tuple info does not match result");
-                TupleInfo.Builder builder = tupleInfo.builder();
-                for (int i = 1; i <= count; i++) {
-                    TupleInfo.Type type = types.get(i - 1);
-                    switch (type) {
-                        case FIXED_INT_64:
-                            long longValue = rs.getLong(i);
-                            if (rs.wasNull()) {
-                                builder.appendNull();
-                            }
-                            else {
-                                builder.append(longValue);
-                            }
-                            break;
-                        case DOUBLE:
-                            double doubleValue = rs.getDouble(i);
-                            if (rs.wasNull()) {
-                                builder.appendNull();
-                            }
-                            else {
-                                builder.append(doubleValue);
-                            }
-                            break;
-                        case VARIABLE_BINARY:
-                            String value = rs.getString(i);
-                            builder.append(Slices.wrappedBuffer(value.getBytes(UTF_8)));
-                            break;
-                        default:
-                            throw new AssertionError("unhandled type: " + type);
-                    }
-                }
-                return builder.build();
-            }
-        };
-    }
-
-    @SuppressWarnings("UnusedDeclaration")
-    private static ResultSetMapper<List<Object>> listMapper()
-    {
-        return new ResultSetMapper<List<Object>>()
-        {
-            @Override
-            public List<Object> map(int index, ResultSet rs, StatementContext ctx)
-                    throws SQLException
-            {
-                int count = rs.getMetaData().getColumnCount();
-                List<Object> list = new ArrayList<>(count);
-                for (int i = 1; i <= count; i++) {
-                    list.add(rs.getObject(i));
-                }
-                return list;
-            }
-        };
-    }
-
-    private static RecordSet readRecords(String name)
-            throws IOException
-    {
-        // tpch does not contain nulls, but does have a trailing pipe character,
-        // so omitting empty strings will prevent an extra column at the end being added
-        Splitter splitter = Splitter.on('|').omitEmptyStrings();
-        return new DelimitedRecordSet(readResource(name), splitter);
-    }
-
-    private static InputSupplier<InputStreamReader> readResource(final String name)
-    {
-        return new InputSupplier<InputStreamReader>()
-        {
-            @Override
-            public InputStreamReader getInput()
-                    throws IOException
-            {
-                URL url = Resources.getResource(name);
-                GZIPInputStream gzip = new GZIPInputStream(url.openStream());
-                return new InputStreamReader(gzip, UTF_8);
-            }
-        };
-    }
-
     private static class TestTpchBlocksProvider
             implements TpchBlocksProvider
     {
@@ -1067,8 +951,7 @@ public class TestQueries
 
         private TestTpchBlocksProvider(Map<String, RecordSet> data)
         {
-            Preconditions.checkNotNull(data, "data is null");
-            this.data = ImmutableMap.copyOf(data);
+            this.data = ImmutableMap.copyOf(checkNotNull(data, "data is null"));
         }
 
         @Override
@@ -1076,7 +959,7 @@ public class TestQueries
         {
             String tableName = tableHandle.getTableName();
             int fieldIndex = columnHandle.getFieldIndex();
-            Type fieldType = columnHandle.getType();
+            TupleInfo.Type fieldType = columnHandle.getType();
             return new TpchBlockIterable(fieldType, tableName, fieldIndex);
         }
 
@@ -1089,11 +972,11 @@ public class TestQueries
         private class TpchBlockIterable
                 implements BlockIterable
         {
-            private final Type fieldType;
+            private final TupleInfo.Type fieldType;
             private final String tableName;
             private final int fieldIndex;
 
-            public TpchBlockIterable(Type fieldType, String tableName, int fieldIndex)
+            public TpchBlockIterable(TupleInfo.Type fieldType, String tableName, int fieldIndex)
             {
                 this.fieldType = fieldType;
                 this.tableName = tableName;
@@ -1151,36 +1034,6 @@ public class TestQueries
                         return builder.build();
                     }
                 };
-            }
-        }
-    }
-
-    private static class Concat
-            implements ProjectionFunction
-    {
-        private final TupleInfo tupleInfo;
-
-        private Concat(List<TupleInfo> infos)
-        {
-            List<TupleInfo.Type> types = new ArrayList<>();
-            for (TupleInfo info : infos) {
-                types.addAll(info.getTypes());
-            }
-
-            this.tupleInfo = new TupleInfo(types);
-        }
-
-        @Override
-        public TupleInfo getTupleInfo()
-        {
-            return tupleInfo;
-        }
-
-        @Override
-        public void project(TupleReadable[] cursors, BlockBuilder output)
-        {
-            for (TupleReadable cursor : cursors) {
-                output.append(cursor.getTuple());
             }
         }
     }
