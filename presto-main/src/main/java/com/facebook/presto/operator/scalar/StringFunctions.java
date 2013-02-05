@@ -3,6 +3,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Ascii;
+import com.google.common.base.Charsets;
 import com.google.common.primitives.Ints;
 
 @SuppressWarnings("UnusedDeclaration")
@@ -31,6 +32,21 @@ public final class StringFunctions
     public static long length(Slice slice)
     {
         return slice.length();
+    }
+
+    @ScalarFunction
+    public static Slice replace(Slice str, Slice search)
+    {
+        return replace(str, search, Slices.EMPTY_SLICE);
+    }
+
+    @ScalarFunction
+    public static Slice replace(Slice str, Slice search, Slice replace)
+    {
+        String replaced = str.toString(Charsets.UTF_8).replace(
+                search.toString(Charsets.UTF_8),
+                replace.toString(Charsets.UTF_8));
+        return Slices.copiedBuffer(replaced, Charsets.UTF_8);
     }
 
     @ScalarFunction
