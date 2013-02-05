@@ -1,9 +1,8 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.Block;
-import com.facebook.presto.slice.Slice;
-
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.slice.Slice;
 
 public class LongVarianceAggregation
         extends AbstractVarianceAggregation
@@ -15,8 +14,6 @@ public class LongVarianceAggregation
     {
         super(population);
     }
-
-    protected static long value = 0;
 
     @Override
     public void addInput(int positionCount, Block block, int field, Slice valueSlice, int valueOffset)
