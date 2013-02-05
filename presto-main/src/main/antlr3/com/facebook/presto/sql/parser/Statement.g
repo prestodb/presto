@@ -237,17 +237,22 @@ booleanPrimary
     ;
 
 predicate
-    : (numericExpr -> numericExpr)
-      ( cmpOp e=numericExpr                             -> ^(cmpOp $predicate $e)
-      | BETWEEN min=numericExpr AND max=numericExpr     -> ^(BETWEEN $predicate $min $max)
-      | NOT BETWEEN min=numericExpr AND max=numericExpr -> ^(NOT ^(BETWEEN $predicate $min $max))
-      | LIKE e=numericExpr (ESCAPE x=numericExpr)?      -> ^(LIKE $predicate $e $x?)
-      | NOT LIKE e=numericExpr (ESCAPE x=numericExpr)?  -> ^(NOT ^(LIKE $predicate $e $x?))
-      | IS NULL                                         -> ^(IS_NULL $predicate)
-      | IS NOT NULL                                     -> ^(IS_NOT_NULL $predicate)
-      | IN inList                                       -> ^(IN $predicate inList)
-      | NOT IN inList                                   -> ^(NOT ^(IN $predicate inList))
+    : (predicatePrimary -> predicatePrimary)
+      ( cmpOp e=predicatePrimary                                  -> ^(cmpOp $predicate $e)
+      | BETWEEN min=predicatePrimary AND max=predicatePrimary     -> ^(BETWEEN $predicate $min $max)
+      | NOT BETWEEN min=predicatePrimary AND max=predicatePrimary -> ^(NOT ^(BETWEEN $predicate $min $max))
+      | LIKE e=predicatePrimary (ESCAPE x=predicatePrimary)?      -> ^(LIKE $predicate $e $x?)
+      | NOT LIKE e=predicatePrimary (ESCAPE x=predicatePrimary)?  -> ^(NOT ^(LIKE $predicate $e $x?))
+      | IS NULL                                                   -> ^(IS_NULL $predicate)
+      | IS NOT NULL                                               -> ^(IS_NOT_NULL $predicate)
+      | IN inList                                                 -> ^(IN $predicate inList)
+      | NOT IN inList                                             -> ^(NOT ^(IN $predicate inList))
       )*
+    ;
+
+predicatePrimary
+    : (numericExpr -> numericExpr)
+      ( '||' e=numericExpr -> ^(FUNCTION_CALL ^(QNAME IDENT["concat"]) $predicatePrimary $e) )*
     ;
 
 numericExpr

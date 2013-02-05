@@ -730,6 +730,13 @@ public class TestQueries
     }
 
     @Test
+    public void testConcatOperator()
+            throws Exception
+    {
+        assertQuery("SELECT '12' || '34' FROM orders LIMIT 1");
+    }
+
+    @Test
     public void testQuotedIdentifiers()
             throws Exception
     {
