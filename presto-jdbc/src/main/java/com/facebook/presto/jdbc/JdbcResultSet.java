@@ -92,7 +92,7 @@ public class JdbcResultSet
             throws SQLException
     {
         if (!closed.getAndSet(true)) {
-            queryClient.cancelQuery();
+            queryClient.close();
         }
     }
 

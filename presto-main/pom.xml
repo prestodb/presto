@@ -289,6 +289,13 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>io.airlift.discovery</groupId>
+            <artifactId>discovery-server</artifactId>
+            <version>1.6-SNAPSHOT</version>
+            <scope>test</scope>
+        </dependency>
+
         <!-- test dependencies that are used transitively at runtime -->
         <dependency>
             <groupId>commons-lang</groupId>
