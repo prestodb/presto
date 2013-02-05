@@ -4,7 +4,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.metadata.AbstractMetadata;
 import com.facebook.presto.metadata.ColumnHandle;
@@ -34,6 +33,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
@@ -170,7 +170,7 @@ public final class FunctionAssertions
         SubPlan subplan = new DistributedLogicalPlanner(METADATA, idAllocator).createSubplans(plan, analysis.getSymbolAllocator(), true);
         assertTrue(subplan.getChildren().isEmpty(), "Expected subplan to have no children");
 
-        ImmutableMap.Builder<PlanNodeId, TableScanPlanFragmentSource> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<PlanNodeId, PlanFragmentSource> builder = ImmutableMap.builder();
         for (PlanNode source : subplan.getFragment().getSources()) {
             TableScanNode tableScan = (TableScanNode) source;
             InternalTableHandle handle = (InternalTableHandle) tableScan.getTable();
@@ -183,9 +183,7 @@ public final class FunctionAssertions
                 METADATA,
                 new HackPlanFragmentSourceProvider(DATA_PROVIDER, null, new QueryManagerConfig()),
                 analysis.getTypes(),
-                null,
                 builder.build(),
-                ImmutableMap.<PlanNodeId, ExchangePlanFragmentSource>of(),
                 new OperatorStats(),
                 new SourceHashProviderFactory(maxOperatorMemoryUsage),
                 maxOperatorMemoryUsage

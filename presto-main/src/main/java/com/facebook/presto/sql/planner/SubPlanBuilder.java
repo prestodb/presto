@@ -4,6 +4,7 @@ import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -18,7 +19,7 @@ public class SubPlanBuilder
 {
     private final PlanFragmentId id;
     private PlanNode root;
-    private boolean isPartitioned;
+    private PlanNodeId partitionedSource;
     private List<SubPlan> children = new ArrayList<>();
 
     private final SymbolAllocator allocator;
@@ -39,6 +40,11 @@ public class SubPlanBuilder
         return id;
     }
 
+    public PlanNode getRoot()
+    {
+        return root;
+    }
+
     public SubPlanBuilder setRoot(PlanNode root)
     {
         Preconditions.checkNotNull(root, "root is null");
@@ -46,20 +52,25 @@ public class SubPlanBuilder
         return this;
     }
 
-    public SubPlanBuilder setPartitioned(boolean partitioned)
+    public boolean isPartitioned()
     {
-        isPartitioned = partitioned;
+        return partitionedSource != null;
+    }
+
+    public PlanNodeId getPartitionedSource()
+    {
+        return partitionedSource;
+    }
+
+    public SubPlanBuilder setPartitionedSource(PlanNodeId partitionedSource)
+    {
+        this.partitionedSource = partitionedSource;
         return this;
     }
 
-    public PlanNode getRoot()
+    public List<SubPlan> getChildren()
     {
-        return root;
-    }
-
-    public boolean isPartitioned()
-    {
-        return isPartitioned;
+        return children;
     }
 
     public SubPlanBuilder setChildren(Iterable<SubPlan> children)
@@ -74,16 +85,11 @@ public class SubPlanBuilder
         return this;
     }
 
-    public List<SubPlan> getChildren()
-    {
-        return children;
-    }
-
     public SubPlan build()
     {
         Set<Symbol> dependencies = SymbolExtractor.extract(root);
 
-        PlanFragment fragment = new PlanFragment(id, isPartitioned, Maps.filterKeys(allocator.getTypes(), in(dependencies)), root);
+        PlanFragment fragment = new PlanFragment(id, partitionedSource, Maps.filterKeys(allocator.getTypes(), in(dependencies)), root);
 
         return new SubPlan(fragment, children);
     }

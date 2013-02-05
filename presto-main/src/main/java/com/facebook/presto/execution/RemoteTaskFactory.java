@@ -20,7 +20,6 @@ public interface RemoteTaskFactory
             String taskId,
             Node node,
             PlanFragment fragment,
-            List<PlanFragmentSource> splits,
-            Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
+            Map<PlanNodeId, PlanFragmentSource> fixedSources,
             List<String> outputIds);
 }

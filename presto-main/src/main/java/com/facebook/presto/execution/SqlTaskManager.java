@@ -6,6 +6,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.concurrent.FairBatchExecutor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
@@ -28,7 +29,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -47,7 +47,6 @@ public class SqlTaskManager
 
     private final int pageBufferMax;
 
-    private final ExecutorService taskExecutor;
     private final FairBatchExecutor shardExecutor;
     private final Metadata metadata;
     private final PlanFragmentSourceProvider sourceProvider;
@@ -78,8 +77,6 @@ public class SqlTaskManager
         // Just to be nice, allow tasks to live an extra 30 seconds so queries will be removed first
         this.maxTaskAge = new Duration(config.getMaxQueryAge().toMillis() + SECONDS.toMillis(30), MILLISECONDS);
         this.clientTimeout = config.getClientTimeout();
-
-        taskExecutor = Executors.newCachedThreadPool(threadsNamed("task-processor-%d"));
 
         shardExecutor = new FairBatchExecutor(config.getMaxShardProcessorThreads(), threadsNamed("shard-processor-%d"));
 
@@ -143,8 +140,7 @@ public class SqlTaskManager
             String stageId,
             String taskId,
             PlanFragment fragment,
-            List<PlanFragmentSource> splits,
-            Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
+            Map<PlanNodeId,PlanFragmentSource> fixedSources,
             List<String> outputIds)
     {
         Preconditions.checkNotNull(session, "session is null");
@@ -154,8 +150,7 @@ public class SqlTaskManager
         Preconditions.checkArgument(!taskId.isEmpty(), "taskId is empty");
         Preconditions.checkNotNull(fragment, "fragment is null");
         Preconditions.checkNotNull(outputIds, "outputIds is null");
-        Preconditions.checkNotNull(splits, "splits is null");
-        Preconditions.checkNotNull(exchangeSources, "exchangeSources is null");
+        Preconditions.checkNotNull(fixedSources, "fixedSources is null");
 
         URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
 
@@ -165,8 +160,7 @@ public class SqlTaskManager
                 taskId,
                 location,
                 fragment,
-                splits,
-                exchangeSources,
+                fixedSources,
                 outputIds,
                 pageBufferMax,
                 sourceProvider,
@@ -175,8 +169,6 @@ public class SqlTaskManager
                 maxOperatorMemoryUsage
         );
         
-        taskExecutor.submit(new TaskStarter(taskExecution));
-
         tasks.put(taskId, taskExecution);
         return taskExecution.getTaskInfo();
     }
@@ -193,6 +185,33 @@ public class SqlTaskManager
             throw new NoSuchElementException("Unknown query task " + taskId);
         }
         return taskExecution.getResults(outputName, maxPageCount, maxWaitTime);
+    }
+
+    @Override
+    public void addSplit(String taskId, PlanNodeId sourceId, Split split)
+    {
+        Preconditions.checkNotNull(taskId, "taskId is null");
+        Preconditions.checkNotNull(sourceId, "sourceId is null");
+        Preconditions.checkNotNull(split, "split is null");
+
+        TaskExecution taskExecution = tasks.get(taskId);
+        if (taskExecution == null) {
+            throw new NoSuchElementException();
+        }
+        taskExecution.addSource(sourceId, split);
+    }
+
+    @Override
+    public void noMoreSplits(String taskId, String sourceId)
+    {
+        Preconditions.checkNotNull(taskId, "taskId is null");
+        Preconditions.checkNotNull(sourceId, "sourceId is null");
+
+        TaskExecution taskExecution = tasks.get(taskId);
+        if (taskExecution == null) {
+            throw new NoSuchElementException();
+        }
+        taskExecution.noMoreSources(sourceId);
     }
 
     @Override
@@ -264,23 +283,6 @@ public class SqlTaskManager
             catch (Exception e) {
                 log.warn(e, "Error while inspecting age of task %s", taskExecution.getTaskId());
             }
-        }
-    }
-
-    private static class TaskStarter
-            implements Runnable
-    {
-        private final TaskExecution taskExecution;
-
-        public TaskStarter(TaskExecution taskExecution)
-        {
-            this.taskExecution = taskExecution;
-        }
-
-        @Override
-        public void run()
-        {
-            taskExecution.run();
         }
     }
 }
