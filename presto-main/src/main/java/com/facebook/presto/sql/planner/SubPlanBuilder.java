@@ -39,11 +39,21 @@ public class SubPlanBuilder
         return id;
     }
 
+    public PlanNode getRoot()
+    {
+        return root;
+    }
+
     public SubPlanBuilder setRoot(PlanNode root)
     {
         Preconditions.checkNotNull(root, "root is null");
         this.root = root;
         return this;
+    }
+
+    public boolean isPartitioned()
+    {
+        return isPartitioned;
     }
 
     public SubPlanBuilder setPartitioned(boolean partitioned)
@@ -52,14 +62,9 @@ public class SubPlanBuilder
         return this;
     }
 
-    public PlanNode getRoot()
+    public List<SubPlan> getChildren()
     {
-        return root;
-    }
-
-    public boolean isPartitioned()
-    {
-        return isPartitioned;
+        return children;
     }
 
     public SubPlanBuilder setChildren(Iterable<SubPlan> children)
@@ -72,11 +77,6 @@ public class SubPlanBuilder
     {
         this.children.add(child);
         return this;
-    }
-
-    public List<SubPlan> getChildren()
-    {
-        return children;
     }
 
     public SubPlan build()
