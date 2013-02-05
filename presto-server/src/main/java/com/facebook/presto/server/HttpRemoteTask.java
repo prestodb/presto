@@ -3,7 +3,6 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.execution.ExecutionStats;
 import com.facebook.presto.execution.FailureInfo;
 import com.facebook.presto.execution.PageBuffer.BufferState;
@@ -15,6 +14,7 @@ import com.facebook.presto.server.FullJsonResponseHandler.JsonResponse;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -54,7 +54,7 @@ public class HttpRemoteTask
     private final Session session;
     private final AtomicReference<TaskInfo> taskInfo = new AtomicReference<>();
     private final PlanFragment planFragment;
-    private final Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources;
+    private final Map<PlanNodeId, PlanFragmentSource> fixedSources;
 
     private final HttpClient httpClient;
     private final JsonCodec<TaskInfo> taskInfoCodec;
@@ -67,7 +67,7 @@ public class HttpRemoteTask
             String taskId,
             URI location,
             PlanFragment planFragment,
-            Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
+            Map<PlanNodeId, PlanFragmentSource> fixedSources,
             List<String> outputIds,
             HttpClient httpClient,
             JsonCodec<TaskInfo> taskInfoCodec,
@@ -79,7 +79,7 @@ public class HttpRemoteTask
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(planFragment, "planFragment is null");
-        Preconditions.checkNotNull(exchangeSources, "exchangeSources is null");
+        Preconditions.checkNotNull(fixedSources, "fixedSources is null");
         Preconditions.checkNotNull(outputIds, "outputIds is null");
         Preconditions.checkArgument(!outputIds.isEmpty(), "outputIds is empty");
         Preconditions.checkNotNull(httpClient, "httpClient is null");
@@ -89,7 +89,7 @@ public class HttpRemoteTask
 
         this.session = session;
         this.planFragment = planFragment;
-        this.exchangeSources = exchangeSources;
+        this.fixedSources = fixedSources;
         this.httpClient = httpClient;
         this.taskInfoCodec = taskInfoCodec;
         this.queryFragmentRequestCodec = queryFragmentRequestCodec;
@@ -135,7 +135,7 @@ public class HttpRemoteTask
                 taskInfo.getQueryId(),
                 taskInfo.getStageId(),
                 planFragment,
-                exchangeSources,
+                fixedSources,
                 ImmutableList.copyOf(transform(taskInfo.getOutputBuffers(), PageBufferInfo.bufferIdGetter())));
 
         Request request = preparePut()

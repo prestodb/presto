@@ -8,7 +8,7 @@ import com.facebook.presto.util.MaterializedResult;
 import org.intellij.lang.annotations.Language;
 
 public class TestLocalQueries
-    extends AbstractTestQueries
+        extends AbstractTestQueries
 {
     private String catalog;
     private String schema;

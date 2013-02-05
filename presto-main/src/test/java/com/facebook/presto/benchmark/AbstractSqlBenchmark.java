@@ -1,6 +1,5 @@
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Operator;
@@ -15,6 +14,7 @@ import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
@@ -65,7 +65,7 @@ public abstract class AbstractSqlBenchmark
     @Override
     protected Operator createBenchmarkedOperator(TpchBlocksProvider provider)
     {
-        ImmutableMap.Builder<PlanNodeId, TableScanPlanFragmentSource> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<PlanNodeId, PlanFragmentSource> builder = ImmutableMap.builder();
         for (PlanNode source : fragment.getSources()) {
             TableScanNode tableScan = (TableScanNode) source;
             TpchTableHandle handle = (TpchTableHandle) tableScan.getTable();
@@ -78,9 +78,7 @@ public abstract class AbstractSqlBenchmark
                 metadata,
                 new HackPlanFragmentSourceProvider(new TpchDataStreamProvider(provider), null, new QueryManagerConfig()),
                 analysis.getTypes(),
-                null,
                 builder.build(),
-                ImmutableMap.<PlanNodeId, ExchangePlanFragmentSource>of(),
                 new OperatorStats(),
                 new SourceHashProviderFactory(maxOperatorMemoryUsage),
                 maxOperatorMemoryUsage

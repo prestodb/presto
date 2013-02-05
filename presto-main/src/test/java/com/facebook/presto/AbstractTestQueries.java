@@ -97,7 +97,8 @@ public abstract class AbstractTestQueries
     public void testReorderOutputsOfGroupByAggregation()
             throws Exception
     {
-        assertQuery("SELECT orderstatus, a, custkey, b FROM (SELECT custkey, orderstatus, -COUNT(*) a, MAX(orderkey) b FROM ORDERS WHERE orderkey = 1 GROUP BY custkey, orderstatus) T");
+        assertQuery(
+                "SELECT orderstatus, a, custkey, b FROM (SELECT custkey, orderstatus, -COUNT(*) a, MAX(orderkey) b FROM ORDERS WHERE orderkey = 1 GROUP BY custkey, orderstatus) T");
     }
 
     @Test
@@ -581,7 +582,8 @@ public abstract class AbstractTestQueries
     public void testJoinWithComplexExpressions2()
             throws Exception
     {
-        assertQuery("SELECT SUM(custkey) FROM lineitem JOIN orders ON lineitem.orderkey = CASE WHEN orders.custkey = 1 and orders.orderstatus = 'F' THEN orders.orderkey ELSE NULL END");
+        assertQuery(
+                "SELECT SUM(custkey) FROM lineitem JOIN orders ON lineitem.orderkey = CASE WHEN orders.custkey = 1 and orders.orderstatus = 'F' THEN orders.orderkey ELSE NULL END");
     }
 
     @Test
@@ -590,7 +592,8 @@ public abstract class AbstractTestQueries
     {
         assertQuery(
                 "SELECT SUM(custkey) FROM lineitem JOIN orders ON lineitem.orderkey + 1 = orders.orderkey + 1",
-                "SELECT SUM(custkey) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey " // H2 takes a million years because it can't join efficiently on a non-indexed field/expression
+                "SELECT SUM(custkey) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey "
+                // H2 takes a million years because it can't join efficiently on a non-indexed field/expression
         );
     }
 
@@ -842,8 +845,16 @@ public abstract class AbstractTestQueries
         handle.close();
     }
 
-    protected void setUpQueryFramework(String catalog, String schema, DataStreamProvider dataStreamProvider, Metadata metadata) throws Exception {}
-    protected void tearDownQueryFramework() throws Exception {}
+    protected void setUpQueryFramework(String catalog, String schema, DataStreamProvider dataStreamProvider, Metadata metadata)
+            throws Exception
+    {
+    }
+
+    protected void tearDownQueryFramework()
+            throws Exception
+    {
+    }
+
     protected abstract MaterializedResult computeActual(@Language("SQL") String sql);
 
     private void assertQuery(@Language("SQL") String sql)

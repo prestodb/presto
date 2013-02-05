@@ -14,16 +14,18 @@ import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
+import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
-import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +40,7 @@ public class SqlTaskExecution
 {
     private final String taskId;
     private final TaskOutput taskOutput;
-    private final Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources;
+    private final Map<PlanNodeId, PlanFragmentSource> fixedSources;
     private final PlanFragmentSourceProvider sourceProvider;
     private final FairBatchExecutor shardExecutor;
     private final PlanFragment fragment;
@@ -56,7 +58,7 @@ public class SqlTaskExecution
             String taskId,
             URI location,
             PlanFragment fragment,
-            Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
+            Map<PlanNodeId, PlanFragmentSource> fixedSources,
             List<String> outputIds,
             int pageBufferMax,
             PlanFragmentSourceProvider sourceProvider,
@@ -69,7 +71,7 @@ public class SqlTaskExecution
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(fragment, "fragment is null");
-        Preconditions.checkNotNull(exchangeSources, "exchangeSources is null");
+        Preconditions.checkNotNull(fixedSources, "fixedSources is null");
         Preconditions.checkNotNull(outputIds, "outputIds is null");
         Preconditions.checkArgument(!outputIds.isEmpty(), "outputIds is empty");
         Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
@@ -81,7 +83,7 @@ public class SqlTaskExecution
         this.session = session;
         this.taskId = taskId;
         this.fragment = fragment;
-        this.exchangeSources = exchangeSources;
+        this.fixedSources = fixedSources;
         this.sourceProvider = sourceProvider;
         this.shardExecutor = shardExecutor;
         this.metadata = metadata;
@@ -142,16 +144,19 @@ public class SqlTaskExecution
     @Override
     public void addSource(PlanNodeId sourceId, Split split)
     {
+        ImmutableMap.Builder<PlanNodeId, PlanFragmentSource> sources = ImmutableMap.builder();
+        sources.putAll(fixedSources);
+
         if (sourceId != null) {
             Preconditions.checkNotNull(split, "split is null");
             Preconditions.checkArgument(sourceId.equals(fragment.getPartitionedSource()), "Expected sourceId to be %s but was %s", fragment.getPartitionedSource(), sourceId);
+            sources.put(sourceId, new TableScanPlanFragmentSource(split));
         }
 
         SplitWorker worker = new SplitWorker(session,
                 taskOutput,
                 fragment,
-                split,
-                exchangeSources,
+                sources.build(),
                 getSourceHashProviderFactory(),
                 sourceProvider,
                 metadata,
@@ -207,7 +212,7 @@ public class SqlTaskExecution
     {
         return Objects.toStringHelper(this)
                 .add("taskId", taskId)
-                .add("splits", exchangeSources)
+                .add("fixedSources", fixedSources)
                 .add("taskOutput", taskOutput)
                 .toString();
     }
@@ -223,8 +228,7 @@ public class SqlTaskExecution
         private SplitWorker(Session session,
                 TaskOutput taskOutput,
                 PlanFragment fragment,
-                @Nullable Split split,
-                Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
+                Map<PlanNodeId, PlanFragmentSource> sources,
                 SourceHashProviderFactory sourceHashProviderFactory,
                 PlanFragmentSourceProvider sourceProvider,
                 Metadata metadata,
@@ -238,9 +242,7 @@ public class SqlTaskExecution
                     metadata,
                     sourceProvider,
                     fragment.getSymbols(),
-                    split,
-                    null,
-                    exchangeSources,
+                    sources,
                     operatorStats,
                     sourceHashProviderFactory,
                     maxOperatorMemoryUsage
