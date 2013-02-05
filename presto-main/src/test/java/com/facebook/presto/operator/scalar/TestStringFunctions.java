@@ -34,6 +34,23 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testReplace()
+    {
+        assertFunction("REPLACE('aaa', 'a', 'aa')", "aaaaaa");
+        assertFunction("REPLACE('abcdefabcdef', 'cd', 'XX')", "abXXefabXXef");
+        assertFunction("REPLACE('abcdefabcdef', 'cd')", "abefabef");
+        assertFunction("REPLACE('123123tech', '123')", "tech");
+        assertFunction("REPLACE('123tech123', '123')", "tech");
+        assertFunction("REPLACE('222tech', '2', '3')", "333tech");
+        assertFunction("REPLACE('0000123', '0')", "123");
+        assertFunction("REPLACE('0000123', '0', ' ')", "    123");
+        assertFunction("REPLACE('foo', '')", "foo");
+        assertFunction("REPLACE('foo', '', '')", "foo");
+        assertFunction("REPLACE('', '')", "");
+        assertFunction("REPLACE('', '', '')", "");
+    }
+
+    @Test
     public void testReverse()
     {
         assertFunction("REVERSE('')", "");
