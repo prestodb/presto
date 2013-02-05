@@ -3,7 +3,6 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.execution.FailureInfo;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryInfo;
@@ -14,6 +13,7 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
@@ -97,7 +97,7 @@ public class MockQueryManager
                 "stageId",
                 "queryId",
                 null,
-                ImmutableMap.<PlanNodeId, ExchangePlanFragmentSource>of(),
+                ImmutableMap.<PlanNodeId, PlanFragmentSource>of(),
                 ImmutableList.<String>of("out")
         );
 

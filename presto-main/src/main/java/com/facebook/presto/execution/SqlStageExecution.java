@@ -230,12 +230,12 @@ public class SqlStageExecution
         for (Partition partition : partitions) {
             String nodeIdentifier = partition.getNode().getNodeIdentifier();
 
-            ImmutableMap.Builder<PlanNodeId, ExchangePlanFragmentSource> exchangeSources = ImmutableMap.builder();
+            ImmutableMap.Builder<PlanNodeId, PlanFragmentSource> fixedSources = ImmutableMap.builder();
             for (ExchangeNode exchange : exchanges) {
                 StageExecution childStage = subStages.get(exchange.getSourceFragmentId());
                 ExchangePlanFragmentSource source = childStage.getExchangeSourceFor(nodeIdentifier);
 
-                exchangeSources.put(exchange.getId(), source);
+                fixedSources.put(exchange.getId(), source);
             }
 
             String taskId = stageId + '.' + nextTaskId++;
@@ -245,7 +245,7 @@ public class SqlStageExecution
                     taskId,
                     partition.getNode(),
                     plan,
-                    exchangeSources.build(),
+                    fixedSources.build(),
                     outputIds);
 
             tasks.add(task);

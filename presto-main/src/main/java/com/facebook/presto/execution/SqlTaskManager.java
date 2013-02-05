@@ -9,6 +9,7 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Function;
@@ -139,7 +140,7 @@ public class SqlTaskManager
             String stageId,
             String taskId,
             PlanFragment fragment,
-            Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
+            Map<PlanNodeId,PlanFragmentSource> fixedSources,
             List<String> outputIds)
     {
         Preconditions.checkNotNull(session, "session is null");
@@ -149,7 +150,7 @@ public class SqlTaskManager
         Preconditions.checkArgument(!taskId.isEmpty(), "taskId is empty");
         Preconditions.checkNotNull(fragment, "fragment is null");
         Preconditions.checkNotNull(outputIds, "outputIds is null");
-        Preconditions.checkNotNull(exchangeSources, "exchangeSources is null");
+        Preconditions.checkNotNull(fixedSources, "fixedSources is null");
 
         URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
 
@@ -159,7 +160,7 @@ public class SqlTaskManager
                 taskId,
                 location,
                 fragment,
-                exchangeSources,
+                fixedSources,
                 outputIds,
                 pageBufferMax,
                 sourceProvider,
