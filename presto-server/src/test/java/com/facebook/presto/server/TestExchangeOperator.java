@@ -17,7 +17,6 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -197,7 +196,6 @@ public class TestExchangeOperator
                 "queryId",
                 "stageId",
                 planFragment,
-                ImmutableList.<PlanFragmentSource>of(),
                 ImmutableMap.<PlanNodeId, ExchangePlanFragmentSource>of(),
                 ImmutableList.of("out"));
 

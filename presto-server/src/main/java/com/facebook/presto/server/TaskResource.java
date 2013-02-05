@@ -7,6 +7,8 @@ import com.facebook.presto.PrestoMediaTypes;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.split.Split;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Throwables;
 import com.google.common.reflect.TypeToken;
 import io.airlift.units.Duration;
@@ -15,6 +17,7 @@ import javax.inject.Inject;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
+import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -71,7 +74,6 @@ public class TaskResource
                     queryFragmentRequest.getStageId(),
                     taskId,
                     queryFragmentRequest.getFragment(),
-                    queryFragmentRequest.getSplits(),
                     queryFragmentRequest.getExchangeSources(),
                     queryFragmentRequest.getOutputIds());
 
@@ -150,6 +152,25 @@ public class TaskResource
         }
         catch (NoSuchElementException e) {
             return Response.status(Status.GONE).build();
+        }
+    }
+
+    @POST
+    @Path("{taskId}/source/{sourceId}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public void addSplit(@PathParam("taskId") String taskId, @PathParam("sourceId") String sourceId, Split split)
+    {
+        checkNotNull(split, "split is null");
+        taskManager.addSplit(taskId, new PlanNodeId(sourceId), split);
+    }
+
+    @PUT
+    @Path("{taskId}/source/{sourceId}/complete")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public void noMoreSplits(@PathParam("taskId") String taskId, @PathParam("sourceId") String sourceId, boolean isComplete)
+    {
+        if (isComplete) {
+            taskManager.noMoreSplits(taskId, sourceId);
         }
     }
 }

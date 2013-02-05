@@ -12,16 +12,18 @@ import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.server.FullJsonResponseHandler.JsonResponse;
+import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.JsonBodyGenerator;
 import io.airlift.http.client.Request;
+import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.json.JsonCodec;
 
 import javax.ws.rs.core.HttpHeaders;
@@ -33,13 +35,16 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.server.FullJsonResponseHandler.createFullJsonResponseHandler;
+import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
+import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.Request.Builder.preparePut;
+import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
 
@@ -49,12 +54,12 @@ public class HttpRemoteTask
     private final Session session;
     private final AtomicReference<TaskInfo> taskInfo = new AtomicReference<>();
     private final PlanFragment planFragment;
-    private final AtomicReference<List<PlanFragmentSource>> splits;
     private final Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources;
 
     private final HttpClient httpClient;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec;
+    private final JsonCodec<Split> splitCodec;
 
     public HttpRemoteTask(Session session,
             String queryId,
@@ -62,33 +67,33 @@ public class HttpRemoteTask
             String taskId,
             URI location,
             PlanFragment planFragment,
-            List<PlanFragmentSource> splits,
             Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
             List<String> outputIds,
             HttpClient httpClient,
             JsonCodec<TaskInfo> taskInfoCodec,
-            JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec)
+            JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec,
+            JsonCodec<Split> splitCodec)
     {
         Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(planFragment, "planFragment is null");
-        Preconditions.checkNotNull(splits, "splits is null");
         Preconditions.checkNotNull(exchangeSources, "exchangeSources is null");
         Preconditions.checkNotNull(outputIds, "outputIds is null");
         Preconditions.checkArgument(!outputIds.isEmpty(), "outputIds is empty");
         Preconditions.checkNotNull(httpClient, "httpClient is null");
         Preconditions.checkNotNull(taskInfoCodec, "taskInfoCodec is null");
         Preconditions.checkNotNull(queryFragmentRequestCodec, "queryFragmentRequestCodec is null");
+        Preconditions.checkNotNull(splitCodec, "splitCodec is null");
 
         this.session = session;
         this.planFragment = planFragment;
-        this.splits = new AtomicReference<List<PlanFragmentSource>>(ImmutableList.copyOf(splits));
         this.exchangeSources = exchangeSources;
         this.httpClient = httpClient;
         this.taskInfoCodec = taskInfoCodec;
         this.queryFragmentRequestCodec = queryFragmentRequestCodec;
+        this.splitCodec = splitCodec;
 
         List<PageBufferInfo> bufferStates = ImmutableList.copyOf(transform(outputIds, new Function<String, PageBufferInfo>()
         {
@@ -100,7 +105,6 @@ public class HttpRemoteTask
         }));
 
         ExecutionStats stats = new ExecutionStats();
-        stats.addSplits(splits.size());
         taskInfo.set(new TaskInfo(queryId,
                 stageId,
                 taskId,
@@ -126,15 +130,11 @@ public class HttpRemoteTask
     @Override
     public void start()
     {
-        List<PlanFragmentSource> splits = this.splits.getAndSet(null);
-        checkState(splits != null, "task has already been started");
-
         TaskInfo taskInfo = this.taskInfo.get();
         QueryFragmentRequest queryFragmentRequest = new QueryFragmentRequest(session,
                 taskInfo.getQueryId(),
                 taskInfo.getStageId(),
                 planFragment,
-                splits,
                 exchangeSources,
                 ImmutableList.copyOf(transform(taskInfo.getOutputBuffers(), PageBufferInfo.bufferIdGetter())));
 
@@ -154,6 +154,38 @@ public class HttpRemoteTask
         checkState(location != null);
 
         this.taskInfo.set(response.getValue());
+    }
+
+    @Override
+    public void addSource(PlanNodeId sourceId, Split split)
+    {
+        TaskInfo taskInfo = this.taskInfo.get();
+        URI sourceUri = uriBuilderFrom(taskInfo.getSelf()).appendPath("source").appendPath(sourceId.toString()).build();
+        Request request = preparePost()
+                .setUri(sourceUri)
+                .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
+                .setBodyGenerator(JsonBodyGenerator.jsonBodyGenerator(splitCodec, split))
+                .build();
+        StatusResponse response = httpClient.execute(request, createStatusResponseHandler());
+        if (response.getStatusCode() != 204) {
+            throw new RuntimeException(String.format("Error adding source '%s' to task %s", sourceId.toString(), taskInfo.getTaskId()));
+        }
+    }
+
+    @Override
+    public void noMoreSources()
+    {
+        TaskInfo taskInfo = this.taskInfo.get();
+        URI statusUri = uriBuilderFrom(taskInfo.getSelf()).appendPath("source").appendPath("TODO").appendPath("complete").build();
+        Request request = preparePut()
+                .setUri(statusUri)
+                .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
+                .setBodyGenerator(createStaticBodyGenerator("true", UTF_8))
+                .build();
+        StatusResponse response = httpClient.execute(request, createStatusResponseHandler());
+        if (response.getStatusCode() / 100  != 2) {
+            throw new RuntimeException(String.format("Error setting no more sources on task %s", taskInfo.getTaskId()));
+        }
     }
 
     @Override

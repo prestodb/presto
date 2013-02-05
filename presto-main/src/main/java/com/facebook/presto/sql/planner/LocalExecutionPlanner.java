@@ -23,6 +23,7 @@ import com.facebook.presto.operator.SourceHashProvider;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.operator.TopNOperator;
 import com.facebook.presto.operator.window.WindowFunction;
+import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
@@ -84,7 +85,7 @@ public class LocalExecutionPlanner
     private final PlanFragmentSourceProvider sourceProvider;
     private final Map<Symbol, Type> types;
 
-    private final PlanFragmentSource split;
+    private final Split split;
     private final Map<PlanNodeId, TableScanPlanFragmentSource> tableScans;
     private final OperatorStats operatorStats;
 
@@ -96,7 +97,7 @@ public class LocalExecutionPlanner
     public LocalExecutionPlanner(Session session, Metadata metadata,
             PlanFragmentSourceProvider sourceProvider,
             Map<Symbol, Type> types,
-            PlanFragmentSource split,
+            Split split,
             Map<PlanNodeId, TableScanPlanFragmentSource> tableScans,
             Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
             OperatorStats operatorStats,
@@ -381,8 +382,11 @@ public class LocalExecutionPlanner
             // table scan only works with a split
             Preconditions.checkState(split != null || tableScans != null, "This fragment does not have a split");
 
-            PlanFragmentSource tableSplit = split;
-            if (tableSplit == null) {
+            PlanFragmentSource tableSplit;
+            if (split != null) {
+                tableSplit = new TableScanPlanFragmentSource(split);
+            }
+            else {
                 tableSplit = tableScans.get(node.getId());
             }
 

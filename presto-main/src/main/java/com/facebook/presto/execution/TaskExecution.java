@@ -4,17 +4,22 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.split.Split;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import io.airlift.units.Duration;
 
 import java.util.List;
 
 public interface TaskExecution
 {
+
     String getTaskId();
 
     TaskInfo getTaskInfo();
 
-    void run();
+    void addSource(PlanNodeId sourceId, Split split);
+
+    void noMoreSources(String sourceId);
 
     void cancel();
 

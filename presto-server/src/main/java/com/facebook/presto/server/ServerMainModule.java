@@ -61,7 +61,9 @@ import com.facebook.presto.split.ImportClientManager;
 import com.facebook.presto.split.ImportDataStreamProvider;
 import com.facebook.presto.split.InternalDataStreamProvider;
 import com.facebook.presto.split.NativeDataStreamProvider;
+import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -83,7 +85,6 @@ import org.skife.jdbi.v2.IDBI;
 import org.weakref.jmx.guice.ExportBinder;
 
 import javax.inject.Singleton;
-
 import java.io.File;
 import java.lang.annotation.Annotation;
 
@@ -147,6 +148,8 @@ public class ServerMainModule
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(QueryFragmentRequest.class);
+        jsonCodecBinder(binder).bindJsonCodec(PlanFragmentSource.class);
+        jsonCodecBinder(binder).bindJsonCodec(Split.class);
         jsonBinder(binder).addSerializerBinding(Expression.class).to(ExpressionSerializer.class);
         jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);
