@@ -4,6 +4,7 @@ import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -18,7 +19,7 @@ public class SubPlanBuilder
 {
     private final PlanFragmentId id;
     private PlanNode root;
-    private boolean isPartitioned;
+    private PlanNodeId partitionedSource;
     private List<SubPlan> children = new ArrayList<>();
 
     private final SymbolAllocator allocator;
@@ -53,12 +54,17 @@ public class SubPlanBuilder
 
     public boolean isPartitioned()
     {
-        return isPartitioned;
+        return partitionedSource != null;
     }
 
-    public SubPlanBuilder setPartitioned(boolean partitioned)
+    public PlanNodeId getPartitionedSource()
     {
-        isPartitioned = partitioned;
+        return partitionedSource;
+    }
+
+    public SubPlanBuilder setPartitionedSource(PlanNodeId partitionedSource)
+    {
+        this.partitionedSource = partitionedSource;
         return this;
     }
 
@@ -83,7 +89,7 @@ public class SubPlanBuilder
     {
         Set<Symbol> dependencies = SymbolExtractor.extract(root);
 
-        PlanFragment fragment = new PlanFragment(id, isPartitioned, Maps.filterKeys(allocator.getTypes(), in(dependencies)), root);
+        PlanFragment fragment = new PlanFragment(id, partitionedSource, Maps.filterKeys(allocator.getTypes(), in(dependencies)), root);
 
         return new SubPlan(fragment, children);
     }
