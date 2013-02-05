@@ -10,18 +10,16 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.SourceHashProviderFactory;
+import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -30,19 +28,16 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 public class SqlTaskExecution
         implements TaskExecution
 {
     private final String taskId;
     private final TaskOutput taskOutput;
-    private final AtomicReference<List<PlanFragmentSource>> splits;
     private final Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources;
     private final PlanFragmentSourceProvider sourceProvider;
     private final FairBatchExecutor shardExecutor;
@@ -51,13 +46,16 @@ public class SqlTaskExecution
     private final DataSize maxOperatorMemoryUsage;
     private final Session session;
 
+    private final LinkedBlockingQueue<FutureTask<Void>> splitWorkers = new LinkedBlockingQueue<>();
+    private final AtomicBoolean noMoreSources = new AtomicBoolean();
+    private SourceHashProviderFactory sourceHashProviderFactory;
+
     public SqlTaskExecution(Session session,
             String queryId,
             String stageId,
             String taskId,
             URI location,
             PlanFragment fragment,
-            List<PlanFragmentSource> splits,
             Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
             List<String> outputIds,
             int pageBufferMax,
@@ -71,7 +69,6 @@ public class SqlTaskExecution
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(fragment, "fragment is null");
-        Preconditions.checkNotNull(splits, "splits is null");
         Preconditions.checkNotNull(exchangeSources, "exchangeSources is null");
         Preconditions.checkNotNull(outputIds, "outputIds is null");
         Preconditions.checkArgument(!outputIds.isEmpty(), "outputIds is empty");
@@ -84,7 +81,6 @@ public class SqlTaskExecution
         this.session = session;
         this.taskId = taskId;
         this.fragment = fragment;
-        this.splits = new AtomicReference<List<PlanFragmentSource>>(ImmutableList.copyOf(splits));
         this.exchangeSources = exchangeSources;
         this.sourceProvider = sourceProvider;
         this.shardExecutor = shardExecutor;
@@ -92,7 +88,15 @@ public class SqlTaskExecution
         this.maxOperatorMemoryUsage = maxOperatorMemoryUsage;
 
         // create output buffers
-        this.taskOutput = new TaskOutput(queryId, stageId, taskId, location, outputIds, pageBufferMax, splits.size());
+        this.taskOutput = new TaskOutput(queryId, stageId, taskId, location, outputIds, pageBufferMax, 0);
+
+        // todo is this correct?
+        taskOutput.getStats().recordExecutionStart();
+
+        // plans without a partition are immediately executed
+        if (!fragment.isPartitioned()) {
+            addSource(null, null);
+        }
     }
 
     @Override
@@ -104,114 +108,77 @@ public class SqlTaskExecution
     @Override
     public TaskInfo getTaskInfo()
     {
+        if (noMoreSources.get() && !taskOutput.getState().isDone()) {
+            boolean allDone = true;
+            RuntimeException queryFailedException = null;
+            for (Future<Void> result : splitWorkers) {
+                try {
+                    if (result.isDone()) {
+                        // since the result is "done" this should not interrupt
+                        Uninterruptibles.getUninterruptibly(result);
+                    }
+                    else {
+                        allDone = false;
+                    }
+                }
+                catch (Throwable e) {
+                    if (queryFailedException == null) {
+                        queryFailedException = new RuntimeException("Query failed");
+                    }
+                    Throwable cause = e.getCause();
+                    queryFailedException.addSuppressed(cause);
+                }
+            }
+            if (queryFailedException != null) {
+                taskOutput.queryFailed(queryFailedException);
+            }
+            else if (allDone) {
+                taskOutput.finish();
+            }
+        }
         return taskOutput.getTaskInfo();
     }
 
     @Override
-    public void run()
+    public void addSource(PlanNodeId sourceId, Split split)
     {
-        taskOutput.getStats().recordExecutionStart();
-        try {
-            // get the splits... if the task is canceled the splits will be null
-            // set the splits to null to release the memory asap
-            List<PlanFragmentSource> splits = this.splits.getAndSet(null);
-            if (splits == null) {
-                return;
-            }
-
-            final SourceHashProviderFactory sourceHashProviderFactory = new SourceHashProviderFactory(maxOperatorMemoryUsage);
-
-            // if we have a single split, just execute in the current thread; otherwise use the thread pool
-            if (splits.size() <= 1) {
-                PlanFragmentSource split = splits.isEmpty() ? null : splits.get(0);
-                SplitWorker worker = new SplitWorker(session,
-                        taskOutput,
-                        fragment,
-                        split,
-                        exchangeSources,
-                        sourceHashProviderFactory,
-                        sourceProvider,
-                        metadata,
-                        maxOperatorMemoryUsage);
-
-                worker.call();
-            }
-            else {
-                List<Callable<Void>> workers = ImmutableList.copyOf(Lists.transform(splits, new Function<PlanFragmentSource, Callable<Void>>()
-                {
-                    @Override
-                    public Callable<Void> apply(PlanFragmentSource split)
-                    {
-                        return new SplitWorker(session,
-                                taskOutput,
-                                fragment,
-                                split,
-                                exchangeSources,
-                                sourceHashProviderFactory,
-                                sourceProvider,
-                                metadata,
-                                maxOperatorMemoryUsage);
-                    }
-                }));
-
-                // Race the multithreaded executors in reverse order. This guarantees that at least
-                // one thread is allocated to processing this task.
-                // SplitWorkers are designed to be "once-only" callables and become no-ops once someone
-                // invokes "call" on them. Therefore it is safe to invoke them here
-                List<FutureTask<Void>> results = shardExecutor.processBatch(workers);
-                for (FutureTask<Void> worker : Lists.reverse(results)) {
-                    if (taskOutput.getState().isDone()) {
-                        worker.cancel(true);
-                    } else {
-                        worker.run();
-                    }
-                }
-
-                checkQueryResults(results);
-            }
+        if (sourceId != null) {
+            Preconditions.checkNotNull(split, "split is null");
+            Preconditions.checkArgument(sourceId.equals(fragment.getPartitionedSource()), "Expected sourceId to be %s but was %s", fragment.getPartitionedSource(), sourceId);
         }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            taskOutput.queryFailed(e);
-            throw Throwables.propagate(e);
-        }
-        catch (Throwable e) {
-            taskOutput.queryFailed(e);
-            throw Throwables.propagate(e);
-        }
-        finally {
-            taskOutput.finish();
-        }
+
+        SplitWorker worker = new SplitWorker(session,
+                taskOutput,
+                fragment,
+                split,
+                exchangeSources,
+                getSourceHashProviderFactory(),
+                sourceProvider,
+                metadata,
+                maxOperatorMemoryUsage);
+
+        List<FutureTask<Void>> results = shardExecutor.processBatch(ImmutableList.of(worker));
+        splitWorkers.addAll(results);
+        getTaskInfo().getStats().addSplits(1);
     }
 
-    private static void checkQueryResults(Iterable<? extends Future<Void>> results)
-            throws InterruptedException
+    @Override
+    public void noMoreSources(String sourceId)
     {
-        RuntimeException queryFailedException = null;
-        for (Future<Void> result : results) {
-            try {
-                result.get();
-            }
-            catch (CancellationException e) {
-                // this is allowed
-            }
-            catch (ExecutionException e) {
-                if (queryFailedException == null) {
-                    queryFailedException = new RuntimeException("Query failed");
-                }
-                Throwable cause = e.getCause();
-                queryFailedException.addSuppressed(cause);
-            }
+        this.noMoreSources.set(true);
+    }
+
+    private synchronized SourceHashProviderFactory getSourceHashProviderFactory()
+    {
+        if (sourceHashProviderFactory == null) {
+            sourceHashProviderFactory = new SourceHashProviderFactory(maxOperatorMemoryUsage);
         }
-        if (queryFailedException != null) {
-            throw queryFailedException;
-        }
+        return sourceHashProviderFactory;
     }
 
     @Override
     public void cancel()
     {
-        splits.set(null);
         taskOutput.cancel();
     }
 
@@ -232,7 +199,6 @@ public class SqlTaskExecution
     @Override
     public void abortResults(String outputId)
     {
-        splits.set(null);
         taskOutput.abortResults(outputId);
     }
 
@@ -257,7 +223,7 @@ public class SqlTaskExecution
         private SplitWorker(Session session,
                 TaskOutput taskOutput,
                 PlanFragment fragment,
-                @Nullable PlanFragmentSource split,
+                @Nullable Split split,
                 Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
                 SourceHashProviderFactory sourceHashProviderFactory,
                 PlanFragmentSourceProvider sourceProvider,

@@ -245,16 +245,18 @@ public class SqlStageExecution
                     taskId,
                     partition.getNode(),
                     plan,
-                    partition.getSplits(),
                     exchangeSources.build(),
                     outputIds);
 
             tasks.add(task);
-            // todo record the splits?
-            // queryStats.addSplits(partition.getSplits().size());
 
             try {
                 task.start();
+                for (PlanFragmentSource source : partition.getSplits()) {
+                    TableScanPlanFragmentSource tableScanSource = (TableScanPlanFragmentSource) source;
+                    task.addSource(plan.getPartitionedSource(), tableScanSource.getSplit());
+                }
+                task.noMoreSources();
             }
             catch (Throwable e) {
                 synchronized (this) {
@@ -265,6 +267,7 @@ public class SqlStageExecution
                 cancel();
                 throw Throwables.propagate(e);
             }
+
         }
         stageState.set(StageState.SCHEDULED);
     }
