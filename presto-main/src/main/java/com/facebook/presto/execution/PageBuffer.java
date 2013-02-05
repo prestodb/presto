@@ -11,6 +11,7 @@ import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -37,6 +38,8 @@ public class PageBuffer
          */
         FINISHED
     }
+
+    private static final Page END_OF_DATA = new Page(0);
 
     private final String bufferId;
     private final BlockingQueue<Page> buffer;
@@ -73,10 +76,12 @@ public class PageBuffer
 
         // if buffer is empty transition to finished
         if (buffer.isEmpty()) {
-            state.set(BufferState.FINISHED);
-
-            // clear the buffer in case there was a failed race
-            buffer.clear();
+            cancel();
+        }
+        else {
+            // offer end of data page to buffer
+            // the buffer might be full, so we can only offer
+            buffer.offer(END_OF_DATA);
         }
     }
 
@@ -85,8 +90,15 @@ public class PageBuffer
      */
     public void cancel()
     {
+        // transition immediately to finished
         state.set(BufferState.FINISHED);
+
+        // clear the buffer in case there was a thread putting during the transition
         buffer.clear();
+
+        // offer end of data page to buffer
+        // the buffer might be full (due to concurrent threads), so we can only offer
+        buffer.offer(END_OF_DATA);
     }
 
     public void addPage(Page page)
@@ -102,7 +114,7 @@ public class PageBuffer
 
         // if the buffer was destroyed while pages were being added, clean up the buffers to be safe
         if (isFinished()) {
-            buffer.clear();
+            cancel();
         }
     }
 
@@ -120,7 +132,7 @@ public class PageBuffer
         Preconditions.checkNotNull(maxWait, "maxWait is null");
 
         List<Page> pages = new ArrayList<>(maxPageCount);
-        if (!isFinished()){
+        if (!isFinished()) {
             // wait for a single page
             Page page = buffer.poll((long) maxWait.convertTo(NANOSECONDS), NANOSECONDS);
             if (page != null) {
@@ -129,13 +141,27 @@ public class PageBuffer
                 // fill the output list with the immediately available pages
                 buffer.drainTo(pages, maxPageCount - 1);
 
-                // mark the buffer as finished if it is not open and we consumed all of the pages
-                if (state.get() == BufferState.FINISHING && buffer.isEmpty()) {
-                    state.set(BufferState.FINISHED);
+                // if got the end of data marker or we are finishing and there are no more pages, transition to the finished state
+                // the second condition can happen if the buffer was full when state changed to finishing
+                if (removeEndOfDataMarker(pages) || (state.get() == BufferState.FINISHING && buffer.isEmpty())) {
+                    cancel();
                 }
             }
         }
         return ImmutableList.copyOf(pages);
+    }
+
+    private boolean removeEndOfDataMarker(List<Page> pages)
+    {
+        boolean hadEndOfDataMarker = false;
+        for (Iterator<Page> iterator = pages.iterator(); iterator.hasNext(); ) {
+            Page page = iterator.next();
+            if (page == END_OF_DATA) {
+                iterator.remove();
+                hadEndOfDataMarker = true;
+            }
+        }
+        return hadEndOfDataMarker;
     }
 
     public static Function<PageBuffer, BufferState> stateGetter()
