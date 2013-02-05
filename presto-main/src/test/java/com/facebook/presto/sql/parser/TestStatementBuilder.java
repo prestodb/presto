@@ -24,6 +24,8 @@ public class TestStatementBuilder
         printStatement("select show from foo");
         printStatement("select extract(day from x), extract(dow from x) from y");
 
+        printStatement("select 1 + 13 || '15' from foo");
+
         printStatement("" +
                 "select * from foo a " +
                 "join bar b using (bar_id) " +
