@@ -3,7 +3,6 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.RemoteTaskFactory;
@@ -13,6 +12,7 @@ import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonCodec;
@@ -51,7 +51,7 @@ public class HttpRemoteTaskFactory
             String taskId,
             Node node,
             PlanFragment fragment,
-            Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
+            Map<PlanNodeId, PlanFragmentSource> fixedSources,
             List<String> outputIds)
     {
         return new HttpRemoteTask(session,
@@ -60,7 +60,7 @@ public class HttpRemoteTaskFactory
                 taskId,
                 locationFactory.createTaskLocation(node, taskId),
                 fragment,
-                exchangeSources,
+                fixedSources,
                 outputIds,
                 httpClient,
                 taskInfoCodec,

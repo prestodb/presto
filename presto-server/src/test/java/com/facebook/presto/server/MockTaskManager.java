@@ -3,7 +3,6 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskOutput;
@@ -11,6 +10,7 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -85,7 +85,7 @@ public class MockTaskManager
             String stageId,
             String taskId,
             PlanFragment fragment,
-            Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
+            Map<PlanNodeId,PlanFragmentSource> fixedSources,
             List<String> outputIds)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");

@@ -74,7 +74,7 @@ public class TaskResource
                     queryFragmentRequest.getStageId(),
                     taskId,
                     queryFragmentRequest.getFragment(),
-                    queryFragmentRequest.getExchangeSources(),
+                    queryFragmentRequest.getFixedSources(),
                     queryFragmentRequest.getOutputIds());
 
             URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(taskInfo.getTaskId()).build();

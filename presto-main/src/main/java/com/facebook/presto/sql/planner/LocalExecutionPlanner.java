@@ -85,11 +85,9 @@ public class LocalExecutionPlanner
     private final PlanFragmentSourceProvider sourceProvider;
     private final Map<Symbol, Type> types;
 
-    private final Split split;
-    private final Map<PlanNodeId, TableScanPlanFragmentSource> tableScans;
-    private final OperatorStats operatorStats;
+    private final Map<PlanNodeId, PlanFragmentSource> sources;
 
-    private final Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources;
+    private final OperatorStats operatorStats;
 
     private final SourceHashProviderFactory joinHashFactory;
     private final DataSize maxOperatorMemoryUsage;
@@ -97,21 +95,17 @@ public class LocalExecutionPlanner
     public LocalExecutionPlanner(Session session, Metadata metadata,
             PlanFragmentSourceProvider sourceProvider,
             Map<Symbol, Type> types,
-            Split split,
-            Map<PlanNodeId, TableScanPlanFragmentSource> tableScans,
-            Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
+            Map<PlanNodeId, PlanFragmentSource> sources,
             OperatorStats operatorStats,
             SourceHashProviderFactory joinHashFactory,
             DataSize maxOperatorMemoryUsage)
     {
         this.session = checkNotNull(session, "session is null");
-        this.tableScans = tableScans;
         this.operatorStats = Preconditions.checkNotNull(operatorStats, "operatorStats is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
         this.sourceProvider = checkNotNull(sourceProvider, "sourceProvider is null");
         this.types = checkNotNull(types, "types is null");
-        this.split = split;
-        this.exchangeSources = ImmutableMap.copyOf(checkNotNull(exchangeSources, "exchangeSources is null"));
+        this.sources = checkNotNull(sources, "sources is null");
         this.joinHashFactory = checkNotNull(joinHashFactory, "joinHashFactory is null");
         this.maxOperatorMemoryUsage = Preconditions.checkNotNull(maxOperatorMemoryUsage, "maxOperatorMemoryUsage is null");
     }
@@ -127,8 +121,9 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitExchange(ExchangeNode node, Void context)
         {
-            ExchangePlanFragmentSource source = exchangeSources.get(node.getId());
-            Preconditions.checkState(source != null, "Source for exchange (%s) not found. Available sources %s", node.getId(), exchangeSources.keySet());
+            PlanFragmentSource source = sources.get(node.getId());
+            Preconditions.checkState(source != null, "Source for exchange (%s) not found. Available sources %s", node.getId(), sources.keySet());
+            Preconditions.checkState(source instanceof ExchangePlanFragmentSource, "Expected exchange source for exchange (%s), but found %s", node.getId(), source.getClass().getName());
 
             Operator operator = sourceProvider.createDataStream(source, ImmutableList.<ColumnHandle>of());
 
@@ -380,15 +375,9 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableScan(TableScanNode node, Void context)
         {
             // table scan only works with a split
-            Preconditions.checkState(split != null || tableScans != null, "This fragment does not have a split");
-
-            PlanFragmentSource tableSplit;
-            if (split != null) {
-                tableSplit = new TableScanPlanFragmentSource(split);
-            }
-            else {
-                tableSplit = tableScans.get(node.getId());
-            }
+            PlanFragmentSource source = sources.get(node.getId());
+            Preconditions.checkState(source != null, "Source for table scan (%s) not found. Available sources %s", node.getId(), sources.keySet());
+            Preconditions.checkState(source instanceof TableScanPlanFragmentSource, "Expected table scan source for table scan (%s), but found %s", node.getId(), source.getClass().getName());
 
             Map<Symbol, Input> mappings = new HashMap<>();
             List<ColumnHandle> columns = new ArrayList<>();
@@ -401,7 +390,7 @@ public class LocalExecutionPlanner
                 channel++;
             }
 
-            Operator operator = sourceProvider.createDataStream(tableSplit, columns);
+            Operator operator = sourceProvider.createDataStream(source, columns);
             return new PhysicalOperation(operator, mappings);
         }
 

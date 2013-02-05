@@ -4,7 +4,6 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TaskInfo;
@@ -17,6 +16,7 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -196,7 +196,7 @@ public class TestExchangeOperator
                 "queryId",
                 "stageId",
                 planFragment,
-                ImmutableMap.<PlanNodeId, ExchangePlanFragmentSource>of(),
+                ImmutableMap.<PlanNodeId, PlanFragmentSource>of(),
                 ImmutableList.of("out"));
 
         Request request = preparePut()

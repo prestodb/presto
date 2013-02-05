@@ -1,8 +1,8 @@
 package com.facebook.presto.server;
 
-import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -20,7 +20,7 @@ public class QueryFragmentRequest
     private final String queryId;
     private final String stageId;
     private final PlanFragment fragment;
-    private final Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources;
+    private final ImmutableMap<PlanNodeId, PlanFragmentSource> fixedSources;
     private final List<String> outputIds;
 
     @JsonCreator
@@ -29,21 +29,21 @@ public class QueryFragmentRequest
             @JsonProperty("queryId") String queryId,
             @JsonProperty("stageId") String stageId,
             @JsonProperty("fragment") PlanFragment fragment,
-            @JsonProperty("exchangeSources") Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
+            @JsonProperty("fixedSources") Map<PlanNodeId, PlanFragmentSource> fixedSources,
             @JsonProperty("outputIds") List<String> outputIds)
     {
         Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(fragment, "fragment is null");
-        Preconditions.checkNotNull(exchangeSources, "exchangeSources is null");
+        Preconditions.checkNotNull(fixedSources, "fixedSources is null");
         Preconditions.checkNotNull(outputIds, "outputIds is null");
 
         this.session = session;
         this.queryId = queryId;
         this.stageId = stageId;
         this.fragment = fragment;
-        this.exchangeSources = ImmutableMap.copyOf(exchangeSources);
+        this.fixedSources = ImmutableMap.copyOf(fixedSources);
         this.outputIds = ImmutableList.copyOf(outputIds);
     }
 
@@ -72,9 +72,9 @@ public class QueryFragmentRequest
     }
 
     @JsonProperty
-    public Map<PlanNodeId, ExchangePlanFragmentSource> getExchangeSources()
+    public Map<PlanNodeId, PlanFragmentSource> getFixedSources()
     {
-        return exchangeSources;
+        return fixedSources;
     }
 
     @JsonProperty
@@ -91,7 +91,7 @@ public class QueryFragmentRequest
                 .add("queryId", queryId)
                 .add("stageId", stageId)
                 .add("fragment", fragment)
-                .add("exchangeSources", exchangeSources)
+                .add("fixedSources", fixedSources)
                 .add("outputIds", outputIds)
                 .toString();
     }
