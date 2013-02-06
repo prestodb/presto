@@ -144,38 +144,6 @@ public class TestDistributedQueries
         assertEquals(tableNames, ImmutableSet.copyOf(loadedTableNames));
     }
 
-        // TODO: fix this unit test
-    @Test(enabled = false)
-    public void testVariance()
-            throws Exception
-    {
-        super.testVariance();
-    }
-
-    // TODO: fix this unit test
-    @Test(enabled = false)
-    public void testVariancePop()
-            throws Exception
-    {
-        super.testVariancePop();
-    }
-
-    // TODO: fix this unit test
-    @Test(enabled = false)
-    public void testStdDev()
-            throws Exception
-    {
-        super.testStdDev();
-    }
-
-    // TODO: fix this unit test
-    @Test(enabled = false)
-    public void testStdDevPop()
-            throws Exception
-    {
-        super.testStdDevPop();
-    }
-
     @Override
     protected void setUpQueryFramework(String catalog, String schema, DataStreamProvider dataStreamProvider, Metadata metadata)
             throws Exception
