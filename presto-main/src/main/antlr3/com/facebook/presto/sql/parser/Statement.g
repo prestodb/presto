@@ -23,6 +23,7 @@ options {
 }
 
 tokens {
+    LEXER_ERROR;
     STATEMENT_LIST;
     GROUPBY;
     ORDERBY;
