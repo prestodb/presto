@@ -51,6 +51,7 @@ import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.Iterables.all;
 import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.transform;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 
 @ThreadSafe
 public class SqlStageExecution
@@ -146,12 +147,13 @@ public class SqlStageExecution
         Preconditions.checkNotNull(outputId, "outputId is null");
 
         // get locations for the dependent stage
-        ImmutableMap.Builder<String, URI> sources = ImmutableMap.builder();
+        ImmutableList.Builder<URI> sources = ImmutableList.builder();
         for (RemoteTask task : tasks) {
-            sources.put(task.getTaskId(), task.getTaskInfo().getSelf());
+            URI location = uriBuilderFrom(task.getTaskInfo().getSelf()).appendPath("results").appendPath(outputId).build();
+            sources.add(location);
         }
 
-        return new ExchangePlanFragmentSource(sources.build(), outputId, tupleInfos);
+        return new ExchangePlanFragmentSource(sources.build(), tupleInfos);
     }
 
     @Override
