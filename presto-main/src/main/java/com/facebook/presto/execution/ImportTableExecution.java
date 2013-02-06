@@ -142,7 +142,7 @@ public class ImportTableExecution
         // imports are global background tasks, so canceling this "scheduling" query doesn't mean anything
     }
 
-    private static List<ImportField> getImportFields(List<ColumnMetadata> sourceColumns, List<ColumnMetadata> targetColumns)
+    public static List<ImportField> getImportFields(List<ColumnMetadata> sourceColumns, List<ColumnMetadata> targetColumns)
     {
         checkArgument(sourceColumns.size() == targetColumns.size(), "column size mismatch");
         ImmutableList.Builder<ImportField> fields = ImmutableList.builder();

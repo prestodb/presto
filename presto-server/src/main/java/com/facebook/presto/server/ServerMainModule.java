@@ -3,6 +3,14 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.importer.ForPeriodicImport;
+import com.facebook.presto.importer.JobStateFactory;
+import com.facebook.presto.importer.PeriodicImportConfig;
+import com.facebook.presto.importer.PeriodicImportController;
+import com.facebook.presto.importer.PeriodicImportJobResource;
+import com.facebook.presto.importer.PeriodicImportManager;
+import com.facebook.presto.importer.PeriodicImportRunnable;
+
 import com.facebook.presto.event.query.QueryCompletionEvent;
 import com.facebook.presto.event.query.QueryCreatedEvent;
 import com.facebook.presto.event.query.QueryMonitor;
@@ -72,6 +80,7 @@ import io.airlift.http.client.HttpClientBinder;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.IDBI;
+import org.weakref.jmx.guice.ExportBinder;
 
 import javax.inject.Singleton;
 
@@ -175,7 +184,7 @@ public class ServerMainModule
             discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
         }
 
-        bindDataSource("presto-metastore", ForMetadata.class, ForShardManager.class);
+        bindDataSource("presto-metastore", ForMetadata.class, ForShardManager.class, ForPeriodicImport.class);
 
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
@@ -184,8 +193,18 @@ public class ServerMainModule
 
         binder.install(new TableHandleModule());
 
+
         binder.bind(PluginManager.class).in(Scopes.SINGLETON);
         bindConfig(binder).to(PluginManagerConfig.class);
+
+        // Job Scheduler code
+        bindConfig(binder).to(PeriodicImportConfig.class);
+        binder.bind(PeriodicImportJobResource.class).in(Scopes.SINGLETON);
+        binder.bind(PeriodicImportManager.class).in(Scopes.SINGLETON);
+        binder.bind(PeriodicImportController.class).in(Scopes.SINGLETON);
+        binder.bind(JobStateFactory.class).in(Scopes.SINGLETON);
+        binder.bind(PeriodicImportRunnable.PeriodicImportRunnableFactory.class).in(Scopes.SINGLETON);
+        ExportBinder.newExporter(binder).export(PeriodicImportController.class).as("com.facebook.presto:name=periodic-import");
     }
 
     @Provides

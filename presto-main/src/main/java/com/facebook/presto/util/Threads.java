@@ -10,4 +10,9 @@ public class Threads
     {
         return new ThreadFactoryBuilder().setNameFormat(nameFormat).build();
     }
+
+    public static ThreadFactory daemonThreadsNamed(String nameFormat)
+    {
+        return new ThreadFactoryBuilder().setNameFormat(nameFormat).setDaemon(true).build();
+    }
 }
