@@ -4,6 +4,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.Node;
+import com.facebook.presto.split.Split;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 
@@ -12,9 +13,9 @@ import java.util.List;
 public class Partition
 {
     private final Node node;
-    private final List<PlanFragmentSource> splits;
+    private final List<Split> splits;
 
-    public Partition(Node node, List<PlanFragmentSource> splits)
+    public Partition(Node node, Iterable<? extends Split> splits)
     {
         this.node = node;
         this.splits = ImmutableList.copyOf(splits);
@@ -25,7 +26,7 @@ public class Partition
         return node;
     }
 
-    public List<PlanFragmentSource> getSplits()
+    public List<Split> getSplits()
     {
         return splits;
     }

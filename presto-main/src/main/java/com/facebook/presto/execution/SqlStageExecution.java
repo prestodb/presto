@@ -11,7 +11,6 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.Partition;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
-import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -192,7 +191,7 @@ public class SqlStageExecution
             Preconditions.checkState(!nodes.isEmpty(), "Cluster does not have any active nodes");
             Collections.shuffle(nodes, random);
             Node node = nodes.get(0);
-            partitions = ImmutableList.of(new Partition(node, ImmutableList.<PlanFragmentSource>of()));
+            partitions = ImmutableList.of(new Partition(node, ImmutableList.<Split>of()));
         } else {
             // divide splits amongst the nodes
             Multimap<Node, Split> nodeSplits = SplitAssignments.balancedNodeAssignment(queryState, splits.get());
@@ -200,15 +199,7 @@ public class SqlStageExecution
             // create a partition for each node
             ImmutableList.Builder<Partition> partitionBuilder = ImmutableList.builder();
             for (Entry<Node, Collection<Split>> entry : nodeSplits.asMap().entrySet()) {
-                List<PlanFragmentSource> sources = ImmutableList.copyOf(transform(entry.getValue(), new Function<Split, PlanFragmentSource>()
-                {
-                    @Override
-                    public PlanFragmentSource apply(Split split)
-                    {
-                        return new TableScanPlanFragmentSource(split);
-                    }
-                }));
-                partitionBuilder.add(new Partition(entry.getKey(), sources));
+                partitionBuilder.add(new Partition(entry.getKey(), entry.getValue()));
             }
             partitions = partitionBuilder.build();
         }
@@ -252,9 +243,8 @@ public class SqlStageExecution
 
             try {
                 task.start();
-                for (PlanFragmentSource source : partition.getSplits()) {
-                    TableScanPlanFragmentSource tableScanSource = (TableScanPlanFragmentSource) source;
-                    task.addSource(plan.getPartitionedSource(), tableScanSource.getSplit());
+                for (Split split : partition.getSplits()) {
+                    task.addSource(plan.getPartitionedSource(), split);
                 }
                 task.noMoreSources();
             }
