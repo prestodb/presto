@@ -25,8 +25,8 @@ options {
 tokens {
     LEXER_ERROR;
     STATEMENT_LIST;
-    GROUPBY;
-    ORDERBY;
+    GROUP_BY;
+    ORDER_BY;
     SORT_ITEM;
     QUERY;
     ALL_COLUMNS;
@@ -144,7 +144,7 @@ whereClause
     ;
 
 groupClause
-    : GROUP BY expr (',' expr)* -> ^(GROUPBY expr+)
+    : GROUP BY expr (',' expr)* -> ^(GROUP_BY expr+)
     ;
 
 havingClause
@@ -152,7 +152,7 @@ havingClause
     ;
 
 orderClause
-    : ORDER BY sortItem (',' sortItem)* -> ^(ORDERBY sortItem+)
+    : ORDER BY sortItem (',' sortItem)* -> ^(ORDER_BY sortItem+)
     ;
 
 limitClause
