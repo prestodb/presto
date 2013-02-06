@@ -294,6 +294,13 @@
             <artifactId>discovery-server</artifactId>
             <version>1.6-SNAPSHOT</version>
             <scope>test</scope>
+            <!-- TODO: fix in airlift http-server -->
+            <exclusions>
+                <exclusion>
+                    <groupId>org.eclipse.jetty.orbit</groupId>
+                    <artifactId>javax.servlet</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- test dependencies that are used transitively at runtime -->
