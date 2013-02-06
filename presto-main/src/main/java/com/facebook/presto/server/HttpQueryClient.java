@@ -27,6 +27,7 @@ import io.airlift.json.JsonCodec;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.ws.rs.core.Response.Status;
+import java.io.Closeable;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,6 +46,7 @@ import static io.airlift.http.client.StatusResponseHandler.createStatusResponseH
 
 @ThreadSafe
 public class HttpQueryClient
+        implements Closeable
 {
     private final AsyncHttpClient httpClient;
     private final URI queryLocation;
@@ -230,7 +232,7 @@ public class HttpQueryClient
         return true;
     }
 
-    public void cancelQuery()
+    public void close()
     {
         canceled.set(true);
         try {

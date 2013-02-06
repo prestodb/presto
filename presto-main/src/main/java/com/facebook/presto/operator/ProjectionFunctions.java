@@ -86,7 +86,7 @@ public class ProjectionFunctions
         return concat(ImmutableList.copyOf(projectionFunctions));
     }
 
-    public static ProjectionFunction concat(List<ProjectionFunction> projections)
+    public static ProjectionFunction concat(Iterable<ProjectionFunction> projections)
     {
         return new ConcatProjection(projections);
     }
@@ -96,9 +96,9 @@ public class ProjectionFunctions
         private final List<ProjectionFunction> projections;
         private final TupleInfo tupleInfo;
 
-        private ConcatProjection(List<ProjectionFunction> projections)
+        private ConcatProjection(Iterable<ProjectionFunction> projections)
         {
-            this.projections = projections;
+            this.projections = ImmutableList.copyOf(projections);
 
             ImmutableList.Builder<Type> builder = ImmutableList.builder();
             for (ProjectionFunction projection : projections) {

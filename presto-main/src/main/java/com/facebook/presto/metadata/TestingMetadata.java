@@ -21,7 +21,7 @@ import static com.google.common.collect.Maps.filterKeys;
 public class TestingMetadata
         implements Metadata
 {
-    private final Map<List<String>, TableMetadata> tables = new HashMap<>();
+    private final Map<QualifiedTableName, TableMetadata> tables = new HashMap<>();
     private final FunctionRegistry functions = new FunctionRegistry();
 
     @Override
@@ -94,71 +94,71 @@ public class TestingMetadata
     @Override
     public synchronized void createTable(TableMetadata table)
     {
-        List<String> key = tableKey(table);
+        QualifiedTableName key = tableKey(table);
         checkArgument(!tables.containsKey(key), "Table '%s.%s.%s' already defined",
                 table.getSchemaName(), table.getCatalogName(), table.getTableName());
         tables.put(key, table);
     }
 
-    private List<QualifiedTableName> getTableNames(Predicate<List<String>> predicate)
+    private List<QualifiedTableName> getTableNames(Predicate<QualifiedTableName> predicate)
     {
         Iterable<TableMetadata> values = filterKeys(tables, predicate).values();
         return ImmutableList.copyOf(transform(values, toQualifiedTableName()));
     }
 
-    private List<TableColumn> getTableColumns(Predicate<List<String>> predicate)
+    private List<TableColumn> getTableColumns(Predicate<QualifiedTableName> predicate)
     {
         Iterable<TableMetadata> values = filterKeys(tables, predicate).values();
         return ImmutableList.copyOf(concat(transform(values, toTableColumns())));
     }
 
-    private static Predicate<List<String>> catalogMatches(final String catalogName)
+    private static Predicate<QualifiedTableName> catalogMatches(final String catalogName)
     {
         checkCatalogName(catalogName);
-        return new Predicate<List<String>>()
+        return new Predicate<QualifiedTableName>()
         {
             @Override
-            public boolean apply(List<String> key)
+            public boolean apply(QualifiedTableName key)
             {
-                return key.equals(ImmutableList.of(catalogName));
+                return key.getCatalogName().equals(catalogName);
             }
         };
     }
 
-    private static Predicate<List<String>> schemaMatches(final String catalogName, final String schemaName)
+    private static Predicate<QualifiedTableName> schemaMatches(final String catalogName, final String schemaName)
     {
         checkSchemaName(catalogName, schemaName);
-        return new Predicate<List<String>>()
+        return new Predicate<QualifiedTableName>()
         {
             @Override
-            public boolean apply(List<String> key)
+            public boolean apply(QualifiedTableName key)
             {
-                return key.equals(ImmutableList.of(catalogName, schemaName));
+                return key.getCatalogName().equals(catalogName) && key.getSchemaName().equals(schemaName);
             }
         };
     }
 
-    private static Predicate<List<String>> tableMatches(final String catalogName, final String schemaName, final String tableName)
+    private static Predicate<QualifiedTableName> tableMatches(final String catalogName, final String schemaName, final String tableName)
     {
         checkTableName(catalogName, schemaName, tableName);
-        return new Predicate<List<String>>()
+        return new Predicate<QualifiedTableName>()
         {
             @Override
-            public boolean apply(List<String> key)
+            public boolean apply(QualifiedTableName key)
             {
-                return key.equals(ImmutableList.of(catalogName, schemaName, tableName));
+                return key.equals(new QualifiedTableName(catalogName, schemaName, tableName));
             }
         };
     }
 
-    private static List<String> tableKey(TableMetadata table)
+    private static QualifiedTableName tableKey(TableMetadata table)
     {
         return tableKey(table.getCatalogName(), table.getSchemaName(), table.getTableName());
     }
 
-    private static List<String> tableKey(String catalogName, String schemaName, String tableName)
+    private static QualifiedTableName tableKey(String catalogName, String schemaName, String tableName)
     {
-        return ImmutableList.of(catalogName, schemaName, tableName);
+        return new QualifiedTableName(catalogName, schemaName, tableName);
     }
 
     private static Function<TableMetadata, QualifiedTableName> toQualifiedTableName()

@@ -65,12 +65,12 @@ public class Query
                 }
                 try {
                     if (!queryClient.cancelLeafStage()) {
-                        queryClient.cancelQuery();
+                        queryClient.close();
                     }
                 }
                 catch (RuntimeException e) {
                     log.debug(e, "error canceling leaf stage");
-                    queryClient.cancelQuery();
+                    queryClient.close();
                 }
             }
         });
@@ -149,7 +149,7 @@ public class Query
     @Override
     public void close()
     {
-        queryClient.cancelQuery();
+        queryClient.close();
     }
 
     public void renderFailure(QueryInfo queryInfo, PrintStream out)
