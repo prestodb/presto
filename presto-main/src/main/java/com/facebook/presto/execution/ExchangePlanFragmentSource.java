@@ -9,49 +9,36 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
-
 import java.net.URI;
 import java.util.List;
-import java.util.Map;
 
 @Immutable
 public class ExchangePlanFragmentSource
         implements PlanFragmentSource
 {
-    private final Map<String, URI> sources;
-    private final String outputId;
+    private final List<URI> sources;
     private final List<TupleInfo> tupleInfos;
 
     @JsonCreator
     public ExchangePlanFragmentSource(
-            @JsonProperty("sources") Map<String, URI> sources,
-            @JsonProperty("outputId") String outputId,
+            @JsonProperty("sources") List<URI> sources,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos)
     {
         Preconditions.checkNotNull(sources, "sources is null");
         Preconditions.checkArgument(!sources.isEmpty(), "sources is empty");
-        Preconditions.checkNotNull(outputId, "outputId is null");
-        Preconditions.checkArgument(!outputId.isEmpty(), "outputId is empty");
         Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
 
-        this.sources = ImmutableMap.copyOf(sources);
-        this.outputId = outputId;
+        this.sources = ImmutableList.copyOf(sources);
         this.tupleInfos = tupleInfos;
     }
 
     @JsonProperty
-    public Map<String, URI> getSources()
+    public List<URI> getSources()
     {
         return sources;
-    }
-
-    @JsonProperty
-    public String getOutputId()
-    {
-        return outputId;
     }
 
     @JsonProperty
@@ -65,7 +52,6 @@ public class ExchangePlanFragmentSource
     {
         return Objects.toStringHelper(this)
                 .add("sources", sources)
-                .add("outputId", outputId)
                 .add("tupleInfos", tupleInfos)
                 .toString();
     }

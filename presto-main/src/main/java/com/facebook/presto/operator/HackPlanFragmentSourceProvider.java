@@ -10,17 +10,13 @@ import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
 import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
-import com.google.common.base.Function;
 import io.airlift.http.client.AsyncHttpClient;
 
 import javax.annotation.concurrent.Immutable;
 import javax.inject.Inject;
-import java.net.URI;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Iterables.transform;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 
 @Immutable
 public class HackPlanFragmentSourceProvider
@@ -53,15 +49,7 @@ public class HackPlanFragmentSourceProvider
                     exchangeMaxBufferedPages,
                     exchangeExpectedPagesPerRequest,
                     exchangeConcurrentRequestMultiplier,
-                    transform(exchangeSource.getSources().values(),
-                            new Function<URI, URI>()
-                            {
-                                @Override
-                                public URI apply(URI location)
-                                {
-                                    return uriBuilderFrom(location).appendPath("results").appendPath(exchangeSource.getOutputId()).build();
-                                }
-                            }));
+                    exchangeSource.getSources());
         }
         else if (source instanceof TableScanPlanFragmentSource) {
             TableScanPlanFragmentSource tableScanSource = (TableScanPlanFragmentSource) source;
