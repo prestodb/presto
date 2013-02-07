@@ -12,6 +12,7 @@ import org.skife.jdbi.v2.VoidTransactionCallback;
 import org.skife.jdbi.v2.exceptions.UnableToObtainConnectionException;
 
 import javax.inject.Inject;
+
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -57,6 +58,12 @@ public class NativeMetadata
     public List<FunctionInfo> listFunctions()
     {
         return functions.list();
+    }
+
+    @Override
+    public List<String> listSchemaNames(String catalogName)
+    {
+        return dao.listSchemaNames(catalogName);
     }
 
     @Override

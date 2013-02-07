@@ -56,6 +56,14 @@ public class MetadataManager
     }
 
     @Override
+    public List<String> listSchemaNames(String catalogName)
+    {
+        checkCatalogName(catalogName);
+        DataSourceType dataSourceType = lookupDataSource(catalogName);
+        return lookup(dataSourceType).listSchemaNames(catalogName);
+    }
+
+    @Override
     public TableMetadata getTable(String catalogName, String schemaName, String tableName)
     {
         checkTableName(catalogName, schemaName, tableName);

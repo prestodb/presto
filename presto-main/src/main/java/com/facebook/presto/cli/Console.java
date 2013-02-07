@@ -1,8 +1,7 @@
 package com.facebook.presto.cli;
 
-import com.facebook.presto.cli.ClientOptions.OutputFormat;
-
 import com.facebook.presto.Main;
+import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.sql.parser.StatementSplitter;
 import com.google.common.base.Strings;
 import io.airlift.command.Command;
@@ -14,6 +13,7 @@ import jline.console.history.MemoryHistory;
 import org.fusesource.jansi.AnsiConsole;
 
 import javax.inject.Inject;
+
 import java.io.Closeable;
 import java.io.File;
 import java.io.Flushable;
@@ -163,11 +163,13 @@ public class Console
         return history;
     }
 
-    private static class LineReader
+    private class LineReader
             extends ConsoleReader
             implements Closeable
     {
         private boolean interrupted;
+
+        private final TableNameCompleter tableNameCompleter = new TableNameCompleter(clientOptions.toClientSession());
 
         private LineReader(History history)
                 throws IOException
@@ -177,6 +179,7 @@ public class Console
             setHandleUserInterrupt(true);
             setHistory(history);
             setHistoryEnabled(false);
+            addCompleter(tableNameCompleter);
         }
 
         @Override
@@ -203,6 +206,7 @@ public class Console
         public void close()
         {
             shutdown();
+            tableNameCompleter.close();
         }
 
         public boolean interrupted()
