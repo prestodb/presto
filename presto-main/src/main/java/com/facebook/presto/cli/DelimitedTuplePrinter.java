@@ -23,7 +23,7 @@ public class DelimitedTuplePrinter
     }
 
     @Override
-    public void processRow(List<Object> values)
+    public void processRow(List<?> values)
     {
         try {
             Joiner.on(delimiter)
