@@ -476,7 +476,7 @@ public final class TreeRewriter<C>
             }
 
             if (!sameElements(node.getArguments(), builder.build())) {
-                return new FunctionCall(node.getName(), node.isDistinct(), builder.build());
+                return new FunctionCall(node.getName(), node.getWindow().orNull(), node.isDistinct(), builder.build());
             }
 
             return node;
