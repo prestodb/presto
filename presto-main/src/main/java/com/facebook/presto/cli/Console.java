@@ -1,26 +1,22 @@
 package com.facebook.presto.cli;
 
-import com.facebook.presto.cli.ClientOptions.OutputFormat;
-
 import com.facebook.presto.Main;
+import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.sql.parser.StatementSplitter;
 import com.google.common.base.Strings;
 import io.airlift.command.Command;
-import jline.console.ConsoleReader;
-import jline.console.UserInterruptException;
 import jline.console.history.FileHistory;
-import jline.console.history.History;
 import jline.console.history.MemoryHistory;
 import org.fusesource.jansi.AnsiConsole;
 
 import javax.inject.Inject;
-import java.io.Closeable;
+
 import java.io.File;
-import java.io.Flushable;
 import java.io.IOException;
 
 import static com.facebook.presto.cli.Help.getHelpText;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
+import static com.google.common.io.Closeables.closeQuietly;
 import static jline.internal.Configuration.getUserHome;
 
 @Command(name = "console", description = "Interactive console")
@@ -56,7 +52,9 @@ public class Console
 
     private void runConsole(QueryRunner queryRunner)
     {
-        try (LineReader reader = new LineReader(getHistory())) {
+        TableNameCompleter tableNameCompleter = new TableNameCompleter(clientOptions.toClientSession());
+
+        try (LineReader reader = new LineReader(getHistory(), tableNameCompleter)) {
             StringBuilder buffer = new StringBuilder();
             while (true) {
                 // read a line of input from user
@@ -119,6 +117,9 @@ public class Console
         catch (IOException e) {
             System.err.println("Readline error: " + e.getMessage());
         }
+        finally {
+            closeQuietly(tableNameCompleter);
+        }
     }
 
     private void executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat)
@@ -163,51 +164,4 @@ public class Console
         return history;
     }
 
-    private static class LineReader
-            extends ConsoleReader
-            implements Closeable
-    {
-        private boolean interrupted;
-
-        private LineReader(History history)
-                throws IOException
-        {
-            setExpandEvents(false);
-            setBellEnabled(true);
-            setHandleUserInterrupt(true);
-            setHistory(history);
-            setHistoryEnabled(false);
-        }
-
-        @Override
-        public String readLine(String prompt, Character mask)
-                throws IOException
-        {
-            String line;
-            interrupted = false;
-            try {
-                line = super.readLine(prompt, mask);
-            }
-            catch (UserInterruptException e) {
-                interrupted = true;
-                return null;
-            }
-
-            if (getHistory() instanceof Flushable) {
-                ((Flushable) getHistory()).flush();
-            }
-            return line;
-        }
-
-        @Override
-        public void close()
-        {
-            shutdown();
-        }
-
-        public boolean interrupted()
-        {
-            return interrupted;
-        }
-    }
 }

@@ -28,6 +28,12 @@ public abstract class AbstractMetadata
     }
 
     @Override
+    public List<String> listSchemaNames(String catalogName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<QualifiedTableName> listTables(String catalogName)
     {
         throw new UnsupportedOperationException();

@@ -7,8 +7,10 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
@@ -40,6 +42,19 @@ public class TestingMetadata
     public List<FunctionInfo> listFunctions()
     {
         return functions.list();
+    }
+
+    @Override
+    public List<String> listSchemaNames(String catalogName)
+    {
+        List<QualifiedTableName> tables = listTables(catalogName);
+        Set<String> schemaNames = new HashSet<>();
+
+        for (QualifiedTableName qualifiedTableName : tables) {
+            schemaNames.add(qualifiedTableName.getSchemaName());
+        }
+
+        return ImmutableList.copyOf(schemaNames);
     }
 
     @Override

@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -74,6 +75,13 @@ public class ImportMetadata
             list.add(new QualifiedTableName(catalogName, schemaName, table));
         }
         return list.build();
+    }
+
+    @Override
+    public List<String> listSchemaNames(String catalogName)
+    {
+        ImportClient client = importClientManager.getClient(catalogName);
+        return getDatabaseNames(client);
     }
 
     @Override
@@ -160,7 +168,12 @@ public class ImportMetadata
             public List<String> call()
                     throws Exception
             {
-                return client.getTableNames(database);
+                try {
+                    return client.getTableNames(database);
+                }
+                catch (ObjectNotFoundException e) {
+                    return Collections.emptyList();
+                }
             }
         });
     }

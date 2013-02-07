@@ -14,6 +14,8 @@ public interface Metadata
 
     List<FunctionInfo> listFunctions();
 
+    List<String> listSchemaNames(String catalogName);
+
     TableMetadata getTable(String catalogName, String schemaName, String tableName);
 
     List<QualifiedTableName> listTables(String catalogName);
