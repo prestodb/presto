@@ -34,6 +34,7 @@ import com.facebook.presto.metadata.InformationSchemaMetadata;
 import com.facebook.presto.metadata.InternalMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.MetadataResource;
 import com.facebook.presto.metadata.NativeMetadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
@@ -53,6 +54,9 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
+import com.facebook.presto.sql.tree.Serialization.ExpressionSerializer;
+import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
@@ -73,9 +77,6 @@ import java.lang.annotation.Annotation;
 
 import static com.facebook.presto.server.ConditionalModule.installIfPropertyEquals;
 import static com.facebook.presto.server.DbiProvider.bindDbiToDataSource;
-import static com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
-import static com.facebook.presto.sql.tree.Serialization.ExpressionSerializer;
-import static com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.event.client.EventBinder.eventBinder;
@@ -117,6 +118,8 @@ public class ServerMainModule
 
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(NativeMetadata.class).in(Scopes.SINGLETON);
+
+        binder.bind(MetadataResource.class).in(Scopes.SINGLETON);
 
         binder.bind(InternalMetadata.class).in(Scopes.SINGLETON);
         binder.bind(InternalDataStreamProvider.class).in(Scopes.SINGLETON);
