@@ -35,7 +35,7 @@ public class OutputProcessor
 
     public abstract static class OutputHandler
     {
-        public abstract void processRow(List<Object> values);
+        public abstract void processRow(List<?> values);
 
         public void finish() {}
     }

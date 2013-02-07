@@ -22,7 +22,7 @@ public class AlignedTuplePrinter
     private static final int MAX_BUFFERED_ROWS = 10_000;
     private static final Splitter LINE_SPLITTER = Splitter.on('\n');
 
-    private final List<List<Object>> rowBuffer = new ArrayList<>(MAX_BUFFERED_ROWS);
+    private final List<List<? extends Object>> rowBuffer = new ArrayList<>(MAX_BUFFERED_ROWS);
     private final List<String> fieldNames;
     private final Writer writer;
     private boolean headerOutput;
@@ -35,7 +35,7 @@ public class AlignedTuplePrinter
     }
 
     @Override
-    public void processRow(List<Object> values)
+    public void processRow(List<?> values)
     {
         checkState(fieldNames.size() == values.size(), "field names size does not match row size");
         rowBuffer.add(values);
@@ -77,7 +77,7 @@ public class AlignedTuplePrinter
         for (int i = 0; i < columns; i++) {
             maxWidth[i] = max(1, fieldNames.get(i).length());
         }
-        for (List<Object> row : rowBuffer) {
+        for (List<?> row : rowBuffer) {
             for (int i = 0; i < row.size(); i++) {
                 String s = formatValue(row.get(i));
                 maxWidth[i] = max(maxWidth[i], maxLineLength(s));
@@ -105,7 +105,7 @@ public class AlignedTuplePrinter
             writer.append('\n');
         }
 
-        for (List<Object> row : rowBuffer) {
+        for (List<?> row : rowBuffer) {
             List<List<String>> columnLines = new ArrayList<>(columns);
             int maxLines = 1;
             for (int i = 0; i < columns; i++) {

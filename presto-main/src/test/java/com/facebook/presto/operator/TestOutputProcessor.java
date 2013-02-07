@@ -63,11 +63,11 @@ public class TestOutputProcessor
     private static class CollectingHandler
             extends OutputHandler
     {
-        private final List<List<Object>> rows = new ArrayList<>();
+        private final List<List<?>> rows = new ArrayList<>();
         private boolean finished;
 
         @Override
-        public void processRow(List<Object> values)
+        public void processRow(List<?> values)
         {
             rows.add(values);
         }
@@ -79,7 +79,7 @@ public class TestOutputProcessor
             finished = true;
         }
 
-        public List<List<Object>> getRows()
+        public List<List<?>> getRows()
         {
             checkState(finished, "not finished");
             return rows;
