@@ -1,11 +1,13 @@
 package com.facebook.presto.cli;
 
+import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.execution.ErrorLocation;
 import com.facebook.presto.execution.FailureInfo;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OutputProcessor.OutputHandler;
 import com.facebook.presto.server.HttpQueryClient;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
@@ -14,6 +16,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.fusesource.jansi.Ansi;
@@ -21,17 +24,25 @@ import sun.misc.Signal;
 import sun.misc.SignalHandler;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.cli.ClientOptions.OutputFormat.PAGED;
+
+import static com.facebook.presto.cli.ClientOptions.OutputFormat.TSV_HEADER;
+
+import static com.facebook.presto.cli.ClientOptions.OutputFormat.CSV_HEADER;
+
 import static com.facebook.presto.cli.StatusPrinter.REAL_TERMINAL;
-import static com.facebook.presto.operator.OutputProcessor.OutputHandler;
 import static com.facebook.presto.operator.OutputProcessor.processOutput;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Throwables.propagate;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -53,7 +64,7 @@ public class Query
         this.queryClient = checkNotNull(queryClient, "queryClient is null");
     }
 
-    public void renderOutput(PrintStream out)
+    public void renderOutput(PrintStream out, OutputFormat outputFormat)
     {
         SignalHandler oldHandler = Signal.handle(SIGINT, new SignalHandler()
         {
@@ -75,25 +86,54 @@ public class Query
             }
         });
         try {
-            renderQueryOutput(out);
+            renderQueryOutput(out, outputFormat);
         }
         finally {
             Signal.handle(SIGINT, oldHandler);
         }
     }
 
-    private void renderQueryOutput(PrintStream out)
+    private void renderQueryOutput(PrintStream out, OutputFormat outputFormat)
     {
-        StatusPrinter statusPrinter = new StatusPrinter(queryClient, out);
-        statusPrinter.printInitialStatusUpdates();
+        StatusPrinter statusPrinter = null;
+        @SuppressWarnings("resource")
+        PrintStream errorChannel = (outputFormat == PAGED) ? out : System.err;
+
+        if (outputFormat == PAGED) {
+            statusPrinter = new StatusPrinter(queryClient, out);
+            statusPrinter.printInitialStatusUpdates();
+        }
+        else {
+            // do the "wait for query ready" loop by hand....
+            while (true) {
+                try {
+                    QueryInfo queryInfo = queryClient.getQueryInfo(false);
+
+                    // if query is no longer running, finish
+                    if ((queryInfo == null) || queryInfo.getState().isDone()) {
+                        break;
+                    }
+
+                    // check if there is there is pending output
+                    if (queryInfo.resultsPending()) {
+                        break;
+                    }
+
+                    Uninterruptibles.sleepUninterruptibly(100, MILLISECONDS);
+                }
+                catch (Exception e) {
+                    throw propagate(e);
+                }
+            }
+        }
 
         QueryInfo queryInfo = queryClient.getQueryInfo(false);
         if (queryInfo == null) {
             if (queryClient.isCanceled()) {
-                out.println("Query aborted by user");
+                errorChannel.println("Query aborted by user");
             }
             else {
-                out.println("Query is gone (server restarted?)");
+                errorChannel.println("Query is gone (server restarted?)");
             }
             return;
         }
@@ -101,10 +141,10 @@ public class Query
         if (queryInfo.getState().isDone()) {
             switch (queryInfo.getState()) {
                 case CANCELED:
-                    out.printf("Query %s was canceled\n", queryInfo.getQueryId());
+                    errorChannel.printf("Query %s was canceled\n", queryInfo.getQueryId());
                     return;
                 case FAILED:
-                    renderFailure(queryInfo, out);
+                    renderFailure(queryInfo, errorChannel);
                     return;
             }
         }
@@ -112,17 +152,46 @@ public class Query
         Operator operator = queryClient.getResultsOperator();
         List<String> fieldNames = queryInfo.getFieldNames();
 
-        pageOutput(Pager.LESS, operator, fieldNames);
+        switch (outputFormat) {
+            case PAGED:
+                pageOutput(Pager.LESS, operator, fieldNames);
+                break;
+            default:
+                sendOutput(out, outputFormat, operator, fieldNames);
+                break;
+        }
 
         // print final info after the user exits from the pager
-        statusPrinter.printFinalInfo();
+        if (outputFormat == PAGED) {
+            statusPrinter.printFinalInfo();
+        }
     }
 
-    private void pageOutput(List<String> pagerCommand, Operator operator, List<String> fieldNames)
+    private void pageOutput(final List<String> pagerCommand, final Operator operator, final List<String> fieldNames)
     {
         // ignore the user pressing ctrl-C while in the pager
         ignoreUserInterrupt.set(true);
 
+        withKeepalive(new Callable<Void>() {
+
+            @Override
+            public Void call()
+                    throws Exception
+            {
+                try (Pager pager = Pager.create(pagerCommand)) {
+                    @SuppressWarnings("IOResourceOpenedButNotSafelyClosed")
+                    OutputStreamWriter writer = new OutputStreamWriter(pager, Charsets.UTF_8);
+                    OutputHandler outputHandler = new AlignedTuplePrinter(fieldNames, writer);
+                    processOutput(operator, outputHandler);
+                }
+                return null;
+            }
+
+        });
+    }
+
+    private <T> T withKeepalive(Callable<T> callable)
+    {
         // ping the server while reading data to keep the query alive
         ScheduledExecutorService executor = newSingleThreadScheduledExecutor();
         executor.scheduleAtFixedRate(new Runnable()
@@ -134,16 +203,51 @@ public class Query
             }
         }, 0, (long) PING_INTERVAL.toMillis(), MILLISECONDS);
 
-        // start pager as subprocess and write output to it
-        try (Pager pager = Pager.create(pagerCommand)) {
-            @SuppressWarnings("IOResourceOpenedButNotSafelyClosed")
-            OutputStreamWriter writer = new OutputStreamWriter(pager, Charsets.UTF_8);
-            OutputHandler outputHandler = new AlignedTuplePrinter(fieldNames, writer);
-            processOutput(operator, outputHandler);
+        try {
+            return callable.call();
+        }
+        catch (Exception e) {
+            throw propagate(e);
         }
         finally {
             executor.shutdown();
         }
+    }
+
+    private void sendOutput(final PrintStream out, final OutputFormat outputFormat, final Operator operator, final List<String> fieldNames)
+    {
+        withKeepalive(new Callable<Void> () {
+
+            @Override
+            public Void call()
+                    throws Exception
+            {
+                try (OutputStreamWriter osw = new OutputStreamWriter(out)) {
+                    OutputHandler handler;
+                    switch (outputFormat) {
+                        case CSV:
+                        case CSV_HEADER:
+                            handler = new CSVPrinter(osw, ',');
+                            break;
+                        case TSV:
+                        case TSV_HEADER:
+                            handler = new CSVPrinter(osw, '\t');
+                            break;
+                        default:
+                            throw new RuntimeException(outputFormat + " not supported.");
+                    }
+
+                    if (outputFormat == CSV_HEADER || outputFormat == TSV_HEADER) {
+                        // Add a line with the field names.
+                        handler.processRow(fieldNames);
+                    }
+
+                    processOutput(operator, handler);
+                    osw.flush();
+                }
+                return null;
+            }
+        });
     }
 
     @Override

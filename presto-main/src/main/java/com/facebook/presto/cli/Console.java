@@ -1,5 +1,7 @@
 package com.facebook.presto.cli;
 
+import com.facebook.presto.cli.ClientOptions.OutputFormat;
+
 import com.facebook.presto.Main;
 import com.facebook.presto.sql.parser.StatementSplitter;
 import com.google.common.base.Strings;
@@ -34,12 +36,21 @@ public class Console
     public void run()
     {
         ClientSession session = clientOptions.toClientSession();
+        boolean hasQuery = !Strings.isNullOrEmpty(clientOptions.execute);
 
-        AnsiConsole.systemInstall();
+        if (!hasQuery) {
+            AnsiConsole.systemInstall();
+        }
+
         Main.initializeLogging(session.isDebug());
 
         try (QueryRunner queryRunner = QueryRunner.create(session)) {
-            runConsole(queryRunner);
+            if (!hasQuery) {
+                runConsole(queryRunner);
+            }
+            else {
+                executeCommand(queryRunner, clientOptions.execute, clientOptions.outputFormat);
+            }
         }
     }
 
@@ -93,7 +104,7 @@ public class Console
                 // execute any complete statements
                 StatementSplitter splitter = new StatementSplitter(buffer.toString());
                 for (String sql : splitter.getCompleteStatements()) {
-                    process(queryRunner, sql);
+                    process(queryRunner, sql, OutputFormat.PAGED);
                     reader.getHistory().add(squeezeStatement(sql) + ";");
                 }
 
@@ -110,10 +121,18 @@ public class Console
         }
     }
 
-    private void process(QueryRunner queryRunner, String sql)
+    private void executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat)
+    {
+        StatementSplitter splitter = new StatementSplitter(query + ";");
+        for (String sql : splitter.getCompleteStatements()) {
+            process(queryRunner, sql, outputFormat);
+        }
+    }
+
+    private void process(QueryRunner queryRunner, String sql, OutputFormat outputFormat)
     {
         try (Query query = queryRunner.startQuery(sql)) {
-            query.renderOutput(System.out);
+            query.renderOutput(System.out, outputFormat);
         }
         catch (QueryAbortedException e) {
             System.out.println("(query aborted by user)");
