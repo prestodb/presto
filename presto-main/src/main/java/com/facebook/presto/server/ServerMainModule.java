@@ -3,6 +3,9 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.cron.CronJobResource;
+import com.facebook.presto.cron.CronManager;
+import com.facebook.presto.cron.ForCron;
 import com.facebook.presto.event.query.QueryCompletionEvent;
 import com.facebook.presto.event.query.QueryCreatedEvent;
 import com.facebook.presto.event.query.QueryMonitor;
@@ -53,6 +56,9 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
+import com.facebook.presto.sql.tree.Serialization.ExpressionSerializer;
+import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
@@ -73,9 +79,6 @@ import java.lang.annotation.Annotation;
 
 import static com.facebook.presto.server.ConditionalModule.installIfPropertyEquals;
 import static com.facebook.presto.server.DbiProvider.bindDbiToDataSource;
-import static com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
-import static com.facebook.presto.sql.tree.Serialization.ExpressionSerializer;
-import static com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.event.client.EventBinder.eventBinder;
@@ -169,12 +172,16 @@ public class ServerMainModule
             discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
         }
 
-        bindDataSource("presto-metastore", ForMetadata.class, ForShardManager.class);
+        bindDataSource("presto-metastore", ForMetadata.class, ForShardManager.class, ForCron.class);
 
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         binder.bind(ExecuteResource.class).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindAsyncHttpClient("execute", ExecuteResource.ForExecute.class);
+
+        // Job Scheduler code
+        binder.bind(CronJobResource.class).in(Scopes.SINGLETON);
+        binder.bind(CronManager.class).in(Scopes.SINGLETON);
     }
 
     @Provides
