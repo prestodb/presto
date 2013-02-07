@@ -1,5 +1,7 @@
 package com.facebook.presto.cli;
 
+import com.facebook.presto.cli.ClientOptions.OutputFormat;
+
 import com.facebook.presto.Main;
 import com.google.common.base.Throwables;
 import io.airlift.command.Command;
@@ -29,7 +31,7 @@ public class Execute
 
         try (QueryRunner queryRunner = QueryRunner.create(session)) {
             try (Query query = queryRunner.startQuery(queryText)) {
-                query.renderOutput(System.err);
+                query.renderOutput(System.err, OutputFormat.PAGED);
             }
             catch (QueryAbortedException e) {
                 System.err.println("Query aborted by user");
