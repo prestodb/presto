@@ -22,7 +22,7 @@ public class AlignedTuplePrinter
     private static final int MAX_BUFFERED_ROWS = 10_000;
     private static final Splitter LINE_SPLITTER = Splitter.on('\n');
 
-    private final List<List<? extends Object>> rowBuffer = new ArrayList<>(MAX_BUFFERED_ROWS);
+    private final List<List<?>> rowBuffer = new ArrayList<>(MAX_BUFFERED_ROWS);
     private final List<String> fieldNames;
     private final Writer writer;
     private boolean headerOutput;

@@ -24,7 +24,6 @@ import sun.misc.Signal;
 import sun.misc.SignalHandler;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.util.List;
@@ -33,12 +32,9 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.cli.ClientOptions.OutputFormat.PAGED;
-
-import static com.facebook.presto.cli.ClientOptions.OutputFormat.TSV_HEADER;
-
 import static com.facebook.presto.cli.ClientOptions.OutputFormat.CSV_HEADER;
-
+import static com.facebook.presto.cli.ClientOptions.OutputFormat.PAGED;
+import static com.facebook.presto.cli.ClientOptions.OutputFormat.TSV_HEADER;
 import static com.facebook.presto.cli.StatusPrinter.REAL_TERMINAL;
 import static com.facebook.presto.operator.OutputProcessor.processOutput;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -105,26 +101,7 @@ public class Query
         }
         else {
             // do the "wait for query ready" loop by hand....
-            while (true) {
-                try {
-                    QueryInfo queryInfo = queryClient.getQueryInfo(false);
-
-                    // if query is no longer running, finish
-                    if ((queryInfo == null) || queryInfo.getState().isDone()) {
-                        break;
-                    }
-
-                    // check if there is there is pending output
-                    if (queryInfo.resultsPending()) {
-                        break;
-                    }
-
-                    Uninterruptibles.sleepUninterruptibly(100, MILLISECONDS);
-                }
-                catch (Exception e) {
-                    throw propagate(e);
-                }
-            }
+            waitForResults();
         }
 
         QueryInfo queryInfo = queryClient.getQueryInfo(false);
@@ -161,9 +138,33 @@ public class Query
                 break;
         }
 
-        // print final info after the user exits from the pager
-        if (outputFormat == PAGED) {
+        if (statusPrinter != null) {
+            // print final info after the user exits from the pager
             statusPrinter.printFinalInfo();
+        }
+    }
+
+    private void waitForResults()
+    {
+        while (true) {
+            try {
+                QueryInfo queryInfo = queryClient.getQueryInfo(false);
+
+                // if query is no longer running, finish
+                if ((queryInfo == null) || queryInfo.getState().isDone()) {
+                    break;
+                }
+
+                // check if there is there is pending output
+                if (queryInfo.resultsPending()) {
+                    break;
+                }
+
+                Uninterruptibles.sleepUninterruptibly(100, MILLISECONDS);
+            }
+            catch (Exception e) {
+                throw propagate(e);
+            }
         }
     }
 
