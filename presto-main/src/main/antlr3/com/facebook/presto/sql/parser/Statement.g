@@ -340,7 +340,7 @@ specialFunction
     : CURRENT_DATE
     | CURRENT_TIME ('(' integer ')')?              -> ^(CURRENT_TIME integer?)
     | CURRENT_TIMESTAMP ('(' integer ')')?         -> ^(CURRENT_TIMESTAMP integer?)
-    | SUBSTRING '(' expr FROM expr (FOR expr)? ')' -> ^(FUNCTION_CALL SUBSTRING expr expr expr?)
+    | SUBSTRING '(' expr FROM expr (FOR expr)? ')' -> ^(FUNCTION_CALL ^(QNAME IDENT[$SUBSTRING]) expr expr expr?)
     | EXTRACT '(' extractFieldOrIdent FROM expr ')'-> ^(EXTRACT IDENT[$extractFieldOrIdent.text] expr)
     // handle function call-like syntax for extract
     | extractField '(' expr ')'                    -> ^(FUNCTION_CALL ^(QNAME IDENT[$extractField.text]) expr)

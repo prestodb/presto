@@ -1,7 +1,6 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
@@ -11,16 +10,6 @@ public class FunctionCall
     private final QualifiedName name;
     private final boolean distinct;
     private final List<Expression> arguments;
-
-    public FunctionCall(String name)
-    {
-        this(name, ImmutableList.<Expression>of());
-    }
-
-    public FunctionCall(String name, List<Expression> arguments)
-    {
-        this(new QualifiedName(name), arguments);
-    }
 
     public FunctionCall(QualifiedName name, List<Expression> arguments)
     {
