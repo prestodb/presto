@@ -247,7 +247,6 @@ decimal returns [String value]
 
 functionCall returns [FunctionCall value]
     : ^(FUNCTION_CALL n=qname d=distinct a=exprList) { $value = new FunctionCall($n.value, $d.value, $a.value); }
-    | ^(FUNCTION_CALL SUBSTRING a=exprList)          { $value = new FunctionCall("substr", $a.value); }
     ;
 
 extract returns [Extract value]

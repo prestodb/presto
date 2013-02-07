@@ -53,6 +53,6 @@ public class QueryUtil
 
     public static Expression functionCall(String name, Expression... arguments)
     {
-        return new FunctionCall(name, ImmutableList.copyOf(arguments));
+        return new FunctionCall(new QualifiedName(name), ImmutableList.copyOf(arguments));
     }
 }
