@@ -246,7 +246,33 @@ decimal returns [String value]
     ;
 
 functionCall returns [FunctionCall value]
-    : ^(FUNCTION_CALL n=qname d=distinct a=exprList) { $value = new FunctionCall($n.value, $d.value, $a.value); }
+    : ^(FUNCTION_CALL n=qname w=window? d=distinct a=exprList) { $value = new FunctionCall($n.value, $w.value, $d.value, $a.value); }
+    ;
+
+window returns [Window value]
+    : ^(WINDOW windowPartition? orderClause? windowFrame?)
+        { $value = new Window(
+            Objects.firstNonNull($windowPartition.value, ImmutableList.<Expression>of()),
+            Objects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
+            $windowFrame.value);
+        }
+    ;
+
+windowPartition returns [List<Expression> value = new ArrayList<>()]
+    : ^(PARTITION_BY exprList) { $value = $exprList.value; }
+    ;
+
+windowFrame returns [WindowFrame value]
+    : ^(RANGE s=frameBound e=frameBound?) { $value = new WindowFrame(WindowFrame.Type.RANGE, $s.value, $e.value); }
+    | ^(ROWS s=frameBound e=frameBound?)  { $value = new WindowFrame(WindowFrame.Type.ROWS, $s.value, $e.value); }
+    ;
+
+frameBound returns [FrameBound value]
+    : UNBOUNDED_PRECEDING { $value = new FrameBound(FrameBound.Type.UNBOUNDED_PRECEDING); }
+    | UNBOUNDED_FOLLOWING { $value = new FrameBound(FrameBound.Type.UNBOUNDED_FOLLOWING); }
+    | CURRENT_ROW         { $value = new FrameBound(FrameBound.Type.CURRENT_ROW); }
+    | ^(PRECEDING expr)   { $value = new FrameBound(FrameBound.Type.PRECEDING, $expr.value); }
+    | ^(FOLLOWING expr)   { $value = new FrameBound(FrameBound.Type.FOLLOWING, $expr.value); }
     ;
 
 extract returns [Extract value]

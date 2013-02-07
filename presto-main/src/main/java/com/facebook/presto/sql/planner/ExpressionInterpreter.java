@@ -577,7 +577,7 @@ public class ExpressionInterpreter
         FunctionInfo function = metadata.getFunction(node.getName(), Lists.transform(argumentTypes, Type.toRaw()));
         // do not optimize non-deterministic functions
         if (optimize && !function.isDeterministic()) {
-            return new FunctionCall(node.getName(), node.isDistinct(), toExpressions(argumentValues));
+            return new FunctionCall(node.getName(), node.getWindow().orNull(), node.isDistinct(), toExpressions(argumentValues));
         }
         MethodHandle handle = function.getScalarFunction();
         if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == Session.class) {

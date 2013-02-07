@@ -50,6 +50,11 @@ tokens {
     SIMPLE_CASE;
     SEARCHED_CASE;
     FUNCTION_CALL;
+    WINDOW;
+    PARTITION_BY;
+    UNBOUNDED_PRECEDING;
+    UNBOUNDED_FOLLOWING;
+    CURRENT_ROW;
     NEGATIVE;
     QNAME;
     SHOW_TABLES;
@@ -381,8 +386,37 @@ elseClause
     ;
 
 function
-    : qname '(' '*' ')'                         -> ^(FUNCTION_CALL qname)
-    | qname '(' setQuant? expr? (',' expr)* ')' -> ^(FUNCTION_CALL qname setQuant? expr*)
+    : qname '(' '*' ')' over?                         -> ^(FUNCTION_CALL qname over?)
+    | qname '(' setQuant? expr? (',' expr)* ')' over? -> ^(FUNCTION_CALL qname over? setQuant? expr*)
+    ;
+
+over
+    : OVER '(' window ')' -> window
+    ;
+
+window
+    : p=windowPartition? o=orderClause? f=windowFrame? -> ^(WINDOW $p? $o ?$f?)
+    ;
+
+windowPartition
+    : PARTITION BY expr (',' expr)* -> ^(PARTITION_BY expr+)
+    ;
+
+windowFrame
+    : RANGE frameBound                        -> ^(RANGE frameBound)
+    | ROWS frameBound                         -> ^(ROWS frameBound)
+    | RANGE BETWEEN frameBound AND frameBound -> ^(RANGE frameBound frameBound)
+    | ROWS BETWEEN frameBound AND frameBound  -> ^(ROWS frameBound frameBound)
+    ;
+
+frameBound
+    : UNBOUNDED PRECEDING -> UNBOUNDED_PRECEDING
+    | UNBOUNDED FOLLOWING -> UNBOUNDED_FOLLOWING
+    | CURRENT ROW         -> CURRENT_ROW
+    | expr
+      ( PRECEDING -> ^(PRECEDING expr)
+      | FOLLOWING -> ^(FOLLOWING expr)
+      )
     ;
 
 showTablesStmt
@@ -491,6 +525,7 @@ integer
 
 nonReserved
     : SHOW | TABLES | COLUMNS | PARTITIONS | FUNCTIONS
+    | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW
     ;
 
 SELECT: 'SELECT';
@@ -556,6 +591,15 @@ FULL: 'FULL';
 NATURAL: 'NATURAL';
 USING: 'USING';
 ON: 'ON';
+OVER: 'OVER';
+PARTITION: 'PARTITION';
+RANGE: 'RANGE';
+ROWS: 'ROWS';
+UNBOUNDED: 'UNBOUNDED';
+PRECEDING: 'PRECEDING';
+FOLLOWING: 'FOLLOWING';
+CURRENT: 'CURRENT';
+ROW: 'ROW';
 CREATE: 'CREATE';
 TABLE: 'TABLE';
 CHAR: 'CHAR';

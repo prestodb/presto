@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 
 import java.util.List;
 
@@ -8,17 +9,19 @@ public class FunctionCall
         extends Expression
 {
     private final QualifiedName name;
+    private final Optional<Window> window;
     private final boolean distinct;
     private final List<Expression> arguments;
 
     public FunctionCall(QualifiedName name, List<Expression> arguments)
     {
-        this(name, false, arguments);
+        this(name, null, false, arguments);
     }
 
-    public FunctionCall(QualifiedName name, boolean distinct, List<Expression> arguments)
+    public FunctionCall(QualifiedName name, Window window, boolean distinct, List<Expression> arguments)
     {
         this.name = name;
+        this.window = Optional.fromNullable(window);
         this.distinct = distinct;
         this.arguments = arguments;
     }
@@ -26,6 +29,11 @@ public class FunctionCall
     public QualifiedName getName()
     {
         return name;
+    }
+
+    public Optional<Window> getWindow()
+    {
+        return window;
     }
 
     public boolean isDistinct()
@@ -49,43 +57,31 @@ public class FunctionCall
     {
         return Objects.toStringHelper(this)
                 .add("name", name)
+                .add("window", window)
                 .add("distinct", distinct)
                 .add("arguments", arguments)
                 .toString();
     }
 
     @Override
-    public boolean equals(Object o)
+    public boolean equals(Object obj)
     {
-        if (this == o) {
+        if (this == obj) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-
-        FunctionCall that = (FunctionCall) o;
-
-        if (distinct != that.distinct) {
-            return false;
-        }
-        if (!arguments.equals(that.arguments)) {
-            return false;
-        }
-        if (!name.equals(that.name)) {
-            return false;
-        }
-
-        return true;
+        FunctionCall o = (FunctionCall) obj;
+        return Objects.equal(name, o.name) &&
+                Objects.equal(window, o.window) &&
+                Objects.equal(distinct, o.distinct) &&
+                Objects.equal(arguments, o.arguments);
     }
 
     @Override
     public int hashCode()
     {
-        int result = name.hashCode();
-        result = 31 * result + (distinct ? 1 : 0);
-        result = 31 * result + arguments.hashCode();
-        return result;
+        return Objects.hashCode(name, distinct, window, arguments);
     }
-
 }
