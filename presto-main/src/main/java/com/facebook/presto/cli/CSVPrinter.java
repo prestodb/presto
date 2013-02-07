@@ -14,7 +14,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class CSVPrinter
     extends OutputHandler
 {
-    public static final Function<Object, String> TO_STRING = new Function<Object, String>() {
+    private static final Function<Object, String> TO_STRING = new Function<Object, String>() {
         @Override
         public String apply(Object value) {
             return value == null ? "" : value.toString();
@@ -32,7 +32,7 @@ public class CSVPrinter
     public void processRow(List<?> values)
     {
         List<String> result = ImmutableList.copyOf(Lists.transform(values, TO_STRING));
-        writer.writeNext(result.toArray(new String [result.size()]));
+        writer.writeNext(result.toArray(new String[result.size()]));
         if (writer.checkError()) {
             throw new RuntimeException("CSV stream busted!");
         }
