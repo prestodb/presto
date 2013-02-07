@@ -24,6 +24,22 @@ public class ClientOptions
     @Option(name = "--debug", title = "debug")
     public boolean debug;
 
+    @Option(name = "--execute", title = "execute")
+    public String execute;
+
+    @Option(name = "--output-format", title = "output-format")
+    public OutputFormat outputFormat = OutputFormat.CSV;
+
+    public static enum OutputFormat
+    {
+        PAGED,
+        CSV,
+        TSV,
+        CSV_HEADER,
+        TSV_HEADER;
+
+    }
+
     public ClientSession toClientSession()
     {
         return new ClientSession(server, user, catalog, schema, debug);
