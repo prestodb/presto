@@ -15,8 +15,6 @@ import com.google.inject.Inject;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.ServiceType;
-import io.airlift.json.JsonCodec;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.MBeanExporter;
 
@@ -35,26 +33,18 @@ public class HiveImportClientFactory
         implements ImportClientFactory
 {
     private final ServiceSelector selector;
-    private final DataSize maxChunkSize;
-    private final int maxOutstandingChunks;
-    private final int maxChunkIteratorThreads;
-
+    private final HiveClientFactory hiveClientFactory;
     private final Cache<String, MetadataCache> metadataCaches;
     private final MBeanExporter mbeanExporter;
-    private final JsonCodec<HivePartitionChunk> partitionChunkCodec;
 
     @Inject
     public HiveImportClientFactory(@ServiceType("hive-metastore") ServiceSelector selector,
-            HiveClientConfig hiveClientConfig,
-            JsonCodec<HivePartitionChunk> partitionChunkCodec,
+            HiveClientFactory hiveClientFactory,
             MBeanExporter mbeanExporter)
     {
         this.selector = selector;
-        this.maxChunkSize = hiveClientConfig.getMaxChunkSize();
-        this.maxOutstandingChunks = hiveClientConfig.getMaxOutstandingChunks();
-        this.maxChunkIteratorThreads = hiveClientConfig.getMaxChunkIteratorThreads();
+        this.hiveClientFactory = hiveClientFactory;
         this.metadataCaches = CacheBuilder.newBuilder().build();
-        this.partitionChunkCodec = partitionChunkCodec;
         this.mbeanExporter = mbeanExporter;
     }
 
@@ -69,7 +59,7 @@ public class HiveImportClientFactory
         checkArgument(!metastoreName.isEmpty(), "bad metastore name: %s", metastoreName);
 
         HostAndPort metastore = getMetaStoreAddress(metastoreName);
-        HiveClient hiveClient = new HiveClient(metastore.getHostText(), metastore.getPort(), maxChunkSize.toBytes(), maxOutstandingChunks, maxChunkIteratorThreads, partitionChunkCodec);
+        HiveClient hiveClient = hiveClientFactory.get(metastore);
 
         MetadataCache metadataCache;
         try {
