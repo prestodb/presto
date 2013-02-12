@@ -26,15 +26,17 @@ public class MetadataManager
         implements Metadata
 {
     private final Map<DataSourceType, Metadata> metadataSourceMap;
+    private final CatalogRegistry catalogRegistry;
 
     @Inject
-    public MetadataManager(NativeMetadata nativeMetadata, InternalMetadata internalMetadata, ImportMetadata importMetadata)
+    public MetadataManager(NativeMetadata nativeMetadata, InternalMetadata internalMetadata, ImportMetadata importMetadata, CatalogRegistry catalogRegistry)
     {
         metadataSourceMap = ImmutableMap.<DataSourceType, Metadata>builder()
                 .put(DataSourceType.NATIVE, checkNotNull(nativeMetadata, "nativeMetadata is null"))
                 .put(DataSourceType.INTERNAL, checkNotNull(internalMetadata, "internalMetadata is null"))
                 .put(DataSourceType.IMPORT, checkNotNull(importMetadata, "importMetadata is null"))
                 .build();
+        this.catalogRegistry = catalogRegistry;
     }
 
     @Override
@@ -137,19 +139,19 @@ public class MetadataManager
         return ImmutableList.copyOf(concat(catalogColumns, informationSchemaColumns, systemColumns));
     }
 
-    private static DataSourceType lookupDataSource(String catalogName)
+    private DataSourceType lookupDataSource(String catalogName)
     {
         // use a schema name that won't match any real or special schemas
         return lookupDataSource(catalogName, "$dummy_schema$");
     }
 
-    private static DataSourceType lookupDataSource(String catalogName, String schemaName)
+    private DataSourceType lookupDataSource(String catalogName, String schemaName)
     {
         // use a table name that won't match any real or special tables
         return lookupDataSource(catalogName, schemaName, "$dummy_table$");
     }
 
-    private static DataSourceType lookupDataSource(String catalogName, String schemaName, String tableName)
+    private DataSourceType lookupDataSource(String catalogName, String schemaName, String tableName)
     {
         checkTableName(catalogName, schemaName, tableName);
 
@@ -161,17 +163,12 @@ public class MetadataManager
             return DataSourceType.INTERNAL;
         }
 
-        // TODO: use some sort of catalog registry for this
-        if (catalogName.equals("default")) {
-            return DataSourceType.NATIVE;
-        }
-        // TODO: hack to support presto installations supporting multiple hive dbs
-        if (catalogName.startsWith("hive_")) {
-            return DataSourceType.IMPORT;
-        }
+        DataSourceType catalogType = catalogRegistry.getCatalogType(catalogName);
 
         // TODO: need a proper way to report that catalog does not exist
-        throw new IllegalArgumentException("catalog does not exist: " + catalogName);
+        checkArgument(catalogType != null, "catalog does not exist: " + catalogName);
+
+        return catalogType;
     }
 
     private Metadata lookup(DataSourceType dataSourceType)

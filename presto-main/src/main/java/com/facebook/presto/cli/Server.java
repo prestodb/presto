@@ -4,6 +4,7 @@ import com.facebook.presto.event.scribe.client.ScribeClientModule;
 import com.facebook.presto.event.scribe.payload.ScribeEventModule;
 import com.facebook.presto.hive.HiveClientModule;
 import com.facebook.presto.server.ServerMainModule;
+import com.facebook.presto.thrift.PrestoThriftClientModule;
 import com.facebook.swift.codec.guice.ThriftCodecModule;
 import com.facebook.swift.service.guice.ThriftClientModule;
 import com.google.inject.Injector;
@@ -47,7 +48,9 @@ public class Server
                 new ThriftClientModule(),
                 new ScribeClientModule(),
                 new ScribeEventModule(),
+                new CatalogRegistryModule(),
                 new HiveClientModule(),
+                new PrestoThriftClientModule(),
                 new ServerMainModule());
 
         try {

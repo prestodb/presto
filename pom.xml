@@ -47,6 +47,8 @@
         <module>presto-hive</module>
         <module>presto-main</module>
         <module>presto-jdbc</module>
+        <module>presto-thrift</module>
+        <module>presto-thrift-spi</module>
     </modules>
 
     <build>
