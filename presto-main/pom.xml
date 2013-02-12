@@ -48,6 +48,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-prismhive</artifactId>
+            <version>0.2-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
             <!-- really only needed at compilation time -->
             <groupId>com.intellij</groupId>
             <artifactId>annotations</artifactId>

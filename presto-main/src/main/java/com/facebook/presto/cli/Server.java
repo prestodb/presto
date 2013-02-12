@@ -3,9 +3,11 @@ package com.facebook.presto.cli;
 import com.facebook.presto.event.scribe.client.ScribeClientModule;
 import com.facebook.presto.event.scribe.payload.ScribeEventModule;
 import com.facebook.presto.hive.HiveClientModule;
+import com.facebook.presto.hive.PrismHiveClientModule;
 import com.facebook.presto.server.ServerMainModule;
 import com.facebook.swift.codec.guice.ThriftCodecModule;
 import com.facebook.swift.service.guice.ThriftClientModule;
+import com.facebook.swift.smc.SmcClientModule;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.command.Command;
@@ -48,6 +50,8 @@ public class Server
                 new ScribeClientModule(),
                 new ScribeEventModule(),
                 new HiveClientModule(),
+                new PrismHiveClientModule(),
+                new SmcClientModule(),
                 new ServerMainModule());
 
         try {

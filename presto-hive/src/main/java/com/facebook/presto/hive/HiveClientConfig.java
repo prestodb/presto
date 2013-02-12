@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -18,6 +19,8 @@ public class HiveClientConfig
     private int maxOutstandingChunks = 10_000;
     private int maxChunkIteratorThreads = 50;
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
+    private HostAndPort metastoreSocksProxy;
+    private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
 
     @NotNull
     public DataSize getMaxChunkSize()
@@ -68,6 +71,31 @@ public class HiveClientConfig
     public HiveClientConfig setMetastoreCacheTtl(Duration metastoreCacheTtl)
     {
         this.metastoreCacheTtl = metastoreCacheTtl;
+        return this;
+    }
+
+    public HostAndPort getMetastoreSocksProxy()
+    {
+        return metastoreSocksProxy;
+    }
+
+    @Config("hive.metastore.thrift.client.socks-proxy")
+    public HiveClientConfig setMetastoreSocksProxy(HostAndPort metastoreSocksProxy)
+    {
+        this.metastoreSocksProxy = metastoreSocksProxy;
+        return this;
+    }
+
+    @NotNull
+    public Duration getMetastoreTimeout()
+    {
+        return metastoreTimeout;
+    }
+
+    @Config("hive.metastore-timeout")
+    public HiveClientConfig setMetastoreTimeout(Duration metastoreTimeout)
+    {
+        this.metastoreTimeout = metastoreTimeout;
         return this;
     }
 }

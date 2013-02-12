@@ -272,13 +272,19 @@ public class HiveClient
     @Override
     public RecordCursor getRecords(PartitionChunk partitionChunk)
     {
-        return HiveChunkReader.getRecords(partitionChunk);
+        checkArgument(partitionChunk instanceof HivePartitionChunk,
+                "expected instance of %s: %s", HivePartitionChunk.class, partitionChunk.getClass());
+        assert partitionChunk instanceof HivePartitionChunk; // IDEA-60343
+        return HiveChunkReader.getRecords((HivePartitionChunk) partitionChunk);
     }
 
     @Override
     public byte[] serializePartitionChunk(PartitionChunk partitionChunk)
     {
-        return hiveChunkEncoder.serialize(partitionChunk);
+        checkArgument(partitionChunk instanceof HivePartitionChunk,
+                "expected instance of %s: %s", HivePartitionChunk.class, partitionChunk.getClass());
+        assert partitionChunk instanceof HivePartitionChunk; // IDEA-60343
+        return hiveChunkEncoder.serialize((HivePartitionChunk) partitionChunk);
     }
 
     @Override

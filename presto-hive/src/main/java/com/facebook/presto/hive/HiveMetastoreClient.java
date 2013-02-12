@@ -14,7 +14,7 @@ class HiveMetastoreClient
 {
     private final TTransport transport;
 
-    private HiveMetastoreClient(TTransport transport)
+    HiveMetastoreClient(TTransport transport)
     {
         super(new TBinaryProtocol(transport));
         this.transport = transport;
@@ -26,17 +26,11 @@ class HiveMetastoreClient
         transport.close();
     }
 
-    public static HiveMetastoreClient create(String host, int port, int timeoutMillis)
-            throws TTransportException
-    {
-        TTransport transport = new TSocket(host, port, timeoutMillis);
-        transport.open();
-        return new HiveMetastoreClient(transport);
-    }
-
     public static HiveMetastoreClient create(String host, int port)
             throws TTransportException
     {
-        return create(host, port, 20 * 1000);
+        TSocket tSocket = new TSocket(host, port);
+        tSocket.open();
+        return new HiveMetastoreClient(tSocket);
     }
 }
