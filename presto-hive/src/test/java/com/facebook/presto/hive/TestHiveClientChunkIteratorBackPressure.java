@@ -14,6 +14,6 @@ public class TestHiveClientChunkIteratorBackPressure
             throws Exception
     {
         // Restrict the outstanding chunks to 1 and only use 2 threads per iterator
-        this.client = new CachingHiveClient(new DummyMetadataCache(), new HiveClient(host, port, 1024 * 1024 * 1024 /* 1 GB */, 1, 2, getHivePartitionChunkCodec()));
+        this.client = new CachingHiveClient(new DummyMetadataCache(), new HiveClient(host, port, 1024 * 1024 * 1024 /* 1 GB */, 1, 2, getHiveChunkEncoder()));
     }
 }
