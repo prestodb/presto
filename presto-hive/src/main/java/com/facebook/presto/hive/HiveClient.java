@@ -19,7 +19,6 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -36,6 +35,7 @@ import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.serde.Constants;
 import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
 import org.apache.hadoop.hive.serde2.Deserializer;
@@ -49,8 +49,10 @@ import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorUtils;
 import org.apache.hadoop.io.Writable;
+import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
+import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.mapred.Reporter;
@@ -82,6 +84,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Lists.transform;
 import static java.lang.Math.min;
 import static org.apache.hadoop.hive.metastore.api.Constants.FILE_INPUT_FORMAT;
+import static org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat.SymlinkTextInputSplit;
 
 @SuppressWarnings("deprecation")
 public class HiveClient
@@ -348,7 +351,7 @@ public class HiveClient
 
     private RecordReader<?, ?> createRecordReader(HivePartitionChunk chunk)
     {
-        InputFormat inputFormat = getInputFormat(chunk.getSchema());
+        InputFormat inputFormat = getInputFormat(chunk.getSchema(), true);
         FileSplit split = new FileSplit(chunk.getPath(), chunk.getStart(), chunk.getLength(), (String[]) null);
         JobConf jobConf = new JobConf(HADOOP_CONFIGURATION.get());
 
@@ -360,7 +363,7 @@ public class HiveClient
         }
     }
 
-    private static InputFormat getInputFormat(Properties schema)
+    private static InputFormat getInputFormat(Properties schema, boolean symlinkTarget)
     {
         String inputFormatName = getInputFormatName(schema);
         try {
@@ -372,10 +375,14 @@ public class HiveClient
                 // default file format in Hadoop is TextInputFormat
                 inputFormatClass = TextInputFormat.class;
             }
+            else if (symlinkTarget && (inputFormatClass == SymlinkTextInputFormat.class)) {
+                // symlink targets are always TextInputFormat
+                inputFormatClass = TextInputFormat.class;
+            }
             return ReflectionUtils.newInstance(inputFormatClass, jobConf);
         }
         catch (Exception e) {
-            throw new RuntimeException("Unable to create record reader for input format " + inputFormatName, e);
+            throw new RuntimeException("Unable to create input format " + inputFormatName, e);
         }
     }
 
@@ -528,8 +535,21 @@ public class HiveClient
                 for (Partition partition : partitions) {
                     final Properties schema = MetaStoreUtils.getSchema(partition, table);
                     final List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition);
-                    final InputFormat inputFormat = getInputFormat(schema);
+                    final InputFormat inputFormat = getInputFormat(schema, false);
                     Path partitionPath = new CachingPath(partition.getSd().getLocation());
+
+                    if (inputFormat instanceof SymlinkTextInputFormat) {
+                        JobConf jobConf = new JobConf(HADOOP_CONFIGURATION.get());
+                        FileInputFormat.setInputPaths(jobConf, partitionPath);
+                        InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
+                        for (InputSplit rawSplit : splits) {
+                            FileSplit split = ((SymlinkTextInputSplit) rawSplit).getTargetSplit();
+                            partitionChunkQueue.addToQueue(new HivePartitionChunk(
+                                    split.getPath(), split.getStart(), split.getLength(), schema, partitionKeys, columns));
+                        }
+                        continue;
+                    }
+
                     FileSystem fs = partitionPath.getFileSystem(HADOOP_CONFIGURATION.get());
 
                     futureBuilder.add(new AsyncRecursiveWalker(fs, suspendingExecutor).beginWalk(partitionPath, new FileStatusCallback()
