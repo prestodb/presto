@@ -25,6 +25,7 @@ public class HiveClientModule
         binder.bind(HiveClientFactory.class).in(Scopes.SINGLETON);
         newSetBinder(binder, ImportClientFactory.class).addBinding().to(HiveImportClientFactory.class);
         bindConfig(binder).to(HiveClientConfig.class);
+        binder.bind(HiveChunkEncoder.class).in(Scopes.SINGLETON);
         discoveryBinder(binder).bindSelector("hive-metastore");
 
         jsonBinder(binder).addSerializerBinding(Path.class).toInstance(ToStringSerializer.instance);

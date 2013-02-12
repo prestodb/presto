@@ -13,6 +13,6 @@ public class TestHiveClient
     public void setup(String host, int port)
             throws Exception
     {
-        this.client = new CachingHiveClient(new DummyMetadataCache(), new HiveClient(host, port, 1024 * 1024 * 1024 /* 1 GB */, 100, 50, getHivePartitionChunkCodec()));
+        this.client = new CachingHiveClient(new DummyMetadataCache(), new HiveClient(host, port, 1024 * 1024 * 1024 /* 1 GB */, 100, 50, getHiveChunkEncoder()));
     }
 }

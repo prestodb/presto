@@ -437,12 +437,12 @@ public abstract class AbstractTestHiveClient
         return map.build();
     }
 
-    protected JsonCodec<HivePartitionChunk> getHivePartitionChunkCodec()
+    protected HiveChunkEncoder getHiveChunkEncoder()
     {
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
         objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>of(Path.class, PathJsonDeserializer.INSTANCE));
         objectMapperProvider.setJsonSerializers(ImmutableMap.<Class<?>, JsonSerializer<?>>of(Path.class, ToStringSerializer.instance));
-        return new JsonCodecFactory(objectMapperProvider).jsonCodec(HivePartitionChunk.class);
+        return new HiveChunkEncoder(new JsonCodecFactory(objectMapperProvider).jsonCodec(HivePartitionChunk.class));
     }
 
     private static Function<SchemaField, String> nameGetter()
