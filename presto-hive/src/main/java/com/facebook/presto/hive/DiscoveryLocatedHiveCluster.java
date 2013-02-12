@@ -22,11 +22,13 @@ public class DiscoveryLocatedHiveCluster
         implements HiveCluster
 {
     private final ServiceSelector selector;
+    private final HiveMetastoreClientFactory clientFactory;
 
     @Inject
-    public DiscoveryLocatedHiveCluster(@ServiceType("hive-metastore") ServiceSelector selector)
+    public DiscoveryLocatedHiveCluster(@ServiceType("hive-metastore") ServiceSelector selector, HiveMetastoreClientFactory clientFactory)
     {
         this.selector = checkNotNull(selector, "selector is null");
+        this.clientFactory = checkNotNull(clientFactory, "clientFactory is null");
     }
 
     @Override
@@ -45,7 +47,7 @@ public class DiscoveryLocatedHiveCluster
                 try {
                     HostAndPort metastore = HostAndPort.fromString(thrift);
                     checkArgument(metastore.hasPort());
-                    return HiveMetastoreClient.create(metastore.getHostText(), metastore.getPort());
+                    return clientFactory.create(metastore.getHostText(), metastore.getPort());
                 }
                 catch (IllegalArgumentException ignored) {
                     // Ignore entries with parse issues

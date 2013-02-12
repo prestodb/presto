@@ -1,6 +1,5 @@
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaField;
 import com.google.common.base.Preconditions;
@@ -32,7 +31,6 @@ import static com.facebook.presto.hive.HiveColumn.indexGetter;
 import static com.facebook.presto.hive.HiveInputFormats.getInputFormat;
 import static com.facebook.presto.hive.HiveInputFormats.getInputFormatName;
 import static com.facebook.presto.hive.HiveTypes.getSupportedPrimitiveType;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Lists.transform;
 
@@ -42,13 +40,8 @@ class HiveChunkReader
     {
     }
 
-    static RecordCursor getRecords(PartitionChunk partitionChunk)
+    static RecordCursor getRecords(HivePartitionChunk chunk)
     {
-        checkArgument(partitionChunk instanceof HivePartitionChunk,
-                "expected instance of %s: %s", HivePartitionChunk.class, partitionChunk.getClass());
-        assert partitionChunk instanceof HivePartitionChunk; // // IDEA-60343
-        HivePartitionChunk chunk = (HivePartitionChunk) partitionChunk;
-
         try {
             // Clone schema since we modify it below
             Properties schema = (Properties) chunk.getSchema().clone();

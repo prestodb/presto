@@ -58,7 +58,7 @@ public class HiveClientFactory
     @PreDestroy
     public void stop()
     {
-        executorService.shutdown();
+        executorService.shutdownNow();
     }
 
     public HiveClient get(HiveCluster hiveCluster)

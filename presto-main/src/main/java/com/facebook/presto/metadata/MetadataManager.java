@@ -173,8 +173,7 @@ public class MetadataManager
         if (catalogName.equals("default")) {
             return DataSourceType.NATIVE;
         }
-        // TODO: hack to support presto installations supporting multiple hive dbs
-        if (catalogName.startsWith("hive_")) {
+        if (catalogName.equals("hive") || catalogName.equals("prism")) {
             return DataSourceType.IMPORT;
         }
 

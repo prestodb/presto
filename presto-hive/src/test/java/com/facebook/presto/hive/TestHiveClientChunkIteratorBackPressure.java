@@ -1,5 +1,7 @@
 package com.facebook.presto.hive;
 
+import com.google.common.util.concurrent.MoreExecutors;
+import io.airlift.units.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
@@ -14,6 +16,12 @@ public class TestHiveClientChunkIteratorBackPressure
             throws Exception
     {
         // Restrict the outstanding chunks to 1 and only use 2 threads per iterator
-        this.client = new CachingHiveClient(new DummyMetadataCache(), new HiveClient(host, port, 1024 * 1024 * 1024 /* 1 GB */, 1, 2, getHiveChunkEncoder()));
+        this.client = new HiveClient(
+                1024 * 1024 * 1024 /* 1 GB */,
+                1,
+                2,
+                getHiveChunkEncoder(),
+                new CachingHiveMetastore(new SimpleHiveCluster(host, port), Duration.valueOf("1m")),
+                MoreExecutors.sameThreadExecutor());
     }
 }

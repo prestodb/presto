@@ -5,6 +5,7 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.hive.HiveClientConfig;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.net.HostAndPort;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -23,7 +24,9 @@ public class TestHiveClientConfig
                 .setMaxChunkSize(new DataSize(1, Unit.GIGABYTE))
                 .setMaxOutstandingChunks(10_000)
                 .setMaxChunkIteratorThreads(50)
-                .setMetastoreCacheTtl(new Duration(1, TimeUnit.HOURS)));
+                .setMetastoreCacheTtl(new Duration(1, TimeUnit.HOURS))
+                .setMetastoreSocksProxy(null)
+                .setMetastoreTimeout(new Duration(10, TimeUnit.SECONDS)));
     }
 
     @Test
@@ -34,13 +37,17 @@ public class TestHiveClientConfig
                 .put("hive.max-outstanding-chunks", "10")
                 .put("hive.max-chunk-iterator-threads", "2")
                 .put("hive.metastore-cache-ttl", "2h")
+                .put("hive.metastore.thrift.client.socks-proxy", "localhost:1080")
+                .put("hive.metastore-timeout", "20s")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
                 .setMaxChunkSize(new DataSize(256, Unit.MEGABYTE))
                 .setMaxOutstandingChunks(10)
                 .setMaxChunkIteratorThreads(2)
-                .setMetastoreCacheTtl(new Duration(2, TimeUnit.HOURS));
+                .setMetastoreCacheTtl(new Duration(2, TimeUnit.HOURS))
+                .setMetastoreSocksProxy(HostAndPort.fromParts("localhost", 1080))
+                .setMetastoreTimeout(new Duration(20, TimeUnit.SECONDS));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

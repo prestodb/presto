@@ -6,6 +6,7 @@ import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
@@ -80,8 +81,8 @@ public class CachingHiveMetastore
         try {
             return cache.get(key, loader);
         }
-        catch (ExecutionException ee) {
-            Throwable t = ee.getCause();
+        catch (ExecutionException | UncheckedExecutionException e) {
+            Throwable t = e.getCause();
             Throwables.propagateIfInstanceOf(t, exceptionClass);
             throw Throwables.propagate(t);
         }
