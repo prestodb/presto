@@ -16,7 +16,6 @@ import java.io.IOException;
 
 import static com.facebook.presto.cli.Help.getHelpText;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
-import static com.google.common.io.Closeables.closeQuietly;
 import static jline.internal.Configuration.getUserHome;
 
 @Command(name = "console", description = "Interactive console")
@@ -52,9 +51,8 @@ public class Console
 
     private void runConsole(QueryRunner queryRunner)
     {
-        TableNameCompleter tableNameCompleter = new TableNameCompleter(clientOptions.toClientSession());
-
-        try (LineReader reader = new LineReader(getHistory(), tableNameCompleter)) {
+        try (TableNameCompleter tableNameCompleter = new TableNameCompleter(clientOptions.toClientSession());
+                LineReader reader = new LineReader(getHistory(), tableNameCompleter)) {
             StringBuilder buffer = new StringBuilder();
             while (true) {
                 // read a line of input from user
@@ -116,9 +114,6 @@ public class Console
         }
         catch (IOException e) {
             System.err.println("Readline error: " + e.getMessage());
-        }
-        finally {
-            closeQuietly(tableNameCompleter);
         }
     }
 
