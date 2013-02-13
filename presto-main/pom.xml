@@ -265,13 +265,13 @@
         <dependency>
             <groupId>com.facebook.swift</groupId>
             <artifactId>swift-codec</artifactId>
-            <version>0.1</version>
+            <version>0.4.0</version>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.swift</groupId>
             <artifactId>swift-service</artifactId>
-            <version>0.1</version>
+            <version>0.4.0</version>
         </dependency>
 
         <dependency>
