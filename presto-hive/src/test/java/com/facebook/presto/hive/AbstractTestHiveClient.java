@@ -44,7 +44,6 @@ public abstract class AbstractTestHiveClient
             "ds=2012-12-29/file_format=rcfile/dummy=1",
             "ds=2012-12-29/file_format=sequencefile/dummy=2",
             "ds=2012-12-29/file_format=textfile/dummy=3");
-    public static final String UNPARTITIONED_NAME = "<UNPARTITIONED>";
 
     protected ImportClient client;
 
@@ -123,7 +122,7 @@ public abstract class AbstractTestHiveClient
     {
         List<String> partitions = client.getPartitionNames(DATABASE, TABLE_UNPARTITIONED);
         assertEquals(partitions.size(), 1);
-        assertEquals(partitions, ImmutableList.of(UNPARTITIONED_NAME));
+        assertEquals(partitions, ImmutableList.of(UnpartitionedPartition.UNPARTITIONED_NAME));
     }
 
     @Test(expectedExceptions = ObjectNotFoundException.class)

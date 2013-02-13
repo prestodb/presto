@@ -23,6 +23,7 @@ public class HiveClientModule
     public void configure(Binder binder)
     {
         binder.bind(HiveClientFactory.class).in(Scopes.SINGLETON);
+        binder.bind(DiscoveryLocatedHiveCluster.class).in(Scopes.SINGLETON);
         newSetBinder(binder, ImportClientFactory.class).addBinding().to(HiveImportClientFactory.class);
         bindConfig(binder).to(HiveClientConfig.class);
         binder.bind(HiveChunkEncoder.class).in(Scopes.SINGLETON);

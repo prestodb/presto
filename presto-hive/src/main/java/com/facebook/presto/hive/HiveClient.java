@@ -50,6 +50,7 @@ import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -84,8 +85,6 @@ public class HiveClient
 {
     private static final int PARTITION_BATCH_SIZE = 1000;
 
-    private static final String UNPARTITIONED_NAME = "<UNPARTITIONED>";
-
     // TODO: consider injecting this static instance
     private static final ExecutorService HIVE_CLIENT_EXECUTOR = Executors.newCachedThreadPool(
             new ThreadFactoryBuilder()
@@ -94,21 +93,19 @@ public class HiveClient
                     .build()
     );
 
-    private final String metastoreHost;
-    private final int metastorePort;
     private final long maxChunkBytes;
     private final int maxOutstandingChunks;
     private final int maxChunkIteratorThreads;
     private final HiveChunkEncoder hiveChunkEncoder;
+    private final CachingHiveMetastore metastore;
 
-    public HiveClient(String metastoreHost, int metastorePort, long maxChunkBytes, int maxOutstandingChunks, int maxChunkIteratorThreads, HiveChunkEncoder hiveChunkEncoder)
+    public HiveClient(long maxChunkBytes, int maxOutstandingChunks, int maxChunkIteratorThreads, HiveChunkEncoder hiveChunkEncoder, CachingHiveMetastore metastore)
     {
-        this.metastoreHost = metastoreHost;
-        this.metastorePort = metastorePort;
         this.maxChunkBytes = maxChunkBytes;
         this.maxOutstandingChunks = maxOutstandingChunks;
         this.maxChunkIteratorThreads = maxChunkIteratorThreads;
         this.hiveChunkEncoder = hiveChunkEncoder;
+        this.metastore = metastore;
 
         HadoopNative.requireHadoopNative();
     }
@@ -116,31 +113,18 @@ public class HiveClient
     @Override
     public List<String> getDatabaseNames()
     {
-        try (HiveMetastoreClient metastore = getClient()) {
-            return metastore.get_all_databases();
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
+        return metastore.getAllDatabases();
     }
 
     @Override
     public List<String> getTableNames(String databaseName)
             throws ObjectNotFoundException
     {
-        try (HiveMetastoreClient metastore = getClient()) {
-            List<String> tables = metastore.get_all_tables(databaseName);
-            if (tables.isEmpty()) {
-                // Check to see if the database exists
-                metastore.get_database(databaseName);
-            }
-            return tables;
+        try {
+            return metastore.getAllTables(databaseName);
         }
         catch (NoSuchObjectException e) {
             throw new ObjectNotFoundException(e.getMessage());
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
         }
     }
 
@@ -148,8 +132,8 @@ public class HiveClient
     public List<SchemaField> getTableSchema(String databaseName, String tableName)
             throws ObjectNotFoundException
     {
-        try (HiveMetastoreClient metastore = getClient()) {
-            Table table = metastore.get_table(databaseName, tableName);
+        try {
+            Table table = metastore.getTable(databaseName, tableName);
             List<FieldSchema> partitionKeys = table.getPartitionKeys();
             Properties schema = MetaStoreUtils.getSchema(table);
             return getSchemaFields(schema, partitionKeys);
@@ -157,7 +141,7 @@ public class HiveClient
         catch (NoSuchObjectException e) {
             throw new ObjectNotFoundException(e.getMessage());
         }
-        catch (Exception e) {
+        catch (MetaException | SerDeException e) {
             throw Throwables.propagate(e);
         }
     }
@@ -166,8 +150,8 @@ public class HiveClient
     public List<SchemaField> getPartitionKeys(String databaseName, String tableName)
             throws ObjectNotFoundException
     {
-        try (HiveMetastoreClient metastore = getClient()) {
-            Table table = metastore.get_table(databaseName, tableName);
+        try {
+            Table table = metastore.getTable(databaseName, tableName);
             List<FieldSchema> partitionKeys = table.getPartitionKeys();
 
             ImmutableList.Builder<SchemaField> schemaFields = ImmutableList.builder();
@@ -184,29 +168,17 @@ public class HiveClient
         catch (NoSuchObjectException e) {
             throw new ObjectNotFoundException(e.getMessage());
         }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
     }
 
     @Override
     public List<String> getPartitionNames(String databaseName, String tableName)
             throws ObjectNotFoundException
     {
-        try (HiveMetastoreClient metastore = getClient()) {
-            List<String> partitionNames = metastore.get_partition_names(databaseName, tableName, (short) 0);
-            if (partitionNames.isEmpty()) {
-                // Check to see if the table exists
-                metastore.get_table(databaseName, tableName);
-                return ImmutableList.of(UNPARTITIONED_NAME);
-            }
-            return partitionNames;
+        try {
+            return metastore.getPartitionNames(databaseName, tableName);
         }
         catch (NoSuchObjectException e) {
             throw new ObjectNotFoundException(e.getMessage());
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
         }
     }
 
@@ -237,15 +209,12 @@ public class HiveClient
             partitions = getPartitions(databaseName, tableName);
         }
         else {
-            try (HiveMetastoreClient metastore = getClient()) {
-                List<String> names = metastore.get_partition_names_ps(databaseName, tableName, parts, (short) -1);
+            try {
+                List<String> names = metastore.getPartitionNamesByParts(databaseName, tableName, parts);
                 partitions = Lists.transform(names, toPartitionInfo(partitionKeys));
             }
             catch (NoSuchObjectException e) {
                 throw new ObjectNotFoundException(e.getMessage());
-            }
-            catch (Exception e) {
-                throw Throwables.propagate(e);
             }
         }
 
@@ -272,16 +241,35 @@ public class HiveClient
     public Iterable<PartitionChunk> getPartitionChunks(String databaseName, String tableName, List<String> partitionNames, List<String> columns)
             throws ObjectNotFoundException
     {
-        Table table = getTable(databaseName, tableName);
-
-        List<Partition> partitions = getPartitions(databaseName, tableName, partitionNames);
-
+        Table table;
+        List<Partition> partitions;
+        try {
+            table = metastore.getTable(databaseName, tableName);
+            partitions = getPartitions(databaseName, tableName, partitionNames);
+        }
+        catch (NoSuchObjectException e) {
+            throw new ObjectNotFoundException(e.getMessage());
+        }
 
         if (partitionNames.size() != partitions.size()) {
             throw new ObjectNotFoundException(format("expected %s partitions but found %s", partitionNames.size(), partitions.size()));
         }
 
         return getPartitionChunks(table, partitions, getHiveColumns(table, columns));
+    }
+
+    private List<Partition> getPartitions(String databaseName, String tableName, List<String> partitionNames)
+            throws NoSuchObjectException
+    {
+        if (partitionNames.equals(ImmutableList.of(UnpartitionedPartition.UNPARTITIONED_NAME))) {
+            return ImmutableList.<Partition>of(UnpartitionedPartition.INSTANCE);
+        }
+
+        ImmutableList.Builder<Partition> partitionsBuilder = ImmutableList.builder();
+        for (List<String> batchedPartitionNames : Lists.partition(partitionNames, PARTITION_BATCH_SIZE)) {
+            partitionsBuilder.addAll(metastore.getPartitionsByNames(databaseName, tableName, batchedPartitionNames));
+        }
+        return partitionsBuilder.build();
     }
 
     @Override
@@ -300,16 +288,6 @@ public class HiveClient
     public PartitionChunk deserializePartitionChunk(byte[] bytes)
     {
         return hiveChunkEncoder.deserialize(bytes);
-    }
-
-    private HiveMetastoreClient getClient()
-    {
-        try {
-            return HiveMetastoreClient.create(metastoreHost, metastorePort);
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
     }
 
     private static List<HiveColumn> getHiveColumns(Table table, List<String> columns)
@@ -349,42 +327,6 @@ public class HiveClient
             return hiveColumns.build();
         }
         catch (MetaException | SerDeException e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    private Table getTable(String databaseName, String tableName)
-            throws ObjectNotFoundException
-    {
-        try (HiveMetastoreClient metastore = getClient()) {
-            return metastore.get_table(databaseName, tableName);
-        }
-        catch (NoSuchObjectException e) {
-            throw new ObjectNotFoundException(e.getMessage());
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    private List<Partition> getPartitions(String databaseName, String tableName, List<String> partitionNames)
-            throws ObjectNotFoundException
-    {
-        if (partitionNames.equals(ImmutableList.of(UNPARTITIONED_NAME))) {
-            return ImmutableList.<Partition>of(UnpartitionedPartition.INSTANCE);
-        }
-
-        try (HiveMetastoreClient metastore = getClient()) {
-            ImmutableList.Builder<Partition> partitions = ImmutableList.builder();
-            for (List<String> batchedPartitionNames : Lists.partition(partitionNames, PARTITION_BATCH_SIZE)) {
-                partitions.addAll(metastore.get_partitions_by_names(databaseName, tableName, batchedPartitionNames));
-            }
-            return partitions.build();
-        }
-        catch (NoSuchObjectException e) {
-            throw new ObjectNotFoundException(e.getMessage());
-        }
-        catch (Exception e) {
             throw Throwables.propagate(e);
         }
     }
@@ -575,7 +517,7 @@ public class HiveClient
             method.setAccessible(true);
             return (boolean) method.invoke(inputFormat, fileSystem, path);
         }
-        catch (Exception e) {
+        catch (InvocationTargetException | IllegalAccessException e) {
             throw Throwables.propagate(e);
         }
     }
@@ -587,8 +529,8 @@ public class HiveClient
             @Override
             public PartitionInfo apply(String partitionName)
             {
-                if (partitionName.equals(UNPARTITIONED_NAME)) {
-                    return new PartitionInfo(UNPARTITIONED_NAME);
+                if (partitionName.equals(UnpartitionedPartition.UNPARTITIONED_NAME)) {
+                    return new PartitionInfo(UnpartitionedPartition.UNPARTITIONED_NAME);
                 }
 
                 try {
@@ -661,13 +603,6 @@ public class HiveClient
         }
 
         return schemaFields.build();
-    }
-
-    @SuppressWarnings("CloneableClassWithoutClone")
-    private static class UnpartitionedPartition
-            extends Partition
-    {
-        public static final UnpartitionedPartition INSTANCE = new UnpartitionedPartition();
     }
 
     private static List<HivePartitionKey> getPartitionKeys(Table table, Partition partition)

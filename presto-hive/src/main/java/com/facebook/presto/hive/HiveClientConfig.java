@@ -6,15 +6,18 @@ package com.facebook.presto.hive;
 import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import io.airlift.units.Duration;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
+import java.util.concurrent.TimeUnit;
 
 public class HiveClientConfig
 {
     private DataSize maxChunkSize = new DataSize(1, Unit.GIGABYTE);
     private int maxOutstandingChunks = 10_000;
     private int maxChunkIteratorThreads = 50;
+    private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
 
     @NotNull
     public DataSize getMaxChunkSize()
@@ -52,6 +55,19 @@ public class HiveClientConfig
     public HiveClientConfig setMaxChunkIteratorThreads(int maxChunkIteratorThreads)
     {
         this.maxChunkIteratorThreads = maxChunkIteratorThreads;
+        return this;
+    }
+
+    @NotNull
+    public Duration getMetastoreCacheTtl()
+    {
+        return metastoreCacheTtl;
+    }
+
+    @Config("hive.metastore-cache-ttl")
+    public HiveClientConfig setMetastoreCacheTtl(Duration metastoreCacheTtl)
+    {
+        this.metastoreCacheTtl = metastoreCacheTtl;
         return this;
     }
 }
