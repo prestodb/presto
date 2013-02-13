@@ -57,7 +57,7 @@ public interface MetadataDao
             @Bind("catalogName") String catalogName,
             @Bind("schemaName") String schemaName);
 
-    @SqlQuery("SELECT DISTINCT(schema_name) from tables\n" +
+    @SqlQuery("SELECT DISTINCT schema_name FROM tables\n" +
             "WHERE catalog_name = :catalogName\n")
     List<String> listSchemaNames(@Bind("catalogName") String catalogName);
 
