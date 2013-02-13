@@ -1,10 +1,10 @@
 package com.facebook.presto.hive;
 
-import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
 import com.facebook.presto.hive.shaded.org.apache.thrift.protocol.TBinaryProtocol;
 import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TSocket;
 import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransport;
 import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransportException;
+import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
 
 import java.io.Closeable;
 
