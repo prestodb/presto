@@ -23,7 +23,6 @@ import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -60,8 +59,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -85,27 +82,27 @@ public class HiveClient
 {
     private static final int PARTITION_BATCH_SIZE = 1000;
 
-    // TODO: consider injecting this static instance
-    private static final ExecutorService HIVE_CLIENT_EXECUTOR = Executors.newCachedThreadPool(
-            new ThreadFactoryBuilder()
-                    .setNameFormat("hive-client-%d")
-                    .setDaemon(true)
-                    .build()
-    );
-
     private final long maxChunkBytes;
     private final int maxOutstandingChunks;
     private final int maxChunkIteratorThreads;
     private final HiveChunkEncoder hiveChunkEncoder;
     private final CachingHiveMetastore metastore;
+    private final Executor executor;
 
-    public HiveClient(long maxChunkBytes, int maxOutstandingChunks, int maxChunkIteratorThreads, HiveChunkEncoder hiveChunkEncoder, CachingHiveMetastore metastore)
+    public HiveClient(
+            long maxChunkBytes,
+            int maxOutstandingChunks,
+            int maxChunkIteratorThreads,
+            HiveChunkEncoder hiveChunkEncoder,
+            CachingHiveMetastore metastore,
+            Executor executor)
     {
         this.maxChunkBytes = maxChunkBytes;
         this.maxOutstandingChunks = maxOutstandingChunks;
         this.maxChunkIteratorThreads = maxChunkIteratorThreads;
         this.hiveChunkEncoder = hiveChunkEncoder;
         this.metastore = metastore;
+        this.executor = executor;
 
         HadoopNative.requireHadoopNative();
     }
@@ -333,7 +330,7 @@ public class HiveClient
 
     private Iterable<PartitionChunk> getPartitionChunks(Table table, List<Partition> partitions, List<HiveColumn> columns)
     {
-        return new PartitionChunkIterable(table, partitions, columns, maxChunkBytes, maxOutstandingChunks, maxChunkIteratorThreads, HIVE_CLIENT_EXECUTOR);
+        return new PartitionChunkIterable(table, partitions, columns, maxChunkBytes, maxOutstandingChunks, maxChunkIteratorThreads, executor);
     }
 
     private static class PartitionChunkIterable

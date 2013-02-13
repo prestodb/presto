@@ -3,11 +3,15 @@ package com.facebook.presto.hive;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
+import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -19,6 +23,10 @@ public class HiveClientFactory
     private final int maxChunkIteratorThreads;
     private final HiveChunkEncoder hiveChunkEncoder;
     private final LoadingCache<HiveCluster, CachingHiveMetastore> metastores;
+    private final ExecutorService executorService = Executors.newCachedThreadPool(
+            new ThreadFactoryBuilder()
+                    .setNameFormat("hive-client-%d")
+                    .build());
 
     @Inject
     public HiveClientFactory(
@@ -47,9 +55,15 @@ public class HiveClientFactory
                 });
     }
 
+    @PreDestroy
+    public void stop()
+    {
+        executorService.shutdown();
+    }
+
     public HiveClient get(HiveCluster hiveCluster)
     {
         CachingHiveMetastore metastore = metastores.getUnchecked(hiveCluster);
-        return new HiveClient(maxChunkSize.toBytes(), maxOutstandingChunks, maxChunkIteratorThreads, hiveChunkEncoder, metastore);
+        return new HiveClient(maxChunkSize.toBytes(), maxOutstandingChunks, maxChunkIteratorThreads, hiveChunkEncoder, metastore, executorService);
     }
 }
