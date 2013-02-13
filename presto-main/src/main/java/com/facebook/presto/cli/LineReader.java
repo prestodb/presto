@@ -2,6 +2,7 @@ package com.facebook.presto.cli;
 
 import jline.console.ConsoleReader;
 import jline.console.UserInterruptException;
+import jline.console.completer.Completer;
 import jline.console.history.History;
 
 import java.io.Closeable;
@@ -15,7 +16,7 @@ public class LineReader
     private boolean interrupted;
 
     LineReader(History history,
-            TableNameCompleter tableNameCompleter)
+            Completer completer)
             throws IOException
     {
         setExpandEvents(false);
@@ -23,7 +24,7 @@ public class LineReader
         setHandleUserInterrupt(true);
         setHistory(history);
         setHistoryEnabled(false);
-        addCompleter(tableNameCompleter);
+        addCompleter(completer);
     }
 
     @Override
