@@ -4,6 +4,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.testng.Assert;
 
 import java.util.concurrent.Callable;
@@ -18,7 +19,7 @@ public final class CancelTester
     {
     }
 
-    private static final ExecutorService executor = Executors.newCachedThreadPool();
+    private static final ExecutorService executor = Executors.newCachedThreadPool(new ThreadFactoryBuilder().setDaemon(true).build());
 
     public static BlockingOperator createCancelableDataSource(TupleInfo... tupleInfos)
     {

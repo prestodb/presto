@@ -43,7 +43,7 @@ public class NodeWorkerQueue
     @PreDestroy
     public void stop()
     {
-        nodeRefreshExecutor.shutdown();
+        nodeRefreshExecutor.shutdownNow();
     }
 
     public Node acquireNodeWorker()
