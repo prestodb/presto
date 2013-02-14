@@ -37,12 +37,14 @@ public abstract class AbstractTestHiveClient
     public static final String DATABASE = "default";
     public static final String INVALID_DATABASE = "totally_invalid_database";
     public static final String TABLE = "presto_test";
+    public static final String TABLE_UNPARTITIONED = "presto_test_unpartitioned";
     public static final String INVALID_TABLE = "totally_invalid_table_name";
     public static final String INVALID_COLUMN = "totally_invalid_column_name";
     public static final List<String> PARTITIONS = ImmutableList.of(
             "ds=2012-12-29/file_format=rcfile/dummy=1",
             "ds=2012-12-29/file_format=sequencefile/dummy=2",
             "ds=2012-12-29/file_format=textfile/dummy=3");
+    public static final String UNPARTITIONED_NAME = "<UNPARTITIONED>";
 
     protected ImportClient client;
 
@@ -115,6 +117,15 @@ public abstract class AbstractTestHiveClient
         assertEquals(new HashSet<>(partitions), new HashSet<>(PARTITIONS));
     }
 
+    @Test
+    public void testGetPartitionNamesUnpartitioned()
+            throws Exception
+    {
+        List<String> partitions = client.getPartitionNames(DATABASE, TABLE_UNPARTITIONED);
+        assertEquals(partitions.size(), 1);
+        assertEquals(partitions, ImmutableList.of(UNPARTITIONED_NAME));
+    }
+
     @Test(expectedExceptions = ObjectNotFoundException.class)
     public void testGetPartitionNamesException()
             throws Exception
@@ -146,6 +157,17 @@ public abstract class AbstractTestHiveClient
         assertPrimitiveField(map, "dummy", Type.LONG);
     }
 
+    @Test
+    public void testGetTableSchemaUnpartitioned()
+            throws Exception
+    {
+        List<SchemaField> schema = client.getTableSchema(DATABASE, TABLE_UNPARTITIONED);
+        Map<String, SchemaField> map = schemaFieldMap(schema);
+
+        assertPrimitiveField(map, "t_string", Type.STRING);
+        assertPrimitiveField(map, "t_tinyint", Type.LONG);
+    }
+
     @Test(expectedExceptions = ObjectNotFoundException.class)
     public void testGetTableSchemaException()
             throws Exception
@@ -162,6 +184,17 @@ public abstract class AbstractTestHiveClient
 
         List<PartitionChunk> chunks = ImmutableList.copyOf(iterator);
         assertEquals(chunks.size(), 3);
+    }
+
+    @Test
+    public void testGetPartitionChunksBatchUnpartitioned()
+            throws Exception
+    {
+        List<String> partitions = client.getPartitionNames(DATABASE, TABLE_UNPARTITIONED);
+        Iterable<PartitionChunk> iterator = client.getPartitionChunks(DATABASE, TABLE_UNPARTITIONED, partitions, ImmutableList.<String>of());
+
+        List<PartitionChunk> chunks = ImmutableList.copyOf(iterator);
+        assertEquals(chunks.size(), 1);
     }
 
     @Test(expectedExceptions = ObjectNotFoundException.class)
@@ -215,7 +248,7 @@ public abstract class AbstractTestHiveClient
             try (RecordCursor cursor = client.getRecords(chunk)) {
                 assertEquals(cursor.getTotalBytes(), chunk.getLength());
 
-                while (cursor.advanceNextPosition() && (rowNumber < 100)) {
+                while (cursor.advanceNextPosition()) {
                     try {
                         assertReadFields(cursor, schema);
                     }
@@ -292,13 +325,54 @@ public abstract class AbstractTestHiveClient
 
             long rowNumber = 0;
             try (RecordCursor cursor = client.getRecords(chunk)) {
-                while (cursor.advanceNextPosition() && (rowNumber < 100)) {
+                while (cursor.advanceNextPosition()) {
                     rowNumber++;
 
                     assertEquals(cursor.getDouble(map.get("t_double").getFieldId()), baseValue + 6.2 + rowNumber);
                     assertEquals(cursor.getString(map.get("ds").getFieldId()), ds.getBytes(Charsets.UTF_8));
                     assertEquals(cursor.getString(map.get("file_format").getFieldId()), fileType.getBytes(Charsets.UTF_8));
                     assertEquals(cursor.getLong(map.get("dummy").getFieldId()), dummy);
+                }
+            }
+            assertEquals(rowNumber, 100);
+        }
+    }
+
+    @Test
+    public void testGetRecordsUnpartitioned()
+            throws Exception
+    {
+        List<SchemaField> schema = client.getTableSchema(DATABASE, TABLE_UNPARTITIONED);
+        List<String> partitionNames = client.getPartitionNames(DATABASE, TABLE_UNPARTITIONED);
+        List<String> columns = Lists.transform(schema, nameGetter());
+        List<PartitionChunk> partitions = ImmutableList.copyOf(client.getPartitionChunks(DATABASE, TABLE_UNPARTITIONED, partitionNames, columns));
+        assertEquals(partitions.size(), 1);
+
+        for (PartitionChunk partitionChunk : partitions) {
+            HivePartitionChunk chunk = (HivePartitionChunk) partitionChunk;
+
+            byte[] bytes = client.serializePartitionChunk(chunk);
+            chunk = (HivePartitionChunk) client.deserializePartitionChunk(bytes);
+
+            Map<String, SchemaField> map = schemaFieldMap(schema);
+
+            assertEquals(chunk.getPartitionKeys(), ImmutableList.of());
+
+            long rowNumber = 0;
+            try (RecordCursor cursor = client.getRecords(chunk)) {
+                assertEquals(cursor.getTotalBytes(), chunk.getLength());
+
+                while (cursor.advanceNextPosition()) {
+                    rowNumber++;
+
+                    if (rowNumber % 19 == 0) {
+                        assertTrue(cursor.isNull(map.get("t_string").getFieldId()));
+                    }
+                    else {
+                        assertEquals(cursor.getString(map.get("t_string").getFieldId()), "unpartitioned".getBytes(Charsets.UTF_8));
+                    }
+
+                    assertEquals(cursor.getLong(map.get("t_tinyint").getFieldId()), 1 + rowNumber);
                 }
             }
             assertEquals(rowNumber, 100);

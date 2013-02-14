@@ -17,6 +17,14 @@ PARTITIONED BY (ds STRING, file_format STRING, dummy INT)
 TBLPROPERTIES('RETENTION'='-1')
 ;
 
+CREATE TABLE presto_test_unpartitioned (
+  t_string STRING,
+  t_tinyint TINYINT
+)
+COMMENT 'Presto test data'
+TBLPROPERTIES('RETENTION'='-1')
+;
+
 DROP TABLE IF EXISTS tmp_presto_test;
 CREATE TABLE tmp_presto_test AS
 SELECT fb_number_rows() n FROM src LIMIT 100;
@@ -76,6 +84,12 @@ SELECT
 , CASE WHEN n % 17 = 0 THEN NULL ELSE '2011-05-06 07:08:09.1234567' END
 , CASE WHEN n % 23 = 0 THEN NULL ELSE CAST('textfile test' AS BINARY) END
 , array('textfile', 'test', 'data')
+FROM tmp_presto_test LIMIT 100;
+
+INSERT INTO TABLE presto_test_unpartitioned
+SELECT
+  CASE WHEN n % 19 = 0 THEN NULL ELSE 'unpartitioned' END
+, 1 + n
 FROM tmp_presto_test LIMIT 100;
 
 DROP TABLE tmp_presto_test;
