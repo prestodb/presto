@@ -7,16 +7,15 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.http.client.ApacheAsyncHttpClient;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
+import io.airlift.http.client.netty.NettyAsyncHttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
-
 import java.io.Closeable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -40,7 +39,7 @@ public class QueryRunner
     {
         this.session = checkNotNull(session, "session is null");
         this.queryInfoCodec = checkNotNull(queryInfoCodec, "queryInfoCodec is null");
-        this.httpClient = new ApacheAsyncHttpClient(new HttpClientConfig()
+        this.httpClient = new NettyAsyncHttpClient(new HttpClientConfig()
                 .setConnectTimeout(new Duration(1, TimeUnit.DAYS))
                 .setReadTimeout(new Duration(10, TimeUnit.DAYS)));
     }

@@ -60,9 +60,9 @@ import io.airlift.discovery.client.CachingServiceSelector;
 import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.event.client.InMemoryEventModule;
-import io.airlift.http.client.ApacheAsyncHttpClient;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
+import io.airlift.http.client.netty.NettyAsyncHttpClient;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
@@ -167,7 +167,7 @@ public class TestDistributedQueries
             throw e;
         }
 
-        this.httpClient = new ApacheAsyncHttpClient(new HttpClientConfig()
+        this.httpClient = new NettyAsyncHttpClient(new HttpClientConfig()
                 .setConnectTimeout(new Duration(1, TimeUnit.DAYS))
                 .setReadTimeout(new Duration(10, TimeUnit.DAYS)));
 
