@@ -181,6 +181,9 @@ public class ServerMainModule
         httpClientBinder(binder).bindAsyncHttpClient("execute", ExecuteResource.ForExecute.class);
 
         binder.install(new TableHandleModule());
+
+        binder.bind(PluginManager.class).in(Scopes.SINGLETON);
+        bindConfig(binder).to(PluginManagerConfig.class);
     }
 
     @Provides

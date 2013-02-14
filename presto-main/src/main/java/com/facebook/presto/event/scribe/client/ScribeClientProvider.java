@@ -2,6 +2,7 @@ package com.facebook.presto.event.scribe.client;
 
 import com.facebook.nifty.client.FramedClientConnector;
 import com.facebook.swift.service.ThriftClient;
+import com.facebook.swift.service.ThriftClientManager;
 import com.google.common.base.Predicate;
 import com.google.common.net.HostAndPort;
 import com.google.inject.Inject;
@@ -11,7 +12,9 @@ import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.ServiceState;
 import io.airlift.discovery.client.ServiceType;
 
+import javax.annotation.PreDestroy;
 import javax.inject.Provider;
+import java.io.Closeable;
 import java.util.Collection;
 import java.util.concurrent.ExecutionException;
 
@@ -22,19 +25,30 @@ import static com.google.common.collect.Collections2.filter;
 import static java.lang.String.format;
 
 public class ScribeClientProvider
-        implements Provider<ScribeClient>
+        implements Provider<ScribeClient>, Closeable
 {
     private final ThriftClient<ScribeClient> thriftClient;
     private final ServiceSelector selector;
+    private final ThriftClientManager thriftClientManager;
 
     @Inject
     public ScribeClientProvider(
             ThriftClient<ScribeClient> thriftClient,
-            @ServiceType("scribe") ServiceSelector serviceSelector
+            @ServiceType("scribe") ServiceSelector serviceSelector,
+            ThriftClientManager thriftClientManager
     )
     {
         this.thriftClient = checkNotNull(thriftClient, "thriftClient is null");
         this.selector = checkNotNull(serviceSelector, "serviceSelector is null");
+        this.thriftClientManager = thriftClientManager;
+    }
+
+    @PreDestroy
+    @Override
+    public void close()
+    {
+        // todo: remove this when swift shutdown is fixed
+        thriftClientManager.close();
     }
 
     @Override

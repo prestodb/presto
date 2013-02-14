@@ -48,6 +48,7 @@
         <module>presto-main</module>
         <module>presto-jdbc</module>
         <module>presto-prism</module>
+        <module>presto-server</module>
     </modules>
 
     <build>
