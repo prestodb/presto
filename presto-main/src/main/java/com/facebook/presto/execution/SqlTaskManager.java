@@ -21,6 +21,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 import java.net.URI;
 import java.util.List;
@@ -49,6 +50,7 @@ public class SqlTaskManager
 
     private final ExecutorService taskExecutor;
     private final FairBatchExecutor shardExecutor;
+    private final ScheduledExecutorService taskManagementExecutor;
     private final Metadata metadata;
     private final PlanFragmentSourceProvider sourceProvider;
     private final HttpServerInfo httpServerInfo;
@@ -83,7 +85,7 @@ public class SqlTaskManager
 
         shardExecutor = new FairBatchExecutor(config.getMaxShardProcessorThreads(), threadsNamed("shard-processor-%d"));
 
-        ScheduledExecutorService taskManagementExecutor = Executors.newScheduledThreadPool(100, threadsNamed("task-management-%d"));
+        taskManagementExecutor = Executors.newScheduledThreadPool(100, threadsNamed("task-management-%d"));
         taskManagementExecutor.scheduleAtFixedRate(new Runnable()
         {
             @Override
@@ -103,6 +105,14 @@ public class SqlTaskManager
                 }
             }
         }, 200, 200, TimeUnit.MILLISECONDS);
+    }
+
+    @PreDestroy
+    public void stop()
+    {
+        taskExecutor.shutdownNow();
+        shardExecutor.shutdown();
+        taskManagementExecutor.shutdownNow();
     }
 
     @Override

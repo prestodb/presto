@@ -67,9 +67,9 @@ public class AsyncScribeLogger
     {
         if (future != null) {
             future.cancel(true);
-            executorService.shutdownNow();
             future = null;
         }
+        executorService.shutdownNow();
     }
 
     public void log(LogEntry logEntry)
