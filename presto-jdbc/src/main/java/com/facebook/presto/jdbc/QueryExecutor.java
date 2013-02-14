@@ -9,10 +9,11 @@ import com.facebook.presto.sql.tree.Serialization;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.http.client.ApacheAsyncHttpClient;
 import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.http.client.AsyncHttpClientConfig;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.HttpRequestFilter;
+import io.airlift.http.client.netty.NettyAsyncHttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
@@ -37,9 +38,10 @@ public class QueryExecutor
     {
         checkNotNull(userAgent, "userAgent is null");
         this.queryInfoCodec = checkNotNull(queryInfoCodec, "queryInfoCodec is null");
-        this.httpClient = new ApacheAsyncHttpClient(new HttpClientConfig()
+        this.httpClient = new NettyAsyncHttpClient(new HttpClientConfig()
                 .setConnectTimeout(new Duration(1, TimeUnit.DAYS))
                 .setReadTimeout(new Duration(10, TimeUnit.DAYS)),
+                new AsyncHttpClientConfig(),
                 ImmutableSet.<HttpRequestFilter>of(new UserAgentRequestFilter(userAgent)));
     }
 

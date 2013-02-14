@@ -4,7 +4,7 @@ import com.facebook.presto.metadata.HttpMetadataClient;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import io.airlift.http.client.ApacheAsyncHttpClient;
+import io.airlift.http.client.netty.NettyAsyncHttpClient;
 import jline.console.completer.Completer;
 
 import java.io.Closeable;
@@ -24,7 +24,7 @@ public class TableNameCompleter
     public TableNameCompleter(ClientSession clientSession)
     {
         this.clientSession = checkNotNull(clientSession, "client session was null!");
-        metadataClient = new HttpMetadataClient(clientSession, new ApacheAsyncHttpClient());
+        metadataClient = new HttpMetadataClient(clientSession, new NettyAsyncHttpClient());
     }
 
     @Override
