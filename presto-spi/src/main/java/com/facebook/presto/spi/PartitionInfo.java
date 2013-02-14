@@ -1,5 +1,6 @@
 package com.facebook.presto.spi;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -9,6 +10,11 @@ public class PartitionInfo
 {
     private final String name;
     private final Map<String, String> keys;
+
+    public PartitionInfo(String name)
+    {
+        this(name, Collections.<String, String>emptyMap());
+    }
 
     public PartitionInfo(String name, Map<String, String> keys)
     {
