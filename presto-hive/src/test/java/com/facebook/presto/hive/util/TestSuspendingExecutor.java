@@ -52,6 +52,23 @@ public class TestSuspendingExecutor
     }
 
     @Test
+    public void testSelfReference()
+    {
+        final SuspendingExecutor suspendingExecutor = new SuspendingExecutor(MoreExecutors.sameThreadExecutor());
+        suspendingExecutor.suspend();
+        suspendingExecutor.execute(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                suspendingExecutor.resume();
+            }
+        });
+        suspendingExecutor.resume();
+        // This should complete successfully without any exceptions or infinite loops as forward progress will always be made on resume
+    }
+
+    @Test
     public void testConcurrency()
             throws Exception
     {

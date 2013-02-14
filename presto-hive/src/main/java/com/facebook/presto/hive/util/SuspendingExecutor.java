@@ -69,10 +69,16 @@ public class SuspendingExecutor
     public synchronized void resume()
     {
         suspended = false;
-        for (int i = 0; i < suspendedTaskCount; i++) {
+
+        // Copy out and reset the suspendedTaskCount
+        int count = suspendedTaskCount;
+        suspendedTaskCount = 0;
+        // Do this in case the current thread also happens to execute the activated tasks inline with the below for-loop (same thread executors)
+        // Otherwise will result in inconsistent state
+
+        for (int i = 0; i < count; i++) {
             activateOneTask();
         }
-        suspendedTaskCount = 0;
     }
 
     public synchronized void suspend()
