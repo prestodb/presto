@@ -47,7 +47,7 @@
         <module>presto-hive</module>
         <module>presto-main</module>
         <module>presto-jdbc</module>
-        <module>presto-prismhive</module>
+        <module>presto-prism</module>
     </modules>
 
     <build>

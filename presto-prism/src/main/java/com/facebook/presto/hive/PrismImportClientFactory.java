@@ -9,28 +9,28 @@ import javax.annotation.concurrent.ThreadSafe;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 @ThreadSafe
-public class PrismHiveImportClientFactory
+public class PrismImportClientFactory
         implements ImportClientFactory
 {
     private static final String SOURCE_NAME = "prism";
 
-    private final PrismHiveClient prismHiveClient;
+    private final PrismClient prismClient;
 
     @Inject
-    public PrismHiveImportClientFactory(
-            PrismClientProvider prismClientProvider,
+    public PrismImportClientFactory(
+            PrismServiceClientProvider prismServiceClientProvider,
             SmcLookup smcLookup,
             HiveClientFactory hiveClientFactory,
             HiveMetastoreClientFactory metastoreClientFactory,
             HiveChunkEncoder hiveChunkEncoder,
-            PrismHiveConfig config)
+            PrismConfig config)
     {
-        checkNotNull(prismClientProvider, "prismClientProvider is null");
+        checkNotNull(prismServiceClientProvider, "prismServiceClientProvider is null");
         checkNotNull(smcLookup, "smcLookup is null");
         checkNotNull(hiveClientFactory, "hiveClientFactory is null");
         checkNotNull(hiveChunkEncoder, "hiveChunkEncoder is null");
 
-        prismHiveClient = new PrismHiveClient(prismClientProvider, smcLookup, hiveClientFactory, metastoreClientFactory, hiveChunkEncoder, config.getCacheTtl());
+        prismClient = new PrismClient(prismServiceClientProvider, smcLookup, hiveClientFactory, metastoreClientFactory, hiveChunkEncoder, config.getCacheTtl());
     }
 
     @Override
@@ -41,6 +41,6 @@ public class PrismHiveImportClientFactory
         }
 
         // Only single instance needed
-        return prismHiveClient;
+        return prismClient;
     }
 }

@@ -1,7 +1,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.nifty.client.UnframedClientConnector;
-import com.facebook.prism.namespaceservice.PrismClient;
+import com.facebook.prism.namespaceservice.PrismServiceClient;
 import com.facebook.swift.service.ThriftClient;
 import com.google.common.collect.Lists;
 import com.google.common.net.HostAndPort;
@@ -16,24 +16,24 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
 @ThreadSafe
-public class PrismClientProvider
+public class PrismServiceClientProvider
 {
-    private final ThriftClient<PrismClient> thriftClient;
+    private final ThriftClient<PrismServiceClient> thriftClient;
     private final SmcLookup smcLookup;
     private final String prismSmcTier;
 
     @Inject
-    public PrismClientProvider(
-            ThriftClient<PrismClient> thriftClient,
+    public PrismServiceClientProvider(
+            ThriftClient<PrismServiceClient> thriftClient,
             SmcLookup smcLookup,
-            PrismHiveConfig config)
+            PrismConfig config)
     {
         this.thriftClient = checkNotNull(thriftClient, "thriftClient is null");
         this.smcLookup = checkNotNull(smcLookup, "smcLookup is null");
         prismSmcTier = checkNotNull(config, "config is null").getPrismSmcTier();
     }
 
-    public PrismClient get()
+    public PrismServiceClient get()
     {
         List<HostAndPort> services = smcLookup.getServices(prismSmcTier);
         if (services.isEmpty()) {
