@@ -26,9 +26,9 @@ import java.net.URI;
 import java.util.List;
 import java.util.NoSuchElementException;
 
-import static com.facebook.presto.server.PrestoHeaders.PRESTO_CATALOG;
-import static com.facebook.presto.server.PrestoHeaders.PRESTO_SCHEMA;
-import static com.facebook.presto.server.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.PrestoHeaders.PRESTO_CATALOG;
+import static com.facebook.presto.PrestoHeaders.PRESTO_SCHEMA;
+import static com.facebook.presto.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.google.common.base.Preconditions.checkNotNull;

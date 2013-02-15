@@ -8,7 +8,6 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OutputProcessor.OutputHandler;
-import com.facebook.presto.server.HttpQueryClient;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;

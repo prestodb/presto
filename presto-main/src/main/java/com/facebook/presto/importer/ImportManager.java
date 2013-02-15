@@ -4,7 +4,6 @@ import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
-import com.facebook.presto.server.ShardImport;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.split.ImportClientManager;
 import com.facebook.presto.util.ShardBoundedExecutor;

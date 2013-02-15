@@ -1,6 +1,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.importer.LocalShardManager;
+import com.facebook.presto.importer.ShardImport;
 import com.facebook.presto.metadata.StorageManager;
 
 import javax.inject.Inject;

@@ -1,12 +1,13 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.cli;
 
-import com.facebook.presto.cli.ClientSession;
+import com.facebook.presto.PrestoHeaders;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.operator.ExchangeOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PageIterator;
@@ -243,4 +244,5 @@ public class HttpQueryClient
         catch (RuntimeException ignored) {
         }
     }
+
 }

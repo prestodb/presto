@@ -1,9 +1,7 @@
-package com.facebook.presto.cli;
+package com.facebook.presto.server;
 
 import com.facebook.presto.event.scribe.client.ScribeClientModule;
 import com.facebook.presto.event.scribe.payload.ScribeEventModule;
-import com.facebook.presto.server.PluginManager;
-import com.facebook.presto.server.ServerMainModule;
 import com.facebook.swift.codec.guice.ThriftCodecModule;
 import com.facebook.swift.service.guice.ThriftClientModule;
 import com.google.inject.Injector;

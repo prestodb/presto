@@ -1,9 +1,11 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto;
+package com.facebook.presto.server;
 
+import com.facebook.presto.AbstractTestQueries;
 import com.facebook.presto.cli.ClientSession;
+import com.facebook.presto.cli.HttpQueryClient;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.ingest.SerializedPartitionChunk;
@@ -22,8 +24,6 @@ import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
-import com.facebook.presto.server.HttpQueryClient;
-import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;

@@ -1,7 +1,7 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto.server;
+package com.facebook.presto;
 
 public final class PrestoHeaders
 {
@@ -9,7 +9,7 @@ public final class PrestoHeaders
     public static final String PRESTO_CATALOG = "X-Presto-Catalog";
     public static final String PRESTO_SCHEMA = "X-Presto-Schema";
 
-    private PrestoHeaders()
+    public PrestoHeaders()
     {
     }
 }

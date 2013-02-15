@@ -22,7 +22,7 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.SourceHashProviderFactory;
-import com.facebook.presto.server.HackPlanFragmentSourceProvider;
+import com.facebook.presto.operator.HackPlanFragmentSourceProvider;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.InternalSplit;

@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.test;
 
-import com.facebook.presto.cli.Server;
+import com.facebook.presto.server.Server;
 import com.facebook.presto.event.scribe.client.ScribeClientModule;
 import com.facebook.presto.event.scribe.payload.ScribeEventModule;
 import com.facebook.presto.server.PluginManager;
