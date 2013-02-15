@@ -1,6 +1,9 @@
 package com.facebook.presto.hive;
 
+import com.facebook.presto.spi.SchemaField;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
+import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorUtils;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.TextInputFormat;
@@ -12,9 +15,9 @@ import static com.facebook.presto.hive.HadoopConfiguration.HADOOP_CONFIGURATION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static org.apache.hadoop.hive.metastore.api.Constants.FILE_INPUT_FORMAT;
 
-class HiveInputFormats
+class HiveUtil
 {
-    private HiveInputFormats()
+    private HiveUtil()
     {
     }
 
@@ -46,5 +49,44 @@ class HiveInputFormats
         String name = schema.getProperty(FILE_INPUT_FORMAT);
         checkArgument(name != null, "missing property: %s", FILE_INPUT_FORMAT);
         return name;
+    }
+
+    static SchemaField.Type getSupportedPrimitiveType(PrimitiveObjectInspector.PrimitiveCategory category)
+    {
+        SchemaField.Type type = getPrimitiveType(category);
+        if (type == null) {
+            throw new IllegalArgumentException("Hive type not supported: " + category);
+        }
+        return type;
+    }
+
+    static SchemaField.Type getPrimitiveType(PrimitiveObjectInspector.PrimitiveCategory category)
+    {
+        switch (category) {
+            case BYTE:
+            case SHORT:
+            case INT:
+            case LONG:
+                return SchemaField.Type.LONG;
+            case FLOAT:
+            case DOUBLE:
+                return SchemaField.Type.DOUBLE;
+            case STRING:
+                return SchemaField.Type.STRING;
+            case BOOLEAN:
+                return SchemaField.Type.LONG;
+            default:
+                return null;
+        }
+    }
+
+    static SchemaField.Type convertHiveType(String type)
+    {
+        return getSupportedPrimitiveType(convertNativeHiveType(type));
+    }
+
+    static PrimitiveObjectInspector.PrimitiveCategory convertNativeHiveType(String type)
+    {
+        return PrimitiveObjectInspectorUtils.getTypeEntryFromTypeName(type).primitiveCategory;
     }
 }
