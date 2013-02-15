@@ -33,9 +33,9 @@ public class CachingHiveMetastore
     private final HiveCluster clientProvider;
     private final Cache<String, List<String>> databaseNamesCache;
     private final Cache<String, List<String>> tableNamesCache;
-    private final Cache<QualifiedTableName, List<String>> partitionNamesCache;
-    private final Cache<QualifiedTableName, Table> tableCache;
-    private final Cache<QualifiedPartitionName, Partition> partitionCache;
+    private final Cache<HiveTableName, List<String>> partitionNamesCache;
+    private final Cache<HiveTableName, Table> tableCache;
+    private final Cache<HivePartitionName, Partition> partitionCache;
     private final Cache<PartitionFilter, List<String>> partitionFilterCache;
 
     public CachingHiveMetastore(HiveCluster hiveCluster, Duration cacheTtl)
@@ -127,7 +127,7 @@ public class CachingHiveMetastore
     public Table getTable(final String databaseName, final String tableName)
             throws NoSuchObjectException
     {
-        return getWithCallable(tableCache, QualifiedTableName.table(databaseName, tableName), new Callable<Table>()
+        return getWithCallable(tableCache, HiveTableName.table(databaseName, tableName), new Callable<Table>()
         {
             @Override
             public Table call()
@@ -143,7 +143,7 @@ public class CachingHiveMetastore
     public List<String> getPartitionNames(final String databaseName, final String tableName)
             throws NoSuchObjectException
     {
-        return getWithCallable(partitionNamesCache, QualifiedTableName.table(databaseName, tableName), new Callable<List<String>>()
+        return getWithCallable(partitionNamesCache, HiveTableName.table(databaseName, tableName), new Callable<List<String>>()
         {
             @Override
             public List<String> call()
@@ -186,7 +186,7 @@ public class CachingHiveMetastore
         Partition[] partitions = new Partition[partitionNames.size()];
         for (int i = 0; i < partitionNames.size(); i++) {
             String partitionName = partitionNames.get(i);
-            Partition partition = partitionCache.getIfPresent(QualifiedPartitionName.partition(databaseName, tableName, partitionName));
+            Partition partition = partitionCache.getIfPresent(HivePartitionName.partition(databaseName, tableName, partitionName));
             if (partition == null) {
                 partitionsToFetch.add(partitionName);
             }
@@ -207,7 +207,7 @@ public class CachingHiveMetastore
             // Cache the results
             checkState(fetchedPartitions.size() == partitionsToFetch.size());
             for (int i = 0; i < fetchedPartitions.size(); i++) {
-                partitionCache.put(QualifiedPartitionName.partition(databaseName, tableName, partitionsToFetch.get(i)), fetchedPartitions.get(i));
+                partitionCache.put(HivePartitionName.partition(databaseName, tableName, partitionsToFetch.get(i)), fetchedPartitions.get(i));
             }
 
             // Merge the results
@@ -224,20 +224,20 @@ public class CachingHiveMetastore
         return ImmutableList.copyOf(partitions);
     }
 
-    private static class QualifiedTableName
+    private static class HiveTableName
     {
         private final String databaseName;
         private final String tableName;
 
-        private QualifiedTableName(String databaseName, String tableName)
+        private HiveTableName(String databaseName, String tableName)
         {
             this.databaseName = databaseName;
             this.tableName = tableName;
         }
 
-        public static QualifiedTableName table(String databaseName, String tableName)
+        public static HiveTableName table(String databaseName, String tableName)
         {
-            return new QualifiedTableName(databaseName, tableName);
+            return new HiveTableName(databaseName, tableName);
         }
 
         public String getDatabaseName()
@@ -269,7 +269,7 @@ public class CachingHiveMetastore
                 return false;
             }
 
-            QualifiedTableName that = (QualifiedTableName) o;
+            HiveTableName that = (HiveTableName) o;
 
             return Objects.equal(databaseName, that.databaseName) && Objects.equal(tableName, that.tableName);
         }
@@ -281,25 +281,25 @@ public class CachingHiveMetastore
         }
     }
 
-    private static class QualifiedPartitionName
+    private static class HivePartitionName
     {
-        private final QualifiedTableName qualifiedTableName;
+        private final HiveTableName hiveTableName;
         private final String partitionName;
 
-        private QualifiedPartitionName(QualifiedTableName qualifiedTableName, String partitionName)
+        private HivePartitionName(HiveTableName hiveTableName, String partitionName)
         {
-            this.qualifiedTableName = qualifiedTableName;
+            this.hiveTableName = hiveTableName;
             this.partitionName = partitionName;
         }
 
-        public static QualifiedPartitionName partition(String databaseName, String tableName, String partitionName)
+        public static HivePartitionName partition(String databaseName, String tableName, String partitionName)
         {
-            return new QualifiedPartitionName(QualifiedTableName.table(databaseName, tableName), partitionName);
+            return new HivePartitionName(HiveTableName.table(databaseName, tableName), partitionName);
         }
 
-        public QualifiedTableName getQualifiedTableName()
+        public HiveTableName getHiveTableName()
         {
-            return qualifiedTableName;
+            return hiveTableName;
         }
 
         public String getPartitionName()
@@ -311,7 +311,7 @@ public class CachingHiveMetastore
         public String toString()
         {
             return Objects.toStringHelper(this)
-                    .add("qualifiedTableName", qualifiedTableName)
+                    .add("hiveTableName", hiveTableName)
                     .add("partitionName", partitionName)
                     .toString();
         }
@@ -326,37 +326,37 @@ public class CachingHiveMetastore
                 return false;
             }
 
-            QualifiedPartitionName that = (QualifiedPartitionName) o;
+            HivePartitionName that = (HivePartitionName) o;
 
-            return Objects.equal(qualifiedTableName, that.qualifiedTableName) && Objects.equal(partitionName, that.partitionName);
+            return Objects.equal(hiveTableName, that.hiveTableName) && Objects.equal(partitionName, that.partitionName);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(qualifiedTableName, partitionName);
+            return Objects.hashCode(hiveTableName, partitionName);
         }
     }
 
     private static class PartitionFilter
     {
-        private final QualifiedTableName qualifiedTableName;
+        private final HiveTableName hiveTableName;
         private final List<String> parts;
 
-        private PartitionFilter(QualifiedTableName qualifiedTableName, List<String> parts)
+        private PartitionFilter(HiveTableName hiveTableName, List<String> parts)
         {
-            this.qualifiedTableName = qualifiedTableName;
+            this.hiveTableName = hiveTableName;
             this.parts = ImmutableList.copyOf(parts);
         }
 
         public static PartitionFilter partitionFilter(String databaseName, String tableName, List<String> parts)
         {
-            return new PartitionFilter(QualifiedTableName.table(databaseName, tableName), parts);
+            return new PartitionFilter(HiveTableName.table(databaseName, tableName), parts);
         }
 
-        public QualifiedTableName getQualifiedTableName()
+        public HiveTableName getHiveTableName()
         {
-            return qualifiedTableName;
+            return hiveTableName;
         }
 
         public List<String> getParts()
@@ -368,7 +368,7 @@ public class CachingHiveMetastore
         public String toString()
         {
             return Objects.toStringHelper(this)
-                    .add("qualifiedTableName", qualifiedTableName)
+                    .add("hiveTableName", hiveTableName)
                     .add("parts", parts)
                     .toString();
         }
@@ -385,13 +385,13 @@ public class CachingHiveMetastore
 
             PartitionFilter that = (PartitionFilter) o;
 
-            return Objects.equal(qualifiedTableName, that.qualifiedTableName) && Objects.equal(parts, that.parts);
+            return Objects.equal(hiveTableName, that.hiveTableName) && Objects.equal(parts, that.parts);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(qualifiedTableName, parts);
+            return Objects.hashCode(hiveTableName, parts);
         }
     }
 }

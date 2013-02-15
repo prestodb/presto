@@ -18,17 +18,17 @@ import static java.lang.String.format;
 @ThreadSafe
 public class PrismServiceClientProvider
 {
-    private final ThriftClient<PrismServiceClient> thriftClient;
+    private final ThriftClient<PrismServiceClient> prismThriftClient;
     private final SmcLookup smcLookup;
     private final String prismSmcTier;
 
     @Inject
     public PrismServiceClientProvider(
-            ThriftClient<PrismServiceClient> thriftClient,
+            ThriftClient<PrismServiceClient> prismThriftClient,
             SmcLookup smcLookup,
             PrismConfig config)
     {
-        this.thriftClient = checkNotNull(thriftClient, "thriftClient is null");
+        this.prismThriftClient = checkNotNull(prismThriftClient, "prismThriftClient is null");
         this.smcLookup = checkNotNull(smcLookup, "smcLookup is null");
         prismSmcTier = checkNotNull(config, "config is null").getPrismSmcTier();
     }
@@ -43,7 +43,7 @@ public class PrismServiceClientProvider
         Throwable lastException = null;
         for (HostAndPort service : shuffle(services)) {
             try {
-                return thriftClient.open(new UnframedClientConnector(service)).get();
+                return prismThriftClient.open(new UnframedClientConnector(service)).get();
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -53,7 +53,7 @@ public class PrismServiceClientProvider
                 lastException = e.getCause();
             }
         }
-        throw new RuntimeException("Unable to connect to any prism servers", lastException);
+        throw new RuntimeException("Unable to connect to any prism servers in tier: " + prismSmcTier, lastException);
     }
 
     private static <T> List<T> shuffle(Iterable<T> iterable)
