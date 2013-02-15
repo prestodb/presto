@@ -42,12 +42,26 @@
             <groupId>com.facebook.swift</groupId>
             <artifactId>swift-codec</artifactId>
             <version>0.4.0</version>
+            <exclusions>
+                <!-- TODO: switch with com.google.code.findbugs:annontations when airbase is applied -->
+                <exclusion>
+                    <groupId>com.google.code.findbugs</groupId>
+                    <artifactId>annotations</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.swift</groupId>
             <artifactId>swift-service</artifactId>
             <version>0.4.0</version>
+            <exclusions>
+                <!-- TODO: switch with com.google.code.findbugs:annontations when airbase is applied -->
+                <exclusion>
+                    <groupId>com.google.code.findbugs</groupId>
+                    <artifactId>annotations</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -60,6 +74,13 @@
             <groupId>com.facebook.nifty</groupId>
             <artifactId>nifty-client</artifactId>
             <version>0.4.0</version>
+            <exclusions>
+                <!-- TODO: switch with com.google.code.findbugs:annontations when airbase is applied -->
+                <exclusion>
+                    <groupId>com.google.code.findbugs</groupId>
+                    <artifactId>annotations</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
