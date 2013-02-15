@@ -36,7 +36,7 @@ public class HiveImportClientFactoryTest
                 serviceDescriptor("hive-metastore").build());
 
         HiveClientFactory hiveClientFactory = new HiveClientFactory(new HiveClientConfig(), new HiveChunkEncoder(getHivePartitionChunkCodec()));
-        DiscoveryLocatedHiveCluster hiveCluster = new DiscoveryLocatedHiveCluster(selector, new HiveMetastoreClientFactory());
+        DiscoveryLocatedHiveCluster hiveCluster = new DiscoveryLocatedHiveCluster(selector, new HiveMetastoreClientFactory(new HiveClientConfig()));
         HiveImportClientFactory factory = new HiveImportClientFactory(hiveCluster, hiveClientFactory);
         assertInstanceOf(factory.createClient("hive"), HiveClient.class);
         assertNull(factory.createClient("hive_test"));

@@ -145,37 +145,6 @@ public class TestCachingHiveMetastore
     }
 
     @Test
-    public void testGetPartitionByName()
-            throws Exception
-    {
-        Assert.assertEquals(mockClient.getAccessCount(), 0);
-        Assert.assertNotNull(metastore.getPartitionByName(TEST_DATABASE, TEST_TABLE, TEST_PARTITION1));
-        Assert.assertEquals(mockClient.getAccessCount(), 1);
-        Assert.assertNotNull(metastore.getPartitionByName(TEST_DATABASE, TEST_TABLE, TEST_PARTITION2));
-        Assert.assertEquals(mockClient.getAccessCount(), 2);
-
-        // Partitions need to be cached independently of each other
-        Assert.assertNotNull(metastore.getPartitionByName(TEST_DATABASE, TEST_TABLE, TEST_PARTITION1));
-        Assert.assertEquals(mockClient.getAccessCount(), 2);
-        Assert.assertNotNull(metastore.getPartitionByName(TEST_DATABASE, TEST_TABLE, TEST_PARTITION2));
-        Assert.assertEquals(mockClient.getAccessCount(), 2);
-
-        metastore.flushCache();
-
-        Assert.assertNotNull(metastore.getPartitionByName(TEST_DATABASE, TEST_TABLE, TEST_PARTITION1));
-        Assert.assertEquals(mockClient.getAccessCount(), 3);
-        Assert.assertNotNull(metastore.getPartitionByName(TEST_DATABASE, TEST_TABLE, TEST_PARTITION2));
-        Assert.assertEquals(mockClient.getAccessCount(), 4);
-    }
-
-    @Test(expectedExceptions = NoSuchObjectException.class)
-    public void testInvalidGetPartitionByName()
-            throws Exception
-    {
-        metastore.getPartitionByName(BAD_DATABASE, TEST_TABLE, TEST_PARTITION1);
-    }
-
-    @Test
     public void testGetPartitionsByNames()
             throws Exception
     {

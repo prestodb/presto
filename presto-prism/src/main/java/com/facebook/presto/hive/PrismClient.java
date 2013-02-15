@@ -7,16 +7,18 @@ import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.spi.PartitionInfo;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaField;
-import com.facebook.prism.namespaceservice.PrismServiceClient;
 import com.facebook.prism.namespaceservice.PrismNamespace;
 import com.facebook.prism.namespaceservice.PrismNamespaceNotFound;
 import com.facebook.prism.namespaceservice.PrismRepositoryError;
+import com.facebook.prism.namespaceservice.PrismServiceClient;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.net.HostAndPort;
@@ -44,7 +46,8 @@ public class PrismClient
     private final HiveClientFactory hiveClientFactory;
     private final HiveMetastoreClientFactory metastoreClientFactory;
     private final HiveChunkEncoder hiveChunkEncoder;
-    private final Cache<String, HiveNamespace> namespaceCache;
+    private final LoadingCache<String, HiveNamespace> namespaceCache;
+    private final Cache<String, List<String>> namespaceListCache;
 
     public PrismClient(PrismServiceClientProvider prismServiceClientProvider, SmcLookup smcLookup, HiveClientFactory hiveClientFactory, HiveMetastoreClientFactory metastoreClientFactory, HiveChunkEncoder hiveChunkEncoder, Duration cacheDuration)
     {
@@ -57,6 +60,17 @@ public class PrismClient
         checkNotNull(cacheDuration, "cacheDuration is null");
         namespaceCache = CacheBuilder.newBuilder()
                 .expireAfterWrite((long) cacheDuration.toMillis(), TimeUnit.MILLISECONDS)
+                .build(new CacheLoader<String, HiveNamespace>()
+                {
+                    @Override
+                    public HiveNamespace load(String namespace)
+                            throws Exception
+                    {
+                        return readNamespaceData(namespace);
+                    }
+                });
+        namespaceListCache = CacheBuilder.newBuilder()
+                .expireAfterWrite((long) cacheDuration.toMillis(), TimeUnit.MILLISECONDS)
                 .build();
     }
 
@@ -64,6 +78,7 @@ public class PrismClient
     public void flushCache()
     {
         namespaceCache.invalidateAll();
+        namespaceListCache.invalidateAll();
     }
 
     // Actually does the namespace resolution
@@ -94,15 +109,7 @@ public class PrismClient
     {
         try {
             // Exceptions are not cached
-            return namespaceCache.get(namespace, new Callable<HiveNamespace>()
-            {
-                @Override
-                public HiveNamespace call()
-                        throws Exception
-                {
-                    return readNamespaceData(namespace);
-                }
-            });
+            return namespaceCache.get(namespace);
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             Throwables.propagateIfInstanceOf(e.getCause(), ObjectNotFoundException.class);
@@ -113,12 +120,21 @@ public class PrismClient
     @Override
     public List<String> getDatabaseNames()
     {
-        // TODO: cache this?
-        try (PrismServiceClient prismServiceClient = prismServiceClientProvider.get()) {
-            return prismServiceClient.getAllNamespaceNames();
+        try {
+            return namespaceListCache.get("", new Callable<List<String>>()
+            {
+                @Override
+                public List<String> call()
+                        throws Exception
+                {
+                    try (PrismServiceClient prismServiceClient = prismServiceClientProvider.get()) {
+                        return prismServiceClient.getAllNamespaceNames();
+                    }
+                }
+            });
         }
-        catch (PrismRepositoryError prismRepositoryError) {
-            throw Throwables.propagate(prismRepositoryError);
+        catch (ExecutionException | UncheckedExecutionException e) {
+            throw Throwables.propagate(e.getCause());
         }
     }
 
