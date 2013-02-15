@@ -3,7 +3,7 @@ package com.facebook.presto.cli;
 import com.facebook.presto.event.scribe.client.ScribeClientModule;
 import com.facebook.presto.event.scribe.payload.ScribeEventModule;
 import com.facebook.presto.hive.HiveClientModule;
-import com.facebook.presto.hive.PrismHiveClientModule;
+import com.facebook.presto.hive.PrismClientModule;
 import com.facebook.presto.server.ServerMainModule;
 import com.facebook.swift.codec.guice.ThriftCodecModule;
 import com.facebook.swift.service.guice.ThriftClientModule;
@@ -50,7 +50,7 @@ public class Server
                 new ScribeClientModule(),
                 new ScribeEventModule(),
                 new HiveClientModule(),
-                new PrismHiveClientModule(),
+                new PrismClientModule(),
                 new SmcClientModule(),
                 new ServerMainModule());
 

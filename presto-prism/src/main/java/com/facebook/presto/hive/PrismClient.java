@@ -7,7 +7,7 @@ import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.spi.PartitionInfo;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaField;
-import com.facebook.prism.namespaceservice.PrismClient;
+import com.facebook.prism.namespaceservice.PrismServiceClient;
 import com.facebook.prism.namespaceservice.PrismNamespace;
 import com.facebook.prism.namespaceservice.PrismNamespaceNotFound;
 import com.facebook.prism.namespaceservice.PrismRepositoryError;
@@ -36,19 +36,19 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
 @ThreadSafe
-public class PrismHiveClient
+public class PrismClient
         implements ImportClient
 {
-    private final PrismClientProvider prismClientProvider;
+    private final PrismServiceClientProvider prismServiceClientProvider;
     private final SmcLookup smcLookup;
     private final HiveClientFactory hiveClientFactory;
     private final HiveMetastoreClientFactory metastoreClientFactory;
     private final HiveChunkEncoder hiveChunkEncoder;
     private final Cache<String, HiveNamespace> namespaceCache;
 
-    public PrismHiveClient(PrismClientProvider prismClientProvider, SmcLookup smcLookup, HiveClientFactory hiveClientFactory, HiveMetastoreClientFactory metastoreClientFactory, HiveChunkEncoder hiveChunkEncoder, Duration cacheDuration)
+    public PrismClient(PrismServiceClientProvider prismServiceClientProvider, SmcLookup smcLookup, HiveClientFactory hiveClientFactory, HiveMetastoreClientFactory metastoreClientFactory, HiveChunkEncoder hiveChunkEncoder, Duration cacheDuration)
     {
-        this.prismClientProvider = checkNotNull(prismClientProvider, "prismClientProvider is null");
+        this.prismServiceClientProvider = checkNotNull(prismServiceClientProvider, "prismServiceClientProvider is null");
         this.smcLookup = checkNotNull(smcLookup, "smcLookup is null");
         this.hiveClientFactory = checkNotNull(hiveClientFactory, "hiveClientFactory is null");
         this.metastoreClientFactory = checkNotNull(metastoreClientFactory, "metastoreClientFactory is null");
@@ -70,8 +70,8 @@ public class PrismHiveClient
     private HiveNamespace readNamespaceData(String namespace)
             throws ObjectNotFoundException
     {
-        try (PrismClient prismClient = prismClientProvider.get()) {
-            PrismNamespace prismNamespace = prismClient.getNamespace(namespace);
+        try (PrismServiceClient prismServiceClient = prismServiceClientProvider.get()) {
+            PrismNamespace prismNamespace = prismServiceClient.getNamespace(namespace);
             List<HostAndPort> services = smcLookup.getServices(prismNamespace.getHiveMetastore());
 
             if (services.isEmpty()) {
@@ -114,8 +114,8 @@ public class PrismHiveClient
     public List<String> getDatabaseNames()
     {
         // TODO: cache this?
-        try (PrismClient prismClient = prismClientProvider.get()) {
-            return prismClient.getAllNamespaceNames();
+        try (PrismServiceClient prismServiceClient = prismServiceClientProvider.get()) {
+            return prismServiceClient.getAllNamespaceNames();
         }
         catch (PrismRepositoryError prismRepositoryError) {
             throw Throwables.propagate(prismRepositoryError);

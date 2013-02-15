@@ -49,7 +49,7 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-prismhive</artifactId>
+            <artifactId>presto-prism</artifactId>
             <version>0.2-SNAPSHOT</version>
         </dependency>
 

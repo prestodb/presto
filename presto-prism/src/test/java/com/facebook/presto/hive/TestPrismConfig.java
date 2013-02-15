@@ -8,12 +8,12 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-public class TestPrismHiveConfig
+public class TestPrismConfig
 {
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(PrismHiveConfig.class)
+        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(PrismConfig.class)
                 .setCacheTtl(new Duration(1, TimeUnit.HOURS))
                 .setPrismSmcTier("prism.nssr"));
     }
@@ -26,7 +26,7 @@ public class TestPrismHiveConfig
                 .put("prism.smc-tier", "newtier")
                 .build();
 
-        PrismHiveConfig expected = new PrismHiveConfig()
+        PrismConfig expected = new PrismConfig()
                 .setCacheTtl(new Duration(1, TimeUnit.SECONDS))
                 .setPrismSmcTier("newtier");
 

@@ -8,7 +8,7 @@ import java.io.Closeable;
 import java.util.List;
 
 @ThriftService("prism")
-public interface PrismClient
+public interface PrismServiceClient
         extends Closeable
 {
     @ThriftMethod
