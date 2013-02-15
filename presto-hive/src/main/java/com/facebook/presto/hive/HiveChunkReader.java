@@ -28,9 +28,9 @@ import java.util.Properties;
 
 import static com.facebook.presto.hive.HadoopConfiguration.HADOOP_CONFIGURATION;
 import static com.facebook.presto.hive.HiveColumn.indexGetter;
-import static com.facebook.presto.hive.HiveInputFormats.getInputFormat;
-import static com.facebook.presto.hive.HiveInputFormats.getInputFormatName;
-import static com.facebook.presto.hive.HiveTypes.getSupportedPrimitiveType;
+import static com.facebook.presto.hive.HiveUtil.getInputFormat;
+import static com.facebook.presto.hive.HiveUtil.getInputFormatName;
+import static com.facebook.presto.hive.HiveUtil.getSupportedPrimitiveType;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Lists.transform;
 

@@ -64,11 +64,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.hive.HadoopConfiguration.HADOOP_CONFIGURATION;
-import static com.facebook.presto.hive.HiveInputFormats.getInputFormat;
-import static com.facebook.presto.hive.HiveTypes.convertHiveType;
-import static com.facebook.presto.hive.HiveTypes.convertNativeHiveType;
-import static com.facebook.presto.hive.HiveTypes.getPrimitiveType;
-import static com.facebook.presto.hive.HiveTypes.getSupportedPrimitiveType;
+import static com.facebook.presto.hive.HiveUtil.convertHiveType;
+import static com.facebook.presto.hive.HiveUtil.convertNativeHiveType;
+import static com.facebook.presto.hive.HiveUtil.getInputFormat;
+import static com.facebook.presto.hive.HiveUtil.getPrimitiveType;
+import static com.facebook.presto.hive.HiveUtil.getSupportedPrimitiveType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
