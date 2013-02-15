@@ -1,13 +1,11 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.metadata.ColumnHandle;
-import com.facebook.presto.operator.ForExchange;
-import com.facebook.presto.operator.Operator;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;

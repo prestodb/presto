@@ -1,14 +1,10 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.AbstractPageIterator;
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.operator.Page;
-import com.facebook.presto.operator.PageIterator;
-import com.facebook.presto.server.HttpPageBufferClient.ClientCallback;
+import com.facebook.presto.operator.HttpPageBufferClient;
+import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;

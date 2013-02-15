@@ -6,7 +6,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.SourceHashProviderFactory;
-import com.facebook.presto.server.HackPlanFragmentSourceProvider;
+import com.facebook.presto.operator.HackPlanFragmentSourceProvider;
 import com.facebook.presto.sql.analyzer.AnalysisResult;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.Session;

@@ -5,7 +5,6 @@ package com.facebook.presto;
 
 import com.facebook.presto.cli.Console;
 import com.facebook.presto.cli.Execute;
-import com.facebook.presto.cli.Server;
 import com.facebook.presto.ingest.RuntimeIOException;
 import com.google.common.io.NullOutputStream;
 import io.airlift.command.Cli;
@@ -24,8 +23,7 @@ public class Main
             throws Exception
     {
         CliBuilder<Runnable> builder = Cli.<Runnable>builder("presto")
-                .withDefaultCommand(Server.class)
-                .withCommand(Server.class)
+                .withDefaultCommand(Console.class)
                 .withCommand(Execute.class)
                 .withCommand(Console.class)
                 .withCommand(Help.class);

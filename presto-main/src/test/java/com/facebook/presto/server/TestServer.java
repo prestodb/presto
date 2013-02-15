@@ -1,6 +1,5 @@
-package com.facebook.presto.cli;
+package com.facebook.presto.server;
 
-import com.facebook.presto.server.ServerMainModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;

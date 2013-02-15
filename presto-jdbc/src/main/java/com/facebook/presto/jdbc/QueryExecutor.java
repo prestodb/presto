@@ -13,7 +13,7 @@ import io.airlift.json.JsonModule;
 
 import com.facebook.presto.cli.ClientSession;
 import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.server.HttpQueryClient;
+import com.facebook.presto.cli.HttpQueryClient;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Serialization;

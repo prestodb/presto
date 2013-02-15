@@ -1,7 +1,7 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.cli.ClientSession;
-import com.facebook.presto.server.HttpQueryClient;
+import com.facebook.presto.cli.HttpQueryClient;
 import com.google.common.net.HostAndPort;
 
 import java.net.URI;

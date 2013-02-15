@@ -1,9 +1,8 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.PagesSerde;
 import com.facebook.presto.slice.InputStreamSliceInput;
 import com.google.common.base.Objects;

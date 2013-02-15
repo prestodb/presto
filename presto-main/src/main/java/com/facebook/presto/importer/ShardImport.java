@@ -1,13 +1,11 @@
-package com.facebook.presto.server;
+package com.facebook.presto.importer;
 
-import com.facebook.presto.importer.ImportField;
 import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
-
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
