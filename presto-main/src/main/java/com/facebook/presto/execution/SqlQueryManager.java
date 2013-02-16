@@ -19,6 +19,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
+import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 import java.util.List;
@@ -59,6 +60,7 @@ public class SqlQueryManager
 
     private final boolean importsEnabled;
     private final Duration clientTimeout;
+    private final ScheduledExecutorService queryManagementExecutor;
 
 
     @Inject
@@ -99,7 +101,7 @@ public class SqlQueryManager
         this.maxQueryAge = config.getMaxQueryAge();
         this.clientTimeout = config.getClientTimeout();
 
-        ScheduledExecutorService queryManagementExecutor = Executors.newScheduledThreadPool(100, threadsNamed("query-management-%d"));
+        queryManagementExecutor = Executors.newScheduledThreadPool(100, threadsNamed("query-management-%d"));
 
         queryManagementExecutor.scheduleAtFixedRate(new Runnable()
         {
@@ -136,6 +138,13 @@ public class SqlQueryManager
                 }
             }
         }, 200, 200, TimeUnit.MILLISECONDS);
+    }
+
+    @PreDestroy
+    public void stop()
+    {
+        queryManagementExecutor.shutdownNow();
+        queryExecutor.shutdownNow();
     }
 
     @Override
