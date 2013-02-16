@@ -1,5 +1,16 @@
 package com.facebook.presto.jdbc;
 
+import com.facebook.presto.metadata.TableHandleModule;
+import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
+import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
+import com.google.inject.Binder;
+import com.google.inject.Guice;
+import com.google.inject.Injector;
+import com.google.inject.Module;
+import com.google.inject.Stage;
+import io.airlift.json.JsonBinder;
+import io.airlift.json.JsonModule;
+
 import com.facebook.presto.cli.ClientSession;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.server.HttpQueryClient;
@@ -67,11 +78,18 @@ public class QueryExecutor
 
     private static JsonCodecFactory createCodecFactory()
     {
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        ImmutableMap.Builder<Class<?>, JsonDeserializer<?>> deserializers = ImmutableMap.builder();
-        deserializers.put(Expression.class, new Serialization.ExpressionDeserializer());
-        deserializers.put(FunctionCall.class, new Serialization.FunctionCallDeserializer());
-        objectMapperProvider.setJsonDeserializers(deserializers.build());
-        return new JsonCodecFactory(objectMapperProvider);
+        Injector inj = Guice.createInjector(Stage.PRODUCTION,
+                new JsonModule(),
+                new TableHandleModule(),
+                new Module() {
+                    @Override
+                    public void configure(Binder binder)
+                    {
+                        JsonBinder.jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
+                        JsonBinder.jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);
+                    }
+                });
+
+        return inj.getInstance(JsonCodecFactory.class);
     }
 }
