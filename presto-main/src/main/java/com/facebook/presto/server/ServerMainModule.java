@@ -41,6 +41,7 @@ import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.metadata.StorageManagerConfig;
 import com.facebook.presto.metadata.SystemTables;
+import com.facebook.presto.metadata.TableHandleModule;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.spi.ImportClientFactory;
@@ -178,6 +179,8 @@ public class ServerMainModule
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         binder.bind(ExecuteResource.class).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindAsyncHttpClient("execute", ExecuteResource.ForExecute.class);
+
+        binder.install(new TableHandleModule());
     }
 
     @Provides
