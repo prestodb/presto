@@ -1,4 +1,4 @@
-package com.facebook.presto.server;
+package com.facebook.presto;
 
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;

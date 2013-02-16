@@ -23,7 +23,7 @@ import java.net.URI;
 import java.util.Iterator;
 import java.util.concurrent.Future;
 
-import static com.facebook.presto.server.PrestoMediaTypes.PRESTO_PAGES_TYPE;
+import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES_TYPE;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;

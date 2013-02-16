@@ -26,8 +26,8 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.List;
 
-import static com.facebook.presto.server.PrestoMediaTypes.PRESTO_PAGES;
-import static com.facebook.presto.server.PrestoMediaTypes.PRESTO_PAGES_TYPE;
+import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
+import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES_TYPE;
 
 @Provider
 @Consumes(PRESTO_PAGES)
