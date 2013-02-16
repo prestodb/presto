@@ -7,6 +7,7 @@ import com.facebook.presto.spi.ImportClientFactory;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
 import org.apache.hadoop.fs.Path;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -21,8 +22,12 @@ public class HiveClientModule
     @Override
     public void configure(Binder binder)
     {
+        binder.bind(HiveClientFactory.class).in(Scopes.SINGLETON);
+        binder.bind(DiscoveryLocatedHiveCluster.class).in(Scopes.SINGLETON);
         newSetBinder(binder, ImportClientFactory.class).addBinding().to(HiveImportClientFactory.class);
         bindConfig(binder).to(HiveClientConfig.class);
+        binder.bind(HiveChunkEncoder.class).in(Scopes.SINGLETON);
+        binder.bind(HiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
         discoveryBinder(binder).bindSelector("hive-metastore");
 
         jsonBinder(binder).addSerializerBinding(Path.class).toInstance(ToStringSerializer.instance);

@@ -12,10 +12,11 @@ import io.airlift.discovery.client.testing.StaticServiceSelector;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
+import io.airlift.units.Duration;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
-import org.weakref.jmx.MBeanExporter;
-import org.weakref.jmx.testing.TestingMBeanServer;
+
+import java.util.concurrent.TimeUnit;
 
 import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -23,8 +24,6 @@ import static org.testng.Assert.assertNull;
 
 public class HiveImportClientFactoryTest
 {
-    private final MBeanExporter testExporter = new MBeanExporter(new TestingMBeanServer());
-
     @Test
     public void testGetClient()
             throws Exception
@@ -36,9 +35,11 @@ public class HiveImportClientFactoryTest
                 serviceDescriptor("hive-metastore").addProperty("thrift", "missing-port").build(),
                 serviceDescriptor("hive-metastore").build());
 
-        HiveImportClientFactory factory = new HiveImportClientFactory(selector, new HiveClientConfig(), getHivePartitionChunkCodec(), testExporter);
-        assertInstanceOf(factory.createClient("hive_fuu"), CachingHiveClient.class);
-        assertInstanceOf(factory.createClient("hive_bar"), CachingHiveClient.class);
+        HiveClientFactory hiveClientFactory = new HiveClientFactory(new HiveClientConfig(), new HiveChunkEncoder(getHivePartitionChunkCodec()));
+        DiscoveryLocatedHiveCluster hiveCluster = new DiscoveryLocatedHiveCluster(selector, new HiveMetastoreClientFactory(new HiveClientConfig()));
+        HiveImportClientFactory factory = new HiveImportClientFactory(hiveCluster, hiveClientFactory);
+        assertInstanceOf(factory.createClient("hive"), HiveClient.class);
+        assertNull(factory.createClient("hive_test"));
         assertNull(factory.createClient("unknown"));
     }
 

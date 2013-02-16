@@ -1,5 +1,6 @@
 package com.facebook.presto.event.scribe.client;
 
+import com.facebook.nifty.client.FramedClientConnector;
 import com.facebook.swift.service.ThriftClient;
 import com.google.common.base.Predicate;
 import com.google.common.net.HostAndPort;
@@ -9,10 +10,10 @@ import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.ServiceState;
 import io.airlift.discovery.client.ServiceType;
-import org.apache.thrift.transport.TTransportException;
 
 import javax.inject.Provider;
 import java.util.Collection;
+import java.util.concurrent.ExecutionException;
 
 import static com.facebook.presto.util.IterableUtils.shuffle;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -45,20 +46,24 @@ public class ScribeClientProvider
             throw new DiscoveryException(format("No scribe servers available for pool '%s'", selector.getPool()));
         }
 
-        TTransportException lastException = null;
+        Throwable lastException = null;
         for (ServiceDescriptor service : shuffle(runningServices)) {
             String thrift = service.getProperties().get("thrift");
             if (thrift != null) {
                 try {
                     HostAndPort thriftEndpoint = HostAndPort.fromString(thrift);
                     checkArgument(thriftEndpoint.hasPort());
-                    return thriftClient.open(thriftEndpoint);
+                    return thriftClient.open(new FramedClientConnector(thriftEndpoint)).get();
                 }
                 catch (IllegalArgumentException ignored) {
                     // Ignore entries with parse issues
                 }
-                catch (TTransportException e) {
-                    lastException = e;
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrupted", e);
+                }
+                catch (ExecutionException e) {
+                    lastException = e.getCause();
                 }
             }
         }

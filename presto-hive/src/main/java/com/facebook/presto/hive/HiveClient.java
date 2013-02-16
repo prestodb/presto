@@ -23,8 +23,6 @@ import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import io.airlift.json.JsonCodec;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -36,30 +34,22 @@ import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
-import org.apache.hadoop.hive.serde.Constants;
-import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
-import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorUtils;
-import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.RecordReader;
-import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.TextInputFormat;
-import org.apache.hadoop.util.ReflectionUtils;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -69,23 +59,22 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.hive.HadoopConfiguration.HADOOP_CONFIGURATION;
-import static com.facebook.presto.hive.HiveColumn.indexGetter;
-import static com.google.common.base.Charsets.UTF_8;
+import static com.facebook.presto.hive.HiveUtil.convertHiveType;
+import static com.facebook.presto.hive.HiveUtil.convertNativeHiveType;
+import static com.facebook.presto.hive.HiveUtil.getInputFormat;
+import static com.facebook.presto.hive.HiveUtil.getPrimitiveType;
+import static com.facebook.presto.hive.HiveUtil.getSupportedPrimitiveType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Lists.transform;
 import static java.lang.Math.min;
 import static java.lang.String.format;
-import static org.apache.hadoop.hive.metastore.api.Constants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat.SymlinkTextInputSplit;
+
 
 @SuppressWarnings("deprecation")
 public class HiveClient
@@ -93,31 +82,27 @@ public class HiveClient
 {
     private static final int PARTITION_BATCH_SIZE = 1000;
 
-    private static final String UNPARTITIONED_NAME = "<UNPARTITIONED>";
-
-    // TODO: consider injecting this static instance
-    private static final ExecutorService HIVE_CLIENT_EXECUTOR = Executors.newCachedThreadPool(
-            new ThreadFactoryBuilder()
-                    .setNameFormat("hive-client-%d")
-                    .setDaemon(true)
-                    .build()
-    );
-
-    private final String metastoreHost;
-    private final int metastorePort;
     private final long maxChunkBytes;
     private final int maxOutstandingChunks;
     private final int maxChunkIteratorThreads;
-    private final JsonCodec<HivePartitionChunk> partitionChunkCodec;
+    private final HiveChunkEncoder hiveChunkEncoder;
+    private final CachingHiveMetastore metastore;
+    private final Executor executor;
 
-    public HiveClient(String metastoreHost, int metastorePort, long maxChunkBytes, int maxOutstandingChunks, int maxChunkIteratorThreads, JsonCodec<HivePartitionChunk> partitionChunkCodec)
+    public HiveClient(
+            long maxChunkBytes,
+            int maxOutstandingChunks,
+            int maxChunkIteratorThreads,
+            HiveChunkEncoder hiveChunkEncoder,
+            CachingHiveMetastore metastore,
+            Executor executor)
     {
-        this.metastoreHost = metastoreHost;
-        this.metastorePort = metastorePort;
         this.maxChunkBytes = maxChunkBytes;
         this.maxOutstandingChunks = maxOutstandingChunks;
         this.maxChunkIteratorThreads = maxChunkIteratorThreads;
-        this.partitionChunkCodec = partitionChunkCodec;
+        this.hiveChunkEncoder = hiveChunkEncoder;
+        this.metastore = metastore;
+        this.executor = executor;
 
         HadoopNative.requireHadoopNative();
     }
@@ -125,31 +110,18 @@ public class HiveClient
     @Override
     public List<String> getDatabaseNames()
     {
-        try (HiveMetastoreClient metastore = getClient()) {
-            return metastore.get_all_databases();
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
+        return metastore.getAllDatabases();
     }
 
     @Override
     public List<String> getTableNames(String databaseName)
             throws ObjectNotFoundException
     {
-        try (HiveMetastoreClient metastore = getClient()) {
-            List<String> tables = metastore.get_all_tables(databaseName);
-            if (tables.isEmpty()) {
-                // Check to see if the database exists
-                metastore.get_database(databaseName);
-            }
-            return tables;
+        try {
+            return metastore.getAllTables(databaseName);
         }
         catch (NoSuchObjectException e) {
             throw new ObjectNotFoundException(e.getMessage());
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
         }
     }
 
@@ -157,8 +129,8 @@ public class HiveClient
     public List<SchemaField> getTableSchema(String databaseName, String tableName)
             throws ObjectNotFoundException
     {
-        try (HiveMetastoreClient metastore = getClient()) {
-            Table table = metastore.get_table(databaseName, tableName);
+        try {
+            Table table = metastore.getTable(databaseName, tableName);
             List<FieldSchema> partitionKeys = table.getPartitionKeys();
             Properties schema = MetaStoreUtils.getSchema(table);
             return getSchemaFields(schema, partitionKeys);
@@ -166,7 +138,7 @@ public class HiveClient
         catch (NoSuchObjectException e) {
             throw new ObjectNotFoundException(e.getMessage());
         }
-        catch (Exception e) {
+        catch (MetaException | SerDeException e) {
             throw Throwables.propagate(e);
         }
     }
@@ -175,8 +147,8 @@ public class HiveClient
     public List<SchemaField> getPartitionKeys(String databaseName, String tableName)
             throws ObjectNotFoundException
     {
-        try (HiveMetastoreClient metastore = getClient()) {
-            Table table = metastore.get_table(databaseName, tableName);
+        try {
+            Table table = metastore.getTable(databaseName, tableName);
             List<FieldSchema> partitionKeys = table.getPartitionKeys();
 
             ImmutableList.Builder<SchemaField> schemaFields = ImmutableList.builder();
@@ -193,29 +165,17 @@ public class HiveClient
         catch (NoSuchObjectException e) {
             throw new ObjectNotFoundException(e.getMessage());
         }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
     }
 
     @Override
     public List<String> getPartitionNames(String databaseName, String tableName)
             throws ObjectNotFoundException
     {
-        try (HiveMetastoreClient metastore = getClient()) {
-            List<String> partitionNames = metastore.get_partition_names(databaseName, tableName, (short) 0);
-            if (partitionNames.isEmpty()) {
-                // Check to see if the table exists
-                metastore.get_table(databaseName, tableName);
-                return ImmutableList.of(UNPARTITIONED_NAME);
-            }
-            return partitionNames;
+        try {
+            return metastore.getPartitionNames(databaseName, tableName);
         }
         catch (NoSuchObjectException e) {
             throw new ObjectNotFoundException(e.getMessage());
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
         }
     }
 
@@ -246,15 +206,12 @@ public class HiveClient
             partitions = getPartitions(databaseName, tableName);
         }
         else {
-            try (HiveMetastoreClient metastore = getClient()) {
-                List<String> names = metastore.get_partition_names_ps(databaseName, tableName, parts, (short) -1);
+            try {
+                List<String> names = metastore.getPartitionNamesByParts(databaseName, tableName, parts);
                 partitions = Lists.transform(names, toPartitionInfo(partitionKeys));
             }
             catch (NoSuchObjectException e) {
                 throw new ObjectNotFoundException(e.getMessage());
-            }
-            catch (Exception e) {
-                throw Throwables.propagate(e);
             }
         }
 
@@ -281,10 +238,15 @@ public class HiveClient
     public Iterable<PartitionChunk> getPartitionChunks(String databaseName, String tableName, List<String> partitionNames, List<String> columns)
             throws ObjectNotFoundException
     {
-        Table table = getTable(databaseName, tableName);
-
-        List<Partition> partitions = getPartitions(databaseName, tableName, partitionNames);
-
+        Table table;
+        List<Partition> partitions;
+        try {
+            table = metastore.getTable(databaseName, tableName);
+            partitions = getPartitions(databaseName, tableName, partitionNames);
+        }
+        catch (NoSuchObjectException e) {
+            throw new ObjectNotFoundException(e.getMessage());
+        }
 
         if (partitionNames.size() != partitions.size()) {
             throw new ObjectNotFoundException(format("expected %s partitions but found %s", partitionNames.size(), partitions.size()));
@@ -293,83 +255,27 @@ public class HiveClient
         return getPartitionChunks(table, partitions, getHiveColumns(table, columns));
     }
 
+    private List<Partition> getPartitions(String databaseName, String tableName, List<String> partitionNames)
+            throws NoSuchObjectException
+    {
+        if (partitionNames.equals(ImmutableList.of(UnpartitionedPartition.UNPARTITIONED_NAME))) {
+            return ImmutableList.<Partition>of(UnpartitionedPartition.INSTANCE);
+        }
+
+        ImmutableList.Builder<Partition> partitionsBuilder = ImmutableList.builder();
+        for (List<String> batchedPartitionNames : Lists.partition(partitionNames, PARTITION_BATCH_SIZE)) {
+            partitionsBuilder.addAll(metastore.getPartitionsByNames(databaseName, tableName, batchedPartitionNames));
+        }
+        return partitionsBuilder.build();
+    }
+
     @Override
     public RecordCursor getRecords(PartitionChunk partitionChunk)
     {
         checkArgument(partitionChunk instanceof HivePartitionChunk,
                 "expected instance of %s: %s", HivePartitionChunk.class, partitionChunk.getClass());
-        assert partitionChunk instanceof HivePartitionChunk; // // IDEA-60343
-        HivePartitionChunk chunk = (HivePartitionChunk) partitionChunk;
-
-        try {
-            // Clone schema since we modify it below
-            Properties schema = (Properties) chunk.getSchema().clone();
-
-            // We are handling parsing directly since the hive code is slow
-            // In order to do this, remove column types entry so that hive treats all columns as type "string"
-            String typeSpecification = (String) schema.remove(Constants.LIST_COLUMN_TYPES);
-            Preconditions.checkNotNull(typeSpecification, "Partition column type specification is null");
-
-            String nullSequence = (String) schema.get(Constants.SERIALIZATION_NULL_FORMAT);
-            checkState(nullSequence == null || nullSequence.equals("\\N"), "Only '\\N' supported as null specifier, was '%s'", nullSequence);
-
-            // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
-            List<HiveColumn> columns = chunk.getColumns();
-            if (columns.isEmpty()) {
-                // for count(*) queries we will have "no" columns we want to read, but since hive doesn't
-                // support no columns (it will read all columns instead), we must choose a single column
-                columns = ImmutableList.of(getFirstPrimitiveColumn(schema));
-            }
-            ColumnProjectionUtils.setReadColumnIDs(HADOOP_CONFIGURATION.get(), new ArrayList<>(transform(columns, indexGetter())));
-
-            RecordReader<?, ?> recordReader = createRecordReader(chunk);
-            if (recordReader.createValue() instanceof BytesRefArrayWritable) {
-                return new BytesHiveRecordCursor<>((RecordReader<?, BytesRefArrayWritable>) recordReader, chunk.getLength(), chunk.getPartitionKeys(), columns);
-            }
-            else {
-                return new GenericHiveRecordCursor<>((RecordReader<?, ? extends Writable>) recordReader, chunk.getLength(), chunk.getSchema(), chunk.getPartitionKeys(), columns);
-            }
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    private RecordReader<?, ?> createRecordReader(HivePartitionChunk chunk)
-    {
-        InputFormat inputFormat = getInputFormat(chunk.getSchema(), true);
-        FileSplit split = new FileSplit(chunk.getPath(), chunk.getStart(), chunk.getLength(), (String[]) null);
-        JobConf jobConf = new JobConf(HADOOP_CONFIGURATION.get());
-
-        try {
-            return inputFormat.getRecordReader(split, jobConf, Reporter.NULL);
-        }
-        catch (IOException e) {
-            throw new RuntimeException("Unable to create record reader for input format " + getInputFormatName(chunk.getSchema()), e);
-        }
-    }
-
-    private static InputFormat getInputFormat(Properties schema, boolean symlinkTarget)
-    {
-        String inputFormatName = getInputFormatName(schema);
-        try {
-            JobConf jobConf = new JobConf(HADOOP_CONFIGURATION.get());
-
-            // This code should be equivalent to jobConf.getInputFormat()
-            Class<? extends InputFormat> inputFormatClass = jobConf.getClassByName(inputFormatName).asSubclass(InputFormat.class);
-            if (inputFormatClass == null) {
-                // default file format in Hadoop is TextInputFormat
-                inputFormatClass = TextInputFormat.class;
-            }
-            else if (symlinkTarget && (inputFormatClass == SymlinkTextInputFormat.class)) {
-                // symlink targets are always TextInputFormat
-                inputFormatClass = TextInputFormat.class;
-            }
-            return ReflectionUtils.newInstance(inputFormatClass, jobConf);
-        }
-        catch (Exception e) {
-            throw new RuntimeException("Unable to create input format " + inputFormatName, e);
-        }
+        assert partitionChunk instanceof HivePartitionChunk; // IDEA-60343
+        return HiveChunkReader.getRecords((HivePartitionChunk) partitionChunk);
     }
 
     @Override
@@ -377,46 +283,14 @@ public class HiveClient
     {
         checkArgument(partitionChunk instanceof HivePartitionChunk,
                 "expected instance of %s: %s", HivePartitionChunk.class, partitionChunk.getClass());
-        return partitionChunkCodec.toJson((HivePartitionChunk) partitionChunk).getBytes(UTF_8);
+        assert partitionChunk instanceof HivePartitionChunk; // IDEA-60343
+        return hiveChunkEncoder.serialize((HivePartitionChunk) partitionChunk);
     }
 
     @Override
     public PartitionChunk deserializePartitionChunk(byte[] bytes)
     {
-        return partitionChunkCodec.fromJson(new String(bytes, UTF_8));
-    }
-
-    private HiveMetastoreClient getClient()
-    {
-        try {
-            return HiveMetastoreClient.create(metastoreHost, metastorePort);
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    private HiveColumn getFirstPrimitiveColumn(Properties schema)
-    {
-        try {
-            Deserializer deserializer = MetaStoreUtils.getDeserializer(null, schema);
-            StructObjectInspector rowInspector = (StructObjectInspector) deserializer.getObjectInspector();
-
-            int index = 0;
-            for (StructField field : rowInspector.getAllStructFieldRefs()) {
-                if (field.getFieldObjectInspector().getCategory() == ObjectInspector.Category.PRIMITIVE) {
-                    PrimitiveObjectInspector inspector = (PrimitiveObjectInspector) field.getFieldObjectInspector();
-                    SchemaField.Type type = getSupportedPrimitiveType(inspector.getPrimitiveCategory());
-                    return new HiveColumn(field.getFieldName(), index, type, inspector.getPrimitiveCategory());
-                }
-                index++;
-            }
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-
-        throw new IllegalStateException("Table doesn't have any PRIMITIVE columns");
+        return hiveChunkEncoder.deserialize(bytes);
     }
 
     private static List<HiveColumn> getHiveColumns(Table table, List<String> columns)
@@ -460,45 +334,9 @@ public class HiveClient
         }
     }
 
-    private Table getTable(String databaseName, String tableName)
-            throws ObjectNotFoundException
-    {
-        try (HiveMetastoreClient metastore = getClient()) {
-            return metastore.get_table(databaseName, tableName);
-        }
-        catch (NoSuchObjectException e) {
-            throw new ObjectNotFoundException(e.getMessage());
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    private List<Partition> getPartitions(String databaseName, String tableName, List<String> partitionNames)
-            throws ObjectNotFoundException
-    {
-        if (partitionNames.equals(ImmutableList.of(UNPARTITIONED_NAME))) {
-            return ImmutableList.<Partition>of(UnpartitionedPartition.INSTANCE);
-        }
-
-        try (HiveMetastoreClient metastore = getClient()) {
-            ImmutableList.Builder<Partition> partitions = ImmutableList.builder();
-            for (List<String> batchedPartitionNames : Lists.partition(partitionNames, PARTITION_BATCH_SIZE)) {
-                partitions.addAll(metastore.get_partitions_by_names(databaseName, tableName, batchedPartitionNames));
-            }
-            return partitions.build();
-        }
-        catch (NoSuchObjectException e) {
-            throw new ObjectNotFoundException(e.getMessage());
-        }
-        catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
     private Iterable<PartitionChunk> getPartitionChunks(Table table, List<Partition> partitions, List<HiveColumn> columns)
     {
-        return new PartitionChunkIterable(table, partitions, columns, maxChunkBytes, maxOutstandingChunks, maxChunkIteratorThreads, HIVE_CLIENT_EXECUTOR);
+        return new PartitionChunkIterable(table, partitions, columns, maxChunkBytes, maxOutstandingChunks, maxChunkIteratorThreads, executor);
     }
 
     private static class PartitionChunkIterable
@@ -682,7 +520,7 @@ public class HiveClient
             method.setAccessible(true);
             return (boolean) method.invoke(inputFormat, fileSystem, path);
         }
-        catch (Exception e) {
+        catch (InvocationTargetException | IllegalAccessException e) {
             throw Throwables.propagate(e);
         }
     }
@@ -694,8 +532,8 @@ public class HiveClient
             @Override
             public PartitionInfo apply(String partitionName)
             {
-                if (partitionName.equals(UNPARTITIONED_NAME)) {
-                    return new PartitionInfo(UNPARTITIONED_NAME);
+                if (partitionName.equals(UnpartitionedPartition.UNPARTITIONED_NAME)) {
+                    return new PartitionInfo(UnpartitionedPartition.UNPARTITIONED_NAME);
                 }
 
                 try {
@@ -733,13 +571,6 @@ public class HiveClient
         };
     }
 
-    private static String getInputFormatName(Properties schema)
-    {
-        String name = schema.getProperty(FILE_INPUT_FORMAT);
-        checkArgument(name != null, "missing property: %s", FILE_INPUT_FORMAT);
-        return name;
-    }
-
     private static List<SchemaField> getSchemaFields(Properties schema, List<FieldSchema> partitionKeys)
             throws MetaException, SerDeException
     {
@@ -775,52 +606,6 @@ public class HiveClient
         }
 
         return schemaFields.build();
-    }
-
-    private static SchemaField.Type getSupportedPrimitiveType(PrimitiveCategory category)
-    {
-        Type type = getPrimitiveType(category);
-        if (type == null) {
-            throw new IllegalArgumentException("Hive type not supported: " + category);
-        }
-        return type;
-    }
-
-    private static SchemaField.Type getPrimitiveType(PrimitiveCategory category)
-    {
-        switch (category) {
-            case BYTE:
-            case SHORT:
-            case INT:
-            case LONG:
-                return SchemaField.Type.LONG;
-            case FLOAT:
-            case DOUBLE:
-                return SchemaField.Type.DOUBLE;
-            case STRING:
-                return SchemaField.Type.STRING;
-            case BOOLEAN:
-                return SchemaField.Type.LONG;
-            default:
-                return null;
-        }
-    }
-
-    private static SchemaField.Type convertHiveType(String type)
-    {
-        return getSupportedPrimitiveType(convertNativeHiveType(type));
-    }
-
-    private static PrimitiveCategory convertNativeHiveType(String type)
-    {
-        return PrimitiveObjectInspectorUtils.getTypeEntryFromTypeName(type).primitiveCategory;
-    }
-
-    @SuppressWarnings("CloneableClassWithoutClone")
-    private static class UnpartitionedPartition
-            extends Partition
-    {
-        public static final UnpartitionedPartition INSTANCE = new UnpartitionedPartition();
     }
 
     private static List<HivePartitionKey> getPartitionKeys(Table table, Partition partition)
