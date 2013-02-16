@@ -15,6 +15,7 @@ import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.StorageManager;
+import com.facebook.presto.metadata.TableHandleModule;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
@@ -33,7 +34,6 @@ import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tuple.TupleReadable;
 import com.facebook.presto.util.MaterializedResult;
 import com.facebook.presto.util.MaterializedTuple;
-import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -66,6 +66,7 @@ import io.airlift.http.client.netty.NettyAsyncHttpClient;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
+import io.airlift.json.JsonBinder;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.JsonModule;
@@ -81,6 +82,7 @@ import org.weakref.jmx.guice.MBeanModule;
 import org.weakref.jmx.testing.TestingMBeanServer;
 
 import javax.management.MBeanServer;
+
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -515,11 +517,18 @@ public class TestDistributedQueries
 
     private static JsonCodecFactory createCodecFactory()
     {
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        ImmutableMap.Builder<Class<?>, JsonDeserializer<?>> deserializers = ImmutableMap.builder();
-        deserializers.put(Expression.class, new ExpressionDeserializer());
-        deserializers.put(FunctionCall.class, new FunctionCallDeserializer());
-        objectMapperProvider.setJsonDeserializers(deserializers.build());
-        return new JsonCodecFactory(objectMapperProvider);
+        Injector inj = Guice.createInjector(Stage.PRODUCTION,
+                new JsonModule(),
+                new TableHandleModule(),
+                new Module() {
+                    @Override
+                    public void configure(Binder binder)
+                    {
+                        JsonBinder.jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
+                        JsonBinder.jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);
+                    }
+                });
+
+        return inj.getInstance(JsonCodecFactory.class);
     }
 }
