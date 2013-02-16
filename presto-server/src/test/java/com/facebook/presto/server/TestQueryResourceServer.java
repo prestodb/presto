@@ -51,7 +51,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.List;
 
-import static com.facebook.presto.server.PrestoMediaTypes.PRESTO_PAGES_TYPE;
+import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES_TYPE;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;

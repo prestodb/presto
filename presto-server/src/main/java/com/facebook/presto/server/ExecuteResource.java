@@ -1,5 +1,6 @@
 package com.facebook.presto.server;
 
+import com.facebook.presto.ResultsIterator;
 import com.facebook.presto.cli.ClientSession;
 import com.facebook.presto.cli.HttpQueryClient;
 import com.facebook.presto.execution.QueryInfo;

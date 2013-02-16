@@ -6,7 +6,6 @@ import com.facebook.swift.codec.guice.ThriftCodecModule;
 import com.facebook.swift.service.guice.ThriftClientModule;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
-import io.airlift.command.Command;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.event.client.JsonEventModule;
@@ -21,14 +20,11 @@ import io.airlift.node.NodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import org.weakref.jmx.guice.MBeanModule;
 
-@Command(name = "server", description = "Run the server")
-public class Server
-        implements Runnable
+public class Main
 {
-    @Override
-    public void run()
+    public static void main(String[] args)
     {
-        Logger log = Logger.get(Server.class);
+        Logger log = Logger.get(Main.class);
         Bootstrap app = new Bootstrap(
                 new NodeModule(),
                 new DiscoveryModule(),

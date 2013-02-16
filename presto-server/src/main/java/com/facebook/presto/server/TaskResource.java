@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.PrestoMediaTypes;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.operator.Page;
