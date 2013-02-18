@@ -13,6 +13,7 @@ import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.airlift.resolver.ArtifactResolver;
+import io.airlift.resolver.DefaultArtifact;
 import org.sonatype.aether.artifact.Artifact;
 
 import javax.inject.Inject;
@@ -37,6 +38,7 @@ public class PluginManager
 
     private final ImportClientManager importClientManager;
     private final ArtifactResolver resolver;
+    private final File installedPluginsDir;
     private final List<String> plugins;
     private final File pluginConfigurationDir;
     private final Map<String, String> optionalConfig;
@@ -46,6 +48,7 @@ public class PluginManager
     public PluginManager(NodeInfo nodeInfo, PluginManagerConfig config, ImportClientManager importClientManager, ConfigurationFactory configurationFactory)
     {
         this.importClientManager = importClientManager;
+        installedPluginsDir = config.getInstalledPluginsDir();
         if (config.getPlugins() == null) {
             this.plugins = ImmutableList.of();
         }
@@ -70,6 +73,12 @@ public class PluginManager
     {
         if (!pluginsLoaded.compareAndSet(false, true)) {
             return;
+        }
+
+        for (File file : listFiles(installedPluginsDir)) {
+            if (file.isDirectory()) {
+                loadPlugin(file.getAbsolutePath());
+            }
         }
 
         for (String plugin : plugins) {
@@ -121,24 +130,84 @@ public class PluginManager
     private URLClassLoader buildClassLoader(String plugin)
             throws MalformedURLException
     {
-        // todo support plugin as single jar file and plugin as a directory of jar files
-        File pomFile = new File(plugin);
+        File file = new File(plugin);
+        if (file.isFile() && file.getName().endsWith(".xml")) {
+            return buildClassLoaderFromPom(file);
+        }
+        else if (file.isDirectory()) {
+            return buildClassLoaderFromDirectory(file);
+        }
+        else {
+            return buildClassLoaderFromCoordinates(plugin);
+        }
+    }
+
+    private URLClassLoader buildClassLoaderFromPom(File pomFile)
+            throws MalformedURLException
+    {
         List<Artifact> artifacts = resolver.resolvePom(pomFile);
 
         log.debug("Classpath for %s:", pomFile);
         List<URL> urls = new ArrayList<>();
-        urls.add(new File(pomFile.getParentFile(), "target/classes/").toURL());
+        urls.add(new File(pomFile.getParentFile(), "target/classes/").toURI().toURL());
         for (Artifact artifact : artifacts) {
             if (artifact.getFile() != null) {
                 log.debug("    %s", artifact.getFile());
-                urls.add(artifact.getFile().toURL());
+                urls.add(artifact.getFile().toURI().toURL());
             }
             else {
                 log.debug("  Could not resolve artifact %s", artifact);
             }
         }
+        return createClassLoader(urls);
+    }
 
+    private URLClassLoader buildClassLoaderFromDirectory(File dir)
+            throws MalformedURLException
+    {
+        log.debug("Classpath for %s:", dir.getName());
+        List<URL> urls = new ArrayList<>();
+        for (File file : listFiles(dir)) {
+            log.debug("    %s", file);
+            urls.add(file.toURI().toURL());
+        }
+        return createClassLoader(urls);
+    }
+
+    private URLClassLoader buildClassLoaderFromCoordinates(String coordinates)
+            throws MalformedURLException
+    {
+        Artifact rootArtifact = new DefaultArtifact(coordinates);
+        List<Artifact> artifacts = resolver.resolveArtifacts(rootArtifact);
+
+        log.debug("Classpath for %s:", rootArtifact);
+        List<URL> urls = new ArrayList<>();
+        for (Artifact artifact : artifacts) {
+            if (artifact.getFile() != null) {
+                log.debug("    %s", artifact.getFile());
+                urls.add(artifact.getFile().toURI().toURL());
+            }
+            else {
+                log.debug("  Could not resolve artifact %s", artifact);
+            }
+        }
+        return createClassLoader(urls);
+    }
+
+    private URLClassLoader createClassLoader(List<URL> urls)
+    {
         // todo add basic child first class loader
         return new URLClassLoader(urls.toArray(new URL[urls.size()]));
+    }
+
+    private List<File> listFiles(File installedPluginsDir)
+    {
+        if (installedPluginsDir != null && installedPluginsDir.isDirectory()) {
+            File[] files = installedPluginsDir.listFiles();
+            if (files != null) {
+                return ImmutableList.copyOf(files);
+            }
+        }
+        return ImmutableList.of();
     }
 }
