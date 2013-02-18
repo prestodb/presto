@@ -15,10 +15,23 @@ import java.util.List;
 // todo add test
 public class PluginManagerConfig
 {
+    private File installedPluginsDir = new File("plugins");
     private List<String> plugins;
     private File pluginConfigurationDir = new File("etc/");
     private String mavenLocalRepository = ArtifactResolver.USER_LOCAL_REPO;
     private List<String> mavenRemoteRepository = ImmutableList.of(ArtifactResolver.MAVEN_CENTRAL_URI);
+
+    public File getInstalledPluginsDir()
+    {
+        return installedPluginsDir;
+    }
+
+    @Config("plugin.dir")
+    public PluginManagerConfig setInstalledPluginsDir(File installedPluginsDir)
+    {
+        this.installedPluginsDir = installedPluginsDir;
+        return this;
+    }
 
     public List<String> getPlugins()
     {
