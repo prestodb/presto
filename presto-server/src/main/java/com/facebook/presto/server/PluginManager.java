@@ -16,6 +16,7 @@ import io.airlift.resolver.ArtifactResolver;
 import io.airlift.resolver.DefaultArtifact;
 import org.sonatype.aether.artifact.Artifact;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 import java.io.File;
 import java.io.FileInputStream;
@@ -86,15 +87,13 @@ public class PluginManager
         }
     }
 
+    @SuppressWarnings("UnusedDeclaration")
     private void loadPlugin(String plugin)
             throws Exception
     {
         log.info("-- Loading plugin %s --", plugin);
         URLClassLoader pluginClassLoader = buildClassLoader(plugin);
-        ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
-        try {
-            Thread.currentThread().setContextClassLoader(pluginClassLoader);
-
+        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(pluginClassLoader)) {
             ServiceLoader<ImportClientFactoryFactory> serviceLoader = ServiceLoader.load(ImportClientFactoryFactory.class, pluginClassLoader);
             List<ImportClientFactoryFactory> importClientFactoryFactories = ImmutableList.copyOf(serviceLoader);
 
@@ -103,9 +102,6 @@ public class PluginManager
                 ImportClientFactory importClientFactory = importClientFactoryFactory.createImportClientFactory(requiredConfig, optionalConfig);
                 importClientManager.addImportClientFactory(importClientFactory);
             }
-        }
-        finally {
-            Thread.currentThread().setContextClassLoader(oldClassLoader);
         }
         log.info("-- Finished loading plugin %s --", plugin);
     }
@@ -196,8 +192,7 @@ public class PluginManager
 
     private URLClassLoader createClassLoader(List<URL> urls)
     {
-        // todo add basic child first class loader
-        return new URLClassLoader(urls.toArray(new URL[urls.size()]));
+        return new SimpleChildFirstClassLoader(urls, getClass().getClassLoader(), "com.facebook.presto");
     }
 
     private List<File> listFiles(File installedPluginsDir)
@@ -209,5 +204,101 @@ public class PluginManager
             }
         }
         return ImmutableList.of();
+    }
+
+    private static class SimpleChildFirstClassLoader
+            extends URLClassLoader
+    {
+        private final List<String> nonOverridableClasses;
+
+        public SimpleChildFirstClassLoader(List<URL> urls, ClassLoader parent, String... nonOverridableClasses)
+        {
+            this(urls, parent, ImmutableList.copyOf(nonOverridableClasses));
+        }
+        public SimpleChildFirstClassLoader(List<URL> urls, ClassLoader parent, List<String> nonOverridableClasses)
+        {
+            super(urls.toArray(new URL[urls.size()]), parent);
+            this.nonOverridableClasses = ImmutableList.copyOf(nonOverridableClasses);
+        }
+
+        @Override
+        protected Class<?> loadClass(String name, boolean resolve)
+                throws ClassNotFoundException
+        {
+            // grab the magic lock
+            synchronized (getClassLoadingLock(name)) {
+
+                // first check if this class loader has already loaded the class
+                Class clazz = findLoadedClass(name);
+
+                // if the class isn't already loaded and the class can be overridden,
+                // try to find it locally
+                if (clazz == null && !isNonOverridableClass(name)) {
+                    try {
+                        clazz = findClass(name);
+                    }
+                    catch (ClassNotFoundException ignored) {
+                        // class loaders were not designed for child first, so this class will throw an exception
+                    }
+                }
+
+                // if we found the class, we are done
+                if (clazz != null) {
+                    if (resolve) {
+                        resolveClass(clazz);
+                    }
+                    return clazz;
+                }
+
+                // We didn't find the class, so just use the normal class
+                // loader code.  This will result in findClass being called
+                // again, but this is the only safe way to load the classes.
+                return super.loadClass(name, resolve);
+            }
+        }
+
+        @Nullable
+        @Override
+        public URL getResource(String name)
+        {
+            // look for a local resource first
+            URL url = findResource(name);
+            if (url != null) {
+                return url;
+            }
+
+            // We didn't find the resource, so just use the normal class
+            // loader code.  This will result in findResource being called
+            // again, but this is the only safe way to load a resource.
+            return super.getResource(name);
+        }
+
+        private boolean isNonOverridableClass(String name)
+        {
+            for (String nonOverridableClass : nonOverridableClasses) {
+                if (name.startsWith(nonOverridableClass)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    private static class ThreadContextClassLoader
+            implements AutoCloseable
+    {
+        private final ClassLoader originalThreadContextClassLoader;
+
+        private ThreadContextClassLoader(ClassLoader newThreadContextClassLoader)
+        {
+            this.originalThreadContextClassLoader = Thread.currentThread().getContextClassLoader();
+            Thread.currentThread().setContextClassLoader(newThreadContextClassLoader);
+        }
+
+        @Override
+        public void close()
+        {
+            Thread.currentThread().setContextClassLoader(originalThreadContextClassLoader);
+        }
     }
 }
