@@ -53,14 +53,6 @@
         </dependencySet>
         <dependencySet>
             <unpack>true</unpack>
-            <outputDirectory>plugins/prism</outputDirectory>
-            <scope>provided</scope>
-            <includes>
-                <include>com.facebook.presto:presto-prism:zip</include>
-            </includes>
-        </dependencySet>
-        <dependencySet>
-            <unpack>true</unpack>
             <outputDirectory>/</outputDirectory>
             <includes>
                 <include>io.airlift:launcher</include>

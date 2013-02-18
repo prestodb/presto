@@ -57,14 +57,6 @@
             <scope>provided</scope>
         </dependency>
 
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-prism</artifactId>
-            <version>0.3-SNAPSHOT</version>
-            <type>zip</type>
-            <scope>provided</scope>
-        </dependency>
-
         <!-- for testing -->
         <dependency>
             <groupId>org.testng</groupId>
