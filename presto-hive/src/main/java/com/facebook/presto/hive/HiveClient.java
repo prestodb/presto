@@ -103,8 +103,6 @@ public class HiveClient
         this.hiveChunkEncoder = hiveChunkEncoder;
         this.metastore = metastore;
         this.executor = executor;
-
-        HadoopNative.requireHadoopNative();
     }
 
     @Override

@@ -42,6 +42,8 @@ class HiveChunkReader
 
     static RecordCursor getRecords(HivePartitionChunk chunk)
     {
+        HadoopNative.requireHadoopNative();
+
         try {
             // Clone schema since we modify it below
             Properties schema = (Properties) chunk.getSchema().clone();
