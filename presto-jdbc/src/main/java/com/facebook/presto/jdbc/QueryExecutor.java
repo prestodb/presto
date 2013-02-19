@@ -78,7 +78,7 @@ public class QueryExecutor
 
     private static JsonCodecFactory createCodecFactory()
     {
-        Injector inj = Guice.createInjector(Stage.PRODUCTION,
+        Injector injector = Guice.createInjector(Stage.PRODUCTION,
                 new JsonModule(),
                 new TableHandleModule(),
                 new Module() {
@@ -90,6 +90,6 @@ public class QueryExecutor
                     }
                 });
 
-        return inj.getInstance(JsonCodecFactory.class);
+        return injector.getInstance(JsonCodecFactory.class);
     }
 }

@@ -1,15 +1,11 @@
 package com.facebook.presto.metadata;
 
-import com.fasterxml.jackson.databind.jsontype.TypeIdResolver;
-
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Binder;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
-import com.google.inject.Module;
 import com.google.inject.Stage;
 import io.airlift.json.JsonModule;
 import io.airlift.testing.Assertions;
@@ -18,8 +14,6 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.facebook.presto.metadata.TableHandleJacksonModule.bindTableHandle;
-import static io.airlift.json.JsonBinder.jsonBinder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

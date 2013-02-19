@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.jsontype.TypeIdResolver;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 
-import static com.facebook.presto.metadata.TableHandleJacksonModule.bindTableHandle;
+import static com.facebook.presto.metadata.TableHandleBinder.bindTableHandle;
 import static io.airlift.json.JsonBinder.jsonBinder;
 
 public class TableHandleModule
