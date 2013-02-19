@@ -26,10 +26,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Binder;
-import com.google.inject.TypeLiteral;
-import com.google.inject.binder.LinkedBindingBuilder;
-import com.google.inject.multibindings.MapBinder;
 
 import javax.inject.Inject;
 
@@ -45,16 +41,6 @@ public class TableHandleJacksonModule
         extends SimpleModule
         implements TypeIdResolver
 {
-    public static LinkedBindingBuilder<Class<? extends TableHandle>> bindTableHandle(Binder binder, String tableHandlerType)
-    {
-        MapBinder<String, Class<? extends TableHandle>> tableHandleTypes = MapBinder.newMapBinder(
-                binder,
-                new TypeLiteral<String>() {},
-                new TypeLiteral<Class<? extends TableHandle>>() {});
-
-        return tableHandleTypes.addBinding(tableHandlerType);
-    }
-
     private final BiMap<String, Class<? extends TableHandle>> tableHandleTypes;
     private final Map<Class<? extends TableHandle>, SimpleType> simpleTypes;
 
@@ -127,10 +113,10 @@ public class TableHandleJacksonModule
         }
 
         @Override
-        public TableHandle deserialize(JsonParser jp, DeserializationContext ctxt)
+        public TableHandle deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
                 throws IOException, JsonProcessingException
         {
-            return (TableHandle) typeDeserializer.deserializeTypedFromAny(jp, ctxt);
+            return (TableHandle) typeDeserializer.deserializeTypedFromAny(jsonParser, deserializationContext);
         }
     }
 
@@ -148,11 +134,11 @@ public class TableHandleJacksonModule
         }
 
         @Override
-        public void serialize(final TableHandle value, JsonGenerator jgen, final SerializerProvider provider)
+        public void serialize(final TableHandle value, JsonGenerator jsonGenerator, final SerializerProvider serializerProvider)
                 throws IOException, JsonGenerationException
         {
             if (value == null) {
-                provider.defaultSerializeNull(jgen);
+                serializerProvider.defaultSerializeNull(jsonGenerator);
             }
             else {
                 try {
@@ -162,12 +148,12 @@ public class TableHandleJacksonModule
                         public JsonSerializer<Object> call()
                                 throws Exception
                         {
-                            return BeanSerializerFactory.instance.createSerializer(provider, provider.constructType(value.getClass()));
+                            return BeanSerializerFactory.instance.createSerializer(serializerProvider, serializerProvider.constructType(value.getClass()));
                         }
 
                     });
 
-                    serializer.serializeWithType(value, jgen, provider, typeSerializer);
+                    serializer.serializeWithType(value, jsonGenerator, serializerProvider, typeSerializer);
                 }
                 catch (ExecutionException e) {
                     throw Throwables.propagate(e.getCause());
