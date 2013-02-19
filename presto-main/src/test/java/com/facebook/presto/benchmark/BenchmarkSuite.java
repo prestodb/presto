@@ -44,6 +44,7 @@ public class BenchmarkSuite
             new VarBinaryMaxAggregationSqlBenchmark(),
             new SqlDistinctMultipleFields(),
             new SqlDistinctSingleField(),
+            new SqlTpchQuery1(),
 
             // statistics benchmarks
             new StatisticsBenchmark.LongVarianceBenchmark(),

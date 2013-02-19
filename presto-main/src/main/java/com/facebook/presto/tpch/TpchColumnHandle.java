@@ -43,6 +43,12 @@ public class TpchColumnHandle
     }
 
     @Override
+    public String toString()
+    {
+        return "tpch:" + fieldIndex;
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
