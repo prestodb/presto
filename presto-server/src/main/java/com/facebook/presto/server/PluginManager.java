@@ -100,6 +100,7 @@ public class PluginManager
             for (ImportClientFactoryFactory importClientFactoryFactory : importClientFactoryFactories) {
                 Map<String, String> requiredConfig = loadPluginConfig(importClientFactoryFactory.getConfigName());
                 ImportClientFactory importClientFactory = importClientFactoryFactory.createImportClientFactory(requiredConfig, optionalConfig);
+                importClientFactory = new ClassLoaderSafeImportClientFactory(importClientFactory, pluginClassLoader);
                 importClientManager.addImportClientFactory(importClientFactory);
             }
         }
@@ -281,24 +282,6 @@ public class PluginManager
                 }
             }
             return false;
-        }
-    }
-
-    private static class ThreadContextClassLoader
-            implements AutoCloseable
-    {
-        private final ClassLoader originalThreadContextClassLoader;
-
-        private ThreadContextClassLoader(ClassLoader newThreadContextClassLoader)
-        {
-            this.originalThreadContextClassLoader = Thread.currentThread().getContextClassLoader();
-            Thread.currentThread().setContextClassLoader(newThreadContextClassLoader);
-        }
-
-        @Override
-        public void close()
-        {
-            Thread.currentThread().setContextClassLoader(originalThreadContextClassLoader);
         }
     }
 }

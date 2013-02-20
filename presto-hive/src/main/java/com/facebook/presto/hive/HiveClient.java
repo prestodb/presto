@@ -48,6 +48,7 @@ import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -359,6 +360,7 @@ public class HiveClient
         private final int maxThreads;
         private final FileSystemCache fileSystemCache;
         private final Executor executor;
+        private final ClassLoader classLoader;
 
         private PartitionChunkIterable(Table table,
                 List<Partition> partitions,
@@ -377,6 +379,7 @@ public class HiveClient
             this.maxThreads = maxThreads;
             this.fileSystemCache = fileSystemCache;
             this.executor = executor;
+            this.classLoader = Thread.currentThread().getContextClassLoader();
         }
 
         @Override
@@ -385,8 +388,9 @@ public class HiveClient
             // Each iterator has its own bounded executor and can be independently suspended
             SuspendingExecutor suspendingExecutor = new SuspendingExecutor(new BoundedExecutor(executor, maxThreads));
             final PartitionChunkQueue partitionChunkQueue = new PartitionChunkQueue(maxOutstandingChunks, suspendingExecutor);
-            ImmutableList.Builder<ListenableFuture<Void>> futureBuilder = ImmutableList.builder();
-            try {
+            try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)){
+                ImmutableList.Builder<ListenableFuture<Void>> futureBuilder = ImmutableList.builder();
+
                 for (Partition partition : partitions) {
                     final Properties schema = getPartitionSchema(table, partition);
                     final List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition);
@@ -651,5 +655,23 @@ public class HiveClient
             return table.getSd().getLocation();
         }
         return partition.getSd().getLocation();
+    }
+
+    public static class ThreadContextClassLoader
+            implements Closeable
+    {
+        private final ClassLoader originalThreadContextClassLoader;
+
+        ThreadContextClassLoader(ClassLoader newThreadContextClassLoader)
+        {
+            this.originalThreadContextClassLoader = Thread.currentThread().getContextClassLoader();
+            Thread.currentThread().setContextClassLoader(newThreadContextClassLoader);
+        }
+
+        @Override
+        public void close()
+        {
+            Thread.currentThread().setContextClassLoader(originalThreadContextClassLoader);
+        }
     }
 }
