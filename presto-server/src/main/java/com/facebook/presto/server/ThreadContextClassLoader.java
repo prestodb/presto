@@ -3,8 +3,10 @@
  */
 package com.facebook.presto.server;
 
+import java.io.Closeable;
+
 public class ThreadContextClassLoader
-        implements AutoCloseable
+        implements Closeable
 {
     private final ClassLoader originalThreadContextClassLoader;
 

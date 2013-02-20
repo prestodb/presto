@@ -128,7 +128,7 @@ public class PluginManager
             throws MalformedURLException
     {
         File file = new File(plugin);
-        if (file.isFile() && file.getName().endsWith(".xml")) {
+        if (file.isFile() && (file.getName().equals("pom.xml") || file.getName().endsWith(".pom"))) {
             return buildClassLoaderFromPom(file);
         }
         else if (file.isDirectory()) {
@@ -252,8 +252,11 @@ public class PluginManager
                 }
 
                 // We didn't find the class, so just use the normal class
-                // loader code.  This will result in findClass being called
-                // again, but this is the only safe way to load the classes.
+                // loader code.  The loadClass call here will result in the
+                // parent class loader being checked and then findClass
+                // being called again.  This is the easiest way to load
+                // classes from the parent since the bootstrap class loader
+                // is null.
                 return super.loadClass(name, resolve);
             }
         }
@@ -269,14 +272,18 @@ public class PluginManager
             }
 
             // We didn't find the resource, so just use the normal class
-            // loader code.  This will result in findResource being called
-            // again, but this is the only safe way to load a resource.
+            // loader code.   The getResource call here will result in the
+            // parent class loader being checked and then findResource
+            // being called again.  This is the easiest way to load
+            // resources from the parent since the bootstrap class loader
+            // is null.
             return super.getResource(name);
         }
 
         private boolean isNonOverridableClass(String name)
         {
             for (String nonOverridableClass : nonOverridableClasses) {
+                // todo maybe make this more precise and only match base package
                 if (name.startsWith(nonOverridableClass)) {
                     return true;
                 }
