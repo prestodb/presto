@@ -67,7 +67,7 @@
         <dependency>
             <groupId>com.facebook.swift</groupId>
             <artifactId>swift-smc</artifactId>
-            <version>0.2.0-SNAPSHOT</version>
+            <version>0.2</version>
         </dependency>
 
         <dependency>
