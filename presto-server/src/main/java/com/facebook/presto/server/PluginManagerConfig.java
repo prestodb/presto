@@ -12,7 +12,6 @@ import javax.validation.constraints.NotNull;
 import java.io.File;
 import java.util.List;
 
-// todo add test
 public class PluginManagerConfig
 {
     private File installedPluginsDir = new File("plugins");
@@ -47,7 +46,11 @@ public class PluginManagerConfig
     @Config("plugin.bundles")
     public PluginManagerConfig setPlugins(String plugins)
     {
-        this.plugins = ImmutableList.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(plugins));
+        if (plugins == null) {
+            this.plugins = null;
+        } else {
+            this.plugins = ImmutableList.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(plugins));
+        }
         return this;
     }
 
