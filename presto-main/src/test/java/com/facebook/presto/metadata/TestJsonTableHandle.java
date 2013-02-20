@@ -41,11 +41,11 @@ public class TestJsonTableHandle
     @BeforeMethod
     public void startUp()
     {
-        Injector inj = Guice.createInjector(Stage.PRODUCTION,
+        Injector injector = Guice.createInjector(Stage.PRODUCTION,
                 new JsonModule(),
                 new TableHandleModule());
 
-        objectMapper = inj.getInstance(ObjectMapper.class);
+        objectMapper = injector.getInstance(ObjectMapper.class);
     }
 
     @Test
