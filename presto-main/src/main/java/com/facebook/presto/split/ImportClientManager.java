@@ -28,6 +28,16 @@ public class ImportClientManager
         clientFactories.add(importClientFactory);
     }
 
+    public boolean hasCatalog(String catalogName)
+    {
+        for (ImportClientFactory clientFactory : clientFactories) {
+            if (clientFactory.hasCatalog(catalogName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public ImportClient getClient(String sourceName)
     {
         for (ImportClientFactory clientFactory : getImportClientFactories()) {

@@ -10,25 +10,31 @@ import com.google.inject.Inject;
 public class HiveImportClientFactory
         implements ImportClientFactory
 {
-    private static final String HIVE_SOURCE_NAME = "hive";
+    private static final String HIVE_CATALOG_NAME = "hive";
 
-    private final DiscoveryLocatedHiveCluster discoveryLocatedHiveCluster;
+    private final HiveCluster hiveCluster;
     private final HiveClientFactory hiveClientFactory;
 
     @Inject
-    public HiveImportClientFactory(DiscoveryLocatedHiveCluster discoveryLocatedHiveCluster, HiveClientFactory hiveClientFactory)
+    public HiveImportClientFactory(HiveCluster hiveCluster, HiveClientFactory hiveClientFactory)
     {
-        this.discoveryLocatedHiveCluster = discoveryLocatedHiveCluster;
+        this.hiveCluster = hiveCluster;
         this.hiveClientFactory = hiveClientFactory;
     }
 
     @Override
-    public ImportClient createClient(String sourceName)
+    public boolean hasCatalog(String catalogName)
     {
-        if (!HIVE_SOURCE_NAME.equals(sourceName)) {
+        return HIVE_CATALOG_NAME.equals(catalogName);
+    }
+
+    @Override
+    public ImportClient createClient(String catalogName)
+    {
+        if (!HIVE_CATALOG_NAME.equals(catalogName)) {
             return null;
         }
 
-        return hiveClientFactory.get(discoveryLocatedHiveCluster);
+        return hiveClientFactory.get(hiveCluster);
     }
 }

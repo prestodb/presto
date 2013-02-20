@@ -48,6 +48,11 @@ public class ImportMetadata
         return new TableMetadata(catalogName, schemaName, tableName, columns, importTableHandle);
     }
 
+    public boolean hasCatalog(String catalogName)
+    {
+        return importClientManager.hasCatalog(catalogName);
+    }
+
     @Override
     public List<QualifiedTableName> listTables(String catalogName)
     {

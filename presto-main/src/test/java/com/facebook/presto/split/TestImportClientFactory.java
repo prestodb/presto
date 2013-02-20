@@ -7,6 +7,7 @@ import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.spi.PartitionInfo;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaField;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
@@ -35,17 +36,24 @@ public class TestImportClientFactory
     private class MockImportClientFactor
             implements ImportClientFactory
     {
-        private final String sourceName;
+        private final String catalogName;
 
-        private MockImportClientFactor(String sourceName)
+        private MockImportClientFactor(String catalogName)
         {
-            this.sourceName = sourceName;
+            Preconditions.checkNotNull(catalogName, "catalogName is null");
+            this.catalogName = catalogName;
         }
 
         @Override
-        public ImportClient createClient(String sourceName)
+        public boolean hasCatalog(String catalogName)
         {
-            if (!this.sourceName.equals(sourceName)) {
+            return this.catalogName.equals(catalogName);
+        }
+
+        @Override
+        public ImportClient createClient(String catalogName)
+        {
+            if (!this.catalogName.equals(catalogName)) {
                 return null;
             }
 

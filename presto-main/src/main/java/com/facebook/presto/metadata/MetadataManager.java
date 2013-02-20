@@ -26,10 +26,12 @@ public class MetadataManager
         implements Metadata
 {
     private final Map<DataSourceType, Metadata> metadataSourceMap;
+    private final ImportMetadata importMetadata;
 
     @Inject
     public MetadataManager(NativeMetadata nativeMetadata, InternalMetadata internalMetadata, ImportMetadata importMetadata)
     {
+        this.importMetadata = importMetadata;
         metadataSourceMap = ImmutableMap.<DataSourceType, Metadata>builder()
                 .put(DataSourceType.NATIVE, checkNotNull(nativeMetadata, "nativeMetadata is null"))
                 .put(DataSourceType.INTERNAL, checkNotNull(internalMetadata, "internalMetadata is null"))
@@ -138,26 +140,26 @@ public class MetadataManager
         metadataSourceMap.get(dataSourceType).createTable(table);
     }
 
-    private static List<TableColumn> getTableColumns(String catalogName, List<TableColumn> catalogColumns)
+    private List<TableColumn> getTableColumns(String catalogName, List<TableColumn> catalogColumns)
     {
         List<TableColumn> informationSchemaColumns = listInformationSchemaTableColumns(catalogName);
         List<TableColumn> systemColumns = listSystemTableColumns(catalogName);
         return ImmutableList.copyOf(concat(catalogColumns, informationSchemaColumns, systemColumns));
     }
 
-    private static DataSourceType lookupDataSource(String catalogName)
+    private DataSourceType lookupDataSource(String catalogName)
     {
         // use a schema name that won't match any real or special schemas
         return lookupDataSource(catalogName, "$dummy_schema$");
     }
 
-    private static DataSourceType lookupDataSource(String catalogName, String schemaName)
+    private DataSourceType lookupDataSource(String catalogName, String schemaName)
     {
         // use a table name that won't match any real or special tables
         return lookupDataSource(catalogName, schemaName, "$dummy_table$");
     }
 
-    private static DataSourceType lookupDataSource(String catalogName, String schemaName, String tableName)
+    private DataSourceType lookupDataSource(String catalogName, String schemaName, String tableName)
     {
         checkTableName(catalogName, schemaName, tableName);
 
@@ -173,7 +175,9 @@ public class MetadataManager
         if (catalogName.equals("default")) {
             return DataSourceType.NATIVE;
         }
-        if (catalogName.equals("hive") || catalogName.equals("prism")) {
+
+        // TODO: this is a hack until we have the ability to create and manage catalogs from sql
+        if (importMetadata.hasCatalog(catalogName)) {
             return DataSourceType.IMPORT;
         }
 
