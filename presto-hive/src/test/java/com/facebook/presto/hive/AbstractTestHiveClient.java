@@ -149,8 +149,9 @@ public abstract class AbstractTestHiveClient
         assertPrimitiveField(map, "t_boolean", Type.LONG);
 //        assertPrimitiveField(map, "t_timestamp", Type.LONG);
 //        assertPrimitiveField(map, "t_binary", Type.STRING);
-        // assertPrimitiveField(map, "t_array_string", ARRAY);
-        // assertPrimitiveField(map, "t_map", MAP);
+        assertPrimitiveField(map, "t_array_string", Type.STRING); // Currently mapped as a string
+        assertPrimitiveField(map, "t_map", Type.STRING); // Currently mapped as a string
+        assertPrimitiveField(map, "t_complex", Type.STRING); // Currently mapped as a string
         assertPrimitiveField(map, "ds", Type.STRING);
         assertPrimitiveField(map, "file_format", Type.STRING);
         assertPrimitiveField(map, "dummy", Type.LONG);
@@ -283,6 +284,30 @@ public abstract class AbstractTestHiveClient
                     }
                     else {
                         assertEquals(cursor.getLong(map.get("t_boolean").getFieldId()), rowNumber % 3, String.format("row = %s", rowNumber));
+                    }
+
+                    if (rowNumber % 29 == 0) {
+                        assertTrue(cursor.isNull(map.get("t_map").getFieldId()));
+                    }
+                    else {
+                        String expectedJson = "{\"format\":\"" + fileType + "\"}";
+                        assertEquals(cursor.getString(map.get("t_map").getFieldId()), expectedJson.getBytes(Charsets.UTF_8));
+                    }
+
+                    if (rowNumber % 27 == 0) {
+                        assertTrue(cursor.isNull(map.get("t_array_string").getFieldId()));
+                    }
+                    else {
+                        String expectedJson = "[\"" + fileType + "\",\"test\",\"data\"]";
+                        assertEquals(cursor.getString(map.get("t_array_string").getFieldId()), expectedJson.getBytes(Charsets.UTF_8));
+                    }
+
+                    if (rowNumber % 31 == 0) {
+                        assertTrue(cursor.isNull(map.get("t_complex").getFieldId()));
+                    }
+                    else {
+                        String expectedJson = "{1:[{\"s_string\":\"" + fileType + "-a\",\"s_double\":0.1},{\"s_string\":\"" + fileType + "-b\",\"s_double\":0.2}]}";
+                        assertEquals(cursor.getString(map.get("t_complex").getFieldId()), expectedJson.getBytes(Charsets.UTF_8));
                     }
 
                     assertEquals(cursor.getString(map.get("ds").getFieldId()), ds.getBytes(Charsets.UTF_8));

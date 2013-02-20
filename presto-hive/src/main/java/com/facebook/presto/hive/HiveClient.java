@@ -37,8 +37,6 @@ import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
-import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
@@ -67,8 +65,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.facebook.presto.hive.HiveUtil.convertHiveType;
 import static com.facebook.presto.hive.HiveUtil.convertNativeHiveType;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
-import static com.facebook.presto.hive.HiveUtil.getPrimitiveType;
-import static com.facebook.presto.hive.HiveUtil.getSupportedPrimitiveType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
@@ -314,14 +310,9 @@ public class HiveClient
                 // ignore unused columns
                 // remove the columns as we find them so we can know if all columns were found
                 if (columnNames.remove(field.getFieldName())) {
-
                     ObjectInspector fieldInspector = field.getFieldObjectInspector();
-                    Preconditions.checkArgument(fieldInspector.getCategory() == Category.PRIMITIVE, "Column %s is not a primitive type", field.getFieldName());
-                    PrimitiveObjectInspector inspector = (PrimitiveObjectInspector) fieldInspector;
-                    Type type = getSupportedPrimitiveType(inspector.getPrimitiveCategory());
-                    PrimitiveCategory hiveType = inspector.getPrimitiveCategory();
-
-                    hiveColumns.add(new HiveColumn(field.getFieldName(), index, type, hiveType));
+                    HiveType hiveType = HiveType.getSupportedHiveType(fieldInspector);
+                    hiveColumns.add(new HiveColumn(field.getFieldName(), index, hiveType));
                 }
                 index++;
             }
@@ -607,12 +598,10 @@ public class HiveClient
         for (StructField field : fields) {
             ObjectInspector fieldInspector = field.getFieldObjectInspector();
 
-            // ignore containers rather than failing
-            if (fieldInspector.getCategory() == Category.PRIMITIVE) {
-                Type type = getPrimitiveType(((PrimitiveObjectInspector) fieldInspector).getPrimitiveCategory());
-                if (type != null) { // ignore unsupported primitive types
-                    schemaFields.add(SchemaField.createPrimitive(field.getFieldName(), columnIndex, type));
-                }
+            // ignore unsupported types rather than failing
+            HiveType hiveType = HiveType.getHiveType(fieldInspector);
+            if (hiveType != null) {
+                schemaFields.add(SchemaField.createPrimitive(field.getFieldName(), columnIndex, hiveType.getNativeType()));
             }
 
             columnIndex++;
@@ -632,11 +621,11 @@ public class HiveClient
         checkArgument(keys.size() == values.size(), "Expected %s partition key values, but got %s", keys.size(), values.size());
         for (int i = 0; i < keys.size(); i++) {
             String name = keys.get(i).getName();
-            PrimitiveCategory hiveType = convertNativeHiveType(keys.get(i).getType());
-            Type type = getSupportedPrimitiveType(hiveType);
+            PrimitiveCategory primitiveCategory = convertNativeHiveType(keys.get(i).getType());
+            HiveType hiveType = HiveType.getSupportedHiveType(primitiveCategory);
             String value = values.get(i);
             checkNotNull(value, "partition key value cannot be null for field: %s", name);
-            partitionKeys.add(new HivePartitionKey(name, type, hiveType, value));
+            partitionKeys.add(new HivePartitionKey(name, hiveType, value));
         }
         return partitionKeys.build();
     }
