@@ -39,65 +39,16 @@ import static com.google.common.base.Preconditions.checkState;
 
 public class TableHandleJacksonModule
         extends SimpleModule
-        implements TypeIdResolver
 {
-    private final BiMap<String, Class<? extends TableHandle>> tableHandleTypes;
-    private final Map<Class<? extends TableHandle>, SimpleType> simpleTypes;
-
     @Inject
     public TableHandleJacksonModule(Map<String, Class<? extends TableHandle>> tableHandleTypes)
     {
         super(TableHandleJacksonModule.class.getSimpleName(), Version.unknownVersion());
-        this.tableHandleTypes = ImmutableBiMap.copyOf(tableHandleTypes);
 
-        ImmutableMap.Builder<Class<? extends TableHandle>, SimpleType> builder = ImmutableMap.builder();
-        for (Class<? extends TableHandle> handleClass : this.tableHandleTypes.values()) {
-            builder.put(handleClass, SimpleType.construct(handleClass));
-        }
-        this.simpleTypes = builder.build();
+        TypeIdResolver typeResolver = new TableHandleTypeResolver(tableHandleTypes);
 
-        addSerializer(TableHandle.class, new TableHandleSerializer(this));
-        addDeserializer(TableHandle.class, new TableHandleDeserializer(this));
-    }
-
-    @Override
-    public void init(JavaType baseType)
-    {
-    }
-
-    @Override
-    public String idFromValue(Object value)
-    {
-        checkNotNull(value, "value was null!");
-        return idFromValueAndType(value, value.getClass());
-    }
-
-    @Override
-    public String idFromValueAndType(Object value, Class<?> suggestedType)
-    {
-        String type = tableHandleTypes.inverse().get(suggestedType);
-        checkState(type != null, "Class %s is unknown!", suggestedType.getSimpleName());
-        return type;
-    }
-
-    @Override
-    public String idFromBaseType()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JavaType typeFromId(String id)
-    {
-        Class<?> tableHandleClass = tableHandleTypes.get(id);
-        checkState(tableHandleClass != null, "Type %s is unknown!", id);
-        return simpleTypes.get(tableHandleClass);
-    }
-
-    @Override
-    public Id getMechanism()
-    {
-        return Id.NAME;
+        addSerializer(TableHandle.class, new TableHandleSerializer(typeResolver));
+        addDeserializer(TableHandle.class, new TableHandleDeserializer(typeResolver));
     }
 
     public static class TableHandleDeserializer
@@ -105,8 +56,7 @@ public class TableHandleJacksonModule
     {
         private final TypeDeserializer typeDeserializer;
 
-        @Inject
-        public TableHandleDeserializer(@ForTableHandle TypeIdResolver typeIdResolver)
+        public TableHandleDeserializer(TypeIdResolver typeIdResolver)
         {
             super(TableHandle.class);
             this.typeDeserializer = new AsPropertyTypeDeserializer(SimpleType.construct(TableHandle.class), typeIdResolver, "type", false, null);
@@ -126,8 +76,7 @@ public class TableHandleJacksonModule
         private final TypeSerializer typeSerializer;
         private final Cache<Class<? extends TableHandle>, JsonSerializer<Object>> serializerCache = CacheBuilder.newBuilder().build();
 
-        @Inject
-        public TableHandleSerializer(@ForTableHandle TypeIdResolver typeIdResolver)
+        public TableHandleSerializer(TypeIdResolver typeIdResolver)
         {
             super(TableHandle.class);
             this.typeSerializer = new AsPropertyTypeSerializer(typeIdResolver, null, "type");
@@ -159,6 +108,64 @@ public class TableHandleJacksonModule
                     throw Throwables.propagate(e.getCause());
                 }
             }
+        }
+    }
+
+    public static class TableHandleTypeResolver
+            implements TypeIdResolver
+    {
+        private final BiMap<String, Class<? extends TableHandle>> tableHandleTypes;
+        private final Map<Class<? extends TableHandle>, SimpleType> simpleTypes;
+
+        public TableHandleTypeResolver(Map<String, Class<? extends TableHandle>> tableHandleTypes)
+        {
+            this.tableHandleTypes = ImmutableBiMap.copyOf(tableHandleTypes);
+
+            ImmutableMap.Builder<Class<? extends TableHandle>, SimpleType> builder = ImmutableMap.builder();
+            for (Class<? extends TableHandle> handleClass : this.tableHandleTypes.values()) {
+                builder.put(handleClass, SimpleType.construct(handleClass));
+            }
+            this.simpleTypes = builder.build();
+        }
+
+        @Override
+        public void init(JavaType baseType)
+        {
+        }
+
+        @Override
+        public String idFromValue(Object value)
+        {
+            checkNotNull(value, "value was null!");
+            return idFromValueAndType(value, value.getClass());
+        }
+
+        @Override
+        public String idFromValueAndType(Object value, Class<?> suggestedType)
+        {
+            String type = tableHandleTypes.inverse().get(suggestedType);
+            checkState(type != null, "Class %s is unknown!", suggestedType.getSimpleName());
+            return type;
+        }
+
+        @Override
+        public String idFromBaseType()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public JavaType typeFromId(String id)
+        {
+            Class<?> tableHandleClass = tableHandleTypes.get(id);
+            checkState(tableHandleClass != null, "Type %s is unknown!", id);
+            return simpleTypes.get(tableHandleClass);
+        }
+
+        @Override
+        public Id getMechanism()
+        {
+            return Id.NAME;
         }
     }
 }
