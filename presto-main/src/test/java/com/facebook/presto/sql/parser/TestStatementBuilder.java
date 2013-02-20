@@ -39,6 +39,8 @@ public class TestStatementBuilder
         printStatement("show tables like '%'");
         printStatement("show tables from information_schema like '%'");
 
+        printStatement("select * from a.b.c@d");
+
         for (int i = 1; i <= 22; i++) {
             if (i != 15) {
                 printStatement(getTpchQuery(i));
