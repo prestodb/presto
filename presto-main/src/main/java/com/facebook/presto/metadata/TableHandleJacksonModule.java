@@ -105,6 +105,8 @@ public class TableHandleJacksonModule
                     serializer.serializeWithType(value, jsonGenerator, serializerProvider, typeSerializer);
                 }
                 catch (ExecutionException e) {
+                    Throwables.propagateIfInstanceOf(e.getCause(), IOException.class);
+                    Throwables.propagateIfInstanceOf(e.getCause(), JsonGenerationException.class);
                     throw Throwables.propagate(e.getCause());
                 }
             }
