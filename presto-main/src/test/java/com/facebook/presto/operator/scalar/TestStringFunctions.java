@@ -60,6 +60,19 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testStringPosition()
+    {
+        assertFunction("STRPOS('high', 'ig')", 2);
+        assertFunction("STRPOS('high', 'igx')", 0);
+        assertFunction("STRPOS('Quadratically', 'a')", 3);
+        assertFunction("STRPOS('foobar', 'foobar')", 1);
+        assertFunction("STRPOS('foobar', 'obar')", 3);
+        assertFunction("STRPOS('zoo!', '!')", 4);
+        assertFunction("STRPOS('x', '')", 1);
+        assertFunction("STRPOS('', '')", 1);
+    }
+
+    @Test
     public void testSubstring()
     {
         assertFunction("SUBSTR('Quadratically', 5, 6)", "ratica");
