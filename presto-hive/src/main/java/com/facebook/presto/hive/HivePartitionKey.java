@@ -1,35 +1,28 @@
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.SchemaField;
-import com.facebook.presto.spi.SchemaField.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 
 public class HivePartitionKey
 {
     private final String name;
-    private final SchemaField.Type type;
-    private final PrimitiveCategory hiveType;
+    private final HiveType hiveType;
     private final String value;
 
     @JsonCreator
     public HivePartitionKey(
             @JsonProperty("name") String name,
-            @JsonProperty("type") Type type,
-            @JsonProperty("hiveType") PrimitiveCategory hiveType,
+            @JsonProperty("hiveType") HiveType hiveType,
             @JsonProperty("value") String value)
     {
         checkNotNull(name, "name is null");
-        checkNotNull(type, "type is null");
         checkNotNull(hiveType, "hiveType is null");
         checkNotNull(value, "value is null");
 
         this.name = name;
-        this.type = type;
         this.hiveType = hiveType;
         this.value = value;
     }
@@ -41,13 +34,7 @@ public class HivePartitionKey
     }
 
     @JsonProperty
-    public SchemaField.Type getType()
-    {
-        return type;
-    }
-
-    @JsonProperty
-    public PrimitiveCategory getHiveType()
+    public HiveType getHiveType()
     {
         return hiveType;
     }
@@ -63,7 +50,6 @@ public class HivePartitionKey
     {
         return Objects.toStringHelper(this)
                 .add("name", name)
-                .add("type", type)
                 .add("hiveType", hiveType)
                 .add("value", value)
                 .toString();
