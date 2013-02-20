@@ -144,7 +144,12 @@ public class PrismClient
     {
         HiveNamespace config = lookupNamespace(databaseName);
         try {
-            return hiveClientFactory.get(config.getHiveCluster()).getTableNames(config.getDatabase());
+            List<String> tableNames = hiveClientFactory.get(config.getHiveCluster()).getTableNames(config.getDatabase());
+            ImmutableList.Builder<String> builder = ImmutableList.builder();
+            for (String tableName : tableNames) {
+                builder.add(decodeTableName(tableName));
+            }
+            return builder.build();
         }
         catch (ObjectNotFoundException e) {
             throw new ObjectNotFoundException(format("Unknown namespace: %s (raw: '%s')", databaseName, e.getMessage()));
@@ -157,7 +162,7 @@ public class PrismClient
     {
         HiveNamespace config = lookupNamespace(databaseName);
         try {
-            return hiveClientFactory.get(config.getHiveCluster()).getTableSchema(config.getDatabase(), tableName);
+            return hiveClientFactory.get(config.getHiveCluster()).getTableSchema(config.getDatabase(), encodeTableName(tableName));
         }
         catch (ObjectNotFoundException e) {
             throw new ObjectNotFoundException(format("Unknown table: %s.%s (raw: '%s')", databaseName, tableName, e.getMessage()));
@@ -170,7 +175,7 @@ public class PrismClient
     {
         HiveNamespace config = lookupNamespace(databaseName);
         try {
-            return hiveClientFactory.get(config.getHiveCluster()).getPartitionKeys(config.getDatabase(), tableName);
+            return hiveClientFactory.get(config.getHiveCluster()).getPartitionKeys(config.getDatabase(), encodeTableName(tableName));
         }
         catch (ObjectNotFoundException e) {
             throw new ObjectNotFoundException(format("Unknown table: %s.%s (raw: '%s')", databaseName, tableName, e.getMessage()));
@@ -183,7 +188,7 @@ public class PrismClient
     {
         HiveNamespace config = lookupNamespace(databaseName);
         try {
-            return hiveClientFactory.get(config.getHiveCluster()).getPartitions(config.getDatabase(), tableName);
+            return hiveClientFactory.get(config.getHiveCluster()).getPartitions(config.getDatabase(), encodeTableName(tableName));
         }
         catch (ObjectNotFoundException e) {
             throw new ObjectNotFoundException(format("Unknown table: %s.%s (raw: '%s')", databaseName, tableName, e.getMessage()));
@@ -196,7 +201,7 @@ public class PrismClient
     {
         HiveNamespace config = lookupNamespace(databaseName);
         try {
-            return hiveClientFactory.get(config.getHiveCluster()).getPartitions(config.getDatabase(), tableName, filters);
+            return hiveClientFactory.get(config.getHiveCluster()).getPartitions(config.getDatabase(), encodeTableName(tableName), filters);
         }
         catch (ObjectNotFoundException e) {
             throw new ObjectNotFoundException(format("Unknown table: %s.%s (raw: '%s')", databaseName, tableName, e.getMessage()));
@@ -209,7 +214,7 @@ public class PrismClient
     {
         HiveNamespace config = lookupNamespace(databaseName);
         try {
-            return hiveClientFactory.get(config.getHiveCluster()).getPartitionNames(config.getDatabase(), tableName);
+            return hiveClientFactory.get(config.getHiveCluster()).getPartitionNames(config.getDatabase(), encodeTableName(tableName));
         }
         catch (ObjectNotFoundException e) {
             throw new ObjectNotFoundException(format("Unknown table: %s.%s (raw: '%s')", databaseName, tableName, e.getMessage()));
@@ -222,7 +227,7 @@ public class PrismClient
     {
         HiveNamespace config = lookupNamespace(databaseName);
         try {
-            return hiveClientFactory.get(config.getHiveCluster()).getPartitionChunks(config.getDatabase(), tableName, partitionName, columns);
+            return hiveClientFactory.get(config.getHiveCluster()).getPartitionChunks(config.getDatabase(), encodeTableName(tableName), partitionName, columns);
         }
         catch (ObjectNotFoundException e) {
             throw new ObjectNotFoundException(format("Unknown partition: %s.%s.%s (raw: '%s')", databaseName, tableName, partitionName, e.getMessage()));
@@ -235,7 +240,7 @@ public class PrismClient
     {
         HiveNamespace config = lookupNamespace(databaseName);
         try {
-            return hiveClientFactory.get(config.getHiveCluster()).getPartitionChunks(config.getDatabase(), tableName, partitionNames, columns);
+            return hiveClientFactory.get(config.getHiveCluster()).getPartitionChunks(config.getDatabase(), encodeTableName(tableName), partitionNames, columns);
         }
         catch (ObjectNotFoundException e) {
             throw new ObjectNotFoundException(format("Unknown partitions: %s.%s.%s (raw: '%s')", databaseName, tableName, partitionNames.toString(), e.getMessage()));
@@ -264,6 +269,22 @@ public class PrismClient
     public PartitionChunk deserializePartitionChunk(byte[] bytes)
     {
         return hiveChunkEncoder.deserialize(bytes);
+    }
+
+    /**
+     * Convert Prism table link table name into Presto format
+     */
+    private String decodeTableName(String encodedTableName)
+    {
+        return encodedTableName.replace(':', '@');
+    }
+
+    /**
+     * Convert Presto format table name into Prism table link format
+     */
+    private String encodeTableName(String tableName)
+    {
+        return tableName.replace('@', ':');
     }
 
     private class HiveNamespace
