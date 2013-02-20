@@ -59,6 +59,22 @@ public final class StringFunctions
         return reverse;
     }
 
+    @ScalarFunction("strpos")
+    public static long stringPosition(Slice string, Slice substring)
+    {
+        if (substring.length() > string.length()) {
+            return 0;
+        }
+
+        for (int i = 0; i <= (string.length() - substring.length()); i++) {
+            if (string.equals(i, substring.length(), substring, 0, substring.length())) {
+                return i + 1;
+            }
+        }
+
+        return 0;
+    }
+
     @ScalarFunction
     public static Slice substr(Slice slice, long start, long length)
     {
