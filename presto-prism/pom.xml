@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-prism</artifactId>
-    <version>0.2</version>
+    <version>0.3-SNAPSHOT</version>
     <name>presto-prism</name>
     <description>Presto - Prism Connector</description>
 
@@ -29,13 +29,13 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
-            <version>0.2</version>
+            <version>0.3-SNAPSHOT</version>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hive</artifactId>
-            <version>0.2</version>
+            <version>0.3-SNAPSHOT</version>
         </dependency>
 
         <dependency>
@@ -129,7 +129,7 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hive</artifactId>
-            <version>0.2</version>
+            <version>0.3-SNAPSHOT</version>
             <classifier>tests</classifier>
             <scope>test</scope>
         </dependency>
@@ -213,8 +213,4 @@
             </build>
         </profile>
     </profiles>
-
-  <scm>
-    <tag>0.2</tag>
-  </scm>
 </project>
