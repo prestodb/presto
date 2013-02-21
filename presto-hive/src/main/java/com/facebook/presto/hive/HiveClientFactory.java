@@ -22,6 +22,7 @@ public class HiveClientFactory
     private final int maxOutstandingChunks;
     private final int maxChunkIteratorThreads;
     private final HiveChunkEncoder hiveChunkEncoder;
+    private final FileSystemCache fileSystemCache;
     private final LoadingCache<HiveCluster, CachingHiveMetastore> metastores;
     private final ExecutorService executorService = Executors.newCachedThreadPool(
             new ThreadFactoryBuilder()
@@ -31,15 +32,18 @@ public class HiveClientFactory
     @Inject
     public HiveClientFactory(
             HiveClientConfig hiveClientConfig,
-            HiveChunkEncoder hiveChunkEncoder)
+            HiveChunkEncoder hiveChunkEncoder,
+            FileSystemCache fileSystemCache)
     {
         checkNotNull(hiveClientConfig, "hiveClientConfig is null");
         checkNotNull(hiveChunkEncoder, "hiveChunkEncoder is null");
+        checkNotNull(fileSystemCache, "fileSystemCache is null");
 
         maxChunkSize = hiveClientConfig.getMaxChunkSize();
         maxOutstandingChunks = hiveClientConfig.getMaxOutstandingChunks();
         maxChunkIteratorThreads = hiveClientConfig.getMaxChunkIteratorThreads();
         this.hiveChunkEncoder = hiveChunkEncoder;
+        this.fileSystemCache = fileSystemCache;
 
         final Duration metastoreCacheTtl = hiveClientConfig.getMetastoreCacheTtl();
         metastores = CacheBuilder.newBuilder()
@@ -64,6 +68,6 @@ public class HiveClientFactory
     public HiveClient get(HiveCluster hiveCluster)
     {
         CachingHiveMetastore metastore = metastores.getUnchecked(hiveCluster);
-        return new HiveClient(maxChunkSize.toBytes(), maxOutstandingChunks, maxChunkIteratorThreads, hiveChunkEncoder, metastore, executorService);
+        return new HiveClient(maxChunkSize.toBytes(), maxOutstandingChunks, maxChunkIteratorThreads, hiveChunkEncoder, metastore, fileSystemCache, executorService);
     }
 }

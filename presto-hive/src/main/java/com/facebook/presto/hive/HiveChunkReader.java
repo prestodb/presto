@@ -5,6 +5,7 @@ import com.facebook.presto.spi.SchemaField;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.serde.Constants;
 import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
@@ -26,7 +27,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HadoopConfiguration.HADOOP_CONFIGURATION;
 import static com.facebook.presto.hive.HiveColumn.indexGetter;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.HiveUtil.getInputFormatName;
@@ -40,7 +40,7 @@ class HiveChunkReader
     {
     }
 
-    static RecordCursor getRecords(HivePartitionChunk chunk)
+    static RecordCursor getRecords(Configuration configuration, HivePartitionChunk chunk)
     {
         HadoopNative.requireHadoopNative();
 
@@ -63,9 +63,9 @@ class HiveChunkReader
                 // support no columns (it will read all columns instead), we must choose a single column
                 columns = ImmutableList.of(getFirstPrimitiveColumn(schema));
             }
-            ColumnProjectionUtils.setReadColumnIDs(HADOOP_CONFIGURATION.get(), new ArrayList<>(transform(columns, indexGetter())));
+            ColumnProjectionUtils.setReadColumnIDs(configuration, new ArrayList<>(transform(columns, indexGetter())));
 
-            RecordReader<?, ?> recordReader = createRecordReader(chunk);
+            RecordReader<?, ?> recordReader = createRecordReader(configuration, chunk);
             if (recordReader.createValue() instanceof BytesRefArrayWritable) {
                 return new BytesHiveRecordCursor<>((RecordReader<?, BytesRefArrayWritable>) recordReader, chunk.getLength(), chunk.getPartitionKeys(), columns);
             }
@@ -101,11 +101,11 @@ class HiveChunkReader
         throw new IllegalStateException("Table doesn't have any PRIMITIVE columns");
     }
 
-    private static RecordReader<?, ?> createRecordReader(HivePartitionChunk chunk)
+    private static RecordReader<?, ?> createRecordReader(Configuration configuration, HivePartitionChunk chunk)
     {
-        InputFormat inputFormat = getInputFormat(chunk.getSchema(), true);
+        InputFormat inputFormat = getInputFormat(configuration, chunk.getSchema(), true);
         FileSplit split = new FileSplit(chunk.getPath(), chunk.getStart(), chunk.getLength(), (String[]) null);
-        JobConf jobConf = new JobConf(HADOOP_CONFIGURATION.get());
+        JobConf jobConf = new JobConf(configuration);
 
         try {
             return inputFormat.getRecordReader(split, jobConf, Reporter.NULL);

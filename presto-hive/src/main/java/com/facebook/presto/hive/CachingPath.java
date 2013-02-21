@@ -17,12 +17,6 @@ public class CachingPath
         this.fileSystemCache = fileSystemCache;
     }
 
-    // TODO: directly inject the FileSystemCache via guice
-    public CachingPath(String pathString)
-    {
-        this(pathString, FileSystemCache.INSTANCE);
-    }
-
     @Override
     public FileSystem getFileSystem(Configuration conf)
             throws IOException
