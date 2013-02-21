@@ -20,6 +20,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.net.HostAndPort;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -29,6 +30,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -46,6 +48,7 @@ public class PrismClient
     private final HiveClientFactory hiveClientFactory;
     private final HiveMetastoreClientFactory metastoreClientFactory;
     private final HiveChunkEncoder hiveChunkEncoder;
+    private final Set<String> allowedRegions;
     private final LoadingCache<String, HiveNamespace> namespaceCache;
     private final Cache<String, List<String>> namespaceListCache;
     private final FileSystemCache fileSystemCache;
@@ -56,6 +59,7 @@ public class PrismClient
             HiveMetastoreClientFactory metastoreClientFactory,
             HiveChunkEncoder hiveChunkEncoder,
             Duration cacheDuration,
+            Iterable<String> allowedRegions,
             FileSystemCache fileSystemCache)
     {
         this.prismServiceClientProvider = checkNotNull(prismServiceClientProvider, "prismServiceClientProvider is null");
@@ -63,6 +67,8 @@ public class PrismClient
         this.hiveClientFactory = checkNotNull(hiveClientFactory, "hiveClientFactory is null");
         this.metastoreClientFactory = checkNotNull(metastoreClientFactory, "metastoreClientFactory is null");
         this.hiveChunkEncoder = checkNotNull(hiveChunkEncoder, "hiveChunkEncoder is null");
+        this.allowedRegions = ImmutableSet.copyOf(checkNotNull(allowedRegions, "allowedRegions is null"));
+        this.fileSystemCache = fileSystemCache;
 
         checkNotNull(cacheDuration, "cacheDuration is null");
         namespaceCache = CacheBuilder.newBuilder()
@@ -79,8 +85,6 @@ public class PrismClient
         namespaceListCache = CacheBuilder.newBuilder()
                 .expireAfterWrite((long) cacheDuration.toMillis(), TimeUnit.MILLISECONDS)
                 .build();
-
-        this.fileSystemCache = fileSystemCache;
     }
 
     // TODO: make this accessible via JMX
@@ -102,7 +106,11 @@ public class PrismClient
                 throw new RuntimeException("No services found for tier: " + prismNamespace.getHiveMetastore());
             }
 
-            return new HiveNamespace(prismNamespace.getHiveMetastore(), services, prismNamespace.getHiveDatabaseName());
+            return new HiveNamespace(
+                    prismNamespace.getHiveMetastore(),
+                    services,
+                    prismNamespace.getHiveDatabaseName(),
+                    prismNamespace.getRegionName());
         }
         catch (PrismNamespaceNotFound prismNamespaceNotFound) {
             throw new ObjectNotFoundException(format("Unknown namespace: %s (raw: '%s')", namespace, prismNamespaceNotFound.getMessage()));
@@ -117,8 +125,10 @@ public class PrismClient
             throws ObjectNotFoundException
     {
         try {
-            // Exceptions are not cached
-            return namespaceCache.get(namespace);
+            // Namespace read exceptions are not cached
+            HiveNamespace hiveNamespace = namespaceCache.get(namespace);
+            checkArgument(allowedRegions.contains(hiveNamespace.getRegion()), "Can not access region '%s' from this cluster", hiveNamespace.getRegion());
+            return hiveNamespace;
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             Throwables.propagateIfInstanceOf(e.getCause(), ObjectNotFoundException.class);
@@ -137,6 +147,7 @@ public class PrismClient
                         throws Exception
                 {
                     try (PrismServiceClient prismServiceClient = prismServiceClientProvider.get()) {
+                        // TODO: restrict the returned namespaces by allowed regions?
                         return prismServiceClient.getAllNamespaceNames();
                     }
                 }
@@ -300,11 +311,13 @@ public class PrismClient
     {
         private final PrismLocatedHiveCluster prismLocatedHiveCluster;
         private final String database;
+        private final String region;
 
-        private HiveNamespace(String metastoreTierName, List<HostAndPort> metastores, String database)
+        private HiveNamespace(String metastoreTierName, List<HostAndPort> metastores, String database, String region)
         {
             prismLocatedHiveCluster = new PrismLocatedHiveCluster(metastoreTierName, metastores, metastoreClientFactory);
             this.database = database;
+            this.region = region;
         }
 
         public HiveCluster getHiveCluster()
@@ -315,6 +328,11 @@ public class PrismClient
         public String getDatabase()
         {
             return database;
+        }
+
+        public String getRegion()
+        {
+            return region;
         }
     }
 
