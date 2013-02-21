@@ -30,6 +30,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
@@ -150,7 +151,11 @@ public class SqlTaskExecution
                 // invokes "call" on them. Therefore it is safe to invoke them here
                 List<FutureTask<Void>> results = shardExecutor.processBatch(workers);
                 for (FutureTask<Void> worker : Lists.reverse(results)) {
-                    worker.run();
+                    if (taskOutput.getState().isDone()) {
+                        worker.cancel(true);
+                    } else {
+                        worker.run();
+                    }
                 }
 
                 checkQueryResults(results);
@@ -177,6 +182,9 @@ public class SqlTaskExecution
         for (Future<Void> result : results) {
             try {
                 result.get();
+            }
+            catch (CancellationException e) {
+                // this is allowed
             }
             catch (ExecutionException e) {
                 if (queryFailedException == null) {
@@ -262,6 +270,10 @@ public class SqlTaskExecution
                 throws Exception
         {
             if (!started.compareAndSet(false, true)) {
+                return null;
+            }
+
+            if (taskOutput.getState().isDone()) {
                 return null;
             }
 
