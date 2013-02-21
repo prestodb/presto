@@ -10,7 +10,10 @@ public class TestHiveClientFactory
     public void testClusterSelection()
             throws Exception
     {
-        HiveClientFactory hiveClientFactory = new HiveClientFactory(new HiveClientConfig(), new HiveChunkEncoder(new JsonCodecFactory().jsonCodec(HivePartitionChunk.class)));
+        HiveClientFactory hiveClientFactory = new HiveClientFactory(
+                new HiveClientConfig(),
+                new HiveChunkEncoder(new JsonCodecFactory().jsonCodec(HivePartitionChunk.class)),
+                new FileSystemCache());
 
         // Two distinct Hive clusters
         final MockHiveMetastoreClient mockClient1 = new MockHiveMetastoreClient();

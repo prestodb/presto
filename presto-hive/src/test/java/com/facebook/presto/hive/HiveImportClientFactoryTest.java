@@ -12,11 +12,8 @@ import io.airlift.discovery.client.testing.StaticServiceSelector;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
-import io.airlift.units.Duration;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
-
-import java.util.concurrent.TimeUnit;
 
 import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -35,7 +32,7 @@ public class HiveImportClientFactoryTest
                 serviceDescriptor("hive-metastore").addProperty("thrift", "missing-port").build(),
                 serviceDescriptor("hive-metastore").build());
 
-        HiveClientFactory hiveClientFactory = new HiveClientFactory(new HiveClientConfig(), new HiveChunkEncoder(getHivePartitionChunkCodec()));
+        HiveClientFactory hiveClientFactory = new HiveClientFactory(new HiveClientConfig(), new HiveChunkEncoder(getHivePartitionChunkCodec()), new FileSystemCache());
         DiscoveryLocatedHiveCluster hiveCluster = new DiscoveryLocatedHiveCluster(selector, new HiveMetastoreClientFactory(new HiveClientConfig()));
         HiveImportClientFactory factory = new HiveImportClientFactory(hiveCluster, hiveClientFactory);
         assertInstanceOf(factory.createClient("hive"), HiveClient.class);

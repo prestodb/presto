@@ -63,7 +63,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.hive.HadoopConfiguration.HADOOP_CONFIGURATION;
 import static com.facebook.presto.hive.HiveUtil.convertHiveType;
 import static com.facebook.presto.hive.HiveUtil.convertNativeHiveType;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
@@ -87,6 +86,7 @@ public class HiveClient
     private final int maxChunkIteratorThreads;
     private final HiveChunkEncoder hiveChunkEncoder;
     private final CachingHiveMetastore metastore;
+    private final FileSystemCache fileSystemCache;
     private final Executor executor;
 
     public HiveClient(
@@ -95,6 +95,7 @@ public class HiveClient
             int maxChunkIteratorThreads,
             HiveChunkEncoder hiveChunkEncoder,
             CachingHiveMetastore metastore,
+            FileSystemCache fileSystemCache,
             Executor executor)
     {
         this.maxChunkBytes = maxChunkBytes;
@@ -102,6 +103,7 @@ public class HiveClient
         this.maxChunkIteratorThreads = maxChunkIteratorThreads;
         this.hiveChunkEncoder = hiveChunkEncoder;
         this.metastore = metastore;
+        this.fileSystemCache = fileSystemCache;
         this.executor = executor;
     }
 
@@ -273,7 +275,7 @@ public class HiveClient
         checkArgument(partitionChunk instanceof HivePartitionChunk,
                 "expected instance of %s: %s", HivePartitionChunk.class, partitionChunk.getClass());
         assert partitionChunk instanceof HivePartitionChunk; // IDEA-60343
-        return HiveChunkReader.getRecords((HivePartitionChunk) partitionChunk);
+        return HiveChunkReader.getRecords(fileSystemCache.getConfiguration(), (HivePartitionChunk) partitionChunk);
     }
 
     @Override
@@ -334,7 +336,7 @@ public class HiveClient
 
     private Iterable<PartitionChunk> getPartitionChunks(Table table, List<Partition> partitions, List<HiveColumn> columns)
     {
-        return new PartitionChunkIterable(table, partitions, columns, maxChunkBytes, maxOutstandingChunks, maxChunkIteratorThreads, executor);
+        return new PartitionChunkIterable(table, partitions, columns, maxChunkBytes, maxOutstandingChunks, maxChunkIteratorThreads, fileSystemCache, executor);
     }
 
     private static class PartitionChunkIterable
@@ -355,9 +357,17 @@ public class HiveClient
         private final long maxChunkBytes;
         private final int maxOutstandingChunks;
         private final int maxThreads;
+        private final FileSystemCache fileSystemCache;
         private final Executor executor;
 
-        private PartitionChunkIterable(Table table, List<Partition> partitions, List<HiveColumn> columns, long maxChunkBytes, int maxOutstandingChunks, int maxThreads, Executor executor)
+        private PartitionChunkIterable(Table table,
+                List<Partition> partitions,
+                List<HiveColumn> columns,
+                long maxChunkBytes,
+                int maxOutstandingChunks,
+                int maxThreads,
+                FileSystemCache fileSystemCache,
+                Executor executor)
         {
             this.table = table;
             this.partitions = ImmutableList.copyOf(partitions);
@@ -365,6 +375,7 @@ public class HiveClient
             this.maxChunkBytes = maxChunkBytes;
             this.maxOutstandingChunks = maxOutstandingChunks;
             this.maxThreads = maxThreads;
+            this.fileSystemCache = fileSystemCache;
             this.executor = executor;
         }
 
@@ -379,11 +390,11 @@ public class HiveClient
                 for (Partition partition : partitions) {
                     final Properties schema = getPartitionSchema(table, partition);
                     final List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition);
-                    final InputFormat inputFormat = getInputFormat(schema, false);
-                    Path partitionPath = new CachingPath(getPartitionLocation(table, partition));
+                    final InputFormat inputFormat = getInputFormat(fileSystemCache.getConfiguration(), schema, false);
+                    Path partitionPath = new CachingPath(getPartitionLocation(table, partition), fileSystemCache);
 
                     if (inputFormat instanceof SymlinkTextInputFormat) {
-                        JobConf jobConf = new JobConf(HADOOP_CONFIGURATION.get());
+                        JobConf jobConf = new JobConf(fileSystemCache.getConfiguration());
                         FileInputFormat.setInputPaths(jobConf, partitionPath);
                         InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
                         for (InputSplit rawSplit : splits) {
@@ -394,7 +405,7 @@ public class HiveClient
                         continue;
                     }
 
-                    FileSystem fs = partitionPath.getFileSystem(HADOOP_CONFIGURATION.get());
+                    FileSystem fs = partitionPath.getFileSystem(fileSystemCache.getConfiguration());
 
                     futureBuilder.add(new AsyncRecursiveWalker(fs, suspendingExecutor).beginWalk(partitionPath, new FileStatusCallback()
                     {
@@ -403,7 +414,7 @@ public class HiveClient
                         {
                             try {
                                 boolean splittable = isSplittable(inputFormat,
-                                        file.getPath().getFileSystem(HADOOP_CONFIGURATION.get()),
+                                        file.getPath().getFileSystem(fileSystemCache.getConfiguration()),
                                         file.getPath());
 
                                 long splitSize = splittable ? maxChunkBytes : file.getLen();
