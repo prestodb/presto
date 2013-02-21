@@ -15,7 +15,8 @@ public class TestPrismConfig
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(PrismConfig.class)
                 .setCacheTtl(new Duration(1, TimeUnit.HOURS))
-                .setPrismSmcTier("prism.nssr"));
+                .setPrismSmcTier("prism.nssr")
+                .setAllowedRegions(null));
     }
 
     @Test
@@ -24,11 +25,13 @@ public class TestPrismConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("prism.cache-ttl", "1s")
                 .put("prism.smc-tier", "newtier")
+                .put("prism.allowed-regions", "allowedregion1, allowedregion2")
                 .build();
 
         PrismConfig expected = new PrismConfig()
                 .setCacheTtl(new Duration(1, TimeUnit.SECONDS))
-                .setPrismSmcTier("newtier");
+                .setPrismSmcTier("newtier")
+                .setAllowedRegions("allowedregion1, allowedregion2");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
