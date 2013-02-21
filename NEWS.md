@@ -22,9 +22,11 @@ Unpartitioned tables are now supported. They will appear as having a single defa
 
 Tables or partitions utilizing `SymlinkTextImportFormat` are now supported.
 
-## CLI table completion
+## CLI
 
-Simple tab completion support is available for table names.
+* Simple tab completion support. Expands schema and table names whenever TAB is pressed.
+* CSV and TSV data export from the CLI. The CLI supports the `--output-format` command line option for writing data in CSV or TSV format. Also supported are CSV_HEADER and TSV_HEADER (where the first line contains the column names).
+* Non-interactive query execution. The CLI supports the `--execute` command line option which takes a single SQL query and executes it without the CLI going into interactive mode. No progress reports are printed in this mode.
 
 ## Simple REST query endpoint
 
