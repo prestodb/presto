@@ -19,6 +19,7 @@ public class TestHiveClient
                 50,
                 getHiveChunkEncoder(),
                 new CachingHiveMetastore(new SimpleHiveCluster(host, port), Duration.valueOf("1m")),
+                new FileSystemCache(),
                 MoreExecutors.sameThreadExecutor());
     }
 }

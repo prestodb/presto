@@ -1,6 +1,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.SchemaField;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorUtils;
@@ -11,7 +12,6 @@ import org.apache.hadoop.util.ReflectionUtils;
 
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HadoopConfiguration.HADOOP_CONFIGURATION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static org.apache.hadoop.hive.metastore.api.Constants.FILE_INPUT_FORMAT;
 
@@ -21,11 +21,11 @@ class HiveUtil
     {
     }
 
-    static InputFormat getInputFormat(Properties schema, boolean symlinkTarget)
+    static InputFormat getInputFormat(Configuration configuration, Properties schema, boolean symlinkTarget)
     {
         String inputFormatName = getInputFormatName(schema);
         try {
-            JobConf jobConf = new JobConf(HADOOP_CONFIGURATION.get());
+            JobConf jobConf = new JobConf(configuration);
 
             // This code should be equivalent to jobConf.getInputFormat()
             Class<? extends InputFormat> inputFormatClass = jobConf.getClassByName(inputFormatName).asSubclass(InputFormat.class);

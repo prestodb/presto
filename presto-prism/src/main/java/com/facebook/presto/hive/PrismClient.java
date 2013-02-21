@@ -48,8 +48,15 @@ public class PrismClient
     private final HiveChunkEncoder hiveChunkEncoder;
     private final LoadingCache<String, HiveNamespace> namespaceCache;
     private final Cache<String, List<String>> namespaceListCache;
+    private final FileSystemCache fileSystemCache;
 
-    public PrismClient(PrismServiceClientProvider prismServiceClientProvider, SmcLookup smcLookup, HiveClientFactory hiveClientFactory, HiveMetastoreClientFactory metastoreClientFactory, HiveChunkEncoder hiveChunkEncoder, Duration cacheDuration)
+    public PrismClient(PrismServiceClientProvider prismServiceClientProvider,
+            SmcLookup smcLookup,
+            HiveClientFactory hiveClientFactory,
+            HiveMetastoreClientFactory metastoreClientFactory,
+            HiveChunkEncoder hiveChunkEncoder,
+            Duration cacheDuration,
+            FileSystemCache fileSystemCache)
     {
         this.prismServiceClientProvider = checkNotNull(prismServiceClientProvider, "prismServiceClientProvider is null");
         this.smcLookup = checkNotNull(smcLookup, "smcLookup is null");
@@ -72,6 +79,8 @@ public class PrismClient
         namespaceListCache = CacheBuilder.newBuilder()
                 .expireAfterWrite((long) cacheDuration.toMillis(), TimeUnit.MILLISECONDS)
                 .build();
+
+        this.fileSystemCache = fileSystemCache;
     }
 
     // TODO: make this accessible via JMX
@@ -253,7 +262,7 @@ public class PrismClient
         checkArgument(partitionChunk instanceof HivePartitionChunk,
                 "expected instance of %s: %s", HivePartitionChunk.class, partitionChunk.getClass());
         assert partitionChunk instanceof HivePartitionChunk; // IDEA-60343
-        return HiveChunkReader.getRecords((HivePartitionChunk) partitionChunk);
+        return HiveChunkReader.getRecords(fileSystemCache.getConfiguration(), (HivePartitionChunk) partitionChunk);
     }
 
     @Override

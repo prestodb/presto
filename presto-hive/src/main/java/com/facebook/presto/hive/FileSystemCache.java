@@ -3,9 +3,18 @@ package com.facebook.presto.hive;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableList;
+import com.google.common.net.HostAndPort;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.net.DNSToSwitchMapping;
+import org.apache.hadoop.net.SocksSocketFactory;
 
+import javax.annotation.Nullable;
+import javax.inject.Inject;
+import javax.net.SocketFactory;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -14,19 +23,34 @@ import java.util.concurrent.TimeUnit;
  */
 public class FileSystemCache
 {
-    public static final FileSystemCache INSTANCE = new FileSystemCache();
-
     private static final int DEFAULT_EXPIRATION_HOURS = 24;
 
+    private final HostAndPort socksProxy;
     private final LoadingCache<PathAndKey, FileSystem> cache;
+
+    private final ThreadLocal<Configuration> hadoopConfiguration = new ThreadLocal<Configuration>()
+    {
+        @Override
+        protected Configuration initialValue()
+        {
+            return createConfiguration();
+        }
+    };
 
     public FileSystemCache()
     {
-        this(DEFAULT_EXPIRATION_HOURS, TimeUnit.HOURS);
+        this(DEFAULT_EXPIRATION_HOURS, TimeUnit.HOURS, null);
     }
 
-    public FileSystemCache(int expiration, TimeUnit unit)
+    @Inject
+    public FileSystemCache(HiveClientConfig hiveClientConfig)
     {
+        this(DEFAULT_EXPIRATION_HOURS, TimeUnit.HOURS, hiveClientConfig.getMetastoreSocksProxy());
+    }
+
+    public FileSystemCache(int expiration, TimeUnit unit, @Nullable HostAndPort socksProxy)
+    {
+        this.socksProxy = socksProxy;
         cache = CacheBuilder.newBuilder()
                 .expireAfterAccess(expiration, unit)
                 .build(new CacheLoader<PathAndKey, FileSystem>() {
@@ -34,9 +58,29 @@ public class FileSystemCache
                     public FileSystem load(PathAndKey pathAndKey)
                             throws Exception
                     {
-                        return FileSystem.get(pathAndKey.getPath().toUri(), HadoopConfiguration.HADOOP_CONFIGURATION.get());
+                        return FileSystem.get(pathAndKey.getPath().toUri(), hadoopConfiguration.get());
                     }
                 });
+    }
+
+    public Configuration getConfiguration()
+    {
+        return hadoopConfiguration.get();
+    }
+
+    private Configuration createConfiguration()
+    {
+        Configuration config = new Configuration();
+
+        // this is to prevent dfs client from doing reverse DNS lookups to determine whether nodes are rack local
+        config.setClass("topology.node.switch.mapping.impl", NoOpDNSwitchMapping.class, DNSToSwitchMapping.class);
+
+        if (socksProxy != null) {
+            config.setClass("hadoop.rpc.socket.factory.class.default", SocksSocketFactory.class, SocketFactory.class);
+            config.set("hadoop.socks.server", socksProxy.toString());
+        }
+
+        return config;
     }
 
     public FileSystem getFileSystem(Path path)
@@ -133,6 +177,17 @@ public class FileSystemCache
             int result = scheme != null ? scheme.hashCode() : 0;
             result = 31 * result + (authority != null ? authority.hashCode() : 0);
             return result;
+        }
+    }
+
+    public static class NoOpDNSwitchMapping
+            implements DNSToSwitchMapping
+    {
+        @Override
+        public List<String> resolve(List<String> names)
+        {
+            // dfs client expects an empty list as an indication that the host->switch mapping for the given names are not known
+            return ImmutableList.of();
         }
     }
 }
