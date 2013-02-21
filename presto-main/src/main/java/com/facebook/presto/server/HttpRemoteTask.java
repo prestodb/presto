@@ -49,7 +49,7 @@ public class HttpRemoteTask
     private final Session session;
     private final AtomicReference<TaskInfo> taskInfo = new AtomicReference<>();
     private final PlanFragment planFragment;
-    private final List<PlanFragmentSource> splits;
+    private final AtomicReference<List<PlanFragmentSource>> splits;
     private final Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources;
 
     private final HttpClient httpClient;
@@ -84,7 +84,7 @@ public class HttpRemoteTask
 
         this.session = session;
         this.planFragment = planFragment;
-        this.splits = splits;
+        this.splits = new AtomicReference<List<PlanFragmentSource>>(ImmutableList.copyOf(splits));
         this.exchangeSources = exchangeSources;
         this.httpClient = httpClient;
         this.taskInfoCodec = taskInfoCodec;
@@ -126,6 +126,9 @@ public class HttpRemoteTask
     @Override
     public void start()
     {
+        List<PlanFragmentSource> splits = this.splits.getAndSet(null);
+        checkState(splits != null, "task has already been started");
+
         TaskInfo taskInfo = this.taskInfo.get();
         QueryFragmentRequest queryFragmentRequest = new QueryFragmentRequest(session,
                 taskInfo.getQueryId(),
