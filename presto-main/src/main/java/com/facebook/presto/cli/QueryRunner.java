@@ -1,7 +1,7 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.metadata.TableHandleModule;
+import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
@@ -22,6 +22,7 @@ import io.airlift.json.JsonModule;
 import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
+
 import java.io.Closeable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -79,7 +80,7 @@ public class QueryRunner
     {
         Injector injector = Guice.createInjector(Stage.PRODUCTION,
                 new JsonModule(),
-                new TableHandleModule(),
+                new HandleJsonModule(),
                 new Module() {
                     @Override
                     public void configure(Binder binder)

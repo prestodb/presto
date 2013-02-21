@@ -1,6 +1,6 @@
 package com.facebook.presto.jdbc;
 
-import com.facebook.presto.metadata.TableHandleModule;
+import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
 import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
 import com.google.inject.Binder;
@@ -80,7 +80,7 @@ public class QueryExecutor
     {
         Injector injector = Guice.createInjector(Stage.PRODUCTION,
                 new JsonModule(),
-                new TableHandleModule(),
+                new HandleJsonModule(),
                 new Module() {
                     @Override
                     public void configure(Binder binder)

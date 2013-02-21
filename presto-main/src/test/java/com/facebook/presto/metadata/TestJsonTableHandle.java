@@ -43,7 +43,7 @@ public class TestJsonTableHandle
     {
         Injector injector = Guice.createInjector(Stage.PRODUCTION,
                 new JsonModule(),
-                new TableHandleModule());
+                new HandleJsonModule());
 
         objectMapper = injector.getInstance(ObjectMapper.class);
     }

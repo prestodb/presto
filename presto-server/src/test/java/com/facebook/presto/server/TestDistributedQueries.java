@@ -17,7 +17,7 @@ import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.StorageManager;
-import com.facebook.presto.metadata.TableHandleModule;
+import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
@@ -519,7 +519,7 @@ public class TestDistributedQueries
     {
         Injector injector = Guice.createInjector(Stage.PRODUCTION,
                 new JsonModule(),
-                new TableHandleModule(),
+                new HandleJsonModule(),
                 new Module() {
                     @Override
                     public void configure(Binder binder)
