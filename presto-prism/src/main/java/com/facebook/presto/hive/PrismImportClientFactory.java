@@ -29,13 +29,14 @@ public class PrismImportClientFactory
         checkNotNull(smcLookup, "smcLookup is null");
         checkNotNull(hiveClientFactory, "hiveClientFactory is null");
         checkNotNull(hiveChunkEncoder, "hiveChunkEncoder is null");
-
+        checkNotNull(config, "config is null");
         prismClient = new PrismClient(prismServiceClientProvider,
                 smcLookup,
                 hiveClientFactory,
                 metastoreClientFactory,
                 hiveChunkEncoder,
                 config.getCacheTtl(),
+                config.getAllowedRegions(),
                 new FileSystemCache());
     }
 

@@ -11,13 +11,15 @@ import javax.annotation.concurrent.Immutable;
 public class PrismNamespace
 {
     private final String name;
+    private final String regionName;
     private final String hiveMetastore;
     private final String hiveDatabaseName;
 
     @ThriftConstructor
-    public PrismNamespace(String name, String hiveMetastore, String hiveDatabaseName)
+    public PrismNamespace(String name, String regionName, String hiveMetastore, String hiveDatabaseName)
     {
         this.name = name;
+        this.regionName = regionName;
         this.hiveMetastore = hiveMetastore;
         this.hiveDatabaseName = hiveDatabaseName;
     }
@@ -26,6 +28,12 @@ public class PrismNamespace
     public String getName()
     {
         return name;
+    }
+
+    @ThriftField(3)
+    public String getRegionName()
+    {
+        return regionName;
     }
 
     @ThriftField(5)
