@@ -35,13 +35,14 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class SqlTaskExecution
         implements TaskExecution
 {
     private final String taskId;
     private final TaskOutput taskOutput;
-    private final List<PlanFragmentSource> splits;
+    private final AtomicReference<List<PlanFragmentSource>> splits;
     private final Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources;
     private final PlanFragmentSourceProvider sourceProvider;
     private final FairBatchExecutor shardExecutor;
@@ -83,7 +84,7 @@ public class SqlTaskExecution
         this.session = session;
         this.taskId = taskId;
         this.fragment = fragment;
-        this.splits = splits;
+        this.splits = new AtomicReference<List<PlanFragmentSource>>(ImmutableList.copyOf(splits));
         this.exchangeSources = exchangeSources;
         this.sourceProvider = sourceProvider;
         this.shardExecutor = shardExecutor;
@@ -111,8 +112,16 @@ public class SqlTaskExecution
     {
         taskOutput.getStats().recordExecutionStart();
         try {
-            // if we have a single split, just execute in the current thread; otherwise use the thread pool
+            // get the splits... if the task is canceled the splits will be null
+            // set the splits to null to release the memory asap
+            List<PlanFragmentSource> splits = this.splits.getAndSet(null);
+            if (splits == null) {
+                return;
+            }
+
             final SourceHashProviderFactory sourceHashProviderFactory = new SourceHashProviderFactory(maxOperatorMemoryUsage);
+
+            // if we have a single split, just execute in the current thread; otherwise use the thread pool
             if (splits.size() <= 1) {
                 PlanFragmentSource split = splits.isEmpty() ? null : splits.get(0);
                 SplitWorker worker = new SplitWorker(session,
@@ -128,7 +137,7 @@ public class SqlTaskExecution
                 worker.call();
             }
             else {
-                List<Callable<Void>> workers = ImmutableList.copyOf(Lists.transform(this.splits, new Function<PlanFragmentSource, Callable<Void>>()
+                List<Callable<Void>> workers = ImmutableList.copyOf(Lists.transform(splits, new Function<PlanFragmentSource, Callable<Void>>()
                 {
                     @Override
                     public Callable<Void> apply(PlanFragmentSource split)
@@ -202,6 +211,7 @@ public class SqlTaskExecution
     @Override
     public void cancel()
     {
+        splits.set(null);
         taskOutput.cancel();
     }
 
@@ -215,6 +225,7 @@ public class SqlTaskExecution
     @Override
     public void abortResults(String outputId)
     {
+        splits.set(null);
         taskOutput.abortResults(outputId);
     }
 
