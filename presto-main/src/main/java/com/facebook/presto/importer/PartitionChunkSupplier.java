@@ -38,7 +38,10 @@ class PartitionChunkSupplier
     @Override
     public Iterable<SerializedPartitionChunk> get()
     {
-        Iterable<PartitionChunk> chunks = retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<Iterable<PartitionChunk>>()
+        Iterable<PartitionChunk> chunks = retry()
+                .stopOn(ObjectNotFoundException.class)
+                .stopOnIllegalExceptions()
+                .runUnchecked(new Callable<Iterable<PartitionChunk>>()
         {
             @Override
             public Iterable<PartitionChunk> call()

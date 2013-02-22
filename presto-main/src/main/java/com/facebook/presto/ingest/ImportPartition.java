@@ -30,7 +30,7 @@ public class ImportPartition
     @Override
     public RecordCursor cursor(OperatorStats operatorStats)
     {
-        com.facebook.presto.spi.RecordCursor records = retry().runUnchecked(new Callable<com.facebook.presto.spi.RecordCursor>()
+        com.facebook.presto.spi.RecordCursor records = retry().stopOnIllegalExceptions().runUnchecked(new Callable<com.facebook.presto.spi.RecordCursor>()
         {
             @Override
             public com.facebook.presto.spi.RecordCursor call()
