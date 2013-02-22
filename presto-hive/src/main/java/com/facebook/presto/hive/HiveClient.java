@@ -657,12 +657,12 @@ public class HiveClient
         return partition.getSd().getLocation();
     }
 
-    public static class ThreadContextClassLoader
+    private static class ThreadContextClassLoader
             implements Closeable
     {
         private final ClassLoader originalThreadContextClassLoader;
 
-        ThreadContextClassLoader(ClassLoader newThreadContextClassLoader)
+        private ThreadContextClassLoader(ClassLoader newThreadContextClassLoader)
         {
             this.originalThreadContextClassLoader = Thread.currentThread().getContextClassLoader();
             Thread.currentThread().setContextClassLoader(newThreadContextClassLoader);

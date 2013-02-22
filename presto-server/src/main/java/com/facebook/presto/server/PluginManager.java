@@ -17,6 +17,7 @@ import io.airlift.resolver.DefaultArtifact;
 import org.sonatype.aether.artifact.Artifact;
 
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 import java.io.File;
 import java.io.FileInputStream;
@@ -33,6 +34,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.collect.Maps.fromProperties;
 
+@ThreadSafe
 public class PluginManager
 {
     private static final Logger log = Logger.get(PluginManager.class);
@@ -48,6 +50,11 @@ public class PluginManager
     @Inject
     public PluginManager(NodeInfo nodeInfo, PluginManagerConfig config, ImportClientManager importClientManager, ConfigurationFactory configurationFactory)
     {
+        Preconditions.checkNotNull(nodeInfo, "nodeInfo is null");
+        Preconditions.checkNotNull(config, "config is null");
+        Preconditions.checkNotNull(importClientManager, "importClientManager is null");
+        Preconditions.checkNotNull(configurationFactory, "configurationFactory is null");
+
         this.importClientManager = importClientManager;
         installedPluginsDir = config.getInstalledPluginsDir();
         if (config.getPlugins() == null) {
@@ -59,7 +66,7 @@ public class PluginManager
         this.pluginConfigurationDir = config.getPluginConfigurationDir();
         this.resolver = new ArtifactResolver(config.getMavenLocalRepository(), config.getMavenRemoteRepository());
 
-        TreeMap<String, String> optionalConfig = new TreeMap<>(configurationFactory.getProperties());
+        Map<String, String> optionalConfig = new TreeMap<>(configurationFactory.getProperties());
         optionalConfig.put("node.id", nodeInfo.getNodeId());
         this.optionalConfig = ImmutableMap.copyOf(optionalConfig);
     }
@@ -185,7 +192,8 @@ public class PluginManager
                 urls.add(artifact.getFile().toURI().toURL());
             }
             else {
-                log.debug("  Could not resolve artifact %s", artifact);
+                // todo maybe exclude things like presto-spi
+                log.warn("  Could not resolve artifact %s", artifact);
             }
         }
         return createClassLoader(urls);

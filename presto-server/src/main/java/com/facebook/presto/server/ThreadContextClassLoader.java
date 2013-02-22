@@ -5,7 +5,7 @@ package com.facebook.presto.server;
 
 import java.io.Closeable;
 
-public class ThreadContextClassLoader
+class ThreadContextClassLoader
         implements Closeable
 {
     private final ClassLoader originalThreadContextClassLoader;

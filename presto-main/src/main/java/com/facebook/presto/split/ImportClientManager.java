@@ -5,12 +5,14 @@ import com.facebook.presto.spi.ImportClientFactory;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 
-import java.util.HashSet;
+import javax.annotation.concurrent.ThreadSafe;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 
+@ThreadSafe
 public class ImportClientManager
 {
-    private final Set<ImportClientFactory> clientFactories = new HashSet<>();
+    private final Set<ImportClientFactory> clientFactories = new CopyOnWriteArraySet<>();
 
     @Inject
     public ImportClientManager(Set<ImportClientFactory> clientFactories)
@@ -18,12 +20,12 @@ public class ImportClientManager
         this.clientFactories.addAll(clientFactories);
     }
 
-    public synchronized Set<ImportClientFactory> getImportClientFactories()
+    public Set<ImportClientFactory> getImportClientFactories()
     {
         return ImmutableSet.copyOf(clientFactories);
     }
 
-    public synchronized void addImportClientFactory(ImportClientFactory importClientFactory)
+    public void addImportClientFactory(ImportClientFactory importClientFactory)
     {
         clientFactories.add(importClientFactory);
     }
@@ -40,7 +42,7 @@ public class ImportClientManager
 
     public ImportClient getClient(String sourceName)
     {
-        for (ImportClientFactory clientFactory : getImportClientFactories()) {
+        for (ImportClientFactory clientFactory : clientFactories) {
             ImportClient client = clientFactory.createClient(sourceName);
             if (client != null) {
                 return client;
