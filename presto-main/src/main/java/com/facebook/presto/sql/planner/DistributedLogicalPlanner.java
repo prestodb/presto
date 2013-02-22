@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -109,6 +110,25 @@ public class DistributedLogicalPlanner
             return newSubPlan(merged)
                     .setPartitioned(false)
                     .addChild(current.build());
+        }
+
+        @Override
+        public SubPlanBuilder visitWindow(WindowNode node, Void context)
+        {
+            SubPlanBuilder current = node.getSource().accept(this, context);
+
+            if (current.isPartitioned()) {
+                current.setRoot(new SinkNode(idAllocator.getNextId(), current.getRoot()));
+
+                // create a new non-partitioned fragment
+                current = newSubPlan(new ExchangeNode(idAllocator.getNextId(), current.getId(), current.getRoot().getOutputSymbols()))
+                        .setPartitioned(false)
+                        .addChild(current.build());
+            }
+
+            current.setRoot(new WindowNode(node.getId(), current.getRoot(), node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getWindowFunctions(), node.getFunctionHandles()));
+
+            return current;
         }
 
         @Override

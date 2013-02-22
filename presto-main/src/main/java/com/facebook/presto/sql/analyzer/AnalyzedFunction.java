@@ -4,11 +4,15 @@ import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Function;
+import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+
+import static com.google.common.base.Preconditions.checkState;
 
 public class AnalyzedFunction
 {
@@ -16,8 +20,9 @@ public class AnalyzedFunction
     private final List<AnalyzedExpression> arguments;
     private final FunctionCall rewrittenCall;
     private final boolean distinct;
+    private final Optional<AnalyzedWindow> window;
 
-    public AnalyzedFunction(FunctionInfo info, List<AnalyzedExpression> arguments, FunctionCall rewrittenCall, boolean distinct)
+    public AnalyzedFunction(FunctionInfo info, List<AnalyzedExpression> arguments, FunctionCall rewrittenCall, boolean distinct, AnalyzedWindow window)
     {
         Preconditions.checkNotNull(info, "info is null");
         Preconditions.checkNotNull(arguments, "arguments is null");
@@ -27,6 +32,7 @@ public class AnalyzedFunction
         this.arguments = ImmutableList.copyOf(arguments);
         this.rewrittenCall = rewrittenCall;
         this.distinct = distinct;
+        this.window = Optional.fromNullable(window);
     }
 
     public QualifiedName getFunctionName()
@@ -59,38 +65,44 @@ public class AnalyzedFunction
         return distinct;
     }
 
-    @Override
-    public boolean equals(Object o)
+    public Optional<AnalyzedWindow> getWindow()
     {
-        if (this == o) {
+        return window;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-
-        AnalyzedFunction that = (AnalyzedFunction) o;
-
-        if (!arguments.equals(that.arguments)) {
-            return false;
-        }
-        if (!info.equals(that.info)) {
-            return false;
-        }
-        if (!rewrittenCall.equals(that.rewrittenCall)) {
-            return false;
-        }
-
-        return true;
+        AnalyzedFunction other = (AnalyzedFunction) obj;
+        return Objects.equal(info, other.info) &&
+                Objects.equal(arguments, other.arguments) &&
+                Objects.equal(rewrittenCall, other.rewrittenCall) &&
+                Objects.equal(distinct, other.distinct) &&
+                Objects.equal(window, other.window);
     }
 
     @Override
     public int hashCode()
     {
-        int result = info.hashCode();
-        result = 31 * result + arguments.hashCode();
-        result = 31 * result + rewrittenCall.hashCode();
-        return result;
+        return Objects.hashCode(info, arguments, rewrittenCall, distinct, window);
+    }
+
+    @Override
+    public String toString()
+    {
+        return Objects.toStringHelper(this)
+                .add("info", info)
+                .add("arguments", arguments)
+                .add("rewrittenCall", rewrittenCall)
+                .add("distinct", distinct)
+                .add("window", window)
+                .toString();
     }
 
     public static Function<AnalyzedFunction, List<AnalyzedExpression>> argumentGetter()
@@ -117,5 +129,16 @@ public class AnalyzedFunction
         };
     }
 
-
+    public static Function<AnalyzedFunction, List<AnalyzedExpression>> windowExpressionGetter()
+    {
+        return new Function<AnalyzedFunction, List<AnalyzedExpression>>()
+        {
+            @Override
+            public List<AnalyzedExpression> apply(AnalyzedFunction input)
+            {
+                checkState(input.getWindow().isPresent(), "not a window function");
+                return AnalyzedWindow.expressionGetter().apply(input.getWindow().get());
+            }
+        };
+    }
 }

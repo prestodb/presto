@@ -2,9 +2,8 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.base.Function;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-
-import javax.annotation.Nullable;
 
 public class AnalyzedExpression
 {
@@ -60,6 +59,15 @@ public class AnalyzedExpression
         return result;
     }
 
+    @Override
+    public String toString()
+    {
+        return Objects.toStringHelper(this)
+                .add("type", type)
+                .add("rewritten", rewritten)
+                .toString();
+    }
+
     public static Function<AnalyzedExpression, Expression> rewrittenExpressionGetter()
     {
         return new Function<AnalyzedExpression, Expression>()
@@ -68,6 +76,18 @@ public class AnalyzedExpression
             public Expression apply(AnalyzedExpression input)
             {
                 return input.getRewrittenExpression();
+            }
+        };
+    }
+
+    public static Function<AnalyzedExpression, Type> typeGetter()
+    {
+        return new Function<AnalyzedExpression, Type>()
+        {
+            @Override
+            public Type apply(AnalyzedExpression input)
+            {
+                return input.getType();
             }
         };
     }

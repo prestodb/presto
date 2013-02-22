@@ -17,6 +17,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableMap;
@@ -103,6 +104,33 @@ public class PruneUnreferencedOutputs
             PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
 
             return new AggregationNode(node.getId(), source, node.getGroupBy(), functionCalls.build(), functions.build());
+        }
+
+        @Override
+        public PlanNode rewriteWindow(WindowNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
+        {
+            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(expectedOutputs)
+                    .addAll(node.getPartitionBy())
+                    .addAll(node.getOrderBy());
+
+            ImmutableMap.Builder<Symbol, FunctionHandle> functions = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
+            for (Map.Entry<Symbol, FunctionCall> entry : node.getWindowFunctions().entrySet()) {
+                Symbol symbol = entry.getKey();
+
+                if (expectedOutputs.contains(symbol)) {
+                    FunctionCall call = entry.getValue();
+                    expectedInputs.addAll(DependencyExtractor.extract(call));
+
+                    functionCalls.put(symbol, call);
+                    functions.put(symbol, node.getFunctionHandles().get(symbol));
+                }
+            }
+
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs.build());
+
+            return new WindowNode(node.getId(), source, node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), functionCalls.build(), functions.build());
         }
 
         @Override

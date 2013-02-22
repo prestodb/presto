@@ -17,18 +17,23 @@ import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import static java.lang.String.format;
 
 public class PlanPrinter
 {
@@ -46,7 +51,7 @@ public class PlanPrinter
             value = format;
         }
         else {
-            value = String.format(format, args);
+            value = format(format, args);
         }
 
         System.out.println(Strings.repeat("    ", indent) + value);
@@ -92,7 +97,7 @@ public class PlanPrinter
         {
             String type = "";
             if (node.getStep() != AggregationNode.Step.SINGLE) {
-                type = String.format("(%s)", node.getStep().toString());
+                type = format("(%s)", node.getStep().toString());
             }
             String key = "";
             if (!node.getGroupBy().isEmpty()) {
@@ -104,6 +109,33 @@ public class PlanPrinter
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
                 print(indent + 2, "%s := %s", entry.getKey(), ExpressionFormatter.toString(entry.getValue()));
             }
+
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
+        public Void visitWindow(final WindowNode node, Integer indent)
+        {
+            List<String> partitionBy = Lists.transform(node.getPartitionBy(), Functions.toStringFunction());
+
+            List<String> orderBy = Lists.transform(node.getOrderBy(), new Function<Symbol, String>()
+            {
+                @Override
+                public String apply(Symbol input)
+                {
+                    return input + " " + node.getOrderings().get(input);
+                }
+            });
+
+            List<String> args = new ArrayList<>();
+            if (!partitionBy.isEmpty()) {
+                args.add(format("partition by (%s)", Joiner.on(", ").join(partitionBy)));
+            }
+            if (!orderBy.isEmpty()) {
+                args.add(format("order by (%s)", Joiner.on(", ").join(orderBy)));
+            }
+
+            print(indent, "- Window[%s] => [%s]", Joiner.on(", ").join(args), formatOutputs(node.getOutputSymbols()));
 
             return processChildren(node, indent + 1);
         }
