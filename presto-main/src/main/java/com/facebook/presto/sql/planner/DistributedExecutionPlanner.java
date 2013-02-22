@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
@@ -199,6 +200,12 @@ public class DistributedExecutionPlanner
         public List<Partition> visitAggregation(AggregationNode node, Expression inheritedPredicate)
         {
             return node.getSource().accept(this, BooleanLiteral.TRUE_LITERAL);
+        }
+
+        @Override
+        public List<Partition> visitWindow(WindowNode node, Expression inheritedPredicate)
+        {
+            return node.getSource().accept(this, inheritedPredicate);
         }
 
         @Override

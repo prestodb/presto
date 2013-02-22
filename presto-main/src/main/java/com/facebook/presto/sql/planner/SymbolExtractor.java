@@ -14,6 +14,7 @@ import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
@@ -57,6 +58,17 @@ public class SymbolExtractor
             node.getSource().accept(this, context);
 
             builder.addAll(node.getAggregations().keySet());
+
+            return null;
+        }
+
+        @Override
+        public Void visitWindow(WindowNode node, Void context)
+        {
+            // visit child
+            node.getSource().accept(this, context);
+
+            builder.addAll(node.getWindowFunctions().keySet());
 
             return null;
         }

@@ -97,6 +97,25 @@ public final class PlanRewriter<C>
         }
 
         @Override
+        public PlanNode visitWindow(WindowNode node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                PlanNode result = nodeRewriter.rewriteWindow(node, context.get(), PlanRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            PlanNode source = rewrite(node.getSource(), context.get());
+
+            if (source != node.getSource()) {
+                return new WindowNode(node.getId(), source, node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getWindowFunctions(), node.getFunctionHandles());
+            }
+
+            return node;
+        }
+
+        @Override
         public PlanNode visitFilter(FilterNode node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

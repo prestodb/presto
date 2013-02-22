@@ -5,10 +5,11 @@ import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.analyzer.AnalysisResult;
-import com.facebook.presto.sql.analyzer.AnalyzedFunction;
 import com.facebook.presto.sql.analyzer.AnalyzedExpression;
+import com.facebook.presto.sql.analyzer.AnalyzedFunction;
 import com.facebook.presto.sql.analyzer.AnalyzedJoinClause;
 import com.facebook.presto.sql.analyzer.AnalyzedOrdering;
+import com.facebook.presto.sql.analyzer.AnalyzedWindow;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
@@ -31,6 +32,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -62,6 +64,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.AnalyzedFunction.argumentGetter;
+import static com.facebook.presto.sql.analyzer.AnalyzedFunction.windowExpressionGetter;
 import static com.facebook.presto.sql.analyzer.AnalyzedOrdering.expressionGetter;
 import static com.google.common.collect.Iterables.concat;
 
@@ -143,6 +146,14 @@ public class LogicalPlanner
                     Lists.transform(analysis.getOrderBy(), expressionGetter()),
                     analysis.getAggregations(),
                     analysis.getGroupByExpressions(),
+                    analysis.getSymbolAllocator(),
+                    substitutions);
+        }
+
+        if (!analysis.getWindowsFunctions().isEmpty()) {
+            root = createWindowPlan(root,
+                    ImmutableList.copyOf(analysis.getOutputExpressions().values()),
+                    analysis.getWindowsFunctions(),
                     analysis.getSymbolAllocator(),
                     substitutions);
         }
@@ -238,6 +249,98 @@ public class LogicalPlanner
 
         ProjectNode preProject = new ProjectNode(idAllocator.getNextId(), source, preProjectAssignments);
         return new SortNode(idAllocator.getNextId(), preProject, orderBySymbols, orderings);
+    }
+
+    private PlanNode createWindowPlan(PlanNode source,
+            List<AnalyzedExpression> outputs,
+            Set<AnalyzedFunction> windowFunctions,
+            SymbolAllocator allocator,
+            Map<Expression, Symbol> outputSubstitutions)
+    {
+        // extract input expressions
+        Set<AnalyzedExpression> inputs = ImmutableSet.copyOf(concat(
+                IterableTransformer.on(windowFunctions)
+                        .transformAndFlatten(argumentGetter())
+                        .list(),
+                IterableTransformer.on(windowFunctions)
+                        .transformAndFlatten(windowExpressionGetter())
+                        .list()));
+
+        // assign a symbol for each input
+        BiMap<Symbol, Expression> inputAssignments = HashBiMap.create();
+        for (AnalyzedExpression expression : inputs) {
+            Symbol symbol = allocator.newSymbol(expression.getRewrittenExpression(), expression.getType());
+            inputAssignments.put(symbol, expression.getRewrittenExpression());
+        }
+
+        // propagate all output symbols from underlying operator
+        Map<Symbol, Expression> preProjections = new HashMap<>();
+        for (Symbol symbol : source.getOutputSymbols()) {
+            QualifiedNameReference expression = new QualifiedNameReference(symbol.toQualifiedName());
+            preProjections.put(symbol, expression);
+        }
+
+        // pre-project input symbols
+        preProjections.putAll(inputAssignments);
+        source = new ProjectNode(idAllocator.getNextId(), source, preProjections);
+
+        // track window function outputs to rewrite in post-project
+        Map<Expression, Symbol> substitutions = new HashMap<>();
+
+        // create a window node for each window function call
+        for (AnalyzedFunction function : windowFunctions) {
+            AnalyzedWindow window = function.getWindow().get();
+
+            // map partition-by expressions
+            List<Symbol> partitionBySymbols = new ArrayList<>();
+            for (AnalyzedExpression item : window.getPartitionBy()) {
+                Expression rewritten = TreeRewriter.rewriteWith(substitution(inputAssignments.inverse()), item.getRewrittenExpression());
+                Symbol symbol = allocator.newSymbol(rewritten, item.getType());
+                partitionBySymbols.add(symbol);
+                substitutions.put(rewritten, symbol);
+            }
+
+            // map order-by expressions
+            List<Symbol> orderBySymbols = new ArrayList<>();
+            Map<Symbol, SortItem.Ordering> orderings = new HashMap<>();
+            for (AnalyzedOrdering item : window.getOrderBy()) {
+                Expression rewritten = TreeRewriter.rewriteWith(substitution(inputAssignments.inverse()), item.getExpression().getRewrittenExpression());
+                Symbol symbol = allocator.newSymbol(rewritten, item.getExpression().getType());
+                orderBySymbols.add(symbol);
+                orderings.put(symbol, item.getOrdering());
+                substitutions.put(rewritten, symbol);
+            }
+
+            // build window function call map
+            BiMap<Symbol, FunctionCall> functionAssignments = HashBiMap.create();
+            Map<Symbol, FunctionHandle> functionHandles = new HashMap<>();
+
+            // rewrite function call in terms of scalar inputs
+            FunctionCall rewrittenFunction = TreeRewriter.rewriteWith(substitution(inputAssignments.inverse()), function.getRewrittenCall());
+            Symbol symbol = allocator.newSymbol(function.getFunctionName().getSuffix(), function.getType());
+            functionAssignments.put(symbol, rewrittenFunction);
+            functionHandles.put(symbol, function.getFunctionInfo().getHandle());
+
+            // build substitution map to rewrite assignments in post-project
+            substitutions.put(function.getRewrittenCall(), symbol);
+
+            // create window node
+            source = new WindowNode(idAllocator.getNextId(), source, partitionBySymbols, orderBySymbols, orderings, functionAssignments, functionHandles);
+        }
+
+        // post-project scalar expressions based on window functions
+        BiMap<Symbol, Expression> postProjectScalarAssignments = HashBiMap.create();
+        for (AnalyzedExpression expression : outputs) {
+            Expression rewritten = TreeRewriter.rewriteWith(substitution(substitutions), expression.getRewrittenExpression());
+            Symbol symbol = allocator.newSymbol(rewritten, expression.getType());
+
+            postProjectScalarAssignments.put(symbol, rewritten);
+
+            // build substitution map to return to caller
+            outputSubstitutions.put(expression.getRewrittenExpression(), symbol);
+        }
+
+        return new ProjectNode(idAllocator.getNextId(), source, postProjectScalarAssignments);
     }
 
     private PlanNode createAggregatePlan(PlanNode source,
@@ -412,7 +515,7 @@ public class LogicalPlanner
         return new TableScanNode(idAllocator.getNextId(), metadata.getTableHandle().get(), columns.build());
     }
 
-    private NodeRewriter<Void> substitution(final Map<Expression, Symbol> substitutions)
+    private static NodeRewriter<Void> substitution(final Map<Expression, Symbol> substitutions)
     {
         return new NodeRewriter<Void>()
         {

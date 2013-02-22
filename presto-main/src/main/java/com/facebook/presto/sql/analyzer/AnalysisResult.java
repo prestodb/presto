@@ -27,6 +27,7 @@ public class AnalysisResult
     private final AnalyzedOutput output;
     private final List<AnalyzedExpression> groupBy;
     private final Set<AnalyzedFunction> aggregations;
+    private final Set<AnalyzedFunction> windowsFunctions;
     private final Long limit;
     private final List<AnalyzedOrdering> orderBy;
     private final IdentityHashMap<Join, List<AnalyzedJoinClause>> joinCriteria;
@@ -39,6 +40,7 @@ public class AnalysisResult
             AnalyzedExpression predicate,
             List<AnalyzedExpression> groupBy,
             Set<AnalyzedFunction> aggregations,
+            Set<AnalyzedFunction> windowsFunctions,
             @Nullable Long limit,
             List<AnalyzedOrdering> orderBy,
             Query rewrittenQuery)
@@ -51,6 +53,7 @@ public class AnalysisResult
                 context.getJoinCriteria(),
                 distinct,
                 aggregations,
+                windowsFunctions,
                 predicate,
                 output,
                 groupBy,
@@ -66,6 +69,7 @@ public class AnalysisResult
             IdentityHashMap<Join, List<AnalyzedJoinClause>> joinCriteria,
             boolean distinct,
             Set<AnalyzedFunction> aggregations,
+            Set<AnalyzedFunction> windowsFunctions,
             @Nullable AnalyzedExpression predicate,
             AnalyzedOutput output,
             List<AnalyzedExpression> groupBy,
@@ -79,6 +83,7 @@ public class AnalysisResult
         Preconditions.checkNotNull(inlineViews, "inlineViews is null");
         Preconditions.checkNotNull(joinCriteria, "joinCriteria is null");
         Preconditions.checkNotNull(aggregations, "aggregations is null");
+        Preconditions.checkNotNull(windowsFunctions, "windowsFunctions is null");
         Preconditions.checkNotNull(output, "output is null");
         Preconditions.checkNotNull(groupBy, "groupBy is null");
         Preconditions.checkNotNull(orderBy, "orderBy is null");
@@ -91,6 +96,7 @@ public class AnalysisResult
         this.joinCriteria = new IdentityHashMap<>(joinCriteria);
         this.distinct = distinct;
         this.aggregations = ImmutableSet.copyOf(aggregations);
+        this.windowsFunctions = ImmutableSet.copyOf(windowsFunctions);
         this.predicate = predicate;
         this.output = output;
         this.groupBy = ImmutableList.copyOf(groupBy);
@@ -141,6 +147,11 @@ public class AnalysisResult
     public Set<AnalyzedFunction> getAggregations()
     {
         return aggregations;
+    }
+
+    public Set<AnalyzedFunction> getWindowsFunctions()
+    {
+        return windowsFunctions;
     }
 
     public SymbolAllocator getSymbolAllocator()

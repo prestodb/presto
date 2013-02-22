@@ -4,7 +4,6 @@ import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.AggregationFunctionDefinition;
 import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.FilterAndProjectOperator;
@@ -13,6 +12,7 @@ import com.facebook.presto.operator.FilterFunctions;
 import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.operator.HashJoinOperator;
 import com.facebook.presto.operator.InMemoryOrderByOperator;
+import com.facebook.presto.operator.InMemoryWindowOperator;
 import com.facebook.presto.operator.Input;
 import com.facebook.presto.operator.LimitOperator;
 import com.facebook.presto.operator.Operator;
@@ -22,6 +22,7 @@ import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.SourceHashProvider;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.operator.TopNOperator;
+import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
@@ -39,6 +40,7 @@ import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -178,6 +180,81 @@ public class LocalExecutionPlanner
 
             FilterAndProjectOperator operator = new FilterAndProjectOperator(source.getOperator(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections());
             return new PhysicalOperation(operator, mappings.getOutputLayout());
+        }
+
+        @Override
+        public PhysicalOperation visitWindow(WindowNode node, Void context)
+        {
+            PhysicalOperation source = node.getSource().accept(this, context);
+
+            List<Symbol> partitionBySymbols = node.getPartitionBy();
+            List<Symbol> orderBySymbols = node.getOrderBy();
+
+            // sort by PARTITION BY, then by ORDER BY
+            List<Symbol> orderingSymbols = ImmutableList.copyOf(Iterables.concat(partitionBySymbols, orderBySymbols));
+
+            // insert a projection to put all the sort fields in a single channel if necessary
+            source = packIfNecessary(orderingSymbols, source);
+
+            // find channel that fields were packed into if there is an ordering
+            int orderByChannel = 0;
+            if (!orderBySymbols.isEmpty()) {
+                orderByChannel = Iterables.getOnlyElement(getChannelsForSymbols(orderingSymbols, source.getLayout()));
+            }
+
+            int[] partitionFields = new int[partitionBySymbols.size()];
+            for (int i = 0; i < partitionFields.length; i++) {
+                Symbol symbol = partitionBySymbols.get(i);
+                partitionFields[i] = source.getLayout().get(symbol).getField();
+            }
+
+            int[] sortFields = new int[orderBySymbols.size()];
+            boolean[] sortOrder = new boolean[orderBySymbols.size()];
+            for (int i = 0; i < sortFields.length; i++) {
+                Symbol symbol = orderBySymbols.get(i);
+                sortFields[i] = source.getLayout().get(symbol).getField();
+                sortOrder[i] = (node.getOrderings().get(symbol) == SortItem.Ordering.ASCENDING);
+            }
+
+            int[] outputChannels = new int[source.getOperator().getChannelCount()];
+            for (int i = 0; i < outputChannels.length; i++) {
+                outputChannels[i] = i;
+            }
+
+            ImmutableList.Builder<WindowFunction> windowFunctions = ImmutableList.builder();
+            List<Symbol> windowFunctionOutputSymbols = new ArrayList<>();
+            for (Map.Entry<Symbol, FunctionCall> entry : node.getWindowFunctions().entrySet()) {
+                Symbol symbol = entry.getKey();
+                FunctionHandle handle = node.getFunctionHandles().get(symbol);
+                windowFunctions.add(metadata.getFunction(handle).getWindowFunction().get());
+                windowFunctionOutputSymbols.add(symbol);
+            }
+
+            // compute the layout of the output from the window operator
+            ImmutableMap.Builder<Symbol, Input> outputMappings = ImmutableMap.builder();
+            for (Symbol symbol : node.getSource().getOutputSymbols()) {
+                outputMappings.put(symbol, source.getLayout().get(symbol));
+            }
+
+            // window functions go in remaining channels starting after the last channel from the source operator, one per channel
+            int channel = source.getOperator().getChannelCount();
+            for (Symbol symbol : windowFunctionOutputSymbols) {
+                outputMappings.put(symbol, new Input(channel, 0));
+                channel++;
+            }
+
+            Operator operator = new InMemoryWindowOperator(
+                    source.getOperator(),
+                    orderByChannel,
+                    outputChannels,
+                    windowFunctions.build(),
+                    partitionFields,
+                    sortFields,
+                    sortOrder,
+                    1_000_000,
+                    maxOperatorMemoryUsage);
+
+            return new PhysicalOperation(operator, outputMappings.build());
         }
 
         @Override
@@ -472,6 +549,9 @@ public class LocalExecutionPlanner
     private PhysicalOperation packIfNecessary(List<Symbol> symbols, PhysicalOperation source)
     {
         Set<Integer> channels = getChannelsForSymbols(symbols, source.getLayout());
+        if (channels.isEmpty()) {
+            return source;
+        }
         List<TupleInfo> tupleInfos = source.getOperator().getTupleInfos();
         if (channels.size() > 1 || tupleInfos.get(Iterables.getOnlyElement(channels)).getFieldCount() > 1) {
             source = pack(source, symbols, types);
