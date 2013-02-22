@@ -5,6 +5,7 @@ package com.facebook.presto.hive;
 
 import io.airlift.log.Logger;
 
+import javax.annotation.concurrent.ThreadSafe;
 import javax.management.Attribute;
 import javax.management.AttributeList;
 import javax.management.AttributeNotFoundException;
@@ -34,6 +35,7 @@ import java.util.Set;
  * a MBean registered with the specified object name.
  */
 @SuppressWarnings("deprecation")
+@ThreadSafe
 public class RebindSafeMBeanServer
         implements MBeanServer
 {

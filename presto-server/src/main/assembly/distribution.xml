@@ -40,7 +40,6 @@
             </includes>
             <excludes>
                 <exclude>*:sources</exclude>
-                <exclude>com.facebook.presto:presto-hive:*</exclude>
             </excludes>
         </dependencySet>
         <dependencySet>
