@@ -106,7 +106,10 @@ public class ImportTableExecution
         String catalogName = session.getCatalog();
         String schemaName = session.getSchema();
 
-        List<SchemaField> schema = retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<List<SchemaField>>()
+        List<SchemaField> schema = retry()
+                .stopOn(ObjectNotFoundException.class)
+                .stopOnIllegalExceptions()
+                .runUnchecked(new Callable<List<SchemaField>>()
         {
             @Override
             public List<SchemaField> call()

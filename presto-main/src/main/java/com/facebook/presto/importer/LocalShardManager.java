@@ -82,7 +82,7 @@ public class LocalShardManager
         public void run()
         {
             try {
-                retry().runUnchecked(new Callable<Void>()
+                retry().stopOnIllegalExceptions().runUnchecked(new Callable<Void>()
                 {
                     @Override
                     public Void call()
@@ -127,7 +127,7 @@ public class LocalShardManager
         public void run()
         {
             try {
-                retry().runUnchecked(new Callable<Void>()
+                retry().stopOnIllegalExceptions().runUnchecked(new Callable<Void>()
                 {
                     @Override
                     public Void call()

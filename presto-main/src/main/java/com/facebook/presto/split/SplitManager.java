@@ -183,7 +183,10 @@ public class SplitManager
                 .transform(columnNameGetter())
                 .list();
 
-        Iterable<PartitionChunk> chunks = retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<Iterable<PartitionChunk>>()
+        Iterable<PartitionChunk> chunks = retry()
+                .stopOn(ObjectNotFoundException.class)
+                .stopOnIllegalExceptions()
+                .runUnchecked(new Callable<Iterable<PartitionChunk>>()
         {
             @Override
             public Iterable<PartitionChunk> call()
@@ -279,7 +282,10 @@ public class SplitManager
             }
         }
 
-        return retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<List<PartitionInfo>>()
+        return retry()
+                .stopOn(ObjectNotFoundException.class)
+                .stopOnIllegalExceptions()
+                .runUnchecked(new Callable<List<PartitionInfo>>()
         {
             @Override
             public List<PartitionInfo> call()
@@ -317,7 +323,10 @@ public class SplitManager
 
     private List<SchemaField> getPartitionKeys(final String sourceName, final String databaseName, final String tableName)
     {
-        return retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<List<SchemaField>>()
+        return retry()
+                .stopOn(ObjectNotFoundException.class)
+                .stopOnIllegalExceptions()
+                .runUnchecked(new Callable<List<SchemaField>>()
         {
             @Override
             public List<SchemaField> call()

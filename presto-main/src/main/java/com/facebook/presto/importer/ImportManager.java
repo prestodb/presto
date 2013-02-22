@@ -99,7 +99,7 @@ public class ImportManager
 
         shardManager.createImportTable(tableId, sourceName, databaseName, tableName);
 
-        Set<String> activePartitions = retry().runUnchecked(new Callable<Set<String>>()
+        Set<String> activePartitions = retry().stopOnIllegalExceptions().runUnchecked(new Callable<Set<String>>()
         {
             @Override
             public Set<String> call()
@@ -205,7 +205,7 @@ public class ImportManager
         public void run()
         {
             try {
-                retry().runUnchecked(new Callable<Void>()
+                retry().stopOnIllegalExceptions().runUnchecked(new Callable<Void>()
                 {
                     @Override
                     public Void call()
@@ -307,7 +307,7 @@ public class ImportManager
         public void run()
         {
             try {
-                retry().runUnchecked(new Callable<Void>()
+                retry().stopOnIllegalExceptions().runUnchecked(new Callable<Void>()
                 {
                     @Override
                     public Void call()

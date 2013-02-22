@@ -61,7 +61,14 @@ public class RetryDriver
                 .addAll(exceptionWhitelist)
                 .addAll(Arrays.asList(classes))
                 .build();
+
+
         return new RetryDriver(maxRetryAttempts, sleepTime, exceptions);
+    }
+
+    public RetryDriver stopOnIllegalExceptions()
+    {
+        return stopOn(NullPointerException.class, IllegalStateException.class, IllegalArgumentException.class);
     }
 
     public <V> V run(Callable<V> callable)

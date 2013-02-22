@@ -149,20 +149,23 @@ public class ImportMetadata
 
     private static List<SchemaField> getTableSchema(final ImportClient client, final String database, final String table)
     {
-        return retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<List<SchemaField>>()
-        {
-            @Override
-            public List<SchemaField> call()
-                    throws Exception
-            {
-                return client.getTableSchema(database, table);
-            }
-        });
+        return retry()
+                .stopOn(ObjectNotFoundException.class)
+                .stopOnIllegalExceptions()
+                .runUnchecked(new Callable<List<SchemaField>>()
+                {
+                    @Override
+                    public List<SchemaField> call()
+                            throws Exception
+                    {
+                        return client.getTableSchema(database, table);
+                    }
+                });
     }
 
     private static List<String> getTableNames(final ImportClient client, final String database)
     {
-        return retry().runUnchecked(new Callable<List<String>>()
+        return retry().stopOnIllegalExceptions().runUnchecked(new Callable<List<String>>()
         {
             @Override
             public List<String> call()
@@ -180,7 +183,7 @@ public class ImportMetadata
 
     private static List<String> getDatabaseNames(final ImportClient client)
     {
-        return retry().runUnchecked(new Callable<List<String>>()
+        return retry().stopOnIllegalExceptions().runUnchecked(new Callable<List<String>>()
         {
             @Override
             public List<String> call()
@@ -193,27 +196,33 @@ public class ImportMetadata
 
     private static List<SchemaField> getPartitionKeys(final ImportClient client, final String database, final String table)
     {
-        return retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<List<SchemaField>>()
-        {
-            @Override
-            public List<SchemaField> call()
-                    throws Exception
-            {
-                return client.getPartitionKeys(database, table);
-            }
-        });
+        return retry()
+                .stopOn(ObjectNotFoundException.class)
+                .stopOnIllegalExceptions()
+                .runUnchecked(new Callable<List<SchemaField>>()
+                {
+                    @Override
+                    public List<SchemaField> call()
+                            throws Exception
+                    {
+                        return client.getPartitionKeys(database, table);
+                    }
+                });
     }
 
     private static List<PartitionInfo> getPartitions(final ImportClient client, final String database, final String table)
     {
-        return retry().stopOn(ObjectNotFoundException.class).runUnchecked(new Callable<List<PartitionInfo>>()
-        {
-            @Override
-            public List<PartitionInfo> call()
-                    throws Exception
-            {
-                return client.getPartitions(database, table);
-            }
-        });
+        return retry()
+                .stopOn(ObjectNotFoundException.class)
+                .stopOnIllegalExceptions()
+                .runUnchecked(new Callable<List<PartitionInfo>>()
+                {
+                    @Override
+                    public List<PartitionInfo> call()
+                            throws Exception
+                    {
+                        return client.getPartitions(database, table);
+                    }
+                });
     }
 }
