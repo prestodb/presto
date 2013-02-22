@@ -102,7 +102,7 @@ whereClause returns [Expression value]
     ;
 
 groupClause returns [List<Expression> value]
-    : ^(GROUPBY exprList) { $value = $exprList.value; }
+    : ^(GROUP_BY exprList) { $value = $exprList.value; }
     ;
 
 havingClause returns [Expression value]
@@ -110,7 +110,7 @@ havingClause returns [Expression value]
     ;
 
 orderClause returns [List<SortItem> value = new ArrayList<>()]
-    : ^(ORDERBY ( sortItem { $value.add($sortItem.value); } )+ )
+    : ^(ORDER_BY ( sortItem { $value.add($sortItem.value); } )+ )
     ;
 
 sortItem returns [SortItem value]
@@ -247,7 +247,6 @@ decimal returns [String value]
 
 functionCall returns [FunctionCall value]
     : ^(FUNCTION_CALL n=qname d=distinct a=exprList) { $value = new FunctionCall($n.value, $d.value, $a.value); }
-    | ^(FUNCTION_CALL SUBSTRING a=exprList)          { $value = new FunctionCall("substr", $a.value); }
     ;
 
 extract returns [Extract value]
