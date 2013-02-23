@@ -1,44 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>com.facebook.presto</groupId>
-    <artifactId>presto-spi</artifactId>
-    <version>0.4-SNAPSHOT</version>
-    <name>presto-spi</name>
 
     <parent>
-        <groupId>io.airlift</groupId>
-        <artifactId>library</artifactId>
-        <version>0.70</version>
-        <relativePath />
+        <groupId>com.facebook.presto</groupId>
+        <artifactId>presto-root</artifactId>
+        <version>0.4-SNAPSHOT</version>
     </parent>
 
-    <distributionManagement>
-        <repository>
-            <id>libs-releases-local</id>
-            <url>http://nexus.vip.facebook.com:8181/nexus/content/repositories/libs-releases-local</url>
-        </repository>
-        <snapshotRepository>
-            <id>libs-snapshots-local</id>
-            <url>http://nexus.vip.facebook.com:8181/nexus/content/repositories/libs-snapshots-local</url>
-        </snapshotRepository>
-    </distributionManagement>
+    <artifactId>presto-spi</artifactId>
+    <name>presto-spi</name>
 
-    <dependencies>
-        <!-- the SPI must not have any dependencies -->
-    </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>2.3.2</version>
-                <configuration>
-                    <source>1.7</source>
-                    <target>1.7</target>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
+    <!-- the SPI must not have any dependencies -->
 </project>
