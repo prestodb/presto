@@ -104,6 +104,10 @@ public class InMemoryWindowOperator
         private PagesIndex pageIndex;
         private int currentPosition;
         private IntComparator partitionComparator;
+        private IntComparator orderComparator;
+        private int partitionEnd;
+        private int peerGroupEnd;
+        private int peerGroupCount;
 
         private InMemoryWindowOperatorIterator(
                 Operator source,
@@ -150,6 +154,10 @@ public class InMemoryWindowOperator
                 // create partition comparator
                 ChannelIndex index = pageIndex.getIndex(orderByChannel);
                 partitionComparator = new MultiSliceFieldOrderedTupleComparator(partitionFields, partitionOrder, index);
+
+                // create order comparator
+                index = pageIndex.getIndex(orderByChannel);
+                orderComparator = new MultiSliceFieldOrderedTupleComparator(sortFields, sortOrder, index);
             }
 
             if (currentPosition >= pageIndex.getPositionCount()) {
@@ -160,9 +168,20 @@ public class InMemoryWindowOperator
             PageBuilder pageBuilder = new PageBuilder(getTupleInfos());
             while ((!pageBuilder.isFull()) && (currentPosition < pageIndex.getPositionCount())) {
                 // check for new partition
-                if ((currentPosition == 0) || (partitionComparator.compare(currentPosition - 1, currentPosition) != 0)) {
+                boolean newPartition = (currentPosition == 0) || (currentPosition == partitionEnd);
+                if (newPartition) {
+                    // find end of partition
+                    partitionEnd++;
+                    while (partitionEnd < pageIndex.getPositionCount()) {
+                        if (partitionComparator.compare(partitionEnd - 1, partitionEnd) != 0) {
+                            break;
+                        }
+                        partitionEnd++;
+                    }
+
+                    // reset functions for new partition
                     for (WindowFunction function : windowFunctions) {
-                        function.reset();
+                        function.reset(partitionEnd - currentPosition);
                     }
                 }
 
@@ -173,9 +192,23 @@ public class InMemoryWindowOperator
                     channel++;
                 }
 
+                // check for new peer group
+                boolean newPeerGroup = newPartition || (currentPosition == peerGroupEnd);
+                if (newPeerGroup) {
+                    // find end of peer group
+                    peerGroupEnd++;
+                    while (peerGroupEnd < partitionEnd) {
+                        if (orderComparator.compare(peerGroupEnd - 1, peerGroupEnd) != 0) {
+                            break;
+                        }
+                        peerGroupEnd++;
+                    }
+                    peerGroupCount = peerGroupEnd - currentPosition;
+                }
+
                 // process window functions
                 for (WindowFunction function : windowFunctions) {
-                    function.processRow(pageBuilder.getBlockBuilder(channel));
+                    function.processRow(pageBuilder.getBlockBuilder(channel), newPeerGroup, peerGroupCount);
                     channel++;
                 }
 
