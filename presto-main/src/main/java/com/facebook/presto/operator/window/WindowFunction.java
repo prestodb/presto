@@ -10,7 +10,7 @@ public interface WindowFunction
 {
     TupleInfo getTupleInfo();
 
-    void reset();
+    void reset(int partitionRowCount);
 
-    void processRow(BlockBuilder output);
+    void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount);
 }

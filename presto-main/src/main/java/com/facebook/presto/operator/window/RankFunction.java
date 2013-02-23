@@ -3,10 +3,11 @@ package com.facebook.presto.operator.window;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.tuple.TupleInfo;
 
-public class RowNumberFunction
+public class RankFunction
         implements WindowFunction
 {
-    private long rowNumber;
+    private long rank;
+    private long count;
 
     @Override
     public TupleInfo getTupleInfo()
@@ -17,13 +18,20 @@ public class RowNumberFunction
     @Override
     public void reset(int partitionRowCount)
     {
-        rowNumber = 0;
+        rank = 0;
+        count = 1;
     }
 
     @Override
     public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount)
     {
-        rowNumber++;
-        output.append(rowNumber);
+        if (newPeerGroup) {
+            rank += count;
+            count = 1;
+        }
+        else {
+            count++;
+        }
+        output.append(rank);
     }
 }

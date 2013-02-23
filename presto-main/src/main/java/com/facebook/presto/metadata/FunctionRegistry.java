@@ -11,6 +11,10 @@ import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.operator.scalar.UnixTimeFunctions;
+import com.facebook.presto.operator.window.CumulativeDistributionFunction;
+import com.facebook.presto.operator.window.PercentRankFunction;
+import com.facebook.presto.operator.window.DenseRankFunction;
+import com.facebook.presto.operator.window.RankFunction;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.slice.Slice;
@@ -65,6 +69,10 @@ public class FunctionRegistry
     {
         List<FunctionInfo> functions = new FunctionListBuilder()
                 .window("row_number", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(), provider(RowNumberFunction.class))
+                .window("rank", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(), provider(RankFunction.class))
+                .window("dense_rank", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(), provider(DenseRankFunction.class))
+                .window("percent_rank", DOUBLE, ImmutableList.<TupleInfo.Type>of(), provider(PercentRankFunction.class))
+                .window("cume_dist", DOUBLE, ImmutableList.<TupleInfo.Type>of(), provider(CumulativeDistributionFunction.class))
                 .aggregate("count", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(), FIXED_INT_64, COUNT)
                 .aggregate("count", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(FIXED_INT_64), FIXED_INT_64, COUNT_COLUMN)
                 .aggregate("count", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(DOUBLE), FIXED_INT_64, COUNT_COLUMN)
