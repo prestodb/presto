@@ -17,9 +17,9 @@ public interface TaskExecution
 
     TaskInfo getTaskInfo();
 
-    void addSource(PlanNodeId sourceId, Split split);
+    void addSplit(PlanNodeId sourceId, Split split);
 
-    void noMoreSources(String sourceId);
+    void noMoreSplits(PlanNodeId sourceId);
 
     void cancel();
 

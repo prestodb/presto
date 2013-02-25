@@ -12,9 +12,9 @@ import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.PageIterators;
+import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Charsets;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -36,7 +36,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Iterables.transform;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
@@ -166,26 +165,24 @@ public class HttpQueryClient
         }
 
         StageInfo outputStage = queryInfo.getOutputStage();
-        return new ExchangeOperator(httpClient,
+        ExchangeOperator exchangeOperator = new ExchangeOperator(httpClient,
                 outputStage.getTupleInfos(),
                 100,
                 10,
-                3,
-                transform(outputStage.getTasks(),
-                        new Function<TaskInfo, URI>()
-                        {
-                            @Override
-                            public URI apply(TaskInfo taskInfo)
-                            {
-                                Preconditions.checkState(taskInfo.getOutputBuffers().size() == 1,
-                                        "Expected a single output buffer for task %s, but found %s",
-                                        taskInfo.getTaskId(),
-                                        taskInfo.getOutputBuffers());
+                3);
 
-                                String bufferId = Iterables.getOnlyElement(taskInfo.getOutputBuffers()).getBufferId();
-                                return uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(bufferId).build();
-                            }
-                        }));
+        for (TaskInfo taskInfo : outputStage.getTasks()) {
+            Preconditions.checkState(taskInfo.getOutputBuffers().size() == 1,
+                    "Expected a single output buffer for task %s, but found %s",
+                    taskInfo.getTaskId(),
+                    taskInfo.getOutputBuffers());
+
+            String bufferId = Iterables.getOnlyElement(taskInfo.getOutputBuffers()).getBufferId();
+            URI uri = uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(bufferId).build();
+            exchangeOperator.addSplit(new RemoteSplit(uri, outputStage.getTupleInfos()));
+        }
+        exchangeOperator.noMoreSplits();
+        return exchangeOperator;
     }
 
     public boolean isCanceled()

@@ -3,7 +3,10 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.split.Split;
+
 import java.util.List;
+import java.util.Set;
 
 public interface StageExecution
 {
@@ -13,7 +16,7 @@ public interface StageExecution
 
     List<StageExecution> getSubStages();
 
-    ExchangePlanFragmentSource getExchangeSourceFor(String outputId);
+    Set<Split> getSplitsForExchange(String outputId);
 
     void startTasks(List<String> outputIds);
 

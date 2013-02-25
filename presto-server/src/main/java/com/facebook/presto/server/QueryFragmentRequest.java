@@ -1,8 +1,8 @@
 package com.facebook.presto.server;
 
+import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -13,6 +13,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class QueryFragmentRequest
 {
@@ -20,7 +21,7 @@ public class QueryFragmentRequest
     private final String queryId;
     private final String stageId;
     private final PlanFragment fragment;
-    private final ImmutableMap<PlanNodeId, PlanFragmentSource> fixedSources;
+    private final ImmutableMap<PlanNodeId, Set<Split>> fixedSources;
     private final List<String> outputIds;
 
     @JsonCreator
@@ -29,7 +30,7 @@ public class QueryFragmentRequest
             @JsonProperty("queryId") String queryId,
             @JsonProperty("stageId") String stageId,
             @JsonProperty("fragment") PlanFragment fragment,
-            @JsonProperty("fixedSources") Map<PlanNodeId, PlanFragmentSource> fixedSources,
+            @JsonProperty("fixedSources") Map<PlanNodeId, Set<Split>> fixedSources,
             @JsonProperty("outputIds") List<String> outputIds)
     {
         Preconditions.checkNotNull(session, "session is null");
@@ -72,7 +73,7 @@ public class QueryFragmentRequest
     }
 
     @JsonProperty
-    public Map<PlanNodeId, PlanFragmentSource> getFixedSources()
+    public Map<PlanNodeId, Set<Split>> getFixedSources()
     {
         return fixedSources;
     }

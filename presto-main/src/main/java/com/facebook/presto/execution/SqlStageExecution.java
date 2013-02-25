@@ -5,12 +5,12 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
+import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitAssignments;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.Partition;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -26,6 +26,7 @@ import com.google.common.base.Predicates;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import io.airlift.log.Logger;
 
@@ -142,18 +143,18 @@ public class SqlStageExecution
     }
 
     @Override
-    public ExchangePlanFragmentSource getExchangeSourceFor(String outputId)
+    public Set<Split> getSplitsForExchange(String outputId)
     {
         Preconditions.checkNotNull(outputId, "outputId is null");
 
         // get locations for the dependent stage
-        ImmutableList.Builder<URI> sources = ImmutableList.builder();
+        ImmutableSet.Builder<Split> splits = ImmutableSet.builder();
         for (RemoteTask task : tasks) {
             URI location = uriBuilderFrom(task.getTaskInfo().getSelf()).appendPath("results").appendPath(outputId).build();
-            sources.add(location);
+            splits.add(new RemoteSplit(location, tupleInfos));
         }
 
-        return new ExchangePlanFragmentSource(sources.build(), tupleInfos);
+        return splits.build();
     }
 
     @Override
@@ -223,12 +224,11 @@ public class SqlStageExecution
         for (Partition partition : partitions) {
             String nodeIdentifier = partition.getNode().getNodeIdentifier();
 
-            ImmutableMap.Builder<PlanNodeId, PlanFragmentSource> fixedSources = ImmutableMap.builder();
+            ImmutableMap.Builder<PlanNodeId, Set<Split>> fixedSources = ImmutableMap.builder();
             for (ExchangeNode exchange : exchanges) {
                 StageExecution childStage = subStages.get(exchange.getSourceFragmentId());
-                ExchangePlanFragmentSource source = childStage.getExchangeSourceFor(nodeIdentifier);
-
-                fixedSources.put(exchange.getId(), source);
+                Set<Split> exchangeSplits = childStage.getSplitsForExchange(nodeIdentifier);
+                fixedSources.put(exchange.getId(), exchangeSplits);
             }
 
             String taskId = stageId + '.' + nextTaskId++;
@@ -245,15 +245,17 @@ public class SqlStageExecution
 
             try {
                 task.start();
-                for (Split split : partition.getSplits()) {
-                    task.addSource(plan.getPartitionedSource(), split);
+                if (plan.getPartitionedSource() != null) {
+                    for (Split split : partition.getSplits()) {
+                        task.addSource(plan.getPartitionedSource(), split);
+                    }
+                    task.noMoreSources(plan.getPartitionedSource());
                 }
-                task.noMoreSources();
             }
             catch (Throwable e) {
                 synchronized (this) {
                     failureCauses.add(e);
-                    stageState.set(StageState.FAILED);
+                    transitionToState(StageState.FAILED);
                 }
                 log.error(e, "Stage %s failed to start", stageId);
                 cancel();
@@ -261,7 +263,7 @@ public class SqlStageExecution
             }
 
         }
-        stageState.set(StageState.SCHEDULED);
+        transitionToState(StageState.SCHEDULED);
     }
 
     @Override
@@ -290,21 +292,22 @@ public class SqlStageExecution
 
             List<StageState> subStageStates = ImmutableList.copyOf(transform(transform(subStages.values(), stageInfoGetter()), stageStateGetter()));
             if (any(subStageStates, equalTo(StageState.FAILED))) {
-                stageState.set(StageState.FAILED);
+                StageState doneState = StageState.FAILED;
+                transitionToState(doneState);
             } else {
                 List<TaskState> taskStates = ImmutableList.copyOf(transform(transform(tasks, taskInfoGetter()), taskStateGetter()));
                 if (any(taskStates, equalTo(TaskState.FAILED))) {
-                    stageState.set(StageState.FAILED);
+                    transitionToState(StageState.FAILED);
                 } else if (currentState != StageState.PLANNED && currentState != StageState.SCHEDULING) {
                     // all tasks are now scheduled, so we can check the finished state
                     if (all(taskStates, TaskState.inDoneState())) {
-                        stageState.set(StageState.FINISHED);
+                        transitionToState(StageState.FINISHED);
                     }
                     else if (any(taskStates, equalTo(TaskState.RUNNING))) {
-                        stageState.set(StageState.RUNNING);
+                        transitionToState(StageState.RUNNING);
                     }
                     else if (any(taskStates, equalTo(TaskState.QUEUED))) {
-                        stageState.set(StageState.SCHEDULED);
+                        transitionToState(StageState.SCHEDULED);
                     }
                 }
             }
@@ -327,7 +330,7 @@ public class SqlStageExecution
                 return;
             }
             log.debug("Cancelling stage %s", stageId);
-            stageState.set(StageState.CANCELED);
+            transitionToState(StageState.CANCELED);
         }
 
         cancelAll();
@@ -354,6 +357,14 @@ public class SqlStageExecution
                 .add("location", location)
                 .add("stageState", stageState.get())
                 .toString();
+    }
+
+    private void transitionToState(StageState newState)
+    {
+        StageState oldState = stageState.getAndSet(newState);
+        if (oldState != newState) {
+            log.debug("Stage %s is %s", stageId, newState);
+        }
     }
 
     public static Function<RemoteTask, TaskInfo> taskInfoGetter()

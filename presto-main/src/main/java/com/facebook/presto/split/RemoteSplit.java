@@ -1,9 +1,9 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.split;
 
-import com.facebook.presto.sql.planner.PlanFragmentSource;
+import com.facebook.presto.metadata.DataSourceType;
 import com.facebook.presto.tuple.TupleInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -11,34 +11,37 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
-import javax.annotation.concurrent.Immutable;
 import java.net.URI;
 import java.util.List;
 
-@Immutable
-public class ExchangePlanFragmentSource
-        implements PlanFragmentSource
+public class RemoteSplit
+        implements Split
 {
-    private final List<URI> sources;
+    private final URI location;
     private final List<TupleInfo> tupleInfos;
 
     @JsonCreator
-    public ExchangePlanFragmentSource(
-            @JsonProperty("sources") List<URI> sources,
+    public RemoteSplit(
+            @JsonProperty("location") URI location,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos)
     {
-        Preconditions.checkNotNull(sources, "sources is null");
-        Preconditions.checkArgument(!sources.isEmpty(), "sources is empty");
+        Preconditions.checkNotNull(location, "location is null");
         Preconditions.checkNotNull(tupleInfos, "tupleInfos is null");
 
-        this.sources = ImmutableList.copyOf(sources);
-        this.tupleInfos = tupleInfos;
+        this.location = location;
+        this.tupleInfos = ImmutableList.copyOf(tupleInfos);
+    }
+
+    @Override
+    public DataSourceType getDataSourceType()
+    {
+        return DataSourceType.REMOTE;
     }
 
     @JsonProperty
-    public List<URI> getSources()
+    public URI getLocation()
     {
-        return sources;
+        return location;
     }
 
     @JsonProperty
@@ -51,7 +54,7 @@ public class ExchangePlanFragmentSource
     public String toString()
     {
         return Objects.toStringHelper(this)
-                .add("sources", sources)
+                .add("location", location)
                 .add("tupleInfos", tupleInfos)
                 .toString();
     }

@@ -16,7 +16,7 @@ public interface RemoteTask
 
     void addSource(PlanNodeId sourceId, Split split);
 
-    void noMoreSources();
+    void noMoreSources(PlanNodeId sourceId);
 
     void cancel();
 

@@ -14,7 +14,6 @@ import com.facebook.presto.server.FullJsonResponseHandler.JsonResponse;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -32,6 +31,7 @@ import javax.ws.rs.core.Response.Status;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.server.FullJsonResponseHandler.createFullJsonResponseHandler;
@@ -54,7 +54,7 @@ public class HttpRemoteTask
     private final Session session;
     private final AtomicReference<TaskInfo> taskInfo = new AtomicReference<>();
     private final PlanFragment planFragment;
-    private final Map<PlanNodeId, PlanFragmentSource> fixedSources;
+    private final Map<PlanNodeId, Set<Split>> fixedSources;
 
     private final HttpClient httpClient;
     private final JsonCodec<TaskInfo> taskInfoCodec;
@@ -67,7 +67,7 @@ public class HttpRemoteTask
             String taskId,
             URI location,
             PlanFragment planFragment,
-            Map<PlanNodeId, PlanFragmentSource> fixedSources,
+            Map<PlanNodeId, Set<Split>> fixedSources,
             List<String> outputIds,
             HttpClient httpClient,
             JsonCodec<TaskInfo> taskInfoCodec,
@@ -173,10 +173,10 @@ public class HttpRemoteTask
     }
 
     @Override
-    public void noMoreSources()
+    public void noMoreSources(PlanNodeId sourceId)
     {
         TaskInfo taskInfo = this.taskInfo.get();
-        URI statusUri = uriBuilderFrom(taskInfo.getSelf()).appendPath("source").appendPath("TODO").appendPath("complete").build();
+        URI statusUri = uriBuilderFrom(taskInfo.getSelf()).appendPath("source").appendPath(sourceId.toString()).appendPath("complete").build();
         Request request = preparePut()
                 .setUri(statusUri)
                 .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
@@ -184,7 +184,7 @@ public class HttpRemoteTask
                 .build();
         StatusResponse response = httpClient.execute(request, createStatusResponseHandler());
         if (response.getStatusCode() / 100  != 2) {
-            throw new RuntimeException(String.format("Error setting no more sources on task %s", taskInfo.getTaskId()));
+            throw new RuntimeException(String.format("Error closing source '%s' on task %s", sourceId.toString(), taskInfo.getTaskId()));
         }
     }
 

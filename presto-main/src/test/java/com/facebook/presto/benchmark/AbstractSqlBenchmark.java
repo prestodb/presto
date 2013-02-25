@@ -1,23 +1,21 @@
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.SourceHashProviderFactory;
-import com.facebook.presto.operator.HackPlanFragmentSourceProvider;
+import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.sql.analyzer.AnalysisResult;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
+import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanPrinter;
-import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -27,9 +25,11 @@ import com.facebook.presto.tpch.TpchDataStreamProvider;
 import com.facebook.presto.tpch.TpchSchema;
 import com.facebook.presto.tpch.TpchSplit;
 import com.facebook.presto.tpch.TpchTableHandle;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.base.Preconditions;
 import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
+
+import java.util.Map;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
@@ -65,25 +65,31 @@ public abstract class AbstractSqlBenchmark
     @Override
     protected Operator createBenchmarkedOperator(TpchBlocksProvider provider)
     {
-        ImmutableMap.Builder<PlanNodeId, PlanFragmentSource> builder = ImmutableMap.builder();
+        DataSize maxOperatorMemoryUsage = new DataSize(100, MEGABYTE);
+        LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(session,
+                metadata,
+                analysis.getTypes(),
+                new OperatorStats(),
+                new SourceHashProviderFactory(maxOperatorMemoryUsage),
+                maxOperatorMemoryUsage,
+                new TpchDataStreamProvider(provider),
+                null);
+
+        LocalExecutionPlan localExecutionPlan = executionPlanner.plan(fragment.getRoot());
+
+        Map<PlanNodeId,SourceOperator> sourceOperators = localExecutionPlan.getSourceOperators();
         for (PlanNode source : fragment.getSources()) {
             TableScanNode tableScan = (TableScanNode) source;
             TpchTableHandle handle = (TpchTableHandle) tableScan.getTable();
 
-            builder.put(tableScan.getId(), new TableScanPlanFragmentSource(new TpchSplit(handle)));
+            SourceOperator sourceOperator = sourceOperators.get(tableScan.getId());
+            Preconditions.checkArgument(sourceOperator != null, "Unknown plan source %s; known sources are %s", tableScan.getId(), sourceOperators.keySet());
+            sourceOperator.addSplit(new TpchSplit(handle));
+        }
+        for (SourceOperator sourceOperator : sourceOperators.values()) {
+            sourceOperator.noMoreSplits();
         }
 
-        DataSize maxOperatorMemoryUsage = new DataSize(100, MEGABYTE);
-        LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(session,
-                metadata,
-                new HackPlanFragmentSourceProvider(new TpchDataStreamProvider(provider), null, new QueryManagerConfig()),
-                analysis.getTypes(),
-                builder.build(),
-                new OperatorStats(),
-                new SourceHashProviderFactory(maxOperatorMemoryUsage),
-                maxOperatorMemoryUsage
-        );
-
-        return executionPlanner.plan(fragment.getRoot());
+        return localExecutionPlan.getRootOperator();
     }
 }
