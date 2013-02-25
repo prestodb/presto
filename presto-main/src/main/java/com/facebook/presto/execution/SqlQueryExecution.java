@@ -328,10 +328,14 @@ public class SqlQueryExecution
                 queryStats.recordEnd();
                 queryMonitor.completionEvent(getQueryInfo());
             } else if (queryState.get() == QueryState.STARTING) {
-                // if any stage is running transition to running
+                // if output stage is running transition to running
+                if (outputStageState == StageState.RUNNING) {
+                    this.queryState.set(QueryState.RUNNING);
+                }
+
+                // if any stage is running, record execution start time
                 if (any(transform(getAllStages(outputStage.getStageInfo()), stageStateGetter()), isStageRunningOrDone())) {
                     queryStats.recordExecutionStart();
-                    this.queryState.set(QueryState.RUNNING);
                 }
             }
         }

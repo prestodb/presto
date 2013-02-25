@@ -1,6 +1,5 @@
 package com.facebook.presto.util;
 
-import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.metadata.AbstractMetadata;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.DualTable;
@@ -13,10 +12,10 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.AlignmentOperator;
-import com.facebook.presto.operator.HackPlanFragmentSourceProvider;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.SourceHashProviderFactory;
+import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.InternalSplit;
 import com.facebook.presto.split.Split;
@@ -26,12 +25,11 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
+import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.LogicalPlanner;
-import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.SubPlan;
-import com.facebook.presto.sql.planner.TableScanPlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
@@ -42,12 +40,14 @@ import com.facebook.presto.tpch.TpchSchema;
 import com.facebook.presto.tpch.TpchSplit;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
@@ -86,26 +86,31 @@ public class LocalQueryRunner
         SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubplans(plan, analysis.getSymbolAllocator(), true);
         assertTrue(subplan.getChildren().isEmpty(), "Expected subplan to have no children");
 
-        ImmutableMap.Builder<PlanNodeId, PlanFragmentSource> builder = ImmutableMap.builder();
-        for (PlanNode source : subplan.getFragment().getSources()) {
-            TableScanNode tableScan = (TableScanNode) source;
-            Split split = createSplit(tableScan.getTable());
-            builder.put(tableScan.getId(), new TableScanPlanFragmentSource(split));
-        }
-
         DataSize maxOperatorMemoryUsage = new DataSize(50, MEGABYTE);
-        LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(session, metadata,
-                new HackPlanFragmentSourceProvider(dataStreamProvider, null, new QueryManagerConfig()),
+        LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(session,
+                metadata,
                 analysis.getTypes(),
-                builder.build(),
                 new OperatorStats(),
                 new SourceHashProviderFactory(maxOperatorMemoryUsage),
-                maxOperatorMemoryUsage
-        );
+                maxOperatorMemoryUsage,
+                dataStreamProvider,
+                null);
 
-        Operator operator = executionPlanner.plan(plan);
+        LocalExecutionPlan localExecutionPlan = executionPlanner.plan(subplan.getFragment().getRoot());
 
-        return materialize(operator);
+        // add the splits to the sources
+        Map<PlanNodeId, SourceOperator> sourceOperators = localExecutionPlan.getSourceOperators();
+        for (PlanNode source : subplan.getFragment().getSources()) {
+            TableScanNode tableScan = (TableScanNode) source;
+            SourceOperator sourceOperator = sourceOperators.get(tableScan.getId());
+            Preconditions.checkArgument(sourceOperator != null, "Unknown plan source %s; known sources are %s", tableScan.getId(), sourceOperators.keySet());
+            sourceOperator.addSplit(createSplit(tableScan.getTable()));
+        }
+        for (SourceOperator sourceOperator : sourceOperators.values()) {
+            sourceOperator.noMoreSplits();
+        }
+
+        return materialize(localExecutionPlan.getRootOperator());
     }
 
     public static LocalQueryRunner createTpchLocalQueryRunner()

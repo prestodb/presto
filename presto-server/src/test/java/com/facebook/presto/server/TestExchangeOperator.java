@@ -12,11 +12,11 @@ import com.facebook.presto.operator.ExchangeOperator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
+import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -49,6 +49,7 @@ import org.testng.annotations.Test;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import java.net.URI;
+import java.util.Set;
 
 import static com.facebook.presto.server.MockQueryManager.TUPLE_INFOS;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
@@ -196,7 +197,7 @@ public class TestExchangeOperator
                 "queryId",
                 "stageId",
                 planFragment,
-                ImmutableMap.<PlanNodeId, PlanFragmentSource>of(),
+                ImmutableMap.<PlanNodeId, Set<Split>>of(),
                 ImmutableList.of("out"));
 
         Request request = preparePut()

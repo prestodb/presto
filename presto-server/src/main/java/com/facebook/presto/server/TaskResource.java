@@ -170,7 +170,7 @@ public class TaskResource
     public void noMoreSplits(@PathParam("taskId") String taskId, @PathParam("sourceId") String sourceId, boolean isComplete)
     {
         if (isComplete) {
-            taskManager.noMoreSplits(taskId, sourceId);
+            taskManager.noMoreSplits(taskId, new PlanNodeId(sourceId));
         }
     }
 }

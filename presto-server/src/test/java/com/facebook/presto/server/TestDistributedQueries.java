@@ -70,7 +70,6 @@ import io.airlift.json.JsonBinder;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.JsonModule;
-import io.airlift.json.ObjectMapperProvider;
 import io.airlift.node.NodeInfo;
 import io.airlift.node.NodeModule;
 import io.airlift.testing.FileUtils;
@@ -82,7 +81,6 @@ import org.weakref.jmx.guice.MBeanModule;
 import org.weakref.jmx.testing.TestingMBeanServer;
 
 import javax.management.MBeanServer;
-
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -186,8 +184,10 @@ public class TestDistributedQueries
             throws Exception
     {
         Closeables.closeQuietly(discoveryServer);
-        for (PrestoTestingServer server : servers) {
-            Closeables.closeQuietly(server);
+        if (servers != null) {
+            for (PrestoTestingServer server : servers) {
+                Closeables.closeQuietly(server);
+            }
         }
     }
 
@@ -244,13 +244,23 @@ public class TestDistributedQueries
                 if (state == QueryState.FAILED) {
                     throw Iterables.getFirst(queryInfo.getFailures(), null).toException();
                 }
+                else if (state == QueryState.CANCELED) {
+                    throw new RuntimeException("Query was cancelled");
+                }
                 else if (state == QueryState.RUNNING || state.isDone()) {
                     break;
                 }
                 Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
             }
 
-            return materialize(client.getResultsOperator());
+            QueryInfo foo = client.getQueryInfo(true);
+
+            MaterializedResult materializedResult = materialize(client.getResultsOperator());
+            QueryInfo queryInfo = client.getQueryInfo(true);
+            if (queryInfo.getState() != QueryState.FINISHED) {
+                throw new RuntimeException("Expected query to be FINISHED, but is " + queryInfo.getState());
+            }
+            return materializedResult;
         }
     }
 
@@ -291,6 +301,7 @@ public class TestDistributedQueries
             Map<String, String> serverProperties = ImmutableMap.<String, String>builder()
                     .put("node.environment", "testing")
                     .put("storage-manager.data-directory", baseDataDir.getPath())
+                    .put("query.client.timeout", "5s")
                     .put("presto-metastore.db.type", "h2")
                     .put("exchange.http-client.read-timeout ", "1h")
                     .put("presto-metastore.db.filename", new File(baseDataDir, "db/MetaStore").getPath())

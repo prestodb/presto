@@ -897,7 +897,12 @@ public abstract class AbstractTestQueries
         ImmutableMultiset<?> actualSet = ImmutableMultiset.copyOf(actual);
         ImmutableMultiset<?> expectedSet = ImmutableMultiset.copyOf(expected);
         if (!actualSet.equals(expectedSet)) {
-            Assert.fail("not equal");
+
+            Assert.fail(String.format("not equal\\nActual %s rows:\n%s\nExpected %s rows:\n%s\n",
+                    actualSet.size(),
+                    Joiner.on("\n    ").join(actualSet),
+                    expectedSet.size(),
+                    Joiner.on("\n    ").join(expectedSet)));
         }
     }
 

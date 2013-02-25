@@ -9,6 +9,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -27,6 +28,8 @@ import static com.google.common.collect.Iterables.transform;
 @ThreadSafe
 public class TaskOutput
 {
+    private static final Logger log = Logger.get(TaskOutput.class);
+
     private final String queryId;
     private final String stageId;
     private final String taskId;
@@ -163,6 +166,7 @@ public class TaskOutput
                     outputBuffer.cancel();
                 }
 
+                log.debug("Task %s is %s", taskId, doneState);
                 return true;
             }
         }

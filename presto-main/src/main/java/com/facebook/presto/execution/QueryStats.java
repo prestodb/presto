@@ -125,7 +125,9 @@ public class QueryStats
 
     public synchronized void recordExecutionStart()
     {
-        this.executionStartTime = DateTime.now();
+        if (executionStartTime == null) {
+            this.executionStartTime = DateTime.now();
+        }
     }
 
     public synchronized void recordEnd()

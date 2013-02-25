@@ -6,11 +6,11 @@ package com.facebook.presto.execution;
 import com.facebook.presto.concurrent.FairBatchExecutor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.server.ExchangeOperatorFactory;
+import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragmentSource;
-import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -28,6 +28,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
@@ -51,7 +52,8 @@ public class SqlTaskManager
     private final FairBatchExecutor shardExecutor;
     private final ScheduledExecutorService taskManagementExecutor;
     private final Metadata metadata;
-    private final PlanFragmentSourceProvider sourceProvider;
+    private final DataStreamProvider dataStreamProvider;
+    private final ExchangeOperatorFactory exchangeOperatorFactory;
     private final HttpServerInfo httpServerInfo;
     private final DataSize maxOperatorMemoryUsage;
     private final Duration maxTaskAge;
@@ -62,17 +64,20 @@ public class SqlTaskManager
     @Inject
     public SqlTaskManager(
             Metadata metadata,
-            PlanFragmentSourceProvider sourceProvider,
+            DataStreamProvider dataStreamProvider,
+            ExchangeOperatorFactory exchangeOperatorFactory,
             HttpServerInfo httpServerInfo,
             QueryManagerConfig config)
     {
         Preconditions.checkNotNull(metadata, "metadata is null");
-        Preconditions.checkNotNull(sourceProvider, "sourceProvider is null");
+        Preconditions.checkNotNull(dataStreamProvider, "dataStreamProvider is null");
+        Preconditions.checkNotNull(exchangeOperatorFactory, "exchangeOperatorFactory is null");
         Preconditions.checkNotNull(httpServerInfo, "httpServerInfo is null");
         Preconditions.checkNotNull(config, "config is null");
 
         this.metadata = metadata;
-        this.sourceProvider = sourceProvider;
+        this.dataStreamProvider = dataStreamProvider;
+        this.exchangeOperatorFactory = exchangeOperatorFactory;
         this.httpServerInfo = httpServerInfo;
         this.pageBufferMax = 20;
         this.maxOperatorMemoryUsage = config.getMaxOperatorMemoryUsage();
@@ -82,7 +87,7 @@ public class SqlTaskManager
 
         shardExecutor = new FairBatchExecutor(config.getMaxShardProcessorThreads(), threadsNamed("shard-processor-%d"));
 
-        taskManagementExecutor = Executors.newScheduledThreadPool(100, threadsNamed("task-management-%d"));
+        taskManagementExecutor = Executors.newScheduledThreadPool(5, threadsNamed("task-management-%d"));
         taskManagementExecutor.scheduleAtFixedRate(new Runnable()
         {
             @Override
@@ -149,7 +154,7 @@ public class SqlTaskManager
             String stageId,
             String taskId,
             PlanFragment fragment,
-            Map<PlanNodeId,PlanFragmentSource> fixedSources,
+            Map<PlanNodeId, Set<Split>> fixedSources,
             List<String> outputIds)
     {
         Preconditions.checkNotNull(session, "session is null");
@@ -172,7 +177,8 @@ public class SqlTaskManager
                 fixedSources,
                 outputIds,
                 pageBufferMax,
-                sourceProvider,
+                dataStreamProvider,
+                exchangeOperatorFactory,
                 metadata,
                 shardExecutor,
                 maxOperatorMemoryUsage
@@ -207,11 +213,11 @@ public class SqlTaskManager
         if (taskExecution == null) {
             throw new NoSuchElementException();
         }
-        taskExecution.addSource(sourceId, split);
+        taskExecution.addSplit(sourceId, split);
     }
 
     @Override
-    public void noMoreSplits(String taskId, String sourceId)
+    public void noMoreSplits(String taskId, PlanNodeId sourceId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(sourceId, "sourceId is null");
@@ -220,7 +226,7 @@ public class SqlTaskManager
         if (taskExecution == null) {
             throw new NoSuchElementException();
         }
-        taskExecution.noMoreSources(sourceId);
+        taskExecution.noMoreSplits(sourceId);
     }
 
     @Override

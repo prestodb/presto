@@ -53,7 +53,6 @@ import com.facebook.presto.metadata.SystemTables;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
-import com.facebook.presto.operator.HackPlanFragmentSourceProvider;
 import com.facebook.presto.spi.ImportClientFactory;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.DataStreamProvider;
@@ -63,8 +62,6 @@ import com.facebook.presto.split.InternalDataStreamProvider;
 import com.facebook.presto.split.NativeDataStreamProvider;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.sql.planner.PlanFragmentSource;
-import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
@@ -113,6 +110,7 @@ public class ServerMainModule
 
         binder.bind(TaskResource.class).in(Scopes.SINGLETON);
         binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
+        binder.bind(ExchangeOperatorFactory.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
 
         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
@@ -121,7 +119,6 @@ public class ServerMainModule
 
         HttpClientBinder.httpClientBinder(binder).bindAsyncHttpClient("exchange", ForExchange.class).withTracing();
         HttpClientBinder.httpClientBinder(binder).bindHttpClient("scheduler", ForScheduler.class).withTracing();
-        binder.bind(PlanFragmentSourceProvider.class).to(HackPlanFragmentSourceProvider.class).in(Scopes.SINGLETON);
 
         bindConfig(binder).to(StorageManagerConfig.class);
         binder.bind(StorageManager.class).to(DatabaseStorageManager.class).in(Scopes.SINGLETON);
@@ -148,7 +145,6 @@ public class ServerMainModule
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(QueryFragmentRequest.class);
-        jsonCodecBinder(binder).bindJsonCodec(PlanFragmentSource.class);
         jsonCodecBinder(binder).bindJsonCodec(Split.class);
         jsonBinder(binder).addSerializerBinding(Expression.class).to(ExpressionSerializer.class);
         jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
