@@ -12,9 +12,7 @@ import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.log.Logger;
@@ -29,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
@@ -36,8 +35,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.util.Threads.threadsNamed;
-import static com.google.common.collect.Iterables.filter;
-import static com.google.common.collect.Iterables.transform;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -59,6 +56,7 @@ public class SqlTaskManager
     private final Duration maxTaskAge;
     private final Duration clientTimeout;
 
+    private final ConcurrentMap<String, TaskInfo> taskInfos = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, TaskExecution> tasks = new ConcurrentHashMap<>();
 
     @Inject
@@ -119,19 +117,16 @@ public class SqlTaskManager
     @Override
     public List<TaskInfo> getAllTaskInfo()
     {
-        return ImmutableList.copyOf(filter(transform(tasks.values(), new Function<TaskExecution, TaskInfo>()
-        {
-            @Override
-            public TaskInfo apply(TaskExecution taskExecution)
-            {
-                try {
-                    return taskExecution.getTaskInfo();
-                }
-                catch (Exception ignored) {
-                    return null;
-                }
+        Map<String, TaskInfo> taskInfos = new TreeMap<>();
+        taskInfos.putAll(taskInfos);
+        for (TaskExecution taskExecution : tasks.values()) {
+            try {
+                taskInfos.put(taskExecution.getTaskId(), taskExecution.getTaskInfo());
             }
-        }), Predicates.notNull()));
+            catch (Exception ignored) {
+            }
+        }
+        return ImmutableList.copyOf(taskInfos.values());
     }
 
     @Override
@@ -140,12 +135,18 @@ public class SqlTaskManager
         Preconditions.checkNotNull(taskId, "taskId is null");
 
         TaskExecution taskExecution = tasks.get(taskId);
-        if (taskExecution == null) {
-            throw new NoSuchElementException("Unknown query task " + taskId);
+        if (taskExecution != null) {
+            TaskInfo taskInfo = taskExecution.getTaskInfo();
+            taskInfo.getStats().recordHeartBeat();
+            return taskInfo;
         }
-        TaskInfo taskInfo = taskExecution.getTaskInfo();
-        taskInfo.getStats().recordHeartBeat();
-        return taskInfo;
+
+        TaskInfo taskInfo = taskInfos.get(taskId);
+        if (taskInfo != null) {
+            return taskInfo;
+        }
+
+        throw new NoSuchElementException("Unknown query task " + taskId);
     }
 
     @Override
@@ -183,7 +184,7 @@ public class SqlTaskManager
                 shardExecutor,
                 maxOperatorMemoryUsage
         );
-        
+
         tasks.put(taskId, taskExecution);
         return taskExecution.getTaskInfo();
     }
@@ -241,6 +242,9 @@ public class SqlTaskManager
         }
         log.debug("Aborting task %s output %s", taskId, outputId);
         taskExecution.abortResults(outputId);
+
+        // assure task is completed and cache final results
+        cancelTask(taskId);
     }
 
     @Override
@@ -248,21 +252,15 @@ public class SqlTaskManager
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 
-        TaskExecution taskExecution = tasks.get(taskId);
-        if (taskExecution != null) {
-            log.debug("Cancelling task %s", taskId);
-            taskExecution.cancel();
-        }
-    }
-
-
-    public void removeTask(String taskId)
-    {
-        Preconditions.checkNotNull(taskId, "taskId is null");
-
         TaskExecution taskExecution = tasks.remove(taskId);
         if (taskExecution != null) {
+            // make sure task is finished
             taskExecution.cancel();
+            tasks.remove(taskId);
+
+            // cache task info
+            TaskInfo taskInfo = taskExecution.getTaskInfo();
+            taskInfos.putIfAbsent(taskId, taskInfo);
         }
     }
 
@@ -272,9 +270,16 @@ public class SqlTaskManager
         for (TaskExecution taskExecution : tasks.values()) {
             try {
                 TaskInfo taskInfo = taskExecution.getTaskInfo();
+
+                // drop references to completed task objects
+                if (taskInfo.getState().isDone()) {
+                    // assure task is completed and cache final results
+                    cancelTask(taskExecution.getTaskId());
+                }
+
                 DateTime endTime = taskInfo.getStats().getEndTime();
                 if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
-                    removeTask(taskExecution.getTaskId());
+                    taskInfos.remove(taskExecution.getTaskId());
                 }
             }
             catch (Exception e) {
