@@ -33,6 +33,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
+import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.util.MaterializedResult.resultBuilder;
@@ -662,17 +663,16 @@ public abstract class AbstractTestQueries
         assertQueryOrdered("SELECT orderstatus orderdate FROM orders ORDER BY orderdate ASC");
     }
 
-
     @SuppressWarnings("PointlessArithmeticExpression")
     @Test
-    public void testWindowFunctions()
+    public void testWindowFunctionsExpressions()
     {
         MaterializedResult actual = computeActual("" +
                 "SELECT orderkey, orderstatus\n" +
                 ", row_number() OVER (ORDER BY orderkey * 2) *\n" +
                 "  row_number() OVER (ORDER BY orderkey DESC) + 100\n" +
                 "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
-                "ORDER BY orderkey");
+                "ORDER BY orderkey LIMIT 5");
 
         MaterializedResult expected = resultBuilder(FIXED_INT_64, VARIABLE_BINARY, FIXED_INT_64)
                 .row(1, "O", (1 * 10) + 100)
@@ -680,11 +680,35 @@ public abstract class AbstractTestQueries
                 .row(3, "F", (3 * 8) + 100)
                 .row(4, "O", (4 * 7) + 100)
                 .row(5, "F", (5 * 6) + 100)
-                .row(6, "F", (6 * 5) + 100)
-                .row(7, "O", (7 * 4) + 100)
-                .row(32, "O", (8 * 3) + 100)
-                .row(33, "F", (9 * 2) + 100)
-                .row(34, "O", (10 * 1) + 100)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testWindowFunctionsFromAggregate()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "  SELECT orderstatus, clerk, sales\n" +
+                "  , rank() OVER (PARTITION BY x.orderstatus ORDER BY sales DESC) rnk\n" +
+                "  FROM (\n" +
+                "    SELECT orderstatus, clerk, sum(totalprice) sales\n" +
+                "    FROM orders\n" +
+                "    GROUP BY orderstatus, clerk\n" +
+                "   ) x\n" +
+                ") x\n" +
+                "WHERE rnk <= 2\n" +
+                "ORDER BY orderstatus, rnk");
+
+        MaterializedResult expected = resultBuilder(VARIABLE_BINARY, VARIABLE_BINARY, DOUBLE, FIXED_INT_64)
+                .row("F", "Clerk#000000090", 2784836.61, 1)
+                .row("F", "Clerk#000000084", 2674447.15, 2)
+                .row("O", "Clerk#000000500", 2569878.29, 1)
+                .row("O", "Clerk#000000050", 2500162.92, 2)
+                .row("P", "Clerk#000000071", 841820.99, 1)
+                .row("P", "Clerk#000001000", 643679.49, 2)
                 .build();
 
         assertEquals(actual, expected);

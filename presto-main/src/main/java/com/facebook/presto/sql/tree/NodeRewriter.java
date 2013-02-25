@@ -171,4 +171,9 @@ public class NodeRewriter<C>
     {
         return rewriteExpression(node, context, treeRewriter);
     }
+
+    public Node rewriteSortItem(SortItem node, C context, TreeRewriter<C> treeRewriter)
+    {
+        return rewriteNode(node, context, treeRewriter);
+    }
 }
