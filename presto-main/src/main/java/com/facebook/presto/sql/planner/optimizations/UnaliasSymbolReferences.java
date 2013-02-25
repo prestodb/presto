@@ -15,6 +15,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Node;
@@ -78,6 +79,28 @@ public class UnaliasSymbolReferences
             }
 
             return new AggregationNode(node.getId(), source, canonicalize(node.getGroupBy()), functionCalls.build(), functionInfos.build());
+        }
+
+        @Override
+        public PlanNode rewriteWindow(WindowNode node, Void context, PlanRewriter<Void> planRewriter)
+        {
+            PlanNode source = planRewriter.rewrite(node.getSource(), context);
+
+            ImmutableMap.Builder<Symbol, FunctionHandle> functionInfos = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, FunctionCall> functionCalls = ImmutableMap.builder();
+            for (Map.Entry<Symbol, FunctionCall> entry : node.getWindowFunctions().entrySet()) {
+                Symbol symbol = entry.getKey();
+                Symbol canonical = canonicalize(symbol);
+                functionCalls.put(canonical, (FunctionCall) canonicalize(entry.getValue()));
+                functionInfos.put(canonical, node.getFunctionHandles().get(symbol));
+            }
+
+            ImmutableMap.Builder<Symbol, SortItem.Ordering> orderings = ImmutableMap.builder();
+            for (Map.Entry<Symbol, SortItem.Ordering> entry : node.getOrderings().entrySet()) {
+                orderings.put(canonicalize(entry.getKey()), entry.getValue());
+            }
+
+            return new WindowNode(node.getId(), source, canonicalize(node.getPartitionBy()), canonicalize(node.getOrderBy()), orderings.build(), functionCalls.build(), functionInfos.build());
         }
 
         @Override

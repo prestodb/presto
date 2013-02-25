@@ -470,13 +470,52 @@ public final class TreeRewriter<C>
                 }
             }
 
-            ImmutableList.Builder<Expression> builder = ImmutableList.builder();
-            for (Expression expression : node.getArguments()) {
-                builder.add(rewrite(expression, context.get()));
+            Window window = node.getWindow().orNull();
+            if (window != null) {
+                ImmutableList.Builder<Expression> partitionBy = ImmutableList.builder();
+                for (Expression expression : node.getWindow().get().getPartitionBy()) {
+                    partitionBy.add(rewrite(expression, context.get()));
+                }
+
+                ImmutableList.Builder<SortItem> orderBy = ImmutableList.builder();
+                for (SortItem sortItem : node.getWindow().get().getOrderBy()) {
+                    orderBy.add(rewrite(sortItem, context.get()));
+                }
+
+                // TODO: rewrite frame
+                if (!sameElements(window.getPartitionBy(), partitionBy.build()) ||
+                        !sameElements(window.getOrderBy(), orderBy.build())) {
+                    window = new Window(partitionBy.build(), orderBy.build(), window.getFrame().orNull());
+                }
             }
 
-            if (!sameElements(node.getArguments(), builder.build())) {
-                return new FunctionCall(node.getName(), node.getWindow().orNull(), node.isDistinct(), builder.build());
+            ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
+            for (Expression expression : node.getArguments()) {
+                arguments.add(rewrite(expression, context.get()));
+            }
+
+            if (!sameElements(node.getArguments(), arguments.build()) ||
+                    (window != node.getWindow().orNull())) {
+                return new FunctionCall(node.getName(), window, node.isDistinct(), arguments.build());
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Node visitSortItem(SortItem node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteSortItem(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression sortKey = rewrite(node.getSortKey(), context.get());
+
+            if (node.getSortKey() != sortKey) {
+                return new SortItem(sortKey, node.getOrdering(), node.getNullOrdering());
             }
 
             return node;
