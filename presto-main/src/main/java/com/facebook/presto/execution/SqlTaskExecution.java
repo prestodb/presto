@@ -3,7 +3,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.concurrent.FairBatchExecutor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
@@ -23,13 +22,17 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.Uninterruptibles;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
+import java.lang.ref.WeakReference;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -38,10 +41,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.Future;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.Iterables.transform;
 
@@ -53,16 +54,16 @@ public class SqlTaskExecution
     private final Map<PlanNodeId, Set<Split>> fixedSources;
     private final DataStreamProvider dataStreamProvider;
     private final ExchangeOperatorFactory exchangeOperatorFactory;
-    private final FairBatchExecutor shardExecutor;
+    private final ListeningExecutorService shardExecutor;
     private final PlanFragment fragment;
     private final Metadata metadata;
     private final DataSize maxOperatorMemoryUsage;
     private final Session session;
 
+    private final AtomicInteger pendingWorkerCount = new AtomicInteger();
+
     @GuardedBy("this")
-    private final List<SplitWorker> splitWorkers = new ArrayList<>();
-    @GuardedBy("this")
-    private final LinkedBlockingQueue<FutureTask<Void>> splitWorkersResults = new LinkedBlockingQueue<>();
+    private final List<WeakReference<SplitWorker>> splitWorkers = new ArrayList<>();
     @GuardedBy("this")
     private final Set<PlanNodeId> noMoreSources = new HashSet<>();
     @GuardedBy("this")
@@ -82,7 +83,7 @@ public class SqlTaskExecution
             DataStreamProvider dataStreamProvider,
             ExchangeOperatorFactory exchangeOperatorFactory,
             Metadata metadata,
-            FairBatchExecutor shardExecutor,
+            ListeningExecutorService shardExecutor,
             DataSize maxOperatorMemoryUsage)
     {
         Preconditions.checkNotNull(session, "session is null");
@@ -125,26 +126,7 @@ public class SqlTaskExecution
 
         // plans without a partition are immediately executed
         if (!fragment.isPartitioned()) {
-            SplitWorker worker = new SplitWorker(session,
-                    taskOutput,
-                    fragment,
-                    getSourceHashProviderFactory(),
-                    metadata,
-                    maxOperatorMemoryUsage,
-                    dataStreamProvider,
-                    exchangeOperatorFactory);
-            splitWorkers.add(worker);
-            List<FutureTask<Void>> results = shardExecutor.processBatch(ImmutableList.of(worker));
-            splitWorkersResults.addAll(results);
-
-            for (Entry<PlanNodeId, Set<Split>> entry : fixedSources.entrySet()) {
-                PlanNodeId sourceId = entry.getKey();
-                for (Split fixedSplit : entry.getValue()) {
-                    worker.addSplit(sourceId, fixedSplit);
-                    getTaskInfo().getStats().addSplits(1);
-                }
-                worker.noMoreSplits(sourceId);
-            }
+            scheduleSplitWorker(null, null);
         }
 
         // mark all fixed sources a complete
@@ -158,36 +140,9 @@ public class SqlTaskExecution
     }
 
     @Override
-    public synchronized TaskInfo getTaskInfo()
+    public TaskInfo getTaskInfo()
     {
-        if (noMoreSources.containsAll(sourceIds) && !taskOutput.getState().isDone()) {
-            boolean allDone = true;
-            RuntimeException queryFailedException = null;
-            for (Future<Void> result : splitWorkersResults) {
-                try {
-                    if (result.isDone()) {
-                        // since the result is "done" this should not interrupt
-                        Uninterruptibles.getUninterruptibly(result);
-                    }
-                    else {
-                        allDone = false;
-                    }
-                }
-                catch (Throwable e) {
-                    if (queryFailedException == null) {
-                        queryFailedException = new RuntimeException("Query failed");
-                    }
-                    Throwable cause = e.getCause();
-                    queryFailedException.addSuppressed(cause);
-                }
-            }
-            if (queryFailedException != null) {
-                taskOutput.queryFailed(queryFailedException);
-            }
-            else if (allDone) {
-                taskOutput.finish();
-            }
-        }
+        checkTaskCompletion();
         return taskOutput.getTaskInfo();
     }
 
@@ -196,36 +151,68 @@ public class SqlTaskExecution
     {
         // is this a partitioned source
         if (fragment.isPartitioned() && fragment.getPartitionedSource().equals(sourceId)) {
-            // create a new split worker
-            SplitWorker worker = new SplitWorker(session,
-                    taskOutput,
-                    fragment,
-                    getSourceHashProviderFactory(),
-                    metadata,
-                    maxOperatorMemoryUsage,
-                    dataStreamProvider,
-                    exchangeOperatorFactory);
-
-            worker.addSplit(sourceId, split);
-            for (Entry<PlanNodeId, Set<Split>> entry : fixedSources.entrySet()) {
-                PlanNodeId fixedSourceId = entry.getKey();
-                for (Split fixedSplit : entry.getValue()) {
-                    worker.addSplit(fixedSourceId, fixedSplit);
-                }
-                worker.noMoreSplits(fixedSourceId);
-            }
-
-            getTaskInfo().getStats().addSplits(1);
-            splitWorkers.add(worker);
-            List<FutureTask<Void>> results = shardExecutor.processBatch(ImmutableList.of(worker));
-            splitWorkersResults.addAll(results);
+            scheduleSplitWorker(sourceId, split);
         }
         else {
+            // todo we will need to remember this split to add to future workers
             // add this to all of the existing workers
-            for (SplitWorker worker : splitWorkers) {
-                worker.addSplit(sourceId, split);
+            for (WeakReference<SplitWorker> workerReference : splitWorkers) {
+                SplitWorker worker = workerReference.get();
+                // this should not happen until the all sources have been closed
+                Preconditions.checkState(worker != null, "SplitWorker has been GCed");
+                getTaskInfo().getStats().addSplits(1);
             }
         }
+    }
+
+    private synchronized void scheduleSplitWorker(@Nullable PlanNodeId partitionedSourceId, @Nullable Split partitionedSplit)
+    {
+        // create a new split worker
+        SplitWorker worker = new SplitWorker(session,
+                taskOutput,
+                fragment,
+                getSourceHashProviderFactory(),
+                metadata,
+                maxOperatorMemoryUsage,
+                dataStreamProvider,
+                exchangeOperatorFactory);
+
+        // TableScanOperator requires partitioned split to be added before task is started
+        if (partitionedSourceId != null) {
+            worker.addSplit(partitionedSourceId, partitionedSplit);
+        }
+
+        // add fixed sources
+        for (Entry<PlanNodeId, Set<Split>> entry : fixedSources.entrySet()) {
+            PlanNodeId fixedSourceId = entry.getKey();
+            for (Split fixedSplit : entry.getValue()) {
+                worker.addSplit(fixedSourceId, fixedSplit);
+            }
+            worker.noMoreSplits(fixedSourceId);
+        }
+
+        // record new worker
+        splitWorkers.add(new WeakReference<>(worker));
+        pendingWorkerCount.incrementAndGet();
+
+        // execute worker
+        ListenableFuture<Void> future = shardExecutor.submit(worker);
+        Futures.addCallback(future, new FutureCallback<Void>()
+        {
+            @Override
+            public void onSuccess(Void result)
+            {
+                pendingWorkerCount.decrementAndGet();
+                checkTaskCompletion();
+            }
+
+            @Override
+            public void onFailure(Throwable t)
+            {
+                taskOutput.queryFailed(t);
+                pendingWorkerCount.decrementAndGet();
+            }
+        });
     }
 
     @Override
@@ -236,10 +223,23 @@ public class SqlTaskExecution
             // all workers have been created
             // clear hash provider since it has a hard reference to every hash table
             sourceHashProviderFactory = null;
-        } else {
-            for (SplitWorker splitWorker : splitWorkers) {
-                splitWorker.noMoreSplits(sourceId);
+        }
+        else {
+            // add this to all of the existing workers
+            for (WeakReference<SplitWorker> workerReference : splitWorkers) {
+                SplitWorker worker = workerReference.get();
+                // this should not happen until the all sources have been closed
+                Preconditions.checkState(worker != null, "SplitWorker has been GCed");
+                worker.noMoreSplits(sourceId);
             }
+        }
+        checkTaskCompletion();
+    }
+
+    private synchronized void checkTaskCompletion()
+    {
+        if (noMoreSources.containsAll(sourceIds) && pendingWorkerCount.get() == 0) {
+            taskOutput.finish();
         }
     }
 
@@ -338,7 +338,7 @@ public class SqlTaskExecution
 
         @Override
         public Void call()
-                throws Exception
+                throws InterruptedException
         {
             if (!started.compareAndSet(false, true)) {
                 return null;
@@ -358,15 +358,11 @@ public class SqlTaskExecution
                         break;
                     }
                 }
-                return null;
-            }
-            catch (Throwable e) {
-                taskOutput.queryFailed(e);
-                throw e;
             }
             finally {
                 operatorStats.finish();
             }
+            return null;
         }
     }
 }
