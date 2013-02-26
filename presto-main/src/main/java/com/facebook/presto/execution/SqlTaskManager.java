@@ -3,7 +3,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.concurrent.FairBatchExecutor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.server.ExchangeOperatorFactory;
@@ -14,6 +13,8 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
@@ -46,7 +47,7 @@ public class SqlTaskManager
 
     private final int pageBufferMax;
 
-    private final FairBatchExecutor shardExecutor;
+    private final ListeningExecutorService shardExecutor;
     private final ScheduledExecutorService taskManagementExecutor;
     private final Metadata metadata;
     private final DataStreamProvider dataStreamProvider;
@@ -83,7 +84,7 @@ public class SqlTaskManager
         this.maxTaskAge = new Duration(config.getMaxQueryAge().toMillis() + SECONDS.toMillis(30), MILLISECONDS);
         this.clientTimeout = config.getClientTimeout();
 
-        shardExecutor = new FairBatchExecutor(config.getMaxShardProcessorThreads(), threadsNamed("shard-processor-%d"));
+        shardExecutor = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(config.getMaxShardProcessorThreads(), threadsNamed("shard-processor-%d")));
 
         taskManagementExecutor = Executors.newScheduledThreadPool(5, threadsNamed("task-management-%d"));
         taskManagementExecutor.scheduleAtFixedRate(new Runnable()

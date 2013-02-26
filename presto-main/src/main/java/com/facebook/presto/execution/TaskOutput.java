@@ -128,7 +128,7 @@ public class TaskOutput
 
     public void queryFailed(Throwable cause)
     {
-        if (transitionToDoneState(TaskState.FAILED)) {
+        if (taskState.get() == TaskState.FAILED || transitionToDoneState(TaskState.FAILED)) {
             failureCauses.add(cause);
         }
     }
