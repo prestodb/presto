@@ -9,7 +9,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.serde2.Deserializer;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
+import org.apache.hadoop.hive.serde2.SerDeUtils;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
@@ -25,10 +26,9 @@ import static com.facebook.presto.hive.HiveBooleanParser.parseHiveBoolean;
 import static com.facebook.presto.hive.HiveColumn.indexGetter;
 import static com.facebook.presto.hive.NumberParser.parseDouble;
 import static com.facebook.presto.hive.NumberParser.parseLong;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 
 class GenericHiveRecordCursor<K, V extends Writable>
         implements RecordCursor
@@ -41,10 +41,10 @@ class GenericHiveRecordCursor<K, V extends Writable>
     private final Deserializer deserializer;
 
     private final Type[] types;
-    private final PrimitiveCategory[] hiveTypes;
+    private final HiveType[] hiveTypes;
 
     private final StructObjectInspector rowInspector;
-    private final PrimitiveObjectInspector[] fieldInspectors;
+    private final ObjectInspector[] fieldInspectors;
     private final StructField[] structFields;
 
     private final int[] hiveColumnIndexes;
@@ -83,7 +83,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
         int size = partitionKeyCount + Ordering.natural().max(Iterables.transform(columns, indexGetter())) + 1;
 
         this.types = new Type[size];
-        this.hiveTypes = new PrimitiveCategory[size];
+        this.hiveTypes = new HiveType[size];
         this.longs = new long[size];
         this.doubles = new double[size];
         this.strings = new byte[size][];
@@ -92,27 +92,24 @@ class GenericHiveRecordCursor<K, V extends Writable>
         // add partition columns first
         for (int columnIndex = 0; columnIndex < partitionKeyCount; columnIndex++) {
             HivePartitionKey partitionKey = partitionKeys.get(columnIndex);
-            this.types[columnIndex] = partitionKey.getType();
-            this.hiveTypes[columnIndex] = partitionKey.getHiveType();
+            this.types[columnIndex] = partitionKey.getHiveType().getNativeType();
             byte[] bytes = partitionKey.getValue().getBytes(Charsets.UTF_8);
             parseColumn(columnIndex, bytes, 0, bytes.length);
         }
 
         // then add data columns
         this.hiveColumnIndexes = new int[columns.size()];
-        this.fieldInspectors = new PrimitiveObjectInspector[columns.size()];
+        this.fieldInspectors = new ObjectInspector[columns.size()];
         this.structFields = new StructField[columns.size()];
         for (int i = 0; i < columns.size(); i++) {
             HiveColumn column = columns.get(i);
             hiveColumnIndexes[i] = column.getIndex();
-            this.types[partitionKeyCount + column.getIndex()] = column.getType();
+            this.types[partitionKeyCount + column.getIndex()] = column.getHiveType().getNativeType();
             this.hiveTypes[partitionKeyCount + column.getIndex()] = column.getHiveType();
 
             StructField field = rowInspector.getStructFieldRef(column.getName());
             structFields[i] = field;
-            Category category = field.getFieldObjectInspector().getCategory();
-            checkArgument(category == Category.PRIMITIVE, "field %s is not PRIMITIVE: %s", field.getFieldName(), category);
-            fieldInspectors[i] = (PrimitiveObjectInspector) field.getFieldObjectInspector();
+            fieldInspectors[i] = field.getFieldObjectInspector();
         }
     }
 
@@ -161,13 +158,18 @@ class GenericHiveRecordCursor<K, V extends Writable>
         for (int i = 0; i < hiveColumnIndexes.length; i++) {
             int hiveColumnIndex = hiveColumnIndexes[i];
             Object fieldData = rowInspector.getStructFieldData(rowData, structFields[i]);
-            Object fieldValue = fieldInspectors[i].getPrimitiveJavaObject(fieldData);
-
             int column = partitionKeyCount + hiveColumnIndex;
-            if (fieldValue == null) {
+
+            if (fieldData == null) {
                 nulls[column] = true;
             }
+            else if (hiveTypes[column] == HiveType.MAP || hiveTypes[column] == HiveType.LIST || hiveTypes[column] == HiveType.STRUCT) {
+                // temporarily special case MAP, LIST, and STRUCT types as strings
+                strings[column] = SerDeUtils.getJSONString(fieldData, fieldInspectors[i]).getBytes(Charsets.UTF_8);
+            }
             else {
+                Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[i]).getPrimitiveJavaObject(fieldData);
+                checkState(fieldValue != null, "fieldValue should not be null");
                 switch (types[column]) {
                     case LONG:
                         longs[column] = getLongOrBoolean(fieldValue);
@@ -198,7 +200,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
                 if (length == 0) {
                     nulls[column] = true;
                 }
-                else if (hiveTypes[column] == PrimitiveCategory.BOOLEAN) {
+                else if (hiveTypes[column] == HiveType.BOOLEAN) {
                     Boolean bool = parseHiveBoolean(bytes, start, length);
                     if (bool == null) {
                         nulls[column] = true;

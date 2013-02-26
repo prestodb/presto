@@ -10,7 +10,8 @@ CREATE TABLE presto_test (
   t_boolean BOOLEAN,
   t_timestamp TIMESTAMP,
   t_binary BINARY,
-  t_array_string ARRAY<STRING>
+  t_array_string ARRAY<STRING>,
+  t_complex MAP<INT, ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>>
 )
 COMMENT 'Presto test data'
 PARTITIONED BY (ds STRING, file_format STRING, dummy INT)
@@ -45,7 +46,8 @@ SELECT
 , CASE n % 3 WHEN 0 THEN false WHEN 1 THEN true ELSE NULL END
 , CASE WHEN n % 17 = 0 THEN NULL ELSE '2011-05-06 07:08:09.1234567' END
 , CASE WHEN n % 23 = 0 THEN NULL ELSE CAST('rcfile test' AS BINARY) END
-, array('rcfile', 'test', 'data')
+, CASE WHEN n % 27 = 0 THEN NULL ELSE array('rcfile', 'test', 'data') END
+, CASE WHEN n % 31 = 0 THEN NULL ELSE map(1, array(named_struct('s_string', 'rcfile-a', 's_double', 0.1), named_struct('s_string' , 'rcfile-b', 's_double', 0.2))) END
 FROM tmp_presto_test LIMIT 100;
 
 ALTER TABLE presto_test SET FILEFORMAT SEQUENCEFILE;
@@ -64,7 +66,8 @@ SELECT
 , CASE n % 3 WHEN 0 THEN false WHEN 1 THEN true ELSE NULL END
 , CASE WHEN n % 17 = 0 THEN NULL ELSE '2011-05-06 07:08:09.1234567' END
 , CASE WHEN n % 23 = 0 THEN NULL ELSE CAST('sequencefile test' AS BINARY) END
-, array('sequencefile', 'test', 'data')
+, CASE WHEN n % 27 = 0 THEN NULL ELSE array('sequencefile', 'test', 'data') END
+, CASE WHEN n % 31 = 0 THEN NULL ELSE map(1, array(named_struct('s_string', 'sequencefile-a', 's_double', 0.1), named_struct('s_string' , 'sequencefile-b', 's_double', 0.2))) END
 FROM tmp_presto_test LIMIT 100;
 
 ALTER TABLE presto_test SET FILEFORMAT TEXTFILE;
@@ -83,7 +86,8 @@ SELECT
 , CASE n % 3 WHEN 0 THEN false WHEN 1 THEN true ELSE NULL END
 , CASE WHEN n % 17 = 0 THEN NULL ELSE '2011-05-06 07:08:09.1234567' END
 , CASE WHEN n % 23 = 0 THEN NULL ELSE CAST('textfile test' AS BINARY) END
-, array('textfile', 'test', 'data')
+, CASE WHEN n % 27 = 0 THEN NULL ELSE array('textfile', 'test', 'data') END
+, CASE WHEN n % 31 = 0 THEN NULL ELSE map(1, array(named_struct('s_string', 'textfile-a', 's_double', 0.1), named_struct('s_string' , 'textfile-b', 's_double', 0.2))) END
 FROM tmp_presto_test LIMIT 100;
 
 INSERT INTO TABLE presto_test_unpartitioned

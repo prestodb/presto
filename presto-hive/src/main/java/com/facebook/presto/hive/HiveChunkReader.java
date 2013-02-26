@@ -1,7 +1,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.SchemaField;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -30,7 +29,6 @@ import java.util.Properties;
 import static com.facebook.presto.hive.HiveColumn.indexGetter;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.HiveUtil.getInputFormatName;
-import static com.facebook.presto.hive.HiveUtil.getSupportedPrimitiveType;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Lists.transform;
 
@@ -67,7 +65,7 @@ class HiveChunkReader
 
             RecordReader<?, ?> recordReader = createRecordReader(configuration, chunk);
             if (recordReader.createValue() instanceof BytesRefArrayWritable) {
-                return new BytesHiveRecordCursor<>((RecordReader<?, BytesRefArrayWritable>) recordReader, chunk.getLength(), chunk.getPartitionKeys(), columns);
+                return new BytesHiveRecordCursor<>((RecordReader<?, BytesRefArrayWritable>) recordReader, chunk.getLength(), chunk.getSchema(), chunk.getPartitionKeys(), columns);
             }
             else {
                 return new GenericHiveRecordCursor<>((RecordReader<?, ? extends Writable>) recordReader, chunk.getLength(), chunk.getSchema(), chunk.getPartitionKeys(), columns);
@@ -88,8 +86,8 @@ class HiveChunkReader
             for (StructField field : rowInspector.getAllStructFieldRefs()) {
                 if (field.getFieldObjectInspector().getCategory() == ObjectInspector.Category.PRIMITIVE) {
                     PrimitiveObjectInspector inspector = (PrimitiveObjectInspector) field.getFieldObjectInspector();
-                    SchemaField.Type type = getSupportedPrimitiveType(inspector.getPrimitiveCategory());
-                    return new HiveColumn(field.getFieldName(), index, type, inspector.getPrimitiveCategory());
+                    HiveType hiveType = HiveType.getSupportedHiveType(inspector.getPrimitiveCategory());
+                    return new HiveColumn(field.getFieldName(), index, hiveType);
                 }
                 index++;
             }
