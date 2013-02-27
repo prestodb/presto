@@ -54,7 +54,11 @@ public class BenchmarkSuite
             new StatisticsBenchmark.LongStdDevBenchmark(),
             new StatisticsBenchmark.LongStdDevPopBenchmark(),
             new StatisticsBenchmark.DoubleStdDevBenchmark(),
-            new StatisticsBenchmark.DoubleStdDevPopBenchmark()
+            new StatisticsBenchmark.DoubleStdDevPopBenchmark(),
+
+            new SqlApproximateCountDistinctLongBenchmark(),
+            new SqlApproximateCountDistinctDoubleBenchmark(),
+            new SqlApproximateCountDistinctVarBinaryBenchmark()
     );
 
     private final String outputDirectory;

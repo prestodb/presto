@@ -1,6 +1,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregation;
 import com.facebook.presto.operator.aggregation.DoubleStdDevAggregation;
 import com.facebook.presto.operator.aggregation.DoubleVarianceAggregation;
 import com.facebook.presto.operator.aggregation.LongStdDevAggregation;
@@ -85,6 +86,9 @@ public class FunctionRegistry
                 .aggregate("stddev_samp", DOUBLE, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, LongStdDevAggregation.STDDEV_INSTANCE)
                 .aggregate("stddev", DOUBLE, ImmutableList.of(DOUBLE), VARIABLE_BINARY, DoubleStdDevAggregation.STDDEV_INSTANCE)
                 .aggregate("stddev", DOUBLE, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, LongStdDevAggregation.STDDEV_INSTANCE)
+                .aggregate("approx_distinct", FIXED_INT_64, ImmutableList.of(FIXED_INT_64), VARIABLE_BINARY, ApproximateCountDistinctAggregation.LONG_INSTANCE)
+                .aggregate("approx_distinct", FIXED_INT_64, ImmutableList.of(DOUBLE), VARIABLE_BINARY, ApproximateCountDistinctAggregation.DOUBLE_INSTANCE)
+                .aggregate("approx_distinct", FIXED_INT_64, ImmutableList.of(VARIABLE_BINARY), VARIABLE_BINARY, ApproximateCountDistinctAggregation.VARBINARY_INSTANCE)
                 .scalar(StringFunctions.class)
                 .scalar(MathFunctions.class)
                 .scalar(UnixTimeFunctions.class)
