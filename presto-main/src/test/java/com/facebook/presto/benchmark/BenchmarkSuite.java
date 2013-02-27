@@ -86,15 +86,13 @@ public class BenchmarkSuite
 
         LOGGER.info("=== Actually running benchmarks for metrics ===");
         for (AbstractBenchmark benchmark : BENCHMARKS) {
-            try (OutputStream jmeterOut = new FileOutputStream(createOutputFile(String.format("%s/jmeter/%s.jtl", outputDirectory, benchmark.getBenchmarkName())));
-                 OutputStream jsonOut = new FileOutputStream(createOutputFile(String.format("%s/json/%s.json", outputDirectory, benchmark.getBenchmarkName())));
-                 OutputStream jsonAvgOut = new FileOutputStream(createOutputFile(String.format("%s/json-avg/%s.json", outputDirectory, benchmark.getBenchmarkName())));
-                 OutputStream csvOut = new FileOutputStream(createOutputFile(String.format("%s/csv/%s.csv", outputDirectory, benchmark.getBenchmarkName())));
-                 OutputStream odsOut = new FileOutputStream(createOutputFile(String.format("%s/ods/%s.json", outputDirectory, benchmark.getBenchmarkName())))) {
+            try (OutputStream jsonOut = new FileOutputStream(createOutputFile(String.format("%s/json/%s.json", outputDirectory, benchmark.getBenchmarkName())));
+                    OutputStream jsonAvgOut = new FileOutputStream(createOutputFile(String.format("%s/json-avg/%s.json", outputDirectory, benchmark.getBenchmarkName())));
+                    OutputStream csvOut = new FileOutputStream(createOutputFile(String.format("%s/csv/%s.csv", outputDirectory, benchmark.getBenchmarkName())));
+                    OutputStream odsOut = new FileOutputStream(createOutputFile(String.format("%s/ods/%s.json", outputDirectory, benchmark.getBenchmarkName())))) {
                 benchmark.runBenchmark(
                         new ForwardingBenchmarkResultWriter(
                                 ImmutableList.of(
-                                        new JMeterBenchmarkResultWriter(benchmark.getDefaultResult(), jmeterOut),
                                         new JsonBenchmarkResultWriter(jsonOut),
                                         new JsonAvgBenchmarkResultWriter(jsonAvgOut),
                                         new SimpleLineBenchmarkResultWriter(csvOut),
