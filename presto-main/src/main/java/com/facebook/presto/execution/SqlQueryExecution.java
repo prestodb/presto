@@ -5,6 +5,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.AnalysisResult;
 import com.facebook.presto.sql.analyzer.Analyzer;
@@ -50,7 +51,8 @@ public class SqlQueryExecution
     private final Session session;
     private final Metadata metadata;
     private final SplitManager splitManager;
-    private final StageManager stageManager;
+    private final NodeManager nodeManager;
+    private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
     private final QueryMonitor queryMonitor;
 
@@ -61,7 +63,7 @@ public class SqlQueryExecution
     @GuardedBy("this")
     private final AtomicReference<QueryState> queryState = new AtomicReference<>(QueryState.QUEUED);
     @GuardedBy("this")
-    private final AtomicReference<StageExecution> outputStage = new AtomicReference<>();
+    private final AtomicReference<SqlStageExecution> outputStage = new AtomicReference<>();
     @GuardedBy("this")
     private final AtomicReference<ImmutableList<String>> fieldNames = new AtomicReference<>(ImmutableList.<String>of());
 
@@ -72,7 +74,8 @@ public class SqlQueryExecution
             Session session,
             Metadata metadata,
             SplitManager splitManager,
-            StageManager stageManager,
+            NodeManager nodeManager,
+            RemoteTaskFactory remoteTaskFactory,
             LocationFactory locationFactory,
             QueryMonitor queryMonitor)
     {
@@ -81,7 +84,8 @@ public class SqlQueryExecution
         checkNotNull(session, "session is null");
         checkNotNull(metadata, "metadata is null");
         checkNotNull(splitManager, "splitManager is null");
-        checkNotNull(stageManager, "stageManager is null");
+        Preconditions.checkNotNull(nodeManager, "nodeManager is null");
+        Preconditions.checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
         checkNotNull(locationFactory, "locationFactory is null");
         checkNotNull(queryMonitor, "queryMonitor is null");
 
@@ -91,7 +95,8 @@ public class SqlQueryExecution
         this.session = session;
         this.metadata = metadata;
         this.splitManager = splitManager;
-        this.stageManager = stageManager;
+        this.nodeManager = nodeManager;
+        this.remoteTaskFactory = remoteTaskFactory;
         this.locationFactory = locationFactory;
         this.queryMonitor = queryMonitor;
     }
@@ -105,7 +110,7 @@ public class SqlQueryExecution
     @Override
     public QueryInfo getQueryInfo()
     {
-        StageExecution outputStage = this.outputStage.get();
+        SqlStageExecution outputStage = this.outputStage.get();
         StageInfo stageInfo = null;
         if (outputStage != null) {
             stageInfo = outputStage.getStageInfo();
@@ -211,11 +216,7 @@ public class SqlQueryExecution
             fieldNames.set(ImmutableList.copyOf(outputStageExecutionPlan.getFieldNames()));
 
             // build the stage execution objects (this doesn't schedule execution)
-            StageExecution outputStage = stageManager.createStage(session,
-                    queryId,
-                    this.queryState,
-                    outputStageExecutionPlan);
-
+            SqlStageExecution outputStage = new SqlStageExecution(queryId, locationFactory, outputStageExecutionPlan, nodeManager, remoteTaskFactory, session, this.queryState);
             this.outputStage.set(outputStage);
         }
 
@@ -223,7 +224,7 @@ public class SqlQueryExecution
         queryStats.recordDistributedPlanningTime(distributedPlanningStart);
     }
 
-    private void startStage(StageExecution stage, List<String> outputIds)
+    private void startStage(SqlStageExecution stage, List<String> outputIds)
     {
         Preconditions.checkState(!Thread.holdsLock(this), "Can not start while holding a lock on this");
 
@@ -238,7 +239,7 @@ public class SqlQueryExecution
         List<String> stageTaskIds = IterableTransformer.on(stage.getStageInfo().getTasks()).transform(taskIdGetter()).list();
 
         // start all sub stages before starting the main stage
-        for (StageExecution subStage : stage.getSubStages()) {
+        for (SqlStageExecution subStage : stage.getSubStages()) {
             startStage(subStage, stageTaskIds);
         }
     }
@@ -258,7 +259,7 @@ public class SqlQueryExecution
             }
         }
 
-        StageExecution stageExecution = outputStage.get();
+        SqlStageExecution stageExecution = outputStage.get();
         if (stageExecution != null) {
             stageExecution.cancel();
         }
@@ -280,9 +281,22 @@ public class SqlQueryExecution
             }
         }
 
-        StageExecution stageExecution = outputStage.get();
+        SqlStageExecution stageExecution = outputStage.get();
         if (stageExecution != null) {
             stageExecution.cancel();
+        }
+    }
+
+    @Override
+    public void cancelStage(String stageId)
+    {
+        Preconditions.checkState(!Thread.holdsLock(this), "Can not cancel stage while holding a lock on this");
+
+        Preconditions.checkNotNull(stageId, "stageId is null");
+
+        SqlStageExecution stageExecution = outputStage.get();
+        if (stageExecution != null) {
+            stageExecution.cancelStage(stageId);
         }
     }
 
@@ -290,7 +304,7 @@ public class SqlQueryExecution
     {
         Preconditions.checkState(!Thread.holdsLock(this), "Can not update while holding a lock on this");
 
-        StageExecution outputStage = this.outputStage.get();
+        SqlStageExecution outputStage = this.outputStage.get();
         if (outputStage == null) {
             return;
         }

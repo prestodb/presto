@@ -58,7 +58,6 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 
 @ThreadSafe
 public class SqlStageExecution
-        implements StageExecution
 {
     private static final Logger log = Logger.get(SqlStageExecution.class);
 
@@ -115,8 +114,8 @@ public class SqlStageExecution
         Preconditions.checkNotNull(queryState, "queryState is null");
 
         this.queryId = queryId;
-        this.stageId = queryId + "." + nextStageId.incrementAndGet();
-        this.location = locationFactory.createQueryLocation(stageId);
+        this.stageId = queryId + "." + nextStageId.getAndIncrement();
+        this.location = locationFactory.createStageLocation(queryId, stageId);
         this.fragment = plan.getFragment();
         this.splits = plan.getSplits();
         this.nodeManager = nodeManager;
@@ -146,20 +145,24 @@ public class SqlStageExecution
         this.subStages = subStages.build();
     }
 
-    @Override
-    public String getStageId()
+    public List<SqlStageExecution> getSubStages()
     {
-        return stageId;
+        return ImmutableList.copyOf(subStages.values());
     }
 
-    @Override
-    public List<StageExecution> getSubStages()
+    public void cancelStage(String stageId)
     {
-        return ImmutableList.<StageExecution>copyOf(subStages.values());
+        if (stageId.equals(this.stageId)) {
+            cancel();
+        }
+        else {
+            for (SqlStageExecution subStage : subStages.values()) {
+                subStage.cancelStage(stageId);
+            }
+        }
     }
 
-    @Override
-    public Set<Split> getSplitsForExchange(String outputId)
+    private Set<Split> getSplitsForExchange(String outputId)
     {
         Preconditions.checkNotNull(outputId, "outputId is null");
 
@@ -173,7 +176,6 @@ public class SqlStageExecution
         return splits.build();
     }
 
-    @Override
     public StageInfo getStageInfo()
     {
         List<TaskInfo> taskInfos = IterableTransformer.on(tasks).transform(taskInfoGetter()).list();
@@ -227,7 +229,7 @@ public class SqlStageExecution
         // start sub-stages (starts bottom-up)
         // tell the sub-stages to create an output buffer for each node
         List<String> nodeIds = IterableTransformer.on(partitions).transform(nodeIdentifierGetter()).list();
-        for (StageExecution subStage : subStages.values()) {
+        for (SqlStageExecution subStage : subStages.values()) {
             subStage.startTasks(nodeIds);
         }
 
@@ -243,7 +245,7 @@ public class SqlStageExecution
 
             ImmutableMap.Builder<PlanNodeId, Set<Split>> fixedSources = ImmutableMap.builder();
             for (ExchangeNode exchange : exchanges) {
-                StageExecution childStage = subStages.get(exchange.getSourceFragmentId());
+                SqlStageExecution childStage = subStages.get(exchange.getSourceFragmentId());
                 Set<Split> exchangeSplits = childStage.getSplitsForExchange(nodeIdentifier);
                 fixedSources.put(exchange.getId(), exchangeSplits);
             }
@@ -287,7 +289,6 @@ public class SqlStageExecution
         transitionToState(StageState.SCHEDULED);
     }
 
-    @Override
     public void updateState()
     {
         Preconditions.checkState(!Thread.holdsLock(this), "Can not update state while holding a lock on this");
@@ -301,7 +302,7 @@ public class SqlStageExecution
                 log.debug(e, "Error updating task info");
             }
         }
-        for (StageExecution subStage : subStages.values()) {
+        for (SqlStageExecution subStage : subStages.values()) {
             subStage.updateState();
         }
 
@@ -342,7 +343,6 @@ public class SqlStageExecution
         }
     }
 
-    @Override
     public void cancel()
     {
         Preconditions.checkState(!Thread.holdsLock(this), "Can not cancel while holding a lock on this");
@@ -367,7 +367,7 @@ public class SqlStageExecution
         for (RemoteTask task : tasks) {
             task.cancel();
         }
-        for (StageExecution subStage : subStages.values()) {
+        for (SqlStageExecution subStage : subStages.values()) {
             subStage.cancel();
         }
     }
@@ -402,26 +402,14 @@ public class SqlStageExecution
         };
     }
 
-    public static Function<StageExecution, StageInfo> stageInfoGetter()
+    public static Function<SqlStageExecution, StageInfo> stageInfoGetter()
     {
-        return new Function<StageExecution, StageInfo>()
+        return new Function<SqlStageExecution, StageInfo>()
         {
             @Override
-            public StageInfo apply(StageExecution stage)
+            public StageInfo apply(SqlStageExecution stage)
             {
                 return stage.getStageInfo();
-            }
-        };
-    }
-
-    private Function<SqlStageExecution, PlanFragmentId> fragmentIdGetter()
-    {
-        return new Function<SqlStageExecution, PlanFragmentId>()
-        {
-            @Override
-            public PlanFragmentId apply(SqlStageExecution input)
-            {
-                return input.fragment.getId();
             }
         };
     }

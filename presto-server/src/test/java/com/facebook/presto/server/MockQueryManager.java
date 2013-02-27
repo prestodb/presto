@@ -113,6 +113,12 @@ public class MockQueryManager
         queries.remove(queryId);
     }
 
+    @Override
+    public void cancelStage(String queryId, String stageId)
+    {
+        // mock queries don't have stages
+    }
+
     private static class SimpleQuery
     {
         private final String queryId;
@@ -164,7 +170,7 @@ public class MockQueryManager
                     new StageInfo(queryId,
                             stageId,
                             StageState.FINISHED,
-                            locationFactory.createStageLocation(stageId),
+                            locationFactory.createStageLocation(queryId, stageId),
                             null,
                             TUPLE_INFOS,
                             ImmutableList.<TaskInfo>of(outputTask),

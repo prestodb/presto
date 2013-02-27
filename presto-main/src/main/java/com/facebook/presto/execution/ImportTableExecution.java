@@ -148,6 +148,11 @@ public class ImportTableExecution
         // imports are global background tasks, so failing this "scheduling" query doesn't mean anything
     }
 
+    public void cancelStage(String stageId)
+    {
+        // imports are global background tasks, so canceling this "scheduling" query doesn't mean anything
+    }
+
     public static List<ImportField> getImportFields(List<ColumnMetadata> sourceColumns, List<ColumnMetadata> targetColumns)
     {
         checkArgument(sourceColumns.size() == targetColumns.size(), "column size mismatch");
