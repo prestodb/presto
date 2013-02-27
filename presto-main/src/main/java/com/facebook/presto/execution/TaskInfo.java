@@ -43,7 +43,6 @@ public class TaskInfo
         Preconditions.checkNotNull(state, "state is null");
         Preconditions.checkNotNull(self, "self is null");
         Preconditions.checkNotNull(outputBuffers, "outputBufferStates is null");
-        Preconditions.checkArgument(!outputBuffers.isEmpty(), "outputBufferStates is empty");
         Preconditions.checkNotNull(stats, "stats is null");
         Preconditions.checkNotNull(failures, "failures is null");
 

@@ -52,7 +52,7 @@ public class HttpRemoteTaskFactory
             Node node,
             PlanFragment fragment,
             Map<PlanNodeId, Set<Split>> fixedSources,
-            List<String> outputIds)
+            List<String> initialOutputIds)
     {
         return new HttpRemoteTask(session,
                 queryId,
@@ -61,7 +61,7 @@ public class HttpRemoteTaskFactory
                 locationFactory.createTaskLocation(node, taskId),
                 fragment,
                 fixedSources,
-                outputIds,
+                initialOutputIds,
                 httpClient,
                 taskInfoCodec,
                 queryFragmentRequestCodec,

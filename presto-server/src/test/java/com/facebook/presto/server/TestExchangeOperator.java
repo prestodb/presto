@@ -41,7 +41,6 @@ import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.json.JsonModule;
 import io.airlift.node.testing.TestingNodeModule;
-import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -55,9 +54,9 @@ import static com.facebook.presto.server.MockQueryManager.TUPLE_INFOS;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.preparePut;
+import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -214,8 +213,14 @@ public class TestExchangeOperator
                 response.getStatusMessage());
         TaskInfo taskInfo = response.getValue();
 
-        Assert.assertEquals(taskInfo.getOutputBuffers().size(), 1);
-        String bufferId = taskInfo.getOutputBuffers().get(0).getBufferId();
-        return uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(bufferId).build();
+        URI outputLocation = httpServer.getBaseUrl().resolve("/v1/task/" + taskInfo.getTaskId() + "/results/out");
+        assertEquals(httpClient.execute(preparePut()
+                .setUri(httpServer.getBaseUrl().resolve("/v1/task/" + taskInfo.getTaskId() + "/results/complete"))
+                .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
+                .setBodyGenerator(jsonBodyGenerator(jsonCodec(boolean.class), true))
+                .build(),
+                createStatusResponseHandler()).getStatusCode(), 204);
+
+        return outputLocation;
     }
 }

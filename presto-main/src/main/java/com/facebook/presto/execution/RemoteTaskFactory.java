@@ -22,5 +22,5 @@ public interface RemoteTaskFactory
             Node node,
             PlanFragment fragment,
             Map<PlanNodeId, Set<Split>> fixedSources,
-            List<String> outputIds);
+            List<String> initialOutputIds);
 }

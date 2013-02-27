@@ -67,7 +67,7 @@ public class HttpRemoteTask
             URI location,
             PlanFragment planFragment,
             Map<PlanNodeId, Set<Split>> fixedSources,
-            List<String> outputIds,
+            List<String> initialOutputIds,
             HttpClient httpClient,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec,
@@ -79,8 +79,7 @@ public class HttpRemoteTask
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(planFragment, "planFragment is null");
         Preconditions.checkNotNull(fixedSources, "fixedSources is null");
-        Preconditions.checkNotNull(outputIds, "outputIds is null");
-        Preconditions.checkArgument(!outputIds.isEmpty(), "outputIds is empty");
+        Preconditions.checkNotNull(initialOutputIds, "initialOutputIds is null");
         Preconditions.checkNotNull(httpClient, "httpClient is null");
         Preconditions.checkNotNull(taskInfoCodec, "taskInfoCodec is null");
         Preconditions.checkNotNull(queryFragmentRequestCodec, "queryFragmentRequestCodec is null");
@@ -94,7 +93,7 @@ public class HttpRemoteTask
         this.queryFragmentRequestCodec = queryFragmentRequestCodec;
         this.splitCodec = splitCodec;
 
-        List<BufferInfo> bufferStates = ImmutableList.copyOf(transform(outputIds, new Function<String, BufferInfo>()
+        List<BufferInfo> bufferStates = ImmutableList.copyOf(transform(initialOutputIds, new Function<String, BufferInfo>()
         {
             @Override
             public BufferInfo apply(String outputId)
@@ -153,6 +152,36 @@ public class HttpRemoteTask
         checkState(location != null);
 
         this.taskInfo.set(response.getValue());
+    }
+
+    @Override
+    public void addResultQueue(String outputName)
+    {
+        TaskInfo taskInfo = this.taskInfo.get();
+        URI sourceUri = uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(outputName).build();
+        Request request = preparePut()
+                .setUri(sourceUri)
+                .build();
+        StatusResponse response = httpClient.execute(request, createStatusResponseHandler());
+        if (response.getStatusCode() != 204) {
+            throw new RuntimeException(String.format("Error adding result queue '%s' to task %s", outputName, taskInfo.getTaskId()));
+        }
+    }
+
+    @Override
+    public void noMoreResultQueues()
+    {
+        TaskInfo taskInfo = this.taskInfo.get();
+        URI statusUri = uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath("complete").build();
+        Request request = preparePut()
+                .setUri(statusUri)
+                .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
+                .setBodyGenerator(createStaticBodyGenerator("true", UTF_8))
+                .build();
+        StatusResponse response = httpClient.execute(request, createStatusResponseHandler());
+        if (response.getStatusCode() / 100  != 2) {
+            throw new RuntimeException(String.format("Error setting no more results queues on task %s", taskInfo.getTaskId()));
+        }
     }
 
     @Override

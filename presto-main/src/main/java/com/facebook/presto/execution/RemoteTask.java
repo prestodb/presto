@@ -14,6 +14,10 @@ public interface RemoteTask
 
     void start();
 
+    void addResultQueue(String outputName);
+
+    void noMoreResultQueues();
+
     void addSource(PlanNodeId sourceId, Split split);
 
     void noMoreSources(PlanNodeId sourceId);
