@@ -3,10 +3,9 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.BufferInfo;
 import com.facebook.presto.execution.ExecutionStats;
 import com.facebook.presto.execution.FailureInfo;
-import com.facebook.presto.execution.PageBuffer.BufferState;
-import com.facebook.presto.execution.PageBufferInfo;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
@@ -95,12 +94,12 @@ public class HttpRemoteTask
         this.queryFragmentRequestCodec = queryFragmentRequestCodec;
         this.splitCodec = splitCodec;
 
-        List<PageBufferInfo> bufferStates = ImmutableList.copyOf(transform(outputIds, new Function<String, PageBufferInfo>()
+        List<BufferInfo> bufferStates = ImmutableList.copyOf(transform(outputIds, new Function<String, BufferInfo>()
         {
             @Override
-            public PageBufferInfo apply(String outputId)
+            public BufferInfo apply(String outputId)
             {
-                return new PageBufferInfo(outputId, BufferState.OPEN, 0);
+                return new BufferInfo(outputId, false, 0);
             }
         }));
 
@@ -136,7 +135,7 @@ public class HttpRemoteTask
                 taskInfo.getStageId(),
                 planFragment,
                 fixedSources,
-                ImmutableList.copyOf(transform(taskInfo.getOutputBuffers(), PageBufferInfo.bufferIdGetter())));
+                ImmutableList.copyOf(transform(taskInfo.getOutputBuffers(), BufferInfo.bufferIdGetter())));
 
         Request request = preparePut()
                 .setUri(taskInfo.getSelf())

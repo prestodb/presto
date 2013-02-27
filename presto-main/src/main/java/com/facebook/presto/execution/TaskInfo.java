@@ -23,7 +23,7 @@ public class TaskInfo
     private final String taskId;
     private final TaskState state;
     private final URI self;
-    private final List<PageBufferInfo> outputBuffers;
+    private final List<BufferInfo> outputBuffers;
     private final ExecutionStats stats;
     private final List<FailureInfo> failures;
 
@@ -33,7 +33,7 @@ public class TaskInfo
             @JsonProperty("taskId") String taskId,
             @JsonProperty("state") TaskState state,
             @JsonProperty("self") URI self,
-            @JsonProperty("outputBuffers") List<PageBufferInfo> outputBuffers,
+            @JsonProperty("outputBuffers") List<BufferInfo> outputBuffers,
             @JsonProperty("stats") ExecutionStats stats,
             @JsonProperty("failures") List<FailureInfo> failures)
     {
@@ -88,7 +88,7 @@ public class TaskInfo
     }
 
     @JsonProperty
-    public List<PageBufferInfo> getOutputBuffers()
+    public List<BufferInfo> getOutputBuffers()
     {
         return outputBuffers;
     }
