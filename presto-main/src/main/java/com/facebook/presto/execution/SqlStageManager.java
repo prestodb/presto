@@ -4,17 +4,14 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.metadata.NodeManager;
-import com.facebook.presto.split.SplitAssignments;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
-import java.net.URI;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -31,12 +28,15 @@ public class SqlStageManager
 
     private final NodeManager nodeManager;
     private final RemoteTaskFactory remoteTaskFactory;
+    private final LocationFactory locationFactory;
+
 
     @Inject
-    public SqlStageManager(NodeManager nodeManager, RemoteTaskFactory remoteTaskFactory)
+    public SqlStageManager(NodeManager nodeManager, RemoteTaskFactory remoteTaskFactory, LocationFactory locationFactory)
     {
         this.nodeManager = nodeManager;
         this.remoteTaskFactory = remoteTaskFactory;
+        this.locationFactory = locationFactory;
     }
 
     @Override
@@ -60,15 +60,12 @@ public class SqlStageManager
     @Override
     public StageExecution createStage(Session session,
             String queryId,
-            String stageId,
-            URI location,
             AtomicReference<QueryState> queryState,
-            PlanFragment plan,
-            Optional<Iterable<SplitAssignments>> splits,
-            Iterable<? extends StageExecution> subStages)
+            StageExecutionPlan plan)
     {
-        SqlStageExecution stageExecution = new SqlStageExecution(queryId, stageId, location, plan, subStages, nodeManager, splits, remoteTaskFactory, session, queryState);
+        SqlStageExecution stageExecution = new SqlStageExecution(queryId, locationFactory, plan, nodeManager, remoteTaskFactory, session, queryState);
         stages.put(stageExecution.getStageId(), stageExecution);
+        // todo add substages
         return stageExecution;
     }
 

@@ -16,24 +16,18 @@ import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.SubPlan;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-import java.net.URI;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.FailureInfo.toFailures;
@@ -217,7 +211,11 @@ public class SqlQueryExecution
             fieldNames.set(ImmutableList.copyOf(outputStageExecutionPlan.getFieldNames()));
 
             // build the stage execution objects (this doesn't schedule execution)
-            StageExecution outputStage = createStage(new AtomicInteger(), outputStageExecutionPlan);
+            StageExecution outputStage = stageManager.createStage(session,
+                    queryId,
+                    this.queryState,
+                    outputStageExecutionPlan);
+
             this.outputStage.set(outputStage);
         }
 
@@ -243,19 +241,6 @@ public class SqlQueryExecution
         for (StageExecution subStage : stage.getSubStages()) {
             startStage(subStage, stageTaskIds);
         }
-    }
-
-    private StageExecution createStage(AtomicInteger nextStageId, StageExecutionPlan stageExecutionPlan)
-    {
-        String stageId = queryId + "." + nextStageId.getAndIncrement();
-
-        Map<PlanFragmentId, StageExecution> subStages = IterableTransformer.on(stageExecutionPlan.getSubStages())
-                .uniqueIndex(fragmentIdGetter())
-                .transformValues(stageCreator(nextStageId))
-                .immutableMap();
-
-        URI stageLocation = locationFactory.createStageLocation(stageId);
-        return stageManager.createStage(session, queryId, stageId, stageLocation, queryState, stageExecutionPlan.getFragment(), stageExecutionPlan.getSplits(), subStages.values());
     }
 
     @Override
@@ -348,30 +333,6 @@ public class SqlQueryExecution
             public boolean apply(StageState stageState)
             {
                 return stageState == StageState.RUNNING || stageState.isDone();
-            }
-        };
-    }
-
-    private Function<StageExecutionPlan, StageExecution> stageCreator(final AtomicInteger nextStageId)
-    {
-        return new Function<StageExecutionPlan, StageExecution>()
-        {
-            @Override
-            public StageExecution apply(@Nullable StageExecutionPlan subStage)
-            {
-                return createStage(nextStageId, subStage);
-            }
-        };
-    }
-
-    private Function<StageExecutionPlan, PlanFragmentId> fragmentIdGetter()
-    {
-        return new Function<StageExecutionPlan, PlanFragmentId>()
-        {
-            @Override
-            public PlanFragmentId apply(StageExecutionPlan input)
-            {
-                return input.getFragment().getId();
             }
         };
     }

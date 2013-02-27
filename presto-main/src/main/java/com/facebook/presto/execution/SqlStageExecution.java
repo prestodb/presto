@@ -11,6 +11,7 @@ import com.facebook.presto.split.SplitAssignments;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.Partition;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -42,6 +43,7 @@ import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.FailureInfo.toFailures;
@@ -63,7 +65,7 @@ public class SqlStageExecution
     private final String queryId;
     private final String stageId;
     private final URI location;
-    private final PlanFragment plan;
+    private final PlanFragment fragment;
     private final List<TupleInfo> tupleInfos;
     private final Map<PlanFragmentId, SqlStageExecution> subStages;
 
@@ -84,40 +86,46 @@ public class SqlStageExecution
     private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
 
     public SqlStageExecution(String queryId,
-            String stageId,
-            URI location,
-            PlanFragment plan,
-            Iterable<? extends StageExecution> subStages,
+            LocationFactory locationFactory,
+            StageExecutionPlan plan,
             NodeManager nodeManager,
-            Optional<Iterable<SplitAssignments>> splits,
+            RemoteTaskFactory remoteTaskFactory,
+            Session session,
+            AtomicReference<QueryState> queryState)
+    {
+        this(queryId, new AtomicInteger(), locationFactory, plan, nodeManager, remoteTaskFactory, session, queryState);
+    }
+
+    private SqlStageExecution(String queryId,
+            AtomicInteger nextStageId,
+            LocationFactory locationFactory,
+            StageExecutionPlan plan,
+            NodeManager nodeManager,
             RemoteTaskFactory remoteTaskFactory,
             Session session,
             AtomicReference<QueryState> queryState)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
-        Preconditions.checkNotNull(stageId, "stageId is null");
-        Preconditions.checkNotNull(location, "location is null");
+        Preconditions.checkNotNull(nextStageId, "nextStageId is null");
+        Preconditions.checkNotNull(locationFactory, "locationFactory is null");
         Preconditions.checkNotNull(plan, "plan is null");
-        Preconditions.checkNotNull(subStages, "subStages is null");
+        Preconditions.checkNotNull(nodeManager, "nodeManager is null");
+        Preconditions.checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
+        Preconditions.checkNotNull(session, "session is null");
+        Preconditions.checkNotNull(queryState, "queryState is null");
 
         this.queryId = queryId;
-        this.stageId = stageId;
-        this.location = location;
-        this.plan = plan;
-        this.subStages = IterableTransformer.on(subStages)
-                .cast(SqlStageExecution.class)
-                .uniqueIndex(fragmentIdGetter())
-                .immutableMap();
-
-
+        this.stageId = queryId + "." + nextStageId.incrementAndGet();
+        this.location = locationFactory.createQueryLocation(stageId);
+        this.fragment = plan.getFragment();
+        this.splits = plan.getSplits();
         this.nodeManager = nodeManager;
-        this.splits = splits;
         this.remoteTaskFactory = remoteTaskFactory;
         this.session = session;
         this.queryState = queryState;
 
-        tupleInfos = ImmutableList.copyOf(IterableTransformer.on(plan.getRoot().getOutputSymbols())
-                .transform(Functions.forMap(plan.getSymbols()))
+        tupleInfos = ImmutableList.copyOf(IterableTransformer.on(fragment.getRoot().getOutputSymbols())
+                .transform(Functions.forMap(fragment.getSymbols()))
                 .transform(com.facebook.presto.sql.analyzer.Type.toRaw())
                 .transform(new Function<Type, TupleInfo>()
                 {
@@ -128,6 +136,14 @@ public class SqlStageExecution
                     }
                 })
                 .list());
+
+        ImmutableMap.Builder<PlanFragmentId, SqlStageExecution> subStages = ImmutableMap.builder();
+        for (StageExecutionPlan subStagePlan : plan.getSubStages()) {
+            PlanFragmentId subStageFragmentId = subStagePlan.getFragment().getId();
+            SqlStageExecution subStage = new SqlStageExecution(queryId, nextStageId, locationFactory, subStagePlan, nodeManager, remoteTaskFactory, session, queryState);
+            subStages.put(subStageFragmentId, subStage);
+        }
+        this.subStages = subStages.build();
     }
 
     @Override
@@ -167,7 +183,7 @@ public class SqlStageExecution
                 stageId,
                 stageState.get(),
                 location,
-                plan,
+                fragment,
                 tupleInfos,
                 taskInfos,
                 subStageInfos,
@@ -195,7 +211,8 @@ public class SqlStageExecution
             Collections.shuffle(nodes, random);
             Node node = nodes.get(0);
             partitions = ImmutableList.of(new Partition(node, ImmutableList.<Split>of()));
-        } else {
+        }
+        else {
             // divide splits amongst the nodes
             Multimap<Node, Split> nodeSplits = SplitAssignments.balancedNodeAssignment(queryState, splits.get());
 
@@ -214,7 +231,7 @@ public class SqlStageExecution
             subStage.startTasks(nodeIds);
         }
 
-        Set<ExchangeNode> exchanges = IterableTransformer.on(plan.getSources())
+        Set<ExchangeNode> exchanges = IterableTransformer.on(fragment.getSources())
                 .select(Predicates.instanceOf(ExchangeNode.class))
                 .cast(ExchangeNode.class)
                 .set();
@@ -237,7 +254,7 @@ public class SqlStageExecution
                     stageId,
                     taskId,
                     partition.getNode(),
-                    plan,
+                    fragment,
                     fixedSources.build(),
                     ImmutableList.<String>of());
 
@@ -245,11 +262,11 @@ public class SqlStageExecution
 
             try {
                 task.start();
-                if (plan.getPartitionedSource() != null) {
+                if (fragment.getPartitionedSource() != null) {
                     for (Split split : partition.getSplits()) {
-                        task.addSource(plan.getPartitionedSource(), split);
+                        task.addSource(fragment.getPartitionedSource(), split);
                     }
-                    task.noMoreSources(plan.getPartitionedSource());
+                    task.noMoreSources(fragment.getPartitionedSource());
                 }
                 for (String outputId : outputIds) {
                     task.addResultQueue(outputId);
@@ -298,11 +315,13 @@ public class SqlStageExecution
             if (any(subStageStates, equalTo(StageState.FAILED))) {
                 StageState doneState = StageState.FAILED;
                 transitionToState(doneState);
-            } else {
+            }
+            else {
                 List<TaskState> taskStates = ImmutableList.copyOf(transform(transform(tasks, taskInfoGetter()), taskStateGetter()));
                 if (any(taskStates, equalTo(TaskState.FAILED))) {
                     transitionToState(StageState.FAILED);
-                } else if (currentState != StageState.PLANNED && currentState != StageState.SCHEDULING) {
+                }
+                else if (currentState != StageState.PLANNED && currentState != StageState.SCHEDULING) {
                     // all tasks are now scheduled, so we can check the finished state
                     if (all(taskStates, TaskState.inDoneState())) {
                         transitionToState(StageState.FINISHED);
@@ -382,6 +401,7 @@ public class SqlStageExecution
             }
         };
     }
+
     public static Function<StageExecution, StageInfo> stageInfoGetter()
     {
         return new Function<StageExecution, StageInfo>()
@@ -401,7 +421,7 @@ public class SqlStageExecution
             @Override
             public PlanFragmentId apply(SqlStageExecution input)
             {
-                return input.plan.getId();
+                return input.fragment.getId();
             }
         };
     }
