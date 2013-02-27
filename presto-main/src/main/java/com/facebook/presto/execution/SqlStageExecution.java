@@ -239,7 +239,7 @@ public class SqlStageExecution
                     partition.getNode(),
                     plan,
                     fixedSources.build(),
-                    outputIds);
+                    ImmutableList.<String>of());
 
             tasks.add(task);
 
@@ -251,6 +251,10 @@ public class SqlStageExecution
                     }
                     task.noMoreSources(plan.getPartitionedSource());
                 }
+                for (String outputId : outputIds) {
+                    task.addResultQueue(outputId);
+                }
+                task.noMoreResultQueues();
             }
             catch (Throwable e) {
                 synchronized (this) {

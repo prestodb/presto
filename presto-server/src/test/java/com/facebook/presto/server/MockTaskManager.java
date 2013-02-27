@@ -86,13 +86,13 @@ public class MockTaskManager
             String taskId,
             PlanFragment fragment,
             Map<PlanNodeId, Set<Split>> fixedSources,
-            List<String> outputIds)
+            List<String> initialOutputIds)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkArgument(!taskId.isEmpty(), "taskId is empty");
 
         URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
-        TaskOutput taskOutput = new TaskOutput(queryId, stageId, taskId, location, ImmutableList.copyOf(outputIds), pageBufferMax, 0);
+        TaskOutput taskOutput = new TaskOutput(queryId, stageId, taskId, location, ImmutableList.copyOf(initialOutputIds), pageBufferMax, 0);
         tasks.put(taskId, taskOutput);
 
         List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");
@@ -125,6 +125,16 @@ public class MockTaskManager
     }
 
     @Override
+    public void addResultQueue(String taskId, String outputName)
+    {
+        TaskOutput taskOutput = tasks.get(taskId);
+        if (taskOutput == null) {
+            throw new NoSuchElementException();
+        }
+        taskOutput.addResultQueue(outputName);
+    }
+
+    @Override
     public List<Page> getTaskResults(String taskId, String outputId, int maxPageCount, Duration maxWaitTime)
             throws InterruptedException
     {
@@ -136,6 +146,16 @@ public class MockTaskManager
             throw new NoSuchElementException();
         }
         return taskOutput.getResults(outputId, maxPageCount, maxWaitTime);
+    }
+
+    @Override
+    public void noMoreResultQueues(String taskId)
+    {
+        TaskOutput taskOutput = tasks.get(taskId);
+        if (taskOutput == null) {
+            throw new NoSuchElementException();
+        }
+        taskOutput.noMoreResultQueues();
     }
 
     @Override

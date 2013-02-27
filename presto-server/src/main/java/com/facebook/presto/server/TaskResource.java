@@ -75,7 +75,7 @@ public class TaskResource
                     taskId,
                     queryFragmentRequest.getFragment(),
                     queryFragmentRequest.getFixedSources(),
-                    queryFragmentRequest.getOutputIds());
+                    queryFragmentRequest.getInitialOutputIds());
 
             URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(taskInfo.getTaskId()).build();
             return Response.created(pagesUri).entity(taskInfo).build();
@@ -110,6 +110,17 @@ public class TaskResource
         taskManager.cancelTask(taskId);
     }
 
+    @PUT
+    @Path("{taskId}/results/{outputId}")
+    @Produces(PrestoMediaTypes.PRESTO_PAGES)
+    public void addResultQueue(@PathParam("taskId") String taskId, @PathParam("outputId") String outputId)
+    {
+        checkNotNull(taskId, "taskId is null");
+        checkNotNull(outputId, "outputId is null");
+
+        taskManager.addResultQueue(taskId, outputId);
+    }
+
     @GET
     @Path("{taskId}/results/{outputId}")
     @Produces(PrestoMediaTypes.PRESTO_PAGES)
@@ -135,6 +146,16 @@ public class TaskResource
         }
         catch (NoSuchElementException e) {
             return Response.status(Status.GONE).build();
+        }
+    }
+
+    @PUT
+    @Path("{taskId}/results/complete")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public void noMoreResultQueues(@PathParam("taskId") String taskId, boolean isComplete)
+    {
+        if (isComplete) {
+            taskManager.noMoreResultQueues(taskId);
         }
     }
 

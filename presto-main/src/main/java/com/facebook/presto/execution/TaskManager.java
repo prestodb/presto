@@ -24,12 +24,16 @@ public interface TaskManager
             String taskId,
             PlanFragment fragment,
             Map<PlanNodeId, Set<Split>> fixedSources,
-            List<String> outputIds);
+            List<String> initialOutputIds);
 
     TaskInfo getTaskInfo(String taskId);
 
+    void addResultQueue(String taskId, String outputName);
+
     List<Page> getTaskResults(String taskId, String outputName, int maxPageCount, Duration maxWaitTime)
             throws InterruptedException;
+
+    void noMoreResultQueues(String taskId);
 
     void addSplit(String taskId, PlanNodeId sourceId, Split source);
 

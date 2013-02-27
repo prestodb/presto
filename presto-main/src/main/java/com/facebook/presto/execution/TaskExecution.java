@@ -25,8 +25,12 @@ public interface TaskExecution
 
     void fail(Throwable cause);
 
+    void addResultQueue(String outputName);
+
     List<Page> getResults(String outputId, int maxPageCount, Duration maxWait)
             throws InterruptedException;
+
+    void noMoreResultQueues();
 
     void abortResults(String outputId);
 }

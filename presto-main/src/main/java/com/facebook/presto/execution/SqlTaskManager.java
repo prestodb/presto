@@ -157,7 +157,7 @@ public class SqlTaskManager
             String taskId,
             PlanFragment fragment,
             Map<PlanNodeId, Set<Split>> fixedSources,
-            List<String> outputIds)
+            List<String> initialOutputIds)
     {
         Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkNotNull(queryId, "queryId is null");
@@ -165,7 +165,7 @@ public class SqlTaskManager
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkArgument(!taskId.isEmpty(), "taskId is empty");
         Preconditions.checkNotNull(fragment, "fragment is null");
-        Preconditions.checkNotNull(outputIds, "outputIds is null");
+        Preconditions.checkNotNull(initialOutputIds, "initialOutputIds is null");
         Preconditions.checkNotNull(fixedSources, "fixedSources is null");
 
         URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
@@ -177,7 +177,7 @@ public class SqlTaskManager
                 location,
                 fragment,
                 fixedSources,
-                outputIds,
+                initialOutputIds,
                 pageBufferMax,
                 dataStreamProvider,
                 exchangeOperatorFactory,
@@ -188,6 +188,19 @@ public class SqlTaskManager
 
         tasks.put(taskId, taskExecution);
         return taskExecution.getTaskInfo();
+    }
+
+    @Override
+    public void addResultQueue(String taskId, String outputName)
+    {
+        Preconditions.checkNotNull(taskId, "taskId is null");
+        Preconditions.checkNotNull(outputName, "outputName is null");
+
+        TaskExecution taskExecution = tasks.get(taskId);
+        if (taskExecution == null) {
+            throw new NoSuchElementException("Unknown query task " + taskId);
+        }
+        taskExecution.addResultQueue(outputName);
     }
 
     @Override
@@ -202,6 +215,18 @@ public class SqlTaskManager
             throw new NoSuchElementException("Unknown query task " + taskId);
         }
         return taskExecution.getResults(outputName, maxPageCount, maxWaitTime);
+    }
+
+    @Override
+    public void noMoreResultQueues(String taskId)
+    {
+        Preconditions.checkNotNull(taskId, "taskId is null");
+
+        TaskExecution taskExecution = tasks.get(taskId);
+        if (taskExecution == null) {
+            throw new NoSuchElementException("Unknown query task " + taskId);
+        }
+        taskExecution.noMoreResultQueues();
     }
 
     @Override

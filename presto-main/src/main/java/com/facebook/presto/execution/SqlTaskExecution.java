@@ -78,7 +78,7 @@ public class SqlTaskExecution
             URI location,
             PlanFragment fragment,
             Map<PlanNodeId, Set<Split>> fixedSources,
-            List<String> outputIds,
+            List<String> initialOutputIds,
             int pageBufferMax,
             DataStreamProvider dataStreamProvider,
             ExchangeOperatorFactory exchangeOperatorFactory,
@@ -92,8 +92,7 @@ public class SqlTaskExecution
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(fragment, "fragment is null");
         Preconditions.checkNotNull(fixedSources, "fixedSources is null");
-        Preconditions.checkNotNull(outputIds, "outputIds is null");
-        Preconditions.checkArgument(!outputIds.isEmpty(), "outputIds is empty");
+        Preconditions.checkNotNull(initialOutputIds, "initialOutputIds is null");
         Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
         Preconditions.checkNotNull(metadata, "metadata is null");
         Preconditions.checkNotNull(shardExecutor, "shardExecutor is null");
@@ -110,7 +109,7 @@ public class SqlTaskExecution
         this.maxOperatorMemoryUsage = maxOperatorMemoryUsage;
 
         // create output buffers
-        this.taskOutput = new TaskOutput(queryId, stageId, taskId, location, outputIds, pageBufferMax, 0);
+        this.taskOutput = new TaskOutput(queryId, stageId, taskId, location, initialOutputIds, pageBufferMax, 0);
 
         // todo is this correct?
         taskOutput.getStats().recordExecutionStart();
@@ -264,10 +263,22 @@ public class SqlTaskExecution
     }
 
     @Override
+    public void addResultQueue(String outputName)
+    {
+        taskOutput.addResultQueue(outputName);
+    }
+
+    @Override
     public List<Page> getResults(String outputId, int maxPageCount, Duration maxWait)
             throws InterruptedException
     {
         return taskOutput.getResults(outputId, maxPageCount, maxWait);
+    }
+
+    @Override
+    public void noMoreResultQueues()
+    {
+        taskOutput.noMoreResultQueues();
     }
 
     @Override

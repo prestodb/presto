@@ -22,7 +22,7 @@ public class QueryFragmentRequest
     private final String stageId;
     private final PlanFragment fragment;
     private final ImmutableMap<PlanNodeId, Set<Split>> fixedSources;
-    private final List<String> outputIds;
+    private final List<String> initialOutputIds;
 
     @JsonCreator
     public QueryFragmentRequest(
@@ -31,21 +31,21 @@ public class QueryFragmentRequest
             @JsonProperty("stageId") String stageId,
             @JsonProperty("fragment") PlanFragment fragment,
             @JsonProperty("fixedSources") Map<PlanNodeId, Set<Split>> fixedSources,
-            @JsonProperty("outputIds") List<String> outputIds)
+            @JsonProperty("initialOutputIds") List<String> initialOutputIds)
     {
         Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(fragment, "fragment is null");
         Preconditions.checkNotNull(fixedSources, "fixedSources is null");
-        Preconditions.checkNotNull(outputIds, "outputIds is null");
+        Preconditions.checkNotNull(initialOutputIds, "initialOutputIds is null");
 
         this.session = session;
         this.queryId = queryId;
         this.stageId = stageId;
         this.fragment = fragment;
         this.fixedSources = ImmutableMap.copyOf(fixedSources);
-        this.outputIds = ImmutableList.copyOf(outputIds);
+        this.initialOutputIds = ImmutableList.copyOf(initialOutputIds);
     }
 
     @JsonProperty
@@ -79,9 +79,9 @@ public class QueryFragmentRequest
     }
 
     @JsonProperty
-    public List<String> getOutputIds()
+    public List<String> getInitialOutputIds()
     {
-        return outputIds;
+        return initialOutputIds;
     }
 
     @Override
@@ -93,7 +93,7 @@ public class QueryFragmentRequest
                 .add("stageId", stageId)
                 .add("fragment", fragment)
                 .add("fixedSources", fixedSources)
-                .add("outputIds", outputIds)
+                .add("initialOutputIds", initialOutputIds)
                 .toString();
     }
 }
