@@ -3,12 +3,9 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.split.SplitAssignments;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.PlanFragment;
-import com.google.common.base.Optional;
+import com.facebook.presto.sql.planner.StageExecutionPlan;
 
-import java.net.URI;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -18,14 +15,7 @@ public interface StageManager
 
     StageInfo getStage(String stageId);
 
-    StageExecution createStage(Session session,
-            String queryId,
-            String stageId,
-            URI location,
-            AtomicReference<QueryState> queryState,
-            PlanFragment plan,
-            Optional<Iterable<SplitAssignments>> tasks,
-            Iterable<? extends StageExecution> subStages);
+    StageExecution createStage(Session session, String queryId, AtomicReference<QueryState> queryState, StageExecutionPlan plan);
 
     void cancelStage(String stageId);
 }
