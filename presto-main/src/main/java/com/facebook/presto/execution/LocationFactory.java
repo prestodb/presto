@@ -11,7 +11,7 @@ public interface LocationFactory
 {
     URI createQueryLocation(String queryId);
 
-    URI createStageLocation(String stageId);
+    URI createStageLocation(String queryId, String stageId);
 
     URI createTaskLocation(Node node, String taskId);
 }

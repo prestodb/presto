@@ -21,10 +21,8 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.SqlQueryManager;
-import com.facebook.presto.execution.SqlStageManager;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.StageInfo;
-import com.facebook.presto.execution.StageManager;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.importer.ForImportManager;
@@ -104,9 +102,6 @@ public class ServerMainModule
         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
         bindConfig(binder).to(QueryManagerConfig.class);
-
-        binder.bind(StageResource.class).in(Scopes.SINGLETON);
-        binder.bind(StageManager.class).to(SqlStageManager.class).in(Scopes.SINGLETON);
 
         binder.bind(TaskResource.class).in(Scopes.SINGLETON);
         binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);

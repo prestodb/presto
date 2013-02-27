@@ -16,4 +16,6 @@ public interface QueryExecution
     void cancel();
 
     void fail(Throwable cause);
+
+    void cancelStage(String stageId);
 }

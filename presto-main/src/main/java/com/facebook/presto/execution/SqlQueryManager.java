@@ -6,6 +6,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.importer.ImportManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.split.ImportClientManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Session;
@@ -47,7 +48,8 @@ public class SqlQueryManager
     private final ImportManager importManager;
     private final Metadata metadata;
     private final SplitManager splitManager;
-    private final StageManager stageManager;
+    private final NodeManager nodeManager;
+    private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
     private final Duration maxQueryAge;
     private final QueryMonitor queryMonitor;
@@ -65,16 +67,18 @@ public class SqlQueryManager
             ImportManager importManager,
             Metadata metadata,
             SplitManager splitManager,
-            StageManager stageManager,
             LocationFactory locationFactory,
             QueryManagerConfig config,
+            NodeManager nodeManager,
+            RemoteTaskFactory remoteTaskFactory,
             QueryMonitor queryMonitor)
     {
         checkNotNull(importClientManager, "importClientFactory is null");
         checkNotNull(importManager, "importManager is null");
         checkNotNull(metadata, "metadata is null");
         checkNotNull(splitManager, "splitManager is null");
-        checkNotNull(stageManager, "stageManager is null");
+        checkNotNull(nodeManager, "nodeManager is null");
+        checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
         checkNotNull(locationFactory, "locationFactory is null");
         checkNotNull(config, "config is null");
         checkNotNull(queryMonitor, "queryMonitor is null");
@@ -85,7 +89,8 @@ public class SqlQueryManager
         this.importManager = importManager;
         this.metadata = metadata;
         this.splitManager = splitManager;
-        this.stageManager = stageManager;
+        this.nodeManager = nodeManager;
+        this.remoteTaskFactory = remoteTaskFactory;
         this.locationFactory = locationFactory;
         this.queryMonitor = queryMonitor;
         this.importsEnabled = config.isImportsEnabled();
@@ -203,7 +208,8 @@ public class SqlQueryManager
                     session,
                     metadata,
                     splitManager,
-                    stageManager,
+                    nodeManager,
+                    remoteTaskFactory,
                     locationFactory,
                     queryMonitor);
             queryMonitor.createdEvent(queryExecution.getQueryInfo());
@@ -226,6 +232,20 @@ public class SqlQueryManager
         QueryExecution query = queries.get(queryId);
         if (query != null) {
             query.cancel();
+        }
+    }
+
+    @Override
+    public void cancelStage(String queryId, String stageId)
+    {
+        checkNotNull(queryId, "queryId is null");
+        Preconditions.checkNotNull(stageId, "stageId is null");
+
+        log.debug("Cancel query %s stage %s", queryId, stageId);
+
+        QueryExecution query = queries.get(queryId);
+        if (query != null) {
+            query.cancelStage(stageId);
         }
     }
 

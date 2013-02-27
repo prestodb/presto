@@ -41,11 +41,14 @@ public class HttpLocationFactory
     }
 
     @Override
-    public URI createStageLocation(String stageId)
+    public URI createStageLocation(String queryId, String stageId)
     {
+        Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
         return uriBuilderFrom(baseUri)
-                .appendPath("/v1/stage")
+                .appendPath("v1/query")
+                .appendPath(queryId)
+                .appendPath("stage")
                 .appendPath(stageId)
                 .build();
     }
