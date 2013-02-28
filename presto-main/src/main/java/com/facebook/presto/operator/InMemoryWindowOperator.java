@@ -28,7 +28,6 @@ public class InMemoryWindowOperator
     private final DataSize maxSize;
     private final List<TupleInfo> tupleInfos;
 
-    @SuppressWarnings("AssignmentToCollectionOrArrayFieldFromParameter")
     public InMemoryWindowOperator(
             Operator source,
             int orderingChannel,
@@ -42,11 +41,11 @@ public class InMemoryWindowOperator
     {
         this.source = checkNotNull(source, "source is null");
         this.orderingChannel = orderingChannel;
-        this.outputChannels = outputChannels;
+        this.outputChannels = checkNotNull(outputChannels, "outputChannels is null").clone();
         this.windowFunctions = ImmutableList.copyOf(checkNotNull(windowFunctions, "windowFunctions is null"));
-        this.partitionFields = partitionFields;
-        this.sortFields = sortFields;
-        this.sortOrder = sortOrder;
+        this.partitionFields = checkNotNull(partitionFields, "partitionFields is null").clone();
+        this.sortFields = checkNotNull(sortFields, "sortFields is null").clone();
+        this.sortOrder = checkNotNull(sortOrder, "sortOrder is null").clone();
         this.expectedPositions = expectedPositions;
         this.maxSize = checkNotNull(maxSize, "maxSize is null");
 
@@ -172,10 +171,8 @@ public class InMemoryWindowOperator
                 if (newPartition) {
                     // find end of partition
                     partitionEnd++;
-                    while (partitionEnd < pageIndex.getPositionCount()) {
-                        if (partitionComparator.compare(partitionEnd - 1, partitionEnd) != 0) {
-                            break;
-                        }
+                    while ((partitionEnd < pageIndex.getPositionCount()) &&
+                            (partitionComparator.compare(partitionEnd - 1, partitionEnd) == 0)) {
                         partitionEnd++;
                     }
 
@@ -197,10 +194,8 @@ public class InMemoryWindowOperator
                 if (newPeerGroup) {
                     // find end of peer group
                     peerGroupEnd++;
-                    while (peerGroupEnd < partitionEnd) {
-                        if (orderComparator.compare(peerGroupEnd - 1, peerGroupEnd) != 0) {
-                            break;
-                        }
+                    while ((peerGroupEnd < partitionEnd) &&
+                            (orderComparator.compare(peerGroupEnd - 1, peerGroupEnd) == 0)) {
                         peerGroupEnd++;
                     }
                     peerGroupCount = peerGroupEnd - currentPosition;

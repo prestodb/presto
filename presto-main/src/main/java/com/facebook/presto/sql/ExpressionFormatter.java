@@ -13,6 +13,7 @@ import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
+import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -32,13 +33,17 @@ import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
+import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.facebook.presto.sql.SqlFormatter.orderByFormatterFunction;
+import static com.google.common.collect.Iterables.transform;
 
 public class ExpressionFormatter
 {
@@ -158,14 +163,16 @@ public class ExpressionFormatter
         @Override
         protected String visitFunctionCall(FunctionCall node, Void context)
         {
-            return node.getName() + "(" + Joiner.on(", ").join(Iterables.transform(node.getArguments(), new Function<Expression, Object>()
-            {
-                @Override
-                public Object apply(Expression input)
-                {
-                    return process(input, null);
-                }
-            })) + ")";
+            StringBuilder builder = new StringBuilder();
+
+            builder.append(node.getName())
+                    .append('(').append(joinExpressions(node.getArguments())).append(')');
+
+            if (node.getWindow().isPresent()) {
+                builder.append(" OVER ").append(visitWindow(node.getWindow().get(), null));
+            }
+
+            return builder.toString();
         }
 
         @Override
@@ -207,14 +214,7 @@ public class ExpressionFormatter
         @Override
         protected String visitCoalesceExpression(CoalesceExpression node, Void context)
         {
-            return "COALESCE(" + Joiner.on(", ").join(Iterables.transform(node.getOperands(), new Function<Expression, Object>()
-            {
-                @Override
-                public Object apply(Expression input)
-                {
-                    return process(input, null);
-                }
-            })) + ")";
+            return "COALESCE(" + joinExpressions(node.getOperands()) + ")";
         }
 
         @Override
@@ -324,19 +324,81 @@ public class ExpressionFormatter
         @Override
         protected String visitInListExpression(InListExpression node, Void context)
         {
-            return "(" + Joiner.on(", ").join(Iterables.transform(node.getValues(), new Function<Expression, String>()
-            {
-                @Override
-                public String apply(Expression input)
-                {
-                    return process(input, null);
-                }
-            })) + ")";
+            return "(" + joinExpressions(node.getValues()) + ")";
+        }
+
+        // TODO: add tests for window clause formatting, as these are not really expressions
+        @Override
+        public String visitWindow(Window node, Void context)
+        {
+            List<String> parts = new ArrayList<>();
+
+            if (!node.getPartitionBy().isEmpty()) {
+                parts.add("PARTITION BY " + joinExpressions(node.getPartitionBy()));
+            }
+            if (!node.getOrderBy().isEmpty()) {
+                parts.add("ORDER BY " + Joiner.on(", ").join(transform(node.getOrderBy(), orderByFormatterFunction())));
+            }
+            if (node.getFrame().isPresent()) {
+                parts.add(process(node.getFrame().get(), null));
+            }
+
+            return '(' + Joiner.on(' ').join(parts) + ')';
+        }
+
+        @Override
+        public String visitWindowFrame(WindowFrame node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append(node.getType().toString()).append(' ');
+
+            if (node.getEnd().isPresent()) {
+                builder.append("BETWEEN ")
+                        .append(process(node.getStart(), null))
+                        .append(" AND ")
+                        .append(process(node.getEnd().get(), null));
+            }
+            else {
+                builder.append(process(node.getStart(), null));
+            }
+
+            return builder.toString();
+        }
+
+        @Override
+        public String visitFrameBound(FrameBound node, Void context)
+        {
+            switch (node.getType()) {
+                case UNBOUNDED_PRECEDING:
+                    return "UNBOUNDED PRECEDING";
+                case PRECEDING:
+                    return process(node.getValue().get(), null) + " PRECEDING";
+                case CURRENT_ROW:
+                    return "CURRENT ROW";
+                case FOLLOWING:
+                    return process(node.getValue().get(), null) + " FOLLOWING";
+                case UNBOUNDED_FOLLOWING:
+                    return "UNBOUNDED FOLLOWING";
+            }
+            throw new IllegalArgumentException("unhandled type: " + node.getType());
         }
 
         private String formatBinaryExpression(String operator, Expression left, Expression right)
         {
             return '(' + process(left, null) + ' ' + operator + ' ' + process(right, null) + ')';
+        }
+
+        private String joinExpressions(List<Expression> expressions)
+        {
+            return Joiner.on(", ").join(transform(expressions, new Function<Expression, Object>()
+            {
+                @Override
+                public Object apply(Expression input)
+                {
+                    return process(input, null);
+                }
+            }));
         }
     }
 }

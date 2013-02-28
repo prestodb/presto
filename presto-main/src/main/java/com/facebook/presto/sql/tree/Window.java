@@ -37,6 +37,12 @@ public class Window
     }
 
     @Override
+    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitWindow(this, context);
+    }
+
+    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) {

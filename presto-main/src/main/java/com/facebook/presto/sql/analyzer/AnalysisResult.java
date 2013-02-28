@@ -149,7 +149,7 @@ public class AnalysisResult
         return aggregations;
     }
 
-    public Set<AnalyzedFunction> getWindowsFunctions()
+    public Set<AnalyzedFunction> getWindowFunctions()
     {
         return windowsFunctions;
     }

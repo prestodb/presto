@@ -150,10 +150,10 @@ public class LogicalPlanner
                     substitutions);
         }
 
-        if (!analysis.getWindowsFunctions().isEmpty()) {
+        if (!analysis.getWindowFunctions().isEmpty()) {
             root = createWindowPlan(root,
                     ImmutableList.copyOf(analysis.getOutputExpressions().values()),
-                    analysis.getWindowsFunctions(),
+                    analysis.getWindowFunctions(),
                     analysis.getSymbolAllocator(),
                     substitutions);
         }
@@ -287,6 +287,11 @@ public class LogicalPlanner
         // track window function outputs to rewrite in post-project
         Map<Expression, Symbol> substitutions = new HashMap<>();
 
+        // add pre-projected symbols to substitution map
+        for (Map.Entry<Symbol, Expression> entry : preProjections.entrySet()) {
+            substitutions.put(entry.getValue(), entry.getKey());
+        }
+
         // create a window node for each window function call
         for (AnalyzedFunction function : windowFunctions) {
             AnalyzedWindow window = function.getWindow().get();
@@ -295,9 +300,7 @@ public class LogicalPlanner
             List<Symbol> partitionBySymbols = new ArrayList<>();
             for (AnalyzedExpression item : window.getPartitionBy()) {
                 Expression rewritten = TreeRewriter.rewriteWith(substitution(inputAssignments.inverse()), item.getRewrittenExpression());
-                Symbol symbol = allocator.newSymbol(rewritten, item.getType());
-                partitionBySymbols.add(symbol);
-                substitutions.put(rewritten, symbol);
+                partitionBySymbols.add(allocator.newSymbol(rewritten, item.getType()));
             }
 
             // map order-by expressions
@@ -308,7 +311,6 @@ public class LogicalPlanner
                 Symbol symbol = allocator.newSymbol(rewritten, item.getExpression().getType());
                 orderBySymbols.add(symbol);
                 orderings.put(symbol, item.getOrdering());
-                substitutions.put(rewritten, symbol);
             }
 
             // build window function call map
