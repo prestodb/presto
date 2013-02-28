@@ -83,7 +83,12 @@ public class MaterializedTuple
         private ApproximateDouble(Double value, int precision)
         {
             this.value = value;
-            this.normalizedValue = new BigDecimal(value).round(new MathContext(precision)).doubleValue();
+            if (value.isNaN() || value.isInfinite()) {
+                this.normalizedValue = value;
+            }
+            else {
+                this.normalizedValue = new BigDecimal(value).round(new MathContext(precision)).doubleValue();
+            }
         }
 
         public Double getValue()

@@ -13,19 +13,16 @@ import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
 import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.facebook.presto.operator.OperatorAssertions.createOperator;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -117,6 +114,55 @@ public class MaterializedResult
                 .add("tuples", tuples)
                 .add("tupleInfo", tupleInfo)
                 .toString();
+    }
+
+    public static Builder resultBuilder(TupleInfo.Type... types)
+    {
+        return resultBuilder(new TupleInfo(types));
+    }
+
+    public static Builder resultBuilder(TupleInfo tupleInfo)
+    {
+        return new Builder(tupleInfo);
+    }
+
+    public static class Builder
+    {
+        private final BlockBuilder builder;
+
+        Builder(TupleInfo tupleInfo)
+        {
+            this.builder = new BlockBuilder(tupleInfo);
+        }
+
+        public Builder row(Object... values)
+        {
+            for (Object value : values) {
+                append(value);
+            }
+            return this;
+        }
+
+        public MaterializedResult build()
+        {
+            return materialize(createOperator(new Page(builder.build())));
+        }
+
+        private void append(Object value)
+        {
+            if ((value instanceof Long) || (value instanceof Integer)) {
+                builder.append(((Number) value).longValue());
+            }
+            else if (value instanceof Double) {
+                builder.append((Double) value);
+            }
+            else if (value instanceof String) {
+                builder.append((String) value);
+            }
+            else {
+                throw new IllegalArgumentException("bad value: " + value.getClass().getName());
+            }
+        }
     }
 
     private static class Concat

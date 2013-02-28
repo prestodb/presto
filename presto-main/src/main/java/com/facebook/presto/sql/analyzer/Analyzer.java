@@ -8,7 +8,6 @@ import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
-import com.facebook.presto.sql.planner.LookupSymbolResolver;
 import com.facebook.presto.sql.planner.SymbolResolver;
 import com.facebook.presto.sql.tree.AliasedExpression;
 import com.facebook.presto.sql.tree.AliasedRelation;
@@ -40,6 +39,7 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.Subquery;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TreeRewriter;
+import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
@@ -62,10 +62,10 @@ import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_INTER
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.sql.analyzer.AnalyzedExpression.rewrittenExpressionGetter;
+import static com.facebook.presto.sql.analyzer.AnalyzedExpression.typeGetter;
 import static com.facebook.presto.sql.analyzer.AnalyzedFunction.distinctPredicate;
 import static com.facebook.presto.sql.analyzer.AnalyzedOrdering.expressionGetter;
 import static com.facebook.presto.sql.analyzer.AnalyzedOrdering.nodeGetter;
-import static com.facebook.presto.sql.analyzer.Field.nameGetter;
 import static com.facebook.presto.sql.tree.QueryUtil.aliasedName;
 import static com.facebook.presto.sql.tree.QueryUtil.ascending;
 import static com.facebook.presto.sql.tree.QueryUtil.caseWhen;
@@ -149,10 +149,18 @@ public class Analyzer
 
             List<AnalyzedExpression> groupBy = analyzeGroupBy(query.getGroupBy(), sourceDescriptor);
             Set<AnalyzedFunction> aggregations = analyzeAggregations(query.getGroupBy(), query.getSelect(), query.getOrderBy(), sourceDescriptor);
-            List<AnalyzedOrdering> orderBy = analyzeOrderBy(query.getOrderBy(), sourceDescriptor);
+            Set<AnalyzedFunction> windowFunctions = analyzeWindowFunctions(query.getSelect(), query.getOrderBy(), sourceDescriptor);
+            List<AnalyzedOrdering> orderBy = analyzeOrderBy(metadata, query.getOrderBy(), sourceDescriptor);
             AnalyzedOutput output = analyzeOutput(query.getSelect(), context.getSymbolAllocator(), sourceDescriptor);
 
+            if ((!aggregations.isEmpty()) && (!windowFunctions.isEmpty())) {
+                throw new SemanticException(query, "Mixing aggregate and window functions is not yet supported");
+            }
+
             if (query.getSelect().isDistinct()) {
+                if (!windowFunctions.isEmpty()) {
+                    throw new SemanticException(query.getSelect(), "Mixing DISTINCT and window functions is not yet supported");
+                }
                 analyzeDistinct(output, orderBy);
             }
 
@@ -161,7 +169,7 @@ public class Analyzer
                 limit = Long.parseLong(query.getLimit());
             }
 
-            return AnalysisResult.newInstance(context, query.getSelect().isDistinct(), output, predicate, groupBy, aggregations, limit, orderBy, query);
+            return AnalysisResult.newInstance(context, query.getSelect().isDistinct(), output, predicate, groupBy, aggregations, windowFunctions, limit, orderBy, query);
         }
 
         @Override
@@ -321,21 +329,6 @@ public class Analyzer
             }
         }
 
-        private List<AnalyzedOrdering> analyzeOrderBy(List<SortItem> orderBy, TupleDescriptor descriptor)
-        {
-            ImmutableList.Builder<AnalyzedOrdering> builder = ImmutableList.builder();
-            for (SortItem sortItem : orderBy) {
-                if (sortItem.getNullOrdering() != SortItem.NullOrdering.UNDEFINED) {
-                    throw new SemanticException(sortItem, "Custom null ordering not yet supported");
-                }
-
-                AnalyzedExpression expression = new ExpressionAnalyzer(metadata).analyze(sortItem.getSortKey(), descriptor);
-                builder.add(new AnalyzedOrdering(expression, sortItem.getOrdering(), sortItem));
-            }
-
-            return builder.build();
-        }
-
         private AnalyzedExpression analyzePredicate(Expression predicate, TupleDescriptor sourceDescriptor)
         {
             AnalyzedExpression analyzedExpression = new ExpressionAnalyzer(metadata).analyze(predicate, sourceDescriptor);
@@ -454,6 +447,16 @@ public class Analyzer
 
             return aggregateTerms;
         }
+
+        private Set<AnalyzedFunction> analyzeWindowFunctions(Select select, List<SortItem> orderBy, TupleDescriptor descriptor)
+        {
+            ImmutableSet.Builder<AnalyzedFunction> builder = ImmutableSet.builder();
+            // analyze select and order by terms
+            for (Expression term : concat(transform(select.getSelectItems(), unaliasFunction()), transform(orderBy, sortKeyGetter()))) {
+                builder.addAll(new WindowAnalyzer(metadata, descriptor).analyze(term));
+            }
+            return builder.build();
+        }
     }
 
     /**
@@ -484,6 +487,13 @@ public class Analyzer
         @Override
         protected Void visitFunctionCall(FunctionCall node, FunctionCall enclosingAggregate)
         {
+            if (node.getWindow().isPresent()) {
+                if (enclosingAggregate != null) {
+                    throw new SemanticException(node, "Cannot nest window functions inside aggregate functions: %s", ExpressionFormatter.toString(enclosingAggregate));
+                }
+                return super.visitFunctionCall(node, enclosingAggregate);
+            }
+
             ImmutableList.Builder<AnalyzedExpression> argumentsAnalysis = ImmutableList.builder();
             ImmutableList.Builder<Type> argumentTypes = ImmutableList.builder();
             for (Expression expression : node.getArguments()) {
@@ -494,18 +504,104 @@ public class Analyzer
 
             FunctionInfo info = metadata.getFunction(node.getName(), Lists.transform(argumentTypes.build(), Type.toRaw()));
 
-            if (info != null && info.isAggregate()) {
+            if ((info != null) && info.isAggregate()) {
                 if (enclosingAggregate != null) {
-                    throw new SemanticException(node, "Cannot nest aggregate functions: %s", ExpressionFormatter.toString(enclosingAggregate));
+                    throw new SemanticException(node, "Cannot nest aggregate functions inside aggregate functions: %s", ExpressionFormatter.toString(enclosingAggregate));
                 }
 
                 FunctionCall rewritten = TreeRewriter.rewriteWith(new NameToSymbolRewriter(descriptor), node);
-                aggregations.add(new AnalyzedFunction(info, argumentsAnalysis.build(), rewritten, node.isDistinct()));
+                aggregations.add(new AnalyzedFunction(info, argumentsAnalysis.build(), rewritten, node.isDistinct(), null));
                 return super.visitFunctionCall(node, node); // visit children
             }
 
             return super.visitFunctionCall(node, enclosingAggregate);
         }
+    }
+
+    /**
+     * Resolves and extracts window functions from an expression and analyzes them (infer types and replace QualifiedNames with symbols)
+     */
+    private static class WindowAnalyzer
+            extends DefaultTraversalVisitor<Void, FunctionCall>
+    {
+        private final Metadata metadata;
+        private final TupleDescriptor descriptor;
+
+        private List<AnalyzedFunction> functions;
+
+        public WindowAnalyzer(Metadata metadata, TupleDescriptor descriptor)
+        {
+            this.metadata = metadata;
+            this.descriptor = descriptor;
+        }
+
+        public List<AnalyzedFunction> analyze(Expression expression)
+        {
+            functions = new ArrayList<>();
+            process(expression, null);
+            return functions;
+        }
+
+        @Override
+        protected Void visitFunctionCall(FunctionCall node, FunctionCall enclosingWindow)
+        {
+            if (!node.getWindow().isPresent()) {
+                return super.visitFunctionCall(node, enclosingWindow);
+            }
+
+            if (enclosingWindow != null) {
+                throw new SemanticException(node, "Cannot nest window functions inside window functions: %s", ExpressionFormatter.toString(enclosingWindow));
+            }
+
+            if (node.isDistinct()) {
+                throw new SemanticException(node, "DISTINCT in window function parameters not yet supported");
+            }
+
+            List<AnalyzedExpression> argumentsAnalysis = analyzeExpressions(node.getArguments());
+            List<Type> argumentTypes = Lists.transform(argumentsAnalysis, typeGetter());
+
+            Window window = node.getWindow().get();
+
+            List<AnalyzedExpression> partitionByAnalysis = analyzeExpressions(window.getPartitionBy());
+            List<AnalyzedOrdering> orderByAnalysis = analyzeOrderBy(metadata, window.getOrderBy(), descriptor);
+            AnalyzedWindow analyzedWindow = new AnalyzedWindow(partitionByAnalysis, orderByAnalysis);
+
+            FunctionInfo info = metadata.getFunction(node.getName(), Lists.transform(argumentTypes, Type.toRaw()));
+            if (!info.isWindow()) {
+                throw new SemanticException(node, "Not a window function: %s", info);
+            }
+
+            if (window.getFrame().isPresent()) {
+                throw new SemanticException(node, "Window frames not yet supported");
+            }
+
+            FunctionCall rewritten = TreeRewriter.rewriteWith(new NameToSymbolRewriter(descriptor), node);
+            functions.add(new AnalyzedFunction(info, argumentsAnalysis, rewritten, node.isDistinct(), analyzedWindow));
+            return super.visitFunctionCall(node, node);
+        }
+
+        private List<AnalyzedExpression> analyzeExpressions(List<Expression> expressions)
+        {
+            ImmutableList.Builder<AnalyzedExpression> builder = ImmutableList.builder();
+            for (Expression expression : expressions) {
+                builder.add(new ExpressionAnalyzer(metadata).analyze(expression, descriptor));
+            }
+            return builder.build();
+        }
+    }
+
+    private static List<AnalyzedOrdering> analyzeOrderBy(Metadata metadata, List<SortItem> orderBy, TupleDescriptor descriptor)
+    {
+        ImmutableList.Builder<AnalyzedOrdering> builder = ImmutableList.builder();
+        for (SortItem sortItem : orderBy) {
+            if (sortItem.getNullOrdering() != SortItem.NullOrdering.UNDEFINED) {
+                throw new SemanticException(sortItem, "Custom null ordering not yet supported");
+            }
+
+            AnalyzedExpression expression = new ExpressionAnalyzer(metadata).analyze(sortItem.getSortKey(), descriptor);
+            builder.add(new AnalyzedOrdering(expression, sortItem.getOrdering(), sortItem));
+        }
+        return builder.build();
     }
 
     private static Function<Expression, Expression> unaliasFunction()

@@ -1,35 +1,22 @@
 package com.facebook.presto;
 
-import com.facebook.presto.block.Block;
-import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.ingest.DelimitedRecordSet;
 import com.facebook.presto.ingest.RecordCursor;
 import com.facebook.presto.ingest.RecordSet;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.slice.Slices;
 import com.facebook.presto.split.DataStreamProvider;
-import com.facebook.presto.tpch.TpchBlocksProvider;
-import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
 import com.facebook.presto.tpch.TpchSchema;
-import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.MaterializedResult;
+import com.facebook.presto.util.TestingTpchBlocksProvider;
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
-import com.google.common.base.Splitter;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
-import com.google.common.io.InputSupplier;
-import com.google.common.io.Resources;
-import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -42,19 +29,17 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.URL;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.zip.GZIPInputStream;
 
+import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
+import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
+import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static com.facebook.presto.util.MaterializedResult.resultBuilder;
+import static com.facebook.presto.util.TestingTpchBlocksProvider.readTpchRecords;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
@@ -678,6 +663,57 @@ public abstract class AbstractTestQueries
         assertQueryOrdered("SELECT orderstatus orderdate FROM orders ORDER BY orderdate ASC");
     }
 
+    @SuppressWarnings("PointlessArithmeticExpression")
+    @Test
+    public void testWindowFunctionsExpressions()
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderkey, orderstatus\n" +
+                ", row_number() OVER (ORDER BY orderkey * 2) *\n" +
+                "  row_number() OVER (ORDER BY orderkey DESC) + 100\n" +
+                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
+                "ORDER BY orderkey LIMIT 5");
+
+        MaterializedResult expected = resultBuilder(FIXED_INT_64, VARIABLE_BINARY, FIXED_INT_64)
+                .row(1, "O", (1 * 10) + 100)
+                .row(2, "O", (2 * 9) + 100)
+                .row(3, "F", (3 * 8) + 100)
+                .row(4, "O", (4 * 7) + 100)
+                .row(5, "F", (5 * 6) + 100)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testWindowFunctionsFromAggregate()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT * FROM (\n" +
+                "  SELECT orderstatus, clerk, sales\n" +
+                "  , rank() OVER (PARTITION BY x.orderstatus ORDER BY sales DESC) rnk\n" +
+                "  FROM (\n" +
+                "    SELECT orderstatus, clerk, sum(totalprice) sales\n" +
+                "    FROM orders\n" +
+                "    GROUP BY orderstatus, clerk\n" +
+                "   ) x\n" +
+                ") x\n" +
+                "WHERE rnk <= 2\n" +
+                "ORDER BY orderstatus, rnk");
+
+        MaterializedResult expected = resultBuilder(VARIABLE_BINARY, VARIABLE_BINARY, DOUBLE, FIXED_INT_64)
+                .row("F", "Clerk#000000090", 2784836.61, 1)
+                .row("F", "Clerk#000000084", 2674447.15, 2)
+                .row("O", "Clerk#000000500", 2569878.29, 1)
+                .row("O", "Clerk#000000050", 2500162.92, 2)
+                .row("P", "Clerk#000000071", 841820.99, 1)
+                .row("P", "Clerk#000001000", 643679.49, 2)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
     @Test
     public void testScalarFunction()
             throws Exception
@@ -721,7 +757,7 @@ public abstract class AbstractTestQueries
     {
         handle = DBI.open("jdbc:h2:mem:test" + System.nanoTime());
 
-        RecordSet ordersRecords = readRecords("tpch/orders.dat.gz");
+        RecordSet ordersRecords = readTpchRecords("orders");
         handle.execute("CREATE TABLE orders (\n" +
                 "  orderkey BIGINT PRIMARY KEY,\n" +
                 "  custkey BIGINT NOT NULL,\n" +
@@ -735,7 +771,7 @@ public abstract class AbstractTestQueries
                 ")");
         insertRows(TpchSchema.createOrders(), handle, ordersRecords);
 
-        RecordSet lineItemRecords = readRecords("tpch/lineitem.dat.gz");
+        RecordSet lineItemRecords = readTpchRecords("lineitem");
         handle.execute("CREATE TABLE lineitem (\n" +
                 "  orderkey BIGINT,\n" +
                 "  partkey BIGINT NOT NULL,\n" +
@@ -759,14 +795,14 @@ public abstract class AbstractTestQueries
 
         metadata = TpchSchema.createMetadata();
 
-        TestTpchBlocksProvider testTpchBlocksProvider = new TestTpchBlocksProvider(
+        TestingTpchBlocksProvider tpchBlocksProvider = new TestingTpchBlocksProvider(
                 ImmutableMap.of(
                         "orders", ordersRecords,
                         "lineitem", lineItemRecords
                 )
         );
 
-        dataProvider = new TpchDataStreamProvider(testTpchBlocksProvider);
+        dataProvider = new TpchDataStreamProvider(tpchBlocksProvider);
 
         setUpQueryFramework(TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME, dataProvider, metadata);
     }
@@ -886,30 +922,6 @@ public abstract class AbstractTestQueries
         };
     }
 
-    private static RecordSet readRecords(String name)
-            throws IOException
-    {
-        // tpch does not contain nulls, but does have a trailing pipe character,
-        // so omitting empty strings will prevent an extra column at the end being added
-        Splitter splitter = Splitter.on('|').omitEmptyStrings();
-        return new DelimitedRecordSet(readResource(name), splitter);
-    }
-
-    private static InputSupplier<InputStreamReader> readResource(final String name)
-    {
-        return new InputSupplier<InputStreamReader>()
-        {
-            @Override
-            public InputStreamReader getInput()
-                    throws IOException
-            {
-                URL url = Resources.getResource(name);
-                GZIPInputStream gzip = new GZIPInputStream(url.openStream());
-                return new InputStreamReader(gzip, UTF_8);
-            }
-        };
-    }
-
     private static void insertRows(TableMetadata tableMetadata, Handle handle, RecordSet data)
     {
         String vars = Joiner.on(',').join(nCopies(tableMetadata.getColumns().size(), "?"));
@@ -941,100 +953,6 @@ public abstract class AbstractTestQueries
                 }
             }
             batch.execute();
-        }
-    }
-
-    private static class TestTpchBlocksProvider
-            implements TpchBlocksProvider
-    {
-        private final Map<String, RecordSet> data;
-
-        private TestTpchBlocksProvider(Map<String, RecordSet> data)
-        {
-            this.data = ImmutableMap.copyOf(checkNotNull(data, "data is null"));
-        }
-
-        @Override
-        public BlockIterable getBlocks(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding)
-        {
-            String tableName = tableHandle.getTableName();
-            int fieldIndex = columnHandle.getFieldIndex();
-            TupleInfo.Type fieldType = columnHandle.getType();
-            return new TpchBlockIterable(fieldType, tableName, fieldIndex);
-        }
-
-        @Override
-        public DataSize getColumnDataSize(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        private class TpchBlockIterable
-                implements BlockIterable
-        {
-            private final TupleInfo.Type fieldType;
-            private final String tableName;
-            private final int fieldIndex;
-
-            public TpchBlockIterable(TupleInfo.Type fieldType, String tableName, int fieldIndex)
-            {
-                this.fieldType = fieldType;
-                this.tableName = tableName;
-                this.fieldIndex = fieldIndex;
-            }
-
-            @Override
-            public TupleInfo getTupleInfo()
-            {
-                return new TupleInfo(fieldType);
-            }
-
-            @Override
-            public Optional<DataSize> getDataSize()
-            {
-                return Optional.absent();
-            }
-
-            @Override
-            public Optional<Integer> getPositionCount()
-            {
-                return Optional.absent();
-            }
-
-            @Override
-            public Iterator<Block> iterator()
-            {
-                return new AbstractIterator<Block>()
-                {
-                    private final RecordCursor cursor = data.get(tableName).cursor(new OperatorStats());
-
-                    @Override
-                    protected Block computeNext()
-                    {
-                        BlockBuilder builder = new BlockBuilder(new TupleInfo(fieldType));
-
-                        while (!builder.isFull() && cursor.advanceNextPosition()) {
-                            switch (fieldType) {
-                                case FIXED_INT_64:
-                                    builder.append(cursor.getLong(fieldIndex));
-                                    break;
-                                case DOUBLE:
-                                    builder.append(cursor.getDouble(fieldIndex));
-                                    break;
-                                case VARIABLE_BINARY:
-                                    builder.append(cursor.getString(fieldIndex));
-                                    break;
-                            }
-                        }
-
-                        if (builder.isEmpty()) {
-                            return endOfData();
-                        }
-
-                        return builder.build();
-                    }
-                };
-            }
         }
     }
 }

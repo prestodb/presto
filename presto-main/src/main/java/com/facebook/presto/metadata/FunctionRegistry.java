@@ -11,6 +11,12 @@ import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.operator.scalar.UnixTimeFunctions;
+import com.facebook.presto.operator.window.CumulativeDistributionFunction;
+import com.facebook.presto.operator.window.PercentRankFunction;
+import com.facebook.presto.operator.window.DenseRankFunction;
+import com.facebook.presto.operator.window.RankFunction;
+import com.facebook.presto.operator.window.RowNumberFunction;
+import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.slice.Slice;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -23,6 +29,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
+
+import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
@@ -60,6 +68,11 @@ public class FunctionRegistry
     public FunctionRegistry()
     {
         List<FunctionInfo> functions = new FunctionListBuilder()
+                .window("row_number", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(), provider(RowNumberFunction.class))
+                .window("rank", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(), provider(RankFunction.class))
+                .window("dense_rank", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(), provider(DenseRankFunction.class))
+                .window("percent_rank", DOUBLE, ImmutableList.<TupleInfo.Type>of(), provider(PercentRankFunction.class))
+                .window("cume_dist", DOUBLE, ImmutableList.<TupleInfo.Type>of(), provider(CumulativeDistributionFunction.class))
                 .aggregate("count", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(), FIXED_INT_64, COUNT)
                 .aggregate("count", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(FIXED_INT_64), FIXED_INT_64, COUNT_COLUMN)
                 .aggregate("count", FIXED_INT_64, ImmutableList.<TupleInfo.Type>of(DOUBLE), FIXED_INT_64, COUNT_COLUMN)
@@ -181,6 +194,15 @@ public class FunctionRegistry
     {
         private final List<FunctionInfo> functions = new ArrayList<>();
 
+        public FunctionListBuilder window(String name, TupleInfo.Type returnType, List<TupleInfo.Type> argumentTypes, Provider<WindowFunction> function)
+        {
+            name = name.toLowerCase();
+
+            int id = functions.size() + 1;
+            functions.add(new FunctionInfo(id, QualifiedName.of(name), returnType, argumentTypes, function));
+            return this;
+        }
+
         public FunctionListBuilder aggregate(String name, TupleInfo.Type returnType, List<TupleInfo.Type> argumentTypes, TupleInfo.Type intermediateType, AggregationFunction function)
         {
             name = name.toLowerCase();
@@ -253,5 +275,22 @@ public class FunctionRegistry
             Collections.sort(functions);
             return ImmutableList.copyOf(functions);
         }
+    }
+
+    private static Provider<WindowFunction> provider(final Class<? extends WindowFunction> clazz)
+    {
+        return new Provider<WindowFunction>()
+        {
+            @Override
+            public WindowFunction get()
+            {
+                try {
+                    return clazz.getConstructor().newInstance();
+                }
+                catch (ReflectiveOperationException e) {
+                    throw Throwables.propagate(e);
+                }
+            }
+        };
     }
 }

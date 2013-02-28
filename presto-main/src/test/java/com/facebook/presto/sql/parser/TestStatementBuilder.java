@@ -27,10 +27,15 @@ public class TestStatementBuilder
         printStatement("select 1 + 13 || '15' from foo");
 
         printStatement("" +
-                "select * from foo a " +
-                "join bar b using (bar_id) " +
-                "left join zoo on (a.x = zoo.y) " +
-                "cross join (d natural inner join e)");
+                "select depname, empno, salary\n" +
+                ", count(*) over ()\n" +
+                ", avg(salary) over (partition by depname)\n" +
+                ", rank() over (partition by depname order by salary desc)\n" +
+                ", sum(salary) over (order by salary rows unbounded preceding)\n" +
+                ", sum(salary) over (partition by depname order by salary rows between current row and 3 following)\n" +
+                ", sum(salary) over (partition by depname range unbounded preceding)\n" +
+                ", sum(salary) over (rows between 2 preceding and unbounded following)\n" +
+                "from emp");
 
         printStatement("select * from information_schema.tables");
 

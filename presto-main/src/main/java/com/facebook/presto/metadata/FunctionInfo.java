@@ -1,16 +1,20 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.AggregationFunctionDefinition;
-import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.Input;
+import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Function;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
+
+import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -34,6 +38,26 @@ public class FunctionInfo implements Comparable<FunctionInfo>
     private final MethodHandle scalarFunction;
     private final boolean deterministic;
 
+    private final boolean isWindow;
+    private final Provider<WindowFunction> windowFunction;
+
+    public FunctionInfo(int id, QualifiedName name, Type returnType, List<Type> argumentTypes, Provider<WindowFunction> windowFunction)
+    {
+        this.id = id;
+        this.name = name;
+        this.returnType = returnType;
+        this.argumentTypes = argumentTypes;
+        this.deterministic = true;
+
+        this.isAggregate = false;
+        this.intermediateType = null;
+        this.aggregationFunction = null;
+        this.scalarFunction = null;
+
+        this.isWindow = true;
+        this.windowFunction = checkNotNull(windowFunction, "windowFunction is null");
+    }
+
     public FunctionInfo(int id, QualifiedName name, TupleInfo.Type returnType, List<TupleInfo.Type> argumentTypes, TupleInfo.Type intermediateType, AggregationFunction function)
     {
         this.id = id;
@@ -45,6 +69,8 @@ public class FunctionInfo implements Comparable<FunctionInfo>
         this.isAggregate = true;
         this.scalarFunction = null;
         this.deterministic = true;
+        this.isWindow = false;
+        this.windowFunction = null;
     }
 
     public FunctionInfo(int id, QualifiedName name, Type returnType, List<Type> argumentTypes, MethodHandle function, boolean deterministic)
@@ -59,6 +85,8 @@ public class FunctionInfo implements Comparable<FunctionInfo>
         this.intermediateType = null;
         this.aggregationFunction = null;
 
+        this.isWindow = false;
+        this.windowFunction = null;
         this.scalarFunction = checkNotNull(function, "function is null");
     }
 
@@ -75,6 +103,17 @@ public class FunctionInfo implements Comparable<FunctionInfo>
     public boolean isAggregate()
     {
         return isAggregate;
+    }
+
+    public boolean isWindow()
+    {
+        return isWindow;
+    }
+
+    public Provider<WindowFunction> getWindowFunction()
+    {
+        checkState(isWindow, "not a window function");
+        return windowFunction;
     }
 
     public TupleInfo.Type getReturnType()
@@ -116,47 +155,46 @@ public class FunctionInfo implements Comparable<FunctionInfo>
     }
 
     @Override
-    public boolean equals(Object o)
+    public boolean equals(Object obj)
     {
-        if (this == o) {
+        if (this == obj) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
 
-        FunctionInfo that = (FunctionInfo) o;
-
-        if (isAggregate != that.isAggregate) {
-            return false;
-        }
-        if (!argumentTypes.equals(that.argumentTypes)) {
-            return false;
-        }
-        if (!name.equals(that.name)) {
-            return false;
-        }
-        if (returnType != that.returnType) {
-            return false;
-        }
-
-        return true;
+        FunctionInfo o = (FunctionInfo) obj;
+        return Objects.equal(isWindow, o.isWindow) &&
+                Objects.equal(isAggregate, o.isAggregate) &&
+                Objects.equal(name, o.name) &&
+                Objects.equal(argumentTypes, o.argumentTypes) &&
+                Objects.equal(returnType, o.returnType);
     }
 
     @Override
     public int hashCode()
     {
-        int result = name.hashCode();
-        result = 31 * result + (isAggregate ? 1 : 0);
-        result = 31 * result + returnType.hashCode();
-        result = 31 * result + argumentTypes.hashCode();
-        return result;
+        return Objects.hashCode(isWindow, isAggregate, name, argumentTypes, returnType);
+    }
+
+    @Override
+    public String toString()
+    {
+        return Objects.toStringHelper(this)
+                .add("isAggregate", isAggregate)
+                .add("isWindow", isWindow)
+                .add("name", name)
+                .add("argumentTypes", argumentTypes)
+                .add("returnType", returnType)
+                .toString();
     }
 
     @Override
     public int compareTo(FunctionInfo o)
     {
         return ComparisonChain.start()
+                .compareTrueFirst(isWindow, o.isWindow)
                 .compareTrueFirst(isAggregate, o.isAggregate)
                 .compare(name.toString(), o.name.toString())
                 .compare(argumentTypes, o.argumentTypes, Ordering.<Type>natural().lexicographical())

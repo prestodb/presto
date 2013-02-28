@@ -2,8 +2,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.sql.tree.SortItem;
 import com.google.common.base.Function;
-
-import javax.annotation.Nullable;
+import com.google.common.base.Objects;
 
 public class AnalyzedOrdering
 {
@@ -31,6 +30,16 @@ public class AnalyzedOrdering
     public SortItem getNode()
     {
         return node;
+    }
+
+    @Override
+    public String toString()
+    {
+        return Objects.toStringHelper(this)
+                .add("expression", expression)
+                .add("ordering", ordering)
+                .add("node", node)
+                .toString();
     }
 
     public static Function<AnalyzedOrdering, AnalyzedExpression> expressionGetter()
