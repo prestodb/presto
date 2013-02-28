@@ -194,7 +194,9 @@ public class LocalExecutionPlanner
             List<Symbol> orderingSymbols = ImmutableList.copyOf(Iterables.concat(partitionBySymbols, orderBySymbols));
 
             // insert a projection to put all the sort fields in a single channel if necessary
-            source = packIfNecessary(orderingSymbols, source);
+            if (!orderingSymbols.isEmpty()) {
+                source = packIfNecessary(orderingSymbols, source);
+            }
 
             // find channel that fields were packed into if there is an ordering
             int orderByChannel = 0;
@@ -549,9 +551,6 @@ public class LocalExecutionPlanner
     private PhysicalOperation packIfNecessary(List<Symbol> symbols, PhysicalOperation source)
     {
         Set<Integer> channels = getChannelsForSymbols(symbols, source.getLayout());
-        if (channels.isEmpty()) {
-            return source;
-        }
         List<TupleInfo> tupleInfos = source.getOperator().getTupleInfos();
         if (channels.size() > 1 || tupleInfos.get(Iterables.getOnlyElement(channels)).getFieldCount() > 1) {
             source = pack(source, symbols, types);

@@ -155,7 +155,7 @@ public class SqlFormatter
         }
     }
 
-    private static Function<SortItem, String> orderByFormatterFunction()
+    static Function<SortItem, String> orderByFormatterFunction()
     {
         return new Function<SortItem, String>()
         {
