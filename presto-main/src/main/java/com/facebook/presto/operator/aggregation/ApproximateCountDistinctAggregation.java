@@ -106,7 +106,7 @@ public class ApproximateCountDistinctAggregation
         Slice input = cursor.getSlice(field);
 
         ESTIMATOR.mergeInto(valueSlice, valueOffset + 1, input, 0);
-        setNotNull(valueSlice, 0);
+        setNotNull(valueSlice, valueOffset);
     }
 
     @Override
