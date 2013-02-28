@@ -56,6 +56,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.nifty</groupId>
+            <artifactId>nifty-client</artifactId>
+            <version>0.4.0</version>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>node</artifactId>
         </dependency>
@@ -68,6 +74,11 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
         </dependency>
 
         <dependency>
@@ -150,16 +161,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>dbpool</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
         </dependency>
 
         <dependency>
