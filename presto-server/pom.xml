@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-server</artifactId>
-    <version>0.3</version>
+    <version>0.4-SNAPSHOT</version>
     <name>presto-server</name>
 
     <parent>
@@ -38,19 +38,19 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
-            <version>0.3</version>
+            <version>0.4-SNAPSHOT</version>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
-            <version>0.3</version>
+            <version>0.4-SNAPSHOT</version>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hive-plugin</artifactId>
-            <version>0.3</version>
+            <version>0.4-SNAPSHOT</version>
             <type>zip</type>
             <scope>provided</scope>
         </dependency>
@@ -71,7 +71,7 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
-            <version>0.3</version>
+            <version>0.4-SNAPSHOT</version>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
@@ -157,8 +157,4 @@
             </plugin>
         </plugins>
     </build>
-
-  <scm>
-    <tag>0.3</tag>
-  </scm>
 </project>
