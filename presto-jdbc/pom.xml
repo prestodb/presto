@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-jdbc</artifactId>
-    <version>0.3</version>
+    <version>0.4-SNAPSHOT</version>
     <name>presto-jdbc</name>
 
     <parent>
@@ -28,7 +28,7 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
-            <version>0.3</version>
+            <version>0.4-SNAPSHOT</version>
         </dependency>
 
         <dependency>
@@ -71,7 +71,7 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-server</artifactId>
-            <version>0.3</version>
+            <version>0.4-SNAPSHOT</version>
             <scope>test</scope>
         </dependency>
 
@@ -194,8 +194,4 @@
             </plugin>
         </plugins>
     </build>
-
-  <scm>
-    <tag>0.3</tag>
-  </scm>
 </project>
