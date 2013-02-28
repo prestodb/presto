@@ -1,18 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-server</artifactId>
-    <version>0.3-SNAPSHOT</version>
+    <version>0.3</version>
     <name>presto-server</name>
 
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>library</artifactId>
         <version>0.70</version>
-        <relativePath/>
+        <relativePath />
     </parent>
 
     <properties>
@@ -40,19 +38,19 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
-            <version>0.3-SNAPSHOT</version>
+            <version>0.3</version>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
-            <version>0.3-SNAPSHOT</version>
+            <version>0.3</version>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hive-plugin</artifactId>
-            <version>0.3-SNAPSHOT</version>
+            <version>0.3</version>
             <type>zip</type>
             <scope>provided</scope>
         </dependency>
@@ -73,7 +71,7 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
-            <version>0.3-SNAPSHOT</version>
+            <version>0.3</version>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
@@ -159,4 +157,8 @@
             </plugin>
         </plugins>
     </build>
+
+  <scm>
+    <tag>0.3</tag>
+  </scm>
 </project>
