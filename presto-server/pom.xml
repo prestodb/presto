@@ -51,7 +51,7 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-hive</artifactId>
+            <artifactId>presto-hive-plugin</artifactId>
             <version>0.3-SNAPSHOT</version>
             <type>zip</type>
             <scope>provided</scope>
