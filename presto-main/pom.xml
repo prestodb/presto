@@ -13,6 +13,10 @@
         <relativePath />
     </parent>
 
+    <properties>
+        <main-class>com.facebook.presto.Main</main-class>
+    </properties>
+
     <distributionManagement>
         <repository>
             <id>libs-releases-local</id>
