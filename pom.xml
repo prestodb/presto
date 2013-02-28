@@ -45,6 +45,7 @@
     <modules>
         <module>presto-spi</module>
         <module>presto-hive</module>
+        <module>presto-hive-plugin</module>
         <module>presto-main</module>
         <module>presto-jdbc</module>
         <module>presto-server</module>
