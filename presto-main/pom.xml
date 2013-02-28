@@ -291,7 +291,7 @@
         <dependency>
             <groupId>io.airlift.resolver</groupId>
             <artifactId>resolver</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <version>1.0</version>
         </dependency>
 
         <!-- for packaging -->
