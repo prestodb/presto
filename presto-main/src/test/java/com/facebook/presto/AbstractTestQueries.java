@@ -53,6 +53,33 @@ public abstract class AbstractTestQueries
     private TpchDataStreamProvider dataProvider;
 
     @Test
+    public void testApproximateCountDistinct()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT approx_distinct(custkey) FROM orders");
+
+        MaterializedResult expected = resultBuilder(FIXED_INT_64)
+                .row(971)
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedTuples(), expected.getMaterializedTuples());
+    }
+
+    @Test
+    public void testApproximateCountDistinctGroupBy()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT orderstatus, approx_distinct(custkey) FROM orders GROUP BY orderstatus");
+        MaterializedResult expected = resultBuilder(actual.getTupleInfo())
+                .row("O", 969)
+                .row("F", 964)
+                .row("P", 301)
+                .build();
+
+        assertEqualsIgnoreOrder(actual.getMaterializedTuples(), expected.getMaterializedTuples());
+    }
+
+    @Test
     public void testJoinWithMultiFieldGroupBy()
             throws Exception
     {
