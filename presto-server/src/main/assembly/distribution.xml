@@ -44,7 +44,9 @@
         </dependencySet>
         <dependencySet>
             <unpack>true</unpack>
-            <outputDirectory>plugins/hive</outputDirectory>
+            <!-- hack: plugins should really go in /plugins, but the directory doesn't get linked
+                 into the data dir and the server has no visibility into the install directory -->
+            <outputDirectory>etc/plugins/hive</outputDirectory>
             <scope>provided</scope>
             <includes>
                 <include>com.facebook.presto:presto-hive:zip</include>
