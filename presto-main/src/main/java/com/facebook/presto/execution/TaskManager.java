@@ -23,7 +23,7 @@ public interface TaskManager
             String stageId,
             String taskId,
             PlanFragment fragment,
-            Map<PlanNodeId, Set<Split>> fixedSources,
+            Map<PlanNodeId, Set<Split>> initialSources,
             List<String> initialOutputIds);
 
     TaskInfo getTaskInfo(String taskId);

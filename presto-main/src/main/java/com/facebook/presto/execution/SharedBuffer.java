@@ -162,7 +162,9 @@ public class SharedBuffer<T>
         Preconditions.checkNotNull(maxWait, "maxWait is null");
 
         NamedQueue namedQueue = namedQueues.get(outputId);
-        Preconditions.checkArgument(namedQueue != null, "Unknown output %s: available outputs %s", outputId, namedQueues.keySet());
+        if (namedQueue == null) {
+            throw new NoSuchBufferException(outputId, namedQueues.keySet());
+        }
 
         if (state == QueueState.FINISHED) {
             return ImmutableList.of();

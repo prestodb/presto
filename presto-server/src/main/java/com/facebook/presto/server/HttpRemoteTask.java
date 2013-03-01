@@ -9,28 +9,41 @@ import com.facebook.presto.execution.FailureInfo;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
+import com.facebook.presto.metadata.Node;
 import com.facebook.presto.server.FullJsonResponseHandler.JsonResponse;
+import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.SetMultimap;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.JsonBodyGenerator;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.json.JsonCodec;
 
+import javax.annotation.concurrent.GuardedBy;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response.Status;
 import java.net.URI;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.server.FullJsonResponseHandler.createFullJsonResponseHandler;
@@ -51,23 +64,30 @@ public class HttpRemoteTask
         implements RemoteTask
 {
     private final Session session;
+    private final String nodeId;
     private final AtomicReference<TaskInfo> taskInfo = new AtomicReference<>();
     private final PlanFragment planFragment;
-    private final Map<PlanNodeId, Set<Split>> fixedSources;
+
+    @GuardedBy("this")
+    private final SetMultimap<PlanNodeId, URI> exchangeLocations = HashMultimap.create();
+    @GuardedBy("this")
+    private final Set<String> outputIds = new TreeSet<>();
 
     private final HttpClient httpClient;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec;
     private final JsonCodec<Split> splitCodec;
+    private final List<TupleInfo> tupleInfos;
 
     public HttpRemoteTask(Session session,
             String queryId,
             String stageId,
             String taskId,
+            Node node,
             URI location,
             PlanFragment planFragment,
-            Map<PlanNodeId, Set<Split>> fixedSources,
-            List<String> initialOutputIds,
+            Multimap<PlanNodeId, URI> initialExchangeLocations,
+            Set<String> initialOutputIds,
             HttpClient httpClient,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec,
@@ -77,8 +97,9 @@ public class HttpRemoteTask
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
-        Preconditions.checkNotNull(planFragment, "planFragment is null");
-        Preconditions.checkNotNull(fixedSources, "fixedSources is null");
+        Preconditions.checkNotNull(location, "location is null");
+        Preconditions.checkNotNull(planFragment, "planFragment1 is null");
+        Preconditions.checkNotNull(initialExchangeLocations, "initialExchangeLocations is null");
         Preconditions.checkNotNull(initialOutputIds, "initialOutputIds is null");
         Preconditions.checkNotNull(httpClient, "httpClient is null");
         Preconditions.checkNotNull(taskInfoCodec, "taskInfoCodec is null");
@@ -86,12 +107,15 @@ public class HttpRemoteTask
         Preconditions.checkNotNull(splitCodec, "splitCodec is null");
 
         this.session = session;
+        this.nodeId = node.getNodeIdentifier();
         this.planFragment = planFragment;
-        this.fixedSources = fixedSources;
+        this.exchangeLocations.putAll(initialExchangeLocations);
+        this.outputIds.addAll(initialOutputIds);
         this.httpClient = httpClient;
         this.taskInfoCodec = taskInfoCodec;
         this.queryFragmentRequestCodec = queryFragmentRequestCodec;
         this.splitCodec = splitCodec;
+        tupleInfos = planFragment.getTupleInfos();
 
         List<BufferInfo> bufferStates = ImmutableList.copyOf(transform(initialOutputIds, new Function<String, BufferInfo>()
         {
@@ -102,14 +126,13 @@ public class HttpRemoteTask
             }
         }));
 
-        ExecutionStats stats = new ExecutionStats();
         taskInfo.set(new TaskInfo(queryId,
                 stageId,
                 taskId,
                 TaskState.PLANNED,
                 location,
                 bufferStates,
-                stats,
+                new ExecutionStats(),
                 ImmutableList.<FailureInfo>of()));
     }
 
@@ -126,14 +149,76 @@ public class HttpRemoteTask
     }
 
     @Override
-    public void start()
+    public void addSplit(Split split)
+    {
+        addSource(planFragment.getPartitionedSource(), split);
+    }
+
+    @Override
+    public void noMoreSplits()
+    {
+        if (planFragment.getPartitionedSource() != null) {
+            noMoreSources(planFragment.getPartitionedSource());
+        }
+    }
+
+    @Override
+    public void addExchangeLocations(Multimap<PlanNodeId, URI> exchangeLocations, boolean noMore)
+    {
+        // determine which locations are new
+        SetMultimap<PlanNodeId, URI> newExchangeLocations = HashMultimap.create(exchangeLocations);
+        synchronized (this) {
+            newExchangeLocations.entries().removeAll(this.exchangeLocations.entries());
+            this.exchangeLocations.putAll(exchangeLocations);
+        }
+
+        // add the new locations
+        for (Entry<PlanNodeId, URI> entry : newExchangeLocations.entries()) {
+            addSource(entry.getKey(), createRemoteSplitFor(entry.getValue()));
+        }
+
+        // if this is the final set, set no more
+        if (noMore) {
+            Set<PlanNodeId> allExchangeSourceIds;
+            synchronized (this) {
+                allExchangeSourceIds = exchangeLocations.keySet();
+            }
+            for (PlanNodeId planNodeId : allExchangeSourceIds) {
+                noMoreSources(planNodeId);
+            }
+        }
+    }
+
+    @Override
+    public void addOutputBuffers(Set<String> outputBuffers, boolean noMore)
+    {
+        // determine which buffers are new
+        HashSet<String> newOutputBuffers = new HashSet<>(outputBuffers);
+        synchronized (this) {
+            newOutputBuffers.removeAll(this.outputIds);
+            this.outputIds.addAll(outputBuffers);
+        }
+
+        // add the new buffers
+        for (String newOutputBuffer : newOutputBuffers) {
+            addResultQueue(newOutputBuffer);
+        }
+
+        // if this is the final set, set no more
+        if (noMore) {
+            noMoreResultQueues();
+        }
+    }
+
+    @Override
+    public void start(Iterable<? extends Split> initialSplits)
     {
         TaskInfo taskInfo = this.taskInfo.get();
         QueryFragmentRequest queryFragmentRequest = new QueryFragmentRequest(session,
                 taskInfo.getQueryId(),
                 taskInfo.getStageId(),
                 planFragment,
-                fixedSources,
+                initialSources(initialSplits),
                 ImmutableList.copyOf(transform(taskInfo.getOutputBuffers(), BufferInfo.bufferIdGetter())));
 
         Request request = preparePut()
@@ -154,8 +239,23 @@ public class HttpRemoteTask
         this.taskInfo.set(response.getValue());
     }
 
-    @Override
-    public void addResultQueue(String outputName)
+    private synchronized Map<PlanNodeId, Set<Split>> initialSources(Iterable<? extends Split> initialSplits)
+    {
+        ImmutableMap.Builder<PlanNodeId, Set<Split>> sources = ImmutableMap.builder();
+        if (planFragment.getPartitionedSource() != null) {
+            sources.put(planFragment.getPartitionedSource(), ImmutableSet.copyOf(initialSplits));
+        }
+        for (Entry<PlanNodeId, Collection<URI>> entry : exchangeLocations.asMap().entrySet()) {
+            ImmutableSet.Builder<Split> splits = ImmutableSet.builder();
+            for (URI location : entry.getValue()) {
+                splits.add(createRemoteSplitFor(location));
+            }
+            sources.put(entry.getKey(), splits.build());
+        }
+        return sources.build();
+    }
+
+    private void addResultQueue(String outputName)
     {
         TaskInfo taskInfo = this.taskInfo.get();
         URI sourceUri = uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(outputName).build();
@@ -168,8 +268,7 @@ public class HttpRemoteTask
         }
     }
 
-    @Override
-    public void noMoreResultQueues()
+    private void noMoreResultQueues()
     {
         TaskInfo taskInfo = this.taskInfo.get();
         URI statusUri = uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath("complete").build();
@@ -184,8 +283,7 @@ public class HttpRemoteTask
         }
     }
 
-    @Override
-    public void addSource(PlanNodeId sourceId, Split split)
+    private void addSource(PlanNodeId sourceId, Split split)
     {
         TaskInfo taskInfo = this.taskInfo.get();
         URI sourceUri = uriBuilderFrom(taskInfo.getSelf()).appendPath("source").appendPath(sourceId.toString()).build();
@@ -200,11 +298,12 @@ public class HttpRemoteTask
         }
     }
 
-    @Override
-    public void noMoreSources(PlanNodeId sourceId)
+    private void noMoreSources(PlanNodeId sourceId)
     {
-        TaskInfo taskInfo = this.taskInfo.get();
-        URI statusUri = uriBuilderFrom(taskInfo.getSelf()).appendPath("source").appendPath(sourceId.toString()).appendPath("complete").build();
+        Preconditions.checkNotNull(sourceId, "sourceId is null");
+        URI taskLocation = taskInfo.get().getSelf();
+        Preconditions.checkNotNull(taskLocation, "taskLocation is null");
+        URI statusUri = uriBuilderFrom(taskLocation).appendPath("source").appendPath(sourceId.toString()).appendPath("complete").build();
         Request request = preparePut()
                 .setUri(statusUri)
                 .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
@@ -212,7 +311,7 @@ public class HttpRemoteTask
                 .build();
         StatusResponse response = httpClient.execute(request, createStatusResponseHandler());
         if (response.getStatusCode() / 100  != 2) {
-            throw new RuntimeException(String.format("Error closing source '%s' on task %s", sourceId.toString(), taskInfo.getTaskId()));
+            throw new RuntimeException(String.format("Error closing source '%s' on task %s", sourceId.toString(), this.taskInfo.get().getTaskId()));
         }
     }
 
@@ -272,6 +371,12 @@ public class HttpRemoteTask
         }
         catch (RuntimeException ignored) {
         }
+    }
+
+    private RemoteSplit createRemoteSplitFor(URI taskLocation)
+    {
+        URI splitLocation = uriBuilderFrom(taskLocation).appendPath("results").appendPath(nodeId).build();
+        return new RemoteSplit(splitLocation, tupleInfos);
     }
 
     @Override

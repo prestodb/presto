@@ -156,7 +156,7 @@ public class SqlTaskManager
             String stageId,
             String taskId,
             PlanFragment fragment,
-            Map<PlanNodeId, Set<Split>> fixedSources,
+            Map<PlanNodeId, Set<Split>> initialSources,
             List<String> initialOutputIds)
     {
         Preconditions.checkNotNull(session, "session is null");
@@ -166,7 +166,7 @@ public class SqlTaskManager
         Preconditions.checkArgument(!taskId.isEmpty(), "taskId is empty");
         Preconditions.checkNotNull(fragment, "fragment is null");
         Preconditions.checkNotNull(initialOutputIds, "initialOutputIds is null");
-        Preconditions.checkNotNull(fixedSources, "fixedSources is null");
+        Preconditions.checkNotNull(initialSources, "initialSources is null");
 
         URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
 
@@ -176,7 +176,7 @@ public class SqlTaskManager
                 taskId,
                 location,
                 fragment,
-                fixedSources,
+                initialSources,
                 initialOutputIds,
                 pageBufferMax,
                 dataStreamProvider,

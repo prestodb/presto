@@ -19,7 +19,6 @@ import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -27,14 +26,12 @@ import io.airlift.log.Logger;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.FailureInfo.toFailures;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.execution.StageInfo.stageStateGetter;
-import static com.facebook.presto.execution.TaskInfo.taskIdGetter;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.transform;
@@ -154,8 +151,15 @@ public class SqlQueryExecution
                         QueryState.PLANNING);
             }
 
-            // start the query execution
-            startStage(outputStage.get(), ImmutableList.of(ROOT_OUTPUT_BUFFER_NAME));
+            // if query is not finished, start the stage, otherwise cancel it
+            SqlStageExecution stage = outputStage.get();
+            if (!queryState.get().isDone()) {
+                stage.addOutputBuffer(ROOT_OUTPUT_BUFFER_NAME);
+                stage.noMoreOutputBuffers();
+                stage.start();
+            } else {
+                stage.cancel();
+            }
         }
         catch (Exception e) {
             synchronized (this) {
@@ -222,26 +226,6 @@ public class SqlQueryExecution
 
         // record planning time
         queryStats.recordDistributedPlanningTime(distributedPlanningStart);
-    }
-
-    private void startStage(SqlStageExecution stage, List<String> outputIds)
-    {
-        Preconditions.checkState(!Thread.holdsLock(this), "Can not start while holding a lock on this");
-
-        // if query is not finished, start the stage, otherwise cancel it
-        if (!queryState.get().isDone()) {
-            stage.startTasks(outputIds);
-        } else {
-            stage.cancel();
-        }
-
-        // for each partition in stage create an outputBuffer
-        List<String> stageTaskIds = IterableTransformer.on(stage.getStageInfo().getTasks()).transform(taskIdGetter()).list();
-
-        // start all sub stages before starting the main stage
-        for (SqlStageExecution subStage : stage.getSubStages()) {
-            startStage(subStage, stageTaskIds);
-        }
     }
 
     @Override

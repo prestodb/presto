@@ -13,12 +13,12 @@ import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.collect.Multimap;
 import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
-import java.util.List;
-import java.util.Map;
+import java.net.URI;
 import java.util.Set;
 
 public class HttpRemoteTaskFactory
@@ -51,16 +51,17 @@ public class HttpRemoteTaskFactory
             String taskId,
             Node node,
             PlanFragment fragment,
-            Map<PlanNodeId, Set<Split>> fixedSources,
-            List<String> initialOutputIds)
+            Multimap<PlanNodeId, URI> initialExchangeLocations,
+            Set<String> initialOutputIds)
     {
         return new HttpRemoteTask(session,
                 queryId,
                 stageId,
                 taskId,
+                node,
                 locationFactory.createTaskLocation(node, taskId),
                 fragment,
-                fixedSources,
+                initialExchangeLocations,
                 initialOutputIds,
                 httpClient,
                 taskInfoCodec,
