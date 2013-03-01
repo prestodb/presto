@@ -21,6 +21,7 @@ public class HiveClientFactory
     private final DataSize maxChunkSize;
     private final int maxOutstandingChunks;
     private final int maxChunkIteratorThreads;
+    private final int partitionBatchSize;
     private final HiveChunkEncoder hiveChunkEncoder;
     private final FileSystemCache fileSystemCache;
     private final LoadingCache<HiveCluster, CachingHiveMetastore> metastores;
@@ -42,6 +43,8 @@ public class HiveClientFactory
         maxChunkSize = hiveClientConfig.getMaxChunkSize();
         maxOutstandingChunks = hiveClientConfig.getMaxOutstandingChunks();
         maxChunkIteratorThreads = hiveClientConfig.getMaxChunkIteratorThreads();
+        partitionBatchSize = hiveClientConfig.getPartitionBatchSize();
+
         this.hiveChunkEncoder = hiveChunkEncoder;
         this.fileSystemCache = fileSystemCache;
 
@@ -68,6 +71,6 @@ public class HiveClientFactory
     public HiveClient get(HiveCluster hiveCluster)
     {
         CachingHiveMetastore metastore = metastores.getUnchecked(hiveCluster);
-        return new HiveClient(maxChunkSize.toBytes(), maxOutstandingChunks, maxChunkIteratorThreads, hiveChunkEncoder, metastore, fileSystemCache, executorService);
+        return new HiveClient(maxChunkSize.toBytes(), maxOutstandingChunks, maxChunkIteratorThreads, partitionBatchSize, hiveChunkEncoder, metastore, fileSystemCache, executorService);
     }
 }

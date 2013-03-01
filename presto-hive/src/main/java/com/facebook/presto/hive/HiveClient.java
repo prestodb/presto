@@ -76,11 +76,10 @@ import static org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat.SymlinkTextInp
 public class HiveClient
         implements ImportClient
 {
-    private static final int PARTITION_BATCH_SIZE = 1000;
-
     private final long maxChunkBytes;
     private final int maxOutstandingChunks;
     private final int maxChunkIteratorThreads;
+    private final int partitionBatchSize;
     private final HiveChunkEncoder hiveChunkEncoder;
     private final CachingHiveMetastore metastore;
     private final FileSystemCache fileSystemCache;
@@ -90,6 +89,7 @@ public class HiveClient
             long maxChunkBytes,
             int maxOutstandingChunks,
             int maxChunkIteratorThreads,
+            int partitionBatchSize,
             HiveChunkEncoder hiveChunkEncoder,
             CachingHiveMetastore metastore,
             FileSystemCache fileSystemCache,
@@ -98,6 +98,7 @@ public class HiveClient
         this.maxChunkBytes = maxChunkBytes;
         this.maxOutstandingChunks = maxOutstandingChunks;
         this.maxChunkIteratorThreads = maxChunkIteratorThreads;
+        this.partitionBatchSize = partitionBatchSize;
         this.hiveChunkEncoder = hiveChunkEncoder;
         this.metastore = metastore;
         this.fileSystemCache = fileSystemCache;
@@ -260,7 +261,7 @@ public class HiveClient
         }
 
         ImmutableList.Builder<Partition> partitionsBuilder = ImmutableList.builder();
-        for (List<String> batchedPartitionNames : Lists.partition(partitionNames, PARTITION_BATCH_SIZE)) {
+        for (List<String> batchedPartitionNames : Lists.partition(partitionNames, partitionBatchSize)) {
             partitionsBuilder.addAll(metastore.getPartitionsByNames(databaseName, tableName, batchedPartitionNames));
         }
         return partitionsBuilder.build();
