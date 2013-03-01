@@ -18,6 +18,7 @@ public class HiveClientConfig
     private DataSize maxChunkSize = new DataSize(1, Unit.GIGABYTE);
     private int maxOutstandingChunks = 10_000;
     private int maxChunkIteratorThreads = 50;
+    private int partitionBatchSize = 500;
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
     private HostAndPort metastoreSocksProxy;
     private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
@@ -96,6 +97,19 @@ public class HiveClientConfig
     public HiveClientConfig setMetastoreTimeout(Duration metastoreTimeout)
     {
         this.metastoreTimeout = metastoreTimeout;
+        return this;
+    }
+
+    @Min(1)
+    public int getPartitionBatchSize()
+    {
+        return partitionBatchSize;
+    }
+
+    @Config("hive.metastore.partition-batch-size")
+    public HiveClientConfig setPartitionBatchSize(int partitionBatchSize)
+    {
+        this.partitionBatchSize = partitionBatchSize;
         return this;
     }
 }
