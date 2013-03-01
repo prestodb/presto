@@ -17,6 +17,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.IterableTransformer;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
@@ -60,20 +61,22 @@ import static com.google.common.collect.Iterables.transform;
 
 @ThreadSafe
 public class SqlStageExecution
+        implements SafeStageExecution
 {
+
     private static final Logger log = Logger.get(SqlStageExecution.class);
 
     // NOTE: DO NOT call methods on the parent while holding a lock on the child.  Locks
     // are always acquired top down in the tree, so calling a method on the parent while
     // holding a lock on the 'this' could cause a deadlock.
     @Nullable
-    private final SqlStageExecution parent;
+    private final SafeStageExecution parent;
     private final String queryId;
     private final String stageId;
     private final URI location;
     private final PlanFragment fragment;
     private final List<TupleInfo> tupleInfos;
-    private final Map<PlanFragmentId, SqlStageExecution> subStages;
+    private final Map<PlanFragmentId, SafeStageExecution> subStages;
 
     private final Collection<RemoteTask> tasks = new LinkedBlockingQueue<>();
 
@@ -141,7 +144,7 @@ public class SqlStageExecution
 
         tupleInfos = fragment.getTupleInfos();
 
-        ImmutableMap.Builder<PlanFragmentId, SqlStageExecution> subStages = ImmutableMap.builder();
+        ImmutableMap.Builder<PlanFragmentId, SafeStageExecution> subStages = ImmutableMap.builder();
         for (StageExecutionPlan subStagePlan : plan.getSubStages()) {
             PlanFragmentId subStageFragmentId = subStagePlan.getFragment().getId();
             SqlStageExecution subStage = new SqlStageExecution(this, queryId, nextStageId, locationFactory, subStagePlan, nodeManager, remoteTaskFactory, session, queryState);
@@ -150,19 +153,22 @@ public class SqlStageExecution
         this.subStages = subStages.build();
     }
 
+    @Override
     public void cancelStage(String stageId)
     {
         if (stageId.equals(this.stageId)) {
             cancel();
         }
         else {
-            for (SqlStageExecution subStage : subStages.values()) {
+            for (SafeStageExecution subStage : subStages.values()) {
                 subStage.cancelStage(stageId);
             }
         }
     }
 
-    private StageState getState()
+    @Override
+    @VisibleForTesting
+    public StageState getState()
     {
         return stageState.get();
     }
@@ -213,7 +219,7 @@ public class SqlStageExecution
         for (PlanNode planNode : fragment.getSources()) {
             if (planNode instanceof ExchangeNode) {
                 ExchangeNode exchangeNode = (ExchangeNode) planNode;
-                SqlStageExecution subStage = subStages.get(exchangeNode.getSourceFragmentId());
+                SafeStageExecution subStage = subStages.get(exchangeNode.getSourceFragmentId());
                 Preconditions.checkState(subStage != null, "Unknown sub stage %s, known stages %s", exchangeNode.getSourceFragmentId(), subStages.keySet());
                 exchangeLocations.putAll(exchangeNode.getId(), subStage.getTaskLocations());
             }
@@ -221,7 +227,9 @@ public class SqlStageExecution
         return exchangeLocations.build();
     }
 
-    private synchronized List<URI> getTaskLocations()
+    @Override
+    @VisibleForTesting
+    public synchronized List<URI> getTaskLocations()
     {
         ImmutableList.Builder<URI> locations = ImmutableList.builder();
         for (RemoteTask task : tasks) {
@@ -235,10 +243,12 @@ public class SqlStageExecution
         return scheduleStartTasks();
     }
 
-    private Future<?> scheduleStartTasks()
+    @Override
+    @VisibleForTesting
+    public Future<?> scheduleStartTasks()
     {
         // start sub-stages (starts bottom-up)
-        for (SqlStageExecution subStage : subStages.values()) {
+        for (SafeStageExecution subStage : subStages.values()) {
             subStage.scheduleStartTasks();
         }
         return executor.submit(new Runnable()
@@ -318,7 +328,7 @@ public class SqlStageExecution
                 }
 
                 // tell the sub stages to create a buffer for this task
-                for (SqlStageExecution subStage : subStages.values()) {
+                for (SafeStageExecution subStage : subStages.values()) {
                     subStage.addOutputBuffer(nodeIdentifier);
                 }
 
@@ -342,7 +352,7 @@ public class SqlStageExecution
         notifyParentSubStageFinishedScheduling();
 
         // tell sub stages there will be no more output buffers
-        for (SqlStageExecution subStage : subStages.values()) {
+        for (SafeStageExecution subStage : subStages.values()) {
             subStage.noMoreOutputBuffers();
         }
 
@@ -359,7 +369,8 @@ public class SqlStageExecution
         }
     }
 
-    private synchronized void subStageFinishedScheduling()
+    @VisibleForTesting
+    public synchronized void subStageFinishedScheduling()
     {
         this.notifyAll();
     }
@@ -390,7 +401,7 @@ public class SqlStageExecution
 
     private boolean exchangesAndBuffersComplete()
     {
-        for (SqlStageExecution subStage : subStages.values()) {
+        for (SafeStageExecution subStage : subStages.values()) {
             switch (subStage.getState()) {
                 case PLANNED:
                 case SCHEDULING:
@@ -441,7 +452,7 @@ public class SqlStageExecution
                 log.debug(e, "Error updating task info");
             }
         }
-        for (SqlStageExecution subStage : subStages.values()) {
+        for (SafeStageExecution subStage : subStages.values()) {
             subStage.updateState();
         }
 
@@ -506,7 +517,7 @@ public class SqlStageExecution
         for (RemoteTask task : tasks) {
             task.cancel();
         }
-        for (SqlStageExecution subStage : subStages.values()) {
+        for (SafeStageExecution subStage : subStages.values()) {
             subStage.cancel();
         }
     }
@@ -541,15 +552,46 @@ public class SqlStageExecution
         };
     }
 
-    public static Function<SqlStageExecution, StageInfo> stageInfoGetter()
+    public static Function<SafeStageExecution, StageInfo> stageInfoGetter()
     {
-        return new Function<SqlStageExecution, StageInfo>()
+        return new Function<SafeStageExecution, StageInfo>()
         {
             @Override
-            public StageInfo apply(SqlStageExecution stage)
+            public StageInfo apply(SafeStageExecution stage)
             {
                 return stage.getStageInfo();
             }
         };
     }
 }
+
+/*
+ * Since the execution is a tree of SqlStateExecutions, each stage can directly access
+ * the private fields and methods of stages up and down the tree.  To prevent accidental
+ * errors, each stage reference parents and children using this interface so direct
+ * access is not possible.
+ */
+interface SafeStageExecution
+{
+    StageInfo getStageInfo();
+
+    StageState getState();
+
+    Future<?> scheduleStartTasks();
+
+    void addOutputBuffer(String nodeIdentifier);
+
+    void noMoreOutputBuffers();
+
+    Iterable<? extends URI> getTaskLocations();
+
+    void subStageFinishedScheduling();
+
+    void updateState();
+
+    void cancelStage(String stageId);
+
+    void cancel();
+}
+
+
