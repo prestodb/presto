@@ -18,6 +18,7 @@ public class TestHiveClientChunkIteratorBackPressure
                 1024 * 1024 * 1024 /* 1 GB */,
                 1,
                 2,
+                500,
                 getHiveChunkEncoder(),
                 new CachingHiveMetastore(new SimpleHiveCluster(host, port), Duration.valueOf("1m")),
                 new FileSystemCache(),

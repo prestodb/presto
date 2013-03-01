@@ -17,6 +17,7 @@ public class TestHiveClient
                 1024 * 1024 * 1024 /* 1 GB */,
                 100,
                 50,
+                500,
                 getHiveChunkEncoder(),
                 new CachingHiveMetastore(new SimpleHiveCluster(host, port), Duration.valueOf("1m")),
                 new FileSystemCache(),

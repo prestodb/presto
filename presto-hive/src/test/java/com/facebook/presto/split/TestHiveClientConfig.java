@@ -26,7 +26,8 @@ public class TestHiveClientConfig
                 .setMaxChunkIteratorThreads(50)
                 .setMetastoreCacheTtl(new Duration(1, TimeUnit.HOURS))
                 .setMetastoreSocksProxy(null)
-                .setMetastoreTimeout(new Duration(10, TimeUnit.SECONDS)));
+                .setMetastoreTimeout(new Duration(10, TimeUnit.SECONDS))
+                .setPartitionBatchSize(500));
     }
 
     @Test
@@ -39,6 +40,7 @@ public class TestHiveClientConfig
                 .put("hive.metastore-cache-ttl", "2h")
                 .put("hive.metastore.thrift.client.socks-proxy", "localhost:1080")
                 .put("hive.metastore-timeout", "20s")
+                .put("hive.metastore.partition-batch-size", "1000")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -47,7 +49,8 @@ public class TestHiveClientConfig
                 .setMaxChunkIteratorThreads(2)
                 .setMetastoreCacheTtl(new Duration(2, TimeUnit.HOURS))
                 .setMetastoreSocksProxy(HostAndPort.fromParts("localhost", 1080))
-                .setMetastoreTimeout(new Duration(20, TimeUnit.SECONDS));
+                .setMetastoreTimeout(new Duration(20, TimeUnit.SECONDS))
+                .setPartitionBatchSize(1000);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
