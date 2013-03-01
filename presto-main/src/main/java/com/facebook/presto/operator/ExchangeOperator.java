@@ -24,11 +24,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static java.util.Collections.newSetFromMap;
 import static java.util.Collections.synchronizedSet;
 
 public class ExchangeOperator
@@ -39,7 +40,7 @@ public class ExchangeOperator
 
     private final AsyncHttpClient httpClient;
     private final List<TupleInfo> tupleInfos;
-    private final List<URI> locations = new CopyOnWriteArrayList<>();
+    private final Set<URI> locations = newSetFromMap(new ConcurrentHashMap<URI, Boolean>());
     private final AtomicBoolean noMoreLocations = new AtomicBoolean();
 
     private final int maxBufferedPages;
@@ -113,7 +114,7 @@ public class ExchangeOperator
         private final int expectedPagesPerRequest;
         private final int concurrentRequestMultiplier;
         private final AsyncHttpClient httpClient;
-        private final List<URI> locations;
+        private final Set<URI> locations;
         private final AtomicBoolean noMoreLocations;
 
         private final Map<URI, HttpPageBufferClient> allClients = new HashMap<>();
@@ -128,7 +129,7 @@ public class ExchangeOperator
                 int concurrentRequestMultiplier,
                 AsyncHttpClient httpClient,
                 Iterable<TupleInfo> tupleInfos,
-                List<URI> locations,
+                Set<URI> locations,
                 AtomicBoolean noMoreLocations)
         {
             super(tupleInfos);

@@ -21,7 +21,7 @@ public class QueryFragmentRequest
     private final String queryId;
     private final String stageId;
     private final PlanFragment fragment;
-    private final ImmutableMap<PlanNodeId, Set<Split>> fixedSources;
+    private final ImmutableMap<PlanNodeId, Set<Split>> initialSources;
     private final List<String> initialOutputIds;
 
     @JsonCreator
@@ -30,21 +30,21 @@ public class QueryFragmentRequest
             @JsonProperty("queryId") String queryId,
             @JsonProperty("stageId") String stageId,
             @JsonProperty("fragment") PlanFragment fragment,
-            @JsonProperty("fixedSources") Map<PlanNodeId, Set<Split>> fixedSources,
+            @JsonProperty("initialSources") Map<PlanNodeId, Set<Split>> initialSources,
             @JsonProperty("initialOutputIds") List<String> initialOutputIds)
     {
         Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(fragment, "fragment is null");
-        Preconditions.checkNotNull(fixedSources, "fixedSources is null");
+        Preconditions.checkNotNull(initialSources, "initialSources is null");
         Preconditions.checkNotNull(initialOutputIds, "initialOutputIds is null");
 
         this.session = session;
         this.queryId = queryId;
         this.stageId = stageId;
         this.fragment = fragment;
-        this.fixedSources = ImmutableMap.copyOf(fixedSources);
+        this.initialSources = ImmutableMap.copyOf(initialSources);
         this.initialOutputIds = ImmutableList.copyOf(initialOutputIds);
     }
 
@@ -73,9 +73,9 @@ public class QueryFragmentRequest
     }
 
     @JsonProperty
-    public Map<PlanNodeId, Set<Split>> getFixedSources()
+    public Map<PlanNodeId, Set<Split>> getInitialSources()
     {
-        return fixedSources;
+        return initialSources;
     }
 
     @JsonProperty
@@ -92,7 +92,7 @@ public class QueryFragmentRequest
                 .add("queryId", queryId)
                 .add("stageId", stageId)
                 .add("fragment", fragment)
-                .add("fixedSources", fixedSources)
+                .add("initialSources", initialSources)
                 .add("initialOutputIds", initialOutputIds)
                 .toString();
     }

@@ -5,6 +5,10 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.collect.Multimap;
+
+import java.net.URI;
+import java.util.Set;
 
 public interface RemoteTask
 {
@@ -12,15 +16,15 @@ public interface RemoteTask
 
     TaskInfo getTaskInfo();
 
-    void start();
+    void start(Iterable<? extends Split> initialSplits);
 
-    void addResultQueue(String outputName);
+    void addSplit(Split split);
 
-    void noMoreResultQueues();
+    void noMoreSplits();
 
-    void addSource(PlanNodeId sourceId, Split split);
+    void addExchangeLocations(Multimap<PlanNodeId, URI> exchangeLocations, boolean noMore);
 
-    void noMoreSources(PlanNodeId sourceId);
+    void addOutputBuffers(Set<String> outputBuffers, boolean noMore);
 
     void cancel();
 

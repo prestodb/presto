@@ -214,9 +214,9 @@ public class TestSharedBuffer
         // verify operations on unknown queue throw an exception
         try {
             sharedBuffer.get("unknown", 1, NO_WAIT);
-            fail("Expected IllegalStateException from operation on unknown queue");
+            fail("Expected NoSuchBufferException from operation on unknown queue");
         }
-        catch (IllegalArgumentException expected) {
+        catch (NoSuchBufferException expected) {
         }
         try {
             sharedBuffer.abort("unknown");
@@ -229,9 +229,9 @@ public class TestSharedBuffer
         sharedBuffer.finish();
         try {
             sharedBuffer.get("unknown", 1, NO_WAIT);
-            fail("Expected IllegalStateException from operation on unknown queue");
+            fail("Expected NoSuchBufferException from operation on unknown queue");
         }
-        catch (IllegalArgumentException expected) {
+        catch (NoSuchBufferException expected) {
         }
         try {
             sharedBuffer.abort("unknown");
@@ -244,9 +244,9 @@ public class TestSharedBuffer
         sharedBuffer.noMoreQueues();
         try {
             sharedBuffer.get("unknown", 1, NO_WAIT);
-            fail("Expected IllegalStateException from operation on unknown queue");
+            fail("Expected NoSuchBufferException from operation on unknown queue");
         }
-        catch (IllegalArgumentException expected) {
+        catch (NoSuchBufferException expected) {
         }
         try {
             sharedBuffer.abort("unknown");
@@ -260,9 +260,9 @@ public class TestSharedBuffer
         sharedBuffer.destroy();
         try {
             sharedBuffer.get("unknown", 1, NO_WAIT);
-            fail("Expected IllegalStateException from operation on unknown queue");
+            fail("Expected NoSuchBufferException from operation on unknown queue");
         }
-        catch (IllegalArgumentException expected) {
+        catch (NoSuchBufferException expected) {
         }
         try {
             sharedBuffer.abort("unknown");

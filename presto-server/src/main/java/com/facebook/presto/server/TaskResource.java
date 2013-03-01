@@ -4,6 +4,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.PrestoMediaTypes;
+import com.facebook.presto.execution.NoSuchBufferException;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.operator.Page;
@@ -74,7 +75,7 @@ public class TaskResource
                     queryFragmentRequest.getStageId(),
                     taskId,
                     queryFragmentRequest.getFragment(),
-                    queryFragmentRequest.getFixedSources(),
+                    queryFragmentRequest.getInitialSources(),
                     queryFragmentRequest.getInitialOutputIds());
 
             URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(taskInfo.getTaskId()).build();
@@ -103,22 +104,34 @@ public class TaskResource
 
     @DELETE
     @Path("{taskId}")
-    public void cancelTask(@PathParam("taskId") String taskId)
+    public Response cancelTask(@PathParam("taskId") String taskId)
     {
         checkNotNull(taskId, "taskId is null");
 
-        taskManager.cancelTask(taskId);
+        try {
+            taskManager.cancelTask(taskId);
+            return Response.noContent().build();
+        }
+        catch (NoSuchElementException e) {
+            return Response.status(Status.NOT_FOUND).build();
+        }
     }
 
     @PUT
     @Path("{taskId}/results/{outputId}")
     @Produces(PrestoMediaTypes.PRESTO_PAGES)
-    public void addResultQueue(@PathParam("taskId") String taskId, @PathParam("outputId") String outputId)
+    public Response addResultQueue(@PathParam("taskId") String taskId, @PathParam("outputId") String outputId)
     {
         checkNotNull(taskId, "taskId is null");
         checkNotNull(outputId, "outputId is null");
 
-        taskManager.addResultQueue(taskId, outputId);
+        try {
+            taskManager.addResultQueue(taskId, outputId);
+            return Response.noContent().build();
+        }
+        catch (NoSuchElementException e) {
+            return Response.status(Status.NOT_FOUND).build();
+        }
     }
 
     @GET
@@ -144,6 +157,9 @@ public class TaskResource
             GenericEntity<?> entity = new GenericEntity<>(pages, new TypeToken<List<Page>>() {}.getType());
             return Response.ok(entity).build();
         }
+        catch (NoSuchBufferException e) {
+            return Response.status(Status.NO_CONTENT).build();
+        }
         catch (NoSuchElementException e) {
             return Response.status(Status.GONE).build();
         }
@@ -152,10 +168,16 @@ public class TaskResource
     @PUT
     @Path("{taskId}/results/complete")
     @Consumes(MediaType.APPLICATION_JSON)
-    public void noMoreResultQueues(@PathParam("taskId") String taskId, boolean isComplete)
+    public Response noMoreResultQueues(@PathParam("taskId") String taskId, boolean isComplete)
     {
-        if (isComplete) {
-            taskManager.noMoreResultQueues(taskId);
+        try {
+            if (isComplete) {
+                taskManager.noMoreResultQueues(taskId);
+            }
+            return Response.noContent().build();
+        }
+        catch (NoSuchElementException e) {
+            return Response.status(Status.NOT_FOUND).build();
         }
     }
 
@@ -172,26 +194,38 @@ public class TaskResource
             return Response.noContent().build();
         }
         catch (NoSuchElementException e) {
-            return Response.status(Status.GONE).build();
+            return Response.status(Status.NOT_FOUND).build();
         }
     }
 
     @POST
     @Path("{taskId}/source/{sourceId}")
     @Consumes(MediaType.APPLICATION_JSON)
-    public void addSplit(@PathParam("taskId") String taskId, @PathParam("sourceId") String sourceId, Split split)
+    public Response addSplit(@PathParam("taskId") String taskId, @PathParam("sourceId") String sourceId, Split split)
     {
         checkNotNull(split, "split is null");
-        taskManager.addSplit(taskId, new PlanNodeId(sourceId), split);
+        try {
+            taskManager.addSplit(taskId, new PlanNodeId(sourceId), split);
+            return Response.noContent().build();
+        }
+        catch (NoSuchElementException e) {
+            return Response.status(Status.NOT_FOUND).build();
+        }
     }
 
     @PUT
     @Path("{taskId}/source/{sourceId}/complete")
     @Consumes(MediaType.APPLICATION_JSON)
-    public void noMoreSplits(@PathParam("taskId") String taskId, @PathParam("sourceId") String sourceId, boolean isComplete)
+    public Response noMoreSplits(@PathParam("taskId") String taskId, @PathParam("sourceId") String sourceId, boolean isComplete)
     {
-        if (isComplete) {
-            taskManager.noMoreSplits(taskId, new PlanNodeId(sourceId));
+        try {
+            if (isComplete) {
+                taskManager.noMoreSplits(taskId, new PlanNodeId(sourceId));
+            }
+            return Response.noContent().build();
+        }
+        catch (NoSuchElementException e) {
+            return Response.status(Status.NOT_FOUND).build();
         }
     }
 }

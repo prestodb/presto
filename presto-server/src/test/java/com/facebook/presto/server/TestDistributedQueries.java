@@ -301,7 +301,7 @@ public class TestDistributedQueries
             Map<String, String> serverProperties = ImmutableMap.<String, String>builder()
                     .put("node.environment", "testing")
                     .put("storage-manager.data-directory", baseDataDir.getPath())
-                    .put("query.client.timeout", "5s")
+                    .put("query.client.timeout", "10m")
                     .put("presto-metastore.db.type", "h2")
                     .put("exchange.http-client.read-timeout ", "1h")
                     .put("presto-metastore.db.filename", new File(baseDataDir, "db/MetaStore").getPath())
