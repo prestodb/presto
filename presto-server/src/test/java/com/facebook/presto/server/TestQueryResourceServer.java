@@ -122,12 +122,14 @@ public class TestQueryResourceServer
         TaskInfo taskInfo = queryInfo.getOutputStage().getTasks().get(0);
         URI outputLocation = uriFor("/v1/task/" + taskInfo.getTaskId() + "/results/out");
 
-        assertEquals(client.execute(preparePut()
+        Request request = preparePut()
                 .setUri(uriFor("/v1/task/" + taskInfo.getTaskId() + "/results/complete"))
                 .setHeader(HttpHeaders.CONTENT_TYPE, MEDIA_TYPE_JSON.toString())
                 .setBodyGenerator(jsonBodyGenerator(jsonCodec(boolean.class), true))
-                .build(),
-                createStatusResponseHandler()).getStatusCode(), 204);
+                .build();
+        JsonResponse<TaskInfo> response = client.execute(request, createFullJsonResponseHandler(jsonCodec(TaskInfo.class)));
+        assertEquals(response.getStatusCode(), 200);
+        assertEquals(response.getValue().getTaskId(), taskInfo.getTaskId());
 
         assertEquals(loadData(outputLocation), 220);
         assertQueryStatus(location, QueryState.RUNNING);
@@ -135,9 +137,10 @@ public class TestQueryResourceServer
         assertEquals(loadData(outputLocation), 44 + 48);
         assertQueryStatus(location, QueryState.FINISHED);
 
-        StatusResponse response = client.execute(prepareDelete().setUri(location).build(), createStatusResponseHandler());
+        // cancel the query
+        StatusResponse cancelResponse = client.execute(prepareDelete().setUri(location).build(), createStatusResponseHandler());
         assertQueryStatus(location, QueryState.FINISHED);
-        assertEquals(response.getStatusCode(), HttpStatus.NO_CONTENT.code());
+        assertEquals(cancelResponse.getStatusCode(), HttpStatus.NO_CONTENT.code());
     }
 
     private void assertQueryStatus(URI location, QueryState expectedQueryState)

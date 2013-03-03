@@ -28,18 +28,18 @@ public interface TaskManager
 
     TaskInfo getTaskInfo(String taskId);
 
-    void addResultQueue(String taskId, String outputName);
+    TaskInfo addResultQueue(String taskId, String outputName);
 
     List<Page> getTaskResults(String taskId, String outputName, int maxPageCount, Duration maxWaitTime)
             throws InterruptedException;
 
-    void noMoreResultQueues(String taskId);
+    TaskInfo noMoreResultQueues(String taskId);
 
-    void addSplit(String taskId, PlanNodeId sourceId, Split source);
+    TaskInfo addSplit(String taskId, PlanNodeId sourceId, Split source);
 
-    void noMoreSplits(String taskId, PlanNodeId sourceId);
+    TaskInfo noMoreSplits(String taskId, PlanNodeId sourceId);
 
-    void abortTaskResults(String taskId, String outputId);
+    TaskInfo abortTaskResults(String taskId, String outputId);
 
-    void cancelTask(String taskId);
+    TaskInfo cancelTask(String taskId);
 }
