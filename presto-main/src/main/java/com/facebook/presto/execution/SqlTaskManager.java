@@ -191,22 +191,24 @@ public class SqlTaskManager
     }
 
     @Override
-    public void addResultQueue(String taskId, String outputName)
+    public TaskInfo addResultQueue(String taskId, String outputName)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(outputName, "outputName is null");
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution == null) {
-            if (taskInfos.containsKey(taskId)) {
+            TaskInfo taskInfo = taskInfos.get(taskId);
+            if (taskInfo != null) {
                 // todo this is not safe since task can be expired at any time
-                // task was finished early, so this call should be ignored
-                return;
+                // task was finished early, so the new split should be ignored
+                return taskInfo;
             } else {
                 throw new NoSuchElementException("Unknown query task " + taskId);
             }
         }
         taskExecution.addResultQueue(outputName);
+        return taskExecution.getTaskInfo();
     }
 
     @Override
@@ -224,25 +226,27 @@ public class SqlTaskManager
     }
 
     @Override
-    public void noMoreResultQueues(String taskId)
+    public TaskInfo noMoreResultQueues(String taskId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution == null) {
-            if (taskInfos.containsKey(taskId)) {
+            TaskInfo taskInfo = taskInfos.get(taskId);
+            if (taskInfo != null) {
                 // todo this is not safe since task can be expired at any time
-                // task was finished early, so this call should be ignored
-                return;
+                // task was finished early, so the new split should be ignored
+                return taskInfo;
             } else {
                 throw new NoSuchElementException("Unknown query task " + taskId);
             }
         }
         taskExecution.noMoreResultQueues();
+        return taskExecution.getTaskInfo();
     }
 
     @Override
-    public void addSplit(String taskId, PlanNodeId sourceId, Split split)
+    public TaskInfo addSplit(String taskId, PlanNodeId sourceId, Split split)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(sourceId, "sourceId is null");
@@ -250,48 +254,53 @@ public class SqlTaskManager
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution == null) {
-            if (taskInfos.containsKey(taskId)) {
+            TaskInfo taskInfo = taskInfos.get(taskId);
+            if (taskInfo != null) {
                 // todo this is not safe since task can be expired at any time
                 // task was finished early, so the new split should be ignored
-                return;
+                return taskInfo;
             } else {
                 throw new NoSuchElementException("Unknown query task " + taskId);
             }
         }
         taskExecution.addSplit(sourceId, split);
+        return taskExecution.getTaskInfo();
     }
 
     @Override
-    public void noMoreSplits(String taskId, PlanNodeId sourceId)
+    public TaskInfo noMoreSplits(String taskId, PlanNodeId sourceId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(sourceId, "sourceId is null");
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution == null) {
-            if (taskInfos.containsKey(taskId)) {
+            TaskInfo taskInfo = taskInfos.get(taskId);
+            if (taskInfo != null) {
                 // todo this is not safe since task can be expired at any time
-                // task was finished early, so this call should be ignored
-                return;
+                // task was finished early, so the new split should be ignored
+                return taskInfo;
             } else {
                 throw new NoSuchElementException("Unknown query task " + taskId);
             }
         }
         taskExecution.noMoreSplits(sourceId);
+        return taskExecution.getTaskInfo();
     }
 
     @Override
-    public void abortTaskResults(String taskId, String outputId)
+    public TaskInfo abortTaskResults(String taskId, String outputId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(outputId, "outputId is null");
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution == null) {
-            if (taskInfos.containsKey(taskId)) {
+            TaskInfo taskInfo = taskInfos.get(taskId);
+            if (taskInfo != null) {
                 // todo this is not safe since task can be expired at any time
-                // task was finished early, so this call should be ignored
-                return;
+                // task was finished early, so the new split should be ignored
+                return taskInfo;
             } else {
                 throw new NoSuchElementException("Unknown query task " + taskId);
             }
@@ -301,23 +310,27 @@ public class SqlTaskManager
 
         // assure task is completed and cache final results
         cancelTask(taskId);
+        return taskExecution.getTaskInfo();
     }
 
     @Override
-    public void cancelTask(String taskId)
+    public TaskInfo cancelTask(String taskId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 
         TaskExecution taskExecution = tasks.remove(taskId);
-        if (taskExecution != null) {
-            // make sure task is finished
-            taskExecution.cancel();
-            tasks.remove(taskId);
-
-            // cache task info
-            TaskInfo taskInfo = taskExecution.getTaskInfo();
-            taskInfos.putIfAbsent(taskId, taskInfo);
+        if (taskExecution == null) {
+            return taskInfos.get(taskId);
         }
+
+        // make sure task is finished
+        taskExecution.cancel();
+        tasks.remove(taskId);
+
+        // cache task info
+        TaskInfo taskInfo = taskExecution.getTaskInfo();
+        taskInfos.putIfAbsent(taskId, taskInfo);
+        return taskExecution.getTaskInfo();
     }
 
     public void removeOldTasks()

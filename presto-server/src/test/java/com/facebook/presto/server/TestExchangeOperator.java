@@ -56,7 +56,6 @@ import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.preparePut;
-import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -214,12 +213,14 @@ public class TestExchangeOperator
         TaskInfo taskInfo = response.getValue();
 
         URI outputLocation = httpServer.getBaseUrl().resolve("/v1/task/" + taskInfo.getTaskId() + "/results/out");
-        assertEquals(httpClient.execute(preparePut()
+        request = preparePut()
                 .setUri(httpServer.getBaseUrl().resolve("/v1/task/" + taskInfo.getTaskId() + "/results/complete"))
                 .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
                 .setBodyGenerator(jsonBodyGenerator(jsonCodec(boolean.class), true))
-                .build(),
-                createStatusResponseHandler()).getStatusCode(), 204);
+                .build();
+        response = httpClient.execute(request, createFullJsonResponseHandler(jsonCodec(TaskInfo.class)));
+        assertEquals(response.getStatusCode(), 200);
+        assertEquals(response.getValue().getTaskId(), taskInfo.getTaskId());
 
         return outputLocation;
     }

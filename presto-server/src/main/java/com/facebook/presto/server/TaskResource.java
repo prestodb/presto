@@ -104,30 +104,33 @@ public class TaskResource
 
     @DELETE
     @Path("{taskId}")
+    @Produces(MediaType.APPLICATION_JSON)
     public Response cancelTask(@PathParam("taskId") String taskId)
     {
         checkNotNull(taskId, "taskId is null");
 
         try {
-            taskManager.cancelTask(taskId);
-            return Response.noContent().build();
+            TaskInfo taskInfo = taskManager.cancelTask(taskId);
+            if (taskInfo != null) {
+                return Response.ok(taskInfo).build();
+            }
         }
-        catch (NoSuchElementException e) {
-            return Response.status(Status.NOT_FOUND).build();
+        catch (NoSuchElementException ignored) {
         }
+        return Response.status(Status.NOT_FOUND).build();
     }
 
     @PUT
     @Path("{taskId}/results/{outputId}")
-    @Produces(PrestoMediaTypes.PRESTO_PAGES)
+    @Produces(MediaType.APPLICATION_JSON)
     public Response addResultQueue(@PathParam("taskId") String taskId, @PathParam("outputId") String outputId)
     {
         checkNotNull(taskId, "taskId is null");
         checkNotNull(outputId, "outputId is null");
 
         try {
-            taskManager.addResultQueue(taskId, outputId);
-            return Response.noContent().build();
+            TaskInfo taskInfo = taskManager.addResultQueue(taskId, outputId);
+            return Response.ok(taskInfo).build();
         }
         catch (NoSuchElementException e) {
             return Response.status(Status.NOT_FOUND).build();
@@ -168,13 +171,17 @@ public class TaskResource
     @PUT
     @Path("{taskId}/results/complete")
     @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
     public Response noMoreResultQueues(@PathParam("taskId") String taskId, boolean isComplete)
     {
         try {
+            TaskInfo taskInfo;
             if (isComplete) {
-                taskManager.noMoreResultQueues(taskId);
+                taskInfo = taskManager.noMoreResultQueues(taskId);
+            } else {
+                taskInfo = taskManager.getTaskInfo(taskId);
             }
-            return Response.noContent().build();
+            return Response.ok(taskInfo).build();
         }
         catch (NoSuchElementException e) {
             return Response.status(Status.NOT_FOUND).build();
@@ -183,15 +190,15 @@ public class TaskResource
 
     @DELETE
     @Path("{taskId}/results/{outputId}")
-    @Produces(PrestoMediaTypes.PRESTO_PAGES)
+    @Produces(MediaType.APPLICATION_JSON)
     public Response abortResults(@PathParam("taskId") String taskId, @PathParam("outputId") String outputId)
     {
         checkNotNull(taskId, "taskId is null");
         checkNotNull(outputId, "outputId is null");
 
         try {
-            taskManager.abortTaskResults(taskId, outputId);
-            return Response.noContent().build();
+            TaskInfo taskInfo = taskManager.abortTaskResults(taskId, outputId);
+            return Response.ok(taskInfo).build();
         }
         catch (NoSuchElementException e) {
             return Response.status(Status.NOT_FOUND).build();
@@ -201,12 +208,13 @@ public class TaskResource
     @POST
     @Path("{taskId}/source/{sourceId}")
     @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
     public Response addSplit(@PathParam("taskId") String taskId, @PathParam("sourceId") String sourceId, Split split)
     {
         checkNotNull(split, "split is null");
         try {
-            taskManager.addSplit(taskId, new PlanNodeId(sourceId), split);
-            return Response.noContent().build();
+            TaskInfo taskInfo = taskManager.addSplit(taskId, new PlanNodeId(sourceId), split);
+            return Response.ok(taskInfo).build();
         }
         catch (NoSuchElementException e) {
             return Response.status(Status.NOT_FOUND).build();
@@ -216,13 +224,17 @@ public class TaskResource
     @PUT
     @Path("{taskId}/source/{sourceId}/complete")
     @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
     public Response noMoreSplits(@PathParam("taskId") String taskId, @PathParam("sourceId") String sourceId, boolean isComplete)
     {
         try {
+            TaskInfo taskInfo;
             if (isComplete) {
-                taskManager.noMoreSplits(taskId, new PlanNodeId(sourceId));
+                taskInfo = taskManager.noMoreSplits(taskId, new PlanNodeId(sourceId));
+            } else {
+                taskInfo = taskManager.getTaskInfo(taskId);
             }
-            return Response.noContent().build();
+            return Response.ok(taskInfo).build();
         }
         catch (NoSuchElementException e) {
             return Response.status(Status.NOT_FOUND).build();

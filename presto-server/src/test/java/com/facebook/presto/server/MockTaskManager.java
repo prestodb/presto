@@ -113,25 +113,28 @@ public class MockTaskManager
     }
 
     @Override
-    public void addSplit(String taskId, PlanNodeId sourceId, Split source)
+    public TaskInfo addSplit(String taskId, PlanNodeId sourceId, Split source)
     {
         // todo
+        return getTaskInfo(taskId);
     }
 
     @Override
-    public void noMoreSplits(String taskId, PlanNodeId sourceId)
+    public TaskInfo noMoreSplits(String taskId, PlanNodeId sourceId)
     {
         // todo
+        return getTaskInfo(taskId);
     }
 
     @Override
-    public void addResultQueue(String taskId, String outputName)
+    public TaskInfo addResultQueue(String taskId, String outputName)
     {
         TaskOutput taskOutput = tasks.get(taskId);
         if (taskOutput == null) {
             throw new NoSuchElementException();
         }
         taskOutput.addResultQueue(outputName);
+        return taskOutput.getTaskInfo();
     }
 
     @Override
@@ -149,17 +152,18 @@ public class MockTaskManager
     }
 
     @Override
-    public void noMoreResultQueues(String taskId)
+    public TaskInfo noMoreResultQueues(String taskId)
     {
         TaskOutput taskOutput = tasks.get(taskId);
         if (taskOutput == null) {
             throw new NoSuchElementException();
         }
         taskOutput.noMoreResultQueues();
+        return taskOutput.getTaskInfo();
     }
 
     @Override
-    public void abortTaskResults(String taskId, String outputId)
+    public TaskInfo abortTaskResults(String taskId, String outputId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(outputId, "outputId is null");
@@ -169,16 +173,20 @@ public class MockTaskManager
             throw new NoSuchElementException();
         }
         taskOutput.abortResults(outputId);
+        return taskOutput.getTaskInfo();
     }
 
     @Override
-    public void cancelTask(String taskId)
+    public TaskInfo cancelTask(String taskId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 
         TaskOutput taskOutput = tasks.get(taskId);
         if (taskOutput != null) {
             taskOutput.cancel();
+            return taskOutput.getTaskInfo();
+        } else {
+            return null;
         }
     }
 }

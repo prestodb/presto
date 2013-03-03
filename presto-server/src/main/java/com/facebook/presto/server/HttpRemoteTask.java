@@ -10,7 +10,6 @@ import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.metadata.Node;
-import com.facebook.presto.server.FullJsonResponseHandler.JsonResponse;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
@@ -26,10 +25,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
+import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.JsonBodyGenerator;
 import io.airlift.http.client.Request;
-import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.json.JsonCodec;
 
 import javax.annotation.Nullable;
@@ -47,10 +46,10 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.server.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
+import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
@@ -58,7 +57,6 @@ import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.Request.Builder.preparePut;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
-import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
 
 public class HttpRemoteTask
@@ -258,43 +256,71 @@ public class HttpRemoteTask
 
     private void addResultQueue(String outputName)
     {
+        // if task is already complete, ignore this call
         TaskInfo taskInfo = this.taskInfo.get();
+        if (taskInfo.getState().isDone()) {
+            return;
+        }
+
+        // send http request
         URI sourceUri = uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(outputName).build();
         Request request = preparePut()
                 .setUri(sourceUri)
                 .build();
-        StatusResponse response = httpClient.execute(request, createStatusResponseHandler());
-        if (response.getStatusCode() != 204) {
+        JsonResponse<TaskInfo> response = httpClient.execute(request, createFullJsonResponseHandler(taskInfoCodec));
+
+        updateTaskInfo(response);
+
+        // expect a 200 or 404
+        if (response.getStatusCode() != 200 && response.getStatusCode() != 404) {
             throw new RuntimeException(String.format("Error adding result queue '%s' to task %s", outputName, taskInfo.getTaskId()));
         }
     }
 
     private void noMoreResultQueues()
     {
+        // if task is already complete, ignore this call
         TaskInfo taskInfo = this.taskInfo.get();
+        if (taskInfo.getState().isDone()) {
+            return;
+        }
+
         URI statusUri = uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath("complete").build();
         Request request = preparePut()
                 .setUri(statusUri)
                 .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
                 .setBodyGenerator(createStaticBodyGenerator("true", UTF_8))
                 .build();
-        StatusResponse response = httpClient.execute(request, createStatusResponseHandler());
-        if (response.getStatusCode() / 100  != 2) {
+        JsonResponse<TaskInfo> response = httpClient.execute(request, createFullJsonResponseHandler(taskInfoCodec));
+
+        updateTaskInfo(response);
+
+        // expect a 200 or 404
+        if (response.getStatusCode() != 200 && response.getStatusCode() != 404) {
             throw new RuntimeException(String.format("Error setting no more results queues on task %s", taskInfo.getTaskId()));
         }
     }
 
     private void addSource(PlanNodeId sourceId, Split split)
     {
+        // if task is already complete, ignore this call
         TaskInfo taskInfo = this.taskInfo.get();
+        if (taskInfo.getState().isDone()) {
+            return;
+        }
+
         URI sourceUri = uriBuilderFrom(taskInfo.getSelf()).appendPath("source").appendPath(sourceId.toString()).build();
         Request request = preparePost()
                 .setUri(sourceUri)
                 .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
                 .setBodyGenerator(JsonBodyGenerator.jsonBodyGenerator(splitCodec, split))
                 .build();
-        StatusResponse response = httpClient.execute(request, createStatusResponseHandler());
-        if (response.getStatusCode() != 204) {
+        JsonResponse<TaskInfo> response = httpClient.execute(request, createFullJsonResponseHandler(taskInfoCodec));
+
+        updateTaskInfo(response);
+
+        // expect a 200 or 404
+        if (response.getStatusCode() != 200 && response.getStatusCode() != 404) {
             throw new RuntimeException(String.format("Error adding split to source '%s' in task %s", sourceId, taskInfo.getTaskId()));
         }
     }
@@ -302,17 +328,41 @@ public class HttpRemoteTask
     private void noMoreSources(PlanNodeId sourceId)
     {
         Preconditions.checkNotNull(sourceId, "sourceId is null");
-        URI taskLocation = taskInfo.get().getSelf();
-        Preconditions.checkNotNull(taskLocation, "taskLocation is null");
-        URI statusUri = uriBuilderFrom(taskLocation).appendPath("source").appendPath(sourceId.toString()).appendPath("complete").build();
+
+        // if task is already complete, ignore this call
+        TaskInfo taskInfo = this.taskInfo.get();
+        if (taskInfo.getState().isDone()) {
+            return;
+        }
+
+        // send http request
+        URI statusUri = uriBuilderFrom(taskInfo.getSelf()).appendPath("source").appendPath(sourceId.toString()).appendPath("complete").build();
         Request request = preparePut()
                 .setUri(statusUri)
                 .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
                 .setBodyGenerator(createStaticBodyGenerator("true", UTF_8))
                 .build();
-        StatusResponse response = httpClient.execute(request, createStatusResponseHandler());
-        if (response.getStatusCode() / 100  != 2) {
+        JsonResponse<TaskInfo> response = httpClient.execute(request, createFullJsonResponseHandler(taskInfoCodec));
+
+        updateTaskInfo(response);
+
+        // expect a 200 or 404
+        if (response.getStatusCode() != 200 && response.getStatusCode() != 404) {
             throw new RuntimeException(String.format("Error closing source '%s' on task %s", sourceId, this.taskInfo.get().getTaskId()));
+        }
+    }
+
+    private void updateTaskInfo(JsonResponse<TaskInfo> response)
+    {
+        // update task info
+        if (response.hasValue()) {
+            try {
+                TaskInfo taskInfo = response.getValue();
+                this.taskInfo.set(taskInfo);
+            }
+            catch (Exception ignored) {
+                // if we got bad json, back just ignore it... updating the task info is an optional part of this task
+            }
         }
     }
 
@@ -368,7 +418,8 @@ public class HttpRemoteTask
         }
         try {
             Request request = prepareDelete().setUri(taskInfo.getSelf()).build();
-            httpClient.execute(request, createStatusResponseHandler());
+            JsonResponse<TaskInfo> response = httpClient.execute(request, createFullJsonResponseHandler(taskInfoCodec));
+            updateTaskInfo(response);
         }
         catch (RuntimeException ignored) {
         }
