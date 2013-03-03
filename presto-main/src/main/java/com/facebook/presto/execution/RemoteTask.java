@@ -16,7 +16,7 @@ public interface RemoteTask
 
     TaskInfo getTaskInfo();
 
-    void start(Iterable<? extends Split> initialSplits);
+    void start(Split initialSplit);
 
     void addSplit(Split split);
 

@@ -32,6 +32,7 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.json.JsonCodec;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
@@ -211,14 +212,14 @@ public class HttpRemoteTask
     }
 
     @Override
-    public void start(Iterable<? extends Split> initialSplits)
+    public void start(@Nullable Split initialSplit)
     {
         TaskInfo taskInfo = this.taskInfo.get();
         QueryFragmentRequest queryFragmentRequest = new QueryFragmentRequest(session,
                 taskInfo.getQueryId(),
                 taskInfo.getStageId(),
                 planFragment,
-                initialSources(initialSplits),
+                initialSources(initialSplit),
                 ImmutableList.copyOf(transform(taskInfo.getOutputBuffers(), BufferInfo.bufferIdGetter())));
 
         Request request = preparePut()
@@ -239,11 +240,11 @@ public class HttpRemoteTask
         this.taskInfo.set(response.getValue());
     }
 
-    private synchronized Map<PlanNodeId, Set<Split>> initialSources(Iterable<? extends Split> initialSplits)
+    private synchronized Map<PlanNodeId, Set<Split>> initialSources(@Nullable Split initialSplit)
     {
         ImmutableMap.Builder<PlanNodeId, Set<Split>> sources = ImmutableMap.builder();
-        if (planFragment.getPartitionedSource() != null) {
-            sources.put(planFragment.getPartitionedSource(), ImmutableSet.copyOf(initialSplits));
+        if (initialSplit != null) {
+            sources.put(planFragment.getPartitionedSource(), ImmutableSet.of(initialSplit));
         }
         for (Entry<PlanNodeId, Collection<URI>> entry : exchangeLocations.asMap().entrySet()) {
             ImmutableSet.Builder<Split> splits = ImmutableSet.builder();
@@ -294,7 +295,7 @@ public class HttpRemoteTask
                 .build();
         StatusResponse response = httpClient.execute(request, createStatusResponseHandler());
         if (response.getStatusCode() != 204) {
-            throw new RuntimeException(String.format("Error adding source '%s' to task %s", sourceId.toString(), taskInfo.getTaskId()));
+            throw new RuntimeException(String.format("Error adding split to source '%s' in task %s", sourceId, taskInfo.getTaskId()));
         }
     }
 
@@ -311,7 +312,7 @@ public class HttpRemoteTask
                 .build();
         StatusResponse response = httpClient.execute(request, createStatusResponseHandler());
         if (response.getStatusCode() / 100  != 2) {
-            throw new RuntimeException(String.format("Error closing source '%s' on task %s", sourceId.toString(), this.taskInfo.get().getTaskId()));
+            throw new RuntimeException(String.format("Error closing source '%s' on task %s", sourceId, this.taskInfo.get().getTaskId()));
         }
     }
 

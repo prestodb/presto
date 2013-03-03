@@ -198,7 +198,13 @@ public class SqlTaskManager
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution == null) {
-            throw new NoSuchElementException("Unknown query task " + taskId);
+            if (taskInfos.containsKey(taskId)) {
+                // todo this is not safe since task can be expired at any time
+                // task was finished early, so this call should be ignored
+                return;
+            } else {
+                throw new NoSuchElementException("Unknown query task " + taskId);
+            }
         }
         taskExecution.addResultQueue(outputName);
     }
@@ -224,7 +230,13 @@ public class SqlTaskManager
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution == null) {
-            throw new NoSuchElementException("Unknown query task " + taskId);
+            if (taskInfos.containsKey(taskId)) {
+                // todo this is not safe since task can be expired at any time
+                // task was finished early, so this call should be ignored
+                return;
+            } else {
+                throw new NoSuchElementException("Unknown query task " + taskId);
+            }
         }
         taskExecution.noMoreResultQueues();
     }
@@ -238,7 +250,13 @@ public class SqlTaskManager
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution == null) {
-            throw new NoSuchElementException();
+            if (taskInfos.containsKey(taskId)) {
+                // todo this is not safe since task can be expired at any time
+                // task was finished early, so the new split should be ignored
+                return;
+            } else {
+                throw new NoSuchElementException("Unknown query task " + taskId);
+            }
         }
         taskExecution.addSplit(sourceId, split);
     }
@@ -251,7 +269,13 @@ public class SqlTaskManager
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution == null) {
-            throw new NoSuchElementException();
+            if (taskInfos.containsKey(taskId)) {
+                // todo this is not safe since task can be expired at any time
+                // task was finished early, so this call should be ignored
+                return;
+            } else {
+                throw new NoSuchElementException("Unknown query task " + taskId);
+            }
         }
         taskExecution.noMoreSplits(sourceId);
     }
@@ -264,7 +288,13 @@ public class SqlTaskManager
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution == null) {
-            throw new NoSuchElementException();
+            if (taskInfos.containsKey(taskId)) {
+                // todo this is not safe since task can be expired at any time
+                // task was finished early, so this call should be ignored
+                return;
+            } else {
+                throw new NoSuchElementException("Unknown query task " + taskId);
+            }
         }
         log.debug("Aborting task %s output %s", taskId, outputId);
         taskExecution.abortResults(outputId);
