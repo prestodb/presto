@@ -246,9 +246,16 @@ public class SqlTaskExecution
 
     private synchronized void checkTaskCompletion()
     {
-        if (noMoreSources.containsAll(sourceIds) && pendingWorkerCount.get() == 0) {
-            taskOutput.finish();
+        // are there more partition splits expected?
+        if (fragment.isPartitioned() && !noMoreSources.contains(fragment.getPartitionedSource())) {
+            return;
         }
+        // do we still have running tasks?
+        if (pendingWorkerCount.get() != 0) {
+            return;
+        }
+        // Cool! All done!
+        taskOutput.finish();
     }
 
     private synchronized SourceHashProviderFactory getSourceHashProviderFactory()

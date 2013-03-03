@@ -209,7 +209,9 @@ public class SharedBuffer<T>
     {
         Preconditions.checkNotNull(outputId, "outputId is null");
         NamedQueue namedQueue = namedQueues.get(outputId);
-        Preconditions.checkArgument(namedQueue != null, "Unknown output %s: available outputs %s", outputId, namedQueues.keySet());
+        if (namedQueue == null) {
+            return;
+        }
         namedQueue.setFinished();
         openQueuesBySequenceId.remove(namedQueue);
 

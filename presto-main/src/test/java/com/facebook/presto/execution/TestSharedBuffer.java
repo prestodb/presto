@@ -218,12 +218,9 @@ public class TestSharedBuffer
         }
         catch (NoSuchBufferException expected) {
         }
-        try {
-            sharedBuffer.abort("unknown");
-            fail("Expected IllegalStateException from operation on unknown queue");
-        }
-        catch (IllegalArgumentException expected) {
-        }
+
+        // abort on unknown buffer is allowed
+        sharedBuffer.abort("unknown");
 
         // finish buffer and try operations again
         sharedBuffer.finish();
@@ -233,12 +230,9 @@ public class TestSharedBuffer
         }
         catch (NoSuchBufferException expected) {
         }
-        try {
-            sharedBuffer.abort("unknown");
-            fail("Expected IllegalStateException from operation on unknown queue");
-        }
-        catch (IllegalArgumentException expected) {
-        }
+
+        // abort on unknown buffer is allowed
+        sharedBuffer.abort("unknown");
 
         // set no more queues and try operations again
         sharedBuffer.noMoreQueues();
@@ -248,12 +242,9 @@ public class TestSharedBuffer
         }
         catch (NoSuchBufferException expected) {
         }
-        try {
-            sharedBuffer.abort("unknown");
-            fail("Expected IllegalStateException from operation on unknown queue");
-        }
-        catch (IllegalArgumentException expected) {
-        }
+
+        // abort on unknown buffer is allowed
+        sharedBuffer.abort("unknown");
 
 
         // destroy and try operations again
@@ -264,12 +255,9 @@ public class TestSharedBuffer
         }
         catch (NoSuchBufferException expected) {
         }
-        try {
-            sharedBuffer.abort("unknown");
-            fail("Expected IllegalStateException from operation on unknown queue");
-        }
-        catch (IllegalArgumentException expected) {
-        }
+
+        // abort on unknown buffer is allowed
+        sharedBuffer.abort("unknown");
     }
 
     @Test

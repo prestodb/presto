@@ -220,7 +220,7 @@ public class SqlQueryExecution
             fieldNames.set(ImmutableList.copyOf(outputStageExecutionPlan.getFieldNames()));
 
             // build the stage execution objects (this doesn't schedule execution)
-            SqlStageExecution outputStage = new SqlStageExecution(queryId, locationFactory, outputStageExecutionPlan, nodeManager, remoteTaskFactory, session, this.queryState);
+            SqlStageExecution outputStage = new SqlStageExecution(queryId, locationFactory, outputStageExecutionPlan, nodeManager, remoteTaskFactory, session);
             this.outputStage.set(outputStage);
         }
 
