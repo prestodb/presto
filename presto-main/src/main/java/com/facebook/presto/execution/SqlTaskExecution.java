@@ -111,7 +111,7 @@ public class SqlTaskExecution
         this.maxOperatorMemoryUsage = maxOperatorMemoryUsage;
 
         // create output buffers
-        this.taskOutput = new TaskOutput(queryId, stageId, taskId, location, initialOutputIds, pageBufferMax, 0);
+        this.taskOutput = new TaskOutput(queryId, stageId, taskId, location, initialOutputIds, pageBufferMax);
 
         // todo is this correct?
         taskOutput.getStats().recordExecutionStart();
@@ -139,7 +139,7 @@ public class SqlTaskExecution
             scheduleSplitWorker(null, null);
         } else {
             for (Split initialSplit : initialSplits) {
-                scheduleSplitWorker(fragment.getPartitionedSource(), initialSplit);
+                addSplit(fragment.getPartitionedSource(), initialSplit);
             }
         }
     }
@@ -160,6 +160,8 @@ public class SqlTaskExecution
     @Override
     public synchronized void addSplit(PlanNodeId sourceId, Split split)
     {
+        getTaskInfo().getStats().addSplits(1);
+
         // is this a partitioned source
         if (fragment.isPartitioned() && fragment.getPartitionedSource().equals(sourceId)) {
             scheduleSplitWorker(sourceId, split);
@@ -172,7 +174,6 @@ public class SqlTaskExecution
                 // this should not happen until the all sources have been closed
                 Preconditions.checkState(worker != null, "SplitWorker has been GCed");
                 worker.addSplit(sourceId, split);
-                getTaskInfo().getStats().addSplits(1);
             }
         }
     }

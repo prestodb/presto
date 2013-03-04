@@ -33,7 +33,7 @@ public class TaskOutput
 
     private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
 
-    public TaskOutput(String queryId, String stageId, String taskId, URI location, List<String> initialOutputIds, int pageBufferMax, int splits)
+    public TaskOutput(String queryId, String stageId, String taskId, URI location, List<String> initialOutputIds, int pageBufferMax)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
@@ -41,7 +41,6 @@ public class TaskOutput
         Preconditions.checkNotNull(location, "location is null");
         Preconditions.checkNotNull(initialOutputIds, "initialOutputIds is null");
         Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
-        Preconditions.checkArgument(splits >= 0, "splits is negative");
 
         this.queryId = queryId;
         this.stageId = stageId;
@@ -51,8 +50,6 @@ public class TaskOutput
         for (String outputId : initialOutputIds) {
             sharedBuffer.addQueue(outputId);
         }
-
-        stats.addSplits(splits);
     }
 
     public String getTaskId()

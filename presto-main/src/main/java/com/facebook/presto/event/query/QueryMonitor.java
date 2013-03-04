@@ -65,7 +65,7 @@ public class QueryMonitor
                         globalExecutionStats.getSplitCpuTime(),
                         globalExecutionStats.getCompletedDataSize(),
                         globalExecutionStats.getCompletedPositionCount(),
-                        queryInfo.getQueryStats().getSplits(),
+                        globalExecutionStats.getSplits(),
                         stageInfoJsonCodec.toJson(queryInfo.getOutputStage()),
                         failureInfoJsonCodec.toJson(queryInfo.getFailures())
                 )
