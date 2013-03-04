@@ -59,6 +59,8 @@ public class SqlQueryManager
 
     private final boolean importsEnabled;
     private final Duration clientTimeout;
+    private final int maxPendingSplitsPerNode;
+
     private final ScheduledExecutorService queryManagementExecutor;
 
 
@@ -96,6 +98,7 @@ public class SqlQueryManager
         this.importsEnabled = config.isImportsEnabled();
         this.maxQueryAge = config.getMaxQueryAge();
         this.clientTimeout = config.getClientTimeout();
+        this.maxPendingSplitsPerNode = config.getMaxPendingSplitsPerNode();
 
         queryManagementExecutor = Executors.newScheduledThreadPool(100, threadsNamed("query-management-%d"));
 
@@ -211,7 +214,8 @@ public class SqlQueryManager
                     nodeManager,
                     remoteTaskFactory,
                     locationFactory,
-                    queryMonitor);
+                    queryMonitor,
+                    maxPendingSplitsPerNode);
             queryMonitor.createdEvent(queryExecution.getQueryInfo());
         }
         queries.put(queryExecution.getQueryId(), queryExecution);
