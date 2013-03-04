@@ -49,7 +49,7 @@
             <outputDirectory>etc/plugins/hive</outputDirectory>
             <scope>provided</scope>
             <includes>
-                <include>com.facebook.presto:presto-hive:zip</include>
+                <include>com.facebook.presto:presto-hive-plugin:zip</include>
             </includes>
         </dependencySet>
         <dependencySet>
