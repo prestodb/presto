@@ -23,6 +23,8 @@ import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -57,8 +59,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Executor;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -86,7 +90,7 @@ public class HiveClient
     private final HiveChunkEncoder hiveChunkEncoder;
     private final CachingHiveMetastore metastore;
     private final FileSystemCache fileSystemCache;
-    private final Executor executor;
+    private final ListeningExecutorService executor;
 
     public HiveClient(
             long maxChunkBytes,
@@ -96,7 +100,7 @@ public class HiveClient
             HiveChunkEncoder hiveChunkEncoder,
             CachingHiveMetastore metastore,
             FileSystemCache fileSystemCache,
-            Executor executor)
+            ExecutorService executor)
     {
         this.maxChunkBytes = maxChunkBytes;
         this.maxOutstandingChunks = maxOutstandingChunks;
@@ -105,7 +109,7 @@ public class HiveClient
         this.hiveChunkEncoder = hiveChunkEncoder;
         this.metastore = metastore;
         this.fileSystemCache = fileSystemCache;
-        this.executor = executor;
+        this.executor = MoreExecutors.listeningDecorator(executor);
     }
 
     @Override
@@ -340,7 +344,7 @@ public class HiveClient
 
     private Iterable<PartitionChunk> getPartitionChunks(Table table, Iterable<Partition> partitions, List<HiveColumn> columns)
     {
-        return new PartitionChunkIterable(table, partitions, columns, maxChunkBytes, maxOutstandingChunks, maxChunkIteratorThreads, fileSystemCache, executor);
+        return new PartitionChunkIterable(table, partitions, columns, maxChunkBytes, maxOutstandingChunks, maxChunkIteratorThreads, fileSystemCache, executor, partitionBatchSize);
     }
 
     private static class PartitionChunkIterable
@@ -362,8 +366,9 @@ public class HiveClient
         private final int maxOutstandingChunks;
         private final int maxThreads;
         private final FileSystemCache fileSystemCache;
-        private final Executor executor;
+        private final ListeningExecutorService executor;
         private final ClassLoader classLoader;
+        private final int partitionBatchSize;
 
         private PartitionChunkIterable(Table table,
                 Iterable<Partition> partitions,
@@ -372,10 +377,12 @@ public class HiveClient
                 int maxOutstandingChunks,
                 int maxThreads,
                 FileSystemCache fileSystemCache,
-                Executor executor)
+                ListeningExecutorService executor,
+                int partitionBatchSize)
         {
             this.table = table;
             this.partitions = partitions;
+            this.partitionBatchSize = partitionBatchSize;
             this.columns = ImmutableList.copyOf(columns);
             this.maxChunkBytes = maxChunkBytes;
             this.maxOutstandingChunks = maxOutstandingChunks;
@@ -389,12 +396,30 @@ public class HiveClient
         public Iterator<PartitionChunk> iterator()
         {
             // Each iterator has its own bounded executor and can be independently suspended
-            SuspendingExecutor suspendingExecutor = new SuspendingExecutor(new BoundedExecutor(executor, maxThreads));
+            final SuspendingExecutor suspendingExecutor = new SuspendingExecutor(new BoundedExecutor(executor, maxThreads));
             final PartitionChunkQueue partitionChunkQueue = new PartitionChunkQueue(maxOutstandingChunks, suspendingExecutor);
-            try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)){
+            executor.submit(new Callable<Void>()
+            {
+                @Override
+                public Void call()
+                        throws Exception
+                {
+                    loadPartitionChunks(partitionChunkQueue, suspendingExecutor);
+                    return null;
+                }
+            });
+            return partitionChunkQueue;
+        }
+
+        private void loadPartitionChunks(final PartitionChunkQueue partitionChunkQueue, final SuspendingExecutor suspendingExecutor)
+                throws InterruptedException
+        {
+            final Semaphore semaphore = new Semaphore(partitionBatchSize);
+            try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
                 ImmutableList.Builder<ListenableFuture<Void>> futureBuilder = ImmutableList.builder();
 
                 for (Partition partition : partitions) {
+                    semaphore.acquire();
                     final Properties schema = getPartitionSchema(table, partition);
                     final List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition);
                     final InputFormat inputFormat = getInputFormat(fileSystemCache.getConfiguration(), schema, false);
@@ -414,7 +439,7 @@ public class HiveClient
 
                     FileSystem fs = partitionPath.getFileSystem(fileSystemCache.getConfiguration());
 
-                    futureBuilder.add(new AsyncRecursiveWalker(fs, suspendingExecutor).beginWalk(partitionPath, new FileStatusCallback()
+                    ListenableFuture<Void> partitionFuture = new AsyncRecursiveWalker(fs, suspendingExecutor).beginWalk(partitionPath, new FileStatusCallback()
                     {
                         @Override
                         public void process(FileStatus file)
@@ -434,9 +459,27 @@ public class HiveClient
                                 partitionChunkQueue.fail(e);
                             }
                         }
-                    }));
+                    });
+
+                    // release the semaphore when th partition finishes
+                    Futures.addCallback(Futures.allAsList(futureBuilder.build()), new FutureCallback<List<Void>>()
+                    {
+                        @Override
+                        public void onSuccess(List<Void> result)
+                        {
+                            semaphore.release();
+                        }
+
+                        @Override
+                        public void onFailure(Throwable t)
+                        {
+                            semaphore.release();
+                        }
+                    });
+                    futureBuilder.add(partitionFuture);
                 }
 
+                // when all partitions finish, mark the queue as finished
                 Futures.addCallback(Futures.allAsList(futureBuilder.build()), new FutureCallback<List<Void>>()
                 {
                     @Override
@@ -455,7 +498,6 @@ public class HiveClient
             catch (IOException e) {
                 throw Throwables.propagate(e);
             }
-            return partitionChunkQueue;
         }
 
         private static class PartitionChunkQueue
