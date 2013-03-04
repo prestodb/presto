@@ -86,6 +86,8 @@ public class SqlStageExecution
     private final Optional<Iterable<SplitAssignments>> splits;
     private final RemoteTaskFactory remoteTaskFactory;
     private final Session session; // only used for remote task factory
+    private final int maxPendingSplitsPerNode;
+
     private final Random random = new Random();
 
     // Changes to state must happen within a synchronized lock.
@@ -111,9 +113,11 @@ public class SqlStageExecution
             RemoteTask task2 = tasks.get(o2);
             if (task1 == null) {
                 return task2 == null ? 0 : -1;
-            } else if (task2 == null) {
+            }
+            else if (task2 == null) {
                 return 1;
-            } else {
+            }
+            else {
                 return Ints.compare(task1.getTaskInfo().getStats().getPendingSplits(), task2.getTaskInfo().getStats().getPendingSplits());
             }
         }
@@ -124,19 +128,21 @@ public class SqlStageExecution
             StageExecutionPlan plan,
             NodeManager nodeManager,
             RemoteTaskFactory remoteTaskFactory,
-            Session session)
+            Session session,
+            int maxPendingSplitsPerNode)
     {
-        this(null, queryId, new AtomicInteger(), locationFactory, plan, nodeManager, remoteTaskFactory, session);
+        this(null, queryId, new AtomicInteger(), locationFactory, plan, nodeManager, remoteTaskFactory, session, maxPendingSplitsPerNode);
     }
 
-    private SqlStageExecution(@Nullable SqlStageExecution parent,
+    private SqlStageExecution(@Nullable SafeStageExecution parent,
             String queryId,
             AtomicInteger nextStageId,
             LocationFactory locationFactory,
             StageExecutionPlan plan,
             NodeManager nodeManager,
             RemoteTaskFactory remoteTaskFactory,
-            Session session)
+            Session session,
+            int maxPendingSplitsPerNode)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(nextStageId, "nextStageId is null");
@@ -145,6 +151,7 @@ public class SqlStageExecution
         Preconditions.checkNotNull(nodeManager, "nodeManager is null");
         Preconditions.checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
         Preconditions.checkNotNull(session, "session is null");
+        Preconditions.checkArgument(maxPendingSplitsPerNode > 0, "maxPendingSplitsPerNode must be greater than 0");
 
         this.parent = parent;
         this.queryId = queryId;
@@ -155,13 +162,22 @@ public class SqlStageExecution
         this.nodeManager = nodeManager;
         this.remoteTaskFactory = remoteTaskFactory;
         this.session = session;
+        this.maxPendingSplitsPerNode = maxPendingSplitsPerNode;
 
         tupleInfos = fragment.getTupleInfos();
 
         ImmutableMap.Builder<PlanFragmentId, SafeStageExecution> subStages = ImmutableMap.builder();
         for (StageExecutionPlan subStagePlan : plan.getSubStages()) {
             PlanFragmentId subStageFragmentId = subStagePlan.getFragment().getId();
-            SqlStageExecution subStage = new SqlStageExecution(this, queryId, nextStageId, locationFactory, subStagePlan, nodeManager, remoteTaskFactory, session);
+            SafeStageExecution subStage = new SqlStageExecution(this,
+                    queryId,
+                    nextStageId,
+                    locationFactory,
+                    subStagePlan,
+                    nodeManager,
+                    remoteTaskFactory,
+                    session,
+                    maxPendingSplitsPerNode);
             subStages.put(subStageFragmentId, subStage);
         }
         this.subStages = subStages.build();
@@ -301,13 +317,12 @@ public class SqlStageExecution
             }
             else {
                 for (SplitAssignments assignment : splits.get()) {
+                    Node chosen = chooseNode(assignment);
+
                     // if query has been canceled, exit cleanly; query will never run regardless
                     if (getState().isDone()) {
                         break;
                     }
-
-                    // for each split, pick the node with the smallest number of assignments
-                    Node chosen = Ordering.from(byPendingSplitsCount).min(assignment.getNodes());
 
                     RemoteTask task = tasks.get(chosen);
                     if (task == null) {
@@ -333,7 +348,7 @@ public class SqlStageExecution
             }
 
             // add the missing exchanges output buffers
-            addNewExchangesAndBuffers();
+            addNewExchangesAndBuffers(true);
         }
         catch (Throwable e) {
             // some exceptions can occur when the query finishes early
@@ -342,6 +357,38 @@ public class SqlStageExecution
                 log.error(e, "Error while starting stage %s", stageId);
                 throw e;
             }
+        }
+    }
+
+    private Node chooseNode(SplitAssignments assignment)
+    {
+        while (true) {
+            // if query has been canceled, exit
+            if (getState().isDone()) {
+                return null;
+            }
+
+            // for each split, pick the node with the smallest number of assignments
+            Node chosen = Ordering.from(byPendingSplitsCount).min(assignment.getNodes());
+
+            // if the chosen node doesn't have too many tasks already, return
+            RemoteTask task = tasks.get(chosen);
+            if (task == null || task.getTaskInfo().getStats().getPendingSplits() < maxPendingSplitsPerNode) {
+                return chosen;
+            }
+
+            synchronized (this) {
+                // otherwise wait for some tasks to complete
+                try {
+                    this.wait(1000);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw Throwables.propagate(e);
+                }
+            }
+
+            addNewExchangesAndBuffers(false);
         }
     }
 
@@ -404,7 +451,7 @@ public class SqlStageExecution
         this.notifyAll();
     }
 
-    private void addNewExchangesAndBuffers()
+    private void addNewExchangesAndBuffers(boolean waitUntilFinished)
     {
         Preconditions.checkState(!Thread.holdsLock(this), "Can not add exchanges or buffers to tasks while holding a lock on this");
 
@@ -428,7 +475,9 @@ public class SqlStageExecution
                 return;
             }
 
-            waitForMoreExchangesAndBuffers(exchangeLocations, exchangesComplete, outputBuffers, outputComplete);
+            if (waitUntilFinished) {
+                waitForMoreExchangesAndBuffers(exchangeLocations, exchangesComplete, outputBuffers, outputComplete);
+            }
         }
     }
 

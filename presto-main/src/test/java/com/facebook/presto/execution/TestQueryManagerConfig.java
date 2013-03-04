@@ -23,6 +23,7 @@ public class TestQueryManagerConfig
                 .setClientTimeout(new Duration(1, TimeUnit.MINUTES))
                 .setMaxOperatorMemoryUsage(new DataSize(256, Unit.MEGABYTE))
                 .setMaxSplitCount(100_000)
+                .setMaxPendingSplitsPerNode(100)
                 .setExchangeMaxBufferedPages(100)
                 .setExchangeExpectedPagesPerRequest(10)
                 .setExchangeConcurrentRequestMultiplier(3));
@@ -39,6 +40,7 @@ public class TestQueryManagerConfig
                 .put("query.client.timeout", "10s")
                 .put("query.max-age", "30s")
                 .put("query.max-splits", "100")
+                .put("query.max-pending-splits-per-node", "33")
                 .put("exchange.page-buffer-max", "11")
                 .put("exchange.expected-pages-per-request", "12")
                 .put("exchange.concurrent-request-multiplier", "13")
@@ -52,6 +54,7 @@ public class TestQueryManagerConfig
                 .setClientTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setImportsEnabled(false)
                 .setMaxSplitCount(100)
+                .setMaxPendingSplitsPerNode(33)
                 .setExchangeMaxBufferedPages(11)
                 .setExchangeExpectedPagesPerRequest(12)
                 .setExchangeConcurrentRequestMultiplier(13);

@@ -32,6 +32,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.facebook.presto.execution.FailureInfo.toFailures;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.execution.StageInfo.stageStateGetter;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.any;
 import static com.google.common.collect.Iterables.transform;
@@ -52,6 +53,7 @@ public class SqlQueryExecution
     private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
     private final QueryMonitor queryMonitor;
+    private final int maxPendingSplitsPerNode;
 
     private final QueryStats queryStats = new QueryStats();
 
@@ -74,17 +76,19 @@ public class SqlQueryExecution
             NodeManager nodeManager,
             RemoteTaskFactory remoteTaskFactory,
             LocationFactory locationFactory,
-            QueryMonitor queryMonitor)
+            QueryMonitor queryMonitor,
+            int maxPendingSplitsPerNode)
     {
         checkNotNull(queryId, "queryId is null");
         checkNotNull(sql, "sql is null");
         checkNotNull(session, "session is null");
         checkNotNull(metadata, "metadata is null");
         checkNotNull(splitManager, "splitManager is null");
-        Preconditions.checkNotNull(nodeManager, "nodeManager is null");
-        Preconditions.checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
+        checkNotNull(nodeManager, "nodeManager is null");
+        checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
         checkNotNull(locationFactory, "locationFactory is null");
         checkNotNull(queryMonitor, "queryMonitor is null");
+        checkArgument(maxPendingSplitsPerNode > 0, "maxPendingSplitsPerNode must be greater than 0");
 
         this.queryId = queryId;
         this.sql = sql;
@@ -96,6 +100,7 @@ public class SqlQueryExecution
         this.remoteTaskFactory = remoteTaskFactory;
         this.locationFactory = locationFactory;
         this.queryMonitor = queryMonitor;
+        this.maxPendingSplitsPerNode = maxPendingSplitsPerNode;
     }
 
     @Override
@@ -220,7 +225,13 @@ public class SqlQueryExecution
             fieldNames.set(ImmutableList.copyOf(outputStageExecutionPlan.getFieldNames()));
 
             // build the stage execution objects (this doesn't schedule execution)
-            SqlStageExecution outputStage = new SqlStageExecution(queryId, locationFactory, outputStageExecutionPlan, nodeManager, remoteTaskFactory, session);
+            SqlStageExecution outputStage = new SqlStageExecution(queryId,
+                    locationFactory,
+                    outputStageExecutionPlan,
+                    nodeManager,
+                    remoteTaskFactory,
+                    session,
+                    maxPendingSplitsPerNode);
             this.outputStage.set(outputStage);
         }
 
