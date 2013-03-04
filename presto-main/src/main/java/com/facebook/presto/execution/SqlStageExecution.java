@@ -30,7 +30,6 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -102,6 +101,23 @@ public class SqlStageExecution
     private boolean noMoreOutputIds;
 
     private final ExecutorService executor = Executors.newCachedThreadPool(threadsNamed("stage-scheduler-%n"));
+
+    private final Comparator<Node> byPendingSplitsCount = new Comparator<Node>()
+    {
+        @Override
+        public int compare(Node o1, Node o2)
+        {
+            RemoteTask task1 = tasks.get(o1);
+            RemoteTask task2 = tasks.get(o2);
+            if (task1 == null) {
+                return task2 == null ? 0 : -1;
+            } else if (task2 == null) {
+                return 1;
+            } else {
+                return Ints.compare(task1.getTaskInfo().getStats().getPendingSplits(), task2.getTaskInfo().getStats().getPendingSplits());
+            }
+        }
+    };
 
     public SqlStageExecution(String queryId,
             LocationFactory locationFactory,
@@ -284,17 +300,6 @@ public class SqlStageExecution
                 scheduleTask(nextTaskId, randomNode, null);
             }
             else {
-                // remember how many splits have been assigned to each node
-                final Object2IntOpenHashMap<Node> nodeSplits = new Object2IntOpenHashMap<>();
-                Comparator<Node> byAssignedSplitsCount = new Comparator<Node>()
-                {
-                    @Override
-                    public int compare(Node o1, Node o2)
-                    {
-                        return Ints.compare(nodeSplits.getInt(o1), nodeSplits.getInt(o2));
-                    }
-                };
-
                 for (SplitAssignments assignment : splits.get()) {
                     // if query has been canceled, exit cleanly; query will never run regardless
                     if (getState().isDone()) {
@@ -302,8 +307,7 @@ public class SqlStageExecution
                     }
 
                     // for each split, pick the node with the smallest number of assignments
-                    Node chosen = Ordering.from(byAssignedSplitsCount).min(assignment.getNodes());
-                    nodeSplits.add(chosen, 1);
+                    Node chosen = Ordering.from(byPendingSplitsCount).min(assignment.getNodes());
 
                     RemoteTask task = tasks.get(chosen);
                     if (task == null) {

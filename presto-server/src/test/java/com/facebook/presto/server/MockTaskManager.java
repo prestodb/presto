@@ -92,7 +92,7 @@ public class MockTaskManager
         Preconditions.checkArgument(!taskId.isEmpty(), "taskId is empty");
 
         URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
-        TaskOutput taskOutput = new TaskOutput(queryId, stageId, taskId, location, ImmutableList.copyOf(initialOutputIds), pageBufferMax, 0);
+        TaskOutput taskOutput = new TaskOutput(queryId, stageId, taskId, location, ImmutableList.copyOf(initialOutputIds), pageBufferMax);
         tasks.put(taskId, taskOutput);
 
         List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");

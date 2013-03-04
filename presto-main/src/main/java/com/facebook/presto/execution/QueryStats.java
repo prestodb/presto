@@ -12,8 +12,6 @@ import org.joda.time.DateTime;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.concurrent.atomic.AtomicInteger;
-
 @ThreadSafe
 public class QueryStats
 {
@@ -33,8 +31,6 @@ public class QueryStats
     @GuardedBy("this")
     private Duration distributedPlanningTime;
 
-    private final AtomicInteger splits = new AtomicInteger();
-
     public QueryStats()
     {
         createTime = DateTime.now();
@@ -50,16 +46,15 @@ public class QueryStats
             @JsonProperty("endTime") DateTime endTime,
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("analysisTime") Duration analysisTime,
-            @JsonProperty("distributedPlanningTime") Duration distributedPlanningTime,
-            @JsonProperty("splits") int splits)
+            @JsonProperty("distributedPlanningTime") Duration distributedPlanningTime)
     {
         this.createTime = createTime;
         this.executionStartTime = executionStartTime;
+        this.lastHeartBeat = lastHeartBeat;
         this.endTime = endTime;
         this.queuedTime = queuedTime;
         this.analysisTime = analysisTime;
         this.distributedPlanningTime = distributedPlanningTime;
-        this.splits.set(splits);
 
         createNanos = -1;
     }
@@ -106,12 +101,6 @@ public class QueryStats
         return distributedPlanningTime;
     }
 
-    @JsonProperty
-    public int getSplits()
-    {
-        return splits.get();
-    }
-
     public synchronized void recordAnalysisStart()
     {
         Preconditions.checkState(createNanos > 0, "Can not record analysis start");
@@ -145,10 +134,5 @@ public class QueryStats
     public synchronized void recordDistributedPlanningTime(long distributedPlanningStart)
     {
         distributedPlanningTime = Duration.nanosSince(distributedPlanningStart);
-    }
-
-    public void addSplits(int splits)
-    {
-        this.splits.addAndGet(splits);
     }
 }
