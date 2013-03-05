@@ -42,7 +42,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.Callable;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -73,6 +77,8 @@ public class SqlTaskExecution
     private final Set<PlanNodeId> sourceIds;
     @GuardedBy("this")
     private SourceHashProviderFactory sourceHashProviderFactory;
+
+    private final BlockingDeque<FutureTask<?>> unfinishedWorkerTasks = new LinkedBlockingDeque<>();
 
     public SqlTaskExecution(Session session,
             String queryId,
@@ -142,6 +148,8 @@ public class SqlTaskExecution
                 addSplit(fragment.getPartitionedSource(), initialSplit);
             }
         }
+
+        shardExecutor.submit(new TaskWorker(taskOutput, unfinishedWorkerTasks));
     }
 
     @Override
@@ -205,14 +213,18 @@ public class SqlTaskExecution
         pendingWorkerCount.incrementAndGet();
 
         // execute worker
-        ListenableFuture<Void> future = shardExecutor.submit(worker);
-        Futures.addCallback(future, new FutureCallback<Void>()
+        final FutureTask<?> workerFutureTask = new FutureTask<>(worker);
+        unfinishedWorkerTasks.addFirst(workerFutureTask);
+        ListenableFuture<?> future = shardExecutor.submit(workerFutureTask);
+        Futures.addCallback(future, new FutureCallback<Object>()
         {
             @Override
-            public void onSuccess(Void result)
+            public void onSuccess(Object result)
             {
                 pendingWorkerCount.decrementAndGet();
                 checkTaskCompletion();
+                // free the reference to the this task in the scheduled workers, so the memory can be released
+                unfinishedWorkerTasks.removeFirstOccurrence(workerFutureTask);
             }
 
             @Override
@@ -220,6 +232,8 @@ public class SqlTaskExecution
             {
                 taskOutput.queryFailed(t);
                 pendingWorkerCount.decrementAndGet();
+                // free the reference to the this task in the scheduled workers, so the memory can be released
+                unfinishedWorkerTasks.removeFirstOccurrence(workerFutureTask);
             }
         });
     }
@@ -312,6 +326,33 @@ public class SqlTaskExecution
                 .add("unpartitionedSources", unpartitionedSources)
                 .add("taskOutput", taskOutput)
                 .toString();
+    }
+
+    private static class TaskWorker
+            implements Callable<Void>
+    {
+        private final TaskOutput taskOutput;
+        private final BlockingDeque<FutureTask<?>> scheduledWorkers;
+
+        private TaskWorker(TaskOutput taskOutput, BlockingDeque<FutureTask<?>> scheduledWorkers)
+        {
+            this.taskOutput = taskOutput;
+            this.scheduledWorkers = scheduledWorkers;
+        }
+
+        @Override
+        public Void call()
+                throws InterruptedException
+        {
+            while (taskOutput.getState().isDone()) {
+                FutureTask<?> futureTask = scheduledWorkers.pollFirst(1, TimeUnit.SECONDS);
+                // if we got a task and the state is not done, run the task
+                if (futureTask != null && taskOutput.getState().isDone()) {
+                    futureTask.run();
+                }
+            }
+            return null;
+        }
     }
 
     private static class SplitWorker
