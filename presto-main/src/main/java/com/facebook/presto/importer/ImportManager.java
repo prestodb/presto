@@ -13,9 +13,13 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListenableFutureTask;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
+import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import org.skife.jdbi.v2.exceptions.UnableToExecuteStatementException;
@@ -24,6 +28,7 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response.Status;
 
 import java.net.URI;
 import java.util.Iterator;
@@ -39,6 +44,7 @@ import static com.facebook.presto.importer.ImportField.sourceColumnHandleGetter;
 import static com.facebook.presto.metadata.ImportColumnHandle.columnNameGetter;
 import static com.facebook.presto.util.RetryDriver.retry;
 import static com.facebook.presto.util.Threads.threadsNamed;
+import static com.google.common.base.Functions.compose;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -47,11 +53,9 @@ import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePut;
-import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static javax.ws.rs.core.Response.Status;
 
 public class ImportManager
 {
@@ -88,7 +92,7 @@ public class ImportManager
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
     }
 
-    public synchronized void importTable(long tableId, final String sourceName, final String databaseName, final String tableName, List<ImportField> fields)
+    public synchronized ListenableFuture<?> importTable(long tableId, final String sourceName, final String databaseName, final String tableName, List<ImportField> fields)
     {
         checkNotNull(sourceName, "sourceName is null");
         checkNotNull(databaseName, "databaseName is null");
@@ -125,19 +129,27 @@ public class ImportManager
         Set<String> partitionsToAdd = Sets.difference(activePartitions, allPartitions);
         Set<String> partitionsToRemove = Sets.difference(allPartitions, activePartitions);
 
+        ImmutableSet.Builder<ListenableFuture<?>> builder = ImmutableSet.builder();
+
         for (String partition : Iterables.concat(partitionsToRemove, repairPartitions)) {
-            partitionBoundedExecutor.execute(PartitionMarker.from(tableId, partition), new PartitionDropJob(tableId, partition));
+            ListenableFutureTask<Void> dropFuture = ListenableFutureTask.create(new PartitionDropJob(tableId, partition), null);
+            builder.add(dropFuture);
+            partitionBoundedExecutor.execute(PartitionMarker.from(tableId, partition), dropFuture);
         }
         log.info("Dropping %d old partitions: table %d", partitionsToRemove.size(), tableId);
 
-        List<String> columns = transform(transform(fields, sourceColumnHandleGetter()), columnNameGetter());
+        List<String> columns = transform(fields, compose(columnNameGetter(), sourceColumnHandleGetter()));
 
         for (String partition : Iterables.concat(partitionsToAdd, repairPartitions)) {
             PartitionChunkSupplier supplier = new PartitionChunkSupplier(importClientManager, sourceName, databaseName, tableName, partition, columns);
-            PartitionImportJob importJob = new PartitionImportJob(tableId, sourceName, partition, supplier, fields);
+            ListenableFutureTask<Void> importJob = ListenableFutureTask.create(new PartitionImportJob(tableId, sourceName, partition, supplier, fields), null);
+            builder.add(importJob);
+
             partitionBoundedExecutor.execute(PartitionMarker.from(tableId, partition), importJob);
         }
         log.info("Loading %d new partitions: table %d", partitionsToAdd.size(), tableId);
+
+        return Futures.allAsList(builder.build());
     }
 
     @PreDestroy
