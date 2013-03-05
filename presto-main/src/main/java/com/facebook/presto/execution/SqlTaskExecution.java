@@ -17,9 +17,7 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
@@ -50,8 +48,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.google.common.collect.Iterables.transform;
-
 public class SqlTaskExecution
         implements TaskExecution
 {
@@ -73,8 +69,6 @@ public class SqlTaskExecution
     private final List<WeakReference<SplitWorker>> splitWorkers = new ArrayList<>();
     @GuardedBy("this")
     private final Set<PlanNodeId> noMoreSources = new HashSet<>();
-    @GuardedBy("this")
-    private final Set<PlanNodeId> sourceIds;
     @GuardedBy("this")
     private SourceHashProviderFactory sourceHashProviderFactory;
 
@@ -121,15 +115,6 @@ public class SqlTaskExecution
 
         // todo is this correct?
         taskOutput.getStats().recordExecutionStart();
-
-        sourceIds = ImmutableSet.copyOf(transform(fragment.getSources(), new Function<PlanNode, PlanNodeId>()
-        {
-            @Override
-            public PlanNodeId apply(PlanNode input)
-            {
-                return input.getId();
-            }
-        }));
 
         Set<Split> initialSplits = ImmutableSet.of();
         for (Entry<PlanNodeId, Set<Split>> entry : initialSources.entrySet()) {
