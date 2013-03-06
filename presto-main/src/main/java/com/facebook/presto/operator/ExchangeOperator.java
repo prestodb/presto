@@ -185,7 +185,7 @@ public class ExchangeOperator
 
             int neededPages = maxBufferedPages - bufferedPages;
             int clientCount = (int) ((1.0 * neededPages / expectedPagesPerRequest) * concurrentRequestMultiplier);
-            clientCount = Math.min(clientCount, 1);
+            clientCount = Math.max(clientCount, 1);
 
             int pendingClients = allClients.size() - queuedClients.size() - completedClients.size();
             clientCount -= pendingClients;
