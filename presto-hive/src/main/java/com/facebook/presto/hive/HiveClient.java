@@ -23,8 +23,7 @@ import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
+import io.airlift.log.Logger;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -63,6 +62,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -83,6 +83,8 @@ import static org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat.SymlinkTextInp
 public class HiveClient
         implements ImportClient
 {
+    private static final Logger log = Logger.get(HiveClient.class);
+
     private final long maxChunkBytes;
     private final int maxOutstandingChunks;
     private final int maxChunkIteratorThreads;
@@ -90,7 +92,7 @@ public class HiveClient
     private final HiveChunkEncoder hiveChunkEncoder;
     private final CachingHiveMetastore metastore;
     private final FileSystemCache fileSystemCache;
-    private final ListeningExecutorService executor;
+    private final ExecutorService executor;
 
     public HiveClient(
             long maxChunkBytes,
@@ -109,7 +111,7 @@ public class HiveClient
         this.hiveChunkEncoder = hiveChunkEncoder;
         this.metastore = metastore;
         this.fileSystemCache = fileSystemCache;
-        this.executor = MoreExecutors.listeningDecorator(executor);
+        this.executor = executor;
     }
 
     @Override
@@ -269,14 +271,30 @@ public class HiveClient
             @Override
             public List<Partition> apply(List<String> partitionNameBatch)
             {
-                try {
-                    List<Partition> partitions = metastore.getPartitionsByNames(databaseName, tableName, partitionNameBatch);
-                    checkState(partitionNameBatch.size() == partitions.size(), "expected %s partitions but found %s", partitionNameBatch.size(), partitions.size());
-                    return partitions;
+                Exception exception = null;
+                for (int attempt = 0; attempt < 10; attempt++) {
+                    try {
+                        List<Partition> partitions = metastore.getPartitionsByNames(databaseName, tableName, partitionNameBatch);
+                        checkState(partitionNameBatch.size() == partitions.size(), "expected %s partitions but found %s", partitionNameBatch.size(), partitions.size());
+                        return partitions;
+                    }
+                    catch (NoSuchObjectException | NullPointerException | IllegalStateException | IllegalArgumentException e) {
+                        throw Throwables.propagate(e);
+                    }
+                    catch (Exception e) {
+                        exception = e;
+                        log.debug("getPartitions attempt %s failed, will retry. Exception: %s", attempt, e.getMessage());
+                    }
+
+                    try {
+                        TimeUnit.SECONDS.sleep(1);
+                    }
+                    catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw Throwables.propagate(e);
+                    }
                 }
-                catch (NoSuchObjectException e) {
-                    throw Throwables.propagate(e);
-                }
+                throw Throwables.propagate(exception);
             }
         });
         return concat(partitionBatches);
@@ -366,7 +384,7 @@ public class HiveClient
         private final int maxOutstandingChunks;
         private final int maxThreads;
         private final FileSystemCache fileSystemCache;
-        private final ListeningExecutorService executor;
+        private final ExecutorService executor;
         private final ClassLoader classLoader;
         private final int partitionBatchSize;
 
@@ -377,7 +395,7 @@ public class HiveClient
                 int maxOutstandingChunks,
                 int maxThreads,
                 FileSystemCache fileSystemCache,
-                ListeningExecutorService executor,
+                ExecutorService executor,
                 int partitionBatchSize)
         {
             this.table = table;
@@ -462,10 +480,10 @@ public class HiveClient
                     });
 
                     // release the semaphore when th partition finishes
-                    Futures.addCallback(Futures.allAsList(futureBuilder.build()), new FutureCallback<List<Void>>()
+                    Futures.addCallback(partitionFuture, new FutureCallback<Void>()
                     {
                         @Override
-                        public void onSuccess(List<Void> result)
+                        public void onSuccess(Void result)
                         {
                             semaphore.release();
                         }
