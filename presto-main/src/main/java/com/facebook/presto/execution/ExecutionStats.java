@@ -3,8 +3,10 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.operator.ExchangeOperator.ExchangeClientStatus;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -12,9 +14,11 @@ import org.joda.time.DateTime;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 @ThreadSafe
 public class ExecutionStats
@@ -56,6 +60,9 @@ public class ExecutionStats
     private DataSize outputDataSize = ZERO_SIZE;
     private final AtomicLong outputPositionCount = new AtomicLong();
 
+    // todo this assumes that there is only one exchange in a plan
+    private final AtomicReference<List<ExchangeClientStatus>> exchangeStatus = new AtomicReference<List<ExchangeClientStatus>>(ImmutableList.<ExchangeClientStatus>of());
+
     public ExecutionStats()
     {
         createTime = DateTime.now();
@@ -74,6 +81,7 @@ public class ExecutionStats
             @JsonProperty("splitWallTime") Duration splitWallTime,
             @JsonProperty("splitCpuTime") Duration splitCpuTime,
             @JsonProperty("splitUserTime") Duration splitUserTime,
+            @JsonProperty("exchangeStatus") List<ExchangeClientStatus> exchangeStatus,
             @JsonProperty("exchangeWaitTime") Duration exchangeWaitTime,
             @JsonProperty("inputDataSize") DataSize inputDataSize,
             @JsonProperty("completedDataSize") DataSize completedDataSize,
@@ -92,6 +100,7 @@ public class ExecutionStats
         this.splitWallTime = splitWallTime;
         this.splitCpuTime = splitCpuTime;
         this.splitUserTime = splitUserTime;
+        this.exchangeStatus.set(ImmutableList.copyOf(exchangeStatus));
         this.exchangeWaitTime = exchangeWaitTime;
         this.inputDataSize = inputDataSize;
         this.inputPositionCount.addAndGet(inputPositionCount);
@@ -162,6 +171,12 @@ public class ExecutionStats
     }
 
     @JsonProperty
+    public List<ExchangeClientStatus> getExchangeStatus()
+    {
+        return exchangeStatus.get();
+    }
+
+    @JsonProperty
     public synchronized Duration getExchangeWaitTime()
     {
         return exchangeWaitTime;
@@ -206,6 +221,11 @@ public class ExecutionStats
     public void addSplits(int splits)
     {
         this.splits.addAndGet(splits);
+    }
+
+    public void setExchangeStatus(List<ExchangeClientStatus> exchangeStatus)
+    {
+        this.exchangeStatus.set(ImmutableList.copyOf(exchangeStatus));
     }
 
     public void splitStarted()
