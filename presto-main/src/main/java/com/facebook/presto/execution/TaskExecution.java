@@ -18,6 +18,8 @@ public interface TaskExecution
 
     void cancel();
 
+    void fail(Throwable cause);
+
     List<Page> getResults(String outputId, int maxPageCount, Duration maxWait)
             throws InterruptedException;
 
