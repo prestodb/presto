@@ -216,6 +216,13 @@ public class SqlTaskExecution
     }
 
     @Override
+    public void fail(Throwable cause)
+    {
+        splits.set(null);
+        taskOutput.queryFailed(cause);
+    }
+
+    @Override
     public List<Page> getResults(String outputId, int maxPageCount, Duration maxWait)
             throws InterruptedException
     {

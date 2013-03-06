@@ -14,4 +14,6 @@ public interface QueryExecution
     void updateState();
 
     void cancel();
+
+    void fail(Throwable cause);
 }

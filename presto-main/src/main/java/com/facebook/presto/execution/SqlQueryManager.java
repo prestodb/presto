@@ -131,7 +131,7 @@ public class SqlQueryManager
                     log.warn(e, "Error removing old queries");
                 }
                 try {
-                    cancelAbandonedQueries();
+                    failAbandonedQueries();
                 }
                 catch (Throwable e) {
                     log.warn(e, "Error removing old queries");
@@ -272,9 +272,10 @@ public class SqlQueryManager
         }
     }
 
-    public void cancelAbandonedQueries()
+    public void failAbandonedQueries()
     {
-        DateTime oldestAllowedHeartBeat = DateTime.now().minus((long) clientTimeout.toMillis());
+        DateTime now = DateTime.now();
+        DateTime oldestAllowedHeartBeat = now.minus((long) clientTimeout.toMillis());
         for (QueryExecution queryExecution : queries.values()) {
             try {
                 QueryInfo queryInfo = queryExecution.getQueryInfo();
@@ -283,7 +284,8 @@ public class SqlQueryManager
                 }
                 DateTime lastHeartBeat = queryInfo.getQueryStats().getLastHeartBeat();
                 if (lastHeartBeat != null && lastHeartBeat.isBefore(oldestAllowedHeartBeat)) {
-                    cancelQuery(queryExecution.getQueryId());
+                    log.info("Failing abandoned query %s", queryInfo.getQueryId());
+                    queryExecution.fail(new AbandonedException("Query " + queryInfo.getQueryId(), lastHeartBeat, now));
                 }
             }
             catch (Exception e) {
