@@ -40,8 +40,8 @@ public class Main
         PrintStream err = System.err;
         try {
             if (debug) {
-                Logging logging = new Logging();
-                logging.initialize(new LoggingConfiguration());
+                Logging logging = Logging.initialize();
+                logging.configure(new LoggingConfiguration());
                 // TODO: add a proper interface to airlift
                 new LoggingMBean().setLevel("com.facebook.presto", "DEBUG");
             }
@@ -49,8 +49,8 @@ public class Main
                 System.setOut(new PrintStream(new NullOutputStream()));
                 System.setErr(new PrintStream(new NullOutputStream()));
 
-                Logging logging = new Logging();
-                logging.initialize(new LoggingConfiguration());
+                Logging logging = Logging.initialize();
+                logging.configure(new LoggingConfiguration());
                 logging.disableConsole();
             }
         }
