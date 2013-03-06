@@ -98,7 +98,7 @@ public class SqlTaskManager
                     log.warn(e, "Error removing old tasks");
                 }
                 try {
-                    cancelAbandonedTasks();
+                    failAbandonedTasks();
                 }
                 catch (Throwable e) {
                     log.warn(e, "Error canceling abandoned tasks");
@@ -259,9 +259,10 @@ public class SqlTaskManager
         }
     }
 
-    public void cancelAbandonedTasks()
+    public void failAbandonedTasks()
     {
-        DateTime oldestAllowedHeartBeat = DateTime.now().minus((long) clientTimeout.toMillis());
+        DateTime now = DateTime.now();
+        DateTime oldestAllowedHeartBeat = now.minus((long) clientTimeout.toMillis());
         for (TaskExecution taskExecution : tasks.values()) {
             try {
                 TaskInfo taskInfo = taskExecution.getTaskInfo();
@@ -270,8 +271,8 @@ public class SqlTaskManager
                 }
                 DateTime lastHeartBeat = taskInfo.getStats().getLastHeartBeat();
                 if (lastHeartBeat != null && lastHeartBeat.isBefore(oldestAllowedHeartBeat)) {
-                    log.info("Cancelling abandoned task %s", taskExecution.getTaskId());
-                    taskExecution.cancel();
+                    log.info("Failing abandoned task %s", taskExecution.getTaskId());
+                    taskExecution.fail(new AbandonedException("Task " + taskInfo.getTaskId(), lastHeartBeat, now));
                 }
             }
             catch (Exception e) {
