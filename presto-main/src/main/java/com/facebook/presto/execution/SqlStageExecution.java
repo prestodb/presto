@@ -225,6 +225,7 @@ public class SqlStageExecution
             if (stageState.get().isDone()) {
                 return;
             }
+            log.debug("Cancelling stage %s", stageId);
             stageState.set(StageState.CANCELED);
         }
 
