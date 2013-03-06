@@ -321,6 +321,28 @@ public class SqlQueryExecution
         }
     }
 
+    @Override
+    public void fail(Throwable cause)
+    {
+        Preconditions.checkState(!Thread.holdsLock(this), "Can not cancel while holding a lock on this");
+
+        // transition to canceled state, only if not already finished
+        synchronized (this) {
+            if (!queryState.get().isDone()) {
+                failureCauses.add(cause);
+                queryStats.recordEnd();
+                queryState.set(QueryState.FAILED);
+                queryMonitor.completionEvent(getQueryInfo());
+                log.debug("Failing query %s", queryId);
+            }
+        }
+
+        StageExecution stageExecution = outputStage.get();
+        if (stageExecution != null) {
+            stageExecution.cancel();
+        }
+    }
+
     public void updateState()
     {
         Preconditions.checkState(!Thread.holdsLock(this), "Can not update while holding a lock on this");
