@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>3-SNAPSHOT</version>
+        <version>3</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -52,7 +52,7 @@
 
         <dep.antlr.version>3.4</dep.antlr.version>
         <dep.swift.version>0.4.0</dep.swift.version>
-        <dep.airlift.version>0.71-SNAPSHOT</dep.airlift.version>
+        <dep.airlift.version>0.71</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
     </properties>
 
@@ -367,14 +367,7 @@
             <dependency>
                 <groupId>io.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.6</version>
-                <!-- TODO: fix in airlift http-server -->
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.eclipse.jetty.orbit</groupId>
-                        <artifactId>javax.servlet</artifactId>
-                    </exclusion>
-                </exclusions>
+                <version>1.7</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
