@@ -4,6 +4,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskOutput;
+import com.facebook.presto.operator.ExchangeOperator.ExchangeClientStatus;
 import com.facebook.presto.util.CpuTimer;
 import com.facebook.presto.util.CpuTimer.CpuDuration;
 import com.google.common.base.Preconditions;
@@ -14,6 +15,7 @@ import io.airlift.units.Duration;
 import javax.annotation.concurrent.NotThreadSafe;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
+import java.util.List;
 
 /**
  * This class is not thread safe, but the done state of the task is properly
@@ -103,6 +105,14 @@ public class OperatorStats
             return;
         }
         taskOutput.getStats().addExchangeWaitTime(duration);
+    }
+
+    public void setExchangeStatus(List<ExchangeClientStatus> exchangeStatus)
+    {
+        if (taskOutput == null) {
+            return;
+        }
+        taskOutput.getStats().setExchangeStatus(exchangeStatus);
     }
 
     public void start()

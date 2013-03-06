@@ -3,9 +3,11 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.HttpPageBufferClient;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.facebook.presto.tuple.TupleInfo;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -13,6 +15,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closeables;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 
 import java.net.URI;
 import java.util.HashSet;
@@ -155,6 +158,8 @@ public class ExchangeOperator
                     scheduleRequestIfNecessary();
                 }
 
+                operatorStats.setExchangeStatus(getExchangeStatus());
+
                 long start = System.nanoTime();
                 try {
                     Page page = pageBuffer.poll(WAIT_TIME_IN_MILLIS, TimeUnit.MILLISECONDS);
@@ -200,12 +205,64 @@ public class ExchangeOperator
             }
         }
 
+        private List<ExchangeClientStatus> getExchangeStatus()
+        {
+            ImmutableList.Builder<ExchangeClientStatus> exchangeStatus = ImmutableList.builder();
+            for (HttpPageBufferClient client : allClients) {
+                exchangeStatus.add(client.getStatus());
+            }
+            return exchangeStatus.build();
+        }
+
         @Override
         protected void doClose()
         {
             for (HttpPageBufferClient client : allClients) {
                 Closeables.closeQuietly(client);
             }
+        }
+    }
+
+    public static class ExchangeClientStatus
+    {
+        private final URI uri;
+        private final String state;
+        private final DateTime lastUpdate;
+
+        @JsonCreator
+        public ExchangeClientStatus(@JsonProperty("uri") URI uri, @JsonProperty("state") String state, @JsonProperty("lastUpdate") DateTime lastUpdate)
+        {
+            this.uri = uri;
+            this.state = state;
+            this.lastUpdate = lastUpdate;
+        }
+
+        @JsonProperty
+        public URI getUri()
+        {
+            return uri;
+        }
+
+        @JsonProperty
+        public String getState()
+        {
+            return state;
+        }
+
+        @JsonProperty
+        public DateTime getLastUpdate()
+        {
+            return lastUpdate;
+        }
+
+        @Override
+        public String toString()
+        {
+            return Objects.toStringHelper(this)
+                    .add("uri", uri)
+                    .add("state", state)
+                    .add("lastUpdate", lastUpdate)
+                    .toString();
         }
     }
 }
