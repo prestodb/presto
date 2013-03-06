@@ -30,6 +30,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -54,6 +55,7 @@ import static com.google.common.collect.Iterables.transform;
 public class SqlQueryExecution
         implements QueryExecution
 {
+    private static final Logger log = Logger.get(SqlQueryExecution.class);
     private static final String ROOT_OUTPUT_BUFFER_NAME = "out";
 
     private final String queryId;
@@ -309,6 +311,7 @@ public class SqlQueryExecution
                 queryStats.recordEnd();
                 queryState.set(QueryState.CANCELED);
                 queryMonitor.completionEvent(getQueryInfo());
+                log.debug("Cancelling query %s", queryId);
             }
         }
 

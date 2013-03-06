@@ -215,6 +215,7 @@ public class SqlTaskManager
         if (taskExecution == null) {
             throw new NoSuchElementException();
         }
+        log.debug("Aborting task %s output %s", taskId, outputId);
         taskExecution.abortResults(outputId);
     }
 
@@ -225,6 +226,7 @@ public class SqlTaskManager
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution != null) {
+            log.debug("Cancelling task %s", taskId);
             taskExecution.cancel();
         }
     }
@@ -268,7 +270,8 @@ public class SqlTaskManager
                 }
                 DateTime lastHeartBeat = taskInfo.getStats().getLastHeartBeat();
                 if (lastHeartBeat != null && lastHeartBeat.isBefore(oldestAllowedHeartBeat)) {
-                    cancelTask(taskExecution.getTaskId());
+                    log.info("Cancelling abandoned task %s", taskExecution.getTaskId());
+                    taskExecution.cancel();
                 }
             }
             catch (Exception e) {

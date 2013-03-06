@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.operator.ExchangeOperator.ExchangeClientStatus;
 import com.facebook.presto.serde.PagesSerde;
 import com.facebook.presto.slice.InputStreamSliceInput;
 import com.google.common.base.Objects;
@@ -13,6 +14,7 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 import io.airlift.log.Logger;
+import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -58,6 +60,9 @@ public class HttpPageBufferClient
     private boolean closed;
     @GuardedBy("this")
     private Future<?> future;
+    @GuardedBy("this")
+    private DateTime lastUpdate = DateTime.now();
+
 
     public HttpPageBufferClient(AsyncHttpClient httpClient, URI location, ClientCallback clientCallback)
     {
@@ -68,6 +73,19 @@ public class HttpPageBufferClient
         this.httpClient = httpClient;
         this.location = location;
         this.clientCallback = clientCallback;
+    }
+
+    public synchronized ExchangeClientStatus getStatus()
+    {
+        String state;
+        if (closed) {
+            state = "closed";
+        } else if (future != null) {
+            state = "running";
+        } else {
+            state = "queued";
+        }
+        return new ExchangeClientStatus(location, state, lastUpdate);
     }
 
     public synchronized boolean isRunning()
@@ -88,6 +106,8 @@ public class HttpPageBufferClient
 
             future = this.future;
             this.future = null;
+
+            lastUpdate = DateTime.now();
         }
 
         if (future != null) {
@@ -95,7 +115,7 @@ public class HttpPageBufferClient
         }
 
         // abort the output buffer on the remote node; response of delete is ignored
-        httpClient.execute(prepareDelete().setUri(location).build(), createStatusResponseHandler());
+        httpClient.executeAsync(prepareDelete().setUri(location).build(), createStatusResponseHandler());
     }
 
     public synchronized void scheduleRequest()
@@ -104,15 +124,29 @@ public class HttpPageBufferClient
         Preconditions.checkState(future == null, getClass().getSimpleName() + " is already running");
 
         future = httpClient.executeAsync(prepareGet().setUri(location).build(), new PageResponseHandler());
+        lastUpdate = DateTime.now();
     }
 
     private void requestComplete()
     {
         synchronized (this) {
             future = null;
+            lastUpdate = DateTime.now();
         }
 
         clientCallback.requestComplete(this);
+    }
+
+
+    private void bufferFinished()
+    {
+        synchronized (this) {
+            closed = true;
+            future = null;
+            lastUpdate = DateTime.now();
+        }
+
+        clientCallback.bufferFinished(this);
     }
 
     @Override
@@ -177,7 +211,7 @@ public class HttpPageBufferClient
         {
             // job is finished when we get a GONE response
             if (response.getStatusCode() == Status.GONE.getStatusCode()) {
-                clientCallback.bufferFinished(HttpPageBufferClient.this);
+                bufferFinished();
                 return null;
             }
 
