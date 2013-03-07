@@ -9,6 +9,7 @@ import com.facebook.presto.slice.InputStreamSliceInput;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.net.MediaType;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
@@ -18,7 +19,6 @@ import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response.Status;
 import java.io.Closeable;
 import java.net.URI;
@@ -225,7 +225,7 @@ public class HttpPageBufferClient
                     }
 
                     String contentType = response.getHeader("Content-Type");
-                    if (!MediaType.valueOf(contentType).isCompatible(PRESTO_PAGES_TYPE)) {
+                    if (!MediaType.parse(contentType).is(PRESTO_PAGES_TYPE)) {
                         // this can happen when an error page is returned, but is unlikely given the above 200
                         log.debug("Expected %s response from server but got %s: uri=%s, response=%s", PRESTO_PAGES_TYPE, contentType, location, response);
                         return null;

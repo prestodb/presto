@@ -19,6 +19,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
+import com.google.common.net.MediaType;
 import com.google.inject.Binder;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
@@ -45,7 +46,6 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response.Status;
 import java.io.IOException;
 import java.net.URI;
@@ -205,7 +205,7 @@ public class TestQueryResourceServer
             }
             String contentType = response.getHeader("Content-Type");
 
-            if (!MediaType.valueOf(contentType).isCompatible(PRESTO_PAGES_TYPE)) {
+            if (!MediaType.parse(contentType).is(PRESTO_PAGES_TYPE)) {
                 throw new UnexpectedResponseException(String.format("Expected %s response from server but got %s", PRESTO_PAGES_TYPE, contentType), request, response);
             }
 
