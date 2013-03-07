@@ -27,13 +27,13 @@ import java.lang.reflect.Type;
 import java.util.List;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
-import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES_TYPE;
 
 @Provider
 @Consumes(PRESTO_PAGES)
 @Produces(PRESTO_PAGES)
 public class PagesMapper implements MessageBodyReader<List<Page>>, MessageBodyWriter<List<Page>>
 {
+    private static final MediaType PRESTO_PAGES_TYPE = MediaType.valueOf(PRESTO_PAGES);
     private static final Type LIST_GENERIC_TOKEN;
 
     static {
