@@ -7,10 +7,10 @@ import com.facebook.presto.spi.ImportClientFactory;
 import com.facebook.presto.spi.ImportClientFactoryFactory;
 import com.facebook.presto.split.ImportClientManager;
 import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
@@ -28,6 +28,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -35,9 +36,8 @@ import java.util.ServiceLoader;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Maps.fromProperties;
-import static java.util.Collections.enumeration;
-import static java.util.Collections.list;
 
 @ThreadSafe
 public class PluginManager
@@ -55,10 +55,10 @@ public class PluginManager
     @Inject
     public PluginManager(NodeInfo nodeInfo, PluginManagerConfig config, ImportClientManager importClientManager, ConfigurationFactory configurationFactory)
     {
-        Preconditions.checkNotNull(nodeInfo, "nodeInfo is null");
-        Preconditions.checkNotNull(config, "config is null");
-        Preconditions.checkNotNull(importClientManager, "importClientManager is null");
-        Preconditions.checkNotNull(configurationFactory, "configurationFactory is null");
+        checkNotNull(nodeInfo, "nodeInfo is null");
+        checkNotNull(config, "config is null");
+        checkNotNull(importClientManager, "importClientManager is null");
+        checkNotNull(configurationFactory, "configurationFactory is null");
 
         this.importClientManager = importClientManager;
         installedPluginsDir = config.getInstalledPluginsDir();
@@ -122,7 +122,7 @@ public class PluginManager
     private Map<String, String> loadPluginConfig(String name)
             throws Exception
     {
-        Preconditions.checkNotNull(name, "name is null");
+        checkNotNull(name, "name is null");
 
         Properties properties = new Properties();
         if (pluginConfigurationDir != null) {
@@ -251,7 +251,8 @@ public class PluginManager
                 Iterable<String> hiddenResources,
                 Iterable<String> parentFirstResources)
         {
-            super(urls.toArray(new URL[urls.size()]), parent);
+            // child first requires a parent class loader
+            super(urls.toArray(new URL[urls.size()]), checkNotNull(parent, "parent is null"));
             this.hiddenClasses = ImmutableList.copyOf(hiddenClasses);
             this.parentFirstClasses = ImmutableList.copyOf(parentFirstClasses);
             this.hiddenResources = ImmutableList.copyOf(hiddenResources);
@@ -332,6 +333,7 @@ public class PluginManager
             return false;
         }
 
+        @Override
         public URL getResource(String name)
         {
             // If this is not a parent first resource, check local resources first
@@ -361,30 +363,31 @@ public class PluginManager
             return null;
         }
 
-        public Enumeration<URL> findResources(String name)
+        @Override
+        public Enumeration<URL> getResources(String name)
                 throws IOException
         {
-            List<URL> resources = new ArrayList<>();
+            List<Iterator<URL>> resources = new ArrayList<>();
 
             // If this is not a parent first resource, add resources from local urls first
             if (!isParentFirstResource(name)) {
-                List<URL> myResources = list(super.findResources(name));
-                resources.addAll(myResources);
+                Iterator<URL> myResources = Iterators.forEnumeration(findResources(name));
+                resources.add(myResources);
             }
 
             // Add parent resources
             if (!isHiddenResource(name)) {
-                List<URL> parentResources = list(getParent().getResources(name));
-                resources.addAll(parentResources);
+                Iterator<URL> parentResources = Iterators.forEnumeration(getParent().getResources(name));
+                resources.add(parentResources);
             }
 
             // If this is a parent first resource, now add resources from local urls
             if (isParentFirstResource(name)) {
-                List<URL> myResources = list(super.findResources(name));
-                resources.addAll(myResources);
+                Iterator<URL> myResources = Iterators.forEnumeration(findResources(name));
+                resources.add(myResources);
             }
 
-            return enumeration(resources);
+            return Iterators.asEnumeration(Iterators.concat(resources.iterator()));
         }
 
         private boolean isParentFirstResource(String name)
@@ -409,7 +412,8 @@ public class PluginManager
 
         private static Function<String, String> classNameToResource()
         {
-            return new Function<String, String>() {
+            return new Function<String, String>()
+            {
                 @Override
                 public String apply(String className)
                 {
