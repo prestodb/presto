@@ -16,6 +16,7 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hive</artifactId>
+            <optional>true</optional>
             <scope>runtime</scope>
         </dependency>
     </dependencies>
