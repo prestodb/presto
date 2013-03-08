@@ -11,6 +11,10 @@
     <artifactId>presto-main</artifactId>
     <name>presto-main</name>
 
+    <properties>
+        <main-class>com.facebook.presto.Main</main-class>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>it.unimi.dsi</groupId>
