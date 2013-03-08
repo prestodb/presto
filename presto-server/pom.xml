@@ -164,16 +164,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.swift</groupId>
-            <artifactId>swift-codec</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.swift</groupId>
-            <artifactId>swift-service</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hive-plugin</artifactId>
             <type>zip</type>

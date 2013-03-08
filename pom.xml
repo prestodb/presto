@@ -51,7 +51,6 @@
         <air.check.skip-license>true</air.check.skip-license>
 
         <dep.antlr.version>3.4</dep.antlr.version>
-        <dep.swift.version>0.4.0</dep.swift.version>
         <dep.airlift.version>0.71</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
     </properties>
@@ -299,33 +298,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.swift</groupId>
-                <artifactId>swift-codec</artifactId>
-                <version>${dep.swift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.swift</groupId>
-                <artifactId>swift-service</artifactId>
-                <version>${dep.swift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.nifty</groupId>
-                <artifactId>nifty-client</artifactId>
-                <version>0.4.0</version>
-            </dependency>
-
-            <dependency>
                 <groupId>net.sf.opencsv</groupId>
                 <artifactId>opencsv</artifactId>
                 <version>2.3</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.swift</groupId>
-                <artifactId>swift-smc</artifactId>
-                <version>0.2</version>
             </dependency>
 
             <dependency>

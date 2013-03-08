@@ -1,13 +1,10 @@
 package com.facebook.presto.server;
 
-import com.facebook.presto.event.scribe.client.ScribeClientModule;
-import com.facebook.presto.event.scribe.payload.ScribeEventModule;
-import com.facebook.swift.codec.guice.ThriftCodecModule;
-import com.facebook.swift.service.guice.ThriftClientModule;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
+import io.airlift.event.client.HttpEventModule;
 import io.airlift.event.client.JsonEventModule;
 import io.airlift.http.server.HttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
@@ -37,10 +34,7 @@ public class Main
                 new LogJmxModule(),
                 new TraceTokenModule(),
                 new JsonEventModule(),
-                new ThriftCodecModule(),
-                new ThriftClientModule(),
-                new ScribeClientModule(),
-                new ScribeEventModule(),
+                new HttpEventModule(),
                 new ServerMainModule());
 
         try {

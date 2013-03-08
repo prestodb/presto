@@ -163,21 +163,6 @@
             <artifactId>jdbi</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>com.facebook.nifty</groupId>
-            <artifactId>nifty-client</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.swift</groupId>
-            <artifactId>swift-codec</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.swift</groupId>
-            <artifactId>swift-service</artifactId>
-        </dependency>
-
         <!-- for packaging -->
         <dependency>
             <groupId>net.sf.opencsv</groupId>
