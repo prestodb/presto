@@ -1,7 +1,7 @@
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransportException;
 import com.google.common.base.Throwables;
+import org.apache.thrift.transport.TTransportException;
 
 public class SimpleHiveCluster
         implements HiveCluster
