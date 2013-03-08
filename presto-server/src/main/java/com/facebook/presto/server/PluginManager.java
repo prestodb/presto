@@ -6,9 +6,11 @@ package com.facebook.presto.server;
 import com.facebook.presto.spi.ImportClientFactory;
 import com.facebook.presto.spi.ImportClientFactoryFactory;
 import com.facebook.presto.split.ImportClientManager;
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
@@ -16,15 +18,16 @@ import io.airlift.resolver.ArtifactResolver;
 import io.airlift.resolver.DefaultArtifact;
 import org.sonatype.aether.artifact.Artifact;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -33,6 +36,8 @@ import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.collect.Maps.fromProperties;
+import static java.util.Collections.enumeration;
+import static java.util.Collections.list;
 
 @ThreadSafe
 public class PluginManager
@@ -201,7 +206,10 @@ public class PluginManager
 
     private URLClassLoader createClassLoader(List<URL> urls)
     {
-        return new SimpleChildFirstClassLoader(urls, getClass().getClassLoader(), "com.facebook.presto");
+        return new SimpleChildFirstClassLoader(urls,
+                getClass().getClassLoader(),
+                ImmutableList.of("org.slf4j"),
+                ImmutableList.of("com.facebook.presto"));
     }
 
     private List<File> listFiles(File installedPluginsDir)
@@ -218,16 +226,36 @@ public class PluginManager
     private static class SimpleChildFirstClassLoader
             extends URLClassLoader
     {
-        private final List<String> nonOverridableClasses;
+        private final List<String> hiddenClasses;
+        private final List<String> parentFirstClasses;
+        private final List<String> hiddenResources;
+        private final List<String> parentFirstResources;
 
-        public SimpleChildFirstClassLoader(List<URL> urls, ClassLoader parent, String... nonOverridableClasses)
+        public SimpleChildFirstClassLoader(List<URL> urls,
+                ClassLoader parent,
+                Iterable<String> hiddenClasses,
+                Iterable<String> parentFirstClasses)
         {
-            this(urls, parent, ImmutableList.copyOf(nonOverridableClasses));
+            this(urls,
+                    parent,
+                    hiddenClasses,
+                    parentFirstClasses,
+                    Iterables.transform(hiddenClasses, classNameToResource()),
+                    Iterables.transform(parentFirstClasses, classNameToResource()));
         }
-        public SimpleChildFirstClassLoader(List<URL> urls, ClassLoader parent, List<String> nonOverridableClasses)
+
+        public SimpleChildFirstClassLoader(List<URL> urls,
+                ClassLoader parent,
+                Iterable<String> hiddenClasses,
+                Iterable<String> parentFirstClasses,
+                Iterable<String> hiddenResources,
+                Iterable<String> parentFirstResources)
         {
             super(urls.toArray(new URL[urls.size()]), parent);
-            this.nonOverridableClasses = ImmutableList.copyOf(nonOverridableClasses);
+            this.hiddenClasses = ImmutableList.copyOf(hiddenClasses);
+            this.parentFirstClasses = ImmutableList.copyOf(parentFirstClasses);
+            this.hiddenResources = ImmutableList.copyOf(hiddenResources);
+            this.parentFirstResources = ImmutableList.copyOf(parentFirstResources);
         }
 
         @Override
@@ -236,67 +264,158 @@ public class PluginManager
         {
             // grab the magic lock
             synchronized (getClassLoadingLock(name)) {
+                // Check if class is in the loaded classes cache
+                Class<?> cachedClass = findLoadedClass(name);
+                if (cachedClass != null) {
+                    return resolveClass(cachedClass, resolve);
+                }
 
-                // first check if this class loader has already loaded the class
-                Class clazz = findLoadedClass(name);
-
-                // if the class isn't already loaded and the class can be overridden,
-                // try to find it locally
-                if (clazz == null && !isNonOverridableClass(name)) {
+                // If this is not a parent first class, look for the class locally
+                if (!isParentFirstClass(name)) {
                     try {
-                        clazz = findClass(name);
+                        Class<?> clazz = findClass(name);
+                        return resolveClass(clazz, resolve);
                     }
                     catch (ClassNotFoundException ignored) {
-                        // class loaders were not designed for child first, so this class will throw an exception
+                        // not a local class
                     }
                 }
 
-                // if we found the class, we are done
-                if (clazz != null) {
-                    if (resolve) {
-                        resolveClass(clazz);
+                // Check parent class loaders, unless this is a hidden class
+                if (!isHiddenClass(name)) {
+                    try {
+                        Class<?> clazz = getParent().loadClass(name);
+                        return resolveClass(clazz, resolve);
                     }
-                    return clazz;
+                    catch (ClassNotFoundException ignored) {
+                        // this parent didn't have the class
+                    }
                 }
 
-                // We didn't find the class, so just use the normal class
-                // loader code.  The loadClass call here will result in the
-                // parent class loader being checked and then findClass
-                // being called again.  This is the easiest way to load
-                // classes from the parent since the bootstrap class loader
-                // is null.
-                return super.loadClass(name, resolve);
+                // If this is a parent first class, now look for the class locally
+                if (isParentFirstClass(name)) {
+                    Class<?> clazz = findClass(name);
+                    return resolveClass(clazz, resolve);
+                }
+
+                throw new ClassNotFoundException(name);
             }
         }
 
-        @Nullable
-        @Override
-        public URL getResource(String name)
+        private Class<?> resolveClass(Class<?> clazz, boolean resolve)
         {
-            // look for a local resource first
-            URL url = findResource(name);
-            if (url != null) {
-                return url;
+            if (resolve) {
+                resolveClass(clazz);
             }
-
-            // We didn't find the resource, so just use the normal class
-            // loader code.   The getResource call here will result in the
-            // parent class loader being checked and then findResource
-            // being called again.  This is the easiest way to load
-            // resources from the parent since the bootstrap class loader
-            // is null.
-            return super.getResource(name);
+            return clazz;
         }
 
-        private boolean isNonOverridableClass(String name)
+        private boolean isParentFirstClass(String name)
         {
-            for (String nonOverridableClass : nonOverridableClasses) {
+            for (String nonOverridableClass : parentFirstClasses) {
                 // todo maybe make this more precise and only match base package
                 if (name.startsWith(nonOverridableClass)) {
                     return true;
                 }
             }
             return false;
+        }
+
+        private boolean isHiddenClass(String name)
+        {
+            for (String hiddenClass : hiddenClasses) {
+                // todo maybe make this more precise and only match base package
+                if (name.startsWith(hiddenClass)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public URL getResource(String name)
+        {
+            // If this is not a parent first resource, check local resources first
+            if (!isParentFirstResource(name)) {
+                URL url = findResource(name);
+                if (url != null) {
+                    return url;
+                }
+            }
+
+            // Check parent class loaders
+            if (!isHiddenResource(name)) {
+                URL url = getParent().getResource(name);
+                if (url != null) {
+                    return url;
+                }
+            }
+
+            // If this is a parent first resource, now check local resources
+            if (isParentFirstResource(name)) {
+                URL url = findResource(name);
+                if (url != null) {
+                    return url;
+                }
+            }
+
+            return null;
+        }
+
+        public Enumeration<URL> findResources(String name)
+                throws IOException
+        {
+            List<URL> resources = new ArrayList<>();
+
+            // If this is not a parent first resource, add resources from local urls first
+            if (!isParentFirstResource(name)) {
+                List<URL> myResources = list(super.findResources(name));
+                resources.addAll(myResources);
+            }
+
+            // Add parent resources
+            if (!isHiddenResource(name)) {
+                List<URL> parentResources = list(getParent().getResources(name));
+                resources.addAll(parentResources);
+            }
+
+            // If this is a parent first resource, now add resources from local urls
+            if (isParentFirstResource(name)) {
+                List<URL> myResources = list(super.findResources(name));
+                resources.addAll(myResources);
+            }
+
+            return enumeration(resources);
+        }
+
+        private boolean isParentFirstResource(String name)
+        {
+            for (String nonOverridableResource : parentFirstResources) {
+                if (name.startsWith(nonOverridableResource)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private boolean isHiddenResource(String name)
+        {
+            for (String hiddenResource : hiddenResources) {
+                if (name.startsWith(hiddenResource)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static Function<String, String> classNameToResource()
+        {
+            return new Function<String, String>() {
+                @Override
+                public String apply(String className)
+                {
+                    return className.replace('.', '/');
+                }
+            };
         }
     }
 }
