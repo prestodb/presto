@@ -42,9 +42,9 @@ public class TreePrinter
                     process(relation, indentLevel + 1);
                 }
 
-                if (node.getWhere() != null) {
+                if (node.getWhere().isPresent()) {
                     print(indentLevel, "Where");
-                    process(node.getWhere(), indentLevel + 1);
+                    process(node.getWhere().get(), indentLevel + 1);
                 }
 
                 if (!node.getGroupBy().isEmpty()) {
@@ -54,9 +54,9 @@ public class TreePrinter
                     }
                 }
 
-                if (node.getHaving() != null) {
+                if (node.getHaving().isPresent()) {
                     print(indentLevel, "Having");
-                    process(node.getHaving(), indentLevel + 1);
+                    process(node.getHaving().get(), indentLevel + 1);
                 }
 
                 if (!node.getOrderBy().isEmpty()) {
@@ -66,8 +66,8 @@ public class TreePrinter
                     }
                 }
 
-                if (node.getLimit() != null) {
-                    print(indentLevel, "Limit: " + node.getLimit());
+                if (node.getLimit().isPresent()) {
+                    print(indentLevel, "Limit: " + node.getLimit().get());
                 }
 
                 return null;

@@ -60,14 +60,14 @@ public class DefaultTraversalVisitor<R, C>
         for (Relation relation : node.getFrom()) {
             process(relation, context);
         }
-        if (node.getWhere() != null) {
-            process(node.getWhere(), context);
+        if (node.getWhere().isPresent()) {
+            process(node.getWhere().get(), context);
         }
         for (Expression expression : node.getGroupBy()) {
             process(expression, context);
         }
-        if (node.getHaving() != null) {
-            process(node.getHaving(), context);
+        if (node.getHaving().isPresent()) {
+            process(node.getHaving().get(), context);
         }
         for (SortItem sortItem : node.getOrderBy()) {
             process(sortItem, context);

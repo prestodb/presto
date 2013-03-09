@@ -1,35 +1,41 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
+import com.google.common.base.Optional;
 
 import java.util.List;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class Query
         extends Statement
 {
     private final Select select;
     private final List<Relation> from;
-    private final Expression where;
+    private final Optional<Expression> where;
     private final List<Expression> groupBy;
-    private final Expression having;
+    private final Optional<Expression> having;
     private final List<SortItem> orderBy;
-    private final String limit;
+    private final Optional<String> limit;
 
     public Query(
             Select select,
             List<Relation> from,
-            Expression where,
+            Optional<Expression> where,
             List<Expression> groupBy,
-            Expression having,
+            Optional<Expression> having,
             List<SortItem> orderBy,
-            String limit)
+            Optional<String> limit)
     {
-        Preconditions.checkNotNull(select, "select is null");
-        Preconditions.checkNotNull(from, "from is null");
-        Preconditions.checkArgument(!from.isEmpty(), "from is empty");
-        Preconditions.checkNotNull(groupBy, "groupBy is null");
-        Preconditions.checkNotNull(orderBy, "orderBy is null");
+        checkNotNull(select, "select is null");
+        checkNotNull(from, "from is null");
+        checkArgument(!from.isEmpty(), "from is empty");
+        checkNotNull(groupBy, "groupBy is null");
+        checkNotNull(orderBy, "orderBy is null");
+        checkNotNull(where, "where is null");
+        checkNotNull(where, "having is null");
+        checkNotNull(where, "limit is null");
 
         this.select = select;
         this.from = from;
@@ -50,7 +56,7 @@ public class Query
         return from;
     }
 
-    public Expression getWhere()
+    public Optional<Expression> getWhere()
     {
         return where;
     }
@@ -60,7 +66,7 @@ public class Query
         return groupBy;
     }
 
-    public Expression getHaving()
+    public Optional<Expression> getHaving()
     {
         return having;
     }
@@ -70,7 +76,7 @@ public class Query
         return orderBy;
     }
 
-    public String getLimit()
+    public Optional<String> getLimit()
     {
         return limit;
     }
