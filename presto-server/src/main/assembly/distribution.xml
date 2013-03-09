@@ -44,20 +44,18 @@
         </dependencySet>
         <dependencySet>
             <unpack>true</unpack>
-            <!-- hack: plugins should really go in /plugins, but the directory doesn't get linked
-                 into the data dir and the server has no visibility into the install directory -->
-            <outputDirectory>etc/plugins/hive</outputDirectory>
-            <scope>provided</scope>
-            <includes>
-                <include>com.facebook.presto:presto-hive-plugin:zip</include>
-            </includes>
-        </dependencySet>
-        <dependencySet>
-            <unpack>true</unpack>
             <outputDirectory>/</outputDirectory>
             <includes>
                 <include>io.airlift:launcher</include>
             </includes>
         </dependencySet>
     </dependencySets>
+    <fileSets>
+        <fileSet>
+            <directory>${project.build.directory}/plugins</directory>
+            <!-- hack: plugins should really go in /plugins, but the directory doesn't get linked
+                 into the data dir and the server has no visibility into the install directory -->
+            <outputDirectory>etc/plugins</outputDirectory>
+        </fileSet>
+    </fileSets>
 </assembly>
