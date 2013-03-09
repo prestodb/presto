@@ -1,6 +1,5 @@
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.shaded.org.apache.thrift.transport.TTransportException;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -11,6 +10,7 @@ import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.ServiceState;
 import io.airlift.discovery.client.ServiceType;
+import org.apache.thrift.transport.TTransportException;
 
 import java.util.Collections;
 import java.util.List;

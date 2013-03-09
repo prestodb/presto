@@ -118,12 +118,6 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.presto</groupId>
-                <artifactId>hive-presto-shaded</artifactId>
-                <version>0.2</version>
-            </dependency>
-
-            <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>log</artifactId>
                 <version>${dep.airlift.version}</version>
@@ -307,12 +301,6 @@
                 <groupId>commons-math</groupId>
                 <artifactId>commons-math</artifactId>
                 <version>1.2</version>
-            </dependency>
-
-            <dependency>
-                <groupId>commons-lang</groupId>
-                <artifactId>commons-lang</artifactId>
-                <version>2.6</version>
             </dependency>
 
             <dependency>
