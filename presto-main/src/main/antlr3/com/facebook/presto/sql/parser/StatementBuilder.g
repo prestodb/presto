@@ -17,6 +17,7 @@ options {
     import java.util.Map;
     import com.google.common.collect.ImmutableList;
     import com.google.common.base.Objects;
+    import com.google.common.base.Optional;
 }
 
 @members {
@@ -64,11 +65,11 @@ selectStmt returns [Query value]
         { $value = new Query(
             $selectClause.value,
             $fromClause.value,
-            $whereClause.value,
+            Optional.fromNullable($whereClause.value),
             Objects.firstNonNull($groupClause.value, ImmutableList.<Expression>of()),
-            $havingClause.value,
+            Optional.fromNullable($havingClause.value),
             Objects.firstNonNull($orderClause.value, ImmutableList.<SortItem>of()),
-            $limitClause.value);
+            Optional.fromNullable($limitClause.value));
         }
     ;
 

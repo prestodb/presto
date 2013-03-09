@@ -8,6 +8,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -50,11 +51,11 @@ public class TestSqlParser
                 new Query(
                         selectList(new DoubleLiteral("123.456E7")),
                         table(QualifiedName.of("DUAL")),
-                        null,
+                        Optional.<Expression>absent(),
                         ImmutableList.<Expression>of(),
-                        null,
+                        Optional.<Expression>absent(),
                         ImmutableList.<SortItem>of(),
-                        null));
+                        Optional.<String>absent()));
     }
 
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:7: mismatched input 'x' expecting EOF")
