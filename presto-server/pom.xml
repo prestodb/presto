@@ -171,12 +171,6 @@
         </dependency>
 
         <dependency>
-            <!-- really only needed at compilation time -->
-            <groupId>com.intellij</groupId>
-            <artifactId>annotations</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>annotations</artifactId>
         </dependency>
@@ -190,6 +184,12 @@
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.intellij</groupId>
+            <artifactId>annotations</artifactId>
             <scope>test</scope>
         </dependency>
 
