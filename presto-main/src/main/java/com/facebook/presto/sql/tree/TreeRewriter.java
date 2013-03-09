@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.tree;
 
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import static com.facebook.presto.util.IterableUtils.sameElements;
@@ -79,9 +80,9 @@ public final class TreeRewriter<C>
                 from.add(rewrite(relation, context.get()));
             }
 
-            Expression where = null;
-            if (node.getWhere() != null) {
-                where = rewrite(node.getWhere(), context.get());
+            Optional<Expression> where = null;
+            if (node.getWhere().isPresent()) {
+                where = Optional.fromNullable(rewrite(node.getWhere().get(), context.get()));
             }
 
             ImmutableList.Builder<Expression> groupBy = ImmutableList.builder();
@@ -89,9 +90,9 @@ public final class TreeRewriter<C>
                 groupBy.add(rewrite(expression, context.get()));
             }
 
-            Expression having = null;
-            if (node.getHaving() != null) {
-                having = rewrite(node.getHaving(), context.get());
+            Optional<Expression> having = null;
+            if (node.getHaving().isPresent()) {
+                having = Optional.fromNullable(rewrite(node.getHaving().get(), context.get()));
             }
 
             ImmutableList.Builder<SortItem> orderBy = ImmutableList.builder();
@@ -103,7 +104,7 @@ public final class TreeRewriter<C>
                     !sameElements(node.getFrom(), from.build()) ||
                     where != node.getWhere() ||
                     !sameElements(node.getGroupBy(), groupBy.build()) ||
-                    having != node.getHaving() ||
+                    having.orNull() != node.getHaving().orNull() ||
                     !sameElements(orderBy.build(), node.getOrderBy())) {
                 return new Query(select, from.build(), where, groupBy.build(), having, orderBy.build(), node.getLimit());
             }

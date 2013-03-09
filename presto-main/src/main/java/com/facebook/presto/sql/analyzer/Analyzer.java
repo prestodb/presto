@@ -125,7 +125,7 @@ public class Analyzer
         @Override
         protected AnalysisResult visitQuery(Query query, AnalysisContext context)
         {
-            Preconditions.checkArgument(query.getHaving() == null, "not yet implemented: HAVING");
+            Preconditions.checkArgument(!query.getHaving().isPresent(), "not yet implemented: HAVING");
             Preconditions.checkArgument(query.getFrom().size() == 1, "not yet implemented: multiple FROM relations");
 
             // prevent symbol allocator from picking symbols named the same as output aliases, since both share the same namespace for reference resolution
@@ -143,8 +143,8 @@ public class Analyzer
             TupleDescriptor sourceDescriptor = new RelationAnalyzer(metadata, context.getSession()).process(relation, context);
 
             AnalyzedExpression predicate = null;
-            if (query.getWhere() != null) {
-                predicate = analyzePredicate(query.getWhere(), sourceDescriptor);
+            if (query.getWhere().isPresent()) {
+                predicate = analyzePredicate(query.getWhere().get(), sourceDescriptor);
             }
 
             List<AnalyzedExpression> groupBy = analyzeGroupBy(query.getGroupBy(), sourceDescriptor);
@@ -165,8 +165,8 @@ public class Analyzer
             }
 
             Long limit = null;
-            if (query.getLimit() != null) {
-                limit = Long.parseLong(query.getLimit());
+            if (query.getLimit().isPresent()) {
+                limit = Long.parseLong(query.getLimit().get());
             }
 
             return AnalysisResult.newInstance(context, query.getSelect().isDistinct(), output, predicate, groupBy, aggregations, windowFunctions, limit, orderBy, query);
@@ -203,11 +203,11 @@ public class Analyzer
             Query query = new Query(
                     selectList(aliasedName("table_name", "Table")),
                     table(QualifiedName.of(catalogName, INFORMATION_SCHEMA, TABLE_TABLES)),
-                    predicate,
+                    Optional.of(predicate),
                     ImmutableList.<Expression>of(),
-                    null,
+                    Optional.<Expression>absent(),
                     ImmutableList.of(ascending("table_name")),
-                    null);
+                    Optional.<String>absent());
 
             return visitQuery(query, context);
         }
@@ -232,13 +232,13 @@ public class Analyzer
                             aliasedName("data_type", "Type"),
                             aliasedName("is_nullable", "Null")),
                     table(QualifiedName.of(catalogName, INFORMATION_SCHEMA, TABLE_COLUMNS)),
-                    logicalAnd(
+                    Optional.of(logicalAnd(
                             equal(nameReference("table_schema"), new StringLiteral(schemaName)),
-                            equal(nameReference("table_name"), new StringLiteral(tableName))),
+                            equal(nameReference("table_name"), new StringLiteral(tableName)))),
                     ImmutableList.<Expression>of(),
-                    null,
+                    Optional.<Expression>absent(),
                     ImmutableList.of(ascending("ordinal_position")),
-                    null);
+                    Optional.<String>absent());
 
             return visitQuery(query, context);
         }
@@ -280,13 +280,13 @@ public class Analyzer
             Query query = new Query(
                     selectAll(selectList.build()),
                     table(QualifiedName.of(catalogName, INFORMATION_SCHEMA, TABLE_INTERNAL_PARTITIONS)),
-                    logicalAnd(
+                    Optional.of(logicalAnd(
                             equal(nameReference("table_schema"), new StringLiteral(schemaName)),
-                            equal(nameReference("table_name"), new StringLiteral(tableName))),
+                            equal(nameReference("table_name"), new StringLiteral(tableName)))),
                     ImmutableList.of(nameReference("partition_number")),
-                    null,
+                    Optional.<Expression>absent(),
                     ImmutableList.of(ascending("partition_number")),
-                    null);
+                    Optional.<String>absent());
 
             return visitQuery(query, context);
         }

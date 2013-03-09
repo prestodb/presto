@@ -77,8 +77,8 @@ public class SqlFormatter
 
             builder.append('\n');
 
-            if (node.getWhere() != null) {
-                append(indent, "WHERE " + ExpressionFormatter.toString(node.getWhere()))
+            if (node.getWhere().isPresent()) {
+                append(indent, "WHERE " + ExpressionFormatter.toString(node.getWhere().get()))
                         .append('\n');
             }
 
@@ -87,8 +87,8 @@ public class SqlFormatter
                         .append('\n');
             }
 
-            if (node.getHaving() != null) {
-                append(indent, "HAVING " + ExpressionFormatter.toString(node.getHaving()))
+            if (node.getHaving().isPresent()) {
+                append(indent, "HAVING " + ExpressionFormatter.toString(node.getHaving().get()))
                         .append('\n');
             }
 
@@ -96,8 +96,8 @@ public class SqlFormatter
                 append(indent, "ORDER BY " + Joiner.on(", ").join(Iterables.transform(node.getOrderBy(), orderByFormatterFunction())));
             }
 
-            if (node.getLimit() != null) {
-                append(indent, "LIMIT " + node.getLimit());
+            if (node.getLimit().isPresent()) {
+                append(indent, "LIMIT " + node.getLimit().get());
             }
 
             return null;
