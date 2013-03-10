@@ -1,6 +1,8 @@
 package com.facebook.presto.server;
 
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
+import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
@@ -17,12 +19,20 @@ import io.airlift.node.NodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import org.weakref.jmx.guice.MBeanModule;
 
-public class Main
+public class Main implements Runnable
 {
     public static void main(String[] args)
     {
+        new Main().run();
+    }
+
+    @Override
+    public void run()
+    {
         Logger log = Logger.get(Main.class);
-        Bootstrap app = new Bootstrap(
+
+        ImmutableList.Builder<Module> modules = ImmutableList.builder();
+        modules.add(
                 new NodeModule(),
                 new DiscoveryModule(),
                 new HttpServerModule(),
@@ -37,6 +47,10 @@ public class Main
                 new HttpEventModule(),
                 new ServerMainModule());
 
+        modules.addAll(getAdditionalModules());
+
+        Bootstrap app = new Bootstrap(modules.build());
+
         try {
             Injector injector = app.strictConfig().initialize();
             injector.getInstance(PluginManager.class).loadPlugins();
@@ -48,5 +62,10 @@ public class Main
             log.error(e);
             System.exit(1);
         }
+    }
+
+    protected Iterable<? extends Module> getAdditionalModules()
+    {
+        return ImmutableList.of();
     }
 }
