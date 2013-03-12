@@ -41,6 +41,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
@@ -85,6 +86,7 @@ public class SqlTaskExecution
             DataStreamProvider dataStreamProvider,
             ExchangeOperatorFactory exchangeOperatorFactory,
             Metadata metadata,
+            ExecutorService taskMasterExecutor,
             ListeningExecutorService shardExecutor,
             DataSize maxOperatorMemoryUsage)
     {
@@ -102,7 +104,7 @@ public class SqlTaskExecution
                 shardExecutor,
                 maxOperatorMemoryUsage);
 
-        task.start(initialSources);
+        task.start(taskMasterExecutor, initialSources);
 
         return task;
     }
@@ -148,7 +150,7 @@ public class SqlTaskExecution
     //
     // This code starts threads so it can not be in the constructor
     // TODO: merge the partitioned and unparitioned paths somehow
-    private void start(Map<PlanNodeId, Set<Split>> initialSources)
+    private void start(ExecutorService taskMasterExecutor, Map<PlanNodeId, Set<Split>> initialSources)
     {
         // if plan is unpartitioned, add a worker
         if (!fragment.isPartitioned()) {
@@ -164,7 +166,7 @@ public class SqlTaskExecution
         }
 
         // NOTE: this must be started after the unpartitioned task or the task can be ended early
-        shardExecutor.submit(new TaskWorker(taskOutput, unfinishedWorkerTasks));
+        taskMasterExecutor.submit(new TaskWorker(taskOutput, unfinishedWorkerTasks));
     }
 
     @Override
