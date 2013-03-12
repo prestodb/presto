@@ -343,8 +343,8 @@ Parallelism: 2.5
                 formatDataSize(executionStats.getCompletedDataSize(), false),
                 bytesPerSecond,
 
-                max(0, executionStats.getSplits() - executionStats.getStartedSplits()),
-                max(0, executionStats.getStartedSplits() - executionStats.getCompletedSplits()),
+                executionStats.getPendingSplits(),
+                executionStats.getRunningSplits(),
                 executionStats.getCompletedSplits());
         reprintLine(stageSummary);
 
