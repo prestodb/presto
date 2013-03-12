@@ -7,6 +7,7 @@ import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
 
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.Set;
 
@@ -16,7 +17,7 @@ public interface RemoteTask
 
     TaskInfo getTaskInfo();
 
-    void start(Split initialSplit);
+    void start(@Nullable Split initialSplit);
 
     void addSplit(Split split);
 

@@ -60,7 +60,7 @@ public class SharedBuffer<T>
     /**
      * If true, no more elements can be added to the queue.
      */
-    private AtomicBoolean closed = new AtomicBoolean();
+    private final AtomicBoolean closed = new AtomicBoolean();
 
     private final Semaphore notFull;
 

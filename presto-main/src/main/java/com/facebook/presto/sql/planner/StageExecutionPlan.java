@@ -82,7 +82,7 @@ public class StageExecutionPlan
     {
         return Objects.toStringHelper(this)
                 .add("fragment", fragment)
-                .add("partitions", splits)
+                .add("splits", splits)
                 .add("subStages", subStages)
                 .toString();
     }

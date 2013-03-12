@@ -40,22 +40,21 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.FailureInfo.toFailures;
 import static com.facebook.presto.execution.StageInfo.stageStateGetter;
 import static com.facebook.presto.execution.TaskInfo.taskStateGetter;
-import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.Iterables.all;
 import static com.google.common.collect.Iterables.any;
@@ -63,7 +62,7 @@ import static com.google.common.collect.Iterables.transform;
 
 @ThreadSafe
 public class SqlStageExecution
-        implements SafeStageExecution
+        implements StageExecutionNode
 {
 
     private static final Logger log = Logger.get(SqlStageExecution.class);
@@ -72,13 +71,13 @@ public class SqlStageExecution
     // are always acquired top down in the tree, so calling a method on the parent while
     // holding a lock on the 'this' could cause a deadlock.
     @Nullable
-    private final SafeStageExecution parent;
+    private final StageExecutionNode parent;
     private final String queryId;
     private final String stageId;
     private final URI location;
     private final PlanFragment fragment;
     private final List<TupleInfo> tupleInfos;
-    private final Map<PlanFragmentId, SafeStageExecution> subStages;
+    private final Map<PlanFragmentId, StageExecutionNode> subStages;
 
     private final ConcurrentMap<Node, RemoteTask> tasks = new ConcurrentHashMap<>();
 
@@ -87,8 +86,6 @@ public class SqlStageExecution
     private final RemoteTaskFactory remoteTaskFactory;
     private final Session session; // only used for remote task factory
     private final int maxPendingSplitsPerNode;
-
-    private final Random random = new Random();
 
     // Changes to state must happen within a synchronized lock.
     // The only reason we use an atomic reference here is so read-only threads don't have to block.
@@ -102,7 +99,7 @@ public class SqlStageExecution
     @GuardedBy("this")
     private boolean noMoreOutputIds;
 
-    private final ExecutorService executor = Executors.newCachedThreadPool(threadsNamed("stage-scheduler-%n"));
+    private final ExecutorService executor;
 
     private final Comparator<Node> byPendingSplitsCount = new Comparator<Node>()
     {
@@ -129,12 +126,13 @@ public class SqlStageExecution
             NodeManager nodeManager,
             RemoteTaskFactory remoteTaskFactory,
             Session session,
-            int maxPendingSplitsPerNode)
+            int maxPendingSplitsPerNode,
+            ExecutorService executor)
     {
-        this(null, queryId, new AtomicInteger(), locationFactory, plan, nodeManager, remoteTaskFactory, session, maxPendingSplitsPerNode);
+        this(null, queryId, new AtomicInteger(), locationFactory, plan, nodeManager, remoteTaskFactory, session, maxPendingSplitsPerNode, executor);
     }
 
-    private SqlStageExecution(@Nullable SafeStageExecution parent,
+    private SqlStageExecution(@Nullable StageExecutionNode parent,
             String queryId,
             AtomicInteger nextStageId,
             LocationFactory locationFactory,
@@ -142,7 +140,8 @@ public class SqlStageExecution
             NodeManager nodeManager,
             RemoteTaskFactory remoteTaskFactory,
             Session session,
-            int maxPendingSplitsPerNode)
+            int maxPendingSplitsPerNode,
+            ExecutorService executor)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(nextStageId, "nextStageId is null");
@@ -152,6 +151,7 @@ public class SqlStageExecution
         Preconditions.checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
         Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkArgument(maxPendingSplitsPerNode > 0, "maxPendingSplitsPerNode must be greater than 0");
+        Preconditions.checkNotNull(executor, "executor is null");
 
         this.parent = parent;
         this.queryId = queryId;
@@ -163,13 +163,14 @@ public class SqlStageExecution
         this.remoteTaskFactory = remoteTaskFactory;
         this.session = session;
         this.maxPendingSplitsPerNode = maxPendingSplitsPerNode;
+        this.executor = executor;
 
         tupleInfos = fragment.getTupleInfos();
 
-        ImmutableMap.Builder<PlanFragmentId, SafeStageExecution> subStages = ImmutableMap.builder();
+        ImmutableMap.Builder<PlanFragmentId, StageExecutionNode> subStages = ImmutableMap.builder();
         for (StageExecutionPlan subStagePlan : plan.getSubStages()) {
             PlanFragmentId subStageFragmentId = subStagePlan.getFragment().getId();
-            SafeStageExecution subStage = new SqlStageExecution(this,
+            StageExecutionNode subStage = new SqlStageExecution(this,
                     queryId,
                     nextStageId,
                     locationFactory,
@@ -177,7 +178,7 @@ public class SqlStageExecution
                     nodeManager,
                     remoteTaskFactory,
                     session,
-                    maxPendingSplitsPerNode);
+                    maxPendingSplitsPerNode, executor);
             subStages.put(subStageFragmentId, subStage);
         }
         this.subStages = subStages.build();
@@ -190,7 +191,7 @@ public class SqlStageExecution
             cancel();
         }
         else {
-            for (SafeStageExecution subStage : subStages.values()) {
+            for (StageExecutionNode subStage : subStages.values()) {
                 subStage.cancelStage(stageId);
             }
         }
@@ -243,13 +244,13 @@ public class SqlStageExecution
         this.notifyAll();
     }
 
-    private synchronized Multimap<PlanNodeId, URI> getExchangeLocations()
+    private Multimap<PlanNodeId, URI> getExchangeLocations()
     {
         ImmutableMultimap.Builder<PlanNodeId, URI> exchangeLocations = ImmutableMultimap.builder();
         for (PlanNode planNode : fragment.getSources()) {
             if (planNode instanceof ExchangeNode) {
                 ExchangeNode exchangeNode = (ExchangeNode) planNode;
-                SafeStageExecution subStage = subStages.get(exchangeNode.getSourceFragmentId());
+                StageExecutionNode subStage = subStages.get(exchangeNode.getSourceFragmentId());
                 Preconditions.checkState(subStage != null, "Unknown sub stage %s, known stages %s", exchangeNode.getSourceFragmentId(), subStages.keySet());
                 exchangeLocations.putAll(exchangeNode.getId(), subStage.getTaskLocations());
             }
@@ -278,7 +279,7 @@ public class SqlStageExecution
     public Future<?> scheduleStartTasks()
     {
         // start sub-stages (starts bottom-up)
-        for (SafeStageExecution subStage : subStages.values()) {
+        for (StageExecutionNode subStage : subStages.values()) {
             subStage.scheduleStartTasks();
         }
         return executor.submit(new Runnable()
@@ -310,7 +311,7 @@ public class SqlStageExecution
                 // create a single partition on a random node for this fragment
                 ArrayList<Node> nodes = new ArrayList<>(nodeManager.getActiveNodes());
                 Preconditions.checkState(!nodes.isEmpty(), "Cluster does not have any active nodes");
-                Collections.shuffle(nodes, random);
+                Collections.shuffle(nodes, ThreadLocalRandom.current());
                 Node randomNode = nodes.get(0);
 
                 scheduleTask(nextTaskId, randomNode, null);
@@ -343,7 +344,7 @@ public class SqlStageExecution
             notifyParentSubStageFinishedScheduling();
 
             // tell sub stages there will be no more output buffers
-            for (SafeStageExecution subStage : subStages.values()) {
+            for (StageExecutionNode subStage : subStages.values()) {
                 subStage.noMoreOutputBuffers();
             }
 
@@ -357,6 +358,8 @@ public class SqlStageExecution
                 log.error(e, "Error while starting stage %s", stageId);
                 throw e;
             }
+            Throwables.propagateIfInstanceOf(e, Error.class);
+            log.debug(e, "Error while starting stage in done query %s", stageId);
         }
     }
 
@@ -380,7 +383,7 @@ public class SqlStageExecution
             synchronized (this) {
                 // otherwise wait for some tasks to complete
                 try {
-                    this.wait(1000);
+                    TimeUnit.SECONDS.timedWait(this, 1);
                 }
                 catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -419,7 +422,7 @@ public class SqlStageExecution
             }
 
             // tell the sub stages to create a buffer for this task
-            for (SafeStageExecution subStage : subStages.values()) {
+            for (StageExecutionNode subStage : subStages.values()) {
                 subStage.addOutputBuffer(nodeIdentifier);
             }
 
@@ -486,7 +489,7 @@ public class SqlStageExecution
             Set<String> outputBuffers,
             boolean outputComplete)
     {
-        while (true) {
+        while (!getState().isDone() ) {
             // if next loop will finish, don't wait
             if (exchangesAreComplete() && noMoreOutputIds) {
                 return;
@@ -507,7 +510,7 @@ public class SqlStageExecution
             }
 
             try {
-                this.wait(1000);
+                TimeUnit.SECONDS.timedWait(this, 1);
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -518,7 +521,7 @@ public class SqlStageExecution
 
     private boolean exchangesAreComplete()
     {
-        for (SafeStageExecution subStage : subStages.values()) {
+        for (StageExecutionNode subStage : subStages.values()) {
             switch (subStage.getState()) {
                 case PLANNED:
                 case SCHEDULING:
@@ -541,7 +544,7 @@ public class SqlStageExecution
                 log.debug(e, "Error updating task info");
             }
         }
-        for (SafeStageExecution subStage : subStages.values()) {
+        for (StageExecutionNode subStage : subStages.values()) {
             subStage.updateState();
         }
 
@@ -553,8 +556,7 @@ public class SqlStageExecution
 
             List<StageState> subStageStates = ImmutableList.copyOf(transform(transform(subStages.values(), stageInfoGetter()), stageStateGetter()));
             if (any(subStageStates, equalTo(StageState.FAILED))) {
-                StageState doneState = StageState.FAILED;
-                transitionToState(doneState);
+                transitionToState(StageState.FAILED);
             }
             else {
                 List<TaskState> taskStates = ImmutableList.copyOf(transform(transform(tasks.values(), taskInfoGetter()), taskStateGetter()));
@@ -606,7 +608,7 @@ public class SqlStageExecution
         for (RemoteTask task : tasks.values()) {
             task.cancel();
         }
-        for (SafeStageExecution subStage : subStages.values()) {
+        for (StageExecutionNode subStage : subStages.values()) {
             subStage.cancel();
         }
     }
@@ -641,12 +643,12 @@ public class SqlStageExecution
         };
     }
 
-    public static Function<SafeStageExecution, StageInfo> stageInfoGetter()
+    public static Function<StageExecutionNode, StageInfo> stageInfoGetter()
     {
-        return new Function<SafeStageExecution, StageInfo>()
+        return new Function<StageExecutionNode, StageInfo>()
         {
             @Override
-            public StageInfo apply(SafeStageExecution stage)
+            public StageInfo apply(StageExecutionNode stage)
             {
                 return stage.getStageInfo();
             }
@@ -660,7 +662,7 @@ public class SqlStageExecution
  * errors, each stage reference parents and children using this interface so direct
  * access is not possible.
  */
-interface SafeStageExecution
+interface StageExecutionNode
 {
     StageInfo getStageInfo();
 

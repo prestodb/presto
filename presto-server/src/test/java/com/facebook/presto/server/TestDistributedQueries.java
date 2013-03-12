@@ -11,13 +11,13 @@ import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ColumnMetadata;
+import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeColumnHandle;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.StorageManager;
-import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
@@ -28,6 +28,7 @@ import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
+import com.facebook.presto.sql.tree.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
 import com.facebook.presto.tpch.TpchSplit;
 import com.facebook.presto.tpch.TpchTableHandle;
@@ -253,13 +254,18 @@ public class TestDistributedQueries
                 Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
             }
 
-            QueryInfo foo = client.getQueryInfo(true);
+            client.getQueryInfo(true);
 
             MaterializedResult materializedResult = materialize(client.getResultsOperator());
             QueryInfo queryInfo = client.getQueryInfo(true);
             if (queryInfo.getState() != QueryState.FINISHED) {
                 throw new RuntimeException("Expected query to be FINISHED, but is " + queryInfo.getState());
             }
+
+            // dump query info to console for debugging (NOTE: not pretty printed)
+            // JsonCodec<QueryInfo> queryInfoJsonCodec = createCodecFactory().prettyPrint().jsonCodec(QueryInfo.class);
+            // System.out.println(queryInfoJsonCodec.toJson(queryInfo));
+
             return materializedResult;
         }
     }
@@ -535,6 +541,7 @@ public class TestDistributedQueries
                     @Override
                     public void configure(Binder binder)
                     {
+                        JsonBinder.jsonBinder(binder).addSerializerBinding(Expression.class).to(ExpressionSerializer.class);
                         JsonBinder.jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
                         JsonBinder.jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);
                     }

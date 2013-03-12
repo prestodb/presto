@@ -228,6 +228,7 @@ public class ExchangeOperator
             for (HttpPageBufferClient client : allClients.values()) {
                 Closeables.closeQuietly(client);
             }
+            operatorStats.setExchangeStatus(getExchangeStatus());
         }
 
         private class ExchangeClientCallback

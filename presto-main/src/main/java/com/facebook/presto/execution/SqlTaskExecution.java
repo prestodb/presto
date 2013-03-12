@@ -113,9 +113,6 @@ public class SqlTaskExecution
         // create output buffers
         this.taskOutput = new TaskOutput(queryId, stageId, taskId, location, initialOutputIds, pageBufferMax);
 
-        // todo is this correct?
-        taskOutput.getStats().recordExecutionStart();
-
         Set<Split> initialSplits = ImmutableSet.of();
         for (Entry<PlanNodeId, Set<Split>> entry : initialSources.entrySet()) {
             if (!entry.getKey().equals(fragment.getPartitionedSource())) {
@@ -162,6 +159,8 @@ public class SqlTaskExecution
         else {
             // add this to all of the existing workers
             unpartitionedSources.put(sourceId, split);
+            // mark split as started since all worker are will be reading from it
+            getTaskInfo().getStats().splitStarted();
             for (WeakReference<SplitWorker> workerReference : splitWorkers) {
                 SplitWorker worker = workerReference.get();
                 // this should not happen until the all sources have been closed
@@ -329,13 +328,19 @@ public class SqlTaskExecution
         public Void call()
                 throws InterruptedException
         {
-            while (taskOutput.getState().isDone()) {
+            while (!taskOutput.getState().isDone()) {
                 FutureTask<?> futureTask = scheduledWorkers.pollFirst(1, TimeUnit.SECONDS);
                 // if we got a task and the state is not done, run the task
                 if (futureTask != null && taskOutput.getState().isDone()) {
                     futureTask.run();
                 }
             }
+
+            // assure all tasks are complete
+            for (FutureTask<?> futureTask = scheduledWorkers.poll(); futureTask != null; futureTask = scheduledWorkers.poll()) {
+                futureTask.cancel(true);
+            }
+
             return null;
         }
     }
@@ -402,6 +407,7 @@ public class SqlTaskExecution
                 return null;
             }
 
+            taskOutput.getStats().recordExecutionStart();
             operatorStats.start();
             try (PageIterator pages = operator.iterator(operatorStats)) {
                 while (pages.hasNext()) {

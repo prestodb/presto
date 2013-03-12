@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Sets;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.JsonBodyGenerator;
@@ -38,7 +39,6 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response.Status;
 import java.net.URI;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -68,9 +68,15 @@ public class HttpRemoteTask
     private final PlanFragment planFragment;
 
     @GuardedBy("this")
+    private boolean noMoreSplits;
+    @GuardedBy("this")
     private final SetMultimap<PlanNodeId, URI> exchangeLocations = HashMultimap.create();
     @GuardedBy("this")
+    private boolean noMoreExchangeLocations;
+    @GuardedBy("this")
     private final Set<String> outputIds = new TreeSet<>();
+    @GuardedBy("this")
+    private boolean noMoreOutputIds;
 
     private final HttpClient httpClient;
     private final JsonCodec<TaskInfo> taskInfoCodec;
@@ -150,25 +156,39 @@ public class HttpRemoteTask
     @Override
     public void addSplit(Split split)
     {
+        synchronized (this) {
+            Preconditions.checkState(!noMoreSplits, "noMoreSplits has already been set");
+        }
         addSource(planFragment.getPartitionedSource(), split);
     }
 
     @Override
     public void noMoreSplits()
     {
+        synchronized (this) {
+            Preconditions.checkState(!noMoreSplits, "noMoreSplits has already been set");
+            noMoreSplits = true;
+        }
         if (planFragment.getPartitionedSource() != null) {
             noMoreSources(planFragment.getPartitionedSource());
         }
     }
 
     @Override
-    public void addExchangeLocations(Multimap<PlanNodeId, URI> exchangeLocations, boolean noMore)
+    public void addExchangeLocations(Multimap<PlanNodeId, URI> additionalLocations, boolean noMore)
     {
         // determine which locations are new
-        SetMultimap<PlanNodeId, URI> newExchangeLocations = HashMultimap.create(exchangeLocations);
+        SetMultimap<PlanNodeId, URI> newExchangeLocations;
         synchronized (this) {
-            newExchangeLocations.entries().removeAll(this.exchangeLocations.entries());
-            this.exchangeLocations.putAll(exchangeLocations);
+            Preconditions.checkState(!noMoreExchangeLocations || exchangeLocations.entries().containsAll(additionalLocations.entries()),
+                    "Locations can not be added after noMoreExchangeLocations has been set");
+
+            noMoreExchangeLocations = noMore;
+
+            newExchangeLocations = HashMultimap.create(additionalLocations);
+            newExchangeLocations.entries().removeAll(exchangeLocations.entries());
+
+            this.exchangeLocations.putAll(additionalLocations);
         }
 
         // add the new locations
@@ -192,9 +212,13 @@ public class HttpRemoteTask
     public void addOutputBuffers(Set<String> outputBuffers, boolean noMore)
     {
         // determine which buffers are new
-        HashSet<String> newOutputBuffers = new HashSet<>(outputBuffers);
+        Set<String> newOutputBuffers;
         synchronized (this) {
-            newOutputBuffers.removeAll(this.outputIds);
+            Preconditions.checkState(!noMoreOutputIds || outputBuffers.containsAll(outputBuffers), "Buffers can not be added after noMoreOutputIds has been set");
+            noMoreOutputIds = noMore;
+
+            newOutputBuffers = ImmutableSet.copyOf(Sets.difference(outputBuffers, outputIds));
+
             this.outputIds.addAll(outputBuffers);
         }
 

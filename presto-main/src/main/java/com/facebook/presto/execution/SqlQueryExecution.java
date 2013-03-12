@@ -26,6 +26,7 @@ import io.airlift.log.Logger;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -53,7 +54,8 @@ public class SqlQueryExecution
     private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
     private final QueryMonitor queryMonitor;
-    private final int maxPendingSplitsPerNode;
+    private final int maxPendingSplitsPerNode;    
+    private final ExecutorService queryExecutor;
 
     private final QueryStats queryStats = new QueryStats();
 
@@ -77,7 +79,8 @@ public class SqlQueryExecution
             RemoteTaskFactory remoteTaskFactory,
             LocationFactory locationFactory,
             QueryMonitor queryMonitor,
-            int maxPendingSplitsPerNode)
+            int maxPendingSplitsPerNode,
+            ExecutorService queryExecutor)
     {
         checkNotNull(queryId, "queryId is null");
         checkNotNull(sql, "sql is null");
@@ -89,6 +92,7 @@ public class SqlQueryExecution
         checkNotNull(locationFactory, "locationFactory is null");
         checkNotNull(queryMonitor, "queryMonitor is null");
         checkArgument(maxPendingSplitsPerNode > 0, "maxPendingSplitsPerNode must be greater than 0");
+        checkNotNull(queryExecutor, "queryExecutor is null");
 
         this.queryId = queryId;
         this.sql = sql;
@@ -101,6 +105,7 @@ public class SqlQueryExecution
         this.locationFactory = locationFactory;
         this.queryMonitor = queryMonitor;
         this.maxPendingSplitsPerNode = maxPendingSplitsPerNode;
+        this.queryExecutor = queryExecutor;        
     }
 
     @Override
@@ -231,7 +236,8 @@ public class SqlQueryExecution
                     nodeManager,
                     remoteTaskFactory,
                     session,
-                    maxPendingSplitsPerNode);
+                    maxPendingSplitsPerNode,
+                    queryExecutor);
             this.outputStage.set(outputStage);
         }
 
