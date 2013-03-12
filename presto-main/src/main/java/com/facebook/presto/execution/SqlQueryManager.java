@@ -85,7 +85,7 @@ public class SqlQueryManager
         checkNotNull(config, "config is null");
         checkNotNull(queryMonitor, "queryMonitor is null");
 
-        this.queryExecutor = Executors.newCachedThreadPool(threadsNamed("query-processor-%d"));
+        this.queryExecutor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
 
         this.importClientManager = importClientManager;
         this.importManager = importManager;
@@ -215,7 +215,8 @@ public class SqlQueryManager
                     remoteTaskFactory,
                     locationFactory,
                     queryMonitor,
-                    maxPendingSplitsPerNode);
+                    maxPendingSplitsPerNode,
+                    queryExecutor);
             queryMonitor.createdEvent(queryExecution.getQueryInfo());
         }
         queries.put(queryExecution.getQueryId(), queryExecution);

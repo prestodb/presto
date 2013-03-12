@@ -111,7 +111,7 @@ public class SqlTaskManager
     @PreDestroy
     public void stop()
     {
-        shardExecutor.shutdown();
+        shardExecutor.shutdownNow();
         taskManagementExecutor.shutdownNow();
     }
 
@@ -121,11 +121,7 @@ public class SqlTaskManager
         Map<String, TaskInfo> taskInfos = new TreeMap<>();
         taskInfos.putAll(taskInfos);
         for (TaskExecution taskExecution : tasks.values()) {
-            try {
-                taskInfos.put(taskExecution.getTaskId(), taskExecution.getTaskInfo());
-            }
-            catch (Exception ignored) {
-            }
+            taskInfos.put(taskExecution.getTaskId(), taskExecution.getTaskInfo());
         }
         return ImmutableList.copyOf(taskInfos.values());
     }
@@ -143,11 +139,10 @@ public class SqlTaskManager
         }
 
         TaskInfo taskInfo = taskInfos.get(taskId);
-        if (taskInfo != null) {
-            return taskInfo;
+        if (taskInfo == null) {
+            throw new NoSuchElementException("Unknown query task " + taskId);
         }
-
-        throw new NoSuchElementException("Unknown query task " + taskId);
+        return taskInfo;
     }
 
     @Override
