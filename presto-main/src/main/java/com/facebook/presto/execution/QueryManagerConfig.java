@@ -16,6 +16,7 @@ public class QueryManagerConfig
     private boolean importsEnabled = true;
     private DataSize maxOperatorMemoryUsage = new DataSize(256, Unit.MEGABYTE);
     private long maxSplitCount = 100_000;
+    private int maxPendingSplitsPerNode = 100;
     private int maxShardProcessorThreads = Runtime.getRuntime().availableProcessors() * 4;
     private Duration maxQueryAge = new Duration(15, TimeUnit.MINUTES);
     private Duration clientTimeout = new Duration(1, TimeUnit.MINUTES);
@@ -57,6 +58,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxSplitCount(long maxSplitCount)
     {
         this.maxSplitCount = maxSplitCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxPendingSplitsPerNode()
+    {
+        return maxPendingSplitsPerNode;
+    }
+
+    @Config("query.max-pending-splits-per-node")
+    public QueryManagerConfig setMaxPendingSplitsPerNode(int maxPendingSplitsPerNode)
+    {
+        this.maxPendingSplitsPerNode = maxPendingSplitsPerNode;
         return this;
     }
 

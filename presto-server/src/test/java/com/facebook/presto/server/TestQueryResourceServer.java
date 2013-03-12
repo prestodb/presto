@@ -19,6 +19,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
+import com.google.common.net.HttpHeaders;
 import com.google.common.net.MediaType;
 import com.google.inject.Binder;
 import com.google.inject.Guice;
@@ -32,6 +33,7 @@ import io.airlift.event.client.InMemoryEventModule;
 import io.airlift.http.client.ApacheHttpClient;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
@@ -46,7 +48,6 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import javax.ws.rs.core.Response.Status;
 import java.io.IOException;
 import java.net.URI;
 import java.util.List;
@@ -54,16 +55,20 @@ import java.util.List;
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES_TYPE;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
+import static io.airlift.http.client.Request.Builder.preparePut;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 
 public class TestQueryResourceServer
 {
+    private static final MediaType MEDIA_TYPE_JSON = MediaType.create("application", "json");
+
     private HttpClient client;
     private TestingHttpServer server;
 
@@ -117,22 +122,32 @@ public class TestQueryResourceServer
         TaskInfo taskInfo = queryInfo.getOutputStage().getTasks().get(0);
         URI outputLocation = uriFor("/v1/task/" + taskInfo.getTaskId() + "/results/out");
 
+        Request request = preparePut()
+                .setUri(uriFor("/v1/task/" + taskInfo.getTaskId() + "/results/complete"))
+                .setHeader(HttpHeaders.CONTENT_TYPE, MEDIA_TYPE_JSON.toString())
+                .setBodyGenerator(jsonBodyGenerator(jsonCodec(boolean.class), true))
+                .build();
+        JsonResponse<TaskInfo> response = client.execute(request, createFullJsonResponseHandler(jsonCodec(TaskInfo.class)));
+        assertEquals(response.getStatusCode(), 200);
+        assertEquals(response.getValue().getTaskId(), taskInfo.getTaskId());
+
         assertEquals(loadData(outputLocation), 220);
         assertQueryStatus(location, QueryState.RUNNING);
 
         assertEquals(loadData(outputLocation), 44 + 48);
         assertQueryStatus(location, QueryState.FINISHED);
 
-        StatusResponse response = client.execute(prepareDelete().setUri(location).build(), createStatusResponseHandler());
+        // cancel the query
+        StatusResponse cancelResponse = client.execute(prepareDelete().setUri(location).build(), createStatusResponseHandler());
         assertQueryStatus(location, QueryState.FINISHED);
-        assertEquals(response.getStatusCode(), Status.NO_CONTENT.getStatusCode());
+        assertEquals(cancelResponse.getStatusCode(), HttpStatus.NO_CONTENT.code());
     }
 
     private void assertQueryStatus(URI location, QueryState expectedQueryState)
     {
         URI statusUri = uriBuilderFrom(location).build();
         JsonResponse<QueryInfo> response = client.execute(prepareGet().setUri(statusUri).build(), createFullJsonResponseHandler(jsonCodec(QueryInfo.class)));
-        if (expectedQueryState == QueryState.FINISHED && response.getStatusCode() == Status.GONE.getStatusCode()) {
+        if (expectedQueryState == QueryState.FINISHED && response.getStatusCode() == HttpStatus.GONE.code()) {
             // when query finishes the server may delete it
             return;
         }
@@ -169,7 +184,7 @@ public class TestQueryResourceServer
         @Override
         public URI handle(Request request, Response response)
         {
-            if (response.getStatusCode() != Status.CREATED.getStatusCode()) {
+            if (response.getStatusCode() != HttpStatus.CREATED.code()) {
                 throw new UnexpectedResponseException(
                         String.format("Expected response code to be 201 CREATED, but was %s %s", response.getStatusCode(), response.getStatusMessage()),
                         request,
@@ -194,8 +209,8 @@ public class TestQueryResourceServer
         @Override
         public List<Page> handle(Request request, Response response)
         {
-            if (response.getStatusCode() != Status.OK.getStatusCode()) {
-                if (response.getStatusCode() == Status.GONE.getStatusCode()) {
+            if (response.getStatusCode() != HttpStatus.OK.code()) {
+                if (response.getStatusCode() == HttpStatus.GONE.code()) {
                     return ImmutableList.of();
                 }
                 throw new UnexpectedResponseException(

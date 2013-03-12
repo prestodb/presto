@@ -23,7 +23,7 @@ public class TaskInfo
     private final String taskId;
     private final TaskState state;
     private final URI self;
-    private final List<PageBufferInfo> outputBuffers;
+    private final List<BufferInfo> outputBuffers;
     private final ExecutionStats stats;
     private final List<FailureInfo> failures;
 
@@ -33,7 +33,7 @@ public class TaskInfo
             @JsonProperty("taskId") String taskId,
             @JsonProperty("state") TaskState state,
             @JsonProperty("self") URI self,
-            @JsonProperty("outputBuffers") List<PageBufferInfo> outputBuffers,
+            @JsonProperty("outputBuffers") List<BufferInfo> outputBuffers,
             @JsonProperty("stats") ExecutionStats stats,
             @JsonProperty("failures") List<FailureInfo> failures)
     {
@@ -43,7 +43,6 @@ public class TaskInfo
         Preconditions.checkNotNull(state, "state is null");
         Preconditions.checkNotNull(self, "self is null");
         Preconditions.checkNotNull(outputBuffers, "outputBufferStates is null");
-        Preconditions.checkArgument(!outputBuffers.isEmpty(), "outputBufferStates is empty");
         Preconditions.checkNotNull(stats, "stats is null");
         Preconditions.checkNotNull(failures, "failures is null");
 
@@ -88,7 +87,7 @@ public class TaskInfo
     }
 
     @JsonProperty
-    public List<PageBufferInfo> getOutputBuffers()
+    public List<BufferInfo> getOutputBuffers()
     {
         return outputBuffers;
     }
@@ -114,6 +113,18 @@ public class TaskInfo
                 .toString();
     }
 
+
+    public static Function<TaskInfo, String> taskIdGetter()
+    {
+        return new Function<TaskInfo, String>()
+        {
+            @Override
+            public String apply(TaskInfo taskInfo)
+            {
+                return taskInfo.getTaskId();
+            }
+        };
+    }
 
     public static Function<TaskInfo, TaskState> taskStateGetter()
     {

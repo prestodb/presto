@@ -21,10 +21,8 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.SqlQueryManager;
-import com.facebook.presto.execution.SqlStageManager;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.StageInfo;
-import com.facebook.presto.execution.StageManager;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.importer.ForImportManager;
@@ -53,7 +51,6 @@ import com.facebook.presto.metadata.SystemTables;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
-import com.facebook.presto.operator.HackPlanFragmentSourceProvider;
 import com.facebook.presto.spi.ImportClientFactory;
 import com.facebook.presto.split.DataStreamManager;
 import com.facebook.presto.split.DataStreamProvider;
@@ -61,8 +58,8 @@ import com.facebook.presto.split.ImportClientManager;
 import com.facebook.presto.split.ImportDataStreamProvider;
 import com.facebook.presto.split.InternalDataStreamProvider;
 import com.facebook.presto.split.NativeDataStreamProvider;
+import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
@@ -83,7 +80,6 @@ import org.skife.jdbi.v2.IDBI;
 import org.weakref.jmx.guice.ExportBinder;
 
 import javax.inject.Singleton;
-
 import java.io.File;
 import java.lang.annotation.Annotation;
 
@@ -107,11 +103,9 @@ public class ServerMainModule
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
         bindConfig(binder).to(QueryManagerConfig.class);
 
-        binder.bind(StageResource.class).in(Scopes.SINGLETON);
-        binder.bind(StageManager.class).to(SqlStageManager.class).in(Scopes.SINGLETON);
-
         binder.bind(TaskResource.class).in(Scopes.SINGLETON);
         binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
+        binder.bind(ExchangeOperatorFactory.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
 
         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
@@ -120,7 +114,6 @@ public class ServerMainModule
 
         HttpClientBinder.httpClientBinder(binder).bindAsyncHttpClient("exchange", ForExchange.class).withTracing();
         HttpClientBinder.httpClientBinder(binder).bindHttpClient("scheduler", ForScheduler.class).withTracing();
-        binder.bind(PlanFragmentSourceProvider.class).to(HackPlanFragmentSourceProvider.class).in(Scopes.SINGLETON);
 
         bindConfig(binder).to(StorageManagerConfig.class);
         binder.bind(StorageManager.class).to(DatabaseStorageManager.class).in(Scopes.SINGLETON);
@@ -147,6 +140,7 @@ public class ServerMainModule
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(QueryFragmentRequest.class);
+        jsonCodecBinder(binder).bindJsonCodec(Split.class);
         jsonBinder(binder).addSerializerBinding(Expression.class).to(ExpressionSerializer.class);
         jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);

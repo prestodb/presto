@@ -3,18 +3,18 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.concurrent.FairBatchExecutor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.server.ExchangeOperatorFactory;
+import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragmentSource;
-import com.facebook.presto.sql.planner.PlanFragmentSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
@@ -27,6 +27,8 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -35,8 +37,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.util.Threads.threadsNamed;
-import static com.google.common.collect.Iterables.filter;
-import static com.google.common.collect.Iterables.transform;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -48,32 +48,37 @@ public class SqlTaskManager
 
     private final int pageBufferMax;
 
-    private final ExecutorService taskExecutor;
-    private final FairBatchExecutor shardExecutor;
+    private final ExecutorService taskMasterExecutor;
+    private final ListeningExecutorService shardExecutor;
     private final ScheduledExecutorService taskManagementExecutor;
     private final Metadata metadata;
-    private final PlanFragmentSourceProvider sourceProvider;
+    private final DataStreamProvider dataStreamProvider;
+    private final ExchangeOperatorFactory exchangeOperatorFactory;
     private final HttpServerInfo httpServerInfo;
     private final DataSize maxOperatorMemoryUsage;
     private final Duration maxTaskAge;
     private final Duration clientTimeout;
 
+    private final ConcurrentMap<String, TaskInfo> taskInfos = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, TaskExecution> tasks = new ConcurrentHashMap<>();
 
     @Inject
     public SqlTaskManager(
             Metadata metadata,
-            PlanFragmentSourceProvider sourceProvider,
+            DataStreamProvider dataStreamProvider,
+            ExchangeOperatorFactory exchangeOperatorFactory,
             HttpServerInfo httpServerInfo,
             QueryManagerConfig config)
     {
         Preconditions.checkNotNull(metadata, "metadata is null");
-        Preconditions.checkNotNull(sourceProvider, "sourceProvider is null");
+        Preconditions.checkNotNull(dataStreamProvider, "dataStreamProvider is null");
+        Preconditions.checkNotNull(exchangeOperatorFactory, "exchangeOperatorFactory is null");
         Preconditions.checkNotNull(httpServerInfo, "httpServerInfo is null");
         Preconditions.checkNotNull(config, "config is null");
 
         this.metadata = metadata;
-        this.sourceProvider = sourceProvider;
+        this.dataStreamProvider = dataStreamProvider;
+        this.exchangeOperatorFactory = exchangeOperatorFactory;
         this.httpServerInfo = httpServerInfo;
         this.pageBufferMax = 20;
         this.maxOperatorMemoryUsage = config.getMaxOperatorMemoryUsage();
@@ -81,11 +86,12 @@ public class SqlTaskManager
         this.maxTaskAge = new Duration(config.getMaxQueryAge().toMillis() + SECONDS.toMillis(30), MILLISECONDS);
         this.clientTimeout = config.getClientTimeout();
 
-        taskExecutor = Executors.newCachedThreadPool(threadsNamed("task-processor-%d"));
+        // we have an unlimited number of task master threads
+        taskMasterExecutor = Executors.newCachedThreadPool(threadsNamed("task-processor-%d"));
 
-        shardExecutor = new FairBatchExecutor(config.getMaxShardProcessorThreads(), threadsNamed("shard-processor-%d"));
+        shardExecutor = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(config.getMaxShardProcessorThreads(), threadsNamed("shard-processor-%d")));
 
-        taskManagementExecutor = Executors.newScheduledThreadPool(100, threadsNamed("task-management-%d"));
+        taskManagementExecutor = Executors.newScheduledThreadPool(5, threadsNamed("task-management-%d"));
         taskManagementExecutor.scheduleAtFixedRate(new Runnable()
         {
             @Override
@@ -110,27 +116,20 @@ public class SqlTaskManager
     @PreDestroy
     public void stop()
     {
-        taskExecutor.shutdownNow();
-        shardExecutor.shutdown();
+        taskMasterExecutor.shutdownNow();
+        shardExecutor.shutdownNow();
         taskManagementExecutor.shutdownNow();
     }
 
     @Override
     public List<TaskInfo> getAllTaskInfo()
     {
-        return ImmutableList.copyOf(filter(transform(tasks.values(), new Function<TaskExecution, TaskInfo>()
-        {
-            @Override
-            public TaskInfo apply(TaskExecution taskExecution)
-            {
-                try {
-                    return taskExecution.getTaskInfo();
-                }
-                catch (Exception ignored) {
-                    return null;
-                }
-            }
-        }), Predicates.notNull()));
+        Map<String, TaskInfo> taskInfos = new TreeMap<>();
+        taskInfos.putAll(taskInfos);
+        for (TaskExecution taskExecution : tasks.values()) {
+            taskInfos.put(taskExecution.getTaskId(), taskExecution.getTaskInfo());
+        }
+        return ImmutableList.copyOf(taskInfos.values());
     }
 
     @Override
@@ -139,11 +138,16 @@ public class SqlTaskManager
         Preconditions.checkNotNull(taskId, "taskId is null");
 
         TaskExecution taskExecution = tasks.get(taskId);
-        if (taskExecution == null) {
+        if (taskExecution != null) {
+            TaskInfo taskInfo = taskExecution.getTaskInfo();
+            taskInfo.getStats().recordHeartBeat();
+            return taskInfo;
+        }
+
+        TaskInfo taskInfo = taskInfos.get(taskId);
+        if (taskInfo == null) {
             throw new NoSuchElementException("Unknown query task " + taskId);
         }
-        TaskInfo taskInfo = taskExecution.getTaskInfo();
-        taskInfo.getStats().recordHeartBeat();
         return taskInfo;
     }
 
@@ -153,9 +157,8 @@ public class SqlTaskManager
             String stageId,
             String taskId,
             PlanFragment fragment,
-            List<PlanFragmentSource> splits,
-            Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
-            List<String> outputIds)
+            Map<PlanNodeId, Set<Split>> initialSources,
+            List<String> initialOutputIds)
     {
         Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkNotNull(queryId, "queryId is null");
@@ -163,31 +166,50 @@ public class SqlTaskManager
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkArgument(!taskId.isEmpty(), "taskId is empty");
         Preconditions.checkNotNull(fragment, "fragment is null");
-        Preconditions.checkNotNull(outputIds, "outputIds is null");
-        Preconditions.checkNotNull(splits, "splits is null");
-        Preconditions.checkNotNull(exchangeSources, "exchangeSources is null");
+        Preconditions.checkNotNull(initialOutputIds, "initialOutputIds is null");
+        Preconditions.checkNotNull(initialSources, "initialSources is null");
 
         URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
 
-        SqlTaskExecution taskExecution = new SqlTaskExecution(session,
+        SqlTaskExecution taskExecution = SqlTaskExecution.createSqlTaskExecution(session,
                 queryId,
                 stageId,
                 taskId,
                 location,
                 fragment,
-                splits,
-                exchangeSources,
-                outputIds,
+                initialSources,
+                initialOutputIds,
                 pageBufferMax,
-                sourceProvider,
+                dataStreamProvider,
+                exchangeOperatorFactory,
                 metadata,
+                taskMasterExecutor,
                 shardExecutor,
                 maxOperatorMemoryUsage
         );
-        
-        taskExecutor.submit(new TaskStarter(taskExecution));
 
         tasks.put(taskId, taskExecution);
+        return taskExecution.getTaskInfo();
+    }
+
+    @Override
+    public TaskInfo addResultQueue(String taskId, String outputName)
+    {
+        Preconditions.checkNotNull(taskId, "taskId is null");
+        Preconditions.checkNotNull(outputName, "outputName is null");
+
+        TaskExecution taskExecution = tasks.get(taskId);
+        if (taskExecution == null) {
+            TaskInfo taskInfo = taskInfos.get(taskId);
+            if (taskInfo != null) {
+                // todo this is not safe since task can be expired at any time
+                // task was finished early, so the new split should be ignored
+                return taskInfo;
+            } else {
+                throw new NoSuchElementException("Unknown query task " + taskId);
+            }
+        }
+        taskExecution.addResultQueue(outputName);
         return taskExecution.getTaskInfo();
     }
 
@@ -206,40 +228,111 @@ public class SqlTaskManager
     }
 
     @Override
-    public void abortTaskResults(String taskId, String outputId)
+    public TaskInfo noMoreResultQueues(String taskId)
+    {
+        Preconditions.checkNotNull(taskId, "taskId is null");
+
+        TaskExecution taskExecution = tasks.get(taskId);
+        if (taskExecution == null) {
+            TaskInfo taskInfo = taskInfos.get(taskId);
+            if (taskInfo != null) {
+                // todo this is not safe since task can be expired at any time
+                // task was finished early, so the new split should be ignored
+                return taskInfo;
+            } else {
+                throw new NoSuchElementException("Unknown query task " + taskId);
+            }
+        }
+        taskExecution.noMoreResultQueues();
+        return taskExecution.getTaskInfo();
+    }
+
+    @Override
+    public TaskInfo addSplit(String taskId, PlanNodeId sourceId, Split split)
+    {
+        Preconditions.checkNotNull(taskId, "taskId is null");
+        Preconditions.checkNotNull(sourceId, "sourceId is null");
+        Preconditions.checkNotNull(split, "split is null");
+
+        TaskExecution taskExecution = tasks.get(taskId);
+        if (taskExecution == null) {
+            TaskInfo taskInfo = taskInfos.get(taskId);
+            if (taskInfo != null) {
+                // todo this is not safe since task can be expired at any time
+                // task was finished early, so the new split should be ignored
+                return taskInfo;
+            } else {
+                throw new NoSuchElementException("Unknown query task " + taskId);
+            }
+        }
+        taskExecution.addSplit(sourceId, split);
+        return taskExecution.getTaskInfo();
+    }
+
+    @Override
+    public TaskInfo noMoreSplits(String taskId, PlanNodeId sourceId)
+    {
+        Preconditions.checkNotNull(taskId, "taskId is null");
+        Preconditions.checkNotNull(sourceId, "sourceId is null");
+
+        TaskExecution taskExecution = tasks.get(taskId);
+        if (taskExecution == null) {
+            TaskInfo taskInfo = taskInfos.get(taskId);
+            if (taskInfo != null) {
+                // todo this is not safe since task can be expired at any time
+                // task was finished early, so the new split should be ignored
+                return taskInfo;
+            } else {
+                throw new NoSuchElementException("Unknown query task " + taskId);
+            }
+        }
+        taskExecution.noMoreSplits(sourceId);
+        return taskExecution.getTaskInfo();
+    }
+
+    @Override
+    public TaskInfo abortTaskResults(String taskId, String outputId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(outputId, "outputId is null");
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution == null) {
-            throw new NoSuchElementException();
+            TaskInfo taskInfo = taskInfos.get(taskId);
+            if (taskInfo != null) {
+                // todo this is not safe since task can be expired at any time
+                // task was finished early, so the new split should be ignored
+                return taskInfo;
+            } else {
+                throw new NoSuchElementException("Unknown query task " + taskId);
+            }
         }
         log.debug("Aborting task %s output %s", taskId, outputId);
         taskExecution.abortResults(outputId);
+
+        // assure task is completed and cache final results
+        cancelTask(taskId);
+        return taskExecution.getTaskInfo();
     }
 
     @Override
-    public void cancelTask(String taskId)
-    {
-        Preconditions.checkNotNull(taskId, "taskId is null");
-
-        TaskExecution taskExecution = tasks.get(taskId);
-        if (taskExecution != null) {
-            log.debug("Cancelling task %s", taskId);
-            taskExecution.cancel();
-        }
-    }
-
-
-    public void removeTask(String taskId)
+    public TaskInfo cancelTask(String taskId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 
         TaskExecution taskExecution = tasks.remove(taskId);
-        if (taskExecution != null) {
-            taskExecution.cancel();
+        if (taskExecution == null) {
+            return taskInfos.get(taskId);
         }
+
+        // make sure task is finished
+        taskExecution.cancel();
+        tasks.remove(taskId);
+
+        // cache task info
+        TaskInfo taskInfo = taskExecution.getTaskInfo();
+        taskInfos.putIfAbsent(taskId, taskInfo);
+        return taskExecution.getTaskInfo();
     }
 
     public void removeOldTasks()
@@ -248,9 +341,16 @@ public class SqlTaskManager
         for (TaskExecution taskExecution : tasks.values()) {
             try {
                 TaskInfo taskInfo = taskExecution.getTaskInfo();
+
+                // drop references to completed task objects
+                if (taskInfo.getState().isDone()) {
+                    // assure task is completed and cache final results
+                    cancelTask(taskExecution.getTaskId());
+                }
+
                 DateTime endTime = taskInfo.getStats().getEndTime();
                 if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
-                    removeTask(taskExecution.getTaskId());
+                    taskInfos.remove(taskExecution.getTaskId());
                 }
             }
             catch (Exception e) {
@@ -278,23 +378,6 @@ public class SqlTaskManager
             catch (Exception e) {
                 log.warn(e, "Error while inspecting age of task %s", taskExecution.getTaskId());
             }
-        }
-    }
-
-    private static class TaskStarter
-            implements Runnable
-    {
-        private final TaskExecution taskExecution;
-
-        public TaskStarter(TaskExecution taskExecution)
-        {
-            this.taskExecution = taskExecution;
-        }
-
-        @Override
-        public void run()
-        {
-            taskExecution.run();
         }
     }
 }

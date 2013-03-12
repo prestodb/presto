@@ -4,9 +4,12 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.PrestoMediaTypes;
+import com.facebook.presto.execution.NoSuchBufferException;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.split.Split;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Throwables;
 import com.google.common.reflect.TypeToken;
 import io.airlift.units.Duration;
@@ -15,6 +18,7 @@ import javax.inject.Inject;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
+import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -71,9 +75,8 @@ public class TaskResource
                     queryFragmentRequest.getStageId(),
                     taskId,
                     queryFragmentRequest.getFragment(),
-                    queryFragmentRequest.getSplits(),
-                    queryFragmentRequest.getExchangeSources(),
-                    queryFragmentRequest.getOutputIds());
+                    queryFragmentRequest.getInitialSources(),
+                    queryFragmentRequest.getInitialOutputIds());
 
             URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(taskInfo.getTaskId()).build();
             return Response.created(pagesUri).entity(taskInfo).build();
@@ -101,11 +104,37 @@ public class TaskResource
 
     @DELETE
     @Path("{taskId}")
-    public void cancelTask(@PathParam("taskId") String taskId)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response cancelTask(@PathParam("taskId") String taskId)
     {
         checkNotNull(taskId, "taskId is null");
 
-        taskManager.cancelTask(taskId);
+        try {
+            TaskInfo taskInfo = taskManager.cancelTask(taskId);
+            if (taskInfo != null) {
+                return Response.ok(taskInfo).build();
+            }
+        }
+        catch (NoSuchElementException ignored) {
+        }
+        return Response.status(Status.NOT_FOUND).build();
+    }
+
+    @PUT
+    @Path("{taskId}/results/{outputId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response addResultQueue(@PathParam("taskId") String taskId, @PathParam("outputId") String outputId)
+    {
+        checkNotNull(taskId, "taskId is null");
+        checkNotNull(outputId, "outputId is null");
+
+        try {
+            TaskInfo taskInfo = taskManager.addResultQueue(taskId, outputId);
+            return Response.ok(taskInfo).build();
+        }
+        catch (NoSuchElementException e) {
+            return Response.status(Status.NOT_FOUND).build();
+        }
     }
 
     @GET
@@ -131,25 +160,84 @@ public class TaskResource
             GenericEntity<?> entity = new GenericEntity<>(pages, new TypeToken<List<Page>>() {}.getType());
             return Response.ok(entity).build();
         }
+        catch (NoSuchBufferException e) {
+            return Response.status(Status.NO_CONTENT).build();
+        }
         catch (NoSuchElementException e) {
             return Response.status(Status.GONE).build();
         }
     }
 
+    @PUT
+    @Path("{taskId}/results/complete")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response noMoreResultQueues(@PathParam("taskId") String taskId, boolean isComplete)
+    {
+        try {
+            TaskInfo taskInfo;
+            if (isComplete) {
+                taskInfo = taskManager.noMoreResultQueues(taskId);
+            } else {
+                taskInfo = taskManager.getTaskInfo(taskId);
+            }
+            return Response.ok(taskInfo).build();
+        }
+        catch (NoSuchElementException e) {
+            return Response.status(Status.NOT_FOUND).build();
+        }
+    }
+
     @DELETE
     @Path("{taskId}/results/{outputId}")
-    @Produces(PrestoMediaTypes.PRESTO_PAGES)
+    @Produces(MediaType.APPLICATION_JSON)
     public Response abortResults(@PathParam("taskId") String taskId, @PathParam("outputId") String outputId)
     {
         checkNotNull(taskId, "taskId is null");
         checkNotNull(outputId, "outputId is null");
 
         try {
-            taskManager.abortTaskResults(taskId, outputId);
-            return Response.noContent().build();
+            TaskInfo taskInfo = taskManager.abortTaskResults(taskId, outputId);
+            return Response.ok(taskInfo).build();
         }
         catch (NoSuchElementException e) {
-            return Response.status(Status.GONE).build();
+            return Response.status(Status.NOT_FOUND).build();
+        }
+    }
+
+    @POST
+    @Path("{taskId}/source/{sourceId}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response addSplit(@PathParam("taskId") String taskId, @PathParam("sourceId") String sourceId, Split split)
+    {
+        checkNotNull(split, "split is null");
+        try {
+            TaskInfo taskInfo = taskManager.addSplit(taskId, new PlanNodeId(sourceId), split);
+            return Response.ok(taskInfo).build();
+        }
+        catch (NoSuchElementException e) {
+            return Response.status(Status.NOT_FOUND).build();
+        }
+    }
+
+    @PUT
+    @Path("{taskId}/source/{sourceId}/complete")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response noMoreSplits(@PathParam("taskId") String taskId, @PathParam("sourceId") String sourceId, boolean isComplete)
+    {
+        try {
+            TaskInfo taskInfo;
+            if (isComplete) {
+                taskInfo = taskManager.noMoreSplits(taskId, new PlanNodeId(sourceId));
+            } else {
+                taskInfo = taskManager.getTaskInfo(taskId);
+            }
+            return Response.ok(taskInfo).build();
+        }
+        catch (NoSuchElementException e) {
+            return Response.status(Status.NOT_FOUND).build();
         }
     }
 }

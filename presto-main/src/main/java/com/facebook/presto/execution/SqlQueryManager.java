@@ -47,9 +47,8 @@ public class SqlQueryManager
     private final ImportClientManager importClientManager;
     private final ImportManager importManager;
     private final Metadata metadata;
-    private final NodeManager nodeManager;
     private final SplitManager splitManager;
-    private final StageManager stageManager;
+    private final NodeManager nodeManager;
     private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
     private final Duration maxQueryAge;
@@ -60,6 +59,8 @@ public class SqlQueryManager
 
     private final boolean importsEnabled;
     private final Duration clientTimeout;
+    private final int maxPendingSplitsPerNode;
+
     private final ScheduledExecutorService queryManagementExecutor;
 
 
@@ -67,39 +68,37 @@ public class SqlQueryManager
     public SqlQueryManager(ImportClientManager importClientManager,
             ImportManager importManager,
             Metadata metadata,
-            NodeManager nodeManager,
             SplitManager splitManager,
-            StageManager stageManager,
-            RemoteTaskFactory remoteTaskFactory,
             LocationFactory locationFactory,
             QueryManagerConfig config,
+            NodeManager nodeManager,
+            RemoteTaskFactory remoteTaskFactory,
             QueryMonitor queryMonitor)
     {
         checkNotNull(importClientManager, "importClientFactory is null");
         checkNotNull(importManager, "importManager is null");
         checkNotNull(metadata, "metadata is null");
-        checkNotNull(nodeManager, "nodeManager is null");
         checkNotNull(splitManager, "splitManager is null");
-        checkNotNull(stageManager, "stageManager is null");
+        checkNotNull(nodeManager, "nodeManager is null");
         checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
         checkNotNull(locationFactory, "locationFactory is null");
         checkNotNull(config, "config is null");
         checkNotNull(queryMonitor, "queryMonitor is null");
 
-        this.queryExecutor = Executors.newCachedThreadPool(threadsNamed("query-processor-%d"));
+        this.queryExecutor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
 
         this.importClientManager = importClientManager;
         this.importManager = importManager;
         this.metadata = metadata;
-        this.nodeManager = nodeManager;
         this.splitManager = splitManager;
-        this.stageManager = stageManager;
+        this.nodeManager = nodeManager;
         this.remoteTaskFactory = remoteTaskFactory;
         this.locationFactory = locationFactory;
         this.queryMonitor = queryMonitor;
         this.importsEnabled = config.isImportsEnabled();
         this.maxQueryAge = config.getMaxQueryAge();
         this.clientTimeout = config.getClientTimeout();
+        this.maxPendingSplitsPerNode = config.getMaxPendingSplitsPerNode();
 
         queryManagementExecutor = Executors.newScheduledThreadPool(100, threadsNamed("query-management-%d"));
 
@@ -211,12 +210,13 @@ public class SqlQueryManager
                     query,
                     session,
                     metadata,
-                    nodeManager,
                     splitManager,
-                    stageManager,
+                    nodeManager,
                     remoteTaskFactory,
                     locationFactory,
-                    queryMonitor);
+                    queryMonitor,
+                    maxPendingSplitsPerNode,
+                    queryExecutor);
             queryMonitor.createdEvent(queryExecution.getQueryInfo());
         }
         queries.put(queryExecution.getQueryId(), queryExecution);
@@ -237,6 +237,20 @@ public class SqlQueryManager
         QueryExecution query = queries.get(queryId);
         if (query != null) {
             query.cancel();
+        }
+    }
+
+    @Override
+    public void cancelStage(String queryId, String stageId)
+    {
+        checkNotNull(queryId, "queryId is null");
+        Preconditions.checkNotNull(stageId, "stageId is null");
+
+        log.debug("Cancel query %s stage %s", queryId, stageId);
+
+        QueryExecution query = queries.get(queryId);
+        if (query != null) {
+            query.cancelStage(stageId);
         }
     }
 

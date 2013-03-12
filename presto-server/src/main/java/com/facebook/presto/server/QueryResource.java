@@ -6,6 +6,7 @@ package com.facebook.presto.server;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.sql.analyzer.Session;
+import com.google.common.base.Preconditions;
 import org.eclipse.jetty.http.HttpHeaders;
 
 import javax.inject.Inject;
@@ -95,5 +96,14 @@ public class QueryResource
     {
         checkNotNull(queryId, "queryId is null");
         queryManager.cancelQuery(queryId);
+    }
+
+    @DELETE
+    @Path("{queryId}/stage/{stageId}")
+    public void cancelStage(@PathParam("queryId") String queryId, @PathParam("stageId") String stageId)
+    {
+        checkNotNull(queryId, "queryId is null");
+        Preconditions.checkNotNull(stageId, "stageId is null");
+        queryManager.cancelStage(queryId, stageId);
     }
 }

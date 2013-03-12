@@ -11,13 +11,13 @@ import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ColumnMetadata;
+import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeColumnHandle;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.StorageManager;
-import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
@@ -28,6 +28,7 @@ import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
+import com.facebook.presto.sql.tree.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
 import com.facebook.presto.tpch.TpchSplit;
 import com.facebook.presto.tpch.TpchTableHandle;
@@ -70,7 +71,6 @@ import io.airlift.json.JsonBinder;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.JsonModule;
-import io.airlift.json.ObjectMapperProvider;
 import io.airlift.node.NodeInfo;
 import io.airlift.node.NodeModule;
 import io.airlift.testing.FileUtils;
@@ -82,7 +82,6 @@ import org.weakref.jmx.guice.MBeanModule;
 import org.weakref.jmx.testing.TestingMBeanServer;
 
 import javax.management.MBeanServer;
-
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -186,8 +185,10 @@ public class TestDistributedQueries
             throws Exception
     {
         Closeables.closeQuietly(discoveryServer);
-        for (PrestoTestingServer server : servers) {
-            Closeables.closeQuietly(server);
+        if (servers != null) {
+            for (PrestoTestingServer server : servers) {
+                Closeables.closeQuietly(server);
+            }
         }
     }
 
@@ -244,13 +245,28 @@ public class TestDistributedQueries
                 if (state == QueryState.FAILED) {
                     throw Iterables.getFirst(queryInfo.getFailures(), null).toException();
                 }
+                else if (state == QueryState.CANCELED) {
+                    throw new RuntimeException("Query was cancelled");
+                }
                 else if (state == QueryState.RUNNING || state.isDone()) {
                     break;
                 }
                 Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
             }
 
-            return materialize(client.getResultsOperator());
+            client.getQueryInfo(true);
+
+            MaterializedResult materializedResult = materialize(client.getResultsOperator());
+            QueryInfo queryInfo = client.getQueryInfo(true);
+            if (queryInfo.getState() != QueryState.FINISHED) {
+                throw new RuntimeException("Expected query to be FINISHED, but is " + queryInfo.getState());
+            }
+
+            // dump query info to console for debugging (NOTE: not pretty printed)
+            // JsonCodec<QueryInfo> queryInfoJsonCodec = createCodecFactory().prettyPrint().jsonCodec(QueryInfo.class);
+            // System.out.println(queryInfoJsonCodec.toJson(queryInfo));
+
+            return materializedResult;
         }
     }
 
@@ -291,6 +307,7 @@ public class TestDistributedQueries
             Map<String, String> serverProperties = ImmutableMap.<String, String>builder()
                     .put("node.environment", "testing")
                     .put("storage-manager.data-directory", baseDataDir.getPath())
+                    .put("query.client.timeout", "10m")
                     .put("presto-metastore.db.type", "h2")
                     .put("exchange.http-client.read-timeout ", "1h")
                     .put("presto-metastore.db.filename", new File(baseDataDir, "db/MetaStore").getPath())
@@ -524,6 +541,7 @@ public class TestDistributedQueries
                     @Override
                     public void configure(Binder binder)
                     {
+                        JsonBinder.jsonBinder(binder).addSerializerBinding(Expression.class).to(ExpressionSerializer.class);
                         JsonBinder.jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
                         JsonBinder.jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);
                     }

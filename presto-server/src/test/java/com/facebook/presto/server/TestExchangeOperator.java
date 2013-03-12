@@ -4,7 +4,6 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TaskInfo;
@@ -13,11 +12,11 @@ import com.facebook.presto.operator.ExchangeOperator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
+import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -42,7 +41,6 @@ import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.json.JsonModule;
 import io.airlift.node.testing.TestingNodeModule;
-import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -50,12 +48,12 @@ import org.testng.annotations.Test;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import java.net.URI;
+import java.util.Set;
 
 import static com.facebook.presto.server.MockQueryManager.TUPLE_INFOS;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.preparePut;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -190,15 +188,14 @@ public class TestExchangeOperator
     private URI scheduleTask(TestingHttpServer httpServer)
             throws Exception
     {
-        PlanFragment planFragment = new PlanFragment(new PlanFragmentId("32"), false, ImmutableMap.<Symbol, Type>of(), new ExchangeNode(new PlanNodeId("1"), new PlanFragmentId("22"), ImmutableList.<Symbol>of()));
+        PlanFragment planFragment = new PlanFragment(new PlanFragmentId("32"), null, ImmutableMap.<Symbol, Type>of(), new ExchangeNode(new PlanNodeId("1"), new PlanFragmentId("22"), ImmutableList.<Symbol>of()));
 
         Session session = new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA);
         QueryFragmentRequest fragmentRequest = new QueryFragmentRequest(session,
                 "queryId",
                 "stageId",
                 planFragment,
-                ImmutableList.<PlanFragmentSource>of(),
-                ImmutableMap.<PlanNodeId, ExchangePlanFragmentSource>of(),
+                ImmutableMap.<PlanNodeId, Set<Split>>of(),
                 ImmutableList.of("out"));
 
         Request request = preparePut()
@@ -215,8 +212,16 @@ public class TestExchangeOperator
                 response.getStatusMessage());
         TaskInfo taskInfo = response.getValue();
 
-        Assert.assertEquals(taskInfo.getOutputBuffers().size(), 1);
-        String bufferId = taskInfo.getOutputBuffers().get(0).getBufferId();
-        return uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(bufferId).build();
+        URI outputLocation = httpServer.getBaseUrl().resolve("/v1/task/" + taskInfo.getTaskId() + "/results/out");
+        request = preparePut()
+                .setUri(httpServer.getBaseUrl().resolve("/v1/task/" + taskInfo.getTaskId() + "/results/complete"))
+                .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
+                .setBodyGenerator(jsonBodyGenerator(jsonCodec(boolean.class), true))
+                .build();
+        response = httpClient.execute(request, createFullJsonResponseHandler(jsonCodec(TaskInfo.class)));
+        assertEquals(response.getStatusCode(), 200);
+        assertEquals(response.getValue().getTaskId(), taskInfo.getTaskId());
+
+        return outputLocation;
     }
 }

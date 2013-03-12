@@ -13,7 +13,8 @@ public enum DataSourceType
 {
     NATIVE("native"),
     INTERNAL("internal"),
-    IMPORT("import");
+    IMPORT("import"),
+    REMOTE("remote");
 
     private static final Map<String, DataSourceType> NAME_MAP;
     static {

@@ -4,6 +4,7 @@ import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.IterableTransformer;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -15,7 +16,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
-
 import java.util.List;
 import java.util.Map;
 
@@ -24,11 +24,11 @@ public class PlanFragment
 {
     private final PlanFragmentId id;
     private final PlanNode root;
-    private final boolean partitioned;
+    private final PlanNodeId partitionedSource;
     private final Map<Symbol, Type> symbols;
 
     @JsonCreator
-    public PlanFragment(@JsonProperty("id") PlanFragmentId id, @JsonProperty("partitioned") boolean isPartitioned, @JsonProperty("symbols") Map<Symbol, Type> symbols, @JsonProperty("root") PlanNode root)
+    public PlanFragment(@JsonProperty("id") PlanFragmentId id, @JsonProperty("partitionedSource") PlanNodeId partitionedSource, @JsonProperty("symbols") Map<Symbol, Type> symbols, @JsonProperty("root") PlanNode root)
     {
         Preconditions.checkNotNull(id, "id is null");
         Preconditions.checkNotNull(symbols, "symbols is null");
@@ -36,7 +36,7 @@ public class PlanFragment
 
         this.id = id;
         this.root = root;
-        partitioned = isPartitioned;
+        this.partitionedSource = partitionedSource;
         this.symbols = symbols;
     }
 
@@ -46,10 +46,15 @@ public class PlanFragment
         return id;
     }
 
-    @JsonProperty("partitioned")
     public boolean isPartitioned()
     {
-        return partitioned;
+        return partitionedSource != null;
+    }
+
+    @JsonProperty("partitionedSource")
+    public PlanNodeId getPartitionedSource()
+    {
+        return partitionedSource;
     }
 
     @JsonProperty("root")
@@ -103,7 +108,7 @@ public class PlanFragment
     {
         return Objects.toStringHelper(this)
                 .add("id", id)
-                .add("partitioned", partitioned)
+                .add("partitionedSource", partitionedSource)
                 .toString();
     }
 

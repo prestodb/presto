@@ -39,7 +39,8 @@ public class TestAlignmentOperator
     {
         AlignmentOperator operator = createAlignmentOperator();
 
-        TaskOutput taskOutput = new TaskOutput("unknown", "unknown", "unknown", URI.create("unknown://unknown"), ImmutableList.of("unknown"), 1000, 1000);
+        TaskOutput taskOutput = new TaskOutput("unknown", "unknown", "unknown", URI.create("unknown://unknown"), ImmutableList.of("unknown"), 1000);
+        taskOutput.noMoreResultQueues();
 
         int pageCount = 0;
         PageIterator iterator = operator.iterator(new OperatorStats(taskOutput));

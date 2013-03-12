@@ -3,62 +3,53 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.execution.PageBuffer.BufferState;
 import com.facebook.presto.operator.Page;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.net.URI;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.FailureInfo.toFailures;
-import static com.facebook.presto.execution.PageBuffer.infoGetter;
-import static com.facebook.presto.execution.PageBuffer.stateGetter;
-import static com.google.common.base.Predicates.equalTo;
-import static com.google.common.collect.Iterables.transform;
 
 @ThreadSafe
 public class TaskOutput
 {
+    private static final Logger log = Logger.get(TaskOutput.class);
+
     private final String queryId;
     private final String stageId;
     private final String taskId;
     private final URI location;
-    private final Map<String, PageBuffer> outputBuffers;
+    private final SharedBuffer<Page> sharedBuffer;
 
     private final ExecutionStats stats = new ExecutionStats();
     private final AtomicReference<TaskState> taskState = new AtomicReference<>(TaskState.RUNNING);
 
     private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
 
-    public TaskOutput(String queryId, String stageId, String taskId, URI location, List<String> outputIds, int pageBufferMax, int splits)
+    public TaskOutput(String queryId, String stageId, String taskId, URI location, List<String> initialOutputIds, int pageBufferMax)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(location, "location is null");
-        Preconditions.checkNotNull(outputIds, "outputIds is null");
-        Preconditions.checkArgument(!outputIds.isEmpty(), "outputIds is empty");
+        Preconditions.checkNotNull(initialOutputIds, "initialOutputIds is null");
         Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
-        Preconditions.checkArgument(splits >= 0, "splits is negative");
 
         this.queryId = queryId;
         this.stageId = stageId;
         this.taskId = taskId;
         this.location = location;
-        stats.addSplits(splits);
-        ImmutableMap.Builder<String, PageBuffer> builder = ImmutableMap.builder();
-        for (String outputId : outputIds) {
-            builder.put(outputId, new PageBuffer(outputId, pageBufferMax));
+        sharedBuffer = new SharedBuffer<>(pageBufferMax);
+        for (String outputId : initialOutputIds) {
+            sharedBuffer.addQueue(outputId);
         }
-        outputBuffers = builder.build();
     }
 
     public String getTaskId()
@@ -76,32 +67,31 @@ public class TaskOutput
         return stats;
     }
 
+    public void addResultQueue(String outputIds)
+    {
+        sharedBuffer.addQueue(outputIds);
+    }
+
     public boolean addPage(Page page)
             throws InterruptedException
     {
-        for (PageBuffer outputBuffer : outputBuffers.values()) {
-            if (getState().isDone()) {
-                return false;
-            }
-            outputBuffer.addPage(page);
-        }
-        return true;
+        return sharedBuffer.add(page);
+    }
+
+    public void noMoreResultQueues()
+    {
+        sharedBuffer.noMoreQueues();
     }
 
     public List<Page> getResults(String outputId, int maxPageCount, Duration maxWait)
             throws InterruptedException
     {
-        PageBuffer outputBuffer = outputBuffers.get(outputId);
-        Preconditions.checkArgument(outputBuffer != null, "Unknown output %s: available outputs %s", outputId, outputBuffers.keySet());
-        return outputBuffer.getNextPages(maxPageCount, maxWait);
+        return sharedBuffer.get(outputId, maxPageCount, maxWait);
     }
 
     public void abortResults(String outputId)
     {
-        PageBuffer outputBuffer = outputBuffers.get(outputId);
-        Preconditions.checkArgument(outputBuffer != null, "Unknown output %s: available outputs %s", outputId, outputBuffers.keySet());
-        outputBuffer.cancel();
-        updateFinishedState();
+        sharedBuffer.abort(outputId);
     }
 
     /**
@@ -109,10 +99,7 @@ public class TaskOutput
      */
     public void finish()
     {
-        // finish all buffers
-        for (PageBuffer outputBuffer : outputBuffers.values()) {
-            outputBuffer.finish();
-        }
+        sharedBuffer.finish();
 
         // the output will only transition to finished if it isn't already marked as failed or cancel
         updateFinishedState();
@@ -125,7 +112,7 @@ public class TaskOutput
 
     public void queryFailed(Throwable cause)
     {
-        if (transitionToDoneState(TaskState.FAILED)) {
+        if (taskState.get() == TaskState.FAILED || transitionToDoneState(TaskState.FAILED)) {
             failureCauses.add(cause);
         }
     }
@@ -138,7 +125,7 @@ public class TaskOutput
         }
 
         // if all buffers are finished, transition to finished
-        if (Iterables.all(transform(outputBuffers.values(), stateGetter()), equalTo(BufferState.FINISHED))) {
+        if (sharedBuffer.isFinished()) {
             transitionToDoneState(TaskState.FINISHED);
         }
     }
@@ -158,11 +145,9 @@ public class TaskOutput
 
                 stats.recordEnd();
 
-                // cancel all buffers
-                for (PageBuffer outputBuffer : outputBuffers.values()) {
-                    outputBuffer.cancel();
-                }
+                sharedBuffer.destroy();
 
+                log.debug("Task %s is %s", taskId, doneState);
                 return true;
             }
         }
@@ -176,7 +161,7 @@ public class TaskOutput
                 taskId,
                 getState(),
                 location,
-                ImmutableList.copyOf(transform(outputBuffers.values(), infoGetter())),
+                ImmutableList.copyOf(sharedBuffer.getInfo()),
                 stats,
                 toFailures(failureCauses));
     }

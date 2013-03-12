@@ -6,11 +6,11 @@ package com.facebook.presto.execution;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.collect.Multimap;
 
-import java.util.List;
-import java.util.Map;
+import java.net.URI;
+import java.util.Set;
 
 public interface RemoteTaskFactory
 {
@@ -20,7 +20,6 @@ public interface RemoteTaskFactory
             String taskId,
             Node node,
             PlanFragment fragment,
-            List<PlanFragmentSource> splits,
-            Map<PlanNodeId, ExchangePlanFragmentSource> exchangeSources,
-            List<String> outputIds);
+            Multimap<PlanNodeId, URI> initialExchangeLocations,
+            Set<String> initialOutputIds);
 }

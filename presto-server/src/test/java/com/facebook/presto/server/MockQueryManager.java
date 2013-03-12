@@ -3,7 +3,6 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.execution.ExchangePlanFragmentSource;
 import com.facebook.presto.execution.FailureInfo;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryInfo;
@@ -13,8 +12,8 @@ import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.PlanFragmentSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
@@ -28,6 +27,7 @@ import javax.inject.Inject;
 import java.net.URI;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -98,8 +98,7 @@ public class MockQueryManager
                 "stageId",
                 "queryId",
                 null,
-                ImmutableList.<PlanFragmentSource>of(),
-                ImmutableMap.<PlanNodeId, ExchangePlanFragmentSource>of(),
+                ImmutableMap.<PlanNodeId, Set<Split>>of(),
                 ImmutableList.<String>of("out")
         );
 
@@ -112,6 +111,12 @@ public class MockQueryManager
     public void cancelQuery(String queryId)
     {
         queries.remove(queryId);
+    }
+
+    @Override
+    public void cancelStage(String queryId, String stageId)
+    {
+        // mock queries don't have stages
     }
 
     private static class SimpleQuery
@@ -165,7 +170,7 @@ public class MockQueryManager
                     new StageInfo(queryId,
                             stageId,
                             StageState.FINISHED,
-                            locationFactory.createStageLocation(stageId),
+                            locationFactory.createStageLocation(queryId, stageId),
                             null,
                             TUPLE_INFOS,
                             ImmutableList.<TaskInfo>of(outputTask),

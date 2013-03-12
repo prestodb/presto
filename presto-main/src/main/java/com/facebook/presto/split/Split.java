@@ -11,7 +11,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 @JsonSubTypes({
         @JsonSubTypes.Type(value = NativeSplit.class, name = "native"),
         @JsonSubTypes.Type(value = InternalSplit.class, name = "internal"),
-        @JsonSubTypes.Type(value = ImportSplit.class, name = "import")})
+        @JsonSubTypes.Type(value = ImportSplit.class, name = "import"),
+        @JsonSubTypes.Type(value = RemoteSplit.class, name = "remote")})
 public interface Split
 {
     DataSourceType getDataSourceType();
