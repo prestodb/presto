@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -47,6 +48,7 @@ public class SqlTaskManager
 
     private final int pageBufferMax;
 
+    private final ExecutorService taskMasterExecutor;
     private final ListeningExecutorService shardExecutor;
     private final ScheduledExecutorService taskManagementExecutor;
     private final Metadata metadata;
@@ -84,6 +86,9 @@ public class SqlTaskManager
         this.maxTaskAge = new Duration(config.getMaxQueryAge().toMillis() + SECONDS.toMillis(30), MILLISECONDS);
         this.clientTimeout = config.getClientTimeout();
 
+        // we have an unlimited number of task master threads
+        taskMasterExecutor = Executors.newCachedThreadPool(threadsNamed("task-processor-%d"));
+
         shardExecutor = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(config.getMaxShardProcessorThreads(), threadsNamed("shard-processor-%d")));
 
         taskManagementExecutor = Executors.newScheduledThreadPool(5, threadsNamed("task-management-%d"));
@@ -111,6 +116,7 @@ public class SqlTaskManager
     @PreDestroy
     public void stop()
     {
+        taskMasterExecutor.shutdownNow();
         shardExecutor.shutdownNow();
         taskManagementExecutor.shutdownNow();
     }
@@ -177,6 +183,7 @@ public class SqlTaskManager
                 dataStreamProvider,
                 exchangeOperatorFactory,
                 metadata,
+                taskMasterExecutor,
                 shardExecutor,
                 maxOperatorMemoryUsage
         );
