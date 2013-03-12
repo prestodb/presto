@@ -165,7 +165,7 @@ public class SqlTaskManager
 
         URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
 
-        SqlTaskExecution taskExecution = new SqlTaskExecution(session,
+        SqlTaskExecution taskExecution = SqlTaskExecution.createSqlTaskExecution(session,
                 queryId,
                 stageId,
                 taskId,

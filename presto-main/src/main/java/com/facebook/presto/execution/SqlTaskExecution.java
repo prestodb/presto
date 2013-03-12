@@ -21,7 +21,6 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -74,7 +73,7 @@ public class SqlTaskExecution
 
     private final BlockingDeque<FutureTask<?>> unfinishedWorkerTasks = new LinkedBlockingDeque<>();
 
-    public SqlTaskExecution(Session session,
+    public static SqlTaskExecution createSqlTaskExecution(Session session,
             String queryId,
             String stageId,
             String taskId,
@@ -89,12 +88,44 @@ public class SqlTaskExecution
             ListeningExecutorService shardExecutor,
             DataSize maxOperatorMemoryUsage)
     {
+        SqlTaskExecution task = new SqlTaskExecution(session,
+                queryId,
+                stageId,
+                taskId,
+                location,
+                fragment,
+                initialOutputIds,
+                pageBufferMax,
+                dataStreamProvider,
+                exchangeOperatorFactory,
+                metadata,
+                shardExecutor,
+                maxOperatorMemoryUsage);
+
+        task.start(initialSources);
+
+        return task;
+    }
+
+    private SqlTaskExecution(Session session,
+            String queryId,
+            String stageId,
+            String taskId,
+            URI location,
+            PlanFragment fragment,
+            List<String> initialOutputIds,
+            int pageBufferMax,
+            DataStreamProvider dataStreamProvider,
+            ExchangeOperatorFactory exchangeOperatorFactory,
+            Metadata metadata,
+            ListeningExecutorService shardExecutor,
+            DataSize maxOperatorMemoryUsage)
+    {
         Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(fragment, "fragment is null");
-        Preconditions.checkNotNull(initialSources, "initialSources is null");
         Preconditions.checkNotNull(initialOutputIds, "initialOutputIds is null");
         Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
         Preconditions.checkNotNull(metadata, "metadata is null");
@@ -112,25 +143,27 @@ public class SqlTaskExecution
 
         // create output buffers
         this.taskOutput = new TaskOutput(queryId, stageId, taskId, location, initialOutputIds, pageBufferMax);
+    }
 
-        Set<Split> initialSplits = ImmutableSet.of();
-        for (Entry<PlanNodeId, Set<Split>> entry : initialSources.entrySet()) {
-            if (!entry.getKey().equals(fragment.getPartitionedSource())) {
-                unpartitionedSources.putAll(entry.getKey(), entry.getValue());
-            } else {
-                initialSplits = entry.getValue();
-            }
-        }
-
-        // plans without a partition are immediately executed
+    //
+    // This code starts threads so it can not be in the constructor
+    // TODO: merge the partitioned and unparitioned paths somehow
+    private void start(Map<PlanNodeId, Set<Split>> initialSources)
+    {
+        // if plan is unpartitioned, add a worker
         if (!fragment.isPartitioned()) {
             scheduleSplitWorker(null, null);
-        } else {
-            for (Split initialSplit : initialSplits) {
-                addSplit(fragment.getPartitionedSource(), initialSplit);
+        }
+
+        // add all the splits
+        for (Entry<PlanNodeId, Set<Split>> entry : initialSources.entrySet()) {
+            PlanNodeId planNodeId = entry.getKey();
+            for (Split split : entry.getValue()) {
+                addSplit(planNodeId, split);
             }
         }
 
+        // NOTE: this must be started after the unpartitioned task or the task can be ended early
         shardExecutor.submit(new TaskWorker(taskOutput, unfinishedWorkerTasks));
     }
 
