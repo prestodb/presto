@@ -4,13 +4,18 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.operator.Page;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
+import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import java.net.URI;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -31,6 +36,9 @@ public class TaskOutput
     private final AtomicReference<TaskState> taskState = new AtomicReference<>(TaskState.RUNNING);
 
     private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
+
+    @GuardedBy("this")
+    private final Set<PlanNodeId> noMoreSplits = new HashSet<>();
 
     public TaskOutput(String queryId, String stageId, String taskId, URI location, List<String> initialOutputIds, int pageBufferMax)
     {
@@ -80,6 +88,16 @@ public class TaskOutput
     public void noMoreResultQueues()
     {
         sharedBuffer.noMoreQueues();
+    }
+
+    public synchronized void noMoreSplits(PlanNodeId sourceId)
+    {
+        this.noMoreSplits.add(sourceId);
+    }
+
+    public synchronized Set<PlanNodeId> getNoMoreSplits()
+    {
+        return ImmutableSet.copyOf(noMoreSplits);
     }
 
     public List<Page> getResults(String outputId, int maxPageCount, Duration maxWait)
@@ -161,6 +179,7 @@ public class TaskOutput
                 getState(),
                 location,
                 sharedBuffer.getInfo(),
+                getNoMoreSplits(),
                 stats,
                 toFailures(failureCauses));
     }

@@ -139,6 +139,7 @@ public class HttpRemoteTask
                 TaskState.PLANNED,
                 location,
                 new SharedBufferInfo(QueueState.OPEN, bufferStates),
+                ImmutableSet.<PlanNodeId>of(),
                 new ExecutionStats(),
                 ImmutableList.<FailureInfo>of()));
     }
@@ -413,6 +414,7 @@ public class HttpRemoteTask
                         TaskState.CANCELED,
                         taskInfo.getSelf(),
                         taskInfo.getOutputBuffers(),
+                        taskInfo.getNoMoreSplits(),
                         taskInfo.getStats(),
                         ImmutableList.<FailureInfo>of()));
             }
@@ -438,6 +440,7 @@ public class HttpRemoteTask
                     TaskState.CANCELED,
                     taskInfo.getSelf(),
                     taskInfo.getOutputBuffers(),
+                    taskInfo.getNoMoreSplits(),
                     taskInfo.getStats(),
                     ImmutableList.<FailureInfo>of()));
             return;
