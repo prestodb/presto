@@ -128,7 +128,7 @@ public class QueryInfo
         if (outputStage != null) {
             List<TaskInfo> outStage = outputStage.getTasks();
             for (TaskInfo outputTask : outStage) {
-                for (BufferInfo outputBuffer : outputTask.getOutputBuffers()) {
+                for (BufferInfo outputBuffer : outputTask.getOutputBuffers().getBuffers()) {
                     if (outputBuffer.getBufferedPages() > 0) {
                         return true;
                     }

@@ -8,10 +8,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
-
 import java.net.URI;
 import java.util.List;
 
@@ -23,7 +21,7 @@ public class TaskInfo
     private final String taskId;
     private final TaskState state;
     private final URI self;
-    private final List<BufferInfo> outputBuffers;
+    private final SharedBufferInfo outputBuffers;
     private final ExecutionStats stats;
     private final List<FailureInfo> failures;
 
@@ -33,7 +31,7 @@ public class TaskInfo
             @JsonProperty("taskId") String taskId,
             @JsonProperty("state") TaskState state,
             @JsonProperty("self") URI self,
-            @JsonProperty("outputBuffers") List<BufferInfo> outputBuffers,
+            @JsonProperty("outputBuffers") SharedBufferInfo outputBuffers,
             @JsonProperty("stats") ExecutionStats stats,
             @JsonProperty("failures") List<FailureInfo> failures)
     {
@@ -51,7 +49,7 @@ public class TaskInfo
         this.taskId = taskId;
         this.state = state;
         this.self = self;
-        this.outputBuffers = ImmutableList.copyOf(outputBuffers);
+        this.outputBuffers = outputBuffers;
         this.stats = stats;
         this.failures = failures;
     }
@@ -87,7 +85,7 @@ public class TaskInfo
     }
 
     @JsonProperty
-    public List<BufferInfo> getOutputBuffers()
+    public SharedBufferInfo getOutputBuffers()
     {
         return outputBuffers;
     }

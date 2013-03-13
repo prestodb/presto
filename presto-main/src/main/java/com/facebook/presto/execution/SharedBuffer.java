@@ -76,13 +76,13 @@ public class SharedBuffer<T>
         return state == QueueState.FINISHED;
     }
 
-    public synchronized List<BufferInfo> getInfo()
+    public synchronized SharedBufferInfo getInfo()
     {
         ImmutableList.Builder<BufferInfo> infos = ImmutableList.builder();
         for (NamedQueue namedQueue : namedQueues.values()) {
             infos.add(new BufferInfo(namedQueue.getQueueId(), namedQueue.isFinished(), namedQueue.size()));
         }
-        return infos.build();
+        return new SharedBufferInfo(state, infos.build());
     }
 
     public synchronized void addQueue(String queueId)

@@ -4,6 +4,7 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.PrestoHeaders;
+import com.facebook.presto.execution.BufferInfo;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
@@ -172,12 +173,13 @@ public class HttpQueryClient
                 3);
 
         for (TaskInfo taskInfo : outputStage.getTasks()) {
-            Preconditions.checkState(taskInfo.getOutputBuffers().size() == 1,
+            List<BufferInfo> buffers = taskInfo.getOutputBuffers().getBuffers();
+            Preconditions.checkState(buffers.size() == 1,
                     "Expected a single output buffer for task %s, but found %s",
                     taskInfo.getTaskId(),
-                    taskInfo.getOutputBuffers());
+                    buffers);
 
-            String bufferId = Iterables.getOnlyElement(taskInfo.getOutputBuffers()).getBufferId();
+            String bufferId = Iterables.getOnlyElement(buffers).getBufferId();
             URI uri = uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(bufferId).build();
             exchangeOperator.addSplit(new RemoteSplit(uri, outputStage.getTupleInfos()));
         }
