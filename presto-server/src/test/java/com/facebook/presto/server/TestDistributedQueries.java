@@ -52,9 +52,8 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Stage;
 import com.google.inject.TypeLiteral;
-import io.airlift.configuration.ConfigurationAwareModule;
-import io.airlift.configuration.ConfigurationFactory;
-import io.airlift.configuration.ConfigurationModule;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.discovery.DiscoveryServerModule;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.CachingServiceSelector;
@@ -82,6 +81,7 @@ import org.weakref.jmx.guice.MBeanModule;
 import org.weakref.jmx.testing.TestingMBeanServer;
 
 import javax.management.MBeanServer;
+
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -289,6 +289,7 @@ public class TestDistributedQueries
         private static final AtomicLong NEXT_PARTITION_ID = new AtomicLong();
 
         private final File baseDataDir;
+        private final LifeCycleManager lifeCycleManager;
         private final TestingHttpServer server;
         private final ImmutableList<ServiceSelector> serviceSelectors;
         private final Metadata metadata;
@@ -309,13 +310,12 @@ public class TestDistributedQueries
                     .put("storage-manager.data-directory", baseDataDir.getPath())
                     .put("query.client.timeout", "10m")
                     .put("presto-metastore.db.type", "h2")
-                    .put("exchange.http-client.read-timeout ", "1h")
+                    .put("exchange.http-client.read-timeout", "1h")
                     .put("presto-metastore.db.filename", new File(baseDataDir, "db/MetaStore").getPath())
                     .put("discovery.uri", discoveryUri.toASCIIString())
                     .build();
 
-            // TODO: wrap all this stuff in a TestBootstrap class
-            Injector injector = createTestInjector(serverProperties,
+            Bootstrap app = new Bootstrap(
                     new NodeModule(),
                     new DiscoveryModule(),
                     new TestingHttpServerModule(),
@@ -331,8 +331,17 @@ public class TestDistributedQueries
                     },
                     new InMemoryEventModule(),
                     new TraceTokenModule(),
-                    new ServerMainModule()
-            );
+                    new ServerMainModule());
+
+            Injector injector = app
+                    .strictConfig()
+                    .doNotInitializeLogging()
+                    .setRequiredConfigurationProperties(serverProperties)
+                    .initialize();
+
+            injector.getInstance(Announcer.class).start();
+
+            lifeCycleManager = injector.getInstance(LifeCycleManager.class);
 
             nodeInfo = injector.getInstance(NodeInfo.class);
             metadata = injector.getInstance(Metadata.class);
@@ -340,18 +349,6 @@ public class TestDistributedQueries
             storageManager = injector.getInstance(StorageManager.class);
 
             server = injector.getInstance(TestingHttpServer.class);
-            try {
-                server.start();
-            }
-            catch (Exception e) {
-                try {
-                    server.stop();
-                }
-                catch (Exception ignored) {
-                }
-                throw e;
-            }
-            injector.getInstance(Announcer.class).start();
 
             ImmutableList.Builder<ServiceSelector> serviceSelectors = ImmutableList.builder();
             for (Binding<ServiceSelector> binding : injector.findBindingsByType(TypeLiteral.get(ServiceSelector.class))) {
@@ -429,12 +426,12 @@ public class TestDistributedQueries
         public void close()
         {
             try {
-                if (server != null) {
+                if (lifeCycleManager != null) {
                     try {
-                        server.stop();
+                        lifeCycleManager.stop();
                     }
                     catch (Exception e) {
-                        Throwables.propagate(e);
+                        throw Throwables.propagate(e);
                     }
                 }
             }
@@ -442,25 +439,12 @@ public class TestDistributedQueries
                 FileUtils.deleteRecursively(baseDataDir);
             }
         }
-
-        private static Injector createTestInjector(Map<String, String> properties, Module... modules)
-        {
-            ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
-            for (Module module : modules) {
-                if (module instanceof ConfigurationAwareModule) {
-                    ((ConfigurationAwareModule) module).setConfigurationFactory(configurationFactory);
-                }
-            }
-            ImmutableList.Builder<Module> moduleList = ImmutableList.builder();
-            moduleList.add(new ConfigurationModule(configurationFactory));
-            moduleList.add(modules);
-            return Guice.createInjector(Stage.DEVELOPMENT, moduleList.build());
-        }
     }
 
     public static class DiscoveryTestingServer
             implements Closeable
     {
+        private final LifeCycleManager lifeCycleManager;
         private final TestingHttpServer server;
         private final File tempDir;
 
@@ -469,13 +453,12 @@ public class TestDistributedQueries
         {
             tempDir = Files.createTempDir();
 
-            // start server
             Map<String, String> serverProperties = ImmutableMap.<String, String>builder()
                     .put("node.environment", "testing")
                     .put("static.db.location", tempDir.getAbsolutePath())
                     .build();
 
-            Injector serverInjector = Guice.createInjector(Stage.DEVELOPMENT,
+            Bootstrap app = new Bootstrap(
                     new MBeanModule(),
                     new NodeModule(),
                     new TestingHttpServerModule(),
@@ -483,7 +466,6 @@ public class TestDistributedQueries
                     new JaxrsModule(),
                     new DiscoveryServerModule(),
                     new DiscoveryModule(),
-                    new ConfigurationModule(new ConfigurationFactory(serverProperties)),
                     new Module()
                     {
                         @Override
@@ -493,19 +475,15 @@ public class TestDistributedQueries
                         }
                     });
 
-            server = serverInjector.getInstance(TestingHttpServer.class);
-            try {
-                server.start();
-            }
-            catch (Exception e) {
-                try {
-                    server.stop();
-                }
-                catch (Exception ignored) {
-                }
-                FileUtils.deleteRecursively(tempDir);
-                throw e;
-            }
+            Injector injector = app
+                    .strictConfig()
+                    .doNotInitializeLogging()
+                    .setRequiredConfigurationProperties(serverProperties)
+                    .initialize();
+
+            lifeCycleManager = injector.getInstance(LifeCycleManager.class);
+
+            server = injector.getInstance(TestingHttpServer.class);
         }
 
         public URI getBaseUrl()
@@ -517,9 +495,9 @@ public class TestDistributedQueries
         public void close()
         {
             try {
-                if (server != null) {
+                if (lifeCycleManager != null) {
                     try {
-                        server.stop();
+                        lifeCycleManager.stop();
                     }
                     catch (Exception e) {
                         Throwables.propagate(e);

@@ -34,14 +34,8 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>configuration</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>jaxrs</artifactId>
         </dependency>
-
 
         <dependency>
             <groupId>io.airlift</groupId>
@@ -114,6 +108,12 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>bootstrap</artifactId>
             <scope>test</scope>
         </dependency>
 

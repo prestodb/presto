@@ -1,15 +1,10 @@
 package com.facebook.presto.server;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
-import com.google.inject.Guice;
 import com.google.inject.Injector;
-import com.google.inject.Module;
-import com.google.inject.Stage;
-import io.airlift.configuration.ConfigurationAwareModule;
-import io.airlift.configuration.ConfigurationFactory;
-import io.airlift.configuration.ConfigurationModule;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.discovery.client.testing.TestingDiscoveryModule;
 import io.airlift.event.client.InMemoryEventModule;
 import io.airlift.http.client.ApacheHttpClient;
@@ -42,6 +37,7 @@ import static org.testng.Assert.assertEquals;
 public class TestServer
 {
     private File baseDataDir;
+    private LifeCycleManager lifeCycleManager;
     private TestingHttpServer server;
     private HttpClient client;
 
@@ -57,8 +53,7 @@ public class TestServer
                 .put("presto-metastore.db.filename", new File(baseDataDir, "db/MetaStore").getPath())
                 .build();
 
-        // TODO: wrap all this stuff in a TestBootstrap class
-        Injector serverInjector = createTestInjector(serverProperties,
+        Bootstrap app = new Bootstrap(
                 new TestingNodeModule(),
                 new TestingDiscoveryModule(),
                 new TestingHttpServerModule(),
@@ -72,8 +67,15 @@ public class TestServer
                 new TraceTokenModule(),
                 new ServerMainModule());
 
-        server = serverInjector.getInstance(TestingHttpServer.class);
-        server.start();
+        Injector injector = app
+                .strictConfig()
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(serverProperties)
+                .initialize();
+
+        lifeCycleManager = injector.getInstance(LifeCycleManager.class);
+
+        server = injector.getInstance(TestingHttpServer.class);
 
         client = new ApacheHttpClient();
     }
@@ -82,8 +84,11 @@ public class TestServer
     public void teardown()
             throws Exception
     {
-        if (server != null) {
-            server.stop();
+        if (lifeCycleManager != null) {
+            lifeCycleManager.stop();
+        }
+        if (client != null) {
+            client.close();
         }
         FileUtils.deleteRecursively(baseDataDir);
     }
@@ -102,19 +107,5 @@ public class TestServer
     private URI uriFor(String path)
     {
         return server.getBaseUrl().resolve(path);
-    }
-
-    private static Injector createTestInjector(Map<String, String> properties, Module... modules)
-    {
-        ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
-        for (Module module : modules) {
-            if (module instanceof ConfigurationAwareModule) {
-                ((ConfigurationAwareModule) module).setConfigurationFactory(configurationFactory);
-            }
-        }
-        ImmutableList.Builder<Module> moduleList = ImmutableList.builder();
-        moduleList.add(new ConfigurationModule(configurationFactory));
-        moduleList.add(modules);
-        return Guice.createInjector(Stage.DEVELOPMENT, moduleList.build());
     }
 }
