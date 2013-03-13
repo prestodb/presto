@@ -62,6 +62,7 @@ tokens {
     SHOW_PARTITIONS;
     SHOW_FUNCTIONS;
     CREATE_TABLE;
+    CREATE_OR_REPLACE_MATERIALIZED_VIEW;
     TABLE_ELEMENT_LIST;
     COLUMN_DEF;
     NOT_NULL;
@@ -125,6 +126,7 @@ statement
     | showPartitionsStmt
     | showFunctionsStmt
     | createTableStmt
+    | createOrReplaceMaterializedViewStmt
     ;
 
 selectStmt
@@ -134,6 +136,11 @@ selectStmt
       (groupClause havingClause?)?
       orderClause?
       limitClause?
+    ;
+
+restrictedSelectStmt
+    : selectClause
+      fromClause
     ;
 
 selectClause
@@ -445,6 +452,14 @@ showFunctionsStmt
     : SHOW FUNCTIONS -> SHOW_FUNCTIONS
     ;
 
+createOrReplaceMaterializedViewStmt
+    : CREATE OR REPLACE MATERIALIZED VIEW qname createMaterializedViewSource -> ^(CREATE_OR_REPLACE_MATERIALIZED_VIEW qname createMaterializedViewSource)
+    ;
+
+createMaterializedViewSource
+    : AS restrictedSelectStmt        -> ^(QUERY restrictedSelectStmt)
+    ;
+
 createTableStmt
     : CREATE TABLE qname tableElementList -> ^(CREATE_TABLE qname tableElementList)
     ;
@@ -623,6 +638,9 @@ TABLES: 'TABLES';
 COLUMNS: 'COLUMNS';
 PARTITIONS: 'PARTITIONS';
 FUNCTIONS: 'FUNCTIONS';
+MATERIALIZED: 'MATERIALIZED';
+VIEW: 'VIEW';
+REPLACE: 'REPLACE';
 
 EQ  : '=';
 NEQ : '<>' | '!=';

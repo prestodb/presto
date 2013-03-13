@@ -60,10 +60,6 @@ public class QualifiedTableName
     @Override
     public String toString()
     {
-        return Objects.toStringHelper(this)
-                .add("catalogName", catalogName)
-                .add("schemaName", schemaName)
-                .add("tableName", tableName)
-                .toString();
+        return catalogName + '.' + schemaName + '.' + tableName;
     }
 }

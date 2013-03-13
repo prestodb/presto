@@ -81,6 +81,11 @@ public abstract class SimpleSqlExecution
     }
 
     @Override
+    public void cancelStage(String stageId)
+    {
+    }
+
+    @Override
     public void cancel()
     {
         // transition to canceled state, only if not already finished
