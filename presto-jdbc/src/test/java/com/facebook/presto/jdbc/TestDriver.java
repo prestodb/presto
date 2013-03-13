@@ -1,17 +1,12 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.server.ServerMainModule;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import com.google.common.net.HostAndPort;
-import com.google.inject.Guice;
 import com.google.inject.Injector;
-import com.google.inject.Module;
-import com.google.inject.Stage;
-import io.airlift.configuration.ConfigurationAwareModule;
-import io.airlift.configuration.ConfigurationFactory;
-import io.airlift.configuration.ConfigurationModule;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.testing.TestingDiscoveryModule;
 import io.airlift.event.client.InMemoryEventModule;
@@ -49,7 +44,7 @@ import static org.testng.Assert.assertTrue;
 public class TestDriver
 {
     private File baseDataDir;
-    private TestingHttpServer server;
+    private LifeCycleManager lifeCycleManager;
     private HostAndPort address;
 
     @BeforeMethod
@@ -65,8 +60,7 @@ public class TestDriver
                 .put("presto-metastore.db.filename", new File(baseDataDir, "db/MetaStore").getPath())
                 .build();
 
-        // TODO: wrap all this stuff in a TestBootstrap class
-        Injector injector = createTestInjector(serverProperties,
+        Bootstrap app = new Bootstrap(
                 new TestingNodeModule(),
                 new TestingDiscoveryModule(),
                 new TestingHttpServerModule(),
@@ -80,10 +74,17 @@ public class TestDriver
                 new TraceTokenModule(),
                 new ServerMainModule());
 
+        Injector injector = app
+                .strictConfig()
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(serverProperties)
+                .initialize();
+
         injector.getInstance(Announcer.class).start();
 
-        server = injector.getInstance(TestingHttpServer.class);
-        server.start();
+        lifeCycleManager = injector.getInstance(LifeCycleManager.class);
+
+        TestingHttpServer server = injector.getInstance(TestingHttpServer.class);
 
         URI uri = server.getBaseUrl();
         address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
@@ -93,8 +94,8 @@ public class TestDriver
     public void teardown()
             throws Exception
     {
-        if (server != null) {
-            server.stop();
+        if (lifeCycleManager != null) {
+            lifeCycleManager.stop();
         }
         FileUtils.deleteRecursively(baseDataDir);
     }
@@ -141,19 +142,5 @@ public class TestDriver
             actual++;
         }
         assertEquals(actual, expected);
-    }
-
-    private static Injector createTestInjector(Map<String, String> properties, Module... modules)
-    {
-        ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
-        for (Module module : modules) {
-            if (module instanceof ConfigurationAwareModule) {
-                ((ConfigurationAwareModule) module).setConfigurationFactory(configurationFactory);
-            }
-        }
-        ImmutableList.Builder<Module> moduleList = ImmutableList.builder();
-        moduleList.add(new ConfigurationModule(configurationFactory));
-        moduleList.add(modules);
-        return Guice.createInjector(Stage.DEVELOPMENT, moduleList.build());
     }
 }
