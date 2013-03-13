@@ -11,6 +11,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
+import com.google.inject.Injector;
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.log.Logger;
@@ -45,6 +46,7 @@ public class PluginManager
 {
     private static final Logger log = Logger.get(PluginManager.class);
 
+    private final Injector injector;
     private final ImportClientManager importClientManager;
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
@@ -54,14 +56,21 @@ public class PluginManager
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
 
     @Inject
-    public PluginManager(NodeInfo nodeInfo, HttpServerInfo httpServerInfo, PluginManagerConfig config, ImportClientManager importClientManager, ConfigurationFactory configurationFactory)
+    public PluginManager(Injector injector, 
+            NodeInfo nodeInfo,
+            HttpServerInfo httpServerInfo,
+            PluginManagerConfig config,
+            ImportClientManager importClientManager,
+            ConfigurationFactory configurationFactory)
     {
+        checkNotNull(injector, "injector is null");
         checkNotNull(nodeInfo, "nodeInfo is null");
         checkNotNull(httpServerInfo, "httpServerInfo is null");
         checkNotNull(config, "config is null");
         checkNotNull(importClientManager, "importClientManager is null");
         checkNotNull(configurationFactory, "configurationFactory is null");
 
+        this.injector = injector;
         this.importClientManager = importClientManager;
         installedPluginsDir = config.getInstalledPluginsDir();
         if (config.getPlugins() == null) {
@@ -114,6 +123,9 @@ public class PluginManager
             List<ImportClientFactoryFactory> importClientFactoryFactories = ImmutableList.copyOf(serviceLoader);
 
             for (ImportClientFactoryFactory importClientFactoryFactory : importClientFactoryFactories) {
+                if (importClientFactoryFactory.getClass().isAnnotationPresent(PrestoInternalPlugin.class)) {
+                    injector.injectMembers(importClientFactoryFactory);
+                }
                 Map<String, String> requiredConfig = loadPluginConfig(importClientFactoryFactory.getConfigName());
                 ImportClientFactory importClientFactory = importClientFactoryFactory.createImportClientFactory(requiredConfig, optionalConfig);
                 importClientFactory = new ClassLoaderSafeImportClientFactory(importClientFactory, pluginClassLoader);
