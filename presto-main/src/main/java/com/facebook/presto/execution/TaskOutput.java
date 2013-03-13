@@ -5,7 +5,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.operator.Page;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
@@ -161,7 +160,7 @@ public class TaskOutput
                 taskId,
                 getState(),
                 location,
-                ImmutableList.copyOf(sharedBuffer.getInfo()),
+                sharedBuffer.getInfo(),
                 stats,
                 toFailures(failureCauses));
     }
