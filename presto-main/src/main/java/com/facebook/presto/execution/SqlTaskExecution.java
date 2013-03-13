@@ -34,7 +34,6 @@ import javax.annotation.concurrent.GuardedBy;
 import java.lang.ref.WeakReference;
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -67,8 +66,6 @@ public class SqlTaskExecution
     private final SetMultimap<PlanNodeId, Split> unpartitionedSources = HashMultimap.create();
     @GuardedBy("this")
     private final List<WeakReference<SplitWorker>> splitWorkers = new ArrayList<>();
-    @GuardedBy("this")
-    private final Set<PlanNodeId> noMoreSources = new HashSet<>();
     @GuardedBy("this")
     private SourceHashProviderFactory sourceHashProviderFactory;
 
@@ -260,7 +257,7 @@ public class SqlTaskExecution
     @Override
     public synchronized void noMoreSplits(PlanNodeId sourceId)
     {
-        this.noMoreSources.add(sourceId);
+        taskOutput.noMoreSplits(sourceId);
         if (sourceId.equals(fragment.getPartitionedSource())) {
             // all workers have been created
             // clear hash provider since it has a hard reference to every hash table
@@ -281,7 +278,7 @@ public class SqlTaskExecution
     private synchronized void checkTaskCompletion()
     {
         // are there more partition splits expected?
-        if (fragment.isPartitioned() && !noMoreSources.contains(fragment.getPartitionedSource())) {
+        if (fragment.isPartitioned() && !taskOutput.getNoMoreSplits().contains(fragment.getPartitionedSource())) {
             return;
         }
         // do we still have running tasks?
