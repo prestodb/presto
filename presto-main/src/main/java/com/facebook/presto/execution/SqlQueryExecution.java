@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.execution.StageInfo.stageStateGetter;
+import static com.facebook.presto.util.FutureUtils.waitForFuture;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -246,6 +247,7 @@ public class SqlQueryExecution
         if (outputStage == null) {
             return;
         }
+        waitForFuture(outputStage.updateState());
 
         outputStage.updateState();
 

@@ -14,24 +14,25 @@ import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
-import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
+
 import java.net.URI;
 import java.util.Set;
 
 public class HttpRemoteTaskFactory
         implements RemoteTaskFactory
 {
-    private final HttpClient httpClient;
+    private final AsyncHttpClient httpClient;
     private final LocationFactory locationFactory;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec;
     private final JsonCodec<Split> splitCodec;
 
     @Inject
-    public HttpRemoteTaskFactory(@ForScheduler HttpClient httpClient,
+    public HttpRemoteTaskFactory(@ForScheduler AsyncHttpClient httpClient,
             LocationFactory locationFactory,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec,

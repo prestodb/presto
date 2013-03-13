@@ -29,11 +29,15 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
+
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -55,6 +59,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.facebook.presto.execution.FailureInfo.toFailures;
 import static com.facebook.presto.execution.StageInfo.stageStateGetter;
 import static com.facebook.presto.execution.TaskInfo.taskStateGetter;
+import static com.facebook.presto.util.FutureUtils.chainedCallback;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.Iterables.all;
 import static com.google.common.collect.Iterables.any;
@@ -532,23 +537,38 @@ public class SqlStageExecution
         return true;
     }
 
-    public void updateState()
+    @Override
+    public ListenableFuture<?> updateState()
     {
         Preconditions.checkState(!Thread.holdsLock(this), "Can not update state while holding a lock on this");
 
         // propagate update to tasks and stages
-        for (RemoteTask task : tasks.values()) {
-            try {
-                task.updateState();
-            }
-            catch (Exception e) {
-                log.debug(e, "Error updating task info");
-            }
-        }
+        List<ListenableFuture<?>> futures = new ArrayList<>();
         for (StageExecutionNode subStage : subStages.values()) {
-            subStage.updateState();
+            futures.add(subStage.updateState());
+        }
+        for (RemoteTask task : tasks.values()) {
+            futures.add(task.updateState());
         }
 
+        return chainedCallback(Futures.allAsList(futures), new FutureCallback<List<?>>()
+        {
+            @Override
+            public void onSuccess(List<?> result)
+            {
+                doUpdateState();
+            }
+
+            @Override
+            public void onFailure(Throwable t)
+            {
+                log.error(t, "Error updating stage");
+            }
+        });
+    }
+
+    private void doUpdateState()
+    {
         synchronized (this) {
             StageState currentState = stageState.get();
             if (currentState.isDone()) {
@@ -679,7 +699,7 @@ interface StageExecutionNode
 
     void subStageFinishedScheduling();
 
-    void updateState();
+    ListenableFuture<?> updateState();
 
     void cancelStage(String stageId);
 

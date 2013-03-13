@@ -6,6 +6,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import javax.annotation.Nullable;
 import java.net.URI;
@@ -29,5 +30,5 @@ public interface RemoteTask
 
     void cancel();
 
-    void updateState();
+    ListenableFuture<?> updateState();
 }

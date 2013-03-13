@@ -21,6 +21,7 @@ public class TaskInfo
     private final String queryId;
     private final String stageId;
     private final String taskId;
+    private final long version;
     private final TaskState state;
     private final URI self;
     private final SharedBufferInfo outputBuffers;
@@ -32,6 +33,7 @@ public class TaskInfo
     public TaskInfo(@JsonProperty("queryId") String queryId,
             @JsonProperty("stageId") String stageId,
             @JsonProperty("taskId") String taskId,
+            @JsonProperty("version") long version,
             @JsonProperty("state") TaskState state,
             @JsonProperty("self") URI self,
             @JsonProperty("outputBuffers") SharedBufferInfo outputBuffers,
@@ -42,6 +44,7 @@ public class TaskInfo
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
+        Preconditions.checkNotNull(version, "version is null");
         Preconditions.checkNotNull(state, "state is null");
         Preconditions.checkNotNull(self, "self is null");
         Preconditions.checkNotNull(outputBuffers, "outputBufferStates is null");
@@ -52,6 +55,7 @@ public class TaskInfo
         this.queryId = queryId;
         this.stageId = stageId;
         this.taskId = taskId;
+        this.version = version;
         this.state = state;
         this.self = self;
         this.outputBuffers = outputBuffers;
@@ -76,6 +80,12 @@ public class TaskInfo
     public String getTaskId()
     {
         return taskId;
+    }
+
+    @JsonProperty
+    public long getVersion()
+    {
+        return version;
     }
 
     @JsonProperty
