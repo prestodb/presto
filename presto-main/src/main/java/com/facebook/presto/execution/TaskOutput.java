@@ -17,6 +17,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.FailureInfo.toFailures;
@@ -34,6 +35,7 @@ public class TaskOutput
 
     private final ExecutionStats stats = new ExecutionStats();
     private final AtomicReference<TaskState> taskState = new AtomicReference<>(TaskState.RUNNING);
+    private final AtomicLong taskInfoVersion = new AtomicLong();
 
     private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
 
@@ -182,6 +184,7 @@ public class TaskOutput
         return new TaskInfo(queryId,
                 stageId,
                 taskId,
+                taskInfoVersion.incrementAndGet(),
                 getState(),
                 location,
                 sharedBuffer.getInfo(),

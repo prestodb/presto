@@ -29,17 +29,22 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
-import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.JsonBodyGenerator;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response.Status;
+
 import java.net.URI;
 import java.util.Collection;
 import java.util.List;
@@ -49,6 +54,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.util.FutureUtils.chainedCallback;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
@@ -65,6 +71,8 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 public class HttpRemoteTask
         implements RemoteTask
 {
+    private static final Logger log = Logger.get(HttpRemoteTask.class);
+
     private final Session session;
     private final String nodeId;
     private final AtomicReference<TaskInfo> taskInfo = new AtomicReference<>();
@@ -81,7 +89,7 @@ public class HttpRemoteTask
     @GuardedBy("this")
     private boolean noMoreOutputIds;
 
-    private final HttpClient httpClient;
+    private final AsyncHttpClient httpClient;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec;
     private final JsonCodec<Split> splitCodec;
@@ -96,7 +104,7 @@ public class HttpRemoteTask
             PlanFragment planFragment,
             Multimap<PlanNodeId, URI> initialExchangeLocations,
             Set<String> initialOutputIds,
-            HttpClient httpClient,
+            AsyncHttpClient httpClient,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec,
             JsonCodec<Split> splitCodec)
@@ -137,6 +145,7 @@ public class HttpRemoteTask
         taskInfo.set(new TaskInfo(queryId,
                 stageId,
                 taskId,
+                0,
                 TaskState.PLANNED,
                 location,
                 new SharedBufferInfo(QueueState.OPEN, bufferStates),
@@ -263,7 +272,7 @@ public class HttpRemoteTask
         String location = response.getHeader("Location");
         checkState(location != null);
 
-        this.taskInfo.set(response.getValue());
+        updateTaskInfo(response.getValue());
     }
 
     private synchronized Map<PlanNodeId, Set<Split>> initialSources(@Nullable Split initialSplit)
@@ -385,8 +394,7 @@ public class HttpRemoteTask
         // update task info
         if (response.hasValue()) {
             try {
-                TaskInfo taskInfo = response.getValue();
-                this.taskInfo.set(taskInfo);
+                updateTaskInfo(response.getValue());
             }
             catch (Exception ignored) {
                 // if we got bad json, back just ignore it... updating the task info is an optional part of this task
@@ -394,40 +402,69 @@ public class HttpRemoteTask
         }
     }
 
-    @Override
-    public void updateState()
+    private void updateTaskInfo(TaskInfo newValue)
     {
-        TaskInfo taskInfo = this.taskInfo.get();
-        // don't update if the task hasn't been started yet or if it is already finished
-        TaskState currentState = taskInfo.getState();
-        if (currentState == TaskState.PLANNED || currentState.isDone()) {
-            return;
-        }
-        URI statusUri = uriBuilderFrom(taskInfo.getSelf()).build();
-        JsonResponse<TaskInfo> response = httpClient.execute(prepareGet().setUri(statusUri).build(), createFullJsonResponseHandler(taskInfoCodec));
-
-        if (response.getStatusCode() == Status.GONE.getStatusCode()) {
-            // query has failed, been deleted, or something, and is no longer being tracked by the server
-            if (!currentState.isDone()) {
-                this.taskInfo.set(new TaskInfo(taskInfo.getQueryId(),
-                        taskInfo.getStageId(),
-                        taskInfo.getTaskId(),
-                        TaskState.CANCELED,
-                        taskInfo.getSelf(),
-                        taskInfo.getOutputBuffers(),
-                        taskInfo.getNoMoreSplits(),
-                        taskInfo.getStats(),
-                        ImmutableList.<FailureInfo>of()));
+        while (true) {
+            TaskInfo currentValue = taskInfo.get();
+            if (currentValue.getState().isDone()) {
+                // never update if the task has reached a terminal state
+                return;
+            }
+            if (newValue.getVersion() < currentValue.getVersion()) {
+                // don't update to an older version (same version is ok)
+                return;
+            }
+            if (taskInfo.compareAndSet(currentValue, newValue)) {
+                return;
             }
         }
-        else {
-            Preconditions.checkState(response.getStatusCode() == Status.OK.getStatusCode(),
-                    "Expected response code to be 201, but was %s: %s",
-                    response.getStatusCode(),
-                    response.getStatusMessage());
+    }
 
-            this.taskInfo.set(response.getValue());
+    @Override
+    public ListenableFuture<?> updateState()
+    {
+        final TaskInfo taskInfo = this.taskInfo.get();
+        // don't update if the task hasn't been started yet or if it is already finished
+        if ((taskInfo.getState() == TaskState.PLANNED) || taskInfo.getState().isDone()) {
+            return Futures.immediateFuture(null);
         }
+        URI statusUri = uriBuilderFrom(taskInfo.getSelf()).build();
+
+        Request request = prepareGet().setUri(statusUri).build();
+        ListenableFuture<JsonResponse<TaskInfo>> future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));
+        return chainedCallback(future, new FutureCallback<JsonResponse<TaskInfo>>()
+        {
+            @Override
+            public void onSuccess(JsonResponse<TaskInfo> response)
+            {
+                if (response.getStatusCode() == Status.GONE.getStatusCode()) {
+                    // query has failed, been deleted, or something, and is no longer being tracked by the server
+                    updateTaskInfo(new TaskInfo(taskInfo.getQueryId(),
+                            taskInfo.getStageId(),
+                            taskInfo.getTaskId(),
+                            taskInfo.getVersion(),
+                            TaskState.CANCELED,
+                            taskInfo.getSelf(),
+                            taskInfo.getOutputBuffers(),
+                            taskInfo.getNoMoreSplits(),
+                            taskInfo.getStats(),
+                            ImmutableList.<FailureInfo>of()));
+                }
+                else {
+                    checkState(response.getStatusCode() == Status.OK.getStatusCode(),
+                            "Expected response code to be 201, but was %s: %s",
+                            response.getStatusCode(),
+                            response.getStatusMessage());
+                    updateTaskInfo(response.getValue());
+                }
+            }
+
+            @Override
+            public void onFailure(Throwable t)
+            {
+                log.debug(t, "Error updating task info");
+            }
+        });
     }
 
     @Override
@@ -435,9 +472,10 @@ public class HttpRemoteTask
     {
         TaskInfo taskInfo = this.taskInfo.get();
         if (taskInfo.getSelf() == null) {
-            this.taskInfo.set(new TaskInfo(taskInfo.getQueryId(),
+            updateTaskInfo(new TaskInfo(taskInfo.getQueryId(),
                     taskInfo.getStageId(),
                     taskInfo.getTaskId(),
+                    taskInfo.getVersion(),
                     TaskState.CANCELED,
                     taskInfo.getSelf(),
                     taskInfo.getOutputBuffers(),
