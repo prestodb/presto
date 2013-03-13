@@ -3,17 +3,17 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
-
 import java.net.URI;
 import java.util.List;
+import java.util.Set;
 
 @Immutable
 public class TaskInfo
@@ -23,7 +23,8 @@ public class TaskInfo
     private final String taskId;
     private final TaskState state;
     private final URI self;
-    private final List<BufferInfo> outputBuffers;
+    private final SharedBufferInfo outputBuffers;
+    private final Set<PlanNodeId> noMoreSplits;
     private final ExecutionStats stats;
     private final List<FailureInfo> failures;
 
@@ -33,7 +34,8 @@ public class TaskInfo
             @JsonProperty("taskId") String taskId,
             @JsonProperty("state") TaskState state,
             @JsonProperty("self") URI self,
-            @JsonProperty("outputBuffers") List<BufferInfo> outputBuffers,
+            @JsonProperty("outputBuffers") SharedBufferInfo outputBuffers,
+            @JsonProperty("noMoreSplits") Set<PlanNodeId> noMoreSplits,
             @JsonProperty("stats") ExecutionStats stats,
             @JsonProperty("failures") List<FailureInfo> failures)
     {
@@ -43,6 +45,7 @@ public class TaskInfo
         Preconditions.checkNotNull(state, "state is null");
         Preconditions.checkNotNull(self, "self is null");
         Preconditions.checkNotNull(outputBuffers, "outputBufferStates is null");
+        Preconditions.checkNotNull(noMoreSplits, "noMoreSplits is null");
         Preconditions.checkNotNull(stats, "stats is null");
         Preconditions.checkNotNull(failures, "failures is null");
 
@@ -51,7 +54,8 @@ public class TaskInfo
         this.taskId = taskId;
         this.state = state;
         this.self = self;
-        this.outputBuffers = ImmutableList.copyOf(outputBuffers);
+        this.outputBuffers = outputBuffers;
+        this.noMoreSplits = noMoreSplits;
         this.stats = stats;
         this.failures = failures;
     }
@@ -87,9 +91,15 @@ public class TaskInfo
     }
 
     @JsonProperty
-    public List<BufferInfo> getOutputBuffers()
+    public SharedBufferInfo getOutputBuffers()
     {
         return outputBuffers;
+    }
+
+    @JsonProperty
+    public Set<PlanNodeId> getNoMoreSplits()
+    {
+        return noMoreSplits;
     }
 
     @JsonProperty

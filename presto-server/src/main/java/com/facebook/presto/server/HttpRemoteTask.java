@@ -7,6 +7,8 @@ import com.facebook.presto.execution.BufferInfo;
 import com.facebook.presto.execution.ExecutionStats;
 import com.facebook.presto.execution.FailureInfo;
 import com.facebook.presto.execution.RemoteTask;
+import com.facebook.presto.execution.SharedBuffer.QueueState;
+import com.facebook.presto.execution.SharedBufferInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.metadata.Node;
@@ -136,7 +138,8 @@ public class HttpRemoteTask
                 taskId,
                 TaskState.PLANNED,
                 location,
-                bufferStates,
+                new SharedBufferInfo(QueueState.OPEN, bufferStates),
+                ImmutableSet.<PlanNodeId>of(),
                 new ExecutionStats(),
                 ImmutableList.<FailureInfo>of()));
     }
@@ -242,7 +245,7 @@ public class HttpRemoteTask
                 taskInfo.getStageId(),
                 planFragment,
                 initialSources(initialSplit),
-                ImmutableList.copyOf(transform(taskInfo.getOutputBuffers(), BufferInfo.bufferIdGetter())));
+                ImmutableList.copyOf(transform(taskInfo.getOutputBuffers().getBuffers(), BufferInfo.bufferIdGetter())));
 
         Request request = preparePut()
                 .setUri(taskInfo.getSelf())
@@ -411,6 +414,7 @@ public class HttpRemoteTask
                         TaskState.CANCELED,
                         taskInfo.getSelf(),
                         taskInfo.getOutputBuffers(),
+                        taskInfo.getNoMoreSplits(),
                         taskInfo.getStats(),
                         ImmutableList.<FailureInfo>of()));
             }
@@ -436,6 +440,7 @@ public class HttpRemoteTask
                     TaskState.CANCELED,
                     taskInfo.getSelf(),
                     taskInfo.getOutputBuffers(),
+                    taskInfo.getNoMoreSplits(),
                     taskInfo.getStats(),
                     ImmutableList.<FailureInfo>of()));
             return;

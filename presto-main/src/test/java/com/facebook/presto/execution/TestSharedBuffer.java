@@ -518,7 +518,7 @@ public class TestSharedBuffer
 
     private BufferInfo getBufferInfo(SharedBuffer<?> sharedBuffer, String queueId)
     {
-        for (BufferInfo bufferInfo : sharedBuffer.getInfo()) {
+        for (BufferInfo bufferInfo : sharedBuffer.getInfo().getBuffers()) {
             if (bufferInfo.getBufferId().equals(queueId)) {
                 return bufferInfo;
             }
@@ -530,7 +530,7 @@ public class TestSharedBuffer
             throws Exception
     {
         assertTrue(sharedBuffer.isFinished());
-        for (BufferInfo bufferInfo : sharedBuffer.getInfo()) {
+        for (BufferInfo bufferInfo : sharedBuffer.getInfo().getBuffers()) {
             assertTrue(bufferInfo.isFinished());
             assertEquals(bufferInfo.getBufferedPages(), 0);
         }
