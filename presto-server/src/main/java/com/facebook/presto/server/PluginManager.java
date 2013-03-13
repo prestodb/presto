@@ -12,6 +12,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import io.airlift.configuration.ConfigurationFactory;
+import io.airlift.http.server.HttpServerInfo;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.airlift.resolver.ArtifactResolver;
@@ -53,9 +54,10 @@ public class PluginManager
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
 
     @Inject
-    public PluginManager(NodeInfo nodeInfo, PluginManagerConfig config, ImportClientManager importClientManager, ConfigurationFactory configurationFactory)
+    public PluginManager(NodeInfo nodeInfo, HttpServerInfo httpServerInfo, PluginManagerConfig config, ImportClientManager importClientManager, ConfigurationFactory configurationFactory)
     {
         checkNotNull(nodeInfo, "nodeInfo is null");
+        checkNotNull(httpServerInfo, "httpServerInfo is null");
         checkNotNull(config, "config is null");
         checkNotNull(importClientManager, "importClientManager is null");
         checkNotNull(configurationFactory, "configurationFactory is null");
@@ -73,6 +75,8 @@ public class PluginManager
 
         Map<String, String> optionalConfig = new TreeMap<>(configurationFactory.getProperties());
         optionalConfig.put("node.id", nodeInfo.getNodeId());
+        // TODO: make this work with and without HTTP and HTTPS
+        optionalConfig.put("http-server.http.port", Integer.toString(httpServerInfo.getHttpUri().getPort()));
         this.optionalConfig = ImmutableMap.copyOf(optionalConfig);
     }
 
