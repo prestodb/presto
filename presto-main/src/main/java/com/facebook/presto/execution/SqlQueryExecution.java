@@ -4,13 +4,13 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.event.query.QueryMonitor;
+import com.facebook.presto.execution.QueryInfo.QueryInfoFactory;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.AnalysisResult;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedExecutionPlanner;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LogicalPlanner;
@@ -26,6 +26,11 @@ import io.airlift.log.Logger;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
+
+import java.net.URI;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
@@ -46,7 +51,7 @@ public class SqlQueryExecution
     private static final String ROOT_OUTPUT_BUFFER_NAME = "out";
 
     private final String queryId;
-    private final String sql;
+    private final Statement statement;
     private final Session session;
     private final Metadata metadata;
     private final SplitManager splitManager;
@@ -56,6 +61,7 @@ public class SqlQueryExecution
     private final QueryMonitor queryMonitor;
     private final int maxPendingSplitsPerNode;    
     private final ExecutorService queryExecutor;
+    private final QueryInfoFactory queryInfoFactory;
 
     private final QueryStats queryStats = new QueryStats();
 
@@ -71,7 +77,7 @@ public class SqlQueryExecution
     private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
 
     public SqlQueryExecution(String queryId,
-            String sql,
+            Statement statement,
             Session session,
             Metadata metadata,
             SplitManager splitManager,
@@ -80,10 +86,11 @@ public class SqlQueryExecution
             LocationFactory locationFactory,
             QueryMonitor queryMonitor,
             int maxPendingSplitsPerNode,
-            ExecutorService queryExecutor)
+            ExecutorService queryExecutor,
+            QueryInfoFactory queryInfoFactory)
     {
         checkNotNull(queryId, "queryId is null");
-        checkNotNull(sql, "sql is null");
+        checkNotNull(statement, "statement is null");
         checkNotNull(session, "session is null");
         checkNotNull(metadata, "metadata is null");
         checkNotNull(splitManager, "splitManager is null");
@@ -93,9 +100,10 @@ public class SqlQueryExecution
         checkNotNull(queryMonitor, "queryMonitor is null");
         checkArgument(maxPendingSplitsPerNode > 0, "maxPendingSplitsPerNode must be greater than 0");
         checkNotNull(queryExecutor, "queryExecutor is null");
+        checkNotNull(queryInfoFactory, "queryInfoFactory is null");
 
         this.queryId = queryId;
-        this.sql = sql;
+        this.statement = statement;
 
         this.session = session;
         this.metadata = metadata;
@@ -106,6 +114,7 @@ public class SqlQueryExecution
         this.queryMonitor = queryMonitor;
         this.maxPendingSplitsPerNode = maxPendingSplitsPerNode;
         this.queryExecutor = queryExecutor;        
+        this.queryInfoFactory = queryInfoFactory;
     }
 
     @Override
@@ -123,12 +132,9 @@ public class SqlQueryExecution
             stageInfo = outputStage.getStageInfo();
         }
 
-        return new QueryInfo(queryId,
-                session,
-                queryState.get(),
+        return queryInfoFactory.buildQueryInfo(queryState.get(),
                 locationFactory.createQueryLocation(queryId),
                 fieldNames.get(),
-                sql,
                 queryStats,
                 stageInfo,
                 toFailures(failureCauses));
@@ -188,9 +194,6 @@ public class SqlQueryExecution
 
         // time analysis phase
         long analysisStart = System.nanoTime();
-
-        // parse query
-        Statement statement = SqlParser.createStatement(sql);
 
         // analyze query
         Analyzer analyzer = new Analyzer(session, metadata);

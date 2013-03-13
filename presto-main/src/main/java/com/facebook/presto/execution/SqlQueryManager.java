@@ -4,12 +4,16 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.event.query.QueryMonitor;
+import com.facebook.presto.execution.QueryInfo.QueryInfoFactory;
+import com.facebook.presto.execution.SimpleSqlExecution.SimpleSqlExecutionFactory;
 import com.facebook.presto.importer.ImportManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.split.ImportClientManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -22,7 +26,9 @@ import org.joda.time.DateTime;
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
+
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -63,6 +69,7 @@ public class SqlQueryManager
 
     private final ScheduledExecutorService queryManagementExecutor;
 
+    private final Map<Class<? extends Statement>, SimpleSqlExecutionFactory<?>> simpleExecutions;
 
     @Inject
     public SqlQueryManager(ImportClientManager importClientManager,
@@ -73,7 +80,8 @@ public class SqlQueryManager
             QueryManagerConfig config,
             NodeManager nodeManager,
             RemoteTaskFactory remoteTaskFactory,
-            QueryMonitor queryMonitor)
+            QueryMonitor queryMonitor,
+            Map<Class<? extends Statement>, SimpleSqlExecutionFactory<?>> simpleExecutions)
     {
         checkNotNull(importClientManager, "importClientFactory is null");
         checkNotNull(importManager, "importManager is null");
@@ -84,6 +92,7 @@ public class SqlQueryManager
         checkNotNull(locationFactory, "locationFactory is null");
         checkNotNull(config, "config is null");
         checkNotNull(queryMonitor, "queryMonitor is null");
+        checkNotNull(simpleExecutions, "simpleExecutions is null");
 
         this.queryExecutor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
 
@@ -96,6 +105,8 @@ public class SqlQueryManager
         this.locationFactory = locationFactory;
         this.queryMonitor = queryMonitor;
         this.importsEnabled = config.isImportsEnabled();
+        this.simpleExecutions = simpleExecutions;
+
         this.maxQueryAge = config.getMaxQueryAge();
         this.clientTimeout = config.getClientTimeout();
         this.maxPendingSplitsPerNode = config.getMaxPendingSplitsPerNode();
@@ -188,6 +199,8 @@ public class SqlQueryManager
         Preconditions.checkArgument(query.length() > 0, "query must not be empty string");
 
         String queryId = String.valueOf(nextQueryId.getAndIncrement());
+
+        QueryInfoFactory queryInfoFactory = new QueryInfoFactory(queryId, query, session);
         QueryExecution queryExecution;
         if (query.startsWith("import-table:")) {
             Preconditions.checkState(importsEnabled, "Imports are currently disabled");
@@ -206,19 +219,35 @@ public class SqlQueryManager
                     query);
         }
         else {
-            queryExecution = new SqlQueryExecution(queryId,
-                    query,
-                    session,
-                    metadata,
-                    splitManager,
-                    nodeManager,
-                    remoteTaskFactory,
-                    locationFactory,
-                    queryMonitor,
-                    maxPendingSplitsPerNode,
-                    queryExecutor);
+            // parse the SQL query
+            Statement statement = SqlParser.createStatement(query);
+
+            SimpleSqlExecutionFactory<?> queryExecutionFactory = simpleExecutions.get(statement.getClass());
+            if (queryExecutionFactory != null) {
+                queryExecution = queryExecutionFactory.createQueryExecution(queryId,
+                        statement,
+                        session,
+                        locationFactory.createQueryLocation(queryId),
+                        queryInfoFactory);
+            }
+            else {
+                queryExecution = new SqlQueryExecution(queryId,
+                        statement,
+                        session,
+                        metadata,
+                        splitManager,
+                        nodeManager,
+                        remoteTaskFactory,
+                        locationFactory,
+                        queryMonitor,
+                        maxPendingSplitsPerNode,
+                        queryExecutor,
+                        queryInfoFactory);
+            }
+
             queryMonitor.createdEvent(queryExecution.getQueryInfo());
         }
+
         queries.put(queryExecution.getQueryId(), queryExecution);
 
         // start the query in the background
