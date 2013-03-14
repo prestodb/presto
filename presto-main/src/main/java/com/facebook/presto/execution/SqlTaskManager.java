@@ -80,7 +80,7 @@ public class SqlTaskManager
         this.dataStreamProvider = dataStreamProvider;
         this.exchangeOperatorFactory = exchangeOperatorFactory;
         this.httpServerInfo = httpServerInfo;
-        this.pageBufferMax = 20;
+        this.pageBufferMax = config.getSinkMaxBufferedPages() == null ? config.getMaxShardProcessorThreads() * 5 : config.getSinkMaxBufferedPages();
         this.maxOperatorMemoryUsage = config.getMaxOperatorMemoryUsage();
         // Just to be nice, allow tasks to live an extra 30 seconds so queries will be removed first
         this.maxTaskAge = new Duration(config.getMaxQueryAge().toMillis() + SECONDS.toMillis(30), MILLISECONDS);

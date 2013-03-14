@@ -46,6 +46,9 @@ public class ExecutionStats
     private Duration splitUserTime = ZERO_DURATION;
 
     @GuardedBy("this")
+    private Duration sinkBufferWaitTime = ZERO_DURATION;
+
+    @GuardedBy("this")
     private Duration exchangeWaitTime = ZERO_DURATION;
 
     @GuardedBy("this")
@@ -81,6 +84,7 @@ public class ExecutionStats
             @JsonProperty("splitWallTime") Duration splitWallTime,
             @JsonProperty("splitCpuTime") Duration splitCpuTime,
             @JsonProperty("splitUserTime") Duration splitUserTime,
+            @JsonProperty("sinkBufferWaitTime") Duration sinkBufferWaitTime,
             @JsonProperty("exchangeStatus") List<ExchangeClientStatus> exchangeStatus,
             @JsonProperty("exchangeWaitTime") Duration exchangeWaitTime,
             @JsonProperty("inputDataSize") DataSize inputDataSize,
@@ -100,6 +104,7 @@ public class ExecutionStats
         this.splitWallTime = splitWallTime;
         this.splitCpuTime = splitCpuTime;
         this.splitUserTime = splitUserTime;
+        this.sinkBufferWaitTime = sinkBufferWaitTime;
         this.exchangeStatus.set(ImmutableList.copyOf(exchangeStatus));
         this.exchangeWaitTime = exchangeWaitTime;
         this.inputDataSize = inputDataSize;
@@ -173,6 +178,12 @@ public class ExecutionStats
     public synchronized Duration getSplitUserTime()
     {
         return splitUserTime;
+    }
+
+    @JsonProperty
+    public synchronized Duration getSinkBufferWaitTime()
+    {
+        return sinkBufferWaitTime;
     }
 
     @JsonProperty
@@ -258,6 +269,11 @@ public class ExecutionStats
         splitUserTime = new Duration(splitUserTime.toMillis() + duration.toMillis(), TimeUnit.MILLISECONDS);
     }
 
+    public synchronized void addSinkBufferWaitTime(Duration duration)
+    {
+        sinkBufferWaitTime = new Duration(sinkBufferWaitTime.toMillis() + duration.toMillis(), TimeUnit.MILLISECONDS);
+    }
+
     public synchronized void addExchangeWaitTime(Duration duration)
     {
         exchangeWaitTime = new Duration(exchangeWaitTime.toMillis() + duration.toMillis(), TimeUnit.MILLISECONDS);
@@ -317,6 +333,7 @@ public class ExecutionStats
         addSplitWallTime(stats.getSplitWallTime());
         addSplitCpuTime(stats.getSplitCpuTime());
         addSplitUserTime(stats.getSplitUserTime());
+        addSinkBufferWaitTime(stats.getSinkBufferWaitTime());
         addExchangeWaitTime(stats.getExchangeWaitTime());
         addInputDataSize(stats.getInputDataSize());
         inputPositionCount.addAndGet(stats.getInputPositionCount());

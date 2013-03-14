@@ -182,8 +182,6 @@ public class SqlTaskExecution
     @Override
     public synchronized void addSplit(PlanNodeId sourceId, Split split)
     {
-        getTaskInfo().getStats().addSplits(1);
-
         // is this a partitioned source
         if (fragment.isPartitioned() && fragment.getPartitionedSource().equals(sourceId)) {
             scheduleSplitWorker(sourceId, split);
@@ -227,6 +225,7 @@ public class SqlTaskExecution
         // record new worker
         splitWorkers.add(new WeakReference<>(worker));
         pendingWorkerCount.incrementAndGet();
+        getTaskInfo().getStats().addSplits(1);
 
         // execute worker
         final FutureTask<?> workerFutureTask = new FutureTask<>(worker);
