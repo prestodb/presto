@@ -52,7 +52,6 @@ public class QueryResource
 
     @GET
     public List<QueryInfo> getAllQueryInfo()
-            throws InterruptedException
     {
         return queryManager.getAllQueryInfo();
     }
@@ -60,7 +59,6 @@ public class QueryResource
     @GET
     @Path("{queryId}")
     public Response getQueryInfo(@PathParam("queryId") String queryId, @HeaderParam(HttpHeaders.CACHE_CONTROL) String cacheControl)
-            throws InterruptedException
     {
         checkNotNull(queryId, "queryId is null");
 
