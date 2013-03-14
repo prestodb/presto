@@ -83,6 +83,8 @@ import static org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat.SymlinkTextInp
 public class HiveClient
         implements ImportClient
 {
+    public static final String HIVE_VIEWS_NOT_SUPPORTED = "Hive views are not supported";
+
     private static final Logger log = Logger.get(HiveClient.class);
 
     private final long maxChunkBytes;
