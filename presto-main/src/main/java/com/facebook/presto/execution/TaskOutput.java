@@ -82,7 +82,13 @@ public class TaskOutput
     public boolean addPage(Page page)
             throws InterruptedException
     {
-        return sharedBuffer.add(page);
+        long start = System.nanoTime();
+        try {
+            return sharedBuffer.add(page);
+        }
+        finally {
+            stats.addSinkBufferWaitTime(Duration.nanosSince(start));
+        }
     }
 
     public void noMoreResultQueues()
