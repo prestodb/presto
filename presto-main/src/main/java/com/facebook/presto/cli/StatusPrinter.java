@@ -6,7 +6,9 @@ import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -26,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.execution.StageInfo.globalExecutionStats;
 import static com.facebook.presto.execution.StageInfo.stageOnlyExecutionStats;
+import static com.facebook.presto.execution.StageInfo.stageStateGetter;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -242,22 +245,44 @@ Parallelism: 2.5
 
             assert terminalWidth >= 75;
             int progressWidth = (min(terminalWidth, 100) - 75) + 17; // progress bar is 17-42 characters wide
-            String progressBar = formatProgressBar(progressWidth,
-                    globalExecutionStats.getCompletedSplits(),
-                    max(0, globalExecutionStats.getStartedSplits() - globalExecutionStats.getCompletedSplits()),
-                    globalExecutionStats.getSplits());
 
-            // 0:17 [ 103MB,  802K rows] [5.74MB/s, 44.9K rows/s] [=====>>                                   ] 10%
-            String progressLine = String.format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s] %d%%",
-                    formatTime(wallTime),
-                    formatCount(globalExecutionStats.getCompletedPositionCount()),
-                    formatDataSize(globalExecutionStats.getCompletedDataSize(), true),
-                    formatCountRate(globalExecutionStats.getCompletedPositionCount(), wallTime, false),
-                    formatDataRate(globalExecutionStats.getCompletedDataSize(), wallTime, true),
-                    progressBar,
-                    progressPercentage);
 
-            reprintLine(progressLine);
+            boolean noMoreSplits = IterableTransformer.on(StageInfo.getAllStages(queryInfo.getOutputStage()))
+                    .transform(stageStateGetter())
+                    .all(isStageRunningOrDone());
+
+            if (noMoreSplits) {
+                String progressBar = formatProgressBar(progressWidth,
+                        globalExecutionStats.getCompletedSplits(),
+                        max(0, globalExecutionStats.getStartedSplits() - globalExecutionStats.getCompletedSplits()),
+                        globalExecutionStats.getSplits());
+
+                // 0:17 [ 103MB,  802K rows] [5.74MB/s, 44.9K rows/s] [=====>>                                   ] 10%
+                String progressLine = String.format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s] %d%%",
+                        formatTime(wallTime),
+                        formatCount(globalExecutionStats.getCompletedPositionCount()),
+                        formatDataSize(globalExecutionStats.getCompletedDataSize(), true),
+                        formatCountRate(globalExecutionStats.getCompletedPositionCount(), wallTime, false),
+                        formatDataRate(globalExecutionStats.getCompletedDataSize(), wallTime, true),
+                        progressBar,
+                        progressPercentage);
+
+                reprintLine(progressLine);
+            }
+            else {
+                String progressBar = formatProgressBar(progressWidth, (int) (Duration.nanosSince(start).convertTo(TimeUnit.SECONDS)));
+
+                // 0:17 [ 103MB,  802K rows] [5.74MB/s, 44.9K rows/s] [    <=>                                  ]
+                String progressLine = String.format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s]",
+                        formatTime(wallTime),
+                        formatCount(globalExecutionStats.getCompletedPositionCount()),
+                        formatDataSize(globalExecutionStats.getCompletedDataSize(), true),
+                        formatCountRate(globalExecutionStats.getCompletedPositionCount(), wallTime, false),
+                        formatDataRate(globalExecutionStats.getCompletedDataSize(), wallTime, true),
+                        progressBar);
+
+                reprintLine(progressLine);
+            }
 
             // todo Mem: 1949M shared, 7594M private
 
@@ -583,6 +608,27 @@ Parallelism: 2.5
         return String.format("%s:%02d", minutes, seconds);
     }
 
+    /**
+     * Format an indeterminate progress bar: [       <=>       ]
+     */
+    private static String formatProgressBar(int width, int tick)
+    {
+        int markerWidth = 3; // must be odd >= 3 (1 for each < and > marker, the rest for "="
+
+        int range = width - markerWidth; // "lower" must fall within this range for the marker to fit within the bar
+        int lower = tick % range;
+
+        if ((tick / range) % 2 == 1) { // are we going or coming back?
+            lower = range - lower;
+        }
+
+        return Strings.repeat(" ", lower) +
+                        "<" +
+                        Strings.repeat("=", markerWidth - 2) +
+                        ">" +
+                        Strings.repeat(" ", width - (lower + markerWidth));
+    }
+
     private static String formatProgressBar(int width, int complete, int running, int total)
     {
         if (total == 0) {
@@ -627,4 +673,16 @@ Parallelism: 2.5
     {
         return (dividend + divisor - 1) / divisor;
     }
+
+    private static Predicate<StageState> isStageRunningOrDone()
+    {
+        return new Predicate<StageState>() {
+            @Override
+            public boolean apply(StageState stageState)
+            {
+                return stageState == StageState.RUNNING || stageState.isDone();
+            }
+        };
+    }
+
 }
