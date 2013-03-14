@@ -55,7 +55,7 @@ public class StatusPrinter
 /*
 
 Query 16, RUNNING, 1 node, 855 splits
-Splits:   646 pending, 34 running, 175 done
+Splits:   646 queued, 34 running, 175 done
 CPU Time: 33.7s total,  191K rows/s, 16.6MB/s, 22% active
 Per Node: 2.5 parallelism,  473K rows/s, 41.1MB/s
 Parallelism: 2.5
@@ -213,8 +213,8 @@ Parallelism: 2.5
             }
 
             if (queryClient.isDebug()) {
-                // Splits:   620 pending, 34 running, 124 done
-                String splitsSummary = String.format("Splits:   %,d pending, %,d running, %,d done",
+                // Splits:   620 queued, 34 running, 124 done
+                String splitsSummary = String.format("Splits:   %,d queued, %,d running, %,d done",
                         max(0, globalExecutionStats.getSplits() - globalExecutionStats.getStartedSplits()),
                         max(0, globalExecutionStats.getStartedSplits() - globalExecutionStats.getCompletedSplits()),
                         globalExecutionStats.getCompletedSplits());
@@ -289,15 +289,15 @@ Parallelism: 2.5
             // blank line
             reprintLine("");
 
-            // STAGE  S    ROWS    RPS  BYTES    BPS   PEND    RUN   DONE
-            String stagesHeader = String.format("%10s%1s  %5s  %6s  %5s  %7s  %5s  %5s  %5s",
+            // STAGE  S    ROWS    RPS  BYTES    BPS   QUEUED    RUN   DONE
+            String stagesHeader = String.format("%10s%1s  %5s  %6s  %5s  %7s  %6s  %5s  %5s",
                     "STAGE",
                     "S",
                     "ROWS",
                     "ROWS/s",
                     "BYTES",
                     "BYTES/s",
-                    "PEND",
+                    "QUEUED",
                     "RUN",
                     "DONE");
             reprintLine(stagesHeader);
@@ -331,12 +331,12 @@ Parallelism: 2.5
 
         ExecutionStats executionStats = stageOnlyExecutionStats(stage);
 
-        // STAGE  S    ROWS  ROWS/s  BYTES  BYTES/s   PEND    RUN   DONE
-        // 0......Q     26M   9077M  9993G    9077M  9077M  9077M  9077M
-        //   2....R     17K    627M   673M     627M   627M   627M   627M
-        //     3..C     999    627M   673M     627M   627M   627M   627M
-        //   4....R     26M    627M   673T     627M   627M   627M   627M
-        //     5..F     29T    627M   673M     627M   627M   627M   627M
+        // STAGE  S    ROWS  ROWS/s  BYTES  BYTES/s  QUEUED    RUN   DONE
+        // 0......Q     26M   9077M  9993G    9077M   9077M  9077M  9077M
+        //   2....R     17K    627M   673M     627M    627M   627M   627M
+        //     3..C     999    627M   673M     627M    627M   627M   627M
+        //   4....R     26M    627M   673T     627M    627M   627M   627M
+        //     5..F     29T    627M   673M     627M    627M   627M   627M
 
         // todo this is a total hack
         String id = stage.getStageId().substring(stage.getQueryId().length() + 1);
@@ -358,7 +358,7 @@ Parallelism: 2.5
             rowsPerSecond = formatCountRate(executionStats.getCompletedPositionCount(), elapsedTime, false);
         }
 
-        String stageSummary = String.format("%10s%1s  %5s  %6s  %5s  %7s  %5s  %5s  %5s",
+        String stageSummary = String.format("%10s%1s  %5s  %6s  %5s  %7s  %6s  %5s  %5s",
                 nameBuilder.toString(),
                 state.toString().charAt(0),
 
@@ -368,7 +368,7 @@ Parallelism: 2.5
                 formatDataSize(executionStats.getCompletedDataSize(), false),
                 bytesPerSecond,
 
-                executionStats.getPendingSplits(),
+                executionStats.getQueuedSplits(),
                 executionStats.getRunningSplits(),
                 executionStats.getCompletedSplits());
         reprintLine(stageSummary);

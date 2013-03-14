@@ -115,7 +115,7 @@ public class SqlStageExecution
                 return 1;
             }
             else {
-                return Ints.compare(task1.getTaskInfo().getStats().getPendingSplits(), task2.getTaskInfo().getStats().getPendingSplits());
+                return Ints.compare(task1.getTaskInfo().getStats().getQueuedSplits(), task2.getTaskInfo().getStats().getQueuedSplits());
             }
         }
     };
@@ -376,7 +376,7 @@ public class SqlStageExecution
 
             // if the chosen node doesn't have too many tasks already, return
             RemoteTask task = tasks.get(chosen);
-            if (task == null || task.getTaskInfo().getStats().getPendingSplits() < maxPendingSplitsPerNode) {
+            if (task == null || task.getTaskInfo().getStats().getQueuedSplits() < maxPendingSplitsPerNode) {
                 return chosen;
             }
 

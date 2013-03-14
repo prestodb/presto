@@ -157,7 +157,7 @@ public class ExecutionStats
         return completedSplits.get();
     }
 
-    public int getPendingSplits()
+    public int getQueuedSplits()
     {
         return Math.max(0, getSplits() - Math.max(getStartedSplits(), getCompletedSplits()));
     }
