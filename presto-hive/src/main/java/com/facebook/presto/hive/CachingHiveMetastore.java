@@ -8,12 +8,14 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
+import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
 
 import javax.annotation.concurrent.ThreadSafe;
+
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -134,7 +136,11 @@ public class CachingHiveMetastore
                     throws Exception
             {
                 try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
-                    return client.get_table(databaseName, tableName);
+                    Table table = client.get_table(databaseName, tableName);
+                    if (table.getTableType().equals(TableType.VIRTUAL_VIEW.toString())) {
+                        throw new NoSuchObjectException("Hive views are not supported");
+                    }
+                    return table;
                 }
             }
         }, NoSuchObjectException.class);
