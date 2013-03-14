@@ -26,6 +26,12 @@ COMMENT 'Presto test data'
 TBLPROPERTIES('RETENTION'='-1')
 ;
 
+CREATE VIEW presto_test_view
+COMMENT 'Presto test view'
+TBLPROPERTIES('RETENTION'='-1')
+AS SELECT * FROM presto_test_unpartitioned
+;
+
 DROP TABLE IF EXISTS tmp_presto_test;
 CREATE TABLE tmp_presto_test AS
 SELECT fb_number_rows() n FROM src LIMIT 100;
