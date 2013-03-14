@@ -7,7 +7,7 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.sql.analyzer.Session;
 import com.google.common.base.Preconditions;
-import org.eclipse.jetty.http.HttpHeaders;
+import com.google.common.net.HttpHeaders;
 
 import javax.inject.Inject;
 import javax.ws.rs.DELETE;
@@ -52,7 +52,6 @@ public class QueryResource
 
     @GET
     public List<QueryInfo> getAllQueryInfo()
-            throws InterruptedException
     {
         return queryManager.getAllQueryInfo();
     }
@@ -60,7 +59,6 @@ public class QueryResource
     @GET
     @Path("{queryId}")
     public Response getQueryInfo(@PathParam("queryId") String queryId, @HeaderParam(HttpHeaders.CACHE_CONTROL) String cacheControl)
-            throws InterruptedException
     {
         checkNotNull(queryId, "queryId is null");
 
