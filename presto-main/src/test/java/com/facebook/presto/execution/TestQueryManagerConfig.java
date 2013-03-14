@@ -26,7 +26,8 @@ public class TestQueryManagerConfig
                 .setMaxPendingSplitsPerNode(100)
                 .setExchangeMaxBufferedPages(100)
                 .setExchangeExpectedPagesPerRequest(10)
-                .setExchangeConcurrentRequestMultiplier(3));
+                .setExchangeConcurrentRequestMultiplier(3)
+                .setSinkMaxBufferedPages(null));
     }
 
     @Test
@@ -41,6 +42,7 @@ public class TestQueryManagerConfig
                 .put("query.max-age", "30s")
                 .put("query.max-splits", "100")
                 .put("query.max-pending-splits-per-node", "33")
+                .put("sink.page-buffer-max", "999")
                 .put("exchange.page-buffer-max", "11")
                 .put("exchange.expected-pages-per-request", "12")
                 .put("exchange.concurrent-request-multiplier", "13")
@@ -57,7 +59,8 @@ public class TestQueryManagerConfig
                 .setMaxPendingSplitsPerNode(33)
                 .setExchangeMaxBufferedPages(11)
                 .setExchangeExpectedPagesPerRequest(12)
-                .setExchangeConcurrentRequestMultiplier(13);
+                .setExchangeConcurrentRequestMultiplier(13)
+                .setSinkMaxBufferedPages(999);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
