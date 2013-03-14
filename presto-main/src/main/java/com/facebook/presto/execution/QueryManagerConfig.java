@@ -18,6 +18,7 @@ public class QueryManagerConfig
     private long maxSplitCount = 100_000;
     private int maxPendingSplitsPerNode = 100;
     private int maxShardProcessorThreads = Runtime.getRuntime().availableProcessors() * 4;
+    private Integer sinkMaxBufferedPages;
     private Duration maxQueryAge = new Duration(15, TimeUnit.MINUTES);
     private Duration clientTimeout = new Duration(1, TimeUnit.MINUTES);
 
@@ -97,6 +98,18 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxShardProcessorThreads(int maxShardProcessorThreads)
     {
         this.maxShardProcessorThreads = maxShardProcessorThreads;
+        return this;
+    }
+
+    public Integer getSinkMaxBufferedPages()
+    {
+        return sinkMaxBufferedPages;
+    }
+
+    @Config("sink.page-buffer-max")
+    public QueryManagerConfig setSinkMaxBufferedPages(Integer sinkMaxBufferedPages)
+    {
+        this.sinkMaxBufferedPages = sinkMaxBufferedPages;
         return this;
     }
 
