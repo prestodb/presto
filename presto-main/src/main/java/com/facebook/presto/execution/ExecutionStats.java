@@ -162,6 +162,11 @@ public class ExecutionStats
         return Math.max(0, getSplits() - Math.max(getStartedSplits(), getCompletedSplits()));
     }
 
+    public int getRunningSplits()
+    {
+        return Math.max(0, getStartedSplits() - getCompletedSplits());
+    }
+
     @JsonProperty
     public synchronized Duration getSplitCpuTime()
     {

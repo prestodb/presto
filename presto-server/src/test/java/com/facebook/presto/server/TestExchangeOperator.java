@@ -24,13 +24,12 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
-import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.airlift.configuration.ConfigurationFactory;
-import io.airlift.configuration.ConfigurationModule;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.InMemoryEventModule;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
@@ -47,7 +46,10 @@ import org.testng.annotations.Test;
 
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
+
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.server.MockQueryManager.TUPLE_INFOS;
@@ -63,6 +65,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestExchangeOperator
 {
+    private final List<LifeCycleManager> lifeCycleManagers = new ArrayList<>();
     private AsyncHttpClient httpClient;
     private TestingHttpServer server1;
     private TestingHttpServer server2;
@@ -78,7 +81,7 @@ public class TestExchangeOperator
             server3 = createServer();
             httpClient = new NettyAsyncHttpClient();
         }
-        catch (Exception | Error e) {
+        catch (Throwable e) {
             teardown();
         }
     }
@@ -86,7 +89,7 @@ public class TestExchangeOperator
     private TestingHttpServer createServer()
             throws Exception
     {
-        Injector injector = Guice.createInjector(
+        Bootstrap app = new Bootstrap(
                 new TestingNodeModule(),
                 new InMemoryEventModule(),
                 new TestingHttpServerModule(),
@@ -105,26 +108,24 @@ public class TestExchangeOperator
                         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
                         binder.bind(LocationFactory.class).to(HttpLocationFactory.class).in(Scopes.SINGLETON);
                     }
-                },
-                new ConfigurationModule(new ConfigurationFactory(ImmutableMap.<String, String>of())));
+                });
 
-        TestingHttpServer server = injector.getInstance(TestingHttpServer.class);
-        server.start();
-        return server;
+        Injector injector = app
+                .strictConfig()
+                .doNotInitializeLogging()
+                .initialize();
+
+        lifeCycleManagers.add(injector.getInstance(LifeCycleManager.class));
+
+        return injector.getInstance(TestingHttpServer.class);
     }
 
     @AfterMethod
     public void teardown()
             throws Exception
     {
-        if (server1 != null) {
-            server1.stop();
-        }
-        if (server2 != null) {
-            server2.stop();
-        }
-        if (server3 != null) {
-            server3.stop();
+        for (LifeCycleManager lifeCycleManager : lifeCycleManagers) {
+            lifeCycleManager.stop();
         }
         if (httpClient != null) {
             httpClient.close();

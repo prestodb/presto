@@ -17,18 +17,16 @@ import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.slice.Slices;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.common.net.HttpHeaders;
 import com.google.common.net.MediaType;
 import com.google.inject.Binder;
-import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.airlift.configuration.ConfigurationFactory;
-import io.airlift.configuration.ConfigurationModule;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.InMemoryEventModule;
 import io.airlift.http.client.ApacheHttpClient;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
@@ -70,19 +68,21 @@ public class TestQueryResourceServer
     private static final MediaType MEDIA_TYPE_JSON = MediaType.create("application", "json");
 
     private HttpClient client;
+    private LifeCycleManager lifeCycleManager;
     private TestingHttpServer server;
 
     @BeforeMethod
     public void setup()
             throws Exception
     {
-        Injector injector = Guice.createInjector(
+        Bootstrap app = new Bootstrap(
                 new TestingNodeModule(),
                 new InMemoryEventModule(),
                 new TestingHttpServerModule(),
                 new JsonModule(),
                 new JaxrsModule(),
-                new Module() {
+                new Module()
+                {
                     @Override
                     public void configure(Binder binder)
                     {
@@ -94,11 +94,17 @@ public class TestQueryResourceServer
                         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
                         binder.bind(LocationFactory.class).to(HttpLocationFactory.class).in(Scopes.SINGLETON);
                     }
-                },
-                new ConfigurationModule(new ConfigurationFactory(ImmutableMap.<String, String>of())));
+                });
+
+        Injector injector = app
+                .strictConfig()
+                .doNotInitializeLogging()
+                .initialize();
+
+        lifeCycleManager = injector.getInstance(LifeCycleManager.class);
 
         server = injector.getInstance(TestingHttpServer.class);
-        server.start();
+
         client = new ApacheHttpClient();
     }
 
@@ -106,8 +112,11 @@ public class TestQueryResourceServer
     public void teardown()
             throws Exception
     {
-        if (server != null) {
-            server.stop();
+        if (lifeCycleManager != null) {
+            lifeCycleManager.stop();
+        }
+        if (client != null) {
+            client.close();
         }
     }
 
@@ -173,7 +182,8 @@ public class TestQueryResourceServer
         return server.getBaseUrl().resolve(path);
     }
 
-    private static class CreatedResponseHandler implements ResponseHandler<URI, RuntimeException>
+    private static class CreatedResponseHandler
+            implements ResponseHandler<URI, RuntimeException>
     {
         @Override
         public RuntimeException handleException(Request request, Exception exception)
@@ -198,7 +208,8 @@ public class TestQueryResourceServer
         }
     }
 
-    public static class PageResponseHandler implements ResponseHandler<List<Page>, RuntimeException>
+    public static class PageResponseHandler
+            implements ResponseHandler<List<Page>, RuntimeException>
     {
         @Override
         public RuntimeException handleException(Request request, Exception exception)
