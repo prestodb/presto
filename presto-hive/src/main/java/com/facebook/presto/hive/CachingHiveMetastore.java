@@ -138,7 +138,7 @@ public class CachingHiveMetastore
                 try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                     Table table = client.get_table(databaseName, tableName);
                     if (table.getTableType().equals(TableType.VIRTUAL_VIEW.toString())) {
-                        throw new NoSuchObjectException("Hive views are not supported");
+                        throw new NoSuchObjectException(HiveClient.HIVE_VIEWS_NOT_SUPPORTED);
                     }
                     return table;
                 }

@@ -403,7 +403,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    @Test(expectedExceptions = ObjectNotFoundException.class, expectedExceptionsMessageRegExp = "Hive views are not supported")
+    @Test(expectedExceptions = ObjectNotFoundException.class, expectedExceptionsMessageRegExp = HiveClient.HIVE_VIEWS_NOT_SUPPORTED)
     public void testViewsAreNotSupported()
             throws Exception
     {
