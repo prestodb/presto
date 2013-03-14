@@ -7,7 +7,7 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.sql.analyzer.Session;
 import com.google.common.base.Preconditions;
-import org.eclipse.jetty.http.HttpHeaders;
+import com.google.common.net.HttpHeaders;
 
 import javax.inject.Inject;
 import javax.ws.rs.DELETE;
