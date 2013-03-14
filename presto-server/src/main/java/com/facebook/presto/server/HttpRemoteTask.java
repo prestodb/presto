@@ -16,6 +16,7 @@ import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
@@ -201,12 +202,12 @@ public class HttpRemoteTask
 
         // if this is the final set, set no more
         if (noMore) {
-            Set<PlanNodeId> allExchangeSourceIds;
-            synchronized (this) {
-                allExchangeSourceIds = exchangeLocations.keySet();
-            }
-            for (PlanNodeId planNodeId : allExchangeSourceIds) {
-                noMoreSources(planNodeId);
+            // assume all unpartitioned sources are exchange sources
+            for (PlanNode planNode : planFragment.getSources()) {
+                PlanNodeId planNodeId = planNode.getId();
+                if (!planNodeId.equals(planFragment.getPartitionedSource())) {
+                    noMoreSources(planNodeId);
+                }
             }
         }
     }
