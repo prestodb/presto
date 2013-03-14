@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import org.apache.hadoop.fs.Path;
@@ -38,6 +37,7 @@ public abstract class AbstractTestHiveClient
     public static final String INVALID_DATABASE = "totally_invalid_database";
     public static final String TABLE = "presto_test";
     public static final String TABLE_UNPARTITIONED = "presto_test_unpartitioned";
+    public static final String VIEW = "presto_test_view";
     public static final String INVALID_TABLE = "totally_invalid_table_name";
     public static final String INVALID_COLUMN = "totally_invalid_column_name";
     public static final List<String> PARTITIONS = ImmutableList.of(
@@ -401,6 +401,13 @@ public abstract class AbstractTestHiveClient
             }
             assertEquals(rowNumber, 100);
         }
+    }
+
+    @Test(expectedExceptions = ObjectNotFoundException.class, expectedExceptionsMessageRegExp = "Hive views are not supported")
+    public void testViewsAreNotSupported()
+            throws Exception
+    {
+        client.getTableSchema(DATABASE, VIEW);
     }
 
     private long getBaseValueForFileType(String fileType)
