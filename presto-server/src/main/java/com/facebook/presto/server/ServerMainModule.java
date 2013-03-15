@@ -3,6 +3,14 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.importer.ForPeriodicImport;
+import com.facebook.presto.importer.JobStateFactory;
+import com.facebook.presto.importer.PeriodicImportConfig;
+import com.facebook.presto.importer.PeriodicImportController;
+import com.facebook.presto.importer.PeriodicImportJobResource;
+import com.facebook.presto.importer.PeriodicImportManager;
+import com.facebook.presto.importer.PeriodicImportRunnable;
+
 import com.facebook.presto.event.query.QueryCompletionEvent;
 import com.facebook.presto.event.query.QueryCreatedEvent;
 import com.facebook.presto.event.query.QueryMonitor;
@@ -18,23 +26,15 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.importer.ForImportManager;
-import com.facebook.presto.importer.ForPeriodicImport;
 import com.facebook.presto.importer.ImportManager;
-import com.facebook.presto.importer.JobStateFactory;
 import com.facebook.presto.importer.LocalShardManager;
 import com.facebook.presto.importer.NodeWorkerQueue;
-import com.facebook.presto.importer.PeriodicImportConfig;
-import com.facebook.presto.importer.PeriodicImportController;
-import com.facebook.presto.importer.PeriodicImportJobResource;
-import com.facebook.presto.importer.PeriodicImportManager;
-import com.facebook.presto.importer.PeriodicImportRunnable;
 import com.facebook.presto.importer.ShardImport;
 import com.facebook.presto.metadata.DatabaseShardManager;
 import com.facebook.presto.metadata.DatabaseStorageManager;
 import com.facebook.presto.metadata.ForMetadata;
 import com.facebook.presto.metadata.ForShardManager;
 import com.facebook.presto.metadata.ForStorageManager;
-import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.ImportMetadata;
 import com.facebook.presto.metadata.InformationSchemaData;
 import com.facebook.presto.metadata.InformationSchemaMetadata;
@@ -48,6 +48,7 @@ import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.metadata.StorageManagerConfig;
 import com.facebook.presto.metadata.SystemTables;
+import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.spi.ImportClientFactory;
@@ -88,7 +89,6 @@ import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.event.client.EventBinder.eventBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
-import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -99,8 +99,6 @@ public class ServerMainModule
     @Override
     protected void configure()
     {
-        httpServerBinder(binder).bindResource("/", "webapp").withWelcomeFile("index.html");
-
         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
         bindConfig(binder).to(QueryManagerConfig.class);
