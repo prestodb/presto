@@ -109,7 +109,7 @@ public class SqlQueryManager
             {
                 for (QueryExecution queryExecution : queries.values()) {
                     try {
-                        queryExecution.updateState();
+                        queryExecution.updateState(false);
                     }
                     catch (Throwable e) {
                         log.warn(e, "Error updating state for query %s", queryExecution.getQueryId());
@@ -176,7 +176,7 @@ public class SqlQueryManager
         // todo should this be a method on QueryExecution?
         query.getQueryInfo().getQueryStats().recordHeartBeat();
         if (forceRefresh) {
-            query.updateState();
+            query.updateState(forceRefresh);
         }
         return query.getQueryInfo();
     }

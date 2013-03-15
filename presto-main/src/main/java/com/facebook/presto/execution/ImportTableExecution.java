@@ -132,7 +132,7 @@ public class ImportTableExecution
     }
 
     @Override
-    public void updateState()
+    public void updateState(boolean forceRefresh)
     {
     }
 

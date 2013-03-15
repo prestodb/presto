@@ -301,9 +301,17 @@ public class SqlQueryExecution
         }
     }
 
-    public void updateState()
+    public void updateState(boolean forceRefresh)
     {
         Preconditions.checkState(!Thread.holdsLock(this), "Can not update while holding a lock on this");
+
+        if (!forceRefresh) {
+            synchronized (this) {
+                if (queryState.get().isDone()) {
+                    return;
+                }
+            }
+        }
 
         SqlStageExecution outputStage = this.outputStage.get();
         if (outputStage == null) {
