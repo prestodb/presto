@@ -263,13 +263,21 @@ public class ExchangeOperator
         private final URI uri;
         private final String state;
         private final DateTime lastUpdate;
+        private final int requestsScheduled;
+        private final int requestsCompleted;
 
         @JsonCreator
-        public ExchangeClientStatus(@JsonProperty("uri") URI uri, @JsonProperty("state") String state, @JsonProperty("lastUpdate") DateTime lastUpdate)
+        public ExchangeClientStatus(@JsonProperty("uri") URI uri,
+                @JsonProperty("state") String state,
+                @JsonProperty("lastUpdate") DateTime lastUpdate,
+                @JsonProperty("requestsScheduled") int requestsScheduled,
+                @JsonProperty("requestsCompleted") int requestsCompleted)
         {
             this.uri = uri;
             this.state = state;
             this.lastUpdate = lastUpdate;
+            this.requestsScheduled = requestsScheduled;
+            this.requestsCompleted = requestsCompleted;
         }
 
         @JsonProperty
@@ -288,6 +296,18 @@ public class ExchangeOperator
         public DateTime getLastUpdate()
         {
             return lastUpdate;
+        }
+
+        @JsonProperty
+        public int getRequestsScheduled()
+        {
+            return requestsScheduled;
+        }
+
+        @JsonProperty
+        public int getRequestsCompleted()
+        {
+            return requestsCompleted;
         }
 
         @Override
