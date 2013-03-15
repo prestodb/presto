@@ -15,6 +15,8 @@ import javax.annotation.concurrent.Immutable;
 import java.net.URI;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 @Immutable
 public class QueryInfo
 {
@@ -136,5 +138,43 @@ public class QueryInfo
             }
         }
         return false;
+    }
+
+    public static class QueryInfoFactory
+    {
+        private final String queryId;
+        private final String query;
+        private final Session session;
+
+        public QueryInfoFactory(String queryId,
+                String query,
+                Session session)
+        {
+            checkNotNull(queryId, "queryId is null");
+            checkNotNull(query, "query is null");
+            checkNotNull(session, "session is null");
+
+            this.queryId = queryId;
+            this.query = query;
+            this.session = session;
+        }
+
+        public QueryInfo buildQueryInfo(QueryState state,
+                URI self,
+                List<String> fieldNames,
+                QueryStats queryStats,
+                StageInfo outputStage,
+                List<FailureInfo> failures)
+        {
+            return new QueryInfo(queryId,
+                    session,
+                    state,
+                    self,
+                    fieldNames,
+                    query,
+                    queryStats,
+                    outputStage,
+                    failures);
+        }
     }
 }

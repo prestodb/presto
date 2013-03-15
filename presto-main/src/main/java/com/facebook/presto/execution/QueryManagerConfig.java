@@ -13,7 +13,6 @@ import java.util.concurrent.TimeUnit;
 public class QueryManagerConfig
 {
     private boolean coordinator = true;
-    private boolean importsEnabled = true;
     private DataSize maxOperatorMemoryUsage = new DataSize(256, Unit.MEGABYTE);
     private long maxSplitCount = 100_000;
     private int maxPendingSplitsPerNode = 100;
@@ -35,18 +34,6 @@ public class QueryManagerConfig
     public QueryManagerConfig setCoordinator(boolean coordinator)
     {
         this.coordinator = coordinator;
-        return this;
-    }
-
-    public boolean isImportsEnabled()
-    {
-        return importsEnabled;
-    }
-
-    @Config("import.enabled")
-    public QueryManagerConfig setImportsEnabled(boolean importsEnabled)
-    {
-        this.importsEnabled = importsEnabled;
         return this;
     }
 
