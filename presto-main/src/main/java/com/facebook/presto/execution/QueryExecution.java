@@ -11,7 +11,7 @@ public interface QueryExecution
 
     void start();
 
-    void updateState();
+    void updateState(boolean forceRefresh);
 
     void cancel();
 
