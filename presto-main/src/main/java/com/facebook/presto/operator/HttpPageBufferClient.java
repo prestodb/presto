@@ -11,6 +11,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.net.MediaType;
 import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.http.client.AsyncHttpClient.AsyncHttpResponseFuture;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
@@ -60,7 +61,7 @@ public class HttpPageBufferClient
     @GuardedBy("this")
     private boolean closed;
     @GuardedBy("this")
-    private Future<?> future;
+    private AsyncHttpResponseFuture<?,?> future;
     @GuardedBy("this")
     private DateTime lastUpdate = DateTime.now();
 
@@ -88,7 +89,11 @@ public class HttpPageBufferClient
         } else {
             state = "queued";
         }
-        return new ExchangeClientStatus(location, state, lastUpdate, requestsScheduled.get(), requestsCompleted.get());
+        String httpRequestState = "queued";
+        if (future != null) {
+            httpRequestState = future.getState();
+        }
+        return new ExchangeClientStatus(location, state, lastUpdate, requestsScheduled.get(), requestsCompleted.get(), httpRequestState);
     }
 
     public synchronized boolean isRunning()
