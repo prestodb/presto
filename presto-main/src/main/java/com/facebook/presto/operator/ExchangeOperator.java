@@ -265,19 +265,22 @@ public class ExchangeOperator
         private final DateTime lastUpdate;
         private final int requestsScheduled;
         private final int requestsCompleted;
+        private final String httpRequestState;
 
         @JsonCreator
         public ExchangeClientStatus(@JsonProperty("uri") URI uri,
                 @JsonProperty("state") String state,
                 @JsonProperty("lastUpdate") DateTime lastUpdate,
                 @JsonProperty("requestsScheduled") int requestsScheduled,
-                @JsonProperty("requestsCompleted") int requestsCompleted)
+                @JsonProperty("requestsCompleted") int requestsCompleted,
+                @JsonProperty("httpRequestState") String httpRequestState)
         {
             this.uri = uri;
             this.state = state;
             this.lastUpdate = lastUpdate;
             this.requestsScheduled = requestsScheduled;
             this.requestsCompleted = requestsCompleted;
+            this.httpRequestState = httpRequestState;
         }
 
         @JsonProperty
@@ -310,6 +313,12 @@ public class ExchangeOperator
             return requestsCompleted;
         }
 
+        @JsonProperty
+        public String getHttpRequestState()
+        {
+            return httpRequestState;
+        }
+
         @Override
         public String toString()
         {
@@ -317,6 +326,7 @@ public class ExchangeOperator
                     .add("uri", uri)
                     .add("state", state)
                     .add("lastUpdate", lastUpdate)
+                    .add("httpRequestState", httpRequestState)
                     .toString();
         }
     }
