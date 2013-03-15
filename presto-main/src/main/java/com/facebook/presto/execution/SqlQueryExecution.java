@@ -321,8 +321,13 @@ public class SqlQueryExecution
             StageState outputStageState = outputStageInfo.getState();
             if (outputStageState.isDone()) {
                 if (outputStageState == StageState.FAILED) {
+                    log.debug("Transition query %s to FAILED: output stage FAILED", queryId);
                     this.queryState.set(QueryState.FAILED);
+                } else if (outputStageState == StageState.CANCELED) {
+                    log.debug("Transition query %s to CANCELED: output stage CANCELED", queryId);
+                    this.queryState.set(QueryState.CANCELED);
                 } else {
+                    log.debug("Transition query %s to FINISHED: output stage FINISHED", queryId);
                     this.queryState.set(QueryState.FINISHED);
                 }
                 queryStats.recordEnd();
