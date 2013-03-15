@@ -5,6 +5,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.sql.analyzer.Session;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -14,10 +15,27 @@ import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Immutable
 public class QueryInfo
 {
+    public static QueryInfo createQueryInfo(String queryId,
+            Session session,
+            URI self,
+            String query)
+    {
+        return new QueryInfo(queryId,
+                session,
+                QueryState.QUEUED,
+                self,
+                ImmutableList.<String>of(),
+                query,
+                new QueryStats(),
+                null,
+                ImmutableList.<FailureInfo>of());
+    }
+
     private final String queryId;
     private final Session session;
     private final QueryState state;
@@ -113,6 +131,66 @@ public class QueryInfo
         return failures;
     }
 
+    @JsonIgnore
+    public QueryInfo queryState(QueryState queryState)
+    {
+        return new QueryInfo(this.queryId,
+                this.session,
+                queryState,
+                this.self,
+                this.fieldNames,
+                this.query,
+                this.queryStats,
+                this.outputStage,
+                this.failures);
+    }
+
+    @JsonIgnore
+    public QueryInfo stageInfo(StageInfo stageInfo)
+    {
+        return new QueryInfo(this.queryId,
+                this.session,
+                this.state,
+                this.self,
+                this.fieldNames,
+                this.query,
+                this.queryStats,
+                stageInfo,
+                this.failures);
+    }
+
+    @JsonIgnore
+    public QueryInfo fieldNames(List<String> fieldNames)
+    {
+        return new QueryInfo(this.queryId,
+                this.session,
+                this.state,
+                this.self,
+                ImmutableList.copyOf(fieldNames),
+                this.query,
+                this.queryStats,
+                this.outputStage,
+                this.failures);
+    }
+
+    @JsonIgnore
+    public QueryInfo addFailure(FailureInfo failureInfo)
+    {
+        ImmutableList.Builder<FailureInfo> builder = ImmutableList.builder();
+        builder.addAll(this.failures);
+        builder.add(failureInfo);
+
+        return new QueryInfo(this.queryId,
+                this.session,
+                this.state,
+                this.self,
+                this.fieldNames,
+                this.query,
+                this.queryStats,
+                this.outputStage,
+                builder.build());
+    }
+
     @Override
     public String toString()
     {
@@ -136,5 +214,48 @@ public class QueryInfo
             }
         }
         return false;
+    }
+
+    //
+    // lame static helpers
+    //
+
+    public static final void updateFieldNames(AtomicReference<QueryInfo> queryInfoHolder, List<String> fieldNames)
+    {
+        while (true) {
+            QueryInfo currentQueryInfo = queryInfoHolder.get();
+            QueryInfo newQueryInfo = currentQueryInfo.fieldNames(fieldNames);
+
+            if (queryInfoHolder.compareAndSet(currentQueryInfo, newQueryInfo)) {
+                return;
+            }
+        }
+    }
+
+    public static final void addFailure(AtomicReference<QueryInfo> queryInfoHolder, Throwable t)
+    {
+        while (true) {
+            QueryInfo currentQueryInfo = queryInfoHolder.get();
+            QueryInfo newQueryInfo = currentQueryInfo.addFailure(FailureInfo.toFailure(t));
+
+            if (queryInfoHolder.compareAndSet(currentQueryInfo, newQueryInfo)) {
+                return;
+            }
+        }
+    }
+
+    public static final QueryStats getQueryStats(AtomicReference<QueryInfo> queryInfoHolder)
+    {
+        return queryInfoHolder.get().getQueryStats();
+    }
+
+    public static final Session getSession(AtomicReference<QueryInfo> queryInfoHolder)
+    {
+        return queryInfoHolder.get().getSession();
+    }
+
+    public static final String getQueryId(AtomicReference<QueryInfo> queryInfoHolder)
+    {
+        return queryInfoHolder.get().getQueryId();
     }
 }

@@ -116,6 +116,10 @@ Parallelism: 2.5
 
         int nodes = uniqueNodes(outputStage).size();
 
+        if (nodes == 0 || globalExecutionStats.getSplits() == 0) {
+            return;
+        }
+
         // blank line
         out.println();
 
@@ -178,10 +182,15 @@ Parallelism: 2.5
 
         ExecutionStats globalExecutionStats = globalExecutionStats(outputStage);
 
+        int nodes = uniqueNodes(outputStage).size();
+
+        if (nodes == 0 || globalExecutionStats.getSplits() == 0) {
+            return ;
+        }
+
         // cap progress at 99%, otherwise it looks weird when the query is still running and it says 100%
         int progressPercentage = min(99, (int) ((globalExecutionStats.getCompletedSplits() * 100.0) / globalExecutionStats.getSplits()));
 
-        int nodes = uniqueNodes(outputStage).size();
         if (REAL_TERMINAL) {
             // blank line
             reprintLine("");
@@ -232,13 +241,11 @@ Parallelism: 2.5
                 double parallelism = cpuTime.toMillis() / wallTime.toMillis();
 
                 // Per Node: 3.5 parallelism, 83.3K rows/s, 0.7 MB/s
-                if (nodes > 0) {
-                    String perNodeSummary = String.format("Per Node: %.1f parallelism, %5s rows/s, %8s",
-                            parallelism / nodes,
-                            formatCountRate(globalExecutionStats.getCompletedPositionCount() / nodes, wallTime, false),
-                            formatDataRate(new DataSize(globalExecutionStats.getCompletedDataSize().toBytes() / nodes, BYTE), wallTime, true));
-                    reprintLine(perNodeSummary);
-                }
+                String perNodeSummary = String.format("Per Node: %.1f parallelism, %5s rows/s, %8s",
+                        parallelism / nodes,
+                        formatCountRate(globalExecutionStats.getCompletedPositionCount() / nodes, wallTime, false),
+                        formatDataRate(new DataSize(globalExecutionStats.getCompletedDataSize().toBytes() / nodes, BYTE), wallTime, true));
+                reprintLine(perNodeSummary);
 
                 reprintLine(String.format("Parallelism: %.1f", parallelism));
             }

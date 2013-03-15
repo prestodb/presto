@@ -9,8 +9,6 @@ import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.AnalysisResult;
 import com.facebook.presto.sql.analyzer.Analyzer;
-import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DistributedExecutionPlanner;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LogicalPlanner;
@@ -24,13 +22,17 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 
-import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
+import javax.inject.Inject;
+
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.execution.FailureInfo.toFailures;
+import static com.facebook.presto.execution.QueryInfo.addFailure;
+import static com.facebook.presto.execution.QueryInfo.getQueryId;
+import static com.facebook.presto.execution.QueryInfo.getQueryStats;
+import static com.facebook.presto.execution.QueryInfo.getSession;
+import static com.facebook.presto.execution.QueryInfo.updateFieldNames;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.execution.StageInfo.stageStateGetter;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -45,34 +47,22 @@ public class SqlQueryExecution
     private static final Logger log = Logger.get(SqlQueryExecution.class);
     private static final String ROOT_OUTPUT_BUFFER_NAME = "out";
 
-    private final String queryId;
-    private final String sql;
-    private final Session session;
+    private final Statement statement;
     private final Metadata metadata;
     private final SplitManager splitManager;
     private final NodeManager nodeManager;
     private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
     private final QueryMonitor queryMonitor;
-    private final int maxPendingSplitsPerNode;    
+    private final int maxPendingSplitsPerNode;
     private final ExecutorService queryExecutor;
 
-    private final QueryStats queryStats = new QueryStats();
-
-    // All state changes must occur within a synchronized lock.
-    // The only reason we use an atomic reference here is so read-only threads don't have to block.
-    @GuardedBy("this")
-    private final AtomicReference<QueryState> queryState = new AtomicReference<>(QueryState.QUEUED);
-    @GuardedBy("this")
+    private final QueryExecutionState queryExecutionState = new QueryExecutionState();
     private final AtomicReference<SqlStageExecution> outputStage = new AtomicReference<>();
-    @GuardedBy("this")
-    private final AtomicReference<ImmutableList<String>> fieldNames = new AtomicReference<>(ImmutableList.<String>of());
+    private final AtomicReference<QueryInfo> queryInfo = new AtomicReference<>();
 
-    private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
-
-    public SqlQueryExecution(String queryId,
-            String sql,
-            Session session,
+    public SqlQueryExecution(Statement statement,
+            QueryInfo queryInfo,
             Metadata metadata,
             SplitManager splitManager,
             NodeManager nodeManager,
@@ -82,9 +72,7 @@ public class SqlQueryExecution
             int maxPendingSplitsPerNode,
             ExecutorService queryExecutor)
     {
-        checkNotNull(queryId, "queryId is null");
-        checkNotNull(sql, "sql is null");
-        checkNotNull(session, "session is null");
+        checkNotNull(statement, "statement is null");
         checkNotNull(metadata, "metadata is null");
         checkNotNull(splitManager, "splitManager is null");
         checkNotNull(nodeManager, "nodeManager is null");
@@ -94,10 +82,10 @@ public class SqlQueryExecution
         checkArgument(maxPendingSplitsPerNode > 0, "maxPendingSplitsPerNode must be greater than 0");
         checkNotNull(queryExecutor, "queryExecutor is null");
 
-        this.queryId = queryId;
-        this.sql = sql;
+        this.queryInfo.set(checkNotNull(queryInfo, "queryInfo is null"));
 
-        this.session = session;
+        this.statement = statement;
+
         this.metadata = metadata;
         this.splitManager = splitManager;
         this.nodeManager = nodeManager;
@@ -105,48 +93,18 @@ public class SqlQueryExecution
         this.locationFactory = locationFactory;
         this.queryMonitor = queryMonitor;
         this.maxPendingSplitsPerNode = maxPendingSplitsPerNode;
-        this.queryExecutor = queryExecutor;        
-    }
-
-    @Override
-    public String getQueryId()
-    {
-        return queryId;
-    }
-
-    @Override
-    public QueryInfo getQueryInfo()
-    {
-        SqlStageExecution outputStage = this.outputStage.get();
-        StageInfo stageInfo = null;
-        if (outputStage != null) {
-            stageInfo = outputStage.getStageInfo();
-        }
-
-        return new QueryInfo(queryId,
-                session,
-                queryState.get(),
-                locationFactory.createQueryLocation(queryId),
-                fieldNames.get(),
-                sql,
-                queryStats,
-                stageInfo,
-                toFailures(failureCauses));
+        this.queryExecutor = queryExecutor;
     }
 
     @Override
     public void start()
     {
-        Preconditions.checkState(!Thread.holdsLock(this), "Can not start while holding a lock on this");
-
-        // transition to scheduling
-        synchronized (this) {
-            Preconditions.checkState(queryState.compareAndSet(QueryState.QUEUED, QueryState.PLANNING), "Stage has already been started");
-        }
-
         try {
+            // transition to planning
+            queryExecutionState.transitionToPlanningState();
+
             // query is now started
-            queryStats.recordAnalysisStart();
+            getQueryStats(queryInfo).recordAnalysisStart();
 
             // analyze query
             SubPlan subplan = analyzeQuery();
@@ -155,111 +113,91 @@ public class SqlQueryExecution
             planDistribution(subplan);
 
             // transition to starting
-            synchronized (this) {
-                Preconditions.checkState(queryState.compareAndSet(QueryState.PLANNING, QueryState.STARTING),
-                        "Expected query to be in state %s",
-                        QueryState.PLANNING);
-            }
+            queryExecutionState.transitionToStartingState();
 
             // if query is not finished, start the stage, otherwise cancel it
             SqlStageExecution stage = outputStage.get();
-            if (!queryState.get().isDone()) {
+
+            if (!queryExecutionState.isDone()) {
                 stage.addOutputBuffer(ROOT_OUTPUT_BUFFER_NAME);
                 stage.noMoreOutputBuffers();
                 stage.start();
-            } else {
+            }
+            else {
                 stage.cancel();
             }
         }
         catch (Exception e) {
-            synchronized (this) {
-                failureCauses.add(e);
-                queryStats.recordEnd();
-                queryState.set(QueryState.FAILED);
-                queryMonitor.completionEvent(getQueryInfo());
-            }
-            cancel();
+            fail(e);
         }
     }
 
     private SubPlan analyzeQuery()
     {
-        Preconditions.checkState(!Thread.holdsLock(this), "Can not analyse while holding a lock on this");
-
         // time analysis phase
         long analysisStart = System.nanoTime();
 
-        // parse query
-        Statement statement = SqlParser.createStatement(sql);
-
         // analyze query
-        Analyzer analyzer = new Analyzer(session, metadata);
+        Analyzer analyzer = new Analyzer(getSession(queryInfo), metadata);
         AnalysisResult analysis = analyzer.analyze(statement);
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         // plan query
-        LogicalPlanner logicalPlanner = new LogicalPlanner(session, metadata, idAllocator);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(getSession(queryInfo), metadata, idAllocator);
         PlanNode plan = logicalPlanner.plan(analysis);
 
         // fragment the plan
         SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubplans(plan, analysis.getSymbolAllocator(), false);
 
-        queryStats.recordAnalysisTime(analysisStart);
+        getQueryStats(queryInfo).recordAnalysisTime(analysisStart);
         return subplan;
     }
 
     private void planDistribution(SubPlan subplan)
     {
-        Preconditions.checkState(!Thread.holdsLock(this), "Can not perform distributed planning while holding a lock on this");
-
         // time distribution planning
         long distributedPlanningStart = System.nanoTime();
 
         // plan the execution on the active nodes
-        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(splitManager, session);
+        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(splitManager, getSession(queryInfo));
         StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(subplan);
 
-        synchronized (this) {
-            QueryState queryState = this.queryState.get();
-            Preconditions.checkState(queryState == QueryState.PLANNING,
-                    "Expected query to be in state %s but was in state %s",
-                    QueryState.PLANNING,
-                    queryState);
+        queryExecutionState.checkQueryState(QueryState.PLANNING);
 
-            // record field names
-            fieldNames.set(ImmutableList.copyOf(outputStageExecutionPlan.getFieldNames()));
+        // record field names
+        updateFieldNames(queryInfo, ImmutableList.copyOf(outputStageExecutionPlan.getFieldNames()));
 
-            // build the stage execution objects (this doesn't schedule execution)
-            SqlStageExecution outputStage = new SqlStageExecution(queryId,
-                    locationFactory,
-                    outputStageExecutionPlan,
-                    nodeManager,
-                    remoteTaskFactory,
-                    session,
-                    maxPendingSplitsPerNode,
-                    queryExecutor);
-            this.outputStage.set(outputStage);
-        }
+        // build the stage execution objects (this doesn't schedule execution)
+        SqlStageExecution outputStage = new SqlStageExecution(getQueryId(queryInfo),
+                locationFactory,
+                outputStageExecutionPlan,
+                nodeManager,
+                remoteTaskFactory,
+                getSession(queryInfo),
+                maxPendingSplitsPerNode,
+                queryExecutor);
+        SqlQueryExecution.this.outputStage.set(outputStage);
 
         // record planning time
-        queryStats.recordDistributedPlanningTime(distributedPlanningStart);
+        getQueryStats(queryInfo).recordDistributedPlanningTime(distributedPlanningStart);
     }
 
     @Override
     public void cancel()
     {
-        Preconditions.checkState(!Thread.holdsLock(this), "Can not cancel while holding a lock on this");
-
         // transition to canceled state, only if not already finished
-        synchronized (this) {
-            if (!queryState.get().isDone()) {
-                queryStats.recordEnd();
-                queryState.set(QueryState.CANCELED);
-                queryMonitor.completionEvent(getQueryInfo());
-                log.debug("Cancelling query %s", queryId);
-            }
+        if (!queryExecutionState.isDone()) {
+            log.debug("Cancelling query %s", getQueryId(queryInfo));
+            queryExecutionState.toState(QueryState.CANCELED);
+            getQueryStats(queryInfo).recordEnd();
+            queryMonitor.completionEvent(getQueryInfo());
         }
 
+        cancelOutputStage();
+    }
+
+    private void cancelOutputStage()
+    {
         SqlStageExecution stageExecution = outputStage.get();
         if (stageExecution != null) {
             stageExecution.cancel();
@@ -269,30 +207,21 @@ public class SqlQueryExecution
     @Override
     public void fail(Throwable cause)
     {
-        Preconditions.checkState(!Thread.holdsLock(this), "Can not cancel while holding a lock on this");
-
-        // transition to canceled state, only if not already finished
-        synchronized (this) {
-            if (!queryState.get().isDone()) {
-                failureCauses.add(cause);
-                queryStats.recordEnd();
-                queryState.set(QueryState.FAILED);
-                queryMonitor.completionEvent(getQueryInfo());
-                log.debug("Failing query %s", queryId);
-            }
+        // transition to failed state, only if not already finished
+        if (!queryExecutionState.isDone()) {
+            log.debug("Failing query %s", getQueryId(queryInfo));
+            queryExecutionState.toState(QueryState.FAILED);
+            addFailure(queryInfo, cause);
+            getQueryStats(queryInfo).recordEnd();
+            queryMonitor.completionEvent(getQueryInfo());
         }
 
-        SqlStageExecution stageExecution = outputStage.get();
-        if (stageExecution != null) {
-            stageExecution.cancel();
-        }
+        cancelOutputStage();
     }
 
     @Override
     public void cancelStage(String stageId)
     {
-        Preconditions.checkState(!Thread.holdsLock(this), "Can not cancel stage while holding a lock on this");
-
         Preconditions.checkNotNull(stageId, "stageId is null");
 
         SqlStageExecution stageExecution = outputStage.get();
@@ -301,13 +230,34 @@ public class SqlQueryExecution
         }
     }
 
+    @Override
+    public QueryInfo getQueryInfo()
+    {
+        while (true) {
+            SqlStageExecution outputStage = this.outputStage.get();
+            StageInfo stageInfo = null;
+            if (outputStage != null) {
+                stageInfo = outputStage.getStageInfo();
+            }
+
+            QueryInfo currentQueryInfo = queryInfo.get();
+
+            QueryInfo newQueryInfo = currentQueryInfo
+                    .queryState(queryExecutionState.getQueryState())
+                    .stageInfo(stageInfo);
+
+            if (queryInfo.compareAndSet(currentQueryInfo, newQueryInfo)) {
+                return newQueryInfo;
+            }
+        }
+    }
+
+    @Override
     public void updateState(boolean forceRefresh)
     {
-        Preconditions.checkState(!Thread.holdsLock(this), "Can not update while holding a lock on this");
-
         if (!forceRefresh) {
             synchronized (this) {
-                if (queryState.get().isDone()) {
+                if (queryExecutionState.isDone()) {
                     return;
                 }
             }
@@ -317,38 +267,36 @@ public class SqlQueryExecution
         if (outputStage == null) {
             return;
         }
+
         outputStage.updateState();
 
-        synchronized (this) {
-            if (queryState.get().isDone()) {
-                return;
-            }
-
+        if (!queryExecutionState.isDone()) {
             // if output stage is done, transition to done
             StageInfo outputStageInfo = outputStage.getStageInfo();
             StageState outputStageState = outputStageInfo.getState();
             if (outputStageState.isDone()) {
                 if (outputStageState == StageState.FAILED) {
-                    log.debug("Transition query %s to FAILED: output stage FAILED", queryId);
-                    this.queryState.set(QueryState.FAILED);
+                    log.debug("Transition query %s to FAILED: output stage FAILED", getQueryId(queryInfo));
+                    queryExecutionState.toState(QueryState.FAILED);
                 } else if (outputStageState == StageState.CANCELED) {
-                    log.debug("Transition query %s to CANCELED: output stage CANCELED", queryId);
-                    this.queryState.set(QueryState.CANCELED);
+                    log.debug("Transition query %s to CANCELED: output stage CANCELED", getQueryId(queryInfo));
+                    queryExecutionState.toState(QueryState.CANCELED);
                 } else {
-                    log.debug("Transition query %s to FINISHED: output stage FINISHED", queryId);
-                    this.queryState.set(QueryState.FINISHED);
+                    log.debug("Transition query %s to FINISHED: output stage FINISHED", getQueryId(queryInfo));
+                    queryExecutionState.toState(QueryState.FINISHED);
                 }
-                queryStats.recordEnd();
+                getQueryStats(queryInfo).recordEnd();
                 queryMonitor.completionEvent(getQueryInfo());
-            } else if (queryState.get() == QueryState.STARTING) {
-                // if output stage is running transition to running
+            }
+            else if (queryExecutionState.getQueryState() == QueryState.STARTING) {
+                // if output stage is running,  transition query to running...
                 if (outputStageState == StageState.RUNNING) {
-                    this.queryState.set(QueryState.RUNNING);
+                    queryExecutionState.transitionToRunningState();
                 }
 
                 // if any stage is running, record execution start time
                 if (any(transform(getAllStages(outputStage.getStageInfo()), stageStateGetter()), isStageRunningOrDone())) {
-                    queryStats.recordExecutionStart();
+                    getQueryStats(queryInfo).recordExecutionStart();
                 }
             }
         }
@@ -363,5 +311,52 @@ public class SqlQueryExecution
                 return stageState == StageState.RUNNING || stageState.isDone();
             }
         };
+    }
+
+    public static class SqlQueryExecutionFactory
+    {
+        private final Metadata metadata;
+        private final SplitManager splitManager;
+        private final NodeManager nodeManager;
+        private final RemoteTaskFactory remoteTaskFactory;
+        private final LocationFactory locationFactory;
+        private final QueryMonitor queryMonitor;
+
+        @Inject
+        SqlQueryExecutionFactory(
+                Metadata metadata,
+                QueryMonitor queryMonitor,
+                LocationFactory locationFactory,
+                SplitManager splitManager,
+                NodeManager nodeManager,
+                RemoteTaskFactory remoteTaskFactory)
+        {
+            this.metadata = checkNotNull(metadata, "metadata is null");
+            this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
+            this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
+            this.splitManager = checkNotNull(splitManager, "splitManager is null");
+            this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
+            this.remoteTaskFactory = checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
+        }
+
+        public SqlQueryExecution createSqlQueryExecution(Statement statement,
+                QueryInfo queryInfo,
+                int maxPendingSplitsPerNode,
+                ExecutorService queryExecutor)
+        {
+            SqlQueryExecution queryExecution = new SqlQueryExecution(statement,
+                    queryInfo,
+                    metadata,
+                    splitManager,
+                    nodeManager,
+                    remoteTaskFactory,
+                    locationFactory,
+                    queryMonitor,
+                    maxPendingSplitsPerNode,
+                    queryExecutor);
+
+            queryMonitor.createdEvent(queryExecution.getQueryInfo());
+            return queryExecution;
+        }
     }
 }

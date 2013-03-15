@@ -22,6 +22,7 @@ import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.Sitevars;
 import com.facebook.presto.execution.SitevarsConfig;
+import com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.StageInfo;
@@ -206,6 +207,13 @@ public class ServerMainModule
         bindConfig(binder).to(SitevarsConfig.class);
         binder.bind(Sitevars.class).in(Scopes.SINGLETON);
         ExportBinder.newExporter(binder).export(Sitevars.class).as("com.facebook.presto:name=sitevars");
+
+        MapBinder<Class<? extends Statement>, SimpleQueryExecutionFactory<?>> executionBinder = MapBinder.newMapBinder(binder,
+                new TypeLiteral<Class<? extends Statement>>() {},
+                new TypeLiteral<SimpleQueryExecutionFactory<?>>() {});
+        executionBinder.addBinding(CreateOrReplaceMaterializedView.class).to(CreateTableExecutionFactory.class).in(Scopes.SINGLETON);
+
+        binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
     }
 
     @Provides
