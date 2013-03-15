@@ -37,7 +37,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.BiMap;
-import com.google.common.collect.ForwardingIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -48,7 +47,6 @@ import com.google.inject.Inject;
 
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -61,7 +59,6 @@ import static com.facebook.presto.util.IterableUtils.limit;
 import static com.facebook.presto.util.IterableUtils.shuffle;
 import static com.facebook.presto.util.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Predicates.or;
@@ -72,7 +69,6 @@ public class SplitManager
     private final ShardManager shardManager;
     private final ImportClientManager importClientManager;
     private final Metadata metadata;
-    private final long maxSplitCount;
 
     @Inject
     public SplitManager(NodeManager nodeManager, ShardManager shardManager, ImportClientManager importClientManager, Metadata metadata, QueryManagerConfig config)
@@ -81,57 +77,20 @@ public class SplitManager
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
         this.importClientManager = checkNotNull(importClientManager, "importClientFactory is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
-        this.maxSplitCount = checkNotNull(config, "config is null").getMaxSplitCount();
     }
 
     public Iterable<SplitAssignments> getSplitAssignments(Session session, TableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
     {
-        Iterable<SplitAssignments> assignments;
         switch (handle.getDataSourceType()) {
             case NATIVE:
-                assignments = getNativeSplitAssignments((NativeTableHandle) handle);
-                break;
+                return getNativeSplitAssignments((NativeTableHandle) handle);
             case INTERNAL:
-                assignments = getInternalSplitAssignments((InternalTableHandle) handle, predicate, mappings);
-                break;
+                return getInternalSplitAssignments((InternalTableHandle) handle, predicate, mappings);
             case IMPORT:
-                assignments = getImportSplitAssignments(session, (ImportTableHandle) handle, predicate, mappings);
-                break;
+                return getImportSplitAssignments(session, (ImportTableHandle) handle, predicate, mappings);
             default:
                 throw new IllegalArgumentException("unsupported handle type: " + handle);
         }
-        // TODO: temporary solution to prevent large queries from killing the server
-        return throwIfExceedsSize(assignments, maxSplitCount);
-    }
-
-    private static <T> Iterable<T> throwIfExceedsSize(final Iterable<T> iterable, final long maxSize)
-    {
-        return new Iterable<T>()
-        {
-            @Override
-            public Iterator<T> iterator()
-            {
-                return new ForwardingIterator<T>()
-                {
-                    private final Iterator<T> iterator = iterable.iterator();
-                    private long count = 0;
-
-                    @Override
-                    protected Iterator<T> delegate()
-                    {
-                        return iterator;
-                    }
-
-                    @Override
-                    public T next()
-                    {
-                        count++;
-                        checkState(count <= maxSize, "max split count exceeded: %s", maxSize);
-                        return super.next();
-                    }
-                };
-            }
-        };
     }
 
     private Iterable<SplitAssignments> getNativeSplitAssignments(NativeTableHandle handle)
