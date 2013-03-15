@@ -20,6 +20,8 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTaskFactory;
+import com.facebook.presto.execution.Sitevars;
+import com.facebook.presto.execution.SitevarsConfig;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.StageInfo;
@@ -80,6 +82,7 @@ import org.skife.jdbi.v2.IDBI;
 import org.weakref.jmx.guice.ExportBinder;
 
 import javax.inject.Singleton;
+
 import java.io.File;
 import java.lang.annotation.Annotation;
 
@@ -199,6 +202,10 @@ public class ServerMainModule
         binder.bind(JobStateFactory.class).in(Scopes.SINGLETON);
         binder.bind(PeriodicImportRunnable.PeriodicImportRunnableFactory.class).in(Scopes.SINGLETON);
         ExportBinder.newExporter(binder).export(PeriodicImportController.class).as("com.facebook.presto:name=periodic-import");
+
+        bindConfig(binder).to(SitevarsConfig.class);
+        binder.bind(Sitevars.class).in(Scopes.SINGLETON);
+        ExportBinder.newExporter(binder).export(Sitevars.class).as("com.facebook.presto:name=sitevars");
     }
 
     @Provides
