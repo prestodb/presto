@@ -356,6 +356,7 @@ public class SqlStageExecution
             if (!getState().isDone()) {
                 transitionToState(StageState.FAILED);
                 log.error(e, "Error while starting stage %s", stageId);
+                cancelAll();
                 throw e;
             }
             Throwables.propagateIfInstanceOf(e, Error.class);
@@ -434,7 +435,7 @@ public class SqlStageExecution
                 transitionToState(StageState.FAILED);
             }
             log.error(e, "Stage %s failed to start", stageId);
-            cancel();
+            cancelAll();
             throw Throwables.propagate(e);
         }
     }
