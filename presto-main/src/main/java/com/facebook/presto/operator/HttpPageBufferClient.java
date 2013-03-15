@@ -24,6 +24,7 @@ import java.io.Closeable;
 import java.net.URI;
 import java.util.Iterator;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES_TYPE;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
@@ -63,6 +64,8 @@ public class HttpPageBufferClient
     @GuardedBy("this")
     private DateTime lastUpdate = DateTime.now();
 
+    private final AtomicInteger requestsScheduled = new AtomicInteger();
+    private final AtomicInteger requestsCompleted = new AtomicInteger();
 
     public HttpPageBufferClient(AsyncHttpClient httpClient, URI location, ClientCallback clientCallback)
     {
@@ -85,7 +88,7 @@ public class HttpPageBufferClient
         } else {
             state = "queued";
         }
-        return new ExchangeClientStatus(location, state, lastUpdate);
+        return new ExchangeClientStatus(location, state, lastUpdate, requestsScheduled.get(), requestsCompleted.get());
     }
 
     public synchronized boolean isRunning()
@@ -125,6 +128,7 @@ public class HttpPageBufferClient
 
         future = httpClient.executeAsync(prepareGet().setUri(location).build(), new PageResponseHandler());
         lastUpdate = DateTime.now();
+        requestsScheduled.incrementAndGet();
     }
 
     private void requestComplete()
@@ -201,6 +205,8 @@ public class HttpPageBufferClient
         @Override
         public RuntimeException handleException(Request request, Exception exception)
         {
+            requestsCompleted.incrementAndGet();
+
             log.warn(exception, "Error fetching pages from  %s", request.getUri());
             requestComplete();
             throw Throwables.propagate(exception);
@@ -209,6 +215,8 @@ public class HttpPageBufferClient
         @Override
         public Void handle(Request request, Response response)
         {
+            requestsCompleted.incrementAndGet();
+
             // job is finished when we get a GONE response
             if (response.getStatusCode() == Status.GONE.getStatusCode()) {
                 bufferFinished();
