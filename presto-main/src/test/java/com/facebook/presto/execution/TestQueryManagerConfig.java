@@ -17,7 +17,6 @@ public class TestQueryManagerConfig
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(QueryManagerConfig.class)
                 .setCoordinator(true)
-                .setImportsEnabled(true)
                 .setMaxShardProcessorThreads(Runtime.getRuntime().availableProcessors() * 4)
                 .setMaxQueryAge(new Duration(15, TimeUnit.MINUTES))
                 .setClientTimeout(new Duration(1, TimeUnit.MINUTES))
@@ -34,7 +33,6 @@ public class TestQueryManagerConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("coordinator", "false")
-                .put("import.enabled", "false")
                 .put("query.operator.max-memory", "1GB")
                 .put("query.shard.max-threads", "3")
                 .put("query.client.timeout", "10s")
@@ -52,7 +50,6 @@ public class TestQueryManagerConfig
                 .setMaxShardProcessorThreads(3)
                 .setMaxQueryAge(new Duration(30, TimeUnit.SECONDS))
                 .setClientTimeout(new Duration(10, TimeUnit.SECONDS))
-                .setImportsEnabled(false)
                 .setMaxPendingSplitsPerNode(33)
                 .setExchangeMaxBufferedPages(11)
                 .setExchangeExpectedPagesPerRequest(12)
