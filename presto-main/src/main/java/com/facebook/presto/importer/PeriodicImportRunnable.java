@@ -1,6 +1,6 @@
 package com.facebook.presto.importer;
 
-import com.facebook.presto.execution.ImportTableExecution;
+import com.facebook.presto.execution.CreateOrReplaceMaterializedViewExecution;
 import com.facebook.presto.importer.JobStateFactory.JobState;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.Metadata;
@@ -52,7 +52,7 @@ public class PeriodicImportRunnable
 
         table = metadata.getTable(job.getDstCatalogName(), job.getDstSchemaName(), job.getDstTableName());
         long tableId = ((NativeTableHandle) table.getTableHandle().get()).getTableId();
-        List<ImportField> fields = ImportTableExecution.getImportFields(sourceColumns, table.getColumns());
+        List<ImportField> fields = CreateOrReplaceMaterializedViewExecution.getImportFields(sourceColumns, table.getColumns());
 
         ListenableFuture<?> importFuture = importManager.importTable(tableId, job.getSrcCatalogName(), job.getSrcSchemaName(), job.getSrcTableName(), fields);
 

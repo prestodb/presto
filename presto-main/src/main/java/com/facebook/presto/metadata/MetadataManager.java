@@ -6,6 +6,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 
+import javax.inject.Singleton;
+
 import java.util.List;
 import java.util.Map;
 
@@ -22,6 +24,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.concat;
 
+@Singleton
 public class MetadataManager
         implements Metadata
 {
@@ -159,7 +162,7 @@ public class MetadataManager
         return lookupDataSource(catalogName, schemaName, "$dummy_table$");
     }
 
-    private DataSourceType lookupDataSource(String catalogName, String schemaName, String tableName)
+    public DataSourceType lookupDataSource(String catalogName, String schemaName, String tableName)
     {
         checkTableName(catalogName, schemaName, tableName);
 

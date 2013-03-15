@@ -49,6 +49,7 @@ statement returns [Statement value]
     | showColumns     { $value = $showColumns.value; }
     | showPartitions  { $value = $showPartitions.value; }
     | showFunctions   { $value = $showFunctions.value; }
+    | createOrReplaceMaterializedView { $value = $createOrReplaceMaterializedView.value; }
     ;
 
 query returns [Query value]
@@ -73,6 +74,18 @@ selectStmt returns [Query value]
         }
     ;
 
+restrictedSelectStmt returns [Query value]
+    : selectClause fromClause
+        { $value = new Query(
+            $selectClause.value,
+            $fromClause.value,
+            Optional.<Expression>absent(),
+            ImmutableList.<Expression>of(),
+            Optional.<Expression>absent(),
+            ImmutableList.<SortItem>of(),
+            Optional.<String>absent());
+        }
+    ;
 
 selectClause returns [Select value]
     : ^(SELECT d=distinct ALL_COLUMNS)  { $value = new Select($d.value, ImmutableList.<Expression>of(new AllColumns())); }
@@ -377,4 +390,8 @@ showPartitions returns [Statement value]
 
 showFunctions returns [Statement value]
     : SHOW_FUNCTIONS { $value = new ShowFunctions(); }
+    ;
+
+createOrReplaceMaterializedView returns [Statement value]
+    : ^(CREATE_OR_REPLACE_MATERIALIZED_VIEW qname restrictedSelectStmt) { $value = new CreateOrReplaceMaterializedView($qname.value, $restrictedSelectStmt.value); }
     ;

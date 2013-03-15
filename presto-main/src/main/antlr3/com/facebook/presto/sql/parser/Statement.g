@@ -62,6 +62,7 @@ tokens {
     SHOW_PARTITIONS;
     SHOW_FUNCTIONS;
     CREATE_TABLE;
+    CREATE_OR_REPLACE_MATERIALIZED_VIEW;
     TABLE_ELEMENT_LIST;
     COLUMN_DEF;
     NOT_NULL;
@@ -125,6 +126,7 @@ statement
     | showPartitionsStmt
     | showFunctionsStmt
     | createTableStmt
+    | createOrReplaceMaterializedViewStmt
     ;
 
 selectStmt
@@ -134,6 +136,11 @@ selectStmt
       (groupClause havingClause?)?
       orderClause?
       limitClause?
+    ;
+
+restrictedSelectStmt
+    : selectClause
+      fromClause
     ;
 
 selectClause
@@ -445,6 +452,10 @@ showFunctionsStmt
     : SHOW FUNCTIONS -> SHOW_FUNCTIONS
     ;
 
+createOrReplaceMaterializedViewStmt
+    : CREATE OR REPLACE MATERIALIZED VIEW qname AS restrictedSelectStmt -> ^(CREATE_OR_REPLACE_MATERIALIZED_VIEW qname restrictedSelectStmt)
+    ;
+
 createTableStmt
     : CREATE TABLE qname tableElementList -> ^(CREATE_TABLE qname tableElementList)
     ;
@@ -526,6 +537,7 @@ integer
 nonReserved
     : SHOW | TABLES | COLUMNS | PARTITIONS | FUNCTIONS
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW
+    | REPLACE | MATERIALIZED | VIEW
     ;
 
 SELECT: 'SELECT';
@@ -623,6 +635,9 @@ TABLES: 'TABLES';
 COLUMNS: 'COLUMNS';
 PARTITIONS: 'PARTITIONS';
 FUNCTIONS: 'FUNCTIONS';
+MATERIALIZED: 'MATERIALIZED';
+VIEW: 'VIEW';
+REPLACE: 'REPLACE';
 
 EQ  : '=';
 NEQ : '<>' | '!=';

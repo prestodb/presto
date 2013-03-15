@@ -3,6 +3,8 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataUtil;
+import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.ExpressionUtils;
@@ -102,20 +104,13 @@ public class Analyzer
 
     private AnalysisResult analyze(Node node, AnalysisContext context)
     {
-        StatementAnalyzer analyzer = new StatementAnalyzer(metadata);
+        StatementAnalyzer analyzer = new StatementAnalyzer();
         return analyzer.process(node, context);
     }
 
-    private static class StatementAnalyzer
+    private class StatementAnalyzer
             extends AstVisitor<AnalysisResult, AnalysisContext>
     {
-        private final Metadata metadata;
-
-        private StatementAnalyzer(Metadata metadata)
-        {
-            this.metadata = metadata;
-        }
-
         @Override
         protected AnalysisResult visitStatement(Statement node, AnalysisContext context)
         {
@@ -215,15 +210,7 @@ public class Analyzer
         @Override
         protected AnalysisResult visitShowColumns(ShowColumns showColumns, AnalysisContext context)
         {
-            QualifiedName table = showColumns.getTable();
-            List<String> parts = Lists.reverse(table.getParts());
-            if (parts.size() > 3) {
-                throw new SemanticException(showColumns, "too many parts in table name: %s", table);
-            }
-
-            String catalogName = (parts.size() > 2) ? parts.get(2) : context.getSession().getCatalog();
-            String schemaName = (parts.size() > 1) ? parts.get(1) : context.getSession().getSchema();
-            String tableName = parts.get(0);
+            QualifiedTableName tableName = MetadataUtil.createQualifiedTableName(session, showColumns.getTable());
 
             // TODO: throw SemanticException if table does not exist
             Query query = new Query(
@@ -231,10 +218,10 @@ public class Analyzer
                             aliasedName("column_name", "Column"),
                             aliasedName("data_type", "Type"),
                             aliasedName("is_nullable", "Null")),
-                    table(QualifiedName.of(catalogName, INFORMATION_SCHEMA, TABLE_COLUMNS)),
+                    table(QualifiedName.of(tableName.getCatalogName(), INFORMATION_SCHEMA, TABLE_COLUMNS)),
                     Optional.of(logicalAnd(
-                            equal(nameReference("table_schema"), new StringLiteral(schemaName)),
-                            equal(nameReference("table_name"), new StringLiteral(tableName)))),
+                            equal(nameReference("table_schema"), new StringLiteral(tableName.getSchemaName())),
+                            equal(nameReference("table_name"), new StringLiteral(tableName.getTableName())))),
                     ImmutableList.<Expression>of(),
                     Optional.<Expression>absent(),
                     ImmutableList.of(ascending("ordinal_position")),

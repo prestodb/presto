@@ -1,5 +1,10 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
+
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -13,7 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.transform;
 
-class MetadataUtil
+public class MetadataUtil
 {
     public static void checkTableName(String catalogName, String schemaName, String tableName)
     {
@@ -93,6 +98,20 @@ class MetadataUtil
                 return new QualifiedTableName(catalogName, schemaName, tableName);
             }
         };
+    }
+
+    public static QualifiedTableName createQualifiedTableName(Session session, QualifiedName name)
+    {
+        Preconditions.checkNotNull(session, "session is null");
+        Preconditions.checkNotNull(name, "name is null");
+        Preconditions.checkArgument(name.getParts().size() <= 3, "Too many dots in table name: %s", name);
+
+        List<String> parts = Lists.reverse(name.getParts());
+        String tableName = parts.get(0);
+        String schemaName = (parts.size() > 1) ? parts.get(1) : session.getSchema();
+        String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCatalog();
+
+        return new QualifiedTableName(catalogName, schemaName, tableName);
     }
 
     public static class ColumnMetadataListBuilder
