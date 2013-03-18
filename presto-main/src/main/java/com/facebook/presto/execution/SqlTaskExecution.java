@@ -24,7 +24,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListenableFutureTask;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -226,10 +226,13 @@ public class SqlTaskExecution
         getTaskInfo().getStats().addSplits(1);
 
         // execute worker
-        final FutureTask<?> workerFutureTask = new FutureTask<>(worker);
+        final ListenableFutureTask<?> workerFutureTask = ListenableFutureTask.create(worker);
         unfinishedWorkerTasks.addFirst(workerFutureTask);
-        ListenableFuture<?> future = shardExecutor.submit(workerFutureTask);
-        Futures.addCallback(future, new FutureCallback<Object>()
+        shardExecutor.submit(workerFutureTask);
+        // The callback must be added to the workerFutureTask and NOT the future returned
+        // by the submit.  This is because the future task catches the exception internally
+        // to the executor only sees a successful return, and the errors will be ignored.
+        Futures.addCallback(workerFutureTask, new FutureCallback<Object>()
         {
             @Override
             public void onSuccess(Object result)
