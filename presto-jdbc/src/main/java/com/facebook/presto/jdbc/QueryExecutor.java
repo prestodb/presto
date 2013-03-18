@@ -1,33 +1,28 @@
 package com.facebook.presto.jdbc;
 
+import com.facebook.presto.cli.ClientSession;
+import com.facebook.presto.cli.HttpQueryClient;
+import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.metadata.HandleJsonModule;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
 import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Stage;
-import io.airlift.json.JsonBinder;
-import io.airlift.json.JsonModule;
-
-import com.facebook.presto.cli.ClientSession;
-import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.cli.HttpQueryClient;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.Serialization;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.http.client.AsyncHttpClient;
-import io.airlift.http.client.AsyncHttpClientConfig;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.HttpRequestFilter;
+import io.airlift.http.client.NettyAsyncHttpClientConfig;
 import io.airlift.http.client.netty.NettyAsyncHttpClient;
+import io.airlift.json.JsonBinder;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonModule;
 import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
@@ -49,10 +44,11 @@ public class QueryExecutor
     {
         checkNotNull(userAgent, "userAgent is null");
         this.queryInfoCodec = checkNotNull(queryInfoCodec, "queryInfoCodec is null");
-        this.httpClient = new NettyAsyncHttpClient(new HttpClientConfig()
-                .setConnectTimeout(new Duration(1, TimeUnit.DAYS))
-                .setReadTimeout(new Duration(10, TimeUnit.DAYS)),
-                new AsyncHttpClientConfig(),
+        this.httpClient = new NettyAsyncHttpClient("jdbc",
+                new HttpClientConfig()
+                        .setConnectTimeout(new Duration(1, TimeUnit.DAYS))
+                        .setReadTimeout(new Duration(10, TimeUnit.DAYS)),
+                new NettyAsyncHttpClientConfig(),
                 ImmutableSet.<HttpRequestFilter>of(new UserAgentRequestFilter(userAgent)));
     }
 

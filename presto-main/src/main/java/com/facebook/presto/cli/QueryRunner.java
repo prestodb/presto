@@ -14,6 +14,8 @@ import com.google.inject.Module;
 import com.google.inject.Stage;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
+import io.airlift.http.client.HttpRequestFilter;
+import io.airlift.http.client.NettyAsyncHttpClientConfig;
 import io.airlift.http.client.netty.NettyAsyncHttpClient;
 import io.airlift.json.JsonBinder;
 import io.airlift.json.JsonCodec;
@@ -24,6 +26,7 @@ import io.airlift.units.Duration;
 import javax.annotation.PreDestroy;
 
 import java.io.Closeable;
+import java.util.Collections;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -44,9 +47,12 @@ public class QueryRunner
     {
         this.session = checkNotNull(session, "session is null");
         this.queryInfoCodec = checkNotNull(queryInfoCodec, "queryInfoCodec is null");
-        this.httpClient = new NettyAsyncHttpClient(new HttpClientConfig()
-                .setConnectTimeout(new Duration(1, TimeUnit.DAYS))
-                .setReadTimeout(new Duration(10, TimeUnit.DAYS)));
+        this.httpClient = new NettyAsyncHttpClient("cli",
+                new HttpClientConfig()
+                        .setConnectTimeout(new Duration(1, TimeUnit.DAYS))
+                        .setReadTimeout(new Duration(10, TimeUnit.DAYS)),
+                new NettyAsyncHttpClientConfig(),
+                Collections.<HttpRequestFilter>emptySet());
     }
 
     public ClientSession getSession()
