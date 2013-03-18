@@ -442,7 +442,7 @@ public class HttpRemoteTask
                     updateTaskInfo(new TaskInfo(taskInfo.getQueryId(),
                             taskInfo.getStageId(),
                             taskInfo.getTaskId(),
-                            taskInfo.getVersion(),
+                            Long.MAX_VALUE,
                             TaskState.CANCELED,
                             taskInfo.getSelf(),
                             taskInfo.getOutputBuffers(),
@@ -470,27 +470,44 @@ public class HttpRemoteTask
     @Override
     public void cancel()
     {
-        TaskInfo taskInfo = this.taskInfo.get();
+        final TaskInfo taskInfo = this.taskInfo.get();
+        final TaskInfo canceledTask = new TaskInfo(taskInfo.getQueryId(),
+                taskInfo.getStageId(),
+                taskInfo.getTaskId(),
+                Long.MAX_VALUE,
+                TaskState.CANCELED,
+                taskInfo.getSelf(),
+                taskInfo.getOutputBuffers(),
+                taskInfo.getNoMoreSplits(),
+                taskInfo.getStats(),
+                ImmutableList.<FailureInfo>of());
+
         if (taskInfo.getSelf() == null) {
-            updateTaskInfo(new TaskInfo(taskInfo.getQueryId(),
-                    taskInfo.getStageId(),
-                    taskInfo.getTaskId(),
-                    taskInfo.getVersion(),
-                    TaskState.CANCELED,
-                    taskInfo.getSelf(),
-                    taskInfo.getOutputBuffers(),
-                    taskInfo.getNoMoreSplits(),
-                    taskInfo.getStats(),
-                    ImmutableList.<FailureInfo>of()));
+            updateTaskInfo(canceledTask);
             return;
         }
-        try {
-            Request request = prepareDelete().setUri(taskInfo.getSelf()).build();
-            JsonResponse<TaskInfo> response = httpClient.execute(request, createFullJsonResponseHandler(taskInfoCodec));
-            updateTaskInfo(response);
-        }
-        catch (RuntimeException ignored) {
-        }
+
+        Request request = prepareDelete().setUri(taskInfo.getSelf()).build();
+        Futures.addCallback(httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec)), new FutureCallback<JsonResponse<TaskInfo>>()
+        {
+            @Override
+            public void onSuccess(JsonResponse<TaskInfo> response)
+            {
+                if (response.hasValue() && response.getValue().getState().isDone()) {
+                    updateTaskInfo(response);
+                }
+                else {
+                    updateTaskInfo(canceledTask);
+                }
+            }
+
+            @Override
+            public void onFailure(Throwable t)
+            {
+                log.debug(t, "Failed to cancel task %s", taskInfo.getTaskId());
+                updateTaskInfo(canceledTask);
+            }
+        });
     }
 
     private RemoteSplit createRemoteSplitFor(URI taskLocation)
