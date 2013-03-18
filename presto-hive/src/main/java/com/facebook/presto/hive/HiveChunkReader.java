@@ -59,7 +59,7 @@ class HiveChunkReader
             if (columns.isEmpty()) {
                 // for count(*) queries we will have "no" columns we want to read, but since hive doesn't
                 // support no columns (it will read all columns instead), we must choose a single column
-                columns = ImmutableList.of(getFirstPrimitiveColumn(schema));
+                columns = ImmutableList.of(getFirstPrimitiveColumn(chunk.getSchema()));
             }
             ColumnProjectionUtils.setReadColumnIDs(configuration, new ArrayList<>(transform(columns, indexGetter())));
 
