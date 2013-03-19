@@ -81,7 +81,6 @@ import org.weakref.jmx.guice.MBeanModule;
 import org.weakref.jmx.testing.TestingMBeanServer;
 
 import javax.management.MBeanServer;
-
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -96,6 +95,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.util.MaterializedResult.materialize;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestDistributedQueries
         extends AbstractTestQueries
@@ -143,6 +143,39 @@ public class TestDistributedQueries
             }
         }));
         assertEquals(tableNames, ImmutableSet.copyOf(loadedTableNames));
+    }
+
+    @Test
+    public void testShowColumns()
+            throws Exception
+    {
+        MaterializedResult result = computeActual("SHOW COLUMNS FROM orders");
+        ImmutableSet<String> columnNames = ImmutableSet.copyOf(Iterables.transform(result.getMaterializedTuples(), new Function<MaterializedTuple, String>()
+        {
+            public String apply(MaterializedTuple input)
+            {
+                assertEquals(input.getFieldCount(), 3);
+                return (String) input.getField(0);
+            }
+        }));
+        assertEquals(columnNames, ImmutableSet.of("orderkey", "custkey", "orderstatus", "totalprice", "orderdate", "orderpriority", "clerk", "shippriority", "comment"));
+    }
+
+    @Test
+    public void testShowFunctions()
+            throws Exception
+    {
+        MaterializedResult result = computeActual("SHOW FUNCTIONS");
+        ImmutableSet<String> functionNames = ImmutableSet.copyOf(Iterables.transform(result.getMaterializedTuples(), new Function<MaterializedTuple, String>()
+        {
+            public String apply(MaterializedTuple input)
+            {
+                assertEquals(input.getFieldCount(), 3);
+                return (String) input.getField(0);
+            }
+        }));
+        assertTrue(functionNames.contains("avg"), "Expected function names " + functionNames + " to contain 'avg'");
+        assertTrue(functionNames.contains("abs"), "Expected function names " + functionNames + " to contain 'abs'");
     }
 
     @Override
