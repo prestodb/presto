@@ -34,8 +34,8 @@ public class Query
         checkNotNull(groupBy, "groupBy is null");
         checkNotNull(orderBy, "orderBy is null");
         checkNotNull(where, "where is null");
-        checkNotNull(where, "having is null");
-        checkNotNull(where, "limit is null");
+        checkNotNull(having, "having is null");
+        checkNotNull(limit, "limit is null");
 
         this.select = select;
         this.from = from;
