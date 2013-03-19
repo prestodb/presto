@@ -300,11 +300,11 @@ public class Analyzer
                             aliasedName("return_type", "Return Type"),
                             aliasedName("argument_types", "Argument Types")),
                     table(QualifiedName.of(INFORMATION_SCHEMA, TABLE_INTERNAL_FUNCTIONS)),
-                    null,
+                    Optional.<Expression>absent(),
                     ImmutableList.<Expression>of(),
-                    null,
+                    Optional.<Expression>absent(),
                     ImmutableList.of(ascending("function_name")),
-                    null);
+                    Optional.<String>absent());
 
             return visitQuery(query, context);
         }
