@@ -45,6 +45,8 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response.Status;
 
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.util.Collection;
 import java.util.List;
@@ -462,7 +464,12 @@ public class HttpRemoteTask
             @Override
             public void onFailure(Throwable t)
             {
-                log.debug(t, "Error updating task info");
+                if (isSocketError(t)) {
+                    log.warn("Error updating task %s: %s", taskInfo.getTaskId(), t.getMessage());
+                }
+                else {
+                    log.warn(t, "Error updating task %s", taskInfo.getTaskId());
+                }
             }
         });
     }
@@ -504,7 +511,12 @@ public class HttpRemoteTask
             @Override
             public void onFailure(Throwable t)
             {
-                log.debug(t, "Failed to cancel task %s", taskInfo.getTaskId());
+                if (isSocketError(t)) {
+                    log.warn("Failed to cancel task %s: %s", taskInfo.getTaskId(), t.getMessage());
+                }
+                else {
+                    log.warn(t, "Failed to cancel task %s", taskInfo.getTaskId());
+                }
                 updateTaskInfo(canceledTask);
             }
         });
@@ -522,5 +534,16 @@ public class HttpRemoteTask
         return Objects.toStringHelper(this)
                 .addValue(taskInfo.get())
                 .toString();
+    }
+
+    private static boolean isSocketError(Throwable t)
+    {
+        while (t != null) {
+            if ((t instanceof SocketException) || (t instanceof SocketTimeoutException)) {
+                return true;
+            }
+            t = t.getCause();
+        }
+        return false;
     }
 }
