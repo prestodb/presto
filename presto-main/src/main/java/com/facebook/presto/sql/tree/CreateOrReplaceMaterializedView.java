@@ -29,7 +29,7 @@ public class CreateOrReplaceMaterializedView
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitStatement(this, context);
+        throw new UnsupportedOperationException();
     }
 
     @Override

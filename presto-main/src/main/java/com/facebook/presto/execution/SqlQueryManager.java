@@ -3,8 +3,8 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.execution.QueryExecution.SimpleQueryExecutionFactory;
-import com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
+import com.facebook.presto.event.query.QueryMonitor;
+import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
@@ -43,38 +43,31 @@ public class SqlQueryManager
     private static final Logger log = Logger.get(SqlQueryManager.class);
 
     private final ExecutorService queryExecutor;
-    private final LocationFactory locationFactory;
     private final Duration maxQueryAge;
 
     private final AtomicInteger nextQueryId = new AtomicInteger();
     private final ConcurrentMap<String, QueryExecution> queries = new ConcurrentHashMap<>();
 
     private final Duration clientTimeout;
-    private final int maxPendingSplitsPerNode;
 
     private final ScheduledExecutorService queryManagementExecutor;
+    private final QueryMonitor queryMonitor;
 
-    private final SqlQueryExecutionFactory sqlQueryExecutionFactory;
-    private final Map<Class<? extends Statement>, SimpleQueryExecutionFactory<?>> simpleExecutions;
+    private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
 
     @Inject
-    public SqlQueryManager(
-            LocationFactory locationFactory,
-            QueryManagerConfig config,
-            SqlQueryExecutionFactory sqlQueryExecutionFactory,
-            Map<Class<? extends Statement>, SimpleQueryExecutionFactory<?>> simpleExecutions)
+    public SqlQueryManager(QueryManagerConfig config,
+            QueryMonitor queryMonitor,
+            Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories)
     {
         checkNotNull(config, "config is null");
 
-        this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
-        this.sqlQueryExecutionFactory = checkNotNull(sqlQueryExecutionFactory, "sqlQueryExecutionFactory is null");
-        this.simpleExecutions = checkNotNull(simpleExecutions, "simpleExecutions is null");
-
+        this.executionFactories = checkNotNull(executionFactories, "executionFactories is null");
         this.queryExecutor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
+        this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
 
         this.maxQueryAge = config.getMaxQueryAge();
         this.clientTimeout = config.getClientTimeout();
-        this.maxPendingSplitsPerNode = config.getMaxPendingSplitsPerNode();
 
         queryManagementExecutor = Executors.newScheduledThreadPool(100, threadsNamed("query-management-%d"));
 
@@ -169,20 +162,12 @@ public class SqlQueryManager
 
         // parse the SQL query
         Statement statement = SqlParser.createStatement(query);
-        QueryInfo queryInfo = QueryInfo.createQueryInfo(queryId, session, locationFactory.createQueryLocation(queryId), query);
 
-        SimpleQueryExecutionFactory<?> queryExecutionFactory = simpleExecutions.get(statement.getClass());
-        if (queryExecutionFactory != null) {
-            queryExecution = queryExecutionFactory.createQueryExecution(statement,
-                    queryInfo);
-        }
-        else {
-            queryExecution = sqlQueryExecutionFactory.createSqlQueryExecution(
-                    statement,
-                    queryInfo,
-                    maxPendingSplitsPerNode,
-                    queryExecutor);
-        }
+        QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(statement.getClass());
+        Preconditions.checkState(queryExecutionFactory != null, "Unsupported statement type %s", statement.getClass().getName());
+        queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement);
+
+        queryMonitor.createdEvent(queryExecution.getQueryInfo());
 
         queries.put(queryId, queryExecution);
 
