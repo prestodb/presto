@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.ObjectNotFoundException;
 import com.facebook.presto.spi.SchemaField;
 import com.facebook.presto.split.ImportClientManager;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.CreateOrReplaceMaterializedView;
 import com.facebook.presto.sql.tree.Query;
@@ -28,18 +29,12 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import io.airlift.log.Logger;
 
 import javax.inject.Inject;
-
+import java.net.URI;
 import java.util.List;
 import java.util.concurrent.Callable;
-import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.execution.QueryInfo.addFailure;
-import static com.facebook.presto.execution.QueryInfo.getQueryId;
-import static com.facebook.presto.execution.QueryInfo.getQueryStats;
-import static com.facebook.presto.execution.QueryInfo.getSession;
 import static com.facebook.presto.ingest.ImportSchemaUtil.convertToMetadata;
 import static com.facebook.presto.util.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -49,20 +44,18 @@ import static com.google.common.base.Preconditions.checkState;
 public class CreateOrReplaceMaterializedViewExecution
     implements QueryExecution
 {
-    private static final Logger log = Logger.get(CreateOrReplaceMaterializedViewExecution.class);
-
     private final CreateOrReplaceMaterializedView statement;
     private final ImportClientManager importClientManager;
     private final ImportManager importManager;
     private final MetadataManager metadataManager;
     private final Sitevars sitevars;
-    private final QueryMonitor queryMonitor;
 
-    private final QueryExecutionState queryExecutionState = new QueryExecutionState();
-    private final AtomicReference<QueryInfo> queryInfo = new AtomicReference<>();
+    private final QueryStateMachine stateMachine;
 
-    CreateOrReplaceMaterializedViewExecution(Statement statement,
-            QueryInfo queryInfo,
+    CreateOrReplaceMaterializedViewExecution(String queryId,
+            String query,
+            Session session,
+            URI self,
             CreateOrReplaceMaterializedView statement,
             ImportClientManager importClientManager,
             ImportManager importManager,
@@ -70,8 +63,8 @@ public class CreateOrReplaceMaterializedViewExecution
             QueryMonitor queryMonitor,
             Sitevars sitevars)
     {
-        this.queryMonitor = queryMonitor;
-        this.queryInfo.set(queryInfo);
+        this.stateMachine = new QueryStateMachine(queryId, query, session, self, queryMonitor);
+
         this.statement = statement;
         this.importClientManager = importClientManager;
         this.importManager = importManager;
@@ -86,9 +79,12 @@ public class CreateOrReplaceMaterializedViewExecution
             checkState(sitevars.isImportsEnabled(), "materialized view creation is disabled");
 
             // transition to starting
-            queryExecutionState.transitionToStartingState();
+            if (!stateMachine.starting()) {
+                // query already started or finished
+                return;
+            }
 
-            getQueryStats(queryInfo).recordExecutionStart();
+            stateMachine.getStats().recordExecutionStart();
 
             importTable();
         }
@@ -100,25 +96,13 @@ public class CreateOrReplaceMaterializedViewExecution
     @Override
     public void cancel()
     {
-        // transition to canceled state, only if not already finished
-        if (!queryExecutionState.isDone()) {
-            log.debug("Cancelling query %s", getQueryId(queryInfo));
-            queryExecutionState.toState(QueryState.CANCELED);
-            getQueryStats(queryInfo).recordEnd();
-            queryMonitor.completionEvent(getQueryInfo());
-        }
+        stateMachine.cancel();
     }
 
     @Override
     public void fail(Throwable cause)
     {
-        if (!queryExecutionState.isDone()) {
-            log.debug("Failing query %s", getQueryId(queryInfo));
-            queryExecutionState.toState(QueryState.FAILED);
-            addFailure(queryInfo, cause);
-            getQueryStats(queryInfo).recordEnd();
-            queryMonitor.completionEvent(getQueryInfo());
-        }
+        stateMachine.fail(cause);
     }
 
     @Override
@@ -134,24 +118,17 @@ public class CreateOrReplaceMaterializedViewExecution
     @Override
     public QueryInfo getQueryInfo()
     {
-        while(true) {
-            QueryInfo currentQueryInfo = queryInfo.get();
-
-            QueryInfo newQueryInfo = currentQueryInfo
-                .queryState(queryExecutionState.getQueryState());
-
-            if(queryInfo.compareAndSet(currentQueryInfo, newQueryInfo)) {
-                return newQueryInfo;
-            }
-        }
+        return stateMachine.getQueryInfo();
     }
 
     private void importTable()
         throws Exception
     {
-        QualifiedTableName dstTableName = MetadataUtil.createQualifiedTableName(getSession(queryInfo), statement.getName());
+        QualifiedTableName dstTableName = MetadataUtil.createQualifiedTableName(stateMachine.getSession(), statement.getName());
 
-        checkState(DataSourceType.NATIVE == metadataManager.lookupDataSource(dstTableName.getCatalogName(), dstTableName.getSchemaName(), dstTableName.getTableName()), "%s is not a native table, can only create native tables", dstTableName);
+        checkState(DataSourceType.NATIVE == metadataManager.lookupDataSource(dstTableName.getCatalogName(), dstTableName.getSchemaName(), dstTableName.getTableName()),
+                "%s is not a native table, can only create native tables", dstTableName);
+
         checkState(statement.getTableDefinition() instanceof Query, "Can only create a table from a query");
 
         Query subQuery = (Query) statement.getTableDefinition();
@@ -163,9 +140,10 @@ public class CreateOrReplaceMaterializedViewExecution
         Select select = subQuery.getSelect();
         checkState(Iterables.getOnlyElement(select.getSelectItems()) instanceof AllColumns, "create table query can have only a single column and it must be '*'");
 
-        final QualifiedTableName srcTableName = MetadataUtil.createQualifiedTableName(getSession(queryInfo), ((Table) srcTableRelation).getName());
+        final QualifiedTableName srcTableName = MetadataUtil.createQualifiedTableName(stateMachine.getSession(), ((Table) srcTableRelation).getName());
 
-        checkState(DataSourceType.IMPORT == metadataManager.lookupDataSource(srcTableName.getCatalogName(), srcTableName.getSchemaName(), srcTableName.getTableName()), "Can not import from %s, not an importable table", srcTableName);
+        checkState(DataSourceType.IMPORT == metadataManager.lookupDataSource(srcTableName.getCatalogName(), srcTableName.getSchemaName(), srcTableName.getTableName()),
+                "Can not import from %s, not an importable table", srcTableName);
 
         List<SchemaField> schema = retry()
                 .stopOn(ObjectNotFoundException.class)
@@ -205,53 +183,45 @@ public class CreateOrReplaceMaterializedViewExecution
     }
 
     public static class CreateOrReplaceMaterializedViewExecutionFactory
-            implements SimpleQueryExecutionFactory<CreateOrReplaceMaterializedViewExecution>
+            implements QueryExecutionFactory<CreateOrReplaceMaterializedViewExecution>
     {
         private final ImportClientManager importClientManager;
         private final ImportManager importManager;
         private final MetadataManager metadataManager;
         private final Sitevars sitevars;
         private final QueryMonitor queryMonitor;
+        private final LocationFactory locationFactory;
 
         @Inject
         CreateOrReplaceMaterializedViewExecutionFactory(ImportClientManager importClientManager,
                 ImportManager importManager,
                 MetadataManager metadataManager,
                 QueryMonitor queryMonitor,
-                Sitevars sitevars)
+                Sitevars sitevars,
+                LocationFactory locationFactory)
         {
-
             this.importClientManager = checkNotNull(importClientManager, "importClientManager is null");
             this.importManager = checkNotNull(importManager, "importManager is null");
             this.metadataManager = checkNotNull(metadataManager, "metadataManager is null");
             this.sitevars = checkNotNull(sitevars, "sitevars is null");
             this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
+            this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
         }
 
-        public CreateOrReplaceMaterializedViewExecution createQueryExecution(
-                Statement statement,
-                QueryInfo queryInfo)
+        public CreateOrReplaceMaterializedViewExecution createQueryExecution(String queryId, String query, Session session, Statement statement)
         {
-<<<<<<< HEAD
-            CreateOrReplaceMaterializedViewExecution queryExecution = new CreateOrReplaceMaterializedViewExecution(statement,
-                    queryInfo,
-=======
             CreateOrReplaceMaterializedViewExecution queryExecution = new CreateOrReplaceMaterializedViewExecution(queryId,
                     query,
                     session,
                     locationFactory.createQueryLocation(queryId),
                     (CreateOrReplaceMaterializedView) statement,
->>>>>>> 87150bc... fixup
                     importClientManager,
                     importManager,
                     metadataManager,
                     queryMonitor,
                     sitevars);
 
-            queryMonitor.createdEvent(queryExecution.getQueryInfo());
             return queryExecution;
         }
-
     }
-
 }

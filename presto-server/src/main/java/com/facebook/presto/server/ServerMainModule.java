@@ -9,7 +9,7 @@ import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.CreateOrReplaceMaterializedViewExecution.CreateOrReplaceMaterializedViewExecutionFactory;
 import com.facebook.presto.execution.FailureInfo;
 import com.facebook.presto.execution.LocationFactory;
-import com.facebook.presto.execution.QueryExecution.SimpleQueryExecutionFactory;
+import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -67,10 +67,16 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.tree.CreateOrReplaceMaterializedView;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
 import com.facebook.presto.sql.tree.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
+import com.facebook.presto.sql.tree.ShowColumns;
+import com.facebook.presto.sql.tree.ShowFunctions;
+import com.facebook.presto.sql.tree.ShowPartitions;
+import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.Statement;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
@@ -88,7 +94,6 @@ import org.skife.jdbi.v2.IDBI;
 import org.weakref.jmx.guice.ExportBinder;
 
 import javax.inject.Singleton;
-
 import java.io.File;
 import java.lang.annotation.Annotation;
 
@@ -213,12 +218,19 @@ public class ServerMainModule
         binder.bind(Sitevars.class).in(Scopes.SINGLETON);
         ExportBinder.newExporter(binder).export(Sitevars.class).as("com.facebook.presto:name=sitevars");
 
-        MapBinder<Class<? extends Statement>, SimpleQueryExecutionFactory<?>> executionBinder = MapBinder.newMapBinder(binder,
+        binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+
+        MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder = MapBinder.newMapBinder(binder,
                 new TypeLiteral<Class<? extends Statement>>() {},
-                new TypeLiteral<SimpleQueryExecutionFactory<?>>() {});
+                new TypeLiteral<QueryExecutionFactory<?>>() {});
         executionBinder.addBinding(CreateOrReplaceMaterializedView.class).to(CreateOrReplaceMaterializedViewExecutionFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(Query.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
+        executionBinder.addBinding(ShowColumns.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
+        executionBinder.addBinding(ShowPartitions.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
+        executionBinder.addBinding(ShowFunctions.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
+        executionBinder.addBinding(ShowTables.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
     }
 
     @Provides
