@@ -80,9 +80,9 @@ public final class TreeRewriter<C>
                 from.add(rewrite(relation, context.get()));
             }
 
-            Optional<Expression> where = null;
+            Expression where = null;
             if (node.getWhere().isPresent()) {
-                where = Optional.fromNullable(rewrite(node.getWhere().get(), context.get()));
+                where = rewrite(node.getWhere().get(), context.get());
             }
 
             ImmutableList.Builder<Expression> groupBy = ImmutableList.builder();
@@ -90,9 +90,9 @@ public final class TreeRewriter<C>
                 groupBy.add(rewrite(expression, context.get()));
             }
 
-            Optional<Expression> having = null;
+            Expression having = null;
             if (node.getHaving().isPresent()) {
-                having = Optional.fromNullable(rewrite(node.getHaving().get(), context.get()));
+                having = rewrite(node.getHaving().get(), context.get());
             }
 
             ImmutableList.Builder<SortItem> orderBy = ImmutableList.builder();
@@ -102,11 +102,18 @@ public final class TreeRewriter<C>
 
             if (select != node.getSelect() ||
                     !sameElements(node.getFrom(), from.build()) ||
-                    where != node.getWhere() ||
+                    where != node.getWhere().orNull() ||
                     !sameElements(node.getGroupBy(), groupBy.build()) ||
-                    having.orNull() != node.getHaving().orNull() ||
+                    having != node.getHaving().orNull() ||
                     !sameElements(orderBy.build(), node.getOrderBy())) {
-                return new Query(select, from.build(), where, groupBy.build(), having, orderBy.build(), node.getLimit());
+
+                return new Query(select,
+                        from.build(),
+                        Optional.fromNullable(where),
+                        groupBy.build(),
+                        Optional.fromNullable(having),
+                        orderBy.build(),
+                        node.getLimit());
             }
 
             return node;
