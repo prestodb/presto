@@ -3,14 +3,14 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.TaskSource;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.server.ExchangeOperatorFactory;
 import com.facebook.presto.split.DataStreamProvider;
-import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -27,7 +27,6 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -152,64 +151,41 @@ public class SqlTaskManager
     }
 
     @Override
-    public TaskInfo createTask(Session session,
-            String queryId,
-            String stageId,
-            String taskId,
-            PlanFragment fragment,
-            Map<PlanNodeId, Set<Split>> initialSources,
-            List<String> initialOutputIds)
+    public TaskInfo updateTask(Session session, String queryId, String stageId, String taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputIds)
     {
-        Preconditions.checkNotNull(session, "session is null");
-        Preconditions.checkNotNull(queryId, "queryId is null");
-        Preconditions.checkNotNull(stageId, "stageId is null");
-        Preconditions.checkNotNull(taskId, "taskId is null");
-        Preconditions.checkArgument(!taskId.isEmpty(), "taskId is empty");
-        Preconditions.checkNotNull(fragment, "fragment is null");
-        Preconditions.checkNotNull(initialOutputIds, "initialOutputIds is null");
-        Preconditions.checkNotNull(initialSources, "initialSources is null");
-
         URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
 
-        SqlTaskExecution taskExecution = SqlTaskExecution.createSqlTaskExecution(session,
-                queryId,
-                stageId,
-                taskId,
-                location,
-                fragment,
-                initialSources,
-                initialOutputIds,
-                pageBufferMax,
-                dataStreamProvider,
-                exchangeOperatorFactory,
-                metadata,
-                taskMasterExecutor,
-                shardExecutor,
-                maxOperatorMemoryUsage
-        );
+        TaskExecution taskExecution;
+        synchronized (this) {
+            taskExecution = tasks.get(taskId);
+            if (taskExecution == null) {
+                // is task already complete?
+                TaskInfo taskInfo = taskInfos.get(taskId);
+                if (taskInfo != null) {
+                    return taskInfo;
+                }
 
-        tasks.put(taskId, taskExecution);
-        return taskExecution.getTaskInfo();
-    }
-
-    @Override
-    public TaskInfo addResultQueue(String taskId, String outputName)
-    {
-        Preconditions.checkNotNull(taskId, "taskId is null");
-        Preconditions.checkNotNull(outputName, "outputName is null");
-
-        TaskExecution taskExecution = tasks.get(taskId);
-        if (taskExecution == null) {
-            TaskInfo taskInfo = taskInfos.get(taskId);
-            if (taskInfo != null) {
-                // todo this is not safe since task can be expired at any time
-                // task was finished early, so the new split should be ignored
-                return taskInfo;
-            } else {
-                throw new NoSuchElementException("Unknown query task " + taskId);
+                taskExecution = SqlTaskExecution.createSqlTaskExecution(session,
+                        queryId,
+                        stageId,
+                        taskId,
+                        location,
+                        fragment,
+                        pageBufferMax,
+                        dataStreamProvider,
+                        exchangeOperatorFactory,
+                        metadata,
+                        taskMasterExecutor,
+                        shardExecutor,
+                        maxOperatorMemoryUsage
+                );
+                tasks.put(taskId, taskExecution);
             }
         }
-        taskExecution.addResultQueue(outputName);
+
+        taskExecution.addSources(sources);
+        taskExecution.addResultQueue(outputIds);
+
         return taskExecution.getTaskInfo();
     }
 
@@ -225,69 +201,6 @@ public class SqlTaskManager
             throw new NoSuchElementException("Unknown query task " + taskId);
         }
         return taskExecution.getResults(outputName, maxPageCount, maxWaitTime);
-    }
-
-    @Override
-    public TaskInfo noMoreResultQueues(String taskId)
-    {
-        Preconditions.checkNotNull(taskId, "taskId is null");
-
-        TaskExecution taskExecution = tasks.get(taskId);
-        if (taskExecution == null) {
-            TaskInfo taskInfo = taskInfos.get(taskId);
-            if (taskInfo != null) {
-                // todo this is not safe since task can be expired at any time
-                // task was finished early, so the new split should be ignored
-                return taskInfo;
-            } else {
-                throw new NoSuchElementException("Unknown query task " + taskId);
-            }
-        }
-        taskExecution.noMoreResultQueues();
-        return taskExecution.getTaskInfo();
-    }
-
-    @Override
-    public TaskInfo addSplit(String taskId, PlanNodeId sourceId, Split split)
-    {
-        Preconditions.checkNotNull(taskId, "taskId is null");
-        Preconditions.checkNotNull(sourceId, "sourceId is null");
-        Preconditions.checkNotNull(split, "split is null");
-
-        TaskExecution taskExecution = tasks.get(taskId);
-        if (taskExecution == null) {
-            TaskInfo taskInfo = taskInfos.get(taskId);
-            if (taskInfo != null) {
-                // todo this is not safe since task can be expired at any time
-                // task was finished early, so the new split should be ignored
-                return taskInfo;
-            } else {
-                throw new NoSuchElementException("Unknown query task " + taskId);
-            }
-        }
-        taskExecution.addSplit(sourceId, split);
-        return taskExecution.getTaskInfo();
-    }
-
-    @Override
-    public TaskInfo noMoreSplits(String taskId, PlanNodeId sourceId)
-    {
-        Preconditions.checkNotNull(taskId, "taskId is null");
-        Preconditions.checkNotNull(sourceId, "sourceId is null");
-
-        TaskExecution taskExecution = tasks.get(taskId);
-        if (taskExecution == null) {
-            TaskInfo taskInfo = taskInfos.get(taskId);
-            if (taskInfo != null) {
-                // todo this is not safe since task can be expired at any time
-                // task was finished early, so the new split should be ignored
-                return taskInfo;
-            } else {
-                throw new NoSuchElementException("Unknown query task " + taskId);
-            }
-        }
-        taskExecution.noMoreSplits(sourceId);
-        return taskExecution.getTaskInfo();
     }
 
     @Override

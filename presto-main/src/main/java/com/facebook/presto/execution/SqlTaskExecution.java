@@ -3,6 +3,9 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.ScheduledSplit;
+import com.facebook.presto.TaskSource;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
@@ -37,7 +40,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -46,6 +48,8 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import static java.lang.Math.max;
 
 public class SqlTaskExecution
         implements TaskExecution
@@ -68,6 +72,8 @@ public class SqlTaskExecution
     private final List<WeakReference<SplitWorker>> splitWorkers = new ArrayList<>();
     @GuardedBy("this")
     private SourceHashProviderFactory sourceHashProviderFactory;
+    @GuardedBy("this")
+    private long maxAcknowledgedSplit = Long.MIN_VALUE;
 
     private final BlockingDeque<FutureTask<?>> unfinishedWorkerTasks = new LinkedBlockingDeque<>();
 
@@ -77,8 +83,6 @@ public class SqlTaskExecution
             String taskId,
             URI location,
             PlanFragment fragment,
-            Map<PlanNodeId, Set<Split>> initialSources,
-            List<String> initialOutputIds,
             int pageBufferMax,
             DataStreamProvider dataStreamProvider,
             ExchangeOperatorFactory exchangeOperatorFactory,
@@ -93,7 +97,6 @@ public class SqlTaskExecution
                 taskId,
                 location,
                 fragment,
-                initialOutputIds,
                 pageBufferMax,
                 dataStreamProvider,
                 exchangeOperatorFactory,
@@ -101,7 +104,7 @@ public class SqlTaskExecution
                 shardExecutor,
                 maxOperatorMemoryUsage);
 
-        task.start(taskMasterExecutor, initialSources);
+        task.start(taskMasterExecutor);
 
         return task;
     }
@@ -112,7 +115,6 @@ public class SqlTaskExecution
             String taskId,
             URI location,
             PlanFragment fragment,
-            List<String> initialOutputIds,
             int pageBufferMax,
             DataStreamProvider dataStreamProvider,
             ExchangeOperatorFactory exchangeOperatorFactory,
@@ -125,7 +127,6 @@ public class SqlTaskExecution
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(fragment, "fragment is null");
-        Preconditions.checkNotNull(initialOutputIds, "initialOutputIds is null");
         Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
         Preconditions.checkNotNull(metadata, "metadata is null");
         Preconditions.checkNotNull(shardExecutor, "shardExecutor is null");
@@ -141,25 +142,17 @@ public class SqlTaskExecution
         this.maxOperatorMemoryUsage = maxOperatorMemoryUsage;
 
         // create output buffers
-        this.taskOutput = new TaskOutput(queryId, stageId, taskId, location, initialOutputIds, pageBufferMax);
+        this.taskOutput = new TaskOutput(queryId, stageId, taskId, location, pageBufferMax);
     }
 
     //
     // This code starts threads so it can not be in the constructor
     // TODO: merge the partitioned and unparitioned paths somehow
-    private void start(ExecutorService taskMasterExecutor, Map<PlanNodeId, Set<Split>> initialSources)
+    private void start(ExecutorService taskMasterExecutor)
     {
         // if plan is unpartitioned, add a worker
         if (!fragment.isPartitioned()) {
             scheduleSplitWorker(null, null);
-        }
-
-        // add all the splits
-        for (Entry<PlanNodeId, Set<Split>> entry : initialSources.entrySet()) {
-            PlanNodeId planNodeId = entry.getKey();
-            for (Split split : entry.getValue()) {
-                addSplit(planNodeId, split);
-            }
         }
 
         // NOTE: this must be started after the unpartitioned task or the task can be ended early
@@ -180,7 +173,37 @@ public class SqlTaskExecution
     }
 
     @Override
-    public synchronized void addSplit(PlanNodeId sourceId, Split split)
+    public synchronized void addSources(List<TaskSource> sources)
+    {
+        long newMaxAcknowledgedSplit = maxAcknowledgedSplit;
+        for (TaskSource source : sources) {
+            PlanNodeId sourceId = source.getPlanNodeId();
+            for (ScheduledSplit scheduledSplit : source.getSplits()) {
+                // only add a split if we have not already scheduled it
+                if (scheduledSplit.getSequenceId() > maxAcknowledgedSplit) {
+                    addSplit(sourceId, scheduledSplit.getSplit());
+                    newMaxAcknowledgedSplit = max(scheduledSplit.getSequenceId(), newMaxAcknowledgedSplit);
+                }
+            }
+            if (source.isNoMoreSplits()) {
+                noMoreSplits(sourceId);
+            }
+        }
+        maxAcknowledgedSplit = newMaxAcknowledgedSplit;
+    }
+
+    @Override
+    public synchronized void addResultQueue(OutputBuffers outputIds)
+    {
+        for (String bufferId : outputIds.getBufferIds()) {
+            taskOutput.addResultQueue(bufferId);
+        }
+        if (outputIds.isNoMoreBufferIds()) {
+            taskOutput.noMoreResultQueues();
+        }
+    }
+
+    private synchronized void addSplit(PlanNodeId sourceId, Split split)
     {
         // is this a partitioned source
         if (fragment.isPartitioned() && fragment.getPartitionedSource().equals(sourceId)) {
@@ -188,7 +211,9 @@ public class SqlTaskExecution
         }
         else {
             // add this to all of the existing workers
-            unpartitionedSources.put(sourceId, split);
+            if (!unpartitionedSources.put(sourceId, split)) {
+                return;
+            }
             for (WeakReference<SplitWorker> workerReference : splitWorkers) {
                 SplitWorker worker = workerReference.get();
                 // this should not happen until the all sources have been closed
@@ -254,10 +279,13 @@ public class SqlTaskExecution
         });
     }
 
-    @Override
-    public synchronized void noMoreSplits(PlanNodeId sourceId)
+    private synchronized void noMoreSplits(PlanNodeId sourceId)
     {
-        taskOutput.noMoreSplits(sourceId);
+        // don't bother updating is this source has already been closed
+        if (!taskOutput.noMoreSplits(sourceId)) {
+            return;
+        }
+
         if (sourceId.equals(fragment.getPartitionedSource())) {
             // all workers have been created
             // clear hash provider since it has a hard reference to every hash table
@@ -272,7 +300,6 @@ public class SqlTaskExecution
                 worker.noMoreSplits(sourceId);
             }
         }
-        checkTaskCompletion();
     }
 
     private synchronized void checkTaskCompletion()
@@ -310,22 +337,10 @@ public class SqlTaskExecution
     }
 
     @Override
-    public void addResultQueue(String outputName)
-    {
-        taskOutput.addResultQueue(outputName);
-    }
-
-    @Override
     public List<Page> getResults(String outputId, int maxPageCount, Duration maxWait)
             throws InterruptedException
     {
         return taskOutput.getResults(outputId, maxPageCount, maxWait);
-    }
-
-    @Override
-    public void noMoreResultQueues()
-    {
-        taskOutput.noMoreResultQueues();
     }
 
     @Override

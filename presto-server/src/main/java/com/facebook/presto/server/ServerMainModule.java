@@ -157,7 +157,7 @@ public class ServerMainModule
 
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
 
-        jsonCodecBinder(binder).bindJsonCodec(QueryFragmentRequest.class);
+        jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
         jsonCodecBinder(binder).bindJsonCodec(Split.class);
         jsonBinder(binder).addSerializerBinding(Expression.class).to(ExpressionSerializer.class);
         jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
