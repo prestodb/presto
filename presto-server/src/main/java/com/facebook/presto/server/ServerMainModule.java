@@ -25,6 +25,7 @@ import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.importer.ForImportManager;
 import com.facebook.presto.importer.ForPeriodicImport;
 import com.facebook.presto.importer.ImportManager;
+import com.facebook.presto.importer.ImportManagerConfig;
 import com.facebook.presto.importer.JobStateFactory;
 import com.facebook.presto.importer.LocalShardManager;
 import com.facebook.presto.importer.NodeWorkerQueue;
@@ -94,6 +95,7 @@ import org.skife.jdbi.v2.IDBI;
 import org.weakref.jmx.guice.ExportBinder;
 
 import javax.inject.Singleton;
+
 import java.io.File;
 import java.lang.annotation.Annotation;
 
@@ -148,6 +150,7 @@ public class ServerMainModule
         binder.bind(SystemTables.class).in(Scopes.SINGLETON);
 
         binder.bind(ImportClientManager.class).in(Scopes.SINGLETON);
+
         // kick off binding of import client factories
         Multibinder.newSetBinder(binder, ImportClientFactory.class);
         binder.bind(ImportMetadata.class).in(Scopes.SINGLETON);
@@ -171,8 +174,11 @@ public class ServerMainModule
         binder.bind(NodeManager.class).in(Scopes.SINGLETON);
         binder.bind(NodeWorkerQueue.class).in(Scopes.SINGLETON);
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
+
         binder.bind(ImportManager.class).in(Scopes.SINGLETON);
+        bindConfig(binder).to(ImportManagerConfig.class);
         httpClientBinder(binder).bindHttpClient("importer", ForImportManager.class).withFilter(NodeIdUserAgentRequestFilter.class);
+
         binder.bind(LocalShardManager.class).in(Scopes.SINGLETON);
         binder.bind(ShardResource.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(ShardImport.class);
