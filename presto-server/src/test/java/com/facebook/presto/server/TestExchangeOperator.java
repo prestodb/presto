@@ -3,6 +3,8 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.TaskSource;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryManager;
@@ -12,7 +14,6 @@ import com.facebook.presto.operator.ExchangeOperator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
-import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
@@ -23,6 +24,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Key;
@@ -33,6 +35,7 @@ import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.InMemoryEventModule;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
+import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.netty.StandaloneNettyAsyncHttpClient;
 import io.airlift.http.server.testing.TestingHttpServer;
@@ -46,18 +49,16 @@ import org.testng.annotations.Test;
 
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
-
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import static com.facebook.presto.server.MockQueryManager.TUPLE_INFOS;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
-import static io.airlift.http.client.Request.Builder.preparePut;
+import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -192,37 +193,29 @@ public class TestExchangeOperator
         PlanFragment planFragment = new PlanFragment(new PlanFragmentId("32"), null, ImmutableMap.<Symbol, Type>of(), new ExchangeNode(new PlanNodeId("1"), new PlanFragmentId("22"), ImmutableList.<Symbol>of()));
 
         Session session = new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA);
-        QueryFragmentRequest fragmentRequest = new QueryFragmentRequest(session,
+        TaskUpdateRequest updateRequest = new TaskUpdateRequest(session,
                 "queryId",
                 "stageId",
                 planFragment,
-                ImmutableMap.<PlanNodeId, Set<Split>>of(),
-                ImmutableList.of("out"));
+                ImmutableList.<TaskSource>of(),
+                new OutputBuffers(ImmutableSet.of("out"), true));
 
-        Request request = preparePut()
+        Request request = preparePost()
                 .setUri(httpServer.getBaseUrl().resolve("/v1/task/foo-" + httpServer.getPort()))
                 .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
-                .setBodyGenerator(jsonBodyGenerator(jsonCodec(QueryFragmentRequest.class), fragmentRequest))
+                .setBodyGenerator(jsonBodyGenerator(jsonCodec(TaskUpdateRequest.class), updateRequest))
                 .build();
 
         JsonResponse<TaskInfo> response = httpClient.execute(request, createFullJsonResponseHandler(jsonCodec(TaskInfo.class)));
-        Preconditions.checkState(response.getStatusCode() == 201,
-                "Expected response code from %s to be 201, but was %s: %s",
+        Preconditions.checkState(response.getStatusCode() == HttpStatus.OK.code(),
+                "Expected response code from %s to be %s, but was %s: %s",
                 request.getUri(),
+                HttpStatus.OK,
                 response.getStatusCode(),
                 response.getStatusMessage());
         TaskInfo taskInfo = response.getValue();
 
         URI outputLocation = httpServer.getBaseUrl().resolve("/v1/task/" + taskInfo.getTaskId() + "/results/out");
-        request = preparePut()
-                .setUri(httpServer.getBaseUrl().resolve("/v1/task/" + taskInfo.getTaskId() + "/results/complete"))
-                .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
-                .setBodyGenerator(jsonBodyGenerator(jsonCodec(boolean.class), true))
-                .build();
-        response = httpClient.execute(request, createFullJsonResponseHandler(jsonCodec(TaskInfo.class)));
-        assertEquals(response.getStatusCode(), 200);
-        assertEquals(response.getValue().getTaskId(), taskInfo.getTaskId());
-
         return outputLocation;
     }
 }

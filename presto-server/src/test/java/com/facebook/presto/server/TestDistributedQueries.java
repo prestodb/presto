@@ -6,6 +6,7 @@ package com.facebook.presto.server;
 import com.facebook.presto.AbstractTestQueries;
 import com.facebook.presto.cli.ClientSession;
 import com.facebook.presto.cli.HttpQueryClient;
+import com.facebook.presto.execution.FailureInfo;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.ingest.SerializedPartitionChunk;
@@ -223,12 +224,12 @@ public class TestDistributedQueries
     protected void tearDownQueryFramework()
             throws Exception
     {
-        Closeables.closeQuietly(discoveryServer);
         if (servers != null) {
             for (PrestoTestingServer server : servers) {
                 Closeables.closeQuietly(server);
             }
         }
+        Closeables.closeQuietly(discoveryServer);
     }
 
     private List<String> distributeData()
@@ -287,7 +288,11 @@ public class TestDistributedQueries
                 }
                 QueryState state = queryInfo.getState();
                 if (state == QueryState.FAILED) {
-                    throw Iterables.getFirst(queryInfo.getFailures(), null).toException();
+                    FailureInfo failureInfo = Iterables.getFirst(queryInfo.getFailures(), null);
+                    if (failureInfo != null) {
+                        throw failureInfo.toException();
+                    }
+                    throw new RuntimeException("Query " + queryInfo.getQueryId() + " failed for an unknown reason");
                 }
                 else if (state == QueryState.CANCELED) {
                     throw new RuntimeException("Query was cancelled");
@@ -297,8 +302,6 @@ public class TestDistributedQueries
                 }
                 Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
             }
-
-            client.getQueryInfo(true);
 
             MaterializedResult materializedResult = materialize(client.getResultsOperator());
             QueryInfo queryInfo = client.getQueryInfo(true);
@@ -540,7 +543,7 @@ public class TestDistributedQueries
         }
     }
 
-    private static JsonCodecFactory createCodecFactory()
+    public static JsonCodecFactory createCodecFactory()
     {
         Injector injector = Guice.createInjector(Stage.PRODUCTION,
                 new JsonModule(),

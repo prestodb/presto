@@ -3,14 +3,14 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskOutput;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -22,9 +22,7 @@ import javax.inject.Inject;
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -58,7 +56,7 @@ public class MockTaskManager
     }
 
     @Override
-    public List<TaskInfo> getAllTaskInfo()
+    public synchronized List<TaskInfo> getAllTaskInfo()
     {
         ImmutableList.Builder<TaskInfo> builder = ImmutableList.builder();
         for (TaskOutput taskOutput : tasks.values()) {
@@ -68,7 +66,7 @@ public class MockTaskManager
     }
 
     @Override
-    public TaskInfo getTaskInfo(String taskId)
+    public synchronized TaskInfo getTaskInfo(String taskId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 
@@ -80,60 +78,42 @@ public class MockTaskManager
     }
 
     @Override
-    public TaskInfo createTask(Session session,
-            String queryId,
-            String stageId,
-            String taskId,
-            PlanFragment fragment,
-            Map<PlanNodeId, Set<Split>> initialSources,
-            List<String> initialOutputIds)
+    public synchronized TaskInfo updateTask(Session session, String queryId, String stageId, String taskId, PlanFragment ignored, List<TaskSource> sources, OutputBuffers outputIds)
     {
-        Preconditions.checkNotNull(taskId, "taskId is null");
-        Preconditions.checkArgument(!taskId.isEmpty(), "taskId is empty");
+        Preconditions.checkNotNull(session, "session is null");
+        Preconditions.checkNotNull(queryId, "queryId is null");
+        Preconditions.checkNotNull(stageId, "stageId is null");
+        Preconditions.checkNotNull(sources, "sources is null");
+        Preconditions.checkNotNull(outputIds, "outputIds is null");
 
-        URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
-        TaskOutput taskOutput = new TaskOutput(queryId, stageId, taskId, location, ImmutableList.copyOf(initialOutputIds), pageBufferMax);
-        tasks.put(taskId, taskOutput);
-
-        List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");
-
-        // load initial pages
-        for (int i = 0; i < initialPages; i++) {
-            try {
-                taskOutput.addPage(new Page(createStringsBlock(Iterables.concat(Collections.nCopies(i + 1, data)))));
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw Throwables.propagate(e);
-            }
-        }
-        taskOutput.finish();
-
-        return taskOutput.getTaskInfo();
-    }
-
-    @Override
-    public TaskInfo addSplit(String taskId, PlanNodeId sourceId, Split source)
-    {
-        // todo
-        return getTaskInfo(taskId);
-    }
-
-    @Override
-    public TaskInfo noMoreSplits(String taskId, PlanNodeId sourceId)
-    {
-        // todo
-        return getTaskInfo(taskId);
-    }
-
-    @Override
-    public TaskInfo addResultQueue(String taskId, String outputName)
-    {
         TaskOutput taskOutput = tasks.get(taskId);
         if (taskOutput == null) {
-            throw new NoSuchElementException();
+            URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
+            taskOutput = new TaskOutput(queryId, stageId, taskId, location, pageBufferMax);
+            tasks.put(taskId, taskOutput);
+
+            List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");
+
+            // load initial pages
+            for (int i = 0; i < initialPages; i++) {
+                try {
+                    taskOutput.addPage(new Page(createStringsBlock(Iterables.concat(Collections.nCopies(i + 1, data)))));
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw Throwables.propagate(e);
+                }
+            }
+            taskOutput.finish();
         }
-        taskOutput.addResultQueue(outputName);
+
+        for (String outputId : outputIds.getBufferIds()) {
+            taskOutput.addResultQueue(outputId);
+        }
+        if (outputIds.isNoMoreBufferIds()) {
+            taskOutput.noMoreResultQueues();
+        }
+
         return taskOutput.getTaskInfo();
     }
 
@@ -144,26 +124,18 @@ public class MockTaskManager
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(outputId, "outputId is null");
 
-        TaskOutput taskOutput = tasks.get(taskId);
-        if (taskOutput == null) {
-            throw new NoSuchElementException();
+        TaskOutput taskOutput;
+        synchronized (this) {
+            taskOutput = tasks.get(taskId);
+            if (taskOutput == null) {
+                throw new NoSuchElementException();
+            }
         }
         return taskOutput.getResults(outputId, maxPageCount, maxWaitTime);
     }
 
     @Override
-    public TaskInfo noMoreResultQueues(String taskId)
-    {
-        TaskOutput taskOutput = tasks.get(taskId);
-        if (taskOutput == null) {
-            throw new NoSuchElementException();
-        }
-        taskOutput.noMoreResultQueues();
-        return taskOutput.getTaskInfo();
-    }
-
-    @Override
-    public TaskInfo abortTaskResults(String taskId, String outputId)
+    public synchronized TaskInfo abortTaskResults(String taskId, String outputId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(outputId, "outputId is null");
@@ -177,7 +149,7 @@ public class MockTaskManager
     }
 
     @Override
-    public TaskInfo cancelTask(String taskId)
+    public synchronized TaskInfo cancelTask(String taskId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 

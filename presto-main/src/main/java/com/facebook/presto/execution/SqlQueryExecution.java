@@ -247,9 +247,9 @@ public class SqlQueryExecution
         if (outputStage == null) {
             return;
         }
-        waitForFuture(outputStage.updateState());
+        waitForFuture(outputStage.updateState(forceRefresh));
 
-        outputStage.updateState();
+        outputStage.updateState(forceRefresh);
 
         if (!stateMachine.isDone()) {
             // if output stage is done, transition to done

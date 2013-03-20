@@ -3,6 +3,8 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.FailureInfo;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryInfo;
@@ -12,22 +14,19 @@ import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 import java.net.URI;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -93,14 +92,13 @@ public class MockQueryManager
 
         String queryId = String.valueOf(nextQueryId.getAndIncrement());
 
-        TaskInfo outputTask = mockTaskManager.createTask(session,
+        TaskInfo outputTask = mockTaskManager.updateTask(session,
                 "queryId",
                 "stageId",
                 "queryId",
                 null,
-                ImmutableMap.<PlanNodeId, Set<Split>>of(),
-                ImmutableList.<String>of("out")
-        );
+                ImmutableList.<TaskSource>of(),
+                new OutputBuffers(ImmutableSet.<String>of("out"), true));
 
         SimpleQuery simpleQuery = new SimpleQuery(queryId, locationFactory.createQueryLocation(queryId), outputTask.getTaskId(), mockTaskManager, locationFactory);
         queries.put(queryId, simpleQuery);

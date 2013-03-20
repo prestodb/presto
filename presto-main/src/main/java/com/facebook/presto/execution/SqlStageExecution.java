@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -412,12 +413,13 @@ public class SqlStageExecution
                 taskId,
                 node,
                 fragment,
+                initialSplit,
                 getExchangeLocations(),
                 getOutputBuffers());
 
         try {
-            // start the task
-            task.start(initialSplit);
+            // create and update task
+            task.updateState(false);
 
             // record this task
             tasks.put(node, task);
@@ -538,17 +540,17 @@ public class SqlStageExecution
     }
 
     @Override
-    public ListenableFuture<?> updateState()
+    public ListenableFuture<?> updateState(boolean forceRefresh)
     {
         Preconditions.checkState(!Thread.holdsLock(this), "Can not update state while holding a lock on this");
 
         // propagate update to tasks and stages
         List<ListenableFuture<?>> futures = new ArrayList<>();
         for (StageExecutionNode subStage : subStages.values()) {
-            futures.add(subStage.updateState());
+            futures.add(subStage.updateState(forceRefresh));
         }
         for (RemoteTask task : tasks.values()) {
-            futures.add(task.updateState());
+            futures.add(task.updateState(forceRefresh));
         }
 
         return chainedCallback(Futures.allAsList(futures), new FutureCallback<List<?>>()
@@ -562,7 +564,9 @@ public class SqlStageExecution
             @Override
             public void onFailure(Throwable t)
             {
-                log.error(t, "Error updating stage");
+                if (!(t instanceof CancellationException)) {
+                    log.error(t, "Error updating stage");
+                }
             }
         });
     }
@@ -699,7 +703,7 @@ interface StageExecutionNode
 
     void subStageFinishedScheduling();
 
-    ListenableFuture<?> updateState();
+    ListenableFuture<?> updateState(boolean forceRefresh);
 
     void cancelStage(String stageId);
 

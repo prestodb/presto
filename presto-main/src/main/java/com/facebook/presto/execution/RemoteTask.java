@@ -18,8 +18,6 @@ public interface RemoteTask
 
     TaskInfo getTaskInfo();
 
-    void start(@Nullable Split initialSplit);
-
     void addSplit(Split split);
 
     void noMoreSplits();
@@ -30,5 +28,5 @@ public interface RemoteTask
 
     void cancel();
 
-    ListenableFuture<?> updateState();
+    ListenableFuture<?> updateState(boolean forceRefresh);
 }

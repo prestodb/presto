@@ -91,7 +91,9 @@ public class SharedBuffer<T>
     public synchronized void addQueue(String queueId)
     {
         Preconditions.checkNotNull(queueId, "queueId is null");
-        Preconditions.checkArgument(!namedQueues.containsKey(queueId), "Queue %s already exists", queueId);
+        if (namedQueues.containsKey(queueId)) {
+            return;
+        }
         Preconditions.checkState(state == QueueState.OPEN, "%s is not OPEN", SharedBuffer.class.getSimpleName());
         NamedQueue namedQueue = new NamedQueue(queueId);
         namedQueues.put(queueId, namedQueue);

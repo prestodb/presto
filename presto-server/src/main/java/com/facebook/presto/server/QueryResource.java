@@ -32,6 +32,7 @@ import static com.facebook.presto.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 
@@ -80,6 +81,7 @@ public class QueryResource
             @Context UriInfo uriInfo)
     {
         checkNotNull(query, "query is null");
+        checkArgument(!query.isEmpty(), "query is empty");
         checkNotNull(catalog, "catalog is null");
         checkNotNull(schema, "schema is null");
 
