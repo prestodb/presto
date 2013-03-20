@@ -8,6 +8,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 public final class FutureUtils
 {
@@ -22,7 +23,7 @@ public final class FutureUtils
      * This method is useful in conjunction with {@link Futures#successfulAsList}
      * to wait for an entire collection of futures to complete.
      */
-    public static <T> T waitForFuture(ListenableFuture<T> future)
+    public static <T> T waitForFuture(Future<T> future)
     {
         try {
             return future.get();
