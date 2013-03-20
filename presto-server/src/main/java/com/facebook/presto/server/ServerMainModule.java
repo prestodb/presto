@@ -3,38 +3,43 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.importer.ForPeriodicImport;
-import com.facebook.presto.importer.JobStateFactory;
-import com.facebook.presto.importer.PeriodicImportConfig;
-import com.facebook.presto.importer.PeriodicImportController;
-import com.facebook.presto.importer.PeriodicImportJobResource;
-import com.facebook.presto.importer.PeriodicImportManager;
-import com.facebook.presto.importer.PeriodicImportRunnable;
-
 import com.facebook.presto.event.query.QueryCompletionEvent;
 import com.facebook.presto.event.query.QueryCreatedEvent;
 import com.facebook.presto.event.query.QueryMonitor;
+import com.facebook.presto.execution.CreateOrReplaceMaterializedViewExecution.CreateOrReplaceMaterializedViewExecutionFactory;
 import com.facebook.presto.execution.FailureInfo;
 import com.facebook.presto.execution.LocationFactory;
+import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTaskFactory;
+import com.facebook.presto.execution.Sitevars;
+import com.facebook.presto.execution.SitevarsConfig;
+import com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.importer.ForImportManager;
+import com.facebook.presto.importer.ForPeriodicImport;
 import com.facebook.presto.importer.ImportManager;
+import com.facebook.presto.importer.JobStateFactory;
 import com.facebook.presto.importer.LocalShardManager;
 import com.facebook.presto.importer.NodeWorkerQueue;
+import com.facebook.presto.importer.PeriodicImportConfig;
+import com.facebook.presto.importer.PeriodicImportController;
+import com.facebook.presto.importer.PeriodicImportJobResource;
+import com.facebook.presto.importer.PeriodicImportManager;
+import com.facebook.presto.importer.PeriodicImportRunnable;
 import com.facebook.presto.importer.ShardImport;
 import com.facebook.presto.metadata.DatabaseShardManager;
 import com.facebook.presto.metadata.DatabaseStorageManager;
 import com.facebook.presto.metadata.ForMetadata;
 import com.facebook.presto.metadata.ForShardManager;
 import com.facebook.presto.metadata.ForStorageManager;
+import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.ImportMetadata;
 import com.facebook.presto.metadata.InformationSchemaData;
 import com.facebook.presto.metadata.InformationSchemaMetadata;
@@ -48,7 +53,6 @@ import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.metadata.StorageManagerConfig;
 import com.facebook.presto.metadata.SystemTables;
-import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.spi.ImportClientFactory;
@@ -60,13 +64,23 @@ import com.facebook.presto.split.InternalDataStreamProvider;
 import com.facebook.presto.split.NativeDataStreamProvider;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.tree.CreateOrReplaceMaterializedView;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
 import com.facebook.presto.sql.tree.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
+import com.facebook.presto.sql.tree.ShowColumns;
+import com.facebook.presto.sql.tree.ShowFunctions;
+import com.facebook.presto.sql.tree.ShowPartitions;
+import com.facebook.presto.sql.tree.ShowTables;
+import com.facebook.presto.sql.tree.Statement;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.TypeLiteral;
+import com.google.inject.multibindings.MapBinder;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.dbpool.H2EmbeddedDataSource;
 import io.airlift.dbpool.H2EmbeddedDataSourceConfig;
@@ -122,6 +136,7 @@ public class ServerMainModule
         binder.bind(ImportDataStreamProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
+        binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(NativeMetadata.class).in(Scopes.SINGLETON);
 
         binder.bind(MetadataResource.class).in(Scopes.SINGLETON);
@@ -187,7 +202,6 @@ public class ServerMainModule
 
         binder.install(new HandleJsonModule());
 
-
         binder.bind(PluginManager.class).in(Scopes.SINGLETON);
         bindConfig(binder).to(PluginManagerConfig.class);
 
@@ -199,6 +213,24 @@ public class ServerMainModule
         binder.bind(JobStateFactory.class).in(Scopes.SINGLETON);
         binder.bind(PeriodicImportRunnable.PeriodicImportRunnableFactory.class).in(Scopes.SINGLETON);
         ExportBinder.newExporter(binder).export(PeriodicImportController.class).as("com.facebook.presto:name=periodic-import");
+
+        bindConfig(binder).to(SitevarsConfig.class);
+        binder.bind(Sitevars.class).in(Scopes.SINGLETON);
+        ExportBinder.newExporter(binder).export(Sitevars.class).as("com.facebook.presto:name=sitevars");
+
+        binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+
+        MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder = MapBinder.newMapBinder(binder,
+                new TypeLiteral<Class<? extends Statement>>() {},
+                new TypeLiteral<QueryExecutionFactory<?>>() {});
+        executionBinder.addBinding(CreateOrReplaceMaterializedView.class).to(CreateOrReplaceMaterializedViewExecutionFactory.class).in(Scopes.SINGLETON);
+
+        binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(Query.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
+        executionBinder.addBinding(ShowColumns.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
+        executionBinder.addBinding(ShowPartitions.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
+        executionBinder.addBinding(ShowFunctions.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
+        executionBinder.addBinding(ShowTables.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
     }
 
     @Provides

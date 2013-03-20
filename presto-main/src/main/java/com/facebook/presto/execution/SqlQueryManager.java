@@ -4,16 +4,13 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.event.query.QueryMonitor;
-import com.facebook.presto.importer.ImportManager;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.NodeManager;
-import com.facebook.presto.split.ImportClientManager;
-import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -22,7 +19,9 @@ import org.joda.time.DateTime;
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
+
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -44,61 +43,31 @@ public class SqlQueryManager
     private static final Logger log = Logger.get(SqlQueryManager.class);
 
     private final ExecutorService queryExecutor;
-    private final ImportClientManager importClientManager;
-    private final ImportManager importManager;
-    private final Metadata metadata;
-    private final SplitManager splitManager;
-    private final NodeManager nodeManager;
-    private final RemoteTaskFactory remoteTaskFactory;
-    private final LocationFactory locationFactory;
     private final Duration maxQueryAge;
-    private final QueryMonitor queryMonitor;
 
     private final AtomicInteger nextQueryId = new AtomicInteger();
     private final ConcurrentMap<String, QueryExecution> queries = new ConcurrentHashMap<>();
 
-    private final boolean importsEnabled;
     private final Duration clientTimeout;
-    private final int maxPendingSplitsPerNode;
 
     private final ScheduledExecutorService queryManagementExecutor;
+    private final QueryMonitor queryMonitor;
 
+    private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
 
     @Inject
-    public SqlQueryManager(ImportClientManager importClientManager,
-            ImportManager importManager,
-            Metadata metadata,
-            SplitManager splitManager,
-            LocationFactory locationFactory,
-            QueryManagerConfig config,
-            NodeManager nodeManager,
-            RemoteTaskFactory remoteTaskFactory,
-            QueryMonitor queryMonitor)
+    public SqlQueryManager(QueryManagerConfig config,
+            QueryMonitor queryMonitor,
+            Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories)
     {
-        checkNotNull(importClientManager, "importClientFactory is null");
-        checkNotNull(importManager, "importManager is null");
-        checkNotNull(metadata, "metadata is null");
-        checkNotNull(splitManager, "splitManager is null");
-        checkNotNull(nodeManager, "nodeManager is null");
-        checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
-        checkNotNull(locationFactory, "locationFactory is null");
         checkNotNull(config, "config is null");
-        checkNotNull(queryMonitor, "queryMonitor is null");
 
+        this.executionFactories = checkNotNull(executionFactories, "executionFactories is null");
         this.queryExecutor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
+        this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
 
-        this.importClientManager = importClientManager;
-        this.importManager = importManager;
-        this.metadata = metadata;
-        this.splitManager = splitManager;
-        this.nodeManager = nodeManager;
-        this.remoteTaskFactory = remoteTaskFactory;
-        this.locationFactory = locationFactory;
-        this.queryMonitor = queryMonitor;
-        this.importsEnabled = config.isImportsEnabled();
         this.maxQueryAge = config.getMaxQueryAge();
         this.clientTimeout = config.getClientTimeout();
-        this.maxPendingSplitsPerNode = config.getMaxPendingSplitsPerNode();
 
         queryManagementExecutor = Executors.newScheduledThreadPool(100, threadsNamed("query-management-%d"));
 
@@ -112,7 +81,7 @@ public class SqlQueryManager
                         queryExecution.updateState(false);
                     }
                     catch (Throwable e) {
-                        log.warn(e, "Error updating state for query %s", queryExecution.getQueryId());
+                        log.warn(e, "Error updating state for query %s", queryExecution.getQueryInfo().getQueryId());
                     }
                 }
             }
@@ -188,38 +157,19 @@ public class SqlQueryManager
         Preconditions.checkArgument(query.length() > 0, "query must not be empty string");
 
         String queryId = String.valueOf(nextQueryId.getAndIncrement());
-        QueryExecution queryExecution;
-        if (query.startsWith("import-table:")) {
-            Preconditions.checkState(importsEnabled, "Imports are currently disabled");
 
-            // todo this is a hack until we have language support for import or create table as select
-            ImmutableList<String> strings = ImmutableList.copyOf(Splitter.on(":").split(query));
-            queryExecution = new ImportTableExecution(queryId,
-                    session,
-                    locationFactory.createQueryLocation(queryId),
-                    importClientManager,
-                    importManager,
-                    metadata,
-                    strings.get(1),
-                    strings.get(2),
-                    strings.get(3),
-                    query);
-        }
-        else {
-            queryExecution = new SqlQueryExecution(queryId,
-                    query,
-                    session,
-                    metadata,
-                    splitManager,
-                    nodeManager,
-                    remoteTaskFactory,
-                    locationFactory,
-                    queryMonitor,
-                    maxPendingSplitsPerNode,
-                    queryExecutor);
-            queryMonitor.createdEvent(queryExecution.getQueryInfo());
-        }
-        queries.put(queryExecution.getQueryId(), queryExecution);
+        QueryExecution queryExecution;
+
+        // parse the SQL query
+        Statement statement = SqlParser.createStatement(query);
+
+        QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(statement.getClass());
+        Preconditions.checkState(queryExecutionFactory != null, "Unsupported statement type %s", statement.getClass().getName());
+        queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement);
+
+        queryMonitor.createdEvent(queryExecution.getQueryInfo());
+
+        queries.put(queryId, queryExecution);
 
         // start the query in the background
         queryExecutor.submit(new QueryStarter(queryExecution));
@@ -277,11 +227,11 @@ public class SqlQueryManager
                 QueryInfo queryInfo = queryExecution.getQueryInfo();
                 DateTime endTime = queryInfo.getQueryStats().getEndTime();
                 if (endTime != null && endTime.isBefore(oldestAllowedQuery)) {
-                    removeQuery(queryExecution.getQueryId());
+                    removeQuery(queryExecution.getQueryInfo().getQueryId());
                 }
             }
             catch (Exception e) {
-                log.warn(e, "Error while inspecting age of query %s", queryExecution.getQueryId());
+                log.warn(e, "Error while inspecting age of query %s", queryExecution.getQueryInfo().getQueryId());
             }
         }
     }
@@ -303,7 +253,7 @@ public class SqlQueryManager
                 }
             }
             catch (Exception e) {
-                log.warn(e, "Error while inspecting age of query %s", queryExecution.getQueryId());
+                log.warn(e, "Error while inspecting age of query %s", queryExecution.getQueryInfo().getQueryId());
             }
         }
     }

@@ -3,10 +3,11 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.tree.Statement;
+
 public interface QueryExecution
 {
-    String getQueryId();
-
     QueryInfo getQueryInfo();
 
     void start();
@@ -18,4 +19,9 @@ public interface QueryExecution
     void fail(Throwable cause);
 
     void cancelStage(String stageId);
+
+    public interface QueryExecutionFactory<T extends QueryExecution>
+    {
+        public abstract T createQueryExecution(String queryId, String query, Session session, Statement statement);
+    }
 }
