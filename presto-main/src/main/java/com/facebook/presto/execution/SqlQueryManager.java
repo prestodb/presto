@@ -69,7 +69,7 @@ public class SqlQueryManager
         this.maxQueryAge = config.getMaxQueryAge();
         this.clientTimeout = config.getClientTimeout();
 
-        queryManagementExecutor = Executors.newScheduledThreadPool(100, threadsNamed("query-management-%d"));
+        queryManagementExecutor = Executors.newScheduledThreadPool(config.getQueryManagerExecutorPoolSize(), threadsNamed("query-management-%d"));
 
         queryManagementExecutor.scheduleAtFixedRate(new Runnable()
         {

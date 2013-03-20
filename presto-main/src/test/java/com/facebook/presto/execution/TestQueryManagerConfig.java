@@ -25,6 +25,7 @@ public class TestQueryManagerConfig
                 .setExchangeMaxBufferedPages(100)
                 .setExchangeExpectedPagesPerRequest(10)
                 .setExchangeConcurrentRequestMultiplier(3)
+                .setQueryManagerExecutorPoolSize(100)
                 .setSinkMaxBufferedPages(null));
     }
 
@@ -38,6 +39,7 @@ public class TestQueryManagerConfig
                 .put("query.client.timeout", "10s")
                 .put("query.max-age", "30s")
                 .put("query.max-pending-splits-per-node", "33")
+                .put("query.manager-executor-pool-size", "11")
                 .put("sink.page-buffer-max", "999")
                 .put("exchange.page-buffer-max", "11")
                 .put("exchange.expected-pages-per-request", "12")
@@ -54,6 +56,7 @@ public class TestQueryManagerConfig
                 .setExchangeMaxBufferedPages(11)
                 .setExchangeExpectedPagesPerRequest(12)
                 .setExchangeConcurrentRequestMultiplier(13)
+                .setQueryManagerExecutorPoolSize(11)
                 .setSinkMaxBufferedPages(999);
 
         ConfigAssertions.assertFullMapping(properties, expected);

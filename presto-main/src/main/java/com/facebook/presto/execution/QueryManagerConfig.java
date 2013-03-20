@@ -8,6 +8,7 @@ import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
+
 import java.util.concurrent.TimeUnit;
 
 public class QueryManagerConfig
@@ -23,6 +24,8 @@ public class QueryManagerConfig
     private int exchangeMaxBufferedPages = 100;
     private int exchangeExpectedPagesPerRequest = 10;
     private int exchangeConcurrentRequestMultiplier = 3;
+
+    private int queryManagerExecutorPoolSize = 100;
 
     public boolean isCoordinator()
     {
@@ -150,6 +153,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setExchangeConcurrentRequestMultiplier(int exchangeConcurrentRequestMultiplier)
     {
         this.exchangeConcurrentRequestMultiplier = exchangeConcurrentRequestMultiplier;
+        return this;
+    }
+
+    @Min(1)
+    public int getQueryManagerExecutorPoolSize()
+    {
+        return queryManagerExecutorPoolSize;
+    }
+
+    @Config("query.manager-executor-pool-size")
+    public QueryManagerConfig setQueryManagerExecutorPoolSize(int queryManagerExecutorPoolSize)
+    {
+        this.queryManagerExecutorPoolSize = queryManagerExecutorPoolSize;
         return this;
     }
 }

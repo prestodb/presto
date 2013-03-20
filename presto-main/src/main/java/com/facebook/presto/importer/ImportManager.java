@@ -61,12 +61,13 @@ public class ImportManager
 {
     private static final Logger log = Logger.get(ImportManager.class);
 
-    private final ExecutorService partitionExecutor = newFixedThreadPool(50, threadsNamed("import-partition-%s"));
-    private final ShardBoundedExecutor<PartitionMarker> partitionBoundedExecutor = new ShardBoundedExecutor<>(partitionExecutor);
-    private final ScheduledExecutorService chunkExecutor = newScheduledThreadPool(50, threadsNamed("import-chunk-%s"));
-    private final ShardBoundedExecutor<Long> chunkBoundedExecutor = new ShardBoundedExecutor<>(chunkExecutor);
-    private final ScheduledExecutorService shardExecutor = newScheduledThreadPool(50, threadsNamed("import-shard-%s"));
     private final PartitionOperationTracker partitionOperationTracker = new PartitionOperationTracker();
+
+    private final ExecutorService partitionExecutor;
+    private final ShardBoundedExecutor<PartitionMarker> partitionBoundedExecutor;
+    private final ScheduledExecutorService chunkExecutor;
+    private final ShardBoundedExecutor<Long> chunkBoundedExecutor;
+    private final ScheduledExecutorService shardExecutor;
 
     private final ImportClientManager importClientManager;
     private final ShardManager shardManager;
@@ -77,6 +78,7 @@ public class ImportManager
 
     @Inject
     public ImportManager(
+            ImportManagerConfig importManagerConfig,
             ImportClientManager importClientManager,
             ShardManager shardManager,
             NodeWorkerQueue nodeWorkerQueue,
@@ -84,12 +86,20 @@ public class ImportManager
             JsonCodec<ShardImport> shardImportCodec,
             NodeManager nodeManager)
     {
+        checkNotNull(importManagerConfig, "importManagerConfig is null");
+
         this.importClientManager = checkNotNull(importClientManager, "importClientFactory is null");
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
         this.nodeWorkerQueue = checkNotNull(nodeWorkerQueue, "nodeWorkerQueue is null");
         this.httpClient = checkNotNull(httpClient, "httpClient is null");
         this.shardImportCodec = checkNotNull(shardImportCodec, "shardImportCodec");
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
+
+        this.partitionExecutor = newFixedThreadPool(importManagerConfig.getMaxPartitionThreads(), threadsNamed("import-partition-%s"));
+        this.partitionBoundedExecutor = new ShardBoundedExecutor<>(partitionExecutor);
+        this.chunkExecutor = newScheduledThreadPool(importManagerConfig.getMaxChunkThreads(), threadsNamed("import-chunk-%s"));
+        this.chunkBoundedExecutor = new ShardBoundedExecutor<>(chunkExecutor);
+        this.shardExecutor = newScheduledThreadPool(importManagerConfig.getMaxShardThreads(), threadsNamed("import-shard-%s"));
     }
 
     public synchronized ListenableFuture<?> importTable(long tableId, final String sourceName, final String databaseName, final String tableName, List<ImportField> fields)
