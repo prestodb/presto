@@ -18,9 +18,27 @@ import java.util.Set;
 @Immutable
 public class TaskInfo
 {
+    /**
+     * The first valid version that will be returned for a remote task.
+     */
+    public static final long STARTING_VERSION = 1;
+
+    /**
+     * A value lower than {@link #STARTING_VERSION}. This value can be used to
+     * create an initial local task that is always older than any remote task.
+     */
+    public static final long MIN_VERSION = 0;
+
+    /**
+     * A value larger than any valid value. This value can be used to create
+     * a final local task that is always newer than any remote task.
+     */
+    public static final long MAX_VERSION = Long.MAX_VALUE;
+
     private final String queryId;
     private final String stageId;
     private final String taskId;
+    private final long version;
     private final TaskState state;
     private final URI self;
     private final SharedBufferInfo outputBuffers;
@@ -32,6 +50,7 @@ public class TaskInfo
     public TaskInfo(@JsonProperty("queryId") String queryId,
             @JsonProperty("stageId") String stageId,
             @JsonProperty("taskId") String taskId,
+            @JsonProperty("version") long version,
             @JsonProperty("state") TaskState state,
             @JsonProperty("self") URI self,
             @JsonProperty("outputBuffers") SharedBufferInfo outputBuffers,
@@ -52,6 +71,7 @@ public class TaskInfo
         this.queryId = queryId;
         this.stageId = stageId;
         this.taskId = taskId;
+        this.version = version;
         this.state = state;
         this.self = self;
         this.outputBuffers = outputBuffers;
@@ -76,6 +96,12 @@ public class TaskInfo
     public String getTaskId()
     {
         return taskId;
+    }
+
+    @JsonProperty
+    public long getVersion()
+    {
+        return version;
     }
 
     @JsonProperty

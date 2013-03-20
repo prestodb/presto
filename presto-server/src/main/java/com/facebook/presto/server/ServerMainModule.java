@@ -129,7 +129,7 @@ public class ServerMainModule
         binder.bind(RemoteTaskFactory.class).to(HttpRemoteTaskFactory.class).in(Scopes.SINGLETON);
 
         HttpClientBinder.httpClientBinder(binder).bindAsyncHttpClient("exchange", ForExchange.class).withTracing();
-        HttpClientBinder.httpClientBinder(binder).bindHttpClient("scheduler", ForScheduler.class).withTracing();
+        HttpClientBinder.httpClientBinder(binder).bindAsyncHttpClient("scheduler", ForScheduler.class).withTracing();
 
         bindConfig(binder).to(StorageManagerConfig.class);
         binder.bind(StorageManager.class).to(DatabaseStorageManager.class).in(Scopes.SINGLETON);
