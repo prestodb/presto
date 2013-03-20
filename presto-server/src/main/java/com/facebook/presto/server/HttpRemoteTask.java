@@ -34,6 +34,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
+import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.JsonBodyGenerator;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
@@ -43,7 +44,6 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response.Status;
 
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
@@ -147,7 +147,7 @@ public class HttpRemoteTask
         taskInfo.set(new TaskInfo(queryId,
                 stageId,
                 taskId,
-                0,
+                TaskInfo.MIN_VERSION,
                 TaskState.PLANNED,
                 location,
                 new SharedBufferInfo(QueueState.OPEN, bufferStates),
@@ -439,12 +439,12 @@ public class HttpRemoteTask
             @Override
             public void onSuccess(JsonResponse<TaskInfo> response)
             {
-                if (response.getStatusCode() == Status.GONE.getStatusCode()) {
+                if (response.getStatusCode() == HttpStatus.GONE.code()) {
                     // query has failed, been deleted, or something, and is no longer being tracked by the server
                     updateTaskInfo(new TaskInfo(taskInfo.getQueryId(),
                             taskInfo.getStageId(),
                             taskInfo.getTaskId(),
-                            Long.MAX_VALUE,
+                            TaskInfo.MAX_VERSION,
                             TaskState.CANCELED,
                             taskInfo.getSelf(),
                             taskInfo.getOutputBuffers(),
@@ -453,8 +453,9 @@ public class HttpRemoteTask
                             ImmutableList.<FailureInfo>of()));
                 }
                 else {
-                    checkState(response.getStatusCode() == Status.OK.getStatusCode(),
-                            "Expected response code to be 201, but was %s: %s",
+                    checkState(response.getStatusCode() == HttpStatus.OK.code(),
+                            "Expected response code to be %s, but was %s: %s",
+                            HttpStatus.OK.code(),
                             response.getStatusCode(),
                             response.getStatusMessage());
                     updateTaskInfo(response.getValue());
@@ -464,12 +465,7 @@ public class HttpRemoteTask
             @Override
             public void onFailure(Throwable t)
             {
-                if (isSocketError(t)) {
-                    log.warn("Error updating task %s: %s", taskInfo.getTaskId(), t.getMessage());
-                }
-                else {
-                    log.warn(t, "Error updating task %s", taskInfo.getTaskId());
-                }
+                logRequestFailure("Error updating", taskInfo, t);
             }
         });
     }
@@ -481,7 +477,7 @@ public class HttpRemoteTask
         final TaskInfo canceledTask = new TaskInfo(taskInfo.getQueryId(),
                 taskInfo.getStageId(),
                 taskInfo.getTaskId(),
-                Long.MAX_VALUE,
+                TaskInfo.MAX_VERSION,
                 TaskState.CANCELED,
                 taskInfo.getSelf(),
                 taskInfo.getOutputBuffers(),
@@ -511,12 +507,7 @@ public class HttpRemoteTask
             @Override
             public void onFailure(Throwable t)
             {
-                if (isSocketError(t)) {
-                    log.warn("Failed to cancel task %s: %s", taskInfo.getTaskId(), t.getMessage());
-                }
-                else {
-                    log.warn(t, "Failed to cancel task %s", taskInfo.getTaskId());
-                }
+                logRequestFailure("Failed to cancel", taskInfo, t);
                 updateTaskInfo(canceledTask);
             }
         });
@@ -534,6 +525,16 @@ public class HttpRemoteTask
         return Objects.toStringHelper(this)
                 .addValue(taskInfo.get())
                 .toString();
+    }
+
+    private static void logRequestFailure(String message, TaskInfo taskInfo, Throwable t)
+    {
+        if (isSocketError(t)) {
+            log.warn("%s task %s: %s: %s", message, taskInfo.getTaskId(), t.getMessage(), taskInfo.getSelf());
+        }
+        else {
+            log.warn(t, "%s task %s: %s", message, taskInfo.getTaskId(), taskInfo.getSelf());
+        }
     }
 
     private static boolean isSocketError(Throwable t)

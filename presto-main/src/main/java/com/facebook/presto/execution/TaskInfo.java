@@ -18,6 +18,23 @@ import java.util.Set;
 @Immutable
 public class TaskInfo
 {
+    /**
+     * The first valid version that will be returned for a remote task.
+     */
+    public static final long STARTING_VERSION = 1;
+
+    /**
+     * A value lower than {@link #STARTING_VERSION}. This value can be used to
+     * create an initial local task that is always older than any remote task.
+     */
+    public static final long MIN_VERSION = 0;
+
+    /**
+     * A value larger than any valid value. This value can be used to create
+     * a final local task that is always newer than any remote task.
+     */
+    public static final long MAX_VERSION = Long.MAX_VALUE;
+
     private final String queryId;
     private final String stageId;
     private final String taskId;
@@ -44,7 +61,6 @@ public class TaskInfo
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
-        Preconditions.checkNotNull(version, "version is null");
         Preconditions.checkNotNull(state, "state is null");
         Preconditions.checkNotNull(self, "self is null");
         Preconditions.checkNotNull(outputBuffers, "outputBufferStates is null");

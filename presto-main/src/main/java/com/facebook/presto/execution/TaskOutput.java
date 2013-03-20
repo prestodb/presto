@@ -35,7 +35,7 @@ public class TaskOutput
 
     private final ExecutionStats stats = new ExecutionStats();
     private final AtomicReference<TaskState> taskState = new AtomicReference<>(TaskState.RUNNING);
-    private final AtomicLong taskInfoVersion = new AtomicLong();
+    private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskInfo.STARTING_VERSION);
 
     private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
 
@@ -181,15 +181,18 @@ public class TaskOutput
     public TaskInfo getTaskInfo()
     {
         updateFinishedState();
-        return new TaskInfo(queryId,
-                stageId,
-                taskId,
-                taskInfoVersion.incrementAndGet(),
-                getState(),
-                location,
-                sharedBuffer.getInfo(),
-                getNoMoreSplits(),
-                stats,
-                toFailures(failureCauses));
+        SharedBufferInfo sharedBufferInfo = sharedBuffer.getInfo();
+        synchronized (this) {
+            return new TaskInfo(queryId,
+                    stageId,
+                    taskId,
+                    nextTaskInfoVersion.getAndIncrement(),
+                    getState(),
+                    location,
+                    sharedBufferInfo,
+                    getNoMoreSplits(),
+                    stats,
+                    toFailures(failureCauses));
+        }
     }
 }
