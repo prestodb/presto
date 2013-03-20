@@ -16,9 +16,9 @@ import com.google.inject.Module;
 import com.google.inject.Stage;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
-import io.airlift.http.client.HttpRequestFilter;
-import io.airlift.http.client.NettyAsyncHttpClientConfig;
-import io.airlift.http.client.netty.NettyAsyncHttpClient;
+import io.airlift.http.client.netty.NettyAsyncHttpClientConfig;
+import io.airlift.http.client.netty.NettyIoPoolConfig;
+import io.airlift.http.client.netty.StandaloneNettyAsyncHttpClient;
 import io.airlift.json.JsonBinder;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
@@ -26,6 +26,7 @@ import io.airlift.json.JsonModule;
 import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
+
 import java.io.Closeable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -44,12 +45,13 @@ public class QueryExecutor
     {
         checkNotNull(userAgent, "userAgent is null");
         this.queryInfoCodec = checkNotNull(queryInfoCodec, "queryInfoCodec is null");
-        this.httpClient = new NettyAsyncHttpClient("jdbc",
+        this.httpClient = new StandaloneNettyAsyncHttpClient("jdbc",
                 new HttpClientConfig()
                         .setConnectTimeout(new Duration(1, TimeUnit.DAYS))
                         .setReadTimeout(new Duration(10, TimeUnit.DAYS)),
                 new NettyAsyncHttpClientConfig(),
-                ImmutableSet.<HttpRequestFilter>of(new UserAgentRequestFilter(userAgent)));
+                new NettyIoPoolConfig(),
+                ImmutableSet.of(new UserAgentRequestFilter(userAgent)));
     }
 
     public HttpQueryClient startQuery(ClientSession session, String query)

@@ -62,7 +62,7 @@ import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.event.client.InMemoryEventModule;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.HttpClientConfig;
-import io.airlift.http.client.netty.NettyAsyncHttpClient;
+import io.airlift.http.client.netty.StandaloneNettyAsyncHttpClient;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
@@ -81,6 +81,7 @@ import org.weakref.jmx.guice.MBeanModule;
 import org.weakref.jmx.testing.TestingMBeanServer;
 
 import javax.management.MBeanServer;
+
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -201,9 +202,10 @@ public class TestDistributedQueries
             throw e;
         }
 
-        this.httpClient = new NettyAsyncHttpClient(new HttpClientConfig()
-                .setConnectTimeout(new Duration(1, TimeUnit.DAYS))
-                .setReadTimeout(new Duration(10, TimeUnit.DAYS)));
+        this.httpClient = new StandaloneNettyAsyncHttpClient("test",
+                new HttpClientConfig()
+                        .setConnectTimeout(new Duration(1, TimeUnit.DAYS))
+                        .setReadTimeout(new Duration(10, TimeUnit.DAYS)));
 
         for (PrestoTestingServer server : servers) {
             server.refreshServiceSelectors();
@@ -211,7 +213,6 @@ public class TestDistributedQueries
 
         loadedTableNames = distributeData();
     }
-
 
     @Override
     protected void tearDownQueryFramework()
