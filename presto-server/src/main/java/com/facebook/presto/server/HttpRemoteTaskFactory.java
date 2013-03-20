@@ -18,7 +18,6 @@ import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
-
 import java.net.URI;
 import java.util.Set;
 
@@ -28,21 +27,18 @@ public class HttpRemoteTaskFactory
     private final AsyncHttpClient httpClient;
     private final LocationFactory locationFactory;
     private final JsonCodec<TaskInfo> taskInfoCodec;
-    private final JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec;
-    private final JsonCodec<Split> splitCodec;
+    private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
 
     @Inject
     public HttpRemoteTaskFactory(@ForScheduler AsyncHttpClient httpClient,
             LocationFactory locationFactory,
             JsonCodec<TaskInfo> taskInfoCodec,
-            JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec,
-            JsonCodec<Split> splitCodec)
+            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec)
     {
         this.httpClient = httpClient;
         this.locationFactory = locationFactory;
         this.taskInfoCodec = taskInfoCodec;
-        this.queryFragmentRequestCodec = queryFragmentRequestCodec;
-        this.splitCodec = splitCodec;
+        this.taskUpdateRequestCodec = taskUpdateRequestCodec;
     }
 
     @Override
@@ -52,6 +48,7 @@ public class HttpRemoteTaskFactory
             String taskId,
             Node node,
             PlanFragment fragment,
+            Split initialSplit,
             Multimap<PlanNodeId, URI> initialExchangeLocations,
             Set<String> initialOutputIds)
     {
@@ -62,11 +59,12 @@ public class HttpRemoteTaskFactory
                 node,
                 locationFactory.createTaskLocation(node, taskId),
                 fragment,
+                initialSplit,
                 initialExchangeLocations,
                 initialOutputIds,
                 httpClient,
                 taskInfoCodec,
-                queryFragmentRequestCodec,
-                splitCodec);
+                taskUpdateRequestCodec
+        );
     }
 }

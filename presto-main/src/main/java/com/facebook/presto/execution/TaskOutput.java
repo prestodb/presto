@@ -42,13 +42,12 @@ public class TaskOutput
     @GuardedBy("this")
     private final Set<PlanNodeId> noMoreSplits = new HashSet<>();
 
-    public TaskOutput(String queryId, String stageId, String taskId, URI location, List<String> initialOutputIds, int pageBufferMax)
+    public TaskOutput(String queryId, String stageId, String taskId, URI location, int pageBufferMax)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(location, "location is null");
-        Preconditions.checkNotNull(initialOutputIds, "initialOutputIds is null");
         Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
 
         this.queryId = queryId;
@@ -56,9 +55,6 @@ public class TaskOutput
         this.taskId = taskId;
         this.location = location;
         sharedBuffer = new SharedBuffer<>(pageBufferMax);
-        for (String outputId : initialOutputIds) {
-            sharedBuffer.addQueue(outputId);
-        }
     }
 
     public String getTaskId()
@@ -98,9 +94,9 @@ public class TaskOutput
         sharedBuffer.noMoreQueues();
     }
 
-    public synchronized void noMoreSplits(PlanNodeId sourceId)
+    public synchronized boolean noMoreSplits(PlanNodeId sourceId)
     {
-        this.noMoreSplits.add(sourceId);
+        return this.noMoreSplits.add(sourceId);
     }
 
     public synchronized Set<PlanNodeId> getNoMoreSplits()

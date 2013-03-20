@@ -8,8 +8,6 @@ import com.facebook.presto.execution.NoSuchBufferException;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.split.Split;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Throwables;
 import com.google.common.reflect.TypeToken;
 import io.airlift.units.Duration;
@@ -19,7 +17,6 @@ import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
-import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
@@ -29,12 +26,10 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
-import java.net.URI;
 import java.util.List;
 import java.util.NoSuchElementException;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
@@ -61,25 +56,24 @@ public class TaskResource
         return taskManager.getAllTaskInfo();
     }
 
-    @PUT
+    @POST
     @Path("{taskId}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response create(@PathParam("taskId") String taskId, QueryFragmentRequest queryFragmentRequest, @Context UriInfo uriInfo)
+    public Response updateTask(@PathParam("taskId") String taskId, TaskUpdateRequest taskUpdateRequest, @Context UriInfo uriInfo)
     {
         try {
-            checkNotNull(queryFragmentRequest, "queryFragmentRequest is null");
+            checkNotNull(taskUpdateRequest, "taskUpdateRequest is null");
 
-            TaskInfo taskInfo = taskManager.createTask(queryFragmentRequest.getSession(),
-                    queryFragmentRequest.getQueryId(),
-                    queryFragmentRequest.getStageId(),
+            TaskInfo taskInfo = taskManager.updateTask(taskUpdateRequest.getSession(),
+                    taskUpdateRequest.getQueryId(),
+                    taskUpdateRequest.getStageId(),
                     taskId,
-                    queryFragmentRequest.getFragment(),
-                    queryFragmentRequest.getInitialSources(),
-                    queryFragmentRequest.getInitialOutputIds());
+                    taskUpdateRequest.getFragment(),
+                    taskUpdateRequest.getSources(),
+                    taskUpdateRequest.getOutputIds());
 
-            URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(taskInfo.getTaskId()).build();
-            return Response.created(pagesUri).entity(taskInfo).build();
+            return Response.ok().entity(taskInfo).build();
         }
         catch (Exception e) {
             throw Throwables.propagate(e);
@@ -120,23 +114,6 @@ public class TaskResource
         return Response.status(Status.NOT_FOUND).build();
     }
 
-    @PUT
-    @Path("{taskId}/results/{outputId}")
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response addResultQueue(@PathParam("taskId") String taskId, @PathParam("outputId") String outputId)
-    {
-        checkNotNull(taskId, "taskId is null");
-        checkNotNull(outputId, "outputId is null");
-
-        try {
-            TaskInfo taskInfo = taskManager.addResultQueue(taskId, outputId);
-            return Response.ok(taskInfo).build();
-        }
-        catch (NoSuchElementException e) {
-            return Response.status(Status.NOT_FOUND).build();
-        }
-    }
-
     @GET
     @Path("{taskId}/results/{outputId}")
     @Produces(PrestoMediaTypes.PRESTO_PAGES)
@@ -146,11 +123,13 @@ public class TaskResource
         checkNotNull(taskId, "taskId is null");
         checkNotNull(outputId, "outputId is null");
 
+        // todo we need a much better way to determine if a task is unknown (e.g. not scheduled yet), done, or there is current no more data
         try {
             List<Page> pages = taskManager.getTaskResults(taskId, outputId, DEFAULT_MAX_PAGE_COUNT, DEFAULT_MAX_WAIT_TIME);
             if (pages.isEmpty()) {
                 // this is a safe race condition, because is done will only be true if the task is failed or if all results have been consumed
-                if (taskManager.getTaskInfo(taskId).getState().isDone()) {
+                // todo also return "GONE" if the specific buffer is finished
+                if (isDone(taskId)) {
                     return Response.status(Status.GONE).build();
                 }
                 else {
@@ -164,27 +143,22 @@ public class TaskResource
             return Response.status(Status.NO_CONTENT).build();
         }
         catch (NoSuchElementException e) {
-            return Response.status(Status.GONE).build();
+            if (isDone(taskId)) {
+                return Response.status(Status.GONE).build();
+            }
+            else {
+                return Response.status(Status.NO_CONTENT).build();
+            }
         }
     }
 
-    @PUT
-    @Path("{taskId}/results/complete")
-    @Consumes(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response noMoreResultQueues(@PathParam("taskId") String taskId, boolean isComplete)
+    private boolean isDone(String taskId)
     {
         try {
-            TaskInfo taskInfo;
-            if (isComplete) {
-                taskInfo = taskManager.noMoreResultQueues(taskId);
-            } else {
-                taskInfo = taskManager.getTaskInfo(taskId);
-            }
-            return Response.ok(taskInfo).build();
+            return taskManager.getTaskInfo(taskId).getState().isDone();
         }
         catch (NoSuchElementException e) {
-            return Response.status(Status.NOT_FOUND).build();
+            return false;
         }
     }
 
@@ -198,42 +172,6 @@ public class TaskResource
 
         try {
             TaskInfo taskInfo = taskManager.abortTaskResults(taskId, outputId);
-            return Response.ok(taskInfo).build();
-        }
-        catch (NoSuchElementException e) {
-            return Response.status(Status.NOT_FOUND).build();
-        }
-    }
-
-    @POST
-    @Path("{taskId}/source/{sourceId}")
-    @Consumes(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response addSplit(@PathParam("taskId") String taskId, @PathParam("sourceId") String sourceId, Split split)
-    {
-        checkNotNull(split, "split is null");
-        try {
-            TaskInfo taskInfo = taskManager.addSplit(taskId, new PlanNodeId(sourceId), split);
-            return Response.ok(taskInfo).build();
-        }
-        catch (NoSuchElementException e) {
-            return Response.status(Status.NOT_FOUND).build();
-        }
-    }
-
-    @PUT
-    @Path("{taskId}/source/{sourceId}/complete")
-    @Consumes(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response noMoreSplits(@PathParam("taskId") String taskId, @PathParam("sourceId") String sourceId, boolean isComplete)
-    {
-        try {
-            TaskInfo taskInfo;
-            if (isComplete) {
-                taskInfo = taskManager.noMoreSplits(taskId, new PlanNodeId(sourceId));
-            } else {
-                taskInfo = taskManager.getTaskInfo(taskId);
-            }
             return Response.ok(taskInfo).build();
         }
         catch (NoSuchElementException e) {

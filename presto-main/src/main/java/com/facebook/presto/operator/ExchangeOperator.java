@@ -185,11 +185,13 @@ public class ExchangeOperator
         private void scheduleRequestIfNecessary()
         {
             // add clients for new locations
-            for (URI location : locations) {
-                if (!allClients.containsKey(location)) {
-                    HttpPageBufferClient client = new HttpPageBufferClient(httpClient, location, new ExchangeClientCallback());
-                    allClients.put(location, client);
-                    queuedClients.add(client);
+            synchronized (this) {
+                for (URI location : locations) {
+                    if (!allClients.containsKey(location)) {
+                        HttpPageBufferClient client = new HttpPageBufferClient(httpClient, location, new ExchangeClientCallback());
+                        allClients.put(location, client);
+                        queuedClients.add(client);
+                    }
                 }
             }
 

@@ -3,6 +3,9 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.ScheduledSplit;
+import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.BufferInfo;
 import com.facebook.presto.execution.ExecutionStats;
 import com.facebook.presto.execution.FailureInfo;
@@ -24,51 +27,44 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Sets;
+import com.google.common.net.HttpHeaders;
+import com.google.common.net.MediaType;
+import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.RateLimiter;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpStatus;
-import io.airlift.http.client.JsonBodyGenerator;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
-import javax.ws.rs.core.HttpHeaders;
-import javax.ws.rs.core.MediaType;
-
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.util.FutureUtils.chainedCallback;
-import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
-import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
-import static io.airlift.http.client.Request.Builder.preparePut;
-import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
-import static io.airlift.json.JsonCodec.jsonCodec;
 
 public class HttpRemoteTask
         implements RemoteTask
@@ -77,9 +73,18 @@ public class HttpRemoteTask
 
     private final Session session;
     private final String nodeId;
-    private final AtomicReference<TaskInfo> taskInfo = new AtomicReference<>();
     private final PlanFragment planFragment;
 
+    private final AtomicLong nextSplitId = new AtomicLong();
+
+    @GuardedBy("this")
+    private TaskInfo taskInfo;
+    @GuardedBy("this")
+    private boolean canceled;
+    @GuardedBy("this")
+    private CurrentRequest currentRequest;
+    @GuardedBy("this")
+    private final SetMultimap<PlanNodeId, ScheduledSplit> pendingSplits = HashMultimap.create();
     @GuardedBy("this")
     private boolean noMoreSplits;
     @GuardedBy("this")
@@ -93,9 +98,10 @@ public class HttpRemoteTask
 
     private final AsyncHttpClient httpClient;
     private final JsonCodec<TaskInfo> taskInfoCodec;
-    private final JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec;
-    private final JsonCodec<Split> splitCodec;
+    private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
     private final List<TupleInfo> tupleInfos;
+
+    private final RateLimiter requestRateLimiter = RateLimiter.create(100, 0, TimeUnit.MILLISECONDS);
 
     public HttpRemoteTask(Session session,
             String queryId,
@@ -104,12 +110,12 @@ public class HttpRemoteTask
             Node node,
             URI location,
             PlanFragment planFragment,
+            Split initialSplit,
             Multimap<PlanNodeId, URI> initialExchangeLocations,
             Set<String> initialOutputIds,
             AsyncHttpClient httpClient,
             JsonCodec<TaskInfo> taskInfoCodec,
-            JsonCodec<QueryFragmentRequest> queryFragmentRequestCodec,
-            JsonCodec<Split> splitCodec)
+            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec)
     {
         Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkNotNull(queryId, "queryId is null");
@@ -117,23 +123,26 @@ public class HttpRemoteTask
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(location, "location is null");
         Preconditions.checkNotNull(planFragment, "planFragment1 is null");
-        Preconditions.checkNotNull(initialExchangeLocations, "initialExchangeLocations is null");
         Preconditions.checkNotNull(initialOutputIds, "initialOutputIds is null");
         Preconditions.checkNotNull(httpClient, "httpClient is null");
         Preconditions.checkNotNull(taskInfoCodec, "taskInfoCodec is null");
-        Preconditions.checkNotNull(queryFragmentRequestCodec, "queryFragmentRequestCodec is null");
-        Preconditions.checkNotNull(splitCodec, "splitCodec is null");
+        Preconditions.checkNotNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
 
         this.session = session;
         this.nodeId = node.getNodeIdentifier();
         this.planFragment = planFragment;
-        this.exchangeLocations.putAll(initialExchangeLocations);
         this.outputIds.addAll(initialOutputIds);
         this.httpClient = httpClient;
         this.taskInfoCodec = taskInfoCodec;
-        this.queryFragmentRequestCodec = queryFragmentRequestCodec;
-        this.splitCodec = splitCodec;
+        this.taskUpdateRequestCodec = taskUpdateRequestCodec;
         tupleInfos = planFragment.getTupleInfos();
+
+
+        for (Entry<PlanNodeId, URI> entry : initialExchangeLocations.entries()) {
+            ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), createRemoteSplitFor(entry.getValue()));
+            pendingSplits.put(entry.getKey(), scheduledSplit);
+        }
+        this.exchangeLocations.putAll(initialExchangeLocations);
 
         List<BufferInfo> bufferStates = ImmutableList.copyOf(transform(initialOutputIds, new Function<String, BufferInfo>()
         {
@@ -144,7 +153,12 @@ public class HttpRemoteTask
             }
         }));
 
-        taskInfo.set(new TaskInfo(queryId,
+        if (initialSplit != null) {
+            Preconditions.checkState(planFragment.isPartitioned(), "Plan is not partitioned");
+            pendingSplits.put(planFragment.getPartitionedSource(), new ScheduledSplit(nextSplitId.getAndIncrement(), initialSplit));
+        }
+
+        taskInfo = new TaskInfo(queryId,
                 stageId,
                 taskId,
                 TaskInfo.MIN_VERSION,
@@ -153,28 +167,35 @@ public class HttpRemoteTask
                 new SharedBufferInfo(QueueState.OPEN, 0, bufferStates),
                 ImmutableSet.<PlanNodeId>of(),
                 new ExecutionStats(),
-                ImmutableList.<FailureInfo>of()));
+                ImmutableList.<FailureInfo>of());
     }
 
     @Override
-    public String getTaskId()
+    public synchronized String getTaskId()
     {
-        return taskInfo.get().getTaskId();
+        return taskInfo.getTaskId();
     }
 
     @Override
-    public TaskInfo getTaskInfo()
+    public synchronized TaskInfo getTaskInfo()
     {
-        return taskInfo.get();
+        return taskInfo;
     }
 
     @Override
     public void addSplit(Split split)
     {
         synchronized (this) {
+            Preconditions.checkNotNull(split, "split is null");
             Preconditions.checkState(!noMoreSplits, "noMoreSplits has already been set");
+            Preconditions.checkState(planFragment.isPartitioned(), "Plan is not partitioned");
+
+            // only add pending split if not canceled
+            if (!canceled) {
+                pendingSplits.put(planFragment.getPartitionedSource(), new ScheduledSplit(nextSplitId.getAndIncrement(), split));
+            }
         }
-        addSource(planFragment.getPartitionedSource(), split);
+        updateState(false);
     }
 
     @Override
@@ -184,263 +205,269 @@ public class HttpRemoteTask
             Preconditions.checkState(!noMoreSplits, "noMoreSplits has already been set");
             noMoreSplits = true;
         }
-        if (planFragment.getPartitionedSource() != null) {
-            noMoreSources(planFragment.getPartitionedSource());
-        }
+        updateState(false);
     }
 
     @Override
     public void addExchangeLocations(Multimap<PlanNodeId, URI> additionalLocations, boolean noMore)
     {
         // determine which locations are new
-        SetMultimap<PlanNodeId, URI> newExchangeLocations;
         synchronized (this) {
             Preconditions.checkState(!noMoreExchangeLocations || exchangeLocations.entries().containsAll(additionalLocations.entries()),
                     "Locations can not be added after noMoreExchangeLocations has been set");
 
-            noMoreExchangeLocations = noMore;
-
-            newExchangeLocations = HashMultimap.create(additionalLocations);
+            SetMultimap<PlanNodeId, URI> newExchangeLocations = HashMultimap.create(additionalLocations);
             newExchangeLocations.entries().removeAll(exchangeLocations.entries());
+
+            // only add pending split if not canceled
+            if (!canceled) {
+                for (Entry<PlanNodeId, URI> entry : newExchangeLocations.entries()) {
+                    ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), createRemoteSplitFor(entry.getValue()));
+                    pendingSplits.put(entry.getKey(), scheduledSplit);
+                }
+            }
+            noMoreExchangeLocations = noMore;
 
             this.exchangeLocations.putAll(additionalLocations);
         }
-
-        // add the new locations
-        for (Entry<PlanNodeId, URI> entry : newExchangeLocations.entries()) {
-            addSource(entry.getKey(), createRemoteSplitFor(entry.getValue()));
-        }
-
-        // if this is the final set, set no more
-        if (noMore) {
-            // assume all unpartitioned sources are exchange sources
-            for (PlanNode planNode : planFragment.getSources()) {
-                PlanNodeId planNodeId = planNode.getId();
-                if (!planNodeId.equals(planFragment.getPartitionedSource())) {
-                    noMoreSources(planNodeId);
-                }
-            }
-        }
+        updateState(false);
     }
 
     @Override
     public void addOutputBuffers(Set<String> outputBuffers, boolean noMore)
     {
-        // determine which buffers are new
-        Set<String> newOutputBuffers;
         synchronized (this) {
             Preconditions.checkState(!noMoreOutputIds || outputBuffers.containsAll(outputBuffers), "Buffers can not be added after noMoreOutputIds has been set");
             noMoreOutputIds = noMore;
-
-            newOutputBuffers = ImmutableSet.copyOf(Sets.difference(outputBuffers, outputIds));
-
             this.outputIds.addAll(outputBuffers);
         }
+        updateState(false);
+    }
 
-        // add the new buffers
-        for (String newOutputBuffer : newOutputBuffers) {
-            addResultQueue(newOutputBuffer);
+    private synchronized void updateTaskInfo(TaskInfo newValue)
+    {
+        if (taskInfo.getState().isDone()) {
+            // never update if the task has reached a terminal state
+            return;
+        }
+        if (newValue.getVersion() < taskInfo.getVersion()) {
+            // don't update to an older version (same version is ok)
+            return;
         }
 
-        // if this is the final set, set no more
-        if (noMore) {
-            noMoreResultQueues();
+        taskInfo = newValue;
+        if (newValue.getState().isDone()) {
+            // splits can be huge so clear the list
+            pendingSplits.clear();
         }
     }
 
     @Override
-    public void start(@Nullable Split initialSplit)
+    public ListenableFuture<?> updateState(boolean forceRefresh)
     {
-        TaskInfo taskInfo = this.taskInfo.get();
-        QueryFragmentRequest queryFragmentRequest = new QueryFragmentRequest(session,
-                taskInfo.getQueryId(),
-                taskInfo.getStageId(),
-                planFragment,
-                initialSources(initialSplit),
-                ImmutableList.copyOf(transform(taskInfo.getOutputBuffers().getBuffers(), BufferInfo.bufferIdGetter())));
+        Request request;
+        CurrentRequest currentRequest;
+        synchronized (this) {
+            // don't update if the task hasn't been started yet or if it is already finished
+            if (taskInfo.getState().isDone()) {
+                return Futures.immediateFuture(null);
+            }
 
-        Request request = preparePut()
-                .setUri(taskInfo.getSelf())
-                .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
-                .setBodyGenerator(jsonBodyGenerator(queryFragmentRequestCodec, queryFragmentRequest))
-                .build();
+            if (!forceRefresh) {
+                if (this.currentRequest != null) {
+                    // if current request is old, cancel it so we can begin a new request
+                    this.currentRequest.cancelIfOlderThan(new Duration(2, TimeUnit.SECONDS));
 
-        JsonResponse<TaskInfo> response = httpClient.execute(request, createFullJsonResponseHandler(jsonCodec(TaskInfo.class)));
-        checkState(response.getStatusCode() == 201,
-                "Expected response code from %s to be 201, but was %s: %s",
-                request.getUri(),
-                response.getStatusCode(),
-                response.getStatusMessage());
-        String location = response.getHeader("Location");
-        checkState(location != null);
+                    if (!this.currentRequest.isDone()) {
+                        // request is still running, but when it finishes, it should update again
+                        this.currentRequest.updateAgain();
 
-        updateTaskInfo(response.getValue());
+                        // todo return existing pending request future?
+                        return Futures.immediateFuture(null);
+                    }
+
+                    this.currentRequest = null;
+                }
+
+                // don't update too fast
+                if (!requestRateLimiter.tryAcquire()) {
+                    // todo return existing pending request future?
+                    return Futures.immediateFuture(null);
+                }
+            }
+
+            List<TaskSource> sources = getSources();
+            currentRequest = new CurrentRequest(sources);
+            if (canceled) {
+                request = prepareDelete().setUri(taskInfo.getSelf()).build();
+            }
+            else {
+                TaskUpdateRequest updateRequest = new TaskUpdateRequest(session,
+                        taskInfo.getQueryId(),
+                        taskInfo.getStageId(),
+                        planFragment,
+                        sources,
+                        new OutputBuffers(outputIds, noMoreOutputIds));
+
+                request = preparePost()
+                        .setUri(uriBuilderFrom(taskInfo.getSelf()).build())
+                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
+                        .setBodyGenerator(jsonBodyGenerator(taskUpdateRequestCodec, updateRequest))
+                        .build();
+            }
+
+            this.currentRequest = currentRequest;
+        }
+
+        ListenableFuture<JsonResponse<TaskInfo>> future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));
+        currentRequest.setRequestFuture(future);
+        return currentRequest;
     }
 
-    private synchronized Map<PlanNodeId, Set<Split>> initialSources(@Nullable Split initialSplit)
+    private synchronized List<TaskSource> getSources()
     {
-        ImmutableMap.Builder<PlanNodeId, Set<Split>> sources = ImmutableMap.builder();
-        if (initialSplit != null) {
-            sources.put(planFragment.getPartitionedSource(), ImmutableSet.of(initialSplit));
-        }
-        for (Entry<PlanNodeId, Collection<URI>> entry : exchangeLocations.asMap().entrySet()) {
-            ImmutableSet.Builder<Split> splits = ImmutableSet.builder();
-            for (URI location : entry.getValue()) {
-                splits.add(createRemoteSplitFor(location));
+        ImmutableList.Builder<TaskSource> sources = ImmutableList.builder();
+        if (planFragment.isPartitioned()) {
+            Set<ScheduledSplit> splits = pendingSplits.get(planFragment.getPartitionedSource());
+            if (!splits.isEmpty() || noMoreSplits) {
+                sources.add(new TaskSource(planFragment.getPartitionedSource(), splits, noMoreSplits));
             }
-            sources.put(entry.getKey(), splits.build());
+        }
+        for (PlanNode planNode : planFragment.getSources()) {
+            PlanNodeId planNodeId = planNode.getId();
+            if (!planNodeId.equals(planFragment.getPartitionedSource())) {
+                Set<ScheduledSplit> splits = pendingSplits.get(planNodeId);
+                if (!splits.isEmpty() || noMoreExchangeLocations) {
+                    sources.add(new TaskSource(planNodeId, splits, noMoreExchangeLocations));
+                }
+            }
         }
         return sources.build();
     }
 
-    private void addResultQueue(String outputName)
+    private synchronized void acknowledgeSources(List<TaskSource> sources)
     {
-        // if task is already complete, ignore this call
-        TaskInfo taskInfo = this.taskInfo.get();
-        if (taskInfo.getState().isDone()) {
-            return;
-        }
-
-        // send http request
-        URI sourceUri = uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(outputName).build();
-        Request request = preparePut()
-                .setUri(sourceUri)
-                .build();
-        JsonResponse<TaskInfo> response = httpClient.execute(request, createFullJsonResponseHandler(taskInfoCodec));
-
-        updateTaskInfo(response);
-
-        // expect a 200 or 404
-        if (response.getStatusCode() != 200 && response.getStatusCode() != 404) {
-            throw new RuntimeException(String.format("Error adding result queue '%s' to task %s", outputName, taskInfo.getTaskId()));
-        }
-    }
-
-    private void noMoreResultQueues()
-    {
-        // if task is already complete, ignore this call
-        TaskInfo taskInfo = this.taskInfo.get();
-        if (taskInfo.getState().isDone()) {
-            return;
-        }
-
-        URI statusUri = uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath("complete").build();
-        Request request = preparePut()
-                .setUri(statusUri)
-                .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
-                .setBodyGenerator(createStaticBodyGenerator("true", UTF_8))
-                .build();
-        JsonResponse<TaskInfo> response = httpClient.execute(request, createFullJsonResponseHandler(taskInfoCodec));
-
-        updateTaskInfo(response);
-
-        // expect a 200 or 404
-        if (response.getStatusCode() != 200 && response.getStatusCode() != 404) {
-            throw new RuntimeException(String.format("Error setting no more results queues on task %s", taskInfo.getTaskId()));
-        }
-    }
-
-    private void addSource(PlanNodeId sourceId, Split split)
-    {
-        // if task is already complete, ignore this call
-        TaskInfo taskInfo = this.taskInfo.get();
-        if (taskInfo.getState().isDone()) {
-            return;
-        }
-
-        URI sourceUri = uriBuilderFrom(taskInfo.getSelf()).appendPath("source").appendPath(sourceId.toString()).build();
-        Request request = preparePost()
-                .setUri(sourceUri)
-                .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
-                .setBodyGenerator(JsonBodyGenerator.jsonBodyGenerator(splitCodec, split))
-                .build();
-        JsonResponse<TaskInfo> response = httpClient.execute(request, createFullJsonResponseHandler(taskInfoCodec));
-
-        updateTaskInfo(response);
-
-        // expect a 200 or 404
-        if (response.getStatusCode() != 200 && response.getStatusCode() != 404) {
-            throw new RuntimeException(String.format("Error adding split to source '%s' in task %s", sourceId, taskInfo.getTaskId()));
-        }
-    }
-
-    private void noMoreSources(PlanNodeId sourceId)
-    {
-        Preconditions.checkNotNull(sourceId, "sourceId is null");
-
-        // if task is already complete, ignore this call
-        TaskInfo taskInfo = this.taskInfo.get();
-        if (taskInfo.getState().isDone()) {
-            return;
-        }
-
-        // send http request
-        URI statusUri = uriBuilderFrom(taskInfo.getSelf()).appendPath("source").appendPath(sourceId.toString()).appendPath("complete").build();
-        Request request = preparePut()
-                .setUri(statusUri)
-                .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
-                .setBodyGenerator(createStaticBodyGenerator("true", UTF_8))
-                .build();
-        JsonResponse<TaskInfo> response = httpClient.execute(request, createFullJsonResponseHandler(taskInfoCodec));
-
-        updateTaskInfo(response);
-
-        // expect a 200 or 404
-        if (response.getStatusCode() != 200 && response.getStatusCode() != 404) {
-            throw new RuntimeException(String.format("Error closing source '%s' on task %s", sourceId, this.taskInfo.get().getTaskId()));
-        }
-    }
-
-    private void updateTaskInfo(JsonResponse<TaskInfo> response)
-    {
-        // update task info
-        if (response.hasValue()) {
-            try {
-                updateTaskInfo(response.getValue());
-            }
-            catch (Exception ignored) {
-                // if we got bad json, back just ignore it... updating the task info is an optional part of this task
-            }
-        }
-    }
-
-    private void updateTaskInfo(TaskInfo newValue)
-    {
-        while (true) {
-            TaskInfo currentValue = taskInfo.get();
-            if (currentValue.getState().isDone()) {
-                // never update if the task has reached a terminal state
-                return;
-            }
-            if (newValue.getVersion() < currentValue.getVersion()) {
-                // don't update to an older version (same version is ok)
-                return;
-            }
-            if (taskInfo.compareAndSet(currentValue, newValue)) {
-                return;
+        for (TaskSource source : sources) {
+            PlanNodeId planNodeId = source.getPlanNodeId();
+            for (ScheduledSplit split : source.getSplits()) {
+                pendingSplits.remove(planNodeId, split);
             }
         }
     }
 
     @Override
-    public ListenableFuture<?> updateState()
+    public void cancel()
     {
-        final TaskInfo taskInfo = this.taskInfo.get();
-        // don't update if the task hasn't been started yet or if it is already finished
-        if ((taskInfo.getState() == TaskState.PLANNED) || taskInfo.getState().isDone()) {
-            return Futures.immediateFuture(null);
-        }
-        URI statusUri = uriBuilderFrom(taskInfo.getSelf()).build();
+        synchronized (this) {
+            pendingSplits.clear();
 
-        Request request = prepareGet().setUri(statusUri).build();
-        ListenableFuture<JsonResponse<TaskInfo>> future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));
-        return chainedCallback(future, new FutureCallback<JsonResponse<TaskInfo>>()
+            if (!canceled && currentRequest != null) {
+                currentRequest.cancel(true);
+                canceled = true;
+            }
+        }
+        updateState(false);
+    }
+
+    private RemoteSplit createRemoteSplitFor(URI taskLocation)
+    {
+        URI splitLocation = uriBuilderFrom(taskLocation).appendPath("results").appendPath(nodeId).build();
+        return new RemoteSplit(splitLocation, tupleInfos);
+    }
+
+    @Override
+    public synchronized String toString()
+    {
+        return Objects.toStringHelper(this)
+                .addValue(taskInfo)
+                .toString();
+    }
+
+
+    private class CurrentRequest
+            extends AbstractFuture<Void>
+            implements FutureCallback<JsonResponse<TaskInfo>>
+    {
+        private final long startTime = System.nanoTime();
+
+        private final List<TaskSource> sources;
+
+        @GuardedBy("this")
+        private Future<?> requestFuture;
+
+        @GuardedBy("this")
+        private boolean anotherUpdateRequested;
+
+        private CurrentRequest(List<TaskSource> sources)
         {
-            @Override
-            public void onSuccess(JsonResponse<TaskInfo> response)
-            {
-                if (response.getStatusCode() == HttpStatus.GONE.code()) {
-                    // query has failed, been deleted, or something, and is no longer being tracked by the server
+            this.sources = ImmutableList.copyOf(sources);
+        }
+
+        public synchronized void updateAgain()
+        {
+            this.anotherUpdateRequested = true;
+        }
+
+        public synchronized void setRequestFuture(ListenableFuture<JsonResponse<TaskInfo>> requestFuture)
+        {
+            Preconditions.checkNotNull(requestFuture, "requestFuture is null");
+            Preconditions.checkState(this.requestFuture == null, "requestFuture already set");
+
+            this.requestFuture = requestFuture;
+            if (isDone()) {
+                requestFuture.cancel(true);
+            } else {
+                Futures.addCallback(requestFuture, this);
+            }
+        }
+
+        public boolean cancel(boolean mayInterruptIfRunning)
+        {
+            synchronized (this) {
+                if (requestFuture != null) {
+                    requestFuture.cancel(true);
+                }
+            }
+            return super.cancel(true);
+        }
+
+        public void cancelIfOlderThan(Duration maxRequestTime)
+        {
+            if (isDone() || Duration.nanosSince(startTime).compareTo(maxRequestTime) < 0) {
+                return;
+            }
+            cancel(true);
+        }
+
+        @Override
+        public void onSuccess(JsonResponse<TaskInfo> response)
+        {
+            try {
+                if (response.getStatusCode() != HttpStatus.GONE.code()) {
+                    checkState(response.getStatusCode() == HttpStatus.OK.code(),
+                            "Expected response code to be %s, but was %s: %s",
+                            HttpStatus.OK.code(),
+                            response.getStatusCode(),
+                            response.getStatusMessage());
+
+                    // update task info
+                    if (response.hasValue()) {
+                        try {
+                            updateTaskInfo(response.getValue());
+                        }
+                        catch (Exception ignored) {
+                            // if we got bad json back, update again
+                            updateState(false);
+                            return;
+                        }
+                    }
+
+                    // remove acknowledged splits, which frees memory
+                    acknowledgeSources(sources);
+
+                    updateIfNecessary();
+                }
+                else {
                     updateTaskInfo(new TaskInfo(taskInfo.getQueryId(),
                             taskInfo.getStageId(),
                             taskInfo.getTaskId(),
@@ -452,99 +479,59 @@ public class HttpRemoteTask
                             taskInfo.getStats(),
                             ImmutableList.<FailureInfo>of()));
                 }
-                else {
-                    checkState(response.getStatusCode() == HttpStatus.OK.code(),
-                            "Expected response code to be %s, but was %s: %s",
-                            HttpStatus.OK.code(),
-                            response.getStatusCode(),
-                            response.getStatusMessage());
-                    updateTaskInfo(response.getValue());
-                }
+            } catch (Throwable t) {
+                setException(t);
             }
-
-            @Override
-            public void onFailure(Throwable t)
-            {
-                logRequestFailure("Error updating", taskInfo, t);
+            finally {
+                set(null);
             }
-        });
-    }
-
-    @Override
-    public void cancel()
-    {
-        final TaskInfo taskInfo = this.taskInfo.get();
-        final TaskInfo canceledTask = new TaskInfo(taskInfo.getQueryId(),
-                taskInfo.getStageId(),
-                taskInfo.getTaskId(),
-                TaskInfo.MAX_VERSION,
-                TaskState.CANCELED,
-                taskInfo.getSelf(),
-                taskInfo.getOutputBuffers(),
-                taskInfo.getNoMoreSplits(),
-                taskInfo.getStats(),
-                ImmutableList.<FailureInfo>of());
-
-        if (taskInfo.getSelf() == null) {
-            updateTaskInfo(canceledTask);
-            return;
         }
 
-        Request request = prepareDelete().setUri(taskInfo.getSelf()).build();
-        Futures.addCallback(httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec)), new FutureCallback<JsonResponse<TaskInfo>>()
+        private void updateIfNecessary()
         {
-            @Override
-            public void onSuccess(JsonResponse<TaskInfo> response)
-            {
-                if (response.hasValue() && response.getValue().getState().isDone()) {
-                    updateTaskInfo(response);
+            synchronized (this) {
+                if (!anotherUpdateRequested) {
+                    return;
+                }
+            }
+
+            // is this is no longer the current request, don't do anything
+            synchronized (HttpRemoteTask.this) {
+                if (currentRequest != this) {
+                    return;
+                }
+            }
+
+            updateState(false);
+        }
+
+        @Override
+        public synchronized void onFailure(Throwable t)
+        {
+            setException(t);
+
+            if (!(t instanceof CancellationException)) {
+                TaskInfo taskInfo = getTaskInfo();
+                if (isSocketError(t)) {
+                    log.warn("%s task %s: %s: %s", "Error updating", taskInfo.getTaskId(), t.getMessage(), taskInfo.getSelf());
                 }
                 else {
-                    updateTaskInfo(canceledTask);
+                    log.warn(t, "%s task %s: %s", "Error updating", taskInfo.getTaskId(), taskInfo.getSelf());
                 }
             }
 
-            @Override
-            public void onFailure(Throwable t)
-            {
-                logRequestFailure("Failed to cancel", taskInfo, t);
-                updateTaskInfo(canceledTask);
+            updateState(false);
+        }
+
+        private boolean isSocketError(Throwable t)
+        {
+            while (t != null) {
+                if ((t instanceof SocketException) || (t instanceof SocketTimeoutException)) {
+                    return true;
+                }
+                t = t.getCause();
             }
-        });
-    }
-
-    private RemoteSplit createRemoteSplitFor(URI taskLocation)
-    {
-        URI splitLocation = uriBuilderFrom(taskLocation).appendPath("results").appendPath(nodeId).build();
-        return new RemoteSplit(splitLocation, tupleInfos);
-    }
-
-    @Override
-    public String toString()
-    {
-        return Objects.toStringHelper(this)
-                .addValue(taskInfo.get())
-                .toString();
-    }
-
-    private static void logRequestFailure(String message, TaskInfo taskInfo, Throwable t)
-    {
-        if (isSocketError(t)) {
-            log.warn("%s task %s: %s: %s", message, taskInfo.getTaskId(), t.getMessage(), taskInfo.getSelf());
+            return false;
         }
-        else {
-            log.warn(t, "%s task %s: %s", message, taskInfo.getTaskId(), taskInfo.getSelf());
-        }
-    }
-
-    private static boolean isSocketError(Throwable t)
-    {
-        while (t != null) {
-            if ((t instanceof SocketException) || (t instanceof SocketTimeoutException)) {
-                return true;
-            }
-            t = t.getCause();
-        }
-        return false;
     }
 }
