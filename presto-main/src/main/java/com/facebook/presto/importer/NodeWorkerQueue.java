@@ -2,11 +2,13 @@ package com.facebook.presto.importer;
 
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
+
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
@@ -66,12 +68,15 @@ public class NodeWorkerQueue
             // TODO: handle nodes changing their URI
             // TODO: handle nodes disappearing
             Set<Node> activeNodes = nodeManager.getActiveDatasourceNodes("native");
-            Set<Node> newNodes = Sets.difference(activeNodes, nodes);
+            Set<Node> newNodes = ImmutableSet.copyOf(Sets.difference(activeNodes, nodes));
 
             // add node workers in round-robin node order
-            for (int i = 0; i < tasksPerNode; i++) {
-                for (Node node : newNodes) {
-                    putUninterruptibly(nodeWorkers, node);
+            if (!newNodes.isEmpty()) {
+                for (int i = 0; i < tasksPerNode; i++) {
+                    for (Node node : newNodes) {
+                        putUninterruptibly(nodeWorkers, node);
+                        nodes.add(node);
+                    }
                 }
             }
         }
