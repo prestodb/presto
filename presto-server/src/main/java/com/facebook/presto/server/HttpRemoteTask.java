@@ -140,7 +140,7 @@ public class HttpRemoteTask
             @Override
             public BufferInfo apply(String outputId)
             {
-                return new BufferInfo(outputId, false, 0);
+                return new BufferInfo(outputId, false, 0, 0);
             }
         }));
 
@@ -150,7 +150,7 @@ public class HttpRemoteTask
                 TaskInfo.MIN_VERSION,
                 TaskState.PLANNED,
                 location,
-                new SharedBufferInfo(QueueState.OPEN, bufferStates),
+                new SharedBufferInfo(QueueState.OPEN, 0, bufferStates),
                 ImmutableSet.<PlanNodeId>of(),
                 new ExecutionStats(),
                 ImmutableList.<FailureInfo>of()));

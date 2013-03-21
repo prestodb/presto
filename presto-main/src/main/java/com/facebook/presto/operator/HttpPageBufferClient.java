@@ -65,6 +65,8 @@ public class HttpPageBufferClient
     @GuardedBy("this")
     private DateTime lastUpdate = DateTime.now();
 
+    private final AtomicInteger pagesReceived = new AtomicInteger();
+
     private final AtomicInteger requestsScheduled = new AtomicInteger();
     private final AtomicInteger requestsCompleted = new AtomicInteger();
 
@@ -93,7 +95,7 @@ public class HttpPageBufferClient
         if (future != null) {
             httpRequestState = future.getState();
         }
-        return new ExchangeClientStatus(location, state, lastUpdate, requestsScheduled.get(), requestsCompleted.get(), httpRequestState);
+        return new ExchangeClientStatus(location, state, lastUpdate, pagesReceived.get(), requestsScheduled.get(), requestsCompleted.get(), httpRequestState);
     }
 
     public synchronized boolean isRunning()
@@ -253,6 +255,7 @@ public class HttpPageBufferClient
                             return null;
                         }
                         Page page = pageIterator.next();
+                        pagesReceived.incrementAndGet();
                         clientCallback.addPage(HttpPageBufferClient.this, page);
                     }
                 }

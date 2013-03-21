@@ -14,12 +14,14 @@ import java.util.List;
 public class SharedBufferInfo
 {
     private final QueueState state;
+    private final long pagesAdded;
     private final List<BufferInfo> buffers;
 
     @JsonCreator
-    public SharedBufferInfo(@JsonProperty("state") QueueState state, @JsonProperty("buffers") List<BufferInfo> buffers)
+    public SharedBufferInfo(@JsonProperty("state") QueueState state, @JsonProperty("pagesAdded") long pagesAdded, @JsonProperty("buffers") List<BufferInfo> buffers)
     {
         this.state = state;
+        this.pagesAdded = pagesAdded;
         this.buffers = ImmutableList.copyOf(buffers);
     }
 
@@ -27,6 +29,12 @@ public class SharedBufferInfo
     public QueueState getState()
     {
         return state;
+    }
+
+    @JsonProperty
+    public long getPagesAdded()
+    {
+        return pagesAdded;
     }
 
     @JsonProperty
@@ -38,7 +46,7 @@ public class SharedBufferInfo
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(state, buffers);
+        return Objects.hashCode(state, pagesAdded, buffers);
     }
 
     @Override
@@ -52,6 +60,7 @@ public class SharedBufferInfo
         }
         final SharedBufferInfo other = (SharedBufferInfo) obj;
         return Objects.equal(this.state, other.state) &&
+                Objects.equal(this.pagesAdded, other.pagesAdded) &&
                 Objects.equal(this.buffers, other.buffers);
     }
 
@@ -60,6 +69,7 @@ public class SharedBufferInfo
     {
         return Objects.toStringHelper(this)
                 .add("state", state)
+                .add("pagesAdded", pagesAdded)
                 .add("buffers", buffers)
                 .toString();
     }
