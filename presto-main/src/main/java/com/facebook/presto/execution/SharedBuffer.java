@@ -24,6 +24,7 @@ import java.util.TreeSet;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -57,6 +58,8 @@ public class SharedBuffer<T>
     @GuardedBy("this")
     private QueueState state = QueueState.OPEN;
 
+    private final AtomicLong pagesAdded = new AtomicLong();
+
     /**
      * If true, no more elements can be added to the queue.
      */
@@ -80,9 +83,9 @@ public class SharedBuffer<T>
     {
         ImmutableList.Builder<BufferInfo> infos = ImmutableList.builder();
         for (NamedQueue namedQueue : namedQueues.values()) {
-            infos.add(new BufferInfo(namedQueue.getQueueId(), namedQueue.isFinished(), namedQueue.size()));
+            infos.add(new BufferInfo(namedQueue.getQueueId(), namedQueue.isFinished(), namedQueue.size(), namedQueue.elementsRemoved()));
         }
-        return new SharedBufferInfo(state, infos.build());
+        return new SharedBufferInfo(state, pagesAdded.get(), infos.build());
     }
 
     public synchronized void addQueue(String queueId)
@@ -148,6 +151,7 @@ public class SharedBuffer<T>
 
         // add element
         masterQueue.add(element);
+        pagesAdded.incrementAndGet();
 
         // notify consumers an element has arrived
         this.notifyAll();
@@ -209,7 +213,7 @@ public class SharedBuffer<T>
     {
         Preconditions.checkNotNull(outputId, "outputId is null");
         NamedQueue namedQueue = namedQueues.get(outputId);
-        if (namedQueue == null) {
+        if (namedQueue == null || namedQueue.isFinished()) {
             return;
         }
         namedQueue.setFinished();
@@ -335,6 +339,11 @@ public class SharedBuffer<T>
             Preconditions.checkState(Thread.holdsLock(SharedBuffer.this), "Thread must hold a lock on the %s", SharedBuffer.class.getSimpleName());
 
             return sequenceId;
+        }
+
+        public long elementsRemoved()
+        {
+            return getSequenceId();
         }
 
         public int size()
