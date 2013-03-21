@@ -49,6 +49,9 @@ public final class Slices
     {
     }
 
+    private static final int SLICE_ALLOC_THRESHOLD = 524_288; // 2^19
+    private static final double SLICE_ALLOW_SKEW = 1.25; // must be > 1!
+
     public static Slice ensureSize(Slice existingSlice, int minWritableBytes)
     {
         if (existingSlice == null) {
@@ -68,7 +71,12 @@ public final class Slices
         }
         int minNewCapacity = existingSlice.length() + minWritableBytes;
         while (newCapacity < minNewCapacity) {
-            newCapacity <<= 1;
+            if (newCapacity < SLICE_ALLOC_THRESHOLD) {
+                newCapacity <<= 1;
+            }
+            else {
+                newCapacity *= SLICE_ALLOW_SKEW;
+            }
         }
 
         Slice newSlice = Slices.allocate(newCapacity);
