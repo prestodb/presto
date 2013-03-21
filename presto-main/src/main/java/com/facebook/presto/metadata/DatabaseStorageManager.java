@@ -40,7 +40,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
 
@@ -51,7 +51,7 @@ public class DatabaseStorageManager
 
     private static final int RUN_LENGTH_AVERAGE_CUTOFF = 3;
     private static final int DICTIONARY_CARDINALITY_CUTOFF = 1000;
-    private static final int OUTPUT_BUFFER_SIZE = (int) new DataSize(1, MEGABYTE).toBytes();
+    private static final int OUTPUT_BUFFER_SIZE = (int) new DataSize(64, KILOBYTE).toBytes();
 
     private final IDBI dbi;
     private final File baseStorageDir;
