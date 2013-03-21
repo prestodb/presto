@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>5</version>
+        <version>6-SNAPSHOT</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -51,7 +51,7 @@
         <air.check.skip-license>true</air.check.skip-license>
 
         <dep.antlr.version>3.4</dep.antlr.version>
-        <dep.airlift.version>0.73</dep.airlift.version>
+        <dep.airlift.version>0.74-SNAPSHOT</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
     </properties>
 
@@ -155,7 +155,7 @@
 
             <dependency>
                 <groupId>io.airlift</groupId>
-                <artifactId>discovery-experimental</artifactId>
+                <artifactId>discovery</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
@@ -179,7 +179,7 @@
 
             <dependency>
                 <groupId>io.airlift</groupId>
-                <artifactId>event-experimental</artifactId>
+                <artifactId>event</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
@@ -215,13 +215,13 @@
 
             <dependency>
                 <groupId>io.airlift</groupId>
-                <artifactId>jmx-http-experimental</artifactId>
+                <artifactId>jmx-http</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.airlift</groupId>
-                <artifactId>http-client-experimental</artifactId>
+                <artifactId>http-client</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
@@ -348,7 +348,7 @@
             <dependency>
                 <groupId>io.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.7</version>
+                <version>1.9-SNAPSHOT</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

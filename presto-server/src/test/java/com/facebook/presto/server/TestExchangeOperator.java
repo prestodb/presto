@@ -34,7 +34,7 @@ import io.airlift.event.client.InMemoryEventModule;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.Request;
-import io.airlift.http.client.netty.NettyAsyncHttpClient;
+import io.airlift.http.client.netty.StandaloneNettyAsyncHttpClient;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
@@ -79,7 +79,7 @@ public class TestExchangeOperator
             server1 = createServer();
             server2 = createServer();
             server3 = createServer();
-            httpClient = new NettyAsyncHttpClient();
+            httpClient = new StandaloneNettyAsyncHttpClient("test");
         }
         catch (Throwable e) {
             teardown();
