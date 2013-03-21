@@ -310,8 +310,6 @@ public class SqlTaskManager
         log.debug("Aborting task %s output %s", taskId, outputId);
         taskExecution.abortResults(outputId);
 
-        // assure task is completed and cache final results
-        cancelTask(taskId);
         return taskExecution.getTaskInfo();
     }
 
