@@ -8,7 +8,6 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.Set;
 
@@ -29,4 +28,6 @@ public interface RemoteTask
     void cancel();
 
     ListenableFuture<?> updateState(boolean forceRefresh);
+
+    int getQueuedSplits();
 }

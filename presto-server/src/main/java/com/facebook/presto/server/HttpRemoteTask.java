@@ -101,7 +101,7 @@ public class HttpRemoteTask
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
     private final List<TupleInfo> tupleInfos;
 
-    private final RateLimiter requestRateLimiter = RateLimiter.create(100, 0, TimeUnit.MILLISECONDS);
+    private final RateLimiter requestRateLimiter = RateLimiter.create(10);
 
     public HttpRemoteTask(Session session,
             String queryId,
@@ -237,7 +237,7 @@ public class HttpRemoteTask
     public void addOutputBuffers(Set<String> outputBuffers, boolean noMore)
     {
         synchronized (this) {
-            Preconditions.checkState(!noMoreOutputIds || outputBuffers.containsAll(outputBuffers), "Buffers can not be added after noMoreOutputIds has been set");
+            Preconditions.checkState(!noMoreOutputIds, "Buffers can not be added after noMoreOutputIds has been set");
             noMoreOutputIds = noMore;
             this.outputIds.addAll(outputBuffers);
         }
@@ -280,7 +280,7 @@ public class HttpRemoteTask
 
                     if (!this.currentRequest.isDone()) {
                         // request is still running, but when it finishes, it should update again
-                        this.currentRequest.updateAgain();
+                        this.currentRequest.requestAnotherUpdate();
 
                         // todo return existing pending request future?
                         return Futures.immediateFuture(null);
@@ -322,6 +322,16 @@ public class HttpRemoteTask
         ListenableFuture<JsonResponse<TaskInfo>> future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));
         currentRequest.setRequestFuture(future);
         return currentRequest;
+    }
+
+    @Override
+    public synchronized int getQueuedSplits()
+    {
+        int pendingSplitCount = 0;
+        if (planFragment.isPartitioned()) {
+            pendingSplitCount = pendingSplits.get(planFragment.getPartitionedSource()).size();
+        }
+        return pendingSplitCount + taskInfo.getStats().getQueuedSplits();
     }
 
     private synchronized List<TaskSource> getSources()
@@ -403,7 +413,7 @@ public class HttpRemoteTask
             this.sources = ImmutableList.copyOf(sources);
         }
 
-        public synchronized void updateAgain()
+        public synchronized void requestAnotherUpdate()
         {
             this.anotherUpdateRequested = true;
         }
