@@ -324,6 +324,16 @@ public class HttpRemoteTask
         return currentRequest;
     }
 
+    @Override
+    public synchronized int getQueuedSplits()
+    {
+        int pendingSplitCount = 0;
+        if (planFragment.isPartitioned()) {
+            pendingSplitCount = pendingSplits.get(planFragment.getPartitionedSource()).size();
+        }
+        return pendingSplitCount + taskInfo.getStats().getQueuedSplits();
+    }
+
     private synchronized List<TaskSource> getSources()
     {
         ImmutableList.Builder<TaskSource> sources = ImmutableList.builder();
