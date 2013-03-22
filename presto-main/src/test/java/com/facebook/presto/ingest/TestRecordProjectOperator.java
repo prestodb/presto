@@ -53,7 +53,8 @@ public class TestRecordProjectOperator
 
         RecordProjectOperator operator = new RecordProjectOperator(records, records.getColumns());
 
-        TaskOutput taskOutput = new TaskOutput("unknown", "unknown", "unknown", URI.create("unknown://unknown"), ImmutableList.of("unknown"), 1000);
+        TaskOutput taskOutput = new TaskOutput("unknown", "unknown", "unknown", URI.create("unknown://unknown"), 1000);
+        taskOutput.addResultQueue("unknown");
         taskOutput.noMoreResultQueues();
 
         int pageCount = 0;

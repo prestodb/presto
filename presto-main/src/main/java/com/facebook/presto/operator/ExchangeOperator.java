@@ -163,6 +163,8 @@ public class ExchangeOperator
                 try {
                     Page page = pageBuffer.poll(WAIT_TIME_IN_MILLIS, TimeUnit.MILLISECONDS);
                     if (page != null) {
+                        operatorStats.addCompletedDataSize(page.getDataSize().toBytes());
+                        operatorStats.addCompletedPositions(page.getPositionCount());
                         return page;
                     }
                     else if (allClientsComplete) {
@@ -183,11 +185,13 @@ public class ExchangeOperator
         private void scheduleRequestIfNecessary()
         {
             // add clients for new locations
-            for (URI location : locations) {
-                if (!allClients.containsKey(location)) {
-                    HttpPageBufferClient client = new HttpPageBufferClient(httpClient, location, new ExchangeClientCallback());
-                    allClients.put(location, client);
-                    queuedClients.add(client);
+            synchronized (this) {
+                for (URI location : locations) {
+                    if (!allClients.containsKey(location)) {
+                        HttpPageBufferClient client = new HttpPageBufferClient(httpClient, location, new ExchangeClientCallback());
+                        allClients.put(location, client);
+                        queuedClients.add(client);
+                    }
                 }
             }
 
@@ -263,6 +267,7 @@ public class ExchangeOperator
         private final URI uri;
         private final String state;
         private final DateTime lastUpdate;
+        private final int pagesReceived;
         private final int requestsScheduled;
         private final int requestsCompleted;
         private final String httpRequestState;
@@ -271,6 +276,7 @@ public class ExchangeOperator
         public ExchangeClientStatus(@JsonProperty("uri") URI uri,
                 @JsonProperty("state") String state,
                 @JsonProperty("lastUpdate") DateTime lastUpdate,
+                @JsonProperty("pagesReceived") int pagesReceived,
                 @JsonProperty("requestsScheduled") int requestsScheduled,
                 @JsonProperty("requestsCompleted") int requestsCompleted,
                 @JsonProperty("httpRequestState") String httpRequestState)
@@ -278,6 +284,7 @@ public class ExchangeOperator
             this.uri = uri;
             this.state = state;
             this.lastUpdate = lastUpdate;
+            this.pagesReceived = pagesReceived;
             this.requestsScheduled = requestsScheduled;
             this.requestsCompleted = requestsCompleted;
             this.httpRequestState = httpRequestState;
@@ -299,6 +306,12 @@ public class ExchangeOperator
         public DateTime getLastUpdate()
         {
             return lastUpdate;
+        }
+
+        @JsonProperty
+        public int getPagesReceived()
+        {
+            return pagesReceived;
         }
 
         @JsonProperty
@@ -326,6 +339,7 @@ public class ExchangeOperator
                     .add("uri", uri)
                     .add("state", state)
                     .add("lastUpdate", lastUpdate)
+                    .add("pagesReceived", pagesReceived)
                     .add("httpRequestState", httpRequestState)
                     .toString();
         }
