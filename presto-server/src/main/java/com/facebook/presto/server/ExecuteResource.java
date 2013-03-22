@@ -12,6 +12,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.http.client.AsyncHttpClient;
+import io.airlift.http.server.HttpServerInfo;
 import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
@@ -20,10 +21,9 @@ import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
-import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriInfo;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.net.URI;
@@ -31,12 +31,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.cli.Query.getFailureMessages;
 import static com.facebook.presto.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.cli.Query.getFailureMessages;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
@@ -47,14 +48,14 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @Path("/v1/execute")
 public class ExecuteResource
 {
+    private final HttpServerInfo serverInfo;
     private final AsyncHttpClient httpClient;
     private final JsonCodec<QueryInfo> queryInfoCodec;
 
     @Inject
-    public ExecuteResource(
-            @ForExecute AsyncHttpClient httpClient,
-            JsonCodec<QueryInfo> queryInfoCodec)
+    public ExecuteResource(HttpServerInfo serverInfo, @ForExecute AsyncHttpClient httpClient, JsonCodec<QueryInfo> queryInfoCodec)
     {
+        this.serverInfo = checkNotNull(serverInfo, "serverInfo is null");
         this.httpClient = checkNotNull(httpClient, "httpClient is null");
         this.queryInfoCodec = checkNotNull(queryInfoCodec, "queryInfoCodec is null");
     }
@@ -65,13 +66,11 @@ public class ExecuteResource
             String query,
             @HeaderParam(PRESTO_USER) String user,
             @HeaderParam(PRESTO_CATALOG) String catalog,
-            @HeaderParam(PRESTO_SCHEMA) String schema,
-            @Context UriInfo uriInfo)
+            @HeaderParam(PRESTO_SCHEMA) String schema)
     {
         checkNotNull(query, "query is null");
 
-        URI uri = uriInfo.getRequestUriBuilder().replacePath("/").replaceQuery("").build();
-        ClientSession session = new ClientSession(uri, user, catalog, schema, false);
+        ClientSession session = new ClientSession(serverUri(), user, catalog, schema, false);
 
         HttpQueryClient queryClient = new HttpQueryClient(session, query, httpClient, queryInfoCodec);
 
@@ -86,6 +85,12 @@ public class ExecuteResource
         QueryResults results = new QueryResults(columns, resultsIterator);
 
         return Response.ok(results, MediaType.APPLICATION_JSON_TYPE).build();
+    }
+
+    private URI serverUri()
+    {
+        checkState(serverInfo.getHttpUri() != null, "No HTTP URI for this server (HTTP disabled?)");
+        return serverInfo.getHttpUri();
     }
 
     private static QueryInfo waitForResults(HttpQueryClient queryClient)
