@@ -283,7 +283,7 @@ public class TestDistributedQueries
             while (true) {
                 QueryInfo queryInfo = client.getQueryInfo(false);
                 if (!loggedUri && queryInfo.getSelf() != null) {
-                    log.info("Query " + queryInfo.getQueryId() + ": " + queryInfo.getSelf() + "?pretty");
+                    log.info("Query %s: %s?pretty", queryInfo.getQueryId(), queryInfo.getSelf());
                     loggedUri = true;
                 }
                 QueryState state = queryInfo.getState();

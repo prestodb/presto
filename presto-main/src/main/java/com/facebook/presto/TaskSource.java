@@ -11,6 +11,8 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class TaskSource
 {
     private final PlanNodeId planNodeId;
@@ -23,8 +25,8 @@ public class TaskSource
             @JsonProperty("splits") Set<ScheduledSplit> splits,
             @JsonProperty("noMoreSplits") boolean noMoreSplits)
     {
-        this.planNodeId = planNodeId;
-        this.splits = ImmutableSet.copyOf(splits);
+        this.planNodeId = checkNotNull(planNodeId, "planNodeId is null");
+        this.splits = ImmutableSet.copyOf(checkNotNull(splits, "splits is null"));
         this.noMoreSplits = noMoreSplits;
     }
 

@@ -175,6 +175,8 @@ public class SqlTaskExecution
     @Override
     public synchronized void addSources(List<TaskSource> sources)
     {
+        Preconditions.checkNotNull(sources, "sources is null");
+
         long newMaxAcknowledgedSplit = maxAcknowledgedSplit;
         for (TaskSource source : sources) {
             PlanNodeId sourceId = source.getPlanNodeId();
@@ -195,6 +197,8 @@ public class SqlTaskExecution
     @Override
     public synchronized void addResultQueue(OutputBuffers outputIds)
     {
+        Preconditions.checkNotNull(outputIds, "outputIds is null");
+
         for (String bufferId : outputIds.getBufferIds()) {
             taskOutput.addResultQueue(bufferId);
         }

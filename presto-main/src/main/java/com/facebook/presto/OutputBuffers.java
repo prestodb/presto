@@ -10,6 +10,8 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class OutputBuffers
 {
     private final Set<String> bufferIds;
@@ -20,7 +22,7 @@ public class OutputBuffers
             @JsonProperty("bufferIds") Set<String> bufferIds,
             @JsonProperty("noMoreBufferIds") boolean noMoreBufferIds)
     {
-        this.bufferIds = ImmutableSet.copyOf(bufferIds);
+        this.bufferIds = ImmutableSet.copyOf(checkNotNull(bufferIds, "bufferIds is null"));
         this.noMoreBufferIds = noMoreBufferIds;
     }
 

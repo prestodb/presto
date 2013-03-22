@@ -8,6 +8,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class ScheduledSplit
 {
     private final long sequenceId;
@@ -17,7 +19,7 @@ public class ScheduledSplit
     public ScheduledSplit(@JsonProperty("sequenceId") long sequenceId, @JsonProperty("split") Split split)
     {
         this.sequenceId = sequenceId;
-        this.split = split;
+        this.split = checkNotNull(split, "split is null");
     }
 
     @JsonProperty

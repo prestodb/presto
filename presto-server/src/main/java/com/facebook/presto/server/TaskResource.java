@@ -60,7 +60,7 @@ public class TaskResource
     @Path("{taskId}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response updateTask(@PathParam("taskId") String taskId, TaskUpdateRequest taskUpdateRequest, @Context UriInfo uriInfo)
+    public Response createOrUpdateTask(@PathParam("taskId") String taskId, TaskUpdateRequest taskUpdateRequest, @Context UriInfo uriInfo)
     {
         try {
             checkNotNull(taskUpdateRequest, "taskUpdateRequest is null");
