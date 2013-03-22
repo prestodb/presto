@@ -70,6 +70,8 @@ import io.airlift.json.JsonBinder;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.JsonModule;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.airlift.node.NodeInfo;
 import io.airlift.node.NodeModule;
 import io.airlift.testing.FileUtils;
@@ -81,7 +83,6 @@ import org.weakref.jmx.guice.MBeanModule;
 import org.weakref.jmx.testing.TestingMBeanServer;
 
 import javax.management.MBeanServer;
-
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -101,6 +102,7 @@ import static org.testng.Assert.assertTrue;
 public class TestDistributedQueries
         extends AbstractTestQueries
 {
+    private static final Logger log = Logger.get(TestDistributedQueries.class.getSimpleName());
     private final JsonCodec<QueryInfo> queryInfoCodec = createCodecFactory().jsonCodec(QueryInfo.class);
 
     private String catalog;
@@ -183,6 +185,8 @@ public class TestDistributedQueries
     protected void setUpQueryFramework(String catalog, String schema, DataStreamProvider dataStreamProvider, Metadata metadata)
             throws Exception
     {
+        Logging.initialize();
+
         this.catalog = catalog;
         this.schema = schema;
         this.dataStreamProvider = dataStreamProvider;
@@ -211,7 +215,10 @@ public class TestDistributedQueries
             server.refreshServiceSelectors();
         }
 
+        log.info("Loading data...");
+        long startTime = System.nanoTime();
         loadedTableNames = distributeData();
+        log.info("Loading complete in %.2fs", Duration.nanosSince(startTime).convertTo(TimeUnit.SECONDS));
     }
 
     @Override
@@ -273,8 +280,13 @@ public class TestDistributedQueries
         ClientSession session = new ClientSession(coordinator.getBaseUrl(), "testuser", "default", "default", true);
 
         try (HttpQueryClient client = new HttpQueryClient(session, sql, httpClient, queryInfoCodec)) {
+            boolean loggedUri = false;
             while (true) {
                 QueryInfo queryInfo = client.getQueryInfo(false);
+                if (!loggedUri && queryInfo.getSelf() != null) {
+                    log.info("Query " + queryInfo.getQueryId() + ": " + queryInfo.getSelf() + "?pretty");
+                    loggedUri = true;
+                }
                 QueryState state = queryInfo.getState();
                 if (state == QueryState.FAILED) {
                     throw Iterables.getFirst(queryInfo.getFailures(), null).toException();
@@ -298,7 +310,7 @@ public class TestDistributedQueries
 
             // dump query info to console for debugging (NOTE: not pretty printed)
             // JsonCodec<QueryInfo> queryInfoJsonCodec = createCodecFactory().prettyPrint().jsonCodec(QueryInfo.class);
-            // System.out.println(queryInfoJsonCodec.toJson(queryInfo));
+            // log.info("\n" + queryInfoJsonCodec.toJson(queryInfo));
 
             return materializedResult;
         }
