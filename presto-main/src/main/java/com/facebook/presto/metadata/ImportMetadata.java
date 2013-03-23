@@ -21,6 +21,7 @@ import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 import static com.facebook.presto.metadata.MetadataUtil.getTableColumns;
 import static com.facebook.presto.util.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 public class ImportMetadata
         extends AbstractMetadata
@@ -46,6 +47,38 @@ public class ImportMetadata
         List<ColumnMetadata> columns = convertToMetadata(catalogName, tableSchema);
 
         return new TableMetadata(catalogName, schemaName, tableName, columns, importTableHandle);
+    }
+
+    @Override
+    public QualifiedTableName getTableName(TableHandle tableHandle)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkState(DataSourceType.IMPORT == tableHandle.getDataSourceType(), "not a import handle: %s", tableHandle);
+
+        ImportTableHandle importTableHandle = (ImportTableHandle) tableHandle;
+
+        return new QualifiedTableName(importTableHandle.getSourceName(),
+                importTableHandle.getDatabaseName(),
+                importTableHandle.getTableName());
+    }
+
+    @Override
+    public TableColumn getTableColumn(TableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkNotNull(columnHandle, "columnHandle is null");
+        checkState(DataSourceType.IMPORT == tableHandle.getDataSourceType(), "not a import handle: %s", tableHandle);
+        checkState(DataSourceType.IMPORT == columnHandle.getDataSourceType(), "not a import handle: %s", columnHandle);
+
+        ImportTableHandle importTableHandle = (ImportTableHandle) tableHandle;
+        ImportColumnHandle importColumnHandle = (ImportColumnHandle) columnHandle;
+
+        return new TableColumn(importTableHandle.getSourceName(),
+                importTableHandle.getDatabaseName(),
+                importTableHandle.getTableName(),
+                importColumnHandle.getColumnName(),
+                importColumnHandle.getColumnId(),
+                importColumnHandle.getColumnType());
     }
 
     public boolean hasCatalog(String catalogName)

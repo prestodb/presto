@@ -41,6 +41,20 @@ public interface MetadataDao
             @Bind("schemaName") String schemaName,
             @Bind("tableName") String tableName);
 
+    @SqlQuery("SELECT catalog_name, schema_name, table_name\n" +
+            "FROM tables\n" +
+            "WHERE table_id = :tableId")
+    @Mapper(QualifiedTableNameMapper.class)
+    QualifiedTableName getTableName(@Bind("tableId") long tableId);
+
+    @SqlQuery("SELECT t.catalog_name, t.schema_name, t.table_name,\n" +
+            "  c.column_name, c.ordinal_position, c.data_type\n" +
+            "FROM tables t\n" +
+            "JOIN columns c ON (t.table_id = c.table_id)\n" +
+            "WHERE (c.column_id = :columnId)")
+    @Mapper(TableColumnMapper.class)
+    TableColumn getTableColumn(@Bind("columnId") long columnId);
+
     @SqlQuery("SELECT column_id, column_name, data_type\n" +
             "FROM columns\n" +
             "WHERE table_id = :tableId\n" +

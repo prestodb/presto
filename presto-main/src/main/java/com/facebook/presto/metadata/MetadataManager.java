@@ -32,9 +32,12 @@ public class MetadataManager
     private final ImportMetadata importMetadata;
 
     @Inject
-    public MetadataManager(NativeMetadata nativeMetadata, InternalMetadata internalMetadata, ImportMetadata importMetadata)
+    public MetadataManager(NativeMetadata nativeMetadata,
+            InternalMetadata internalMetadata,
+            ImportMetadata importMetadata)
     {
         this.importMetadata = importMetadata;
+
         metadataSourceMap = ImmutableMap.<DataSourceType, Metadata>builder()
                 .put(DataSourceType.NATIVE, checkNotNull(nativeMetadata, "nativeMetadata is null"))
                 .put(DataSourceType.INTERNAL, checkNotNull(internalMetadata, "internalMetadata is null"))
@@ -74,6 +77,21 @@ public class MetadataManager
         checkTableName(catalogName, schemaName, tableName);
         DataSourceType dataSourceType = lookupDataSource(catalogName, schemaName, tableName);
         return lookup(dataSourceType).getTable(catalogName, schemaName, tableName);
+    }
+
+    @Override
+    public QualifiedTableName getTableName(TableHandle tableHandle)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        return lookup(tableHandle.getDataSourceType()).getTableName(tableHandle);
+    }
+
+    @Override
+    public TableColumn getTableColumn(TableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkNotNull(columnHandle, "columnHandle is null");
+        return lookup(columnHandle.getDataSourceType()).getTableColumn(tableHandle, columnHandle);
     }
 
     @Override

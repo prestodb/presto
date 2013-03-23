@@ -33,4 +33,8 @@ public interface Metadata
     List<Map<String, String>> listTablePartitionValues(String catalogName, String schemaName, String tableName);
 
     void createTable(TableMetadata table);
+
+    QualifiedTableName getTableName(TableHandle tableHandle);
+
+    TableColumn getTableColumn(TableHandle tableHandle, ColumnHandle columnHandle);
 }

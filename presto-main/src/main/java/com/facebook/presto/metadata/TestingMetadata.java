@@ -21,7 +21,7 @@ import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Maps.filterKeys;
 
 public class TestingMetadata
-        implements Metadata
+        extends AbstractMetadata
 {
     private final Map<QualifiedTableName, TableMetadata> tables = new HashMap<>();
     private final FunctionRegistry functions = new FunctionRegistry();

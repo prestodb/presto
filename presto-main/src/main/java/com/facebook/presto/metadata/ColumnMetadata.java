@@ -1,6 +1,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 
@@ -9,6 +10,20 @@ import static com.google.common.base.Strings.emptyToNull;
 
 public class ColumnMetadata
 {
+    private static final Function<ColumnMetadata, String> GET_COLUMN_METADATA_NAME = new Function<ColumnMetadata, String>() {
+
+        @Override
+        public String apply(ColumnMetadata input)
+        {
+            return input.getName();
+        }
+    };
+
+    public static Function<ColumnMetadata, String> getColumnMetadataName()
+    {
+        return GET_COLUMN_METADATA_NAME;
+    }
+
     private final String name;
     private final TupleInfo.Type type;
     private final Optional<ColumnHandle> columnHandle;

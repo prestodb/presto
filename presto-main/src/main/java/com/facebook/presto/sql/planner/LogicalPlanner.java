@@ -2,7 +2,6 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionHandle;
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.analyzer.AnalysisResult;
 import com.facebook.presto.sql.analyzer.AnalyzedExpression;
@@ -16,12 +15,7 @@ import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.SymbolAllocator;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.analyzer.Type;
-import com.facebook.presto.sql.planner.optimizations.CoalesceLimits;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.planner.optimizations.PruneRedundantProjections;
-import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
-import com.facebook.presto.sql.planner.optimizations.SimplifyExpressions;
-import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -66,19 +60,22 @@ import java.util.Set;
 import static com.facebook.presto.sql.analyzer.AnalyzedFunction.argumentGetter;
 import static com.facebook.presto.sql.analyzer.AnalyzedFunction.windowExpressionGetter;
 import static com.facebook.presto.sql.analyzer.AnalyzedOrdering.expressionGetter;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.concat;
 
 public class LogicalPlanner
 {
-    private final Metadata metadata;
     private final Session session;
     private final PlanNodeIdAllocator idAllocator;
+    private final PlanOptimizersFactory planOptimizersFactory;
 
-    public LogicalPlanner(Session session, Metadata metadata, PlanNodeIdAllocator idAllocator)
+    public LogicalPlanner(Session session,
+            PlanOptimizersFactory planOptimizersFactory,
+            PlanNodeIdAllocator idAllocator)
     {
-        this.metadata = metadata;
-        this.session = session;
-        this.idAllocator = idAllocator;
+        this.session = checkNotNull(session, "session is null");
+        this.planOptimizersFactory = checkNotNull(planOptimizersFactory, "planOptimizersFactory is null");
+        this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
     }
 
     public PlanNode plan(AnalysisResult analysis)
@@ -90,22 +87,11 @@ public class LogicalPlanner
 
         Map<Symbol, Type> types = analysis.getTypes();
 
-        for (PlanOptimizer optimizer : getOptimizations()) {
+        for (PlanOptimizer optimizer : planOptimizersFactory.createOptimizations(session)) {
             root = optimizer.optimize(root, types);
         }
 
         return root;
-    }
-
-    private List<PlanOptimizer> getOptimizations()
-    {
-        return ImmutableList.of(
-                new SimplifyExpressions(metadata, session),
-                new PruneUnreferencedOutputs(),
-                new UnaliasSymbolReferences(),
-                new PruneRedundantProjections(),
-                new CoalesceLimits()
-        );
     }
 
     private PlanNode createOutputPlan(AnalysisResult analysis)
@@ -211,7 +197,7 @@ public class LogicalPlanner
         }
 
         List<Symbol> orderBySymbols = new ArrayList<>();
-        Map<Symbol,SortItem.Ordering> orderings = new HashMap<>();
+        Map<Symbol, SortItem.Ordering> orderings = new HashMap<>();
         for (AnalyzedOrdering item : orderBy) {
             Expression rewritten = TreeRewriter.rewriteWith(substitution(substitutions), item.getExpression().getRewrittenExpression());
 
@@ -236,7 +222,7 @@ public class LogicalPlanner
         }
 
         List<Symbol> orderBySymbols = new ArrayList<>();
-        Map<Symbol,SortItem.Ordering> orderings = new HashMap<>();
+        Map<Symbol, SortItem.Ordering> orderings = new HashMap<>();
         for (AnalyzedOrdering item : orderBy) {
             Expression rewritten = TreeRewriter.rewriteWith(substitution(substitutions), item.getExpression().getRewrittenExpression());
 
