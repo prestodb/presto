@@ -183,6 +183,7 @@ public class SqlTaskManager
             }
         }
 
+        taskExecution.getTaskInfo().getStats().recordHeartBeat();
         taskExecution.addSources(sources);
         taskExecution.addResultQueue(outputIds);
 
@@ -200,6 +201,7 @@ public class SqlTaskManager
         if (taskExecution == null) {
             throw new NoSuchElementException("Unknown query task " + taskId);
         }
+        taskExecution.getTaskInfo().getStats().recordHeartBeat();
         return taskExecution.getResults(outputName, maxPageCount, maxWaitTime);
     }
 
