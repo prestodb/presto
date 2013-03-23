@@ -18,7 +18,6 @@ import com.facebook.presto.slice.Slices;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
-import com.google.common.net.HttpHeaders;
 import com.google.common.net.MediaType;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
@@ -51,14 +50,14 @@ import java.net.URI;
 import java.util.List;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES_TYPE;
+import static com.google.common.base.Charsets.UTF_8;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
-import static io.airlift.http.client.Request.Builder.preparePut;
+import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
@@ -124,21 +123,12 @@ public class TestQueryResourceServer
     public void testQuery()
             throws Exception
     {
-        URI location = client.execute(preparePost().setUri(uriFor("/v1/query")).build(), new CreatedResponseHandler());
+        URI location = client.execute(preparePost().setUri(uriFor("/v1/query")).setBodyGenerator(createStaticBodyGenerator("query", UTF_8)).build(), new CreatedResponseHandler());
         assertQueryStatus(location, QueryState.RUNNING);
 
         QueryInfo queryInfo = client.execute(prepareGet().setUri(location).build(), createJsonResponseHandler(jsonCodec(QueryInfo.class)));
         TaskInfo taskInfo = queryInfo.getOutputStage().getTasks().get(0);
         URI outputLocation = uriFor("/v1/task/" + taskInfo.getTaskId() + "/results/out");
-
-        Request request = preparePut()
-                .setUri(uriFor("/v1/task/" + taskInfo.getTaskId() + "/results/complete"))
-                .setHeader(HttpHeaders.CONTENT_TYPE, MEDIA_TYPE_JSON.toString())
-                .setBodyGenerator(jsonBodyGenerator(jsonCodec(boolean.class), true))
-                .build();
-        JsonResponse<TaskInfo> response = client.execute(request, createFullJsonResponseHandler(jsonCodec(TaskInfo.class)));
-        assertEquals(response.getStatusCode(), 200);
-        assertEquals(response.getValue().getTaskId(), taskInfo.getTaskId());
 
         assertEquals(loadData(outputLocation), 220);
         assertQueryStatus(location, QueryState.RUNNING);

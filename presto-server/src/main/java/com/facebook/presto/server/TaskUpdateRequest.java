@@ -1,51 +1,48 @@
 package com.facebook.presto.server;
 
-import com.facebook.presto.split.Split;
+import com.facebook.presto.OutputBuffers;
+import com.facebook.presto.TaskSource;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
-public class QueryFragmentRequest
+public class TaskUpdateRequest
 {
     private final Session session;
     private final String queryId;
     private final String stageId;
     private final PlanFragment fragment;
-    private final ImmutableMap<PlanNodeId, Set<Split>> initialSources;
-    private final List<String> initialOutputIds;
+    private final List<TaskSource> sources;
+    private final OutputBuffers outputIds;
 
     @JsonCreator
-    public QueryFragmentRequest(
+    public TaskUpdateRequest(
             @JsonProperty("session") Session session,
             @JsonProperty("queryId") String queryId,
             @JsonProperty("stageId") String stageId,
             @JsonProperty("fragment") PlanFragment fragment,
-            @JsonProperty("initialSources") Map<PlanNodeId, Set<Split>> initialSources,
-            @JsonProperty("initialOutputIds") List<String> initialOutputIds)
+            @JsonProperty("sources") List<TaskSource> sources,
+            @JsonProperty("outputIds") OutputBuffers outputIds)
     {
         Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(fragment, "fragment is null");
-        Preconditions.checkNotNull(initialSources, "initialSources is null");
-        Preconditions.checkNotNull(initialOutputIds, "initialOutputIds is null");
+        Preconditions.checkNotNull(sources, "sources is null");
+        Preconditions.checkNotNull(outputIds, "outputIds is null");
 
         this.session = session;
         this.queryId = queryId;
         this.stageId = stageId;
         this.fragment = fragment;
-        this.initialSources = ImmutableMap.copyOf(initialSources);
-        this.initialOutputIds = ImmutableList.copyOf(initialOutputIds);
+        this.sources = ImmutableList.copyOf(sources);
+        this.outputIds = outputIds;
     }
 
     @JsonProperty
@@ -73,15 +70,15 @@ public class QueryFragmentRequest
     }
 
     @JsonProperty
-    public Map<PlanNodeId, Set<Split>> getInitialSources()
+    public List<TaskSource> getSources()
     {
-        return initialSources;
+        return sources;
     }
 
     @JsonProperty
-    public List<String> getInitialOutputIds()
+    public OutputBuffers getOutputIds()
     {
-        return initialOutputIds;
+        return outputIds;
     }
 
     @Override
@@ -92,8 +89,8 @@ public class QueryFragmentRequest
                 .add("queryId", queryId)
                 .add("stageId", stageId)
                 .add("fragment", fragment)
-                .add("initialSources", initialSources)
-                .add("initialOutputIds", initialOutputIds)
+                .add("sources", sources)
+                .add("outputIds", outputIds)
                 .toString();
     }
 }
