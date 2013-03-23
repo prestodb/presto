@@ -78,9 +78,6 @@ import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 import org.weakref.jmx.guice.MBeanModule;
-import org.weakref.jmx.testing.TestingMBeanServer;
-
-import javax.management.MBeanServer;
 
 import java.io.Closeable;
 import java.io.File;
@@ -355,14 +352,7 @@ public class TestDistributedQueries
                     new TestingHttpServerModule(),
                     new JsonModule(),
                     new JaxrsModule(),
-                    new Module()
-                    {
-                        @Override
-                        public void configure(Binder binder)
-                        {
-                            binder.bind(MBeanServer.class).toInstance(new TestingMBeanServer());
-                        }
-                    },
+                    new TestingJmxModule(),
                     new InMemoryEventModule(),
                     new TraceTokenModule(),
                     new ServerMainModule());
@@ -500,14 +490,7 @@ public class TestDistributedQueries
                     new JaxrsModule(),
                     new DiscoveryServerModule(),
                     new DiscoveryModule(),
-                    new Module()
-                    {
-                        @Override
-                        public void configure(Binder binder)
-                        {
-                            binder.bind(MBeanServer.class).toInstance(new TestingMBeanServer());
-                        }
-                    });
+                    new TestingJmxModule());
 
             Injector injector = app
                     .strictConfig()
