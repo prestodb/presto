@@ -35,8 +35,10 @@ import com.facebook.presto.importer.PeriodicImportJobResource;
 import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.importer.PeriodicImportRunnable;
 import com.facebook.presto.importer.ShardImport;
+import com.facebook.presto.metadata.AliasDao;
 import com.facebook.presto.metadata.DatabaseShardManager;
 import com.facebook.presto.metadata.DatabaseStorageManager;
+import com.facebook.presto.metadata.ForAlias;
 import com.facebook.presto.metadata.ForMetadata;
 import com.facebook.presto.metadata.ForShardManager;
 import com.facebook.presto.metadata.ForStorageManager;
@@ -65,6 +67,7 @@ import com.facebook.presto.split.InternalDataStreamProvider;
 import com.facebook.presto.split.NativeDataStreamProvider;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.tree.CreateOrReplaceMaterializedView;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -101,6 +104,7 @@ import java.lang.annotation.Annotation;
 
 import static com.facebook.presto.server.ConditionalModule.installIfPropertyEquals;
 import static com.facebook.presto.server.DbiProvider.bindDbiToDataSource;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.event.client.EventBinder.eventBinder;
@@ -199,7 +203,7 @@ public class ServerMainModule
             discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
         }
 
-        bindDataSource("presto-metastore", ForMetadata.class, ForShardManager.class, ForPeriodicImport.class);
+        bindDataSource("presto-metastore", ForMetadata.class, ForShardManager.class, ForPeriodicImport.class, ForAlias.class);
 
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
@@ -237,6 +241,8 @@ public class ServerMainModule
         executionBinder.addBinding(ShowPartitions.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowFunctions.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowTables.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
+
+        binder.bind(PlanOptimizersFactory.class).in(Scopes.SINGLETON);
     }
 
     @Provides
@@ -247,6 +253,20 @@ public class ServerMainModule
     {
         String path = new File(config.getDataDirectory(), "db/StorageManager").getAbsolutePath();
         return new DBI(new H2EmbeddedDataSource(new H2EmbeddedDataSourceConfig().setFilename(path).setMaxConnections(500).setMaxConnectionWait(new Duration(1, SECONDS))));
+    }
+
+    @Provides
+    @Singleton
+    public AliasDao createAliasDao(@ForAlias IDBI dbi)
+            throws InterruptedException
+    {
+        checkNotNull(dbi, "dbi is null");
+
+        AliasDao aliasDao = dbi.onDemand(AliasDao.class);
+
+        AliasDao.Utils.createTablesWithRetry(aliasDao);
+
+        return aliasDao;
     }
 
     @SafeVarargs

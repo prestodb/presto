@@ -14,6 +14,7 @@ import com.facebook.presto.sql.planner.DistributedExecutionPlanner;
 import com.facebook.presto.sql.planner.DistributedLogicalPlanner;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
+import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -50,6 +51,7 @@ public class SqlQueryExecution
     private final Metadata metadata;
     private final SplitManager splitManager;
     private final NodeManager nodeManager;
+    private final PlanOptimizersFactory planOptimizersFactory;
     private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
     private final int maxPendingSplitsPerNode;
@@ -65,37 +67,31 @@ public class SqlQueryExecution
             Metadata metadata,
             SplitManager splitManager,
             NodeManager nodeManager,
+            PlanOptimizersFactory planOptimizersFactory,
             RemoteTaskFactory remoteTaskFactory,
             LocationFactory locationFactory,
             QueryMonitor queryMonitor,
             int maxPendingSplitsPerNode,
             ExecutorService queryExecutor)
     {
+        this.statement = checkNotNull(statement, "statement is null");
+        this.metadata = checkNotNull(metadata, "metadata is null");
+        this.splitManager = checkNotNull(splitManager, "splitManager is null");
+        this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
+        this.planOptimizersFactory = checkNotNull(planOptimizersFactory, "planOptimizersFactory is null");
+        this.remoteTaskFactory = checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
+        this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
+        this.queryExecutor = checkNotNull(queryExecutor, "queryExecutor is null");
+
+        checkArgument(maxPendingSplitsPerNode > 0, "maxPendingSplitsPerNode must be greater than 0");
+        this.maxPendingSplitsPerNode = maxPendingSplitsPerNode;
+
         checkNotNull(queryId, "queryId is null");
         checkNotNull(query, "query is null");
         checkNotNull(session, "session is null");
         checkNotNull(self, "self is null");
-        checkNotNull(statement, "statement is null");
-        checkNotNull(metadata, "metadata is null");
-        checkNotNull(splitManager, "splitManager is null");
-        checkNotNull(nodeManager, "nodeManager is null");
-        checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
-        checkNotNull(locationFactory, "locationFactory is null");
         checkNotNull(queryMonitor, "queryMonitor is null");
-        checkArgument(maxPendingSplitsPerNode > 0, "maxPendingSplitsPerNode must be greater than 0");
-        checkNotNull(queryExecutor, "queryExecutor is null");
-
         this.stateMachine = new QueryStateMachine(queryId, query, session, self, queryMonitor);
-
-        this.statement = statement;
-
-        this.metadata = metadata;
-        this.splitManager = splitManager;
-        this.nodeManager = nodeManager;
-        this.remoteTaskFactory = remoteTaskFactory;
-        this.locationFactory = locationFactory;
-        this.maxPendingSplitsPerNode = maxPendingSplitsPerNode;
-        this.queryExecutor = queryExecutor;
     }
 
     @Override
@@ -148,7 +144,7 @@ public class SqlQueryExecution
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         // plan query
-        LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), metadata, idAllocator);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizersFactory, idAllocator);
         PlanNode plan = logicalPlanner.plan(analysis);
 
         // fragment the plan
@@ -299,6 +295,7 @@ public class SqlQueryExecution
         private final Metadata metadata;
         private final SplitManager splitManager;
         private final NodeManager nodeManager;
+        private final PlanOptimizersFactory planOptimizersFactory;
         private final RemoteTaskFactory remoteTaskFactory;
         private final LocationFactory locationFactory;
         private final QueryMonitor queryMonitor;
@@ -312,6 +309,7 @@ public class SqlQueryExecution
                 LocationFactory locationFactory,
                 SplitManager splitManager,
                 NodeManager nodeManager,
+                PlanOptimizersFactory planOptimizersFactory,
                 RemoteTaskFactory remoteTaskFactory)
         {
             Preconditions.checkNotNull(config, "config is null");
@@ -321,6 +319,7 @@ public class SqlQueryExecution
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
             this.splitManager = checkNotNull(splitManager, "splitManager is null");
             this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
+            this.planOptimizersFactory = checkNotNull(planOptimizersFactory, "planOptimizersFactory is null");
             this.remoteTaskFactory = checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
 
             this.queryExecutor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
@@ -337,6 +336,7 @@ public class SqlQueryExecution
                     metadata,
                     splitManager,
                     nodeManager,
+                    planOptimizersFactory,
                     remoteTaskFactory,
                     locationFactory,
                     queryMonitor,
