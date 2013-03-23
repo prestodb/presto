@@ -17,10 +17,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 import static com.facebook.presto.util.SqlUtils.runIgnoringConstraintViolation;
+import static com.google.common.base.Preconditions.checkState;
 
 public class NativeMetadata
         implements Metadata
@@ -130,6 +133,34 @@ public class NativeMetadata
     public List<Map<String, String>> listTablePartitionValues(String catalogName, String schemaName, String tableName)
     {
         return ImmutableList.of();
+    }
+
+    @Override
+    public QualifiedTableName getTableName(TableHandle tableHandle)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkState(DataSourceType.NATIVE == tableHandle.getDataSourceType(), "not a native handle: %s", tableHandle);
+
+        long tableId = ((NativeTableHandle) tableHandle).getTableId();
+
+        QualifiedTableName tableName = dao.getTableName(tableId);
+        checkState(tableName != null, "no table with id %s exists", tableId);
+        return tableName;
+    }
+
+    @Override
+    public TableColumn getTableColumn(TableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkNotNull(columnHandle, "columnHandle is null");
+        checkState(DataSourceType.NATIVE == tableHandle.getDataSourceType(), "not a native handle: %s", tableHandle);
+        checkState(DataSourceType.NATIVE == columnHandle.getDataSourceType(), "not a native handle: %s", columnHandle);
+
+        long columnId = ((NativeColumnHandle) columnHandle).getColumnId();
+
+        TableColumn tableColumn = dao.getTableColumn(columnId);
+        checkState(tableColumn != null, "no column with id %s exists", columnId);
+        return tableColumn;
     }
 
     @Override

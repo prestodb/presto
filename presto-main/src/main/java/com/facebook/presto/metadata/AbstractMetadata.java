@@ -80,4 +80,16 @@ public abstract class AbstractMetadata
     {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public QualifiedTableName getTableName(TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public TableColumn getTableColumn(TableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
 }

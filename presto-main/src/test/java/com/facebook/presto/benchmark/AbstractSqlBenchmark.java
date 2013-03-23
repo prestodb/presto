@@ -15,6 +15,7 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
+import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -53,8 +54,8 @@ public abstract class AbstractSqlBenchmark
         analysis = new Analyzer(session, metadata).analyze(statement);
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-
-        PlanNode plan = new LogicalPlanner(session, metadata, idAllocator).plan(analysis);
+        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata);
+        PlanNode plan = new LogicalPlanner(session, planOptimizersFactory, idAllocator).plan(analysis);
         fragment = new DistributedLogicalPlanner(metadata, idAllocator)
                 .createSubplans(plan, analysis.getSymbolAllocator(), true)
                 .getFragment();

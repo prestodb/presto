@@ -168,6 +168,8 @@ public class CreateOrReplaceMaterializedViewExecution
         List<ImportField> fields = getImportFields(sourceColumns, table.getColumns());
 
         importManager.importTable(tableId, srcTableName.getCatalogName(), srcTableName.getSchemaName(), srcTableName.getTableName(), fields);
+
+        stateMachine.finished();
     }
 
     public static List<ImportField> getImportFields(List<ColumnMetadata> sourceColumns, List<ColumnMetadata> targetColumns)
