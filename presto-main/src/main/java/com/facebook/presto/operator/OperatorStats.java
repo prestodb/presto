@@ -13,8 +13,6 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.NotThreadSafe;
-import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadMXBean;
 import java.util.List;
 
 /**
@@ -24,8 +22,6 @@ import java.util.List;
 @NotThreadSafe
 public class OperatorStats
 {
-    private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
-
     private final TaskOutput taskOutput;
 
     private long declaredSize;
@@ -35,7 +31,6 @@ public class OperatorStats
     private long completedPositions;
 
     private CpuTimer cpuTimer = new CpuTimer();
-    private long exchangeWaitTime;
 
     private boolean finished;
 
