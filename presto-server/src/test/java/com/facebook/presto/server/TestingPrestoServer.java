@@ -12,10 +12,7 @@ import io.airlift.event.client.InMemoryEventModule;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
-import io.airlift.jmx.JmxHttpModule;
-import io.airlift.jmx.JmxModule;
 import io.airlift.json.JsonModule;
-import io.airlift.log.LogJmxModule;
 import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.testing.FileUtils;
 import io.airlift.tracetoken.TraceTokenModule;
@@ -51,9 +48,7 @@ public class TestingPrestoServer
                 new JsonModule(),
                 new JaxrsModule(),
                 new MBeanModule(),
-                new JmxModule(),
-                new JmxHttpModule(),
-                new LogJmxModule(),
+                new TestingJmxModule(),
                 new InMemoryEventModule(),
                 new TraceTokenModule(),
                 new ServerMainModule());

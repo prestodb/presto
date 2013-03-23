@@ -39,7 +39,7 @@ public class TestServer
             throws Exception
     {
         StatusResponseHandler.StatusResponse response = client.execute(
-                prepareGet().setUri(server.resolve("/v1/jmx/mbean")).build(),
+                prepareGet().setUri(server.resolve("/v1/query")).build(),
                 createStatusResponseHandler());
 
         assertEquals(response.getStatusCode(), OK.getStatusCode());
