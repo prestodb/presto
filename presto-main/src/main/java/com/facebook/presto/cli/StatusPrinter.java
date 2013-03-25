@@ -7,9 +7,7 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.log.Logger;
@@ -20,12 +18,17 @@ import org.fusesource.jansi.Ansi;
 import org.fusesource.jansi.Ansi.Erase;
 
 import java.io.PrintStream;
-import java.math.RoundingMode;
 import java.net.URI;
-import java.text.DecimalFormat;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.cli.FormatUtils.formatCount;
+import static com.facebook.presto.cli.FormatUtils.formatCountRate;
+import static com.facebook.presto.cli.FormatUtils.formatDataRate;
+import static com.facebook.presto.cli.FormatUtils.formatDataSize;
+import static com.facebook.presto.cli.FormatUtils.formatProgressBar;
+import static com.facebook.presto.cli.FormatUtils.formatTime;
+import static com.facebook.presto.cli.FormatUtils.pluralize;
 import static com.facebook.presto.execution.StageInfo.globalExecutionStats;
 import static com.facebook.presto.execution.StageInfo.stageOnlyExecutionStats;
 import static com.facebook.presto.execution.StageInfo.stageStateGetter;
@@ -412,125 +415,6 @@ Parallelism: 2.5
         return nodes.build();
     }
 
-    public static String formatCount(long count)
-    {
-        double fractional = count;
-        String unit = "";
-        if (fractional > 1000) {
-            fractional /= 1000;
-            unit = "K";
-        }
-        if (fractional > 1000) {
-            fractional /= 1000;
-            unit = "M";
-        }
-        if (fractional > 1000) {
-            fractional /= 1000;
-            unit = "B";
-        }
-        if (fractional > 1000) {
-            fractional /= 1000;
-            unit = "T";
-        }
-        if (fractional > 1000) {
-            fractional /= 1000;
-            unit = "Q";
-        }
-
-        DecimalFormat format = getFormat(fractional);
-        return String.format("%s%s", format.format(fractional), unit);
-    }
-
-    private static DecimalFormat getFormat(double value)
-    {
-        DecimalFormat format;
-        if (value < 10) {
-            // show up to two decimals to get 3 significant digits
-            format = new DecimalFormat("#.##");
-        }
-        else if (value < 100) {
-            // show up to one decimal to get 3 significant digits
-            format = new DecimalFormat("#.#");
-        }
-        else {
-            // show no decimals -- we have enough digits in the integer part
-            format = new DecimalFormat("#");
-        }
-
-        format.setRoundingMode(RoundingMode.HALF_UP);
-        return format;
-    }
-
-    public static String formatCountRate(double count, Duration duration, boolean longForm)
-    {
-        double rate = count / duration.convertTo(SECONDS);
-        if (Double.isNaN(rate) || Double.isInfinite(rate)) {
-            rate = 0;
-        }
-
-        String rateString = formatCount((long) rate);
-        if (longForm) {
-            if (rateString.endsWith(" ")) {
-                rateString = rateString.substring(0, rateString.length() - 1);
-            }
-            rateString += "/s";
-        }
-        return rateString;
-    }
-
-    public static String formatDataSize(DataSize size, boolean longForm)
-    {
-        double fractional = size.toBytes();
-        String unit = null;
-        if (fractional >= 1024) {
-            fractional /= 1024;
-            unit = "K";
-        }
-        if (fractional >= 1024) {
-            fractional /= 1024;
-            unit = "M";
-        }
-        if (fractional >= 1024) {
-            fractional /= 1024;
-            unit = "G";
-        }
-        if (fractional >= 1024) {
-            fractional /= 1024;
-            unit = "T";
-        }
-        if (fractional >= 1024) {
-            fractional /= 1024;
-            unit = "P";
-        }
-
-        if (unit == null) {
-            unit = "B";
-        }
-        else if (longForm) {
-            unit = unit + "B";
-        }
-
-        DecimalFormat format = getFormat(fractional);
-        return String.format("%s%s", format.format(fractional), unit);
-    }
-
-    public static String formatDataRate(DataSize dataSize, Duration duration, boolean longForm)
-    {
-        double rate = dataSize.toBytes() / duration.convertTo(SECONDS);
-        if (Double.isNaN(rate) || Double.isInfinite(rate)) {
-            rate = 0;
-        }
-
-        String rateString = formatDataSize(new DataSize(rate, BYTE), false);
-        if (longForm) {
-            if (!rateString.endsWith("B")) {
-                rateString += "B";
-            }
-            rateString += "/s";
-        }
-        return rateString;
-    }
-
     private void reprintLine(String line)
     {
         if (REAL_TERMINAL) {
@@ -605,89 +489,6 @@ Parallelism: 2.5
             // These errors happen if the JNI lib is not available for your platform.
         }
         return true;
-    }
-
-    private static String pluralize(String word, int count)
-    {
-        if (count != 1) {
-            return word + "s";
-        }
-        return word;
-    }
-
-    public static String formatTime(Duration duration)
-    {
-        int totalSeconds = (int) duration.convertTo(TimeUnit.SECONDS);
-        int minutes = totalSeconds / 60;
-        int seconds = totalSeconds % 60;
-
-        return String.format("%s:%02d", minutes, seconds);
-    }
-
-    /**
-     * Format an indeterminate progress bar: [       <=>       ]
-     */
-    private static String formatProgressBar(int width, int tick)
-    {
-        int markerWidth = 3; // must be odd >= 3 (1 for each < and > marker, the rest for "="
-
-        int range = width - markerWidth; // "lower" must fall within this range for the marker to fit within the bar
-        int lower = tick % range;
-
-        if ((tick / range) % 2 == 1) { // are we going or coming back?
-            lower = range - lower;
-        }
-
-        return Strings.repeat(" ", lower) +
-                        "<" +
-                        Strings.repeat("=", markerWidth - 2) +
-                        ">" +
-                        Strings.repeat(" ", width - (lower + markerWidth));
-    }
-
-    private static String formatProgressBar(int width, int complete, int running, int total)
-    {
-        if (total == 0) {
-            return Strings.repeat(" ", width);
-        }
-
-        int pending = Math.max(0, total - complete - running);
-
-        // compute nominal lengths
-        int completeLength = Math.min(width, ceil(complete * width, total));
-        int pendingLength = Math.min(width, ceil(pending * width, total));
-
-        // leave space for at least one ">" as long as running is > 0
-        int minRunningLength = running > 0 ? 1 : 0;
-        int runningLength = Math.max(Math.min(width, ceil(running * width, total)), minRunningLength);
-
-        // adjust to fix rounding errors
-        if (completeLength + runningLength + pendingLength != width && pending > 0) {
-            // sacrifice "pending" if we're over the max width
-            pendingLength = Math.max(0, width - completeLength - runningLength);
-        }
-        if (completeLength + runningLength + pendingLength != width) {
-            // then, sacrifice "running"
-            runningLength = Math.max(minRunningLength, width - completeLength - pendingLength);
-        }
-        if (completeLength + runningLength + pendingLength > width && complete > 0) {
-            // finally, sacrifice "complete" if we're still over the limit
-            completeLength = Math.max(0, width - runningLength - pendingLength);
-        }
-
-        Preconditions.checkState(completeLength + runningLength + pendingLength == width,
-                "Expected completeLength (%s) + runningLength (%s) + pendingLength (%s) == width (%s), was %s for complete = %s, running = %s, total = %s",
-                completeLength, runningLength, pendingLength, width, completeLength + runningLength + pendingLength, complete, running, total);
-
-        return Strings.repeat("=", completeLength) + Strings.repeat(">", runningLength) + Strings.repeat(" ", pendingLength);
-    }
-
-    /**
-     * Ceiling of integer division
-     */
-    private static int ceil(int dividend, int divisor)
-    {
-        return (dividend + divisor - 1) / divisor;
     }
 
     private static Predicate<StageState> isStageRunningOrDone()
