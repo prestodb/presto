@@ -1,10 +1,12 @@
 package com.facebook.presto.cli;
 
-import com.facebook.presto.Main;
 import com.facebook.presto.cli.ClientOptions.OutputFormat;
+import com.facebook.presto.ingest.RuntimeIOException;
 import com.facebook.presto.sql.parser.StatementSplitter;
 import com.google.common.base.Strings;
 import io.airlift.command.Command;
+import io.airlift.log.Logging;
+import io.airlift.log.LoggingConfiguration;
 import jline.console.history.FileHistory;
 import jline.console.history.MemoryHistory;
 import org.fusesource.jansi.AnsiConsole;
@@ -13,9 +15,12 @@ import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 
 import static com.facebook.presto.cli.Help.getHelpText;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
+import static com.google.common.io.ByteStreams.nullOutputStream;
+import static io.airlift.log.Logging.Level;
 import static jline.internal.Configuration.getUserHome;
 
 @Command(name = "console", description = "Interactive console")
@@ -37,7 +42,7 @@ public class Console
             AnsiConsole.systemInstall();
         }
 
-        Main.initializeLogging(session.isDebug());
+        initializeLogging(session.isDebug());
 
         try (QueryRunner queryRunner = QueryRunner.create(session)) {
             if (!hasQuery) {
@@ -159,4 +164,37 @@ public class Console
         return history;
     }
 
+    private static void initializeLogging(boolean debug)
+    {
+        // unhook out and err while initializing logging or logger will print to them
+        PrintStream out = System.out;
+        PrintStream err = System.err;
+        try {
+            if (debug) {
+                Logging logging = Logging.initialize();
+                logging.configure(new LoggingConfiguration());
+                logging.setLevel("com.facebook.presto", Level.DEBUG);
+            }
+            else {
+                System.setOut(nullPrintStream());
+                System.setErr(nullPrintStream());
+
+                Logging logging = Logging.initialize();
+                logging.configure(new LoggingConfiguration());
+                logging.disableConsole();
+            }
+        }
+        catch (IOException e) {
+            throw new RuntimeIOException(e);
+        }
+        finally {
+            System.setOut(out);
+            System.setErr(err);
+        }
+    }
+
+    private static PrintStream nullPrintStream()
+    {
+        return new PrintStream(nullOutputStream());
+    }
 }
