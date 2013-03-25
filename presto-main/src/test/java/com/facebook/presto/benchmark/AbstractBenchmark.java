@@ -6,10 +6,10 @@ import io.airlift.units.Duration;
 import javax.annotation.Nullable;
 import java.util.Map;
 
-import static com.facebook.presto.cli.StatusPrinter.formatCount;
-import static com.facebook.presto.cli.StatusPrinter.formatCountRate;
-import static com.facebook.presto.cli.StatusPrinter.formatDataRate;
-import static com.facebook.presto.cli.StatusPrinter.formatDataSize;
+import static com.facebook.presto.cli.FormatUtils.formatCount;
+import static com.facebook.presto.cli.FormatUtils.formatCountRate;
+import static com.facebook.presto.cli.FormatUtils.formatDataRate;
+import static com.facebook.presto.cli.FormatUtils.formatDataSize;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
