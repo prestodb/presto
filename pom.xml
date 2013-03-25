@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>6-SNAPSHOT</version>
+        <version>6</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -51,7 +51,7 @@
         <air.check.skip-license>true</air.check.skip-license>
 
         <dep.antlr.version>3.4</dep.antlr.version>
-        <dep.airlift.version>0.74-SNAPSHOT</dep.airlift.version>
+        <dep.airlift.version>0.74</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
     </properties>
 
