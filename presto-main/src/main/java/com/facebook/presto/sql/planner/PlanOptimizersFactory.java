@@ -37,7 +37,7 @@ public class PlanOptimizersFactory
     }
 
     @Inject(optional = true)
-    public void injectAdditionalDependencies(AliasDao aliasDao,
+    public synchronized void injectAdditionalDependencies(AliasDao aliasDao,
             NodeManager nodeManager,
             ShardManager shardManager)
     {
@@ -46,7 +46,7 @@ public class PlanOptimizersFactory
         this.shardManager = shardManager;
     }
 
-    public List<PlanOptimizer> createOptimizations(Session session)
+    public synchronized List<PlanOptimizer> createOptimizations(Session session)
     {
         checkNotNull(session, "session is null");
 

@@ -24,13 +24,12 @@ import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.metadata.ColumnMetadata.getColumnMetadataName;
+import static com.facebook.presto.metadata.ColumnMetadata.columnNameGetter;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -90,7 +89,7 @@ public class TableAliasSelector
             }
 
             List<ColumnMetadata> aliasColumns = aliasTableMetadata.getColumns();
-            Map<String, ColumnMetadata> lookupColumns = Maps.uniqueIndex(aliasColumns, getColumnMetadataName());
+            Map<String, ColumnMetadata> lookupColumns = Maps.uniqueIndex(aliasColumns, columnNameGetter());
 
             Map<Symbol, ColumnHandle> assignments =  node.getAssignments();
 
@@ -111,7 +110,7 @@ public class TableAliasSelector
             Set<String> nodesActive = ImmutableSet.copyOf(Collections2.transform(nodeManager.getActiveNodes(), Node.getIdentifierFunction()));
             Set<String> nodesRequired = ImmutableSet.copyOf(shardManager.getCommittedShardNodes(tableId).values());
 
-            return Sets.difference(nodesRequired, nodesActive).size() == 0; // True if all required nodes are in the set of active nodes.
+            return nodesActive.containsAll(nodesRequired);
         }
     }
 }
