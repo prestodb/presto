@@ -10,7 +10,7 @@ import static com.google.common.base.Strings.emptyToNull;
 
 public class ColumnMetadata
 {
-    private static final Function<ColumnMetadata, String> GET_COLUMN_METADATA_NAME = new Function<ColumnMetadata, String>() {
+    private static final Function<ColumnMetadata, String> COLUMN_NAME_GETTER_FUNCTION = new Function<ColumnMetadata, String>() {
 
         @Override
         public String apply(ColumnMetadata input)
@@ -19,9 +19,9 @@ public class ColumnMetadata
         }
     };
 
-    public static Function<ColumnMetadata, String> getColumnMetadataName()
+    public static Function<ColumnMetadata, String> columnNameGetter()
     {
-        return GET_COLUMN_METADATA_NAME;
+        return COLUMN_NAME_GETTER_FUNCTION;
     }
 
     private final String name;
