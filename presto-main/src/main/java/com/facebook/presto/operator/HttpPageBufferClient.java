@@ -3,7 +3,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.ExchangeOperator.ExchangeClientStatus;
 import com.facebook.presto.serde.PagesSerde;
 import com.facebook.presto.slice.InputStreamSliceInput;
 import com.google.common.base.Objects;

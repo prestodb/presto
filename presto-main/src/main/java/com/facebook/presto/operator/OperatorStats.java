@@ -4,7 +4,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.TaskOutput;
-import com.facebook.presto.operator.ExchangeOperator.ExchangeClientStatus;
 import com.facebook.presto.operator.OperatorStats.SmallCounterStat.SmallCounterStatSnapshot;
 import com.facebook.presto.util.CpuTimer;
 import com.facebook.presto.util.CpuTimer.CpuDuration;
