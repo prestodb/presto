@@ -1,7 +1,13 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.block.BlockCursor;
+import com.facebook.presto.client.Column;
+import com.facebook.presto.client.QueryData;
+import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.StageStats;
+import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.execution.BufferInfo;
+import com.facebook.presto.execution.ExecutionStats;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.StageInfo;
@@ -10,15 +16,13 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.server.ExecuteResource.ForExecute;
-import com.facebook.presto.client.Column;
-import com.facebook.presto.client.QueryData;
-import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import io.airlift.http.client.AsyncHttpClient;
@@ -46,6 +50,7 @@ import javax.ws.rs.core.UriInfo;
 import java.io.Closeable;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -61,6 +66,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.execution.StageInfo.globalExecutionStats;
+import static com.facebook.presto.execution.StageInfo.stageOnlyExecutionStats;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -164,6 +171,9 @@ public class StatementResource
         private QueryResults lastResult;
 
         @GuardedBy("this")
+        private String lastResultPath;
+
+        @GuardedBy("this")
         private List<Column> columns;
 
         public Query(Session session,
@@ -198,7 +208,7 @@ public class StatementResource
         {
             // is the a repeated request for the last results?
             String requestedPath = uriInfo.getAbsolutePath().getPath();
-            if (lastResult.getSelf() != null && requestedPath.equals(lastResult.getSelf().getPath())) {
+            if (lastResultPath != null && requestedPath.equals(lastResultPath)) {
                 return lastResult;
             }
 
@@ -231,13 +241,18 @@ public class StatementResource
             }
 
             // first time through, self is null
-            URI self = null;
-            if (lastResult != null) {
-                self = lastResult.getNext();
-            }
+            QueryResults queryResults = new QueryResults(
+                    uriInfo.getRequestUriBuilder().replaceQuery("").replacePath(queryInfo.getSelf().getPath()).build(),
+                    nextResultsUri,
+                    data,
+                    toStatementStats(uriInfo, queryInfo));
 
-            QueryResults queryResults = new QueryResults(self, nextResultsUri, data, queryInfo);
             // cache the last results
+            if (lastResult != null) {
+                lastResultPath = lastResult.getNext().getPath();
+            } else {
+                lastResultPath = null;
+            }
             lastResult = queryResults;
             return queryResults;
         }
@@ -326,6 +341,84 @@ public class StatementResource
                 }
             }
             return list.build();
+        }
+
+        private StatementStats toStatementStats(UriInfo uriInfo, QueryInfo queryInfo)
+        {
+            ExecutionStats executionStats = globalExecutionStats(queryInfo.getOutputStage());
+
+            return StatementStats.builder()
+                    .setState(queryInfo.getState().toString())
+                    .setDone(queryInfo.getState().isDone())
+                    .setNodes(globalUniqueNodes(queryInfo.getOutputStage()).size())
+                    .setTotalSplits(executionStats.getSplits())
+                    .setQueuedSplits(executionStats.getQueuedSplits())
+                    .setRunningSplits(executionStats.getRunningSplits())
+                    .setCompletedSplits(executionStats.getCompletedSplits())
+                    .setUserTimeMillis((long) executionStats.getSplitUserTime().toMillis())
+                    .setCpuTimeMillis((long) executionStats.getSplitCpuTime().toMillis())
+                    .setWallTimeMillis((long) executionStats.getSplitWallTime().toMillis())
+                    .setProcessedRows(executionStats.getCompletedPositionCount())
+                    .setProcessedBytes(executionStats.getCompletedDataSize().toBytes())
+                    .setRootStage(toStageStats(uriInfo, queryInfo.getOutputStage()))
+                    .build();
+        }
+
+        private StageStats toStageStats(UriInfo uriInfo, StageInfo stageInfo)
+        {
+            if (stageInfo == null) {
+                return null;
+            }
+
+            ExecutionStats executionStats = stageOnlyExecutionStats(stageInfo);
+
+            ImmutableList.Builder<StageStats> subStages = ImmutableList.builder();
+            for (StageInfo subStage : stageInfo.getSubStages()) {
+                subStages.add(toStageStats(uriInfo, subStage));
+            }
+
+            Set<String> uniqueNodes = new HashSet<>();
+            for (TaskInfo task : stageInfo.getTasks()) {
+                // todo add nodeId to TaskInfo
+                URI uri = task.getSelf();
+                uniqueNodes.add(uri.getHost() + ":" + uri.getPort());
+            }
+
+            return StageStats.builder()
+                    .setStageUri(uriInfo.getRequestUriBuilder().replaceQuery("").replacePath(stageInfo.getSelf().getPath()).build())
+                    .setStageNumber(Integer.parseInt(stageInfo.getStageId().substring(stageInfo.getQueryId().length() + 1)))
+                    .setState(stageInfo.getState().toString())
+                    .setDone(stageInfo.getState().isDone())
+                    .setNodes(uniqueNodes.size())
+                    .setTotalSplits(executionStats.getSplits())
+                    .setQueuedSplits(executionStats.getQueuedSplits())
+                    .setRunningSplits(executionStats.getRunningSplits())
+                    .setCompletedSplits(executionStats.getCompletedSplits())
+                    .setUserTimeMillis((long) executionStats.getSplitUserTime().toMillis())
+                    .setCpuTimeMillis((long) executionStats.getSplitCpuTime().toMillis())
+                    .setWallTimeMillis((long) executionStats.getSplitWallTime().toMillis())
+                    .setProcessedRows(executionStats.getCompletedPositionCount())
+                    .setProcessedBytes(executionStats.getCompletedDataSize().toBytes())
+                    .setSubStages(subStages.build())
+                    .build();
+        }
+
+        private static Set<String> globalUniqueNodes(StageInfo stageInfo)
+        {
+            if (stageInfo == null) {
+                return ImmutableSet.of();
+            }
+            ImmutableSet.Builder<String> nodes = ImmutableSet.builder();
+            for (TaskInfo task : stageInfo.getTasks()) {
+                // todo add nodeId to TaskInfo
+                URI uri = task.getSelf();
+                nodes.add(uri.getHost() + ":" + uri.getPort());
+            }
+
+            for (StageInfo subStage : stageInfo.getSubStages()) {
+                nodes.addAll(globalUniqueNodes(subStage));
+            }
+            return nodes.build();
         }
 
         private static class RowIterable
