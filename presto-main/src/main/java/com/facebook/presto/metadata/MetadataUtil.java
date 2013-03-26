@@ -20,6 +20,15 @@ import static com.google.common.collect.Iterables.transform;
 
 public class MetadataUtil
 {
+    public static QualifiedTableName checkTable(QualifiedTableName table)
+    {
+        checkNotNull(table, "table is null");
+        checkLowerCase(table.getCatalogName(), "catalogName");
+        checkLowerCase(table.getSchemaName(), "schemaName");
+        checkLowerCase(table.getTableName(), "tableName");
+        return table;
+    }
+
     public static void checkTableName(String catalogName, String schemaName, String tableName)
     {
         checkLowerCase(catalogName, "catalogName");

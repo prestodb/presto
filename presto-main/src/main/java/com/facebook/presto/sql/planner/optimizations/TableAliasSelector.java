@@ -1,7 +1,6 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.metadata.AliasDao;
-import com.facebook.presto.metadata.AliasDao.Utils;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.DataSourceType;
@@ -11,6 +10,7 @@ import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.ShardManager;
+import com.facebook.presto.metadata.TableAlias;
 import com.facebook.presto.metadata.TableColumn;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
@@ -73,13 +73,15 @@ public class TableAliasSelector
             }
 
             QualifiedTableName tableName = metadata.getTableName(tableHandle);
-            QualifiedTableName aliasTable = Utils.getAlias(aliasDao, tableName);
+            TableAlias tableAlias = aliasDao.getAlias(tableName);
 
-            if (aliasTable == null) {
+            if (tableAlias == null) {
                 return node;
             }
 
-            TableMetadata aliasTableMetadata = metadata.getTable(aliasTable.getCatalogName(), aliasTable.getSchemaName(), aliasTable.getTableName());
+            QualifiedTableName aliasTable = new QualifiedTableName(tableAlias.getDstCatalogName(), tableAlias.getDstSchemaName(), tableAlias.getDstTableName());
+
+            TableMetadata aliasTableMetadata = metadata.getTable(tableAlias.getDstCatalogName(), tableAlias.getDstSchemaName(), tableAlias.getDstTableName());
 
             checkState(aliasTableMetadata.getTableHandle().isPresent(), "no table handle for alias table %s found", aliasTable);
             checkState(aliasTableMetadata.getTableHandle().get().getDataSourceType() == DataSourceType.NATIVE, "alias table must be a native table");
