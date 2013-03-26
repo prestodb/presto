@@ -13,9 +13,6 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import jline.TerminalFactory;
-import org.fusesource.jansi.Ansi;
-import org.fusesource.jansi.Ansi.Erase;
 
 import java.io.PrintStream;
 import java.net.URI;
@@ -37,8 +34,6 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.fusesource.jansi.internal.CLibrary.STDOUT_FILENO;
-import static org.fusesource.jansi.internal.CLibrary.isatty;
 
 public class StatusPrinter
 {
@@ -47,12 +42,13 @@ public class StatusPrinter
     private final long start = System.nanoTime();
     private final HttpQueryClient queryClient;
     private final PrintStream out;
-    private int lines;
+    private final ConsolePrinter console;
 
     public StatusPrinter(HttpQueryClient queryClient, PrintStream out)
     {
         this.queryClient = queryClient;
         this.out = out;
+        this.console = new ConsolePrinter(out);
     }
 
 /*
@@ -91,7 +87,7 @@ Parallelism: 2.5
                     }
 
                     if (Duration.nanosSince(lastPrint).convertTo(SECONDS) >= 0.5) {
-                        repositionCursor();
+                        console.repositionCursor();
                         printQueryInfo(queryInfo);
                         lastPrint = System.nanoTime();
                     }
@@ -103,7 +99,7 @@ Parallelism: 2.5
             }
         }
         finally {
-            resetScreen();
+            console.resetScreen();
         }
     }
 
@@ -199,12 +195,11 @@ Parallelism: 2.5
         // cap progress at 99%, otherwise it looks weird when the query is still running and it says 100%
         int progressPercentage = min(99, (int) ((globalExecutionStats.getCompletedSplits() * 100.0) / globalExecutionStats.getSplits()));
 
-        if (REAL_TERMINAL) {
+        if (console.isRealTerminal()) {
             // blank line
             reprintLine("");
 
-            // TODO: inject this dependency properly
-            int terminalWidth = TerminalFactory.get().getWidth();
+            int terminalWidth = console.getWidth();
 
             if (terminalWidth < 75) {
                 reprintLine("WARNING: Terminal");
@@ -397,6 +392,11 @@ Parallelism: 2.5
         }
     }
 
+    private void reprintLine(String line)
+    {
+        console.reprintLine(line);
+    }
+
     private static Set<String> uniqueNodes(StageInfo stageInfo)
     {
         if (stageInfo == null) {
@@ -413,82 +413,6 @@ Parallelism: 2.5
             nodes.addAll(uniqueNodes(subStage));
         }
         return nodes.build();
-    }
-
-    private void reprintLine(String line)
-    {
-        if (REAL_TERMINAL) {
-            out.print(Ansi.ansi().eraseLine(Erase.ALL).a(line).a('\n').toString());
-        }
-        else {
-            out.print('\r' + line);
-        }
-        out.flush();
-        lines++;
-    }
-
-    private void repositionCursor()
-    {
-        if (lines > 0) {
-            if (REAL_TERMINAL) {
-                out.print(Ansi.ansi().cursorUp(lines).toString());
-            }
-            else {
-                out.print('\r');
-            }
-            out.flush();
-            lines = 0;
-        }
-    }
-
-    private void resetScreen()
-    {
-        if (lines > 0) {
-            if (REAL_TERMINAL) {
-                out.print(Ansi.ansi().cursorUp(lines).eraseScreen(Erase.FORWARD).toString());
-            }
-            else {
-                out.print('\r');
-            }
-            out.flush();
-            lines = 0;
-        }
-    }
-
-    public static final boolean REAL_TERMINAL = isRealTerminal();
-
-    private static boolean isRealTerminal()
-    {
-        // If the jansi.passthrough property is set, then don't interpret
-        // any of the ansi sequences.
-        if (Boolean.parseBoolean(System.getProperty("jansi.passthrough"))) {
-            return true;
-        }
-
-        // If the jansi.strip property is set, then we just strip the
-        // the ansi escapes.
-        if (Boolean.parseBoolean(System.getProperty("jansi.strip"))) {
-            return false;
-        }
-
-        String os = System.getProperty("os.name");
-        if (os.startsWith("Windows")) {
-            // We could support this, but we'd need a windows box
-            return true;
-        }
-
-        // We must be on some unix variant..
-        try {
-            // check if standard out is a terminal
-            int rc = isatty(STDOUT_FILENO);
-            if (rc == 0) {
-                return false;
-            }
-        }
-        catch (NoClassDefFoundError | UnsatisfiedLinkError ignore) {
-            // These errors happen if the JNI lib is not available for your platform.
-        }
-        return true;
     }
 
     private static Predicate<StageState> isStageRunningOrDone()
