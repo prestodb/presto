@@ -4,7 +4,6 @@ import com.facebook.presto.metadata.AliasDao;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
-import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.optimizations.CoalesceLimits;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PruneRedundantProjections;
@@ -19,18 +18,26 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class PlanOptimizersFactory
+public class PlanOptimizersFactory implements Provider<List<PlanOptimizer>>
 {
     private final Metadata metadata;
 
-    private AliasDao aliasDao;
-    private NodeManager nodeManager;
-    private ShardManager shardManager;
+    private List<PlanOptimizer> optimizers;
 
     @Inject
     public PlanOptimizersFactory(Metadata metadata)
     {
         this.metadata = checkNotNull(metadata, "metadata is null");
+
+        ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
+
+        builder.add(new SimplifyExpressions(metadata),
+                new PruneUnreferencedOutputs(),
+                new UnaliasSymbolReferences(),
+                new PruneRedundantProjections(),
+                new CoalesceLimits());
+
+        this.optimizers = builder.build();
     }
 
     @Inject(optional = true)
@@ -38,27 +45,19 @@ public class PlanOptimizersFactory
             NodeManager nodeManager,
             ShardManager shardManager)
     {
-        this.aliasDao = aliasDao;
-        this.nodeManager = nodeManager;
-        this.shardManager = shardManager;
-    }
-
-    public synchronized List<PlanOptimizer> createOptimizations(Session session)
-    {
-        checkNotNull(session, "session is null");
+        checkNotNull(aliasDao, "aliasDao is null");
+        checkNotNull(nodeManager, "nodeManager is null");
+        checkNotNull(shardManager, "shardManager is null");
 
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
+        builder.addAll(optimizers);
+        builder.add(new TableAliasSelector(metadata, aliasDao, nodeManager, shardManager));
 
-        builder.add(new SimplifyExpressions(metadata, session),
-                new PruneUnreferencedOutputs(),
-                new UnaliasSymbolReferences(),
-                new PruneRedundantProjections(),
-                new CoalesceLimits());
+        this.optimizers = builder.build();
+    }
 
-        if (aliasDao != null && nodeManager != null && shardManager != null) {
-            builder.add(new TableAliasSelector(metadata, aliasDao, nodeManager, shardManager));
-        }
-
-        return builder.build();
+    public synchronized List<PlanOptimizer> get()
+    {
+        return optimizers;
     }
 }
