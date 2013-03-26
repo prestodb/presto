@@ -209,6 +209,7 @@ public class ServerMainModule
 
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
+        binder.bind(StatementResource.class).in(Scopes.SINGLETON);
         binder.bind(ExecuteResource.class).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindAsyncHttpClient("execute", ExecuteResource.ForExecute.class);
 
