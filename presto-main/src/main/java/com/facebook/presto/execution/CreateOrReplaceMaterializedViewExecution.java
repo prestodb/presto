@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import javax.inject.Inject;
+
 import java.net.URI;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -126,7 +127,7 @@ public class CreateOrReplaceMaterializedViewExecution
     {
         QualifiedTableName dstTableName = MetadataUtil.createQualifiedTableName(stateMachine.getSession(), statement.getName());
 
-        checkState(DataSourceType.NATIVE == metadataManager.lookupDataSource(dstTableName.getCatalogName(), dstTableName.getSchemaName(), dstTableName.getTableName()),
+        checkState(DataSourceType.NATIVE == metadataManager.lookupDataSource(dstTableName),
                 "%s is not a native table, can only create native tables", dstTableName);
 
         checkState(statement.getTableDefinition() instanceof Query, "Can only create a table from a query");
@@ -142,7 +143,7 @@ public class CreateOrReplaceMaterializedViewExecution
 
         final QualifiedTableName srcTableName = MetadataUtil.createQualifiedTableName(stateMachine.getSession(), ((Table) srcTableRelation).getName());
 
-        checkState(DataSourceType.IMPORT == metadataManager.lookupDataSource(srcTableName.getCatalogName(), srcTableName.getSchemaName(), srcTableName.getTableName()),
+        checkState(DataSourceType.IMPORT == metadataManager.lookupDataSource(srcTableName),
                 "Can not import from %s, not an importable table", srcTableName);
 
         List<SchemaField> schema = retry()
@@ -160,10 +161,10 @@ public class CreateOrReplaceMaterializedViewExecution
                 });
 
         List<ColumnMetadata> sourceColumns = convertToMetadata(srcTableName.getCatalogName(), schema);
-        TableMetadata table = new TableMetadata(dstTableName.getCatalogName(), dstTableName.getSchemaName(), dstTableName.getTableName(), sourceColumns);
+        TableMetadata table = new TableMetadata(dstTableName, sourceColumns);
         metadataManager.createTable(table);
 
-        table = metadataManager.getTable(dstTableName.getCatalogName(), dstTableName.getSchemaName(), dstTableName.getTableName());
+        table = metadataManager.getTable(dstTableName);
         long tableId = ((NativeTableHandle) table.getTableHandle().get()).getTableId();
         List<ImportField> fields = getImportFields(sourceColumns, table.getColumns());
 

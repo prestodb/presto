@@ -8,55 +8,37 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Strings.emptyToNull;
 
 public class TableMetadata
 {
-    private final String catalogName;
-    private final String schemaName;
-    private final String tableName;
+    private final QualifiedTableName table;
     private final List<ColumnMetadata> columns;
     private final Optional<TableHandle> tableHandle;
 
-    public TableMetadata(String catalogName, String schemaName, String tableName, List<ColumnMetadata> columns)
+    public TableMetadata(QualifiedTableName table, List<ColumnMetadata> columns)
     {
-        this(catalogName, schemaName, tableName, columns, Optional.<TableHandle>absent());
+        this(table, columns, Optional.<TableHandle>absent());
     }
 
-    public TableMetadata(String catalogName, String schemaName, String tableName, List<ColumnMetadata> columns, TableHandle tableHandle)
+    public TableMetadata(QualifiedTableName table, List<ColumnMetadata> columns, TableHandle tableHandle)
     {
-        this(catalogName, schemaName, tableName, columns,
-                Optional.of(checkNotNull(tableHandle, "tableHandle is null")));
+        this(table, columns, Optional.of(checkNotNull(tableHandle, "tableHandle is null")));
     }
 
-    private TableMetadata(String catalogName, String schemaName, String tableName, List<ColumnMetadata> columns, Optional<TableHandle> tableHandle)
+    private TableMetadata(QualifiedTableName table, List<ColumnMetadata> columns, Optional<TableHandle> tableHandle)
     {
-        checkNotNull(emptyToNull(catalogName), "catalogName is null or empty");
-        checkNotNull(emptyToNull(schemaName), "schemaName is null or empty");
-        checkNotNull(emptyToNull(tableName), "tableName is null or empty");
+        checkNotNull(table, "table is null");
         checkNotNull(columns, "columns is null");
         checkArgument(!columns.isEmpty(), "columns is empty");
 
-        this.catalogName = catalogName.toLowerCase();
-        this.schemaName = schemaName.toLowerCase();
-        this.tableName = tableName.toLowerCase();
+        this.table = table;
         this.columns = ImmutableList.copyOf(columns);
         this.tableHandle = tableHandle;
     }
 
-    public String getCatalogName()
+    public QualifiedTableName getTable()
     {
-        return catalogName;
-    }
-
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    public String getTableName()
-    {
-        return tableName;
+        return table;
     }
 
     public List<ColumnMetadata> getColumns()
@@ -73,9 +55,7 @@ public class TableMetadata
     public String toString()
     {
         return Objects.toStringHelper(this)
-                .add("catalogName", catalogName)
-                .add("schemaName", schemaName)
-                .add("tableName", tableName)
+                .add("table", table)
                 .add("columns", columns)
                 .toString();
     }

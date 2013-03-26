@@ -44,13 +44,13 @@ public class PeriodicImportRunnable
     {
         final PersistentPeriodicImportJob job = jobState.getJob();
 
-        TableMetadata sourceTable = metadata.getTable(job.getSrcCatalogName(), job.getSrcSchemaName(), job.getSrcTableName());
+        TableMetadata sourceTable = metadata.getTable(job.getSrcTable());
         List<ColumnMetadata> sourceColumns = sourceTable.getColumns();
 
-        TableMetadata table = new TableMetadata(job.getDstCatalogName(), job.getDstSchemaName(), job.getDstTableName(), sourceColumns);
+        TableMetadata table = new TableMetadata(job.getDstTable(), sourceColumns);
         metadata.createTable(table);
 
-        table = metadata.getTable(job.getDstCatalogName(), job.getDstSchemaName(), job.getDstTableName());
+        table = metadata.getTable(job.getDstTable());
         long tableId = ((NativeTableHandle) table.getTableHandle().get()).getTableId();
         List<ImportField> fields = CreateOrReplaceMaterializedViewExecution.getImportFields(sourceColumns, table.getColumns());
 

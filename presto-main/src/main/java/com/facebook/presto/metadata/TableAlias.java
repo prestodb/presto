@@ -1,7 +1,6 @@
 package com.facebook.presto.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 import org.skife.jdbi.v2.StatementContext;
@@ -76,13 +75,11 @@ public final class TableAlias
         return dstTable.getTableName();
     }
 
-    @JsonIgnore
     public QualifiedTableName getSrcTable()
     {
         return srcTable;
     }
 
-    @JsonIgnore
     public QualifiedTableName getDstTable()
     {
         return dstTable;

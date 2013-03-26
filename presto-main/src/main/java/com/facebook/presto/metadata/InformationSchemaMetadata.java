@@ -8,11 +8,12 @@ import com.google.common.collect.Maps;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.MetadataUtil.ColumnMetadataListBuilder.columnsBuilder;
-import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
+import static com.facebook.presto.metadata.MetadataUtil.checkTable;
+
 import static com.facebook.presto.metadata.MetadataUtil.getTableColumns;
 import static com.facebook.presto.metadata.MetadataUtil.getTableNames;
 import static com.facebook.presto.metadata.MetadataUtil.getType;
+import static com.facebook.presto.metadata.MetadataUtil.ColumnMetadataListBuilder.columnsBuilder;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -59,15 +60,15 @@ public class InformationSchemaMetadata
                     .build())
             .build();
 
-    public TableMetadata getTableMetadata(String catalogName, String schemaName, String tableName)
+    public TableMetadata getTable(QualifiedTableName table)
     {
-        checkTableName(catalogName, schemaName, tableName);
-        checkArgument(schemaName.equals(INFORMATION_SCHEMA), "schema is not %s", INFORMATION_SCHEMA);
+        checkTable(table);
+        checkArgument(table.getSchemaName().equals(INFORMATION_SCHEMA), "schema is not %s", INFORMATION_SCHEMA);
 
-        List<ColumnMetadata> metadata = METADATA.get(tableName);
+        List<ColumnMetadata> metadata = METADATA.get(table.getTableName());
         if (metadata != null) {
-            InternalTableHandle handle = new InternalTableHandle(catalogName, schemaName, tableName);
-            return new TableMetadata(catalogName, schemaName, tableName, metadata, handle);
+            InternalTableHandle handle = InternalTableHandle.forQualifiedTableName(table);
+            return new TableMetadata(table, metadata, handle);
         }
 
         return null;

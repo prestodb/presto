@@ -9,6 +9,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.InternalTableHandle;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.AlignmentOperator;
@@ -50,6 +51,7 @@ import org.intellij.lang.annotations.Language;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.metadata.MetadataUtil.checkTable;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.util.MaterializedResult.materialize;
@@ -169,21 +171,24 @@ public class LocalQueryRunner
         }
 
         @Override
-        public TableMetadata getTable(String catalogName, String schemaName, String tableName)
+        public TableMetadata getTable(QualifiedTableName table)
         {
-            checkArgument(tableName.equals(DualTable.NAME), "wrong table name: %s", tableName);
-            return DualTable.getMetadata(catalogName, schemaName, tableName);
+            checkTable(table);
+            checkArgument(table.getTableName().equals(DualTable.NAME), "wrong table name: %s", table);
+            return DualTable.getTable(table);
         }
     }
 
     private static class DualTableDataStreamProvider
             implements DataStreamProvider
     {
+        private static final QualifiedTableName DEFAULT_DUAL_TABLE = new QualifiedTableName(DEFAULT_CATALOG, DEFAULT_SCHEMA, DualTable.NAME);
+
         @Override
         public Operator createDataStream(Split split, List<ColumnHandle> columns)
         {
             checkArgument(columns.size() == 1, "expected exactly one column");
-            InternalTable table = DualTable.getInternalTable(DEFAULT_CATALOG, DEFAULT_SCHEMA, DualTable.NAME);
+            InternalTable table = DualTable.getInternalTable(DEFAULT_DUAL_TABLE);
             return new AlignmentOperator(ImmutableList.of(table.getColumn(0)));
         }
     }
