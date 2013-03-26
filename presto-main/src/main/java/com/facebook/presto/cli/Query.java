@@ -34,7 +34,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.facebook.presto.cli.ClientOptions.OutputFormat.CSV_HEADER;
 import static com.facebook.presto.cli.ClientOptions.OutputFormat.PAGED;
 import static com.facebook.presto.cli.ClientOptions.OutputFormat.TSV_HEADER;
-import static com.facebook.presto.cli.StatusPrinter.REAL_TERMINAL;
+import static com.facebook.presto.cli.ConsolePrinter.REAL_TERMINAL;
 import static com.facebook.presto.operator.OutputProcessor.processOutput;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Throwables.propagate;
