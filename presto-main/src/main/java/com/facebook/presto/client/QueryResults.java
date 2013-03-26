@@ -3,7 +3,6 @@
  */
 package com.facebook.presto.client;
 
-import com.facebook.presto.execution.QueryInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -12,23 +11,24 @@ import java.net.URI;
 
 public class QueryResults
 {
-    private final URI self;
+    private final URI queryInfoUri;
     private final URI next;
     private final QueryData data;
-    private final QueryInfo stats;
+    private final StatementStats stats;
 
     @JsonCreator
-    public QueryResults(@JsonProperty("self") URI self, @JsonProperty("next") URI next, @JsonProperty("data") QueryData data, @JsonProperty("stats") QueryInfo stats)
+    public QueryResults(@JsonProperty("queryInfoUri") URI queryInfoUri, @JsonProperty("next") URI next, @JsonProperty("data") QueryData data, @JsonProperty("stats") StatementStats stats)
     {
-        this.self = self;
+        this.queryInfoUri = queryInfoUri;
         this.next = next;
         this.data = data;
         this.stats = stats;
     }
 
-    public URI getSelf()
+    @JsonProperty
+    public URI getQueryInfoUri()
     {
-        return self;
+        return queryInfoUri;
     }
 
     @JsonProperty
@@ -45,7 +45,7 @@ public class QueryResults
 
     @NotNull
     @JsonProperty
-    public QueryInfo getStats()
+    public StatementStats getStats()
     {
         return stats;
     }
