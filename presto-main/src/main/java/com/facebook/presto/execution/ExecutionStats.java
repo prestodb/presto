@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.operator.ExchangeOperator.ExchangeClientStatus;
+import com.facebook.presto.operator.ExchangeClientStatus;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
