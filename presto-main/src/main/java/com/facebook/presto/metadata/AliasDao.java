@@ -3,15 +3,12 @@ package com.facebook.presto.metadata;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.exceptions.UnableToObtainConnectionException;
-import org.skife.jdbi.v2.sqlobject.Bind;
 import org.skife.jdbi.v2.sqlobject.BindBean;
 import org.skife.jdbi.v2.sqlobject.SqlQuery;
 import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
 
 import java.util.concurrent.TimeUnit;
-
-import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 
 public interface AliasDao
 {
@@ -25,7 +22,6 @@ public interface AliasDao
             "  dst_catalog_name VARCHAR(255) NOT NULL,\n" +
             "  dst_schema_name VARCHAR(255) NOT NULL,\n" +
             "  dst_table_name VARCHAR(255) NOT NULL,\n" +
-            "  UNIQUE(src_catalog_name, src_schema_name, src_table_name),\n" +
             "  UNIQUE(dst_catalog_name, dst_schema_name, dst_table_name)\n" +
             ")")
     void createAliasTable();
@@ -36,12 +32,12 @@ public interface AliasDao
     long insertAlias(@BindBean TableAlias alias);
 
     @SqlUpdate("DELETE FROM alias\n" +
-            "  WHERE src_catalog_name = : srcCatalogName AND src_schema_name = :srcSchemaName AND src_table_name = :srcTableName")
+            "  WHERE src_catalog_name = :srcCatalogName AND src_schema_name = :srcSchemaName AND src_table_name = :srcTableName")
     void dropAlias(@BindBean TableAlias alias);
 
     @SqlQuery("SELECT * FROM alias WHERE src_catalog_name = :catalogName AND src_schema_name = :schemaName AND src_table_name = :tableName")
     @Mapper(TableAlias.TableAliasMapper.class)
-    TableAlias getAlias(@Bind("catalogName") String catalogName, @Bind("schemaName") String schemaName, @Bind("tableName") String tableName);
+    TableAlias getAlias(@BindBean QualifiedTableName table);
 
     public static final class Utils
     {
@@ -50,18 +46,6 @@ public interface AliasDao
         public static void createTables(AliasDao dao)
         {
             dao.createAliasTable();
-        }
-
-        public static QualifiedTableName getAlias(AliasDao dao, QualifiedTableName table)
-        {
-            checkTableName(table.getCatalogName(), table.getSchemaName(), table.getTableName());
-
-            TableAlias tableAlias = dao.getAlias(table.getCatalogName(), table.getSchemaName(), table.getTableName());
-            if (tableAlias == null) {
-                return null;
-            }
-
-            return new QualifiedTableName(tableAlias.getDstCatalogName(), tableAlias.getDstSchemaName(), tableAlias.getDstTableName());
         }
 
         public static void createTablesWithRetry(AliasDao dao)
