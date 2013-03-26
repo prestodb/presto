@@ -1,6 +1,7 @@
 package com.facebook.presto.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 import org.skife.jdbi.v2.StatementContext;
@@ -9,14 +10,17 @@ import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import static com.facebook.presto.metadata.MetadataUtil.checkTable;
+
 public final class TableAlias
 {
-    private final String srcCatalogName;
-    private final String srcSchemaName;
-    private final String srcTableName;
-    private final String dstCatalogName;
-    private final String dstSchemaName;
-    private final String dstTableName;
+    private final QualifiedTableName srcTable;
+    private final QualifiedTableName dstTable;
+
+    public static TableAlias createTableAlias(QualifiedTableName srcTable, QualifiedTableName dstTable)
+    {
+        return new TableAlias(srcTable, dstTable);
+    }
 
     @JsonCreator
     public TableAlias(@JsonProperty("srcCatalogName") String srcCatalogName,
@@ -26,69 +30,77 @@ public final class TableAlias
             @JsonProperty("dstSchemaName") String dstSchemaName,
             @JsonProperty("dstTableName") String dstTableName)
     {
-        this.srcCatalogName = srcCatalogName;
-        this.srcSchemaName = srcSchemaName;
-        this.srcTableName = srcTableName;
+        this(new QualifiedTableName(srcCatalogName, srcSchemaName, srcTableName),
+                new QualifiedTableName(dstCatalogName, dstSchemaName, dstTableName));
+    }
 
-        this.dstCatalogName = dstCatalogName;
-        this.dstSchemaName = dstSchemaName;
-        this.dstTableName = dstTableName;
+    private TableAlias(QualifiedTableName srcTable, QualifiedTableName dstTable)
+    {
+        this.srcTable = checkTable(srcTable);
+        this.dstTable = checkTable(dstTable);
     }
 
     @JsonProperty
     public String getSrcCatalogName()
     {
-        return srcCatalogName;
+        return srcTable.getCatalogName();
     }
 
     @JsonProperty
     public String getSrcSchemaName()
     {
-        return srcSchemaName;
+        return srcTable.getSchemaName();
     }
 
     @JsonProperty
     public String getSrcTableName()
     {
-        return srcTableName;
+        return srcTable.getTableName();
     }
 
     @JsonProperty
     public String getDstCatalogName()
     {
-        return dstCatalogName;
+        return dstTable.getCatalogName();
     }
 
     @JsonProperty
     public String getDstSchemaName()
     {
-        return dstSchemaName;
+        return dstTable.getSchemaName();
     }
 
     @JsonProperty
     public String getDstTableName()
     {
-        return dstTableName;
+        return dstTable.getTableName();
+    }
+
+    @JsonIgnore
+    public QualifiedTableName getSrcTable()
+    {
+        return srcTable;
+    }
+
+    @JsonIgnore
+    public QualifiedTableName getDstTable()
+    {
+        return dstTable;
     }
 
     @Override
     public String toString()
     {
         return Objects.toStringHelper(this)
-                .add("srcCatalogName", srcCatalogName)
-                .add("srcSchemaName", srcSchemaName)
-                .add("srcTableName", srcTableName)
-                .add("dstCatalogName", dstCatalogName)
-                .add("dstSchemaName", dstSchemaName)
-                .add("dstTableName", dstTableName)
+                .add("srcTable", srcTable)
+                .add("dstTable", dstTable)
                 .toString();
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(srcCatalogName, srcSchemaName, srcTableName,
-                dstCatalogName, dstSchemaName, dstTableName);
+        return Objects.hashCode(srcTable, dstTable);
     }
 
     @Override
@@ -102,12 +114,8 @@ public final class TableAlias
         }
 
         TableAlias other = (TableAlias) obj;
-        return Objects.equal(srcCatalogName, other.srcCatalogName)
-                && Objects.equal(srcSchemaName, other.srcSchemaName)
-                && Objects.equal(srcTableName, other.srcTableName)
-                && Objects.equal(dstCatalogName, other.dstCatalogName)
-                && Objects.equal(dstSchemaName, other.dstSchemaName)
-                && Objects.equal(dstTableName, other.dstTableName);
+        return Objects.equal(srcTable, other.srcTable)
+                && Objects.equal(dstTable, other.dstTable);
     }
 
     public static class TableAliasMapper implements ResultSetMapper<TableAlias>
@@ -116,13 +124,16 @@ public final class TableAlias
         public TableAlias map(int index, ResultSet r, StatementContext ctx)
                 throws SQLException
         {
-            return new TableAlias(
-                r.getString("src_catalog_name"),
-                r.getString("src_schema_name"),
-                r.getString("src_table_name"),
-                r.getString("dst_catalog_name"),
-                r.getString("dst_schema_name"),
-                r.getString("dst_table_name"));
+            QualifiedTableName srcTable = new QualifiedTableName(r.getString("src_catalog_name"),
+                    r.getString("src_schema_name"),
+                    r.getString("src_table_name"));
+
+            QualifiedTableName dstTable = new QualifiedTableName(r.getString("dst_catalog_name"),
+                    r.getString("dst_schema_name"),
+                    r.getString("dst_table_name"));
+
+
+            return new TableAlias(srcTable, dstTable);
         }
     }
 }
