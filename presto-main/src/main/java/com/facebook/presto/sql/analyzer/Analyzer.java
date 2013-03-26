@@ -233,15 +233,7 @@ public class Analyzer
         @Override
         protected AnalysisResult visitShowPartitions(ShowPartitions showPartitions, AnalysisContext context)
         {
-            QualifiedName table = showPartitions.getTable();
-            List<String> parts = Lists.reverse(table.getParts());
-            if (parts.size() > 3) {
-                throw new SemanticException(showPartitions, "too many parts in table name: %s", table);
-            }
-
-            String catalogName = (parts.size() > 2) ? parts.get(2) : context.getSession().getCatalog();
-            String schemaName = (parts.size() > 1) ? parts.get(1) : context.getSession().getSchema();
-            String tableName = parts.get(0);
+            QualifiedTableName table = MetadataUtil.createQualifiedTableName(context.getSession(), showPartitions.getTable());
 
             /*
                 Generate a dynamic pivot to output one column per partition key.
@@ -257,7 +249,7 @@ public class Analyzer
             */
 
             ImmutableList.Builder<Expression> selectList = ImmutableList.builder();
-            for (String partition : metadata.listTablePartitionKeys(catalogName, schemaName, tableName)) {
+            for (String partition : metadata.listTablePartitionKeys(table)) {
                 Expression key = equal(nameReference("partition_key"), new StringLiteral(partition));
                 Expression function = functionCall("max", caseWhen(key, nameReference("partition_value")));
                 selectList.add(new AliasedExpression(function, partition));
@@ -266,10 +258,10 @@ public class Analyzer
             // TODO: throw SemanticException if table does not exist
             Query query = new Query(
                     selectAll(selectList.build()),
-                    table(QualifiedName.of(catalogName, INFORMATION_SCHEMA, TABLE_INTERNAL_PARTITIONS)),
+                    table(QualifiedName.of(table.getCatalogName(), INFORMATION_SCHEMA, TABLE_INTERNAL_PARTITIONS)),
                     Optional.of(logicalAnd(
-                            equal(nameReference("table_schema"), new StringLiteral(schemaName)),
-                            equal(nameReference("table_name"), new StringLiteral(tableName)))),
+                            equal(nameReference("table_schema"), new StringLiteral(table.getSchemaName())),
+                            equal(nameReference("table_name"), new StringLiteral(table.getTableName())))),
                     ImmutableList.of(nameReference("partition_number")),
                     Optional.<Expression>absent(),
                     ImmutableList.of(ascending("partition_number")),
@@ -622,25 +614,19 @@ public class Analyzer
         @Override
         protected TupleDescriptor visitTable(Table table, AnalysisContext context)
         {
-            QualifiedName name = table.getName();
 
-            if (name.getParts().size() > 3) {
-                throw new SemanticException(table, "Too many dots in table name: %s", name);
-            }
+            QualifiedTableName name = MetadataUtil.createQualifiedTableName(session, table.getName());
 
-            List<String> parts = Lists.reverse(name.getParts());
-            String tableName = parts.get(0);
-            String schemaName = (parts.size() > 1) ? parts.get(1) : session.getSchema();
-            String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCatalog();
-
-            TableMetadata tableMetadata = metadata.getTable(catalogName, schemaName, tableName);
+            TableMetadata tableMetadata = metadata.getTable(name);
             if (tableMetadata == null) {
                 throw new SemanticException(table, "Table %s does not exist", name);
             }
 
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
             for (ColumnMetadata column : tableMetadata.getColumns()) {
-                QualifiedName prefix = QualifiedName.of(tableMetadata.getCatalogName(), tableMetadata.getSchemaName(), tableMetadata.getTableName());
+                QualifiedName prefix = QualifiedName.of(tableMetadata.getTable().getCatalogName(),
+                        tableMetadata.getTable().getSchemaName(),
+                        tableMetadata.getTable().getTableName());
 
                 Symbol symbol = context.getSymbolAllocator().newSymbol(column.getName(), Type.fromRaw(column.getType()));
 

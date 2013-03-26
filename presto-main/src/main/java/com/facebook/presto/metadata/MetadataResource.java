@@ -1,6 +1,7 @@
 package com.facebook.presto.metadata;
 
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 
@@ -66,7 +67,7 @@ public class MetadataResource
         List<QualifiedTableName> tableNames = Collections.emptyList();
 
         try {
-            tableNames = metadata.listTables(catalogName, schemaName);
+            tableNames = metadata.listTables(catalogName, Optional.of(schemaName));
         }
         catch (Exception e) {
             // ignore, we always want a result...

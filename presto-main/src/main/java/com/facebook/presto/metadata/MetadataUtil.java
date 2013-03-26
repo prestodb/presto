@@ -2,12 +2,12 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
-
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,11 +29,31 @@ public class MetadataUtil
         return table;
     }
 
-    public static void checkTableName(String catalogName, String schemaName, String tableName)
+    public static void checkTableName(String catalogName, Optional<String> schemaName, Optional<String> tableName)
     {
         checkLowerCase(catalogName, "catalogName");
-        checkLowerCase(schemaName, "schemaName");
-        checkLowerCase(tableName, "tableName");
+
+        if (checkNotNull(schemaName, "schemaName is null").isPresent()) {
+            checkLowerCase(schemaName.get(), "schemaName");
+        }
+
+        if (checkNotNull(tableName, "tableName is null").isPresent()) {
+            checkLowerCase(tableName.get(), "tableName");
+        }
+    }
+
+    public static void checkSchemaName(String catalogName, Optional<String> schemaName)
+    {
+        checkLowerCase(catalogName, "catalogName");
+
+        if (checkNotNull(schemaName, "schemaName is null").isPresent()) {
+            checkLowerCase(schemaName.get(), "schemaName");
+        }
+    }
+
+    public static void checkCatalogName(String catalogName)
+    {
+        checkLowerCase(catalogName, "catalogName");
     }
 
     public static void checkSchemaName(String catalogName, String schemaName)
@@ -42,9 +62,11 @@ public class MetadataUtil
         checkLowerCase(schemaName, "schemaName");
     }
 
-    public static void checkCatalogName(String catalogName)
+    public static void checkTableName(String catalogName, String schemaName, String tableName)
     {
         checkLowerCase(catalogName, "catalogName");
+        checkLowerCase(schemaName, "schemaName");
+        checkLowerCase(tableName, "tableName");
     }
 
     private static void checkLowerCase(String s, String name)
@@ -87,8 +109,7 @@ public class MetadataUtil
                 ImmutableList.Builder<TableColumn> list = ImmutableList.builder();
                 int position = 1;
                 for (ColumnMetadata column : entry.getValue()) {
-                    list.add(new TableColumn(
-                            catalogName, schemaName, tableName,
+                    list.add(new TableColumn(new QualifiedTableName(catalogName, schemaName, tableName),
                             column.getName(), position, column.getType()));
                     position++;
                 }

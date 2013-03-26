@@ -1,17 +1,16 @@
 package com.facebook.presto.importer;
 
+import com.facebook.presto.metadata.QualifiedTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 
+import static com.facebook.presto.metadata.MetadataUtil.checkTable;
+
 public final class PeriodicImportJob
 {
-    private final String srcCatalogName;
-    private final String srcSchemaName;
-    private final String srcTableName;
-    private final String dstCatalogName;
-    private final String dstSchemaName;
-    private final String dstTableName;
+    private final QualifiedTableName srcTable;
+    private final QualifiedTableName dstTable;
     private final long intervalSeconds;
 
     @JsonCreator
@@ -23,13 +22,17 @@ public final class PeriodicImportJob
             @JsonProperty("dstTableName") String dstTableName,
             @JsonProperty("intervalSeconds") long intervalSeconds)
     {
-        this.srcCatalogName = srcCatalogName;
-        this.srcSchemaName = srcSchemaName;
-        this.srcTableName = srcTableName;
+        this(new QualifiedTableName(srcCatalogName, srcSchemaName, srcTableName),
+             new QualifiedTableName(dstCatalogName, dstSchemaName, dstTableName),
+            intervalSeconds);
+    }
 
-        this.dstCatalogName = dstCatalogName;
-        this.dstSchemaName = dstSchemaName;
-        this.dstTableName = dstTableName;
+    PeriodicImportJob(QualifiedTableName srcTable,
+            QualifiedTableName dstTable,
+            long intervalSeconds)
+    {
+        this.srcTable = checkTable(srcTable);
+        this.dstTable = checkTable(dstTable);
 
         this.intervalSeconds = intervalSeconds;
     }
@@ -37,37 +40,37 @@ public final class PeriodicImportJob
     @JsonProperty
     public String getSrcCatalogName()
     {
-        return srcCatalogName;
+        return srcTable.getCatalogName();
     }
 
     @JsonProperty
     public String getSrcSchemaName()
     {
-        return srcSchemaName;
+        return srcTable.getSchemaName();
     }
 
     @JsonProperty
     public String getSrcTableName()
     {
-        return srcTableName;
+        return srcTable.getTableName();
     }
 
     @JsonProperty
     public String getDstCatalogName()
     {
-        return dstCatalogName;
+        return dstTable.getCatalogName();
     }
 
     @JsonProperty
     public String getDstSchemaName()
     {
-        return dstSchemaName;
+        return dstTable.getSchemaName();
     }
 
     @JsonProperty
     public String getDstTableName()
     {
-        return dstTableName;
+        return dstTable.getTableName();
     }
 
     @JsonProperty
@@ -76,26 +79,30 @@ public final class PeriodicImportJob
         return intervalSeconds;
     }
 
+    public QualifiedTableName getSrcTable()
+    {
+        return srcTable;
+    }
+
+    public QualifiedTableName getDstTable()
+    {
+        return dstTable;
+    }
+
     @Override
     public String toString()
     {
         return Objects.toStringHelper(this)
-                .add("srcCatalogName", srcCatalogName)
-                .add("srcSchemaName", srcSchemaName)
-                .add("srcTableName", srcTableName)
-                .add("dstCatalogName", dstCatalogName)
-                .add("dstSchemaName", dstSchemaName)
-                .add("dstTableName", dstTableName)
-                .add("intervalSeconds", intervalSeconds)
-                .toString();
+            .add("srcTable", srcTable)
+            .add("dstTable", dstTable)
+            .add("intervalSeconds", intervalSeconds)
+            .toString();
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hashCode(srcCatalogName, srcSchemaName, srcTableName,
-                dstCatalogName, dstSchemaName, dstTableName,
-                intervalSeconds);
+        return Objects.hashCode(srcTable, dstTable, intervalSeconds);
     }
 
     @Override
@@ -109,12 +116,8 @@ public final class PeriodicImportJob
         }
 
         PeriodicImportJob other = (PeriodicImportJob) obj;
-        return Objects.equal(srcCatalogName, other.srcCatalogName)
-                && Objects.equal(srcSchemaName, other.srcSchemaName)
-                && Objects.equal(srcTableName, other.srcTableName)
-                && Objects.equal(dstCatalogName, other.dstCatalogName)
-                && Objects.equal(dstSchemaName, other.dstSchemaName)
-                && Objects.equal(dstTableName, other.dstTableName)
-                && intervalSeconds == other.intervalSeconds;
+        return Objects.equal(srcTable, other.srcTable)
+            && Objects.equal(dstTable, other.dstTable)
+            && intervalSeconds == other.intervalSeconds;
     }
 }

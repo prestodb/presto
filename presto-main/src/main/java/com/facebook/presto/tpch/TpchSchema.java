@@ -2,6 +2,7 @@ package com.facebook.presto.tpch;
 
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.tuple.TupleInfo;
@@ -20,13 +21,13 @@ public class TpchSchema
 
     public static TpchTableHandle tableHandle(String tableName)
     {
-        TableMetadata table = METADATA_INSTANCE.getTable(CATALOG_NAME, SCHEMA_NAME, tableName);
+        TableMetadata table = METADATA_INSTANCE.getTable(new QualifiedTableName(CATALOG_NAME, SCHEMA_NAME, tableName));
         return (TpchTableHandle) table.getTableHandle().get();
     }
 
     public static TpchColumnHandle columnHandle(TpchTableHandle tableHandle, String columnName)
     {
-        TableMetadata table = METADATA_INSTANCE.getTable(CATALOG_NAME, SCHEMA_NAME, tableHandle.getTableName());
+        TableMetadata table = METADATA_INSTANCE.getTable(new QualifiedTableName(CATALOG_NAME, SCHEMA_NAME, tableHandle.getTableName()));
         for (ColumnMetadata columnMetadata : table.getColumns()) {
             if (columnMetadata.getName().equals(columnName)) {
                 return (TpchColumnHandle) columnMetadata.getColumnHandle().get();
@@ -37,7 +38,7 @@ public class TpchSchema
 
     public static TpchColumnHandle columnHandle(TpchTableHandle tableHandle, int fieldIndex)
     {
-        TableMetadata table = METADATA_INSTANCE.getTable(CATALOG_NAME, SCHEMA_NAME, tableHandle.getTableName());
+        TableMetadata table = METADATA_INSTANCE.getTable(new QualifiedTableName(CATALOG_NAME, SCHEMA_NAME, tableHandle.getTableName()));
         return (TpchColumnHandle) table.getColumns().get(fieldIndex).getColumnHandle().get();
     }
 
@@ -53,7 +54,7 @@ public class TpchSchema
     {
         TpchTableHandle tpchTableHandle = new TpchTableHandle("orders");
         return new TableMetadata(
-                CATALOG_NAME, SCHEMA_NAME, tpchTableHandle.getTableName(),
+                new QualifiedTableName(CATALOG_NAME, SCHEMA_NAME, tpchTableHandle.getTableName()),
                 ImmutableList.<ColumnMetadata>of(
                         createColumn("orderkey", FIXED_INT_64, 0), // Mostly increasing IDs
                         createColumn("custkey", FIXED_INT_64, 1), // 15:1
@@ -73,7 +74,7 @@ public class TpchSchema
     {
         TpchTableHandle tpchTableHandle = new TpchTableHandle("lineitem");
         return new TableMetadata(
-                CATALOG_NAME, SCHEMA_NAME, tpchTableHandle.getTableName(),
+                new QualifiedTableName(CATALOG_NAME, SCHEMA_NAME, tpchTableHandle.getTableName()),
                 ImmutableList.<ColumnMetadata>of(
                         createColumn("orderkey", FIXED_INT_64, 0),
                         createColumn("partkey", FIXED_INT_64, 1),

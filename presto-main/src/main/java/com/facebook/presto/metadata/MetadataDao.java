@@ -36,10 +36,7 @@ public interface MetadataDao
             "WHERE catalog_name = :catalogName\n" +
             "  AND schema_name = :schemaName\n" +
             "  AND table_name = :tableName")
-    Long getTableId(
-            @Bind("catalogName") String catalogName,
-            @Bind("schemaName") String schemaName,
-            @Bind("tableName") String tableName);
+    Long getTableId(@BindBean QualifiedTableName table);
 
     @SqlQuery("SELECT catalog_name, schema_name, table_name\n" +
             "FROM tables\n" +
@@ -93,12 +90,12 @@ public interface MetadataDao
             "WHERE catalog_name = :catalogName\n" +
             "  AND schema_name = :schemaName\n" +
             "  AND table_name = :tableName")
-    boolean tableExists(@BindBean TableMetadata table);
+    boolean tableExists(@BindBean QualifiedTableName table);
 
     @SqlUpdate("INSERT INTO tables (catalog_name, schema_name, table_name)\n" +
             "VALUES (:catalogName, :schemaName, :tableName)")
     @GetGeneratedKeys
-    long insertTable(@BindBean TableMetadata table);
+    long insertTable(@BindBean QualifiedTableName table);
 
     @SqlUpdate("INSERT INTO columns (table_id, column_name, ordinal_position, data_type)\n" +
             "VALUES (:tableId, :columnName, :ordinalPosition, :dataType)")
@@ -107,4 +104,4 @@ public interface MetadataDao
             @Bind("columnName") String columnName,
             @Bind("ordinalPosition") int ordinalPosition,
             @Bind("dataType") String dataType);
-}
+    }

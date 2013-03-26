@@ -2,14 +2,18 @@ package com.facebook.presto.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Preconditions;
+
+import static com.facebook.presto.metadata.MetadataUtil.checkTable;
 
 public class ImportTableHandle
     implements TableHandle
 {
-    private final String sourceName;
-    private final String databaseName;
-    private final String tableName;
+    private final QualifiedTableName table;
+
+    public static ImportTableHandle forQualifiedTableName(QualifiedTableName table)
+    {
+        return new ImportTableHandle(checkTable(table));
+    }
 
     @JsonCreator
     public ImportTableHandle(
@@ -17,9 +21,12 @@ public class ImportTableHandle
             @JsonProperty("databaseName") String databaseName,
             @JsonProperty("tableName") String tableName)
     {
-        this.sourceName = Preconditions.checkNotNull(sourceName, "sourceName is null");
-        this.databaseName = Preconditions.checkNotNull(databaseName, "databaseName is null");
-        this.tableName = Preconditions.checkNotNull(tableName, "tableName is null");
+        this(new QualifiedTableName(sourceName, databaseName, tableName));
+    }
+
+    private ImportTableHandle(QualifiedTableName table)
+    {
+        this.table = checkTable(table);
     }
 
     @Override
@@ -31,18 +38,23 @@ public class ImportTableHandle
     @JsonProperty
     public String getSourceName()
     {
-        return sourceName;
+        return table.getCatalogName();
     }
 
     @JsonProperty
     public String getDatabaseName()
     {
-        return databaseName;
+        return table.getSchemaName();
     }
 
     @JsonProperty
     public String getTableName()
     {
-        return tableName;
+        return table.getTableName();
+    }
+
+    public QualifiedTableName getTable()
+    {
+        return table;
     }
 }

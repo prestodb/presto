@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -19,6 +20,8 @@ import static org.testng.Assert.assertNull;
 
 public class TestNativeMetadata
 {
+    private static final QualifiedTableName DEFAULT_TEST_ORDERS = new QualifiedTableName("default", "test", "orders");
+
     private Handle dummyHandle;
     private Metadata metadata;
 
@@ -40,11 +43,11 @@ public class TestNativeMetadata
     @Test
     public void testCreateTable()
     {
-        assertNull(metadata.getTable("default", "test", "orders"));
+        assertNull(metadata.getTable(DEFAULT_TEST_ORDERS));
 
         metadata.createTable(getOrdersTable());
 
-        TableMetadata table = metadata.getTable("default", "test", "orders");
+        TableMetadata table = metadata.getTable(DEFAULT_TEST_ORDERS);
         assertTableEqual(table, getOrdersTable());
 
         TableHandle tableHandle = table.getTableHandle().get();
@@ -60,20 +63,20 @@ public class TestNativeMetadata
     public void testListTables()
     {
         metadata.createTable(getOrdersTable());
-        List<QualifiedTableName> tables = metadata.listTables("default");
-        assertEquals(tables, ImmutableList.of(new QualifiedTableName("default", "test", "orders")));
+        List<QualifiedTableName> tables = metadata.listTables("default", Optional.<String>absent());
+        assertEquals(tables, ImmutableList.of(DEFAULT_TEST_ORDERS));
     }
 
     @Test
     public void testListTableColumns()
     {
         metadata.createTable(getOrdersTable());
-        List<TableColumn> columns = metadata.listTableColumns("default");
+        List<TableColumn> columns = metadata.listTableColumns("default", Optional.<String>absent(), Optional.<String>absent());
         assertEquals(columns, ImmutableList.<TableColumn>builder()
-                .add(new TableColumn("default", "test", "orders", "orderkey", 1, FIXED_INT_64))
-                .add(new TableColumn("default", "test", "orders", "custkey", 2, FIXED_INT_64))
-                .add(new TableColumn("default", "test", "orders", "totalprice", 3, DOUBLE))
-                .add(new TableColumn("default", "test", "orders", "orderdate", 4, VARIABLE_BINARY))
+                .add(new TableColumn(DEFAULT_TEST_ORDERS, "orderkey", 1, FIXED_INT_64))
+                .add(new TableColumn(DEFAULT_TEST_ORDERS, "custkey", 2, FIXED_INT_64))
+                .add(new TableColumn(DEFAULT_TEST_ORDERS, "totalprice", 3, DOUBLE))
+                .add(new TableColumn(DEFAULT_TEST_ORDERS, "orderdate", 4, VARIABLE_BINARY))
                 .build());
     }
 
@@ -81,16 +84,16 @@ public class TestNativeMetadata
     public void testListTableColumnsFiltering()
     {
         metadata.createTable(getOrdersTable());
-        List<TableColumn> filterCatalog = metadata.listTableColumns("default");
-        List<TableColumn> filterSchema = metadata.listTableColumns("default", "test");
-        List<TableColumn> filterTable = metadata.listTableColumns("default", "test", "orders");
+        List<TableColumn> filterCatalog = metadata.listTableColumns("default", Optional.<String>absent(), Optional.<String>absent());
+        List<TableColumn> filterSchema = metadata.listTableColumns("default", Optional.of("test"), Optional.<String>absent());
+        List<TableColumn> filterTable = metadata.listTableColumns("default", Optional.of("test"), Optional.of("orders"));
         assertEquals(filterCatalog, filterSchema);
         assertEquals(filterCatalog, filterTable);
     }
 
     private static TableMetadata getOrdersTable()
     {
-        return new TableMetadata("default", "test", "ORDERS", ImmutableList.of(
+        return new TableMetadata(DEFAULT_TEST_ORDERS, ImmutableList.of(
                 new ColumnMetadata("orderkey", FIXED_INT_64),
                 new ColumnMetadata("custkey", FIXED_INT_64),
                 new ColumnMetadata("totalprice", DOUBLE),
@@ -99,9 +102,7 @@ public class TestNativeMetadata
 
     private static void assertTableEqual(TableMetadata actual, TableMetadata expected)
     {
-        assertEquals(actual.getCatalogName(), expected.getCatalogName());
-        assertEquals(actual.getSchemaName(), expected.getSchemaName());
-        assertEquals(actual.getTableName(), expected.getTableName());
+        assertEquals(actual.getTable(), expected.getTable());
 
         List<ColumnMetadata> actualColumns = actual.getColumns();
         List<ColumnMetadata> expectedColumns = expected.getColumns();

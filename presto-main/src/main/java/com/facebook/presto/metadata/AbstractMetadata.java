@@ -2,6 +2,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Optional;
 
 import java.util.List;
 import java.util.Map;
@@ -34,43 +35,25 @@ public abstract class AbstractMetadata
     }
 
     @Override
-    public List<QualifiedTableName> listTables(String catalogName)
+    public List<QualifiedTableName> listTables(String catalogName, Optional<String> schemaName)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<QualifiedTableName> listTables(String catalogName, String schemaName)
+    public List<TableColumn> listTableColumns(String catalogName, Optional<String> schemaName, Optional<String> tableName)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<TableColumn> listTableColumns(String catalogName)
+    public List<String> listTablePartitionKeys(QualifiedTableName tableName)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<TableColumn> listTableColumns(String catalogName, String schemaName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<TableColumn> listTableColumns(String catalogName, String schemaName, String tableName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<String> listTablePartitionKeys(String catalogName, String schemaName, String tableName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<Map<String, String>> listTablePartitionValues(String catalogName, String schemaName, String tableName)
+    public List<Map<String, String>> listTablePartitionValues(String catalogName, Optional<String> schemaName, Optional<String> tableName)
     {
         throw new UnsupportedOperationException();
     }
@@ -89,6 +72,12 @@ public abstract class AbstractMetadata
 
     @Override
     public TableColumn getTableColumn(TableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public TableMetadata getTable(QualifiedTableName tableName)
     {
         throw new UnsupportedOperationException();
     }

@@ -1,6 +1,6 @@
 package com.facebook.presto.importer;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.facebook.presto.metadata.QualifiedTableName;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
@@ -31,15 +31,11 @@ public final class PersistentPeriodicImportJob
     private final PeriodicImportJob importJob;
 
     public PersistentPeriodicImportJob(long jobId,
-                             String srcCatalogName,
-                             String srcSchemaName,
-                             String srcTableName,
-                             String dstCatalogName,
-                             String dstSchemaName,
-                             String dstTableName,
-                             long interval)
+            QualifiedTableName srcTable,
+            QualifiedTableName dstTable,
+            long interval)
     {
-        this.importJob = new PeriodicImportJob(srcCatalogName, srcSchemaName, srcTableName, dstCatalogName, dstSchemaName, dstTableName, interval);
+        this.importJob = new PeriodicImportJob(srcTable, dstTable, interval);
         this.jobId = jobId;
     }
 
@@ -91,11 +87,20 @@ public final class PersistentPeriodicImportJob
         return jobId;
     }
 
-    @JsonIgnore
     @VisibleForTesting
     PeriodicImportJob getImportJob()
     {
         return importJob;
+    }
+
+    public QualifiedTableName getSrcTable()
+    {
+        return importJob.getSrcTable();
+    }
+
+    public QualifiedTableName getDstTable()
+    {
+        return importJob.getDstTable();
     }
 
     @Override
@@ -116,7 +121,7 @@ public final class PersistentPeriodicImportJob
 
         PersistentPeriodicImportJob that = (PersistentPeriodicImportJob) object;
         return Objects.equal(this.importJob, that.importJob) &&
-            this.jobId == that.jobId;
+                this.jobId == that.jobId;
     }
 
     @Override
@@ -128,21 +133,28 @@ public final class PersistentPeriodicImportJob
                 .toString();
     }
 
-    public static class PersistentPeriodicImportJobMapper implements ResultSetMapper<PersistentPeriodicImportJob>
+    public static class PersistentPeriodicImportJobMapper
+            implements ResultSetMapper<PersistentPeriodicImportJob>
     {
         @Override
         public PersistentPeriodicImportJob map(int index, ResultSet r, StatementContext ctx)
                 throws SQLException
         {
+            QualifiedTableName srcTable = new QualifiedTableName(
+                    r.getString("src_catalog_name"),
+                    r.getString("src_schema_name"),
+                    r.getString("src_table_name"));
+
+            QualifiedTableName dstTable = new QualifiedTableName(
+                    r.getString("dst_catalog_name"),
+                    r.getString("dst_schema_name"),
+                    r.getString("dst_table_name"));
+
             return new PersistentPeriodicImportJob(
-                r.getLong("job_id"),
-                r.getString("src_catalog_name"),
-                r.getString("src_schema_name"),
-                r.getString("src_table_name"),
-                r.getString("dst_catalog_name"),
-                r.getString("dst_schema_name"),
-                r.getString("dst_table_name"),
-                r.getLong("job_interval_seconds"));
+                    r.getLong("job_id"),
+                    srcTable,
+                    dstTable,
+                    r.getLong("job_interval_seconds"));
         }
     }
 }

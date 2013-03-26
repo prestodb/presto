@@ -3,6 +3,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 
@@ -12,8 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
-import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
+import static com.facebook.presto.metadata.MetadataUtil.checkTable;
 import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.concat;
@@ -47,7 +47,7 @@ public class TestingMetadata
     @Override
     public List<String> listSchemaNames(String catalogName)
     {
-        List<QualifiedTableName> tables = listTables(catalogName);
+        List<QualifiedTableName> tables = listTables(catalogName, Optional.<String>absent());
         Set<String> schemaNames = new HashSet<>();
 
         for (QualifiedTableName qualifiedTableName : tables) {
@@ -58,67 +58,49 @@ public class TestingMetadata
     }
 
     @Override
-    public TableMetadata getTable(String catalogName, String schemaName, String tableName)
+    public TableMetadata getTable(QualifiedTableName table)
     {
-        checkTableName(catalogName, schemaName, tableName);
-        return tables.get(tableKey(catalogName, schemaName, tableName));
+        checkTable(table);
+        return tables.get(table);
     }
 
     @Override
-    public List<QualifiedTableName> listTables(String catalogName)
+    public List<TableColumn> listTableColumns(String catalogName, Optional<String> schemaName, Optional<String> tableName)
     {
-        return getTableNames(catalogMatches(catalogName));
+        return getTableColumns(matches(catalogName, schemaName, tableName));
     }
 
-    @Override
-    public List<QualifiedTableName> listTables(String catalogName, String schemaName)
-    {
-        return getTableNames(schemaMatches(catalogName, schemaName));
-    }
 
     @Override
-    public List<TableColumn> listTableColumns(String catalogName)
-    {
-        return getTableColumns(catalogMatches(catalogName));
-    }
-
-    @Override
-    public List<TableColumn> listTableColumns(String catalogName, String schemaName)
-    {
-        return getTableColumns(schemaMatches(catalogName, schemaName));
-    }
-
-    @Override
-    public List<TableColumn> listTableColumns(String catalogName, String schemaName, String tableName)
-    {
-        return getTableColumns(tableMatches(catalogName, schemaName, tableName));
-    }
-
-    @Override
-    public List<String> listTablePartitionKeys(String catalogName, String schemaName, String tableName)
+    public List<String> listTablePartitionKeys(QualifiedTableName table)
     {
         return ImmutableList.of();
     }
 
     @Override
-    public List<Map<String, String>> listTablePartitionValues(String catalogName, String schemaName, String tableName)
+    public List<Map<String, String>> listTablePartitionValues(String catalogName, Optional<String> schemaName, Optional<String> tableName)
     {
         return ImmutableList.of();
+    }
+
+    @Override
+    public List<QualifiedTableName> listTables(String catalogName, Optional<String> schemaName)
+    {
+        ImmutableList.Builder<QualifiedTableName> builder = ImmutableList.builder();
+        for (QualifiedTableName name : tables.keySet()) {
+            if (!schemaName.isPresent() || schemaName.get().equals(name.getSchemaName())) {
+                builder.add(name);
+            }
+        }
+        return builder.build();
     }
 
     @Override
     public synchronized void createTable(TableMetadata table)
     {
-        QualifiedTableName key = tableKey(table);
-        checkArgument(!tables.containsKey(key), "Table '%s.%s.%s' already defined",
-                table.getSchemaName(), table.getCatalogName(), table.getTableName());
+        QualifiedTableName key = table.getTable();
+        checkArgument(!tables.containsKey(key), "Table '%s' already defined", key);
         tables.put(key, table);
-    }
-
-    private List<QualifiedTableName> getTableNames(Predicate<QualifiedTableName> predicate)
-    {
-        Iterable<TableMetadata> values = filterKeys(tables, predicate).values();
-        return ImmutableList.copyOf(transform(values, toQualifiedTableName()));
     }
 
     private List<TableColumn> getTableColumns(Predicate<QualifiedTableName> predicate)
@@ -127,33 +109,7 @@ public class TestingMetadata
         return ImmutableList.copyOf(concat(transform(values, toTableColumns())));
     }
 
-    private static Predicate<QualifiedTableName> catalogMatches(final String catalogName)
-    {
-        checkCatalogName(catalogName);
-        return new Predicate<QualifiedTableName>()
-        {
-            @Override
-            public boolean apply(QualifiedTableName key)
-            {
-                return key.getCatalogName().equals(catalogName);
-            }
-        };
-    }
-
-    private static Predicate<QualifiedTableName> schemaMatches(final String catalogName, final String schemaName)
-    {
-        checkSchemaName(catalogName, schemaName);
-        return new Predicate<QualifiedTableName>()
-        {
-            @Override
-            public boolean apply(QualifiedTableName key)
-            {
-                return key.getCatalogName().equals(catalogName) && key.getSchemaName().equals(schemaName);
-            }
-        };
-    }
-
-    private static Predicate<QualifiedTableName> tableMatches(final String catalogName, final String schemaName, final String tableName)
+    private static Predicate<QualifiedTableName> matches(final String catalogName, final Optional<String> schemaName, final Optional<String> tableName)
     {
         checkTableName(catalogName, schemaName, tableName);
         return new Predicate<QualifiedTableName>()
@@ -161,29 +117,9 @@ public class TestingMetadata
             @Override
             public boolean apply(QualifiedTableName key)
             {
-                return key.equals(new QualifiedTableName(catalogName, schemaName, tableName));
-            }
-        };
-    }
-
-    private static QualifiedTableName tableKey(TableMetadata table)
-    {
-        return tableKey(table.getCatalogName(), table.getSchemaName(), table.getTableName());
-    }
-
-    private static QualifiedTableName tableKey(String catalogName, String schemaName, String tableName)
-    {
-        return new QualifiedTableName(catalogName, schemaName, tableName);
-    }
-
-    private static Function<TableMetadata, QualifiedTableName> toQualifiedTableName()
-    {
-        return new Function<TableMetadata, QualifiedTableName>()
-        {
-            @Override
-            public QualifiedTableName apply(TableMetadata input)
-            {
-                return new QualifiedTableName(input.getCatalogName(), input.getSchemaName(), input.getTableName());
+                return catalogName.equals(key.getCatalogName())
+                        && (!schemaName.isPresent() || schemaName.equals(key.getSchemaName()))
+                        && (!tableName.isPresent() || tableName.equals(key.getTableName()));
             }
         };
     }
@@ -198,8 +134,7 @@ public class TestingMetadata
                 ImmutableList.Builder<TableColumn> columns = ImmutableList.builder();
                 int position = 1;
                 for (ColumnMetadata column : input.getColumns()) {
-                    columns.add(new TableColumn(
-                            input.getCatalogName(), input.getSchemaName(), input.getTableName(),
+                    columns.add(new TableColumn(input.getTable(),
                             column.getName(), position, column.getType()));
                     position++;
                 }

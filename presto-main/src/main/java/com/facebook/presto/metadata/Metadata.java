@@ -2,6 +2,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.base.Optional;
 
 import java.util.List;
 import java.util.Map;
@@ -16,21 +17,15 @@ public interface Metadata
 
     List<String> listSchemaNames(String catalogName);
 
-    TableMetadata getTable(String catalogName, String schemaName, String tableName);
+    TableMetadata getTable(QualifiedTableName tableName);
 
-    List<QualifiedTableName> listTables(String catalogName);
+    List<QualifiedTableName> listTables(String catalogName, Optional<String> schemaName);
 
-    List<QualifiedTableName> listTables(String catalogName, String schemaName);
+    List<TableColumn> listTableColumns(String catalogName, Optional<String> schemaName, Optional<String> tableName);
 
-    List<TableColumn> listTableColumns(String catalogName);
+    List<String> listTablePartitionKeys(QualifiedTableName tableName);
 
-    List<TableColumn> listTableColumns(String catalogName, String schemaName);
-
-    List<TableColumn> listTableColumns(String catalogName, String schemaName, String tableName);
-
-    List<String> listTablePartitionKeys(String catalogName, String schemaName, String tableName);
-
-    List<Map<String, String>> listTablePartitionValues(String catalogName, String schemaName, String tableName);
+    List<Map<String, String>> listTablePartitionValues(String catalogName, Optional<String> schemaName, Optional<String> tableName);
 
     void createTable(TableMetadata table);
 

@@ -4,13 +4,14 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
+
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.MetadataUtil.ColumnMetadataListBuilder.columnsBuilder;
-import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
+import static com.facebook.presto.metadata.MetadataUtil.checkTable;
 import static com.facebook.presto.metadata.MetadataUtil.getTableColumns;
 import static com.facebook.presto.metadata.MetadataUtil.getTableNames;
+import static com.facebook.presto.metadata.MetadataUtil.ColumnMetadataListBuilder.columnsBuilder;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -39,31 +40,31 @@ public class SystemTables
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
     }
 
-    public TableMetadata getTableMetadata(String catalogName, String schemaName, String tableName)
+    public TableMetadata getTable(QualifiedTableName table)
     {
-        checkTableName(catalogName, schemaName, tableName);
-        checkArgument(schemaName.equals(SYSTEM_SCHEMA), "schema is not %s", SYSTEM_SCHEMA);
+        checkTable(table);
+        checkArgument(table.getSchemaName().equals(SYSTEM_SCHEMA), "schema is not %s", SYSTEM_SCHEMA);
 
-        List<ColumnMetadata> metadata = METADATA.get(tableName);
+        List<ColumnMetadata> metadata = METADATA.get(table.getTableName());
         if (metadata != null) {
-            InternalTableHandle handle = new InternalTableHandle(catalogName, schemaName, tableName);
-            return new TableMetadata(catalogName, schemaName, tableName, metadata, handle);
+            InternalTableHandle handle = InternalTableHandle.forQualifiedTableName(table);
+            return new TableMetadata(table, metadata, handle);
         }
 
         return null;
     }
 
-    public InternalTable getInternalTable(String catalogName, String schemaName, String tableName)
+    public InternalTable getInternalTable(QualifiedTableName table)
     {
-        checkTableName(catalogName, schemaName, tableName);
-        checkArgument(schemaName.equals(SYSTEM_SCHEMA), "schema is not %s", SYSTEM_SCHEMA);
+        checkTable(table);
+        checkArgument(table.getSchemaName().equals(SYSTEM_SCHEMA), "schema is not %s", SYSTEM_SCHEMA);
 
-        switch (tableName) {
+        switch (table.getTableName()) {
             case TABLE_NODES:
                 return buildNodes();
         }
 
-        throw new IllegalArgumentException(format("table does not exist: %s.%s.%s", catalogName, schemaName, tableName));
+        throw new IllegalArgumentException(format("table does not exist: %s", table));
     }
 
     private InternalTable buildNodes()

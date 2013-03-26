@@ -81,7 +81,7 @@ public class TableAliasSelector
 
             QualifiedTableName aliasTable = new QualifiedTableName(tableAlias.getDstCatalogName(), tableAlias.getDstSchemaName(), tableAlias.getDstTableName());
 
-            TableMetadata aliasTableMetadata = metadata.getTable(tableAlias.getDstCatalogName(), tableAlias.getDstSchemaName(), tableAlias.getDstTableName());
+            TableMetadata aliasTableMetadata = metadata.getTable(aliasTable);
 
             checkState(aliasTableMetadata.getTableHandle().isPresent(), "no table handle for alias table %s found", aliasTable);
             checkState(aliasTableMetadata.getTableHandle().get().getDataSourceType() == DataSourceType.NATIVE, "alias table must be a native table");

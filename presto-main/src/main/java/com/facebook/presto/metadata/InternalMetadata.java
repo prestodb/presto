@@ -1,13 +1,17 @@
 package com.facebook.presto.metadata;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
+
 import java.util.List;
+
+import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
 
 import static com.facebook.presto.metadata.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.listInformationSchemaTables;
-import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
+import static com.facebook.presto.metadata.MetadataUtil.checkTable;
 import static com.facebook.presto.metadata.SystemTables.SYSTEM_SCHEMA;
 import static com.facebook.presto.metadata.SystemTables.listSystemTables;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -26,38 +30,42 @@ public class InternalMetadata
     }
 
     @Override
-    public TableMetadata getTable(String catalogName, String schemaName, String tableName)
+    public TableMetadata getTable(QualifiedTableName table)
     {
-        checkTableName(catalogName, schemaName, tableName);
+        checkTable(table);
 
-        if (tableName.equals(DualTable.NAME)) {
-            return DualTable.getMetadata(catalogName, schemaName, tableName);
+        if (table.getTableName().equals(DualTable.NAME)) {
+            return DualTable.getTable(table);
         }
 
-        switch (schemaName) {
+        switch (table.getSchemaName()) {
             case INFORMATION_SCHEMA:
-                return informationSchema.getTableMetadata(catalogName, schemaName, tableName);
+                return informationSchema.getTable(table);
             case SYSTEM_SCHEMA:
-                return systemTables.getTableMetadata(catalogName, schemaName, tableName);
+                return systemTables.getTable(table);
         }
 
         return null;
     }
 
     @Override
-    public List<QualifiedTableName> listTables(String catalogName, String schemaName)
+    public List<QualifiedTableName> listTables(String catalogName, Optional<String> schemaName)
     {
-        switch (schemaName) {
-            case INFORMATION_SCHEMA:
-                return listInformationSchemaTables(catalogName);
-            case SYSTEM_SCHEMA:
-                return listSystemTables(catalogName);
+        checkSchemaName(catalogName, schemaName);
+
+        if (schemaName.isPresent()) {
+            switch (schemaName.get()) {
+                case INFORMATION_SCHEMA:
+                    return listInformationSchemaTables(catalogName);
+                case SYSTEM_SCHEMA:
+                    return listSystemTables(catalogName);
+            }
         }
         return ImmutableList.of();
     }
 
     @Override
-    public List<TableColumn> listTableColumns(String catalogName, String schemaName, String tableName)
+    public List<TableColumn> listTableColumns(String catalogName, Optional<String> schemaName, Optional<String> tableName)
     {
         // hack for SHOW COLUMNS
         return ImmutableList.of();
