@@ -67,14 +67,14 @@ public class LogicalPlanner
 {
     private final Session session;
     private final PlanNodeIdAllocator idAllocator;
-    private final PlanOptimizersFactory planOptimizersFactory;
+    private final List<PlanOptimizer> planOptimizers;
 
     public LogicalPlanner(Session session,
-            PlanOptimizersFactory planOptimizersFactory,
+            List<PlanOptimizer> planOptimizers,
             PlanNodeIdAllocator idAllocator)
     {
         this.session = checkNotNull(session, "session is null");
-        this.planOptimizersFactory = checkNotNull(planOptimizersFactory, "planOptimizersFactory is null");
+        this.planOptimizers = checkNotNull(planOptimizers, "planOptimizersFactory is null");
         this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
     }
 
@@ -87,8 +87,8 @@ public class LogicalPlanner
 
         Map<Symbol, Type> types = analysis.getTypes();
 
-        for (PlanOptimizer optimizer : planOptimizersFactory.createOptimizations(session)) {
-            root = optimizer.optimize(root, types);
+        for (PlanOptimizer optimizer : planOptimizers) {
+            root = optimizer.optimize(root, session, types);
         }
 
         return root;

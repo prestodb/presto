@@ -14,6 +14,7 @@ import com.facebook.presto.metadata.TableAlias;
 import com.facebook.presto.metadata.TableColumn;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -53,8 +54,12 @@ public class TableAliasSelector
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Map<Symbol, Type> types)
+    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types)
     {
+        checkNotNull(plan, "plan is null");
+        checkNotNull(session, "session is null");
+        checkNotNull(types, "types is null");
+
         return PlanRewriter.rewriteWith(new Rewriter(), plan);
     }
 

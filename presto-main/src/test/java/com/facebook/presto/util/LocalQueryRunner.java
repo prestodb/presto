@@ -84,7 +84,7 @@ public class LocalQueryRunner
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata);
-        PlanNode plan = new LogicalPlanner(session, planOptimizersFactory, idAllocator).plan(analysis);
+        PlanNode plan = new LogicalPlanner(session, planOptimizersFactory.get(), idAllocator).plan(analysis);
         new PlanPrinter().print(plan, analysis.getTypes());
 
         SubPlan subplan = new DistributedLogicalPlanner(metadata, idAllocator).createSubplans(plan, analysis.getSymbolAllocator(), true);

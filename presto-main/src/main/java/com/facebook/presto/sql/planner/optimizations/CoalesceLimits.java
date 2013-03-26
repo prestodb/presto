@@ -1,22 +1,16 @@
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.FilterNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
-import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.SortNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.TopNNode;
 
 import java.util.Map;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Merges successive LIMIT operators into a single LIMIT that's the minimum of the entire chain
@@ -25,8 +19,12 @@ public class CoalesceLimits
         extends PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan, Map<Symbol, Type> types)
+    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types)
     {
+        checkNotNull(plan, "plan is null");
+        checkNotNull(session, "session is null");
+        checkNotNull(types, "types is null");
+
         return PlanRewriter.rewriteWith(new Rewriter(), plan);
     }
 

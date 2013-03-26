@@ -1,5 +1,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.sql.analyzer.Session;
+
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -11,6 +13,8 @@ import com.facebook.presto.sql.tree.QualifiedNameReference;
 
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 /**
  * Removes pure identity projections (e.g., Project $0 := $0, $1 := $1, ...)
  */
@@ -18,8 +22,12 @@ public class PruneRedundantProjections
         extends PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan, Map<Symbol, Type> types)
+    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types)
     {
+        checkNotNull(plan, "plan is null");
+        checkNotNull(session, "session is null");
+        checkNotNull(types, "types is null");
+
         return PlanRewriter.rewriteWith(new Rewriter(), plan);
     }
 
