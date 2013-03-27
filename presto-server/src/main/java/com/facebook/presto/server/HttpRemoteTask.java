@@ -237,7 +237,11 @@ public class HttpRemoteTask
     public void addOutputBuffers(Set<String> outputBuffers, boolean noMore)
     {
         synchronized (this) {
-            Preconditions.checkState(!noMoreOutputIds, "Buffers can not be added after noMoreOutputIds has been set");
+            if (noMoreOutputIds == noMore && this.outputIds.containsAll(outputBuffers)) {
+                // duplicate request
+                return;
+            }
+            Preconditions.checkState(!noMoreOutputIds, "New buffers can not be added after noMoreOutputIds has been set");
             noMoreOutputIds = noMore;
             this.outputIds.addAll(outputBuffers);
         }
