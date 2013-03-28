@@ -6,7 +6,7 @@ import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.split.ImportClientManager;
-import com.facebook.presto.util.ShardBoundedExecutor;
+import com.facebook.presto.util.KeyBoundedExecutor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -64,9 +64,9 @@ public class ImportManager
     private final PartitionOperationTracker partitionOperationTracker = new PartitionOperationTracker();
 
     private final ExecutorService partitionExecutor;
-    private final ShardBoundedExecutor<PartitionMarker> partitionBoundedExecutor;
+    private final KeyBoundedExecutor<PartitionMarker> partitionBoundedExecutor;
     private final ScheduledExecutorService chunkExecutor;
-    private final ShardBoundedExecutor<Long> chunkBoundedExecutor;
+    private final KeyBoundedExecutor<Long> chunkBoundedExecutor;
     private final ScheduledExecutorService shardExecutor;
 
     private final ImportClientManager importClientManager;
@@ -96,9 +96,9 @@ public class ImportManager
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
 
         this.partitionExecutor = newFixedThreadPool(importManagerConfig.getMaxPartitionThreads(), threadsNamed("import-partition-%s"));
-        this.partitionBoundedExecutor = new ShardBoundedExecutor<>(partitionExecutor);
+        this.partitionBoundedExecutor = new KeyBoundedExecutor<>(partitionExecutor);
         this.chunkExecutor = newScheduledThreadPool(importManagerConfig.getMaxChunkThreads(), threadsNamed("import-chunk-%s"));
-        this.chunkBoundedExecutor = new ShardBoundedExecutor<>(chunkExecutor);
+        this.chunkBoundedExecutor = new KeyBoundedExecutor<>(chunkExecutor);
         this.shardExecutor = newScheduledThreadPool(importManagerConfig.getMaxShardThreads(), threadsNamed("import-shard-%s"));
     }
 

@@ -7,7 +7,7 @@ import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.PartitionChunk;
 import com.facebook.presto.split.ImportClientManager;
-import com.facebook.presto.util.ShardBoundedExecutor;
+import com.facebook.presto.util.KeyBoundedExecutor;
 import io.airlift.log.Logger;
 
 import javax.annotation.PreDestroy;
@@ -33,7 +33,7 @@ public class LocalShardManager
     private static final int TASKS_PER_NODE = 32;
 
     private final ExecutorService executor = newFixedThreadPool(TASKS_PER_NODE, threadsNamed("local-shard-manager-%s"));
-    private final ShardBoundedExecutor<Long> shardBoundedExecutor = new ShardBoundedExecutor<>(executor);
+    private final KeyBoundedExecutor<Long> shardBoundedExecutor = new KeyBoundedExecutor<>(executor);
     private final ImportClientManager importClientManager;
     private final StorageManager storageManager;
 
