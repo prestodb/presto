@@ -45,13 +45,12 @@
     </distributionManagement>
 
     <properties>
+        <air.check.skip-extended>true</air.check.skip-extended>
         <air.check.fail-all>false</air.check.fail-all>
         <air.check.fail-basic>true</air.check.fail-basic>
-        <air.check.skip-pmd>true</air.check.skip-pmd>
-        <air.check.skip-license>true</air.check.skip-license>
 
         <dep.antlr.version>3.4</dep.antlr.version>
-        <dep.airlift.version>0.74</dep.airlift.version>
+        <dep.airlift.version>0.75-SNAPSHOT</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
     </properties>
 
