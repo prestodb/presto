@@ -55,6 +55,7 @@ public class StatusPrinter
 /*
 
 Query 16, RUNNING, 1 node, 855 splits
+http://my.server:8080/v1/query/16?pretty
 Splits:   646 queued, 34 running, 175 done
 CPU Time: 33.7s total,  191K rows/s, 16.6MB/s, 22% active
 Per Node: 2.5 parallelism,  473K rows/s, 41.1MB/s
@@ -130,6 +131,10 @@ Parallelism: 2.5
                 nodes,
                 pluralize("node", nodes));
         out.println(querySummary);
+
+        if (queryClient.isDebug()) {
+            out.println(queryClient.getQueryLocation() + "?pretty");
+        }
 
         // Splits: 1000 total, 842 done (84.20%)
         String splitsSummary = String.format("Splits: %,d total, %,d done (%.2f%%)",
@@ -216,6 +221,10 @@ Parallelism: 2.5
                     pluralize("node", nodes),
                     globalExecutionStats.getSplits());
             reprintLine(querySummary);
+
+            if (queryClient.isDebug()) {
+                reprintLine(queryClient.getQueryLocation() + "?pretty");
+            }
 
             if (queryInfo.getState() == QueryState.PLANNING) {
                 return;

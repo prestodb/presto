@@ -101,6 +101,11 @@ public class HttpQueryClient
         return debug;
     }
 
+    public URI getQueryLocation()
+    {
+        return queryLocation;
+    }
+
     public QueryInfo getQueryInfo(boolean forceRefresh)
     {
         QueryInfo queryInfo = finalQueryInfo.get();
