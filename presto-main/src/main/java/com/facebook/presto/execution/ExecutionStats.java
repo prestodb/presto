@@ -7,13 +7,14 @@ import com.facebook.presto.operator.ExchangeOperator.ExchangeClientStatus;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.airlift.stats.DistributionStat;
+import io.airlift.stats.DistributionStat.DistributionStatSnapshot;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -56,6 +57,9 @@ public class ExecutionStats
     @GuardedBy("this")
     private DataSize completedDataSize = ZERO_SIZE;
 
+    private final DistributionStat timeToFirstByte = new DistributionStat();
+    private final DistributionStat timeToLastByte = new DistributionStat();
+
     private final AtomicLong inputPositionCount = new AtomicLong();
     private final AtomicLong completedPositionCount = new AtomicLong();
 
@@ -72,86 +76,36 @@ public class ExecutionStats
         lastHeartBeat = DateTime.now();
     }
 
-    @JsonCreator
-    public ExecutionStats(
-            @JsonProperty("createTime") DateTime createTime,
-            @JsonProperty("executionStartTime") DateTime executionStartTime,
-            @JsonProperty("lastHeartBeat") DateTime lastHeartBeat,
-            @JsonProperty("endTime") DateTime endTime,
-            @JsonProperty("splits") int splits,
-            @JsonProperty("startedSplits") int startedSplits,
-            @JsonProperty("completedSplits") int completedSplits,
-            @JsonProperty("splitWallTime") Duration splitWallTime,
-            @JsonProperty("splitCpuTime") Duration splitCpuTime,
-            @JsonProperty("splitUserTime") Duration splitUserTime,
-            @JsonProperty("sinkBufferWaitTime") Duration sinkBufferWaitTime,
-            @JsonProperty("exchangeStatus") List<ExchangeClientStatus> exchangeStatus,
-            @JsonProperty("exchangeWaitTime") Duration exchangeWaitTime,
-            @JsonProperty("inputDataSize") DataSize inputDataSize,
-            @JsonProperty("completedDataSize") DataSize completedDataSize,
-            @JsonProperty("inputPositionCount") long inputPositionCount,
-            @JsonProperty("completedPositionCount") long completedPositionCount,
-            @JsonProperty("outputDataSize") DataSize outputDataSize,
-            @JsonProperty("outputPositionCount") long outputPositionCount)
-    {
-        this.createTime = createTime;
-        this.executionStartTime = executionStartTime;
-        this.lastHeartBeat = lastHeartBeat;
-        this.endTime = endTime;
-        this.splits.addAndGet(splits);
-        this.startedSplits.addAndGet(startedSplits);
-        this.completedSplits.addAndGet(completedSplits);
-        this.splitWallTime = splitWallTime;
-        this.splitCpuTime = splitCpuTime;
-        this.splitUserTime = splitUserTime;
-        this.sinkBufferWaitTime = sinkBufferWaitTime;
-        this.exchangeStatus.set(ImmutableList.copyOf(exchangeStatus));
-        this.exchangeWaitTime = exchangeWaitTime;
-        this.inputDataSize = inputDataSize;
-        this.inputPositionCount.addAndGet(inputPositionCount);
-        this.completedDataSize = completedDataSize;
-        this.completedPositionCount.addAndGet(completedPositionCount);
-        this.outputDataSize = outputDataSize;
-        this.outputPositionCount.addAndGet(outputPositionCount);
-    }
-
-    @JsonProperty
     public DateTime getCreateTime()
     {
         return createTime;
     }
 
-    @JsonProperty
     public synchronized DateTime getExecutionStartTime()
     {
         return executionStartTime;
     }
 
-    @JsonProperty
     public synchronized DateTime getLastHeartBeat()
     {
         return lastHeartBeat;
     }
 
-    @JsonProperty
     public synchronized DateTime getEndTime()
     {
         return endTime;
     }
 
-    @JsonProperty
     public int getSplits()
     {
         return splits.get();
     }
 
-    @JsonProperty
     public int getStartedSplits()
     {
         return startedSplits.get();
     }
 
-    @JsonProperty
     public int getCompletedSplits()
     {
         return completedSplits.get();
@@ -167,76 +121,107 @@ public class ExecutionStats
         return Math.max(0, getStartedSplits() - getCompletedSplits());
     }
 
-    @JsonProperty
     public synchronized Duration getSplitCpuTime()
     {
         return splitCpuTime;
     }
 
-    @JsonProperty
     public synchronized Duration getSplitWallTime()
     {
         return splitWallTime;
     }
 
-    @JsonProperty
     public synchronized Duration getSplitUserTime()
     {
         return splitUserTime;
     }
 
-    @JsonProperty
     public synchronized Duration getSinkBufferWaitTime()
     {
         return sinkBufferWaitTime;
     }
 
-    @JsonProperty
     public List<ExchangeClientStatus> getExchangeStatus()
     {
         return exchangeStatus.get();
     }
 
-    @JsonProperty
     public synchronized Duration getExchangeWaitTime()
     {
         return exchangeWaitTime;
     }
 
-    @JsonProperty
     public synchronized DataSize getInputDataSize()
     {
         return inputDataSize;
     }
 
-    @JsonProperty
     public long getInputPositionCount()
     {
         return inputPositionCount.get();
     }
 
-    @JsonProperty
     public synchronized DataSize getCompletedDataSize()
     {
         return completedDataSize;
     }
 
-    @JsonProperty
     public long getCompletedPositionCount()
     {
         return completedPositionCount.get();
     }
 
-    @JsonProperty
     public synchronized DataSize getOutputDataSize()
     {
         return outputDataSize;
     }
 
-    @JsonProperty
     public long getOutputPositionCount()
     {
         return outputPositionCount.get();
+    }
+
+    public DistributionStatSnapshot getTimeToFirstByte()
+    {
+        if (timeToLastByte.getAllTime().getCount() == 0) {
+            return null;
+        }
+        return timeToFirstByte.snapshot();
+    }
+
+    public DistributionStatSnapshot getTimeToLastByte()
+    {
+        if (timeToLastByte.getAllTime().getCount() == 0) {
+            return null;
+        }
+        return timeToLastByte.snapshot();
+    }
+
+    public ExecutionStatsSnapshot snapshot(boolean full)
+    {
+        return new ExecutionStatsSnapshot(getCreateTime(),
+                getExecutionStartTime(),
+                getLastHeartBeat(),
+                getEndTime(),
+                getSplits(),
+                getQueuedSplits(),
+                getStartedSplits(),
+                getRunningSplits(),
+                getCompletedSplits(),
+                getSplitWallTime(),
+                getSplitCpuTime(),
+                getSplitUserTime(),
+                getSinkBufferWaitTime(),
+                getExchangeStatus(),
+                getExchangeWaitTime(),
+                getInputDataSize(),
+                getCompletedDataSize(),
+                getInputPositionCount(),
+                getCompletedPositionCount(),
+                getOutputDataSize(),
+                getOutputPositionCount(),
+                full ? getTimeToFirstByte() : null,
+                full ? getTimeToLastByte() : null);
     }
 
     public void addSplits(int splits)
@@ -331,7 +316,18 @@ public class ExecutionStats
         }
     }
 
-    public void add(ExecutionStats stats) {
+    public void addTimeToFirstByte(Duration duration)
+    {
+        timeToFirstByte.add((long) duration.toMillis());
+    }
+
+    public void addTimeToLastByte(Duration duration)
+    {
+        timeToLastByte.add((long) duration.toMillis());
+    }
+
+    public void add(ExecutionStats stats)
+    {
         splits.addAndGet(stats.getSplits());
         startedSplits.addAndGet(stats.getStartedSplits());
         completedSplits.addAndGet(stats.getCompletedSplits());
@@ -346,5 +342,271 @@ public class ExecutionStats
         completedPositionCount.addAndGet(stats.getCompletedPositionCount());
         addOutputDataSize(stats.getOutputDataSize());
         outputPositionCount.addAndGet(stats.getOutputPositionCount());
+    }
+
+    public void add(ExecutionStatsSnapshot stats)
+    {
+        splits.addAndGet(stats.getSplits());
+        startedSplits.addAndGet(stats.getStartedSplits());
+        completedSplits.addAndGet(stats.getCompletedSplits());
+        addSplitWallTime(stats.getSplitWallTime());
+        addSplitCpuTime(stats.getSplitCpuTime());
+        addSplitUserTime(stats.getSplitUserTime());
+        addSinkBufferWaitTime(stats.getSinkBufferWaitTime());
+        addExchangeWaitTime(stats.getExchangeWaitTime());
+        addInputDataSize(stats.getInputDataSize());
+        inputPositionCount.addAndGet(stats.getInputPositionCount());
+        addCompletedDataSize(stats.getCompletedDataSize());
+        completedPositionCount.addAndGet(stats.getCompletedPositionCount());
+        addOutputDataSize(stats.getOutputDataSize());
+        outputPositionCount.addAndGet(stats.getOutputPositionCount());
+    }
+
+    public static class ExecutionStatsSnapshot
+    {
+        private final DateTime createTime;
+        private final DateTime executionStartTime;
+        private final DateTime lastHeartBeat;
+        private final DateTime endTime;
+        private final int splits;
+        private final int queuedSplits;
+        private final int startedSplits;
+        private final int runningSplits;
+        private final int completedSplits;
+        private final Duration splitWallTime;
+        private final Duration splitCpuTime;
+        private final Duration splitUserTime;
+        private final Duration sinkBufferWaitTime;
+        private final DistributionStatSnapshot timeToFirstByte;
+        private final DistributionStatSnapshot timeToLastByte;
+        private final List<ExchangeClientStatus> exchangeStatus;
+        private final Duration exchangeWaitTime;
+        private final DataSize inputDataSize;
+        private final long inputPositionCount;
+        private final DataSize completedDataSize;
+        private final long completedPositionCount;
+        private final DataSize outputDataSize;
+        private final long outputPositionCount;
+
+        public ExecutionStatsSnapshot()
+        {
+            this.createTime = null;
+            this.executionStartTime = null;
+            this.lastHeartBeat = null;
+            this.endTime = null;
+            this.splits = 0;
+            this.queuedSplits = 0;
+            this.startedSplits = 0;
+            this.runningSplits = 0;
+            this.completedSplits = 0;
+            this.splitWallTime = null;
+            this.splitCpuTime = null;
+            this.splitUserTime = null;
+            this.sinkBufferWaitTime = null;
+            this.timeToFirstByte = null;
+            this.timeToLastByte = null;
+            this.exchangeStatus = null;
+            this.exchangeWaitTime = null;
+            this.inputDataSize = null;
+            this.inputPositionCount = 0;
+            this.completedDataSize = null;
+            this.completedPositionCount = 0;
+            this.outputDataSize = null;
+            this.outputPositionCount = 0;
+        }
+
+        @JsonCreator
+        public ExecutionStatsSnapshot(
+                @JsonProperty("createTime") DateTime createTime,
+                @JsonProperty("executionStartTime") DateTime executionStartTime,
+                @JsonProperty("lastHeartBeat") DateTime lastHeartBeat,
+                @JsonProperty("endTime") DateTime endTime,
+                @JsonProperty("splits") int splits,
+                @JsonProperty("queuedSplits") int queuedSplits,
+                @JsonProperty("startedSplits") int startedSplits,
+                @JsonProperty("runningSplits") int runningSplits,
+                @JsonProperty("completedSplits") int completedSplits,
+                @JsonProperty("splitWallTime") Duration splitWallTime,
+                @JsonProperty("splitCpuTime") Duration splitCpuTime,
+                @JsonProperty("splitUserTime") Duration splitUserTime,
+                @JsonProperty("sinkBufferWaitTime") Duration sinkBufferWaitTime,
+                @JsonProperty("exchangeStatus") List<ExchangeClientStatus> exchangeStatus,
+                @JsonProperty("exchangeWaitTime") Duration exchangeWaitTime,
+                @JsonProperty("inputDataSize") DataSize inputDataSize,
+                @JsonProperty("completedDataSize") DataSize completedDataSize,
+                @JsonProperty("inputPositionCount") long inputPositionCount,
+                @JsonProperty("completedPositionCount") long completedPositionCount,
+                @JsonProperty("outputDataSize") DataSize outputDataSize,
+                @JsonProperty("outputPositionCount") long outputPositionCount,
+                @JsonProperty("timeToFirstByte") DistributionStatSnapshot timeToFirstByte,
+                @JsonProperty("timeToLastByte") DistributionStatSnapshot timeToLastByte)
+        {
+            this.createTime = createTime;
+            this.executionStartTime = executionStartTime;
+            this.lastHeartBeat = lastHeartBeat;
+            this.endTime = endTime;
+            this.splits = splits;
+            this.queuedSplits = queuedSplits;
+            this.startedSplits = startedSplits;
+            this.runningSplits = runningSplits;
+            this.completedSplits = completedSplits;
+            this.splitWallTime = splitWallTime;
+            this.splitCpuTime = splitCpuTime;
+            this.splitUserTime = splitUserTime;
+            this.sinkBufferWaitTime = sinkBufferWaitTime;
+            this.timeToFirstByte = timeToFirstByte;
+            this.timeToLastByte = timeToLastByte;
+            if (exchangeStatus != null) {
+                this.exchangeStatus = ImmutableList.copyOf(exchangeStatus);
+            }
+            else {
+                this.exchangeStatus = ImmutableList.of();
+            }
+            this.exchangeWaitTime = exchangeWaitTime;
+            this.inputDataSize = inputDataSize;
+            this.inputPositionCount = inputPositionCount;
+            this.completedDataSize = completedDataSize;
+            this.completedPositionCount = completedPositionCount;
+            this.outputDataSize = outputDataSize;
+            this.outputPositionCount = outputPositionCount;
+        }
+
+        @JsonProperty
+        public DateTime getCreateTime()
+        {
+            return createTime;
+        }
+
+        @JsonProperty
+        public DateTime getExecutionStartTime()
+        {
+            return executionStartTime;
+        }
+
+        @JsonProperty
+        public DateTime getLastHeartBeat()
+        {
+            return lastHeartBeat;
+        }
+
+        @JsonProperty
+        public DateTime getEndTime()
+        {
+            return endTime;
+        }
+
+        @JsonProperty
+        public int getSplits()
+        {
+            return splits;
+        }
+
+        @JsonProperty
+        public int getQueuedSplits()
+        {
+            return queuedSplits;
+        }
+
+        @JsonProperty
+        public int getStartedSplits()
+        {
+            return startedSplits;
+        }
+
+        @JsonProperty
+        public int getRunningSplits()
+        {
+            return runningSplits;
+        }
+
+        @JsonProperty
+        public int getCompletedSplits()
+        {
+            return completedSplits;
+        }
+
+        @JsonProperty
+        public Duration getSplitWallTime()
+        {
+            return splitWallTime;
+        }
+
+        @JsonProperty
+        public Duration getSplitCpuTime()
+        {
+            return splitCpuTime;
+        }
+
+        @JsonProperty
+        public Duration getSplitUserTime()
+        {
+            return splitUserTime;
+        }
+
+        @JsonProperty
+        public Duration getSinkBufferWaitTime()
+        {
+            return sinkBufferWaitTime;
+        }
+
+        @JsonProperty
+        public DistributionStatSnapshot getTimeToFirstByte()
+        {
+            return timeToFirstByte;
+        }
+
+        @JsonProperty
+        public DistributionStatSnapshot getTimeToLastByte()
+        {
+            return timeToLastByte;
+        }
+
+        @JsonProperty
+        public List<ExchangeClientStatus> getExchangeStatus()
+        {
+            return exchangeStatus;
+        }
+
+        @JsonProperty
+        public Duration getExchangeWaitTime()
+        {
+            return exchangeWaitTime;
+        }
+
+        @JsonProperty
+        public DataSize getInputDataSize()
+        {
+            return inputDataSize;
+        }
+
+        @JsonProperty
+        public long getInputPositionCount()
+        {
+            return inputPositionCount;
+        }
+
+        @JsonProperty
+        public DataSize getCompletedDataSize()
+        {
+            return completedDataSize;
+        }
+
+        @JsonProperty
+        public long getCompletedPositionCount()
+        {
+            return completedPositionCount;
+        }
+
+        @JsonProperty
+        public DataSize getOutputDataSize()
+        {
+            return outputDataSize;
+        }
+
+        @JsonProperty
+        public long getOutputPositionCount()
+        {
+            return outputPositionCount;
+        }
     }
 }

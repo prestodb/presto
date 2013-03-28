@@ -14,7 +14,7 @@ public interface TaskExecution
 {
     String getTaskId();
 
-    TaskInfo getTaskInfo();
+    TaskInfo getTaskInfo(boolean full);
 
     void addSources(List<TaskSource> sources);
 
@@ -28,4 +28,6 @@ public interface TaskExecution
             throws InterruptedException;
 
     void abortResults(String outputId);
+
+    void recordHeartBeat();
 }

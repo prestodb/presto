@@ -7,7 +7,7 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.BufferInfo;
-import com.facebook.presto.execution.ExecutionStats;
+import com.facebook.presto.execution.ExecutionStats.ExecutionStatsSnapshot;
 import com.facebook.presto.execution.FailureInfo;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
@@ -15,6 +15,7 @@ import com.facebook.presto.execution.SharedBufferInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.metadata.Node;
+import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
@@ -56,6 +57,7 @@ import java.util.TreeSet;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -102,6 +104,8 @@ public class HttpRemoteTask
     private final List<TupleInfo> tupleInfos;
 
     private final RateLimiter requestRateLimiter = RateLimiter.create(10);
+
+    private final AtomicBoolean hasResponseError = new AtomicBoolean();
 
     public HttpRemoteTask(Session session,
             String queryId,
@@ -166,7 +170,8 @@ public class HttpRemoteTask
                 location,
                 new SharedBufferInfo(QueueState.OPEN, 0, bufferStates),
                 ImmutableSet.<PlanNodeId>of(),
-                new ExecutionStats(),
+                new ExecutionStatsSnapshot(),
+                ImmutableList.<SplitExecutionStats>of(),
                 ImmutableList.<FailureInfo>of());
     }
 
@@ -474,6 +479,15 @@ public class HttpRemoteTask
                             updateState(false);
                             return;
                         }
+                        hasResponseError.set(false);
+                    }
+                    else if (response.getException() != null) {
+                        if (hasResponseError.compareAndSet(false, true)) {
+                            log.error(response.getException(), "Error decoding json response from %s", taskInfo.getSelf());
+                        }
+                        else {
+                            log.debug("Error decoding json response from %s", taskInfo.getSelf());
+                        }
                     }
 
                     // remove acknowledged splits, which frees memory
@@ -491,6 +505,7 @@ public class HttpRemoteTask
                             taskInfo.getOutputBuffers(),
                             taskInfo.getNoMoreSplits(),
                             taskInfo.getStats(),
+                            ImmutableList.<SplitExecutionStats>of(),
                             ImmutableList.<FailureInfo>of()));
                 }
             } catch (Throwable t) {

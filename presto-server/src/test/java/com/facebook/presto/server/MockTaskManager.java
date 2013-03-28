@@ -56,17 +56,17 @@ public class MockTaskManager
     }
 
     @Override
-    public synchronized List<TaskInfo> getAllTaskInfo()
+    public synchronized List<TaskInfo> getAllTaskInfo(boolean full)
     {
         ImmutableList.Builder<TaskInfo> builder = ImmutableList.builder();
         for (TaskOutput taskOutput : tasks.values()) {
-            builder.add(taskOutput.getTaskInfo());
+            builder.add(taskOutput.getTaskInfo(false));
         }
         return builder.build();
     }
 
     @Override
-    public synchronized TaskInfo getTaskInfo(String taskId)
+    public synchronized TaskInfo getTaskInfo(String taskId, boolean full)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 
@@ -74,7 +74,7 @@ public class MockTaskManager
         if (taskOutput == null) {
             throw new NoSuchElementException();
         }
-        return taskOutput.getTaskInfo();
+        return taskOutput.getTaskInfo(false);
     }
 
     @Override
@@ -114,7 +114,7 @@ public class MockTaskManager
             taskOutput.noMoreResultQueues();
         }
 
-        return taskOutput.getTaskInfo();
+        return taskOutput.getTaskInfo(false);
     }
 
     @Override
@@ -145,7 +145,7 @@ public class MockTaskManager
             throw new NoSuchElementException();
         }
         taskOutput.abortResults(outputId);
-        return taskOutput.getTaskInfo();
+        return taskOutput.getTaskInfo(false);
     }
 
     @Override
@@ -156,7 +156,7 @@ public class MockTaskManager
         TaskOutput taskOutput = tasks.get(taskId);
         if (taskOutput != null) {
             taskOutput.cancel();
-            return taskOutput.getTaskInfo();
+            return taskOutput.getTaskInfo(false);
         } else {
             return null;
         }
