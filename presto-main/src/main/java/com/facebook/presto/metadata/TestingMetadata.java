@@ -3,7 +3,6 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 
@@ -14,8 +13,8 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkTable;
-import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Maps.filterKeys;
@@ -47,7 +46,9 @@ public class TestingMetadata
     @Override
     public List<String> listSchemaNames(String catalogName)
     {
-        List<QualifiedTableName> tables = listTables(catalogName, Optional.<String>absent());
+        checkNotNull(catalogName, "catalogName is null");
+
+        List<QualifiedTableName> tables = listTables(QualifiedTablePrefix.builder(catalogName).build());
         Set<String> schemaNames = new HashSet<>();
 
         for (QualifiedTableName qualifiedTableName : tables) {
@@ -65,9 +66,11 @@ public class TestingMetadata
     }
 
     @Override
-    public List<TableColumn> listTableColumns(String catalogName, Optional<String> schemaName, Optional<String> tableName)
+    public List<TableColumn> listTableColumns(QualifiedTablePrefix prefix)
     {
-        return getTableColumns(matches(catalogName, schemaName, tableName));
+        checkNotNull(prefix, "prefix is null");
+
+        return getTableColumns(matches(prefix));
     }
 
 
@@ -78,17 +81,21 @@ public class TestingMetadata
     }
 
     @Override
-    public List<Map<String, String>> listTablePartitionValues(String catalogName, Optional<String> schemaName, Optional<String> tableName)
+    public List<Map<String, String>> listTablePartitionValues(QualifiedTablePrefix prefix)
     {
+        checkNotNull(prefix, "prefix is null");
+
         return ImmutableList.of();
     }
 
     @Override
-    public List<QualifiedTableName> listTables(String catalogName, Optional<String> schemaName)
+    public List<QualifiedTableName> listTables(QualifiedTablePrefix prefix)
     {
+        checkNotNull(prefix, "prefix is null");
+
         ImmutableList.Builder<QualifiedTableName> builder = ImmutableList.builder();
         for (QualifiedTableName name : tables.keySet()) {
-            if (!schemaName.isPresent() || schemaName.get().equals(name.getSchemaName())) {
+            if (!prefix.hasSchemaName() || prefix.getSchemaName().get().equals(name.getSchemaName())) {
                 builder.add(name);
             }
         }
@@ -109,17 +116,18 @@ public class TestingMetadata
         return ImmutableList.copyOf(concat(transform(values, toTableColumns())));
     }
 
-    private static Predicate<QualifiedTableName> matches(final String catalogName, final Optional<String> schemaName, final Optional<String> tableName)
+    private static Predicate<QualifiedTableName> matches(final QualifiedTablePrefix prefix)
     {
-        checkTableName(catalogName, schemaName, tableName);
+        checkNotNull(prefix, "prefix is null");
+
         return new Predicate<QualifiedTableName>()
         {
             @Override
             public boolean apply(QualifiedTableName key)
             {
-                return catalogName.equals(key.getCatalogName())
-                        && (!schemaName.isPresent() || schemaName.equals(key.getSchemaName()))
-                        && (!tableName.isPresent() || tableName.equals(key.getTableName()));
+                return prefix.getCatalogName().equals(key.getCatalogName())
+                        && (!prefix.hasSchemaName() || prefix.getSchemaName().get().equals(key.getSchemaName()))
+                        && (!prefix.hasTableName() || prefix.getTableName().get().equals(key.getTableName()));
             }
         };
     }

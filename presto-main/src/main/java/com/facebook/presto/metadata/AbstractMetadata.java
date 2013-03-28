@@ -2,7 +2,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Optional;
 
 import java.util.List;
 import java.util.Map;
@@ -35,13 +34,13 @@ public abstract class AbstractMetadata
     }
 
     @Override
-    public List<QualifiedTableName> listTables(String catalogName, Optional<String> schemaName)
+    public List<QualifiedTableName> listTables(QualifiedTablePrefix prefix)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<TableColumn> listTableColumns(String catalogName, Optional<String> schemaName, Optional<String> tableName)
+    public List<TableColumn> listTableColumns(QualifiedTablePrefix prefix)
     {
         throw new UnsupportedOperationException();
     }
@@ -53,7 +52,7 @@ public abstract class AbstractMetadata
     }
 
     @Override
-    public List<Map<String, String>> listTablePartitionValues(String catalogName, Optional<String> schemaName, Optional<String> tableName)
+    public List<Map<String, String>> listTablePartitionValues(QualifiedTablePrefix prefix)
     {
         throw new UnsupportedOperationException();
     }

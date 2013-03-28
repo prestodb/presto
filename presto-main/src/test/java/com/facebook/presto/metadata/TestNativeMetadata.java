@@ -63,7 +63,7 @@ public class TestNativeMetadata
     public void testListTables()
     {
         metadata.createTable(getOrdersTable());
-        List<QualifiedTableName> tables = metadata.listTables("default", Optional.<String>absent());
+        List<QualifiedTableName> tables = metadata.listTables(QualifiedTablePrefix.builder("default").build());
         assertEquals(tables, ImmutableList.of(DEFAULT_TEST_ORDERS));
     }
 
@@ -71,7 +71,7 @@ public class TestNativeMetadata
     public void testListTableColumns()
     {
         metadata.createTable(getOrdersTable());
-        List<TableColumn> columns = metadata.listTableColumns("default", Optional.<String>absent(), Optional.<String>absent());
+        List<TableColumn> columns = metadata.listTableColumns(QualifiedTablePrefix.builder("default").build());
         assertEquals(columns, ImmutableList.<TableColumn>builder()
                 .add(new TableColumn(DEFAULT_TEST_ORDERS, "orderkey", 1, FIXED_INT_64))
                 .add(new TableColumn(DEFAULT_TEST_ORDERS, "custkey", 2, FIXED_INT_64))
@@ -84,9 +84,9 @@ public class TestNativeMetadata
     public void testListTableColumnsFiltering()
     {
         metadata.createTable(getOrdersTable());
-        List<TableColumn> filterCatalog = metadata.listTableColumns("default", Optional.<String>absent(), Optional.<String>absent());
-        List<TableColumn> filterSchema = metadata.listTableColumns("default", Optional.of("test"), Optional.<String>absent());
-        List<TableColumn> filterTable = metadata.listTableColumns("default", Optional.of("test"), Optional.of("orders"));
+        List<TableColumn> filterCatalog = metadata.listTableColumns(QualifiedTablePrefix.builder("default").build());
+        List<TableColumn> filterSchema = metadata.listTableColumns(QualifiedTablePrefix.builder("default").schemaName("test").build());
+        List<TableColumn> filterTable = metadata.listTableColumns(QualifiedTablePrefix.builder("default").schemaName("test").tableName("orders").build());
         assertEquals(filterCatalog, filterSchema);
         assertEquals(filterCatalog, filterTable);
     }

@@ -15,6 +15,7 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.transform;
 
@@ -32,34 +33,24 @@ public class MetadataUtil
     public static void checkTableName(String catalogName, Optional<String> schemaName, Optional<String> tableName)
     {
         checkLowerCase(catalogName, "catalogName");
+        checkNotNull(schemaName, "schemaName is null");
+        checkNotNull(tableName, "tableName is null");
 
-        if (checkNotNull(schemaName, "schemaName is null").isPresent()) {
+        if (schemaName.isPresent()) {
             checkLowerCase(schemaName.get(), "schemaName");
+
+            if (tableName.isPresent()) {
+                checkLowerCase(tableName.get(), "tableName");
+            }
         }
-
-        if (checkNotNull(tableName, "tableName is null").isPresent()) {
-            checkLowerCase(tableName.get(), "tableName");
-        }
-    }
-
-    public static void checkSchemaName(String catalogName, Optional<String> schemaName)
-    {
-        checkLowerCase(catalogName, "catalogName");
-
-        if (checkNotNull(schemaName, "schemaName is null").isPresent()) {
-            checkLowerCase(schemaName.get(), "schemaName");
+        else {
+            checkState(!tableName.isPresent(), "schemaName is absent!");
         }
     }
 
     public static void checkCatalogName(String catalogName)
     {
         checkLowerCase(catalogName, "catalogName");
-    }
-
-    public static void checkSchemaName(String catalogName, String schemaName)
-    {
-        checkLowerCase(catalogName, "catalogName");
-        checkLowerCase(schemaName, "schemaName");
     }
 
     public static void checkTableName(String catalogName, String schemaName, String tableName)
