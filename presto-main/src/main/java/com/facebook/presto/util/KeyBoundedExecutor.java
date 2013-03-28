@@ -3,37 +3,46 @@ package com.facebook.presto.util;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.annotation.concurrent.ThreadSafe;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 /**
- * Executes tasks on a single-threaded executor for each different shard
+ * Bound the number of tasks executed currently for a given key
  */
 @ThreadSafe
-public class ShardBoundedExecutor<T>
+public class KeyBoundedExecutor<T>
 {
-    // Map shards to associated executors (single-threaded)
     @GuardedBy("this")
-    private final Map<T, CountedReference<BoundedExecutor>> shardExecutors = new HashMap<>();
+    private final Map<T, CountedReference<BoundedExecutor>> executors = new HashMap<>();
     private final ExecutorService executorService;
+    private final int maxThreads;
 
-    public ShardBoundedExecutor(ExecutorService executorService)
+    public KeyBoundedExecutor(ExecutorService executorService)
     {
+        this(executorService, 1);
+    }
+
+    public KeyBoundedExecutor(ExecutorService executorService, int maxThreads)
+    {
+        checkArgument(maxThreads > 0, "maxThreads must be greater than zero");
         this.executorService = checkNotNull(executorService, "executorService is null");
+        this.maxThreads = maxThreads;
     }
 
-    public synchronized boolean isActive(T shard)
+    public synchronized boolean isActive(T key)
     {
-        return shardExecutors.containsKey(shard);
+        return executors.containsKey(key);
     }
 
-    public void execute(final T shard, final Runnable task)
+    public void execute(final T key, final Runnable task)
     {
-        final CountedReference<BoundedExecutor> reference = acquireExecutor(shard);
+        final CountedReference<BoundedExecutor> reference = acquireExecutor(key);
         reference.get().execute(new Runnable()
         {
             @Override
@@ -43,18 +52,18 @@ public class ShardBoundedExecutor<T>
                     task.run();
                 }
                 finally {
-                    returnExecutor(shard, reference);
+                    returnExecutor(key, reference);
                 }
             }
         });
     }
 
-    private synchronized CountedReference<BoundedExecutor> acquireExecutor(T shard)
+    private synchronized CountedReference<BoundedExecutor> acquireExecutor(T key)
     {
-        CountedReference<BoundedExecutor> reference = shardExecutors.get(shard);
+        CountedReference<BoundedExecutor> reference = executors.get(key);
         if (reference == null) {
-            reference = new CountedReference<>(new BoundedExecutor(executorService, 1));
-            shardExecutors.put(shard, reference);
+            reference = new CountedReference<>(new BoundedExecutor(executorService, maxThreads));
+            executors.put(key, reference);
         }
         else {
             reference.increment();
@@ -62,11 +71,11 @@ public class ShardBoundedExecutor<T>
         return reference;
     }
 
-    private synchronized void returnExecutor(T shard, CountedReference<BoundedExecutor> reference)
+    private synchronized void returnExecutor(T key, CountedReference<BoundedExecutor> reference)
     {
         reference.decrement();
         if (!reference.isReferenced()) {
-            shardExecutors.remove(shard);
+            executors.remove(key);
         }
     }
 
