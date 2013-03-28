@@ -58,7 +58,7 @@ public class InternalSplit
         return filters;
     }
 
-    private static class ICHSerializer
+    public static class ICHSerializer
             extends JsonSerializer<InternalColumnHandle>
     {
         @Override
@@ -69,7 +69,7 @@ public class InternalSplit
         }
     }
 
-    private static class ICHDeserializer
+    public static class ICHDeserializer
             extends KeyDeserializer
     {
         @Override
