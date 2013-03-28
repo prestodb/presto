@@ -16,6 +16,7 @@ import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeColumnHandle;
 import com.facebook.presto.metadata.NativeTableHandle;
+import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.StorageManager;
@@ -37,7 +38,6 @@ import com.facebook.presto.tuple.TupleReadable;
 import com.facebook.presto.util.MaterializedResult;
 import com.facebook.presto.util.MaterializedTuple;
 import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -237,7 +237,7 @@ public class TestDistributedQueries
             throws IOException
     {
         ImmutableList.Builder<String> tableNames = ImmutableList.builder();
-        List<QualifiedTableName> qualifiedTableNames = metadata.listTables(catalog, Optional.<String>absent());
+        List<QualifiedTableName> qualifiedTableNames = metadata.listTables(QualifiedTablePrefix.builder(catalog).build());
         for (QualifiedTableName qualifiedTableName : qualifiedTableNames) {
             tableNames.add(qualifiedTableName.getTableName());
 

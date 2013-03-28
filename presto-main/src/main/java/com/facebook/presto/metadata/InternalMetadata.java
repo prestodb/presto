@@ -7,8 +7,6 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
-
 import static com.facebook.presto.metadata.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.listInformationSchemaTables;
 import static com.facebook.presto.metadata.MetadataUtil.checkTable;
@@ -49,24 +47,27 @@ public class InternalMetadata
     }
 
     @Override
-    public List<QualifiedTableName> listTables(String catalogName, Optional<String> schemaName)
+    public List<QualifiedTableName> listTables(QualifiedTablePrefix prefix)
     {
-        checkSchemaName(catalogName, schemaName);
+        checkNotNull(prefix, "prefix is null");
 
+        Optional<String> schemaName = prefix.getSchemaName();
         if (schemaName.isPresent()) {
             switch (schemaName.get()) {
                 case INFORMATION_SCHEMA:
-                    return listInformationSchemaTables(catalogName);
+                    return listInformationSchemaTables(prefix.getCatalogName());
                 case SYSTEM_SCHEMA:
-                    return listSystemTables(catalogName);
+                    return listSystemTables(prefix.getCatalogName());
             }
         }
         return ImmutableList.of();
     }
 
     @Override
-    public List<TableColumn> listTableColumns(String catalogName, Optional<String> schemaName, Optional<String> tableName)
+    public List<TableColumn> listTableColumns(QualifiedTablePrefix prefix)
     {
+        checkNotNull(prefix, "prefix is null");
+
         // hack for SHOW COLUMNS
         return ImmutableList.of();
     }

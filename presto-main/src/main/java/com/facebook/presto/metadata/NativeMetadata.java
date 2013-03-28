@@ -2,7 +2,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -18,9 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.facebook.presto.metadata.MetadataUtil.checkTable;
-import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 import static com.facebook.presto.util.SqlUtils.runIgnoringConstraintViolation;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -89,17 +86,19 @@ public class NativeMetadata
     }
 
     @Override
-    public List<QualifiedTableName> listTables(String catalogName, Optional<String> schemaName)
+    public List<QualifiedTableName> listTables(QualifiedTablePrefix prefix)
     {
-        MetadataUtil.checkSchemaName(catalogName, schemaName);
-        return dao.listTables(catalogName, schemaName.orNull());
+        checkNotNull(prefix, "prefix is null");
+        return dao.listTables(prefix.getCatalogName(), prefix.getSchemaName().orNull());
     }
 
     @Override
-    public List<TableColumn> listTableColumns(String catalogName, Optional<String> schemaName, Optional<String> tableName)
+    public List<TableColumn> listTableColumns(QualifiedTablePrefix prefix)
     {
-        checkTableName(catalogName, schemaName, tableName);
-        return dao.listTableColumns(catalogName, schemaName.orNull(), tableName.orNull());
+        checkNotNull(prefix, "prefix is null");
+        return dao.listTableColumns(prefix.getCatalogName(),
+                prefix.getSchemaName().orNull(),
+                prefix.getTableName().orNull());
     }
 
     @Override
@@ -110,9 +109,9 @@ public class NativeMetadata
     }
 
     @Override
-    public List<Map<String, String>> listTablePartitionValues(String catalogName, Optional<String> schemaName, Optional<String> tableName)
+    public List<Map<String, String>> listTablePartitionValues(QualifiedTablePrefix prefix)
     {
-        checkTableName(catalogName, schemaName, tableName);
+        checkNotNull(prefix, "prefix is null");
         return ImmutableList.of();
     }
 

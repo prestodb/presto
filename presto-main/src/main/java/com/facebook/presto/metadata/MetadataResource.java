@@ -1,12 +1,10 @@
 package com.facebook.presto.metadata;
 
 import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 
 import javax.inject.Inject;
-import javax.inject.Singleton;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -23,7 +21,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * returns metadata information from this server.
  */
 @Path("/v1/metadata")
-@Singleton
 @Produces(MediaType.APPLICATION_JSON)
 public class MetadataResource
 {
@@ -67,7 +64,7 @@ public class MetadataResource
         List<QualifiedTableName> tableNames = Collections.emptyList();
 
         try {
-            tableNames = metadata.listTables(catalogName, Optional.of(schemaName));
+            tableNames = metadata.listTables(QualifiedTablePrefix.builder(catalogName).schemaName(schemaName).build());
         }
         catch (Exception e) {
             // ignore, we always want a result...
