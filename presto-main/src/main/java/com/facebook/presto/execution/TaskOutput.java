@@ -3,10 +3,14 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
@@ -16,6 +20,7 @@ import java.net.URI;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -41,6 +46,8 @@ public class TaskOutput
 
     @GuardedBy("this")
     private final Set<PlanNodeId> noMoreSplits = new HashSet<>();
+
+    private final Set<OperatorStats> activeSplits = Sets.newSetFromMap(new ConcurrentHashMap<OperatorStats, Boolean>());
 
     public TaskOutput(String queryId, String stageId, String taskId, URI location, int pageBufferMax)
     {
@@ -115,6 +122,16 @@ public class TaskOutput
         sharedBuffer.abort(outputId);
     }
 
+    public void addActiveSplit(OperatorStats operatorStats)
+    {
+        activeSplits.add(operatorStats);
+    }
+
+    public void removeActiveSplit(OperatorStats operatorStats)
+    {
+        activeSplits.remove(operatorStats);
+    }
+
     /**
      * Marks the output as complete.  After this method is called no more data can be added but there may still be buffered output pages.
      */
@@ -174,9 +191,19 @@ public class TaskOutput
         }
     }
 
-    public TaskInfo getTaskInfo()
+    public TaskInfo getTaskInfo(boolean full)
     {
         updateFinishedState();
+
+        List<SplitExecutionStats> splitStats = null;
+        if (full) {
+            ImmutableList.Builder<SplitExecutionStats> builder = ImmutableList.builder();
+            for (OperatorStats activeSplit : activeSplits) {
+                builder.add(activeSplit.snapshot());
+            }
+            splitStats = builder.build();
+        }
+
         SharedBufferInfo sharedBufferInfo = sharedBuffer.getInfo();
         synchronized (this) {
             return new TaskInfo(queryId,
@@ -187,7 +214,8 @@ public class TaskOutput
                     location,
                     sharedBufferInfo,
                     getNoMoreSplits(),
-                    stats,
+                    stats.snapshot(full),
+                    splitStats,
                     toFailures(failureCauses));
         }
     }

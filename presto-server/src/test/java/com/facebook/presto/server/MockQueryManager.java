@@ -136,7 +136,7 @@ public class MockQueryManager
 
         private QueryInfo getQueryInfo()
         {
-            TaskInfo outputTask = mockTaskManager.getTaskInfo(outputTaskId);
+            TaskInfo outputTask = mockTaskManager.getTaskInfo(outputTaskId, false);
 
             QueryState state;
             switch (outputTask.getState()) {

@@ -121,26 +121,25 @@ public class SqlTaskManager
     }
 
     @Override
-    public List<TaskInfo> getAllTaskInfo()
+    public List<TaskInfo> getAllTaskInfo(boolean full)
     {
         Map<String, TaskInfo> taskInfos = new TreeMap<>();
         taskInfos.putAll(taskInfos);
         for (TaskExecution taskExecution : tasks.values()) {
-            taskInfos.put(taskExecution.getTaskId(), taskExecution.getTaskInfo());
+            taskInfos.put(taskExecution.getTaskId(), taskExecution.getTaskInfo(full));
         }
         return ImmutableList.copyOf(taskInfos.values());
     }
 
     @Override
-    public TaskInfo getTaskInfo(String taskId)
+    public TaskInfo getTaskInfo(String taskId, boolean full)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 
         TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution != null) {
-            TaskInfo taskInfo = taskExecution.getTaskInfo();
-            taskInfo.getStats().recordHeartBeat();
-            return taskInfo;
+            taskExecution.recordHeartBeat();
+            return taskExecution.getTaskInfo(full);
         }
 
         TaskInfo taskInfo = taskInfos.get(taskId);
@@ -183,11 +182,11 @@ public class SqlTaskManager
             }
         }
 
-        taskExecution.getTaskInfo().getStats().recordHeartBeat();
+        taskExecution.recordHeartBeat();
         taskExecution.addSources(sources);
         taskExecution.addResultQueue(outputIds);
 
-        return taskExecution.getTaskInfo();
+        return taskExecution.getTaskInfo(false);
     }
 
     @Override
@@ -201,7 +200,7 @@ public class SqlTaskManager
         if (taskExecution == null) {
             throw new NoSuchElementException("Unknown query task " + taskId);
         }
-        taskExecution.getTaskInfo().getStats().recordHeartBeat();
+        taskExecution.recordHeartBeat();
         return taskExecution.getResults(outputName, maxPageCount, maxWaitTime);
     }
 
@@ -225,7 +224,7 @@ public class SqlTaskManager
         log.debug("Aborting task %s output %s", taskId, outputId);
         taskExecution.abortResults(outputId);
 
-        return taskExecution.getTaskInfo();
+        return taskExecution.getTaskInfo(false);
     }
 
     @Override
@@ -243,9 +242,9 @@ public class SqlTaskManager
         tasks.remove(taskId);
 
         // cache task info
-        TaskInfo taskInfo = taskExecution.getTaskInfo();
+        TaskInfo taskInfo = taskExecution.getTaskInfo(false);
         taskInfos.putIfAbsent(taskId, taskInfo);
-        return taskExecution.getTaskInfo();
+        return taskExecution.getTaskInfo(false);
     }
 
     public void removeOldTasks()
@@ -253,7 +252,7 @@ public class SqlTaskManager
         DateTime oldestAllowedTask = DateTime.now().minus((long) maxTaskAge.toMillis());
         for (TaskExecution taskExecution : tasks.values()) {
             try {
-                TaskInfo taskInfo = taskExecution.getTaskInfo();
+                TaskInfo taskInfo = taskExecution.getTaskInfo(false);
 
                 // drop references to completed task objects
                 if (taskInfo.getState().isDone()) {
@@ -278,7 +277,7 @@ public class SqlTaskManager
         DateTime oldestAllowedHeartBeat = now.minus((long) clientTimeout.toMillis());
         for (TaskExecution taskExecution : tasks.values()) {
             try {
-                TaskInfo taskInfo = taskExecution.getTaskInfo();
+                TaskInfo taskInfo = taskExecution.getTaskInfo(false);
                 if (taskInfo.getState().isDone()) {
                     continue;
                 }

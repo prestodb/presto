@@ -3,12 +3,15 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.execution.ExecutionStats.ExecutionStatsSnapshot;
+import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 import java.net.URI;
@@ -43,7 +46,8 @@ public class TaskInfo
     private final URI self;
     private final SharedBufferInfo outputBuffers;
     private final Set<PlanNodeId> noMoreSplits;
-    private final ExecutionStats stats;
+    private final ExecutionStatsSnapshot stats;
+    private final List<SplitExecutionStats> splitStats;
     private final List<FailureInfo> failures;
 
     @JsonCreator
@@ -55,7 +59,8 @@ public class TaskInfo
             @JsonProperty("self") URI self,
             @JsonProperty("outputBuffers") SharedBufferInfo outputBuffers,
             @JsonProperty("noMoreSplits") Set<PlanNodeId> noMoreSplits,
-            @JsonProperty("stats") ExecutionStats stats,
+            @JsonProperty("stats") ExecutionStatsSnapshot stats,
+            @JsonProperty("splitStats") List<SplitExecutionStats> splitStats,
             @JsonProperty("failures") List<FailureInfo> failures)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
@@ -77,7 +82,18 @@ public class TaskInfo
         this.outputBuffers = outputBuffers;
         this.noMoreSplits = noMoreSplits;
         this.stats = stats;
-        this.failures = failures;
+        if (splitStats != null) {
+            this.splitStats = ImmutableList.copyOf(splitStats);
+        }
+        else {
+            this.splitStats = ImmutableList.of();
+        }
+        if (failures != null) {
+            this.failures = ImmutableList.copyOf(failures);
+        }
+        else {
+            this.failures = ImmutableList.of();
+        }
     }
 
     @JsonProperty
@@ -129,9 +145,15 @@ public class TaskInfo
     }
 
     @JsonProperty
-    public ExecutionStats getStats()
+    public ExecutionStatsSnapshot getStats()
     {
         return stats;
+    }
+
+    @JsonProperty
+    public List<SplitExecutionStats> getSplitStats()
+    {
+        return splitStats;
     }
 
     @JsonProperty
@@ -147,19 +169,6 @@ public class TaskInfo
                 .add("taskId", taskId)
                 .add("state", state)
                 .toString();
-    }
-
-
-    public static Function<TaskInfo, String> taskIdGetter()
-    {
-        return new Function<TaskInfo, String>()
-        {
-            @Override
-            public String apply(TaskInfo taskInfo)
-            {
-                return taskInfo.getTaskId();
-            }
-        };
     }
 
     public static Function<TaskInfo, TaskState> taskStateGetter()
