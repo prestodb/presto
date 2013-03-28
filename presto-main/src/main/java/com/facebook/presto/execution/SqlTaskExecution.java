@@ -166,10 +166,10 @@ public class SqlTaskExecution
     }
 
     @Override
-    public TaskInfo getTaskInfo()
+    public TaskInfo getTaskInfo(boolean full)
     {
         checkTaskCompletion();
-        return taskOutput.getTaskInfo();
+        return taskOutput.getTaskInfo(full);
     }
 
     @Override
@@ -252,7 +252,7 @@ public class SqlTaskExecution
         // record new worker
         splitWorkers.add(new WeakReference<>(worker));
         pendingWorkerCount.incrementAndGet();
-        getTaskInfo().getStats().addSplits(1);
+        taskOutput.getStats().addSplits(1);
 
         // execute worker
         final ListenableFutureTask<?> workerFutureTask = ListenableFutureTask.create(worker);
@@ -351,6 +351,12 @@ public class SqlTaskExecution
     public void abortResults(String outputId)
     {
         taskOutput.abortResults(outputId);
+    }
+
+    @Override
+    public void recordHeartBeat()
+    {
+        taskOutput.getStats().recordHeartBeat();
     }
 
     @Override
@@ -458,7 +464,6 @@ public class SqlTaskExecution
                 return null;
             }
 
-            taskOutput.getStats().recordExecutionStart();
             operatorStats.start();
             try (PageIterator pages = operator.iterator(operatorStats)) {
                 while (pages.hasNext()) {

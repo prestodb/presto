@@ -51,9 +51,9 @@ public class TaskResource
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public List<TaskInfo> getAllTaskInfo()
+    public List<TaskInfo> getAllTaskInfo(@Context() UriInfo uriInfo)
     {
-        return taskManager.getAllTaskInfo();
+        return taskManager.getAllTaskInfo(isFullTaskInfoRequested(uriInfo));
     }
 
     @POST
@@ -83,12 +83,12 @@ public class TaskResource
     @GET
     @Path("{taskId}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getTaskInfo(@PathParam("taskId") String taskId)
+    public Response getTaskInfo(@PathParam("taskId") String taskId, @Context() UriInfo uriInfo)
     {
         checkNotNull(taskId, "taskId is null");
 
         try {
-            TaskInfo taskInfo = taskManager.getTaskInfo(taskId);
+            TaskInfo taskInfo = taskManager.getTaskInfo(taskId, isFullTaskInfoRequested(uriInfo));
             return Response.ok(taskInfo).build();
         }
         catch (NoSuchElementException e) {
@@ -155,7 +155,7 @@ public class TaskResource
     private boolean isDone(String taskId)
     {
         try {
-            return taskManager.getTaskInfo(taskId).getState().isDone();
+            return taskManager.getTaskInfo(taskId, false).getState().isDone();
         }
         catch (NoSuchElementException e) {
             return false;
@@ -177,5 +177,10 @@ public class TaskResource
         catch (NoSuchElementException e) {
             return Response.status(Status.NOT_FOUND).build();
         }
+    }
+
+    private boolean isFullTaskInfoRequested(UriInfo uriInfo)
+    {
+        return uriInfo.getQueryParameters().containsKey("full");
     }
 }

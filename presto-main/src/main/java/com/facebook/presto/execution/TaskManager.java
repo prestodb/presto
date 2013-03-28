@@ -14,9 +14,9 @@ import java.util.List;
 
 public interface TaskManager
 {
-    List<TaskInfo> getAllTaskInfo();
+    List<TaskInfo> getAllTaskInfo(boolean full);
 
-    TaskInfo getTaskInfo(String taskId);
+    TaskInfo getTaskInfo(String taskId, boolean full);
 
     TaskInfo updateTask(Session session, String queryId, String stageId, String taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputIds);
 
