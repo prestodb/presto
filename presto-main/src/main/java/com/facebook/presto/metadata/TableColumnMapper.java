@@ -14,9 +14,11 @@ public class TableColumnMapper
     public TableColumn map(int index, ResultSet r, StatementContext ctx)
             throws SQLException
     {
-        return new TableColumn(r.getString("catalog_name"),
+        QualifiedTableName table = new QualifiedTableName(r.getString("catalog_name"),
                 r.getString("schema_name"),
-                r.getString("table_name"),
+                r.getString("table_name"));
+
+        return new TableColumn(table,
                 r.getString("column_name"),
                 r.getInt("ordinal_position"),
                 TupleInfo.Type.fromName(r.getString("data_type")));

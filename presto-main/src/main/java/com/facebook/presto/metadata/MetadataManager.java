@@ -15,8 +15,7 @@ import static com.facebook.presto.metadata.InformationSchemaMetadata.INFORMATION
 import static com.facebook.presto.metadata.InformationSchemaMetadata.listInformationSchemaTableColumns;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.listInformationSchemaTables;
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
-import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
-import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
+import static com.facebook.presto.metadata.MetadataUtil.checkTable;
 import static com.facebook.presto.metadata.SystemTables.SYSTEM_SCHEMA;
 import static com.facebook.presto.metadata.SystemTables.listSystemTableColumns;
 import static com.facebook.presto.metadata.SystemTables.listSystemTables;
@@ -67,16 +66,16 @@ public class MetadataManager
     public List<String> listSchemaNames(String catalogName)
     {
         checkCatalogName(catalogName);
-        DataSourceType dataSourceType = lookupDataSource(catalogName);
+        DataSourceType dataSourceType = lookupDataSource(QualifiedTablePrefix.builder(catalogName).build());
         return lookup(dataSourceType).listSchemaNames(catalogName);
     }
 
     @Override
-    public TableMetadata getTable(String catalogName, String schemaName, String tableName)
+    public TableMetadata getTable(QualifiedTableName table)
     {
-        checkTableName(catalogName, schemaName, tableName);
-        DataSourceType dataSourceType = lookupDataSource(catalogName, schemaName, tableName);
-        return lookup(dataSourceType).getTable(catalogName, schemaName, tableName);
+        checkTable(table);
+        DataSourceType dataSourceType = lookupDataSource(table);
+        return lookup(dataSourceType).getTable(table);
     }
 
     @Override
@@ -95,68 +94,52 @@ public class MetadataManager
     }
 
     @Override
-    public List<QualifiedTableName> listTables(String catalogName)
+    public List<QualifiedTableName> listTables(QualifiedTablePrefix prefix)
     {
-        checkCatalogName(catalogName);
-        DataSourceType dataSourceType = lookupDataSource(catalogName);
-        List<QualifiedTableName> catalogTables = lookup(dataSourceType).listTables(catalogName);
-        List<QualifiedTableName> informationSchemaTables = listInformationSchemaTables(catalogName);
-        List<QualifiedTableName> systemTables = listSystemTables(catalogName);
-        return ImmutableList.copyOf(concat(catalogTables, informationSchemaTables, systemTables));
+        checkNotNull(prefix, "prefix is null");
+
+        if (prefix.hasSchemaName()) {
+            DataSourceType dataSourceType = lookupDataSource(prefix);
+            return lookup(dataSourceType).listTables(prefix);
+        }
+        else {
+            // blank catalog must also return the system and information schema tables.
+            DataSourceType dataSourceType = lookupDataSource(prefix);
+            List<QualifiedTableName> catalogTables = lookup(dataSourceType).listTables(prefix);
+            List<QualifiedTableName> informationSchemaTables = listInformationSchemaTables(prefix.getCatalogName());
+            List<QualifiedTableName> systemTables = listSystemTables(prefix.getCatalogName());
+            return ImmutableList.copyOf(concat(catalogTables, informationSchemaTables, systemTables));
+        }
     }
 
     @Override
-    public List<QualifiedTableName> listTables(String catalogName, String schemaName)
+    public List<TableColumn> listTableColumns(QualifiedTablePrefix prefix)
     {
-        checkSchemaName(catalogName, schemaName);
-        DataSourceType dataSourceType = lookupDataSource(catalogName, schemaName);
-        return lookup(dataSourceType).listTables(catalogName, schemaName);
+        checkNotNull(prefix, "prefix is null");
+        DataSourceType dataSourceType = lookupDataSource(prefix);
+        return getTableColumns(prefix.getCatalogName(), lookup(dataSourceType).listTableColumns(prefix));
     }
 
     @Override
-    public List<TableColumn> listTableColumns(String catalogName)
+    public List<String> listTablePartitionKeys(QualifiedTableName table)
     {
-        checkCatalogName(catalogName);
-        DataSourceType dataSourceType = lookupDataSource(catalogName);
-        return getTableColumns(catalogName, lookup(dataSourceType).listTableColumns(catalogName));
+        checkTable(table);
+        DataSourceType dataSourceType = lookupDataSource(table);
+        return lookup(dataSourceType).listTablePartitionKeys(table);
     }
 
     @Override
-    public List<TableColumn> listTableColumns(String catalogName, String schemaName)
+    public List<Map<String, String>> listTablePartitionValues(QualifiedTablePrefix prefix)
     {
-        checkSchemaName(catalogName, schemaName);
-        DataSourceType dataSourceType = lookupDataSource(catalogName, schemaName);
-        return getTableColumns(catalogName, lookup(dataSourceType).listTableColumns(catalogName, schemaName));
-    }
-
-    @Override
-    public List<TableColumn> listTableColumns(String catalogName, String schemaName, String tableName)
-    {
-        checkTableName(catalogName, schemaName, tableName);
-        DataSourceType dataSourceType = lookupDataSource(catalogName, schemaName, tableName);
-        return getTableColumns(catalogName, lookup(dataSourceType).listTableColumns(catalogName, schemaName, tableName));
-    }
-
-    @Override
-    public List<String> listTablePartitionKeys(String catalogName, String schemaName, String tableName)
-    {
-        checkTableName(catalogName, schemaName, tableName);
-        DataSourceType dataSourceType = lookupDataSource(catalogName, schemaName, tableName);
-        return lookup(dataSourceType).listTablePartitionKeys(catalogName, schemaName, tableName);
-    }
-
-    @Override
-    public List<Map<String, String>> listTablePartitionValues(String catalogName, String schemaName, String tableName)
-    {
-        checkTableName(catalogName, schemaName, tableName);
-        DataSourceType dataSourceType = lookupDataSource(catalogName, schemaName, tableName);
-        return lookup(dataSourceType).listTablePartitionValues(catalogName, schemaName, tableName);
+        checkNotNull(prefix, "prefix is null");
+        DataSourceType dataSourceType = lookupDataSource(prefix);
+        return lookup(dataSourceType).listTablePartitionValues(prefix);
     }
 
     @Override
     public void createTable(TableMetadata table)
     {
-        DataSourceType dataSourceType = lookupDataSource(table.getCatalogName(), table.getSchemaName());
+        DataSourceType dataSourceType = lookupDataSource(table.getTable());
         checkArgument(dataSourceType == DataSourceType.NATIVE, "table creation is only supported for native tables");
         metadataSourceMap.get(dataSourceType).createTable(table);
     }
@@ -168,42 +151,38 @@ public class MetadataManager
         return ImmutableList.copyOf(concat(catalogColumns, informationSchemaColumns, systemColumns));
     }
 
-    private DataSourceType lookupDataSource(String catalogName)
+    public DataSourceType lookupDataSource(QualifiedTableName table)
     {
-        // use a schema name that won't match any real or special schemas
-        return lookupDataSource(catalogName, "$dummy_schema$");
+        checkTable(table);
+        return lookupDataSource(QualifiedTablePrefix.builder(table.getCatalogName())
+                .schemaName(table.getSchemaName())
+                .tableName(table.getTableName())
+                .build());
     }
 
-    private DataSourceType lookupDataSource(String catalogName, String schemaName)
+    private DataSourceType lookupDataSource(QualifiedTablePrefix prefix)
     {
-        // use a table name that won't match any real or special tables
-        return lookupDataSource(catalogName, schemaName, "$dummy_table$");
-    }
-
-    public DataSourceType lookupDataSource(String catalogName, String schemaName, String tableName)
-    {
-        checkTableName(catalogName, schemaName, tableName);
-
-        if (tableName.equals(DualTable.NAME)) {
+        if (DualTable.NAME.equals(prefix.getTableName().orNull())) {
             return DataSourceType.INTERNAL;
         }
 
-        if (schemaName.equals(INFORMATION_SCHEMA) || schemaName.equals(SYSTEM_SCHEMA)) {
+        String schemaName = prefix.getSchemaName().orNull();
+        if (INFORMATION_SCHEMA.equals(schemaName) || SYSTEM_SCHEMA.equals(schemaName)) {
             return DataSourceType.INTERNAL;
         }
 
         // TODO: use some sort of catalog registry for this
-        if (catalogName.equals("default")) {
+        if (prefix.getCatalogName().equals("default")) {
             return DataSourceType.NATIVE;
         }
 
         // TODO: this is a hack until we have the ability to create and manage catalogs from sql
-        if (importMetadata.hasCatalog(catalogName)) {
+        if (importMetadata.hasCatalog(prefix.getCatalogName())) {
             return DataSourceType.IMPORT;
         }
 
         // TODO: need a proper way to report that catalog does not exist
-        throw new IllegalArgumentException("catalog does not exist: " + catalogName);
+        throw new IllegalArgumentException("catalog does not exist: " + prefix.getCatalogName());
     }
 
     private Metadata lookup(DataSourceType dataSourceType)

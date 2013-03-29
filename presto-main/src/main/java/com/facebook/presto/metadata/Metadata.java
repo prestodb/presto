@@ -16,21 +16,15 @@ public interface Metadata
 
     List<String> listSchemaNames(String catalogName);
 
-    TableMetadata getTable(String catalogName, String schemaName, String tableName);
+    TableMetadata getTable(QualifiedTableName tableName);
 
-    List<QualifiedTableName> listTables(String catalogName);
+    List<QualifiedTableName> listTables(QualifiedTablePrefix prefix);
 
-    List<QualifiedTableName> listTables(String catalogName, String schemaName);
+    List<TableColumn> listTableColumns(QualifiedTablePrefix prefix);
 
-    List<TableColumn> listTableColumns(String catalogName);
+    List<String> listTablePartitionKeys(QualifiedTableName tableName);
 
-    List<TableColumn> listTableColumns(String catalogName, String schemaName);
-
-    List<TableColumn> listTableColumns(String catalogName, String schemaName, String tableName);
-
-    List<String> listTablePartitionKeys(String catalogName, String schemaName, String tableName);
-
-    List<Map<String, String>> listTablePartitionValues(String catalogName, String schemaName, String tableName);
+    List<Map<String, String>> listTablePartitionValues(QualifiedTablePrefix prefix);
 
     void createTable(TableMetadata table);
 

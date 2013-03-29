@@ -13,6 +13,7 @@ import com.facebook.presto.operator.Operator;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
+
 import java.util.List;
 import java.util.Map;
 
@@ -50,13 +51,13 @@ public class InternalDataStreamProvider
 
         InternalTable table;
         if (handle.getTableName().equals(DualTable.NAME)) {
-            table = DualTable.getInternalTable(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
+            table = DualTable.getInternalTable(handle.getTable());
         }
         else if (handle.getSchemaName().equals(INFORMATION_SCHEMA)) {
-            table = informationSchemaData.getInternalTable(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), filters);
+            table = informationSchemaData.getInternalTable(handle.getTable(), filters);
         }
         else if (handle.getSchemaName().equals(SYSTEM_SCHEMA)) {
-            table = systemTables.getInternalTable(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
+            table = systemTables.getInternalTable(handle.getTable());
         }
         else {
             throw new IllegalArgumentException(format("table does not exist: %s.%s.%s",

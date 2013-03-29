@@ -17,12 +17,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
-import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
-import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
+import static com.facebook.presto.metadata.MetadataUtil.checkTable;
 import static com.facebook.presto.util.SqlUtils.runIgnoringConstraintViolation;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class NativeMetadata
@@ -70,11 +67,11 @@ public class NativeMetadata
     }
 
     @Override
-    public TableMetadata getTable(String catalogName, String schemaName, String tableName)
+    public TableMetadata getTable(QualifiedTableName table)
     {
-        checkTableName(catalogName, schemaName, tableName);
+        checkTable(table);
 
-        Long tableId = dao.getTableId(catalogName, schemaName, tableName);
+        Long tableId = dao.getTableId(table);
         if (tableId == null) {
             return null;
         }
@@ -85,53 +82,36 @@ public class NativeMetadata
             return null;
         }
 
-        return new TableMetadata(catalogName, schemaName, tableName, columns, tableHandle);
+        return new TableMetadata(table, columns, tableHandle);
     }
 
     @Override
-    public List<QualifiedTableName> listTables(String catalogName)
+    public List<QualifiedTableName> listTables(QualifiedTablePrefix prefix)
     {
-        checkCatalogName(catalogName);
-        return dao.listTables(catalogName, null);
+        checkNotNull(prefix, "prefix is null");
+        return dao.listTables(prefix.getCatalogName(), prefix.getSchemaName().orNull());
     }
 
     @Override
-    public List<QualifiedTableName> listTables(String catalogName, String schemaName)
+    public List<TableColumn> listTableColumns(QualifiedTablePrefix prefix)
     {
-        checkSchemaName(catalogName, schemaName);
-        return dao.listTables(catalogName, schemaName);
+        checkNotNull(prefix, "prefix is null");
+        return dao.listTableColumns(prefix.getCatalogName(),
+                prefix.getSchemaName().orNull(),
+                prefix.getTableName().orNull());
     }
 
     @Override
-    public List<TableColumn> listTableColumns(String catalogName)
+    public List<String> listTablePartitionKeys(QualifiedTableName table)
     {
-        checkCatalogName(catalogName);
-        return dao.listTableColumns(catalogName, null, null);
-    }
-
-    @Override
-    public List<TableColumn> listTableColumns(String catalogName, String schemaName)
-    {
-        checkSchemaName(catalogName, schemaName);
-        return dao.listTableColumns(catalogName, schemaName, null);
-    }
-
-    @Override
-    public List<TableColumn> listTableColumns(String catalogName, String schemaName, String tableName)
-    {
-        checkTableName(catalogName, schemaName, tableName);
-        return dao.listTableColumns(catalogName, schemaName, tableName);
-    }
-
-    @Override
-    public List<String> listTablePartitionKeys(String catalogName, String schemaName, String tableName)
-    {
+        checkTable(table);
         return ImmutableList.of();
     }
 
     @Override
-    public List<Map<String, String>> listTablePartitionValues(String catalogName, String schemaName, String tableName)
+    public List<Map<String, String>> listTablePartitionValues(QualifiedTablePrefix prefix)
     {
+        checkNotNull(prefix, "prefix is null");
         return ImmutableList.of();
     }
 
@@ -179,7 +159,7 @@ public class NativeMetadata
                     public void run()
                     {
                         MetadataDao dao = handle.attach(MetadataDao.class);
-                        long tableId = dao.insertTable(table);
+                        long tableId = dao.insertTable(table.getTable());
                         int position = 1;
                         for (ColumnMetadata column : table.getColumns()) {
                             dao.insertColumn(tableId, column.getName(), position, column.getType().getName());

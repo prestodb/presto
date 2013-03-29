@@ -16,6 +16,7 @@ import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeColumnHandle;
 import com.facebook.presto.metadata.NativeTableHandle;
+import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.StorageManager;
@@ -236,13 +237,13 @@ public class TestDistributedQueries
             throws IOException
     {
         ImmutableList.Builder<String> tableNames = ImmutableList.builder();
-        List<QualifiedTableName> qualifiedTableNames = metadata.listTables(catalog);
+        List<QualifiedTableName> qualifiedTableNames = metadata.listTables(QualifiedTablePrefix.builder(catalog).build());
         for (QualifiedTableName qualifiedTableName : qualifiedTableNames) {
             tableNames.add(qualifiedTableName.getTableName());
 
-            TableMetadata sourceTable = metadata.getTable(qualifiedTableName.getCatalogName(), qualifiedTableName.getSchemaName(), qualifiedTableName.getTableName());
+            TableMetadata sourceTable = metadata.getTable(qualifiedTableName);
 
-            TableMetadata targetTable = coordinator.createTable("default", "default", sourceTable.getTableName(), sourceTable.getColumns());
+            TableMetadata targetTable = coordinator.createTable(new QualifiedTableName("default", "default", sourceTable.getTable().getTableName()), sourceTable.getColumns());
 
             ImmutableList.Builder<ProjectionFunction> builder = ImmutableList.builder();
             for (int i = 0; i < sourceTable.getColumns().size(); i++) {
@@ -407,16 +408,16 @@ public class TestDistributedQueries
             return server.getBaseUrl();
         }
 
-        public TableMetadata createTable(String catalog, String schema, String tableName, List<ColumnMetadata> columns)
+        public TableMetadata createTable(QualifiedTableName table, List<ColumnMetadata> columns)
         {
-            TableMetadata table = new TableMetadata(catalog, schema, tableName, columns);
-            metadata.createTable(table);
-            table = metadata.getTable(catalog, schema, tableName);
+            TableMetadata tableMetadata = new TableMetadata(table, columns);
+            metadata.createTable(tableMetadata);
+            tableMetadata = metadata.getTable(table);
 
             // setup the table for imports
-            long tableId = ((NativeTableHandle) table.getTableHandle().get()).getTableId();
+            long tableId = ((NativeTableHandle) tableMetadata.getTableHandle().get()).getTableId();
             shardManager.createImportTable(tableId, "unknown", "unknown", "unknown");
-            return table;
+            return tableMetadata;
         }
 
         public long addShard(TableMetadata table)

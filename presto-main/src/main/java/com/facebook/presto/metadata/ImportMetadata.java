@@ -15,9 +15,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 
 import static com.facebook.presto.ingest.ImportSchemaUtil.convertToMetadata;
-import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
-import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
-import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
+import static com.facebook.presto.metadata.MetadataUtil.checkTable;
 import static com.facebook.presto.metadata.MetadataUtil.getTableColumns;
 import static com.facebook.presto.util.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -35,18 +33,18 @@ public class ImportMetadata
     }
 
     @Override
-    public TableMetadata getTable(String catalogName, String schemaName, String tableName)
+    public TableMetadata getTable(QualifiedTableName table)
     {
-        checkTableName(catalogName, schemaName, tableName);
-        ImportClient client = importClientManager.getClient(catalogName);
+        checkTable(table);
+        ImportClient client = importClientManager.getClient(table.getCatalogName());
 
-        List<SchemaField> tableSchema = getTableSchema(client, schemaName, tableName);
+        List<SchemaField> tableSchema = getTableSchema(client, table.getSchemaName(), table.getTableName());
 
-        ImportTableHandle importTableHandle = new ImportTableHandle(catalogName, schemaName, tableName);
+        ImportTableHandle importTableHandle = ImportTableHandle.forQualifiedTableName(table);
 
-        List<ColumnMetadata> columns = convertToMetadata(catalogName, tableSchema);
+        List<ColumnMetadata> columns = convertToMetadata(table.getCatalogName(), tableSchema);
 
-        return new TableMetadata(catalogName, schemaName, tableName, columns, importTableHandle);
+        return new TableMetadata(table, columns, importTableHandle);
     }
 
     @Override
@@ -73,9 +71,7 @@ public class ImportMetadata
         ImportTableHandle importTableHandle = (ImportTableHandle) tableHandle;
         ImportColumnHandle importColumnHandle = (ImportColumnHandle) columnHandle;
 
-        return new TableColumn(importTableHandle.getSourceName(),
-                importTableHandle.getDatabaseName(),
-                importTableHandle.getTableName(),
+        return new TableColumn(importTableHandle.getTable(),
                 importColumnHandle.getColumnName(),
                 importColumnHandle.getColumnId(),
                 importColumnHandle.getColumnType());
@@ -87,30 +83,21 @@ public class ImportMetadata
     }
 
     @Override
-    public List<QualifiedTableName> listTables(String catalogName)
+    public List<QualifiedTableName> listTables(QualifiedTablePrefix prefix)
     {
-        checkCatalogName(catalogName);
-        ImportClient client = importClientManager.getClient(catalogName);
+        checkNotNull(prefix, "prefix is null");
+
+        ImportClient client = importClientManager.getClient(prefix.getCatalogName());
 
         ImmutableList.Builder<QualifiedTableName> list = ImmutableList.builder();
-        for (String schema : getDatabaseNames(client)) {
+
+        Iterable<String> schemaNames = prefix.hasSchemaName() ? prefix.getSchemaName().asSet() : getDatabaseNames(client);
+
+        for (String schema : schemaNames) {
             List<String> tables = getTableNames(client, schema);
             for (String table : tables) {
-                list.add(new QualifiedTableName(catalogName, schema, table));
+                list.add(new QualifiedTableName(prefix.getCatalogName(), schema, table));
             }
-        }
-        return list.build();
-    }
-
-    @Override
-    public List<QualifiedTableName> listTables(String catalogName, String schemaName)
-    {
-        checkSchemaName(catalogName, schemaName);
-        ImportClient client = importClientManager.getClient(catalogName);
-
-        ImmutableList.Builder<QualifiedTableName> list = ImmutableList.builder();
-        for (String table : getTableNames(client, schemaName)) {
-            list.add(new QualifiedTableName(catalogName, schemaName, table));
         }
         return list.build();
     }
@@ -123,64 +110,58 @@ public class ImportMetadata
     }
 
     @Override
-    public List<TableColumn> listTableColumns(String catalogName)
+    public List<TableColumn> listTableColumns(QualifiedTablePrefix prefix)
     {
-        checkCatalogName(catalogName);
-        ImportClient client = importClientManager.getClient(catalogName);
+        checkNotNull(prefix, "prefix is null");
+        ImportClient client = importClientManager.getClient(prefix.getCatalogName());
+
+        Iterable<String> databaseNames = prefix.hasSchemaName() ? prefix.getSchemaName().asSet() : getDatabaseNames(client);
 
         ImmutableList.Builder<TableColumn> list = ImmutableList.builder();
-        for (String schema : getDatabaseNames(client)) {
-            list.addAll(listTableColumns(catalogName, schema));
+
+        for (String databaseName : databaseNames) {
+            Iterable<String> tableNames = prefix.hasTableName() ? prefix.getTableName().asSet() : getTableNames(client, databaseName);
+            for (String tblName : tableNames) {
+                List<SchemaField> tableSchema = getTableSchema(client, databaseName, tblName);
+                Map<String, List<ColumnMetadata>> map = ImmutableMap.of(tblName, convertToMetadata(prefix.getCatalogName(), tableSchema));
+                list.addAll(getTableColumns(prefix.getCatalogName(), databaseName, map));
+            }
         }
+
         return list.build();
     }
 
     @Override
-    public List<TableColumn> listTableColumns(String catalogName, String schemaName)
+    public List<String> listTablePartitionKeys(QualifiedTableName table)
     {
-        checkSchemaName(catalogName, schemaName);
-        ImportClient client = importClientManager.getClient(catalogName);
-
-        ImmutableList.Builder<TableColumn> list = ImmutableList.builder();
-        for (String table : getTableNames(client, schemaName)) {
-            list.addAll(listTableColumns(catalogName, schemaName, table));
-        }
-        return list.build();
-    }
-
-    @Override
-    public List<TableColumn> listTableColumns(String catalogName, String schemaName, String tableName)
-    {
-        checkTableName(catalogName, schemaName, tableName);
-        ImportClient client = importClientManager.getClient(catalogName);
-
-        List<SchemaField> tableSchema = getTableSchema(client, schemaName, tableName);
-        Map<String, List<ColumnMetadata>> map = ImmutableMap.of(tableName, convertToMetadata(catalogName, tableSchema));
-        return getTableColumns(catalogName, schemaName, map);
-    }
-
-    @Override
-    public List<String> listTablePartitionKeys(String catalogName, String schemaName, String tableName)
-    {
-        checkTableName(catalogName, schemaName, tableName);
-        ImportClient client = importClientManager.getClient(catalogName);
+        checkTable(table);
+        ImportClient client = importClientManager.getClient(table.getCatalogName());
 
         ImmutableList.Builder<String> list = ImmutableList.builder();
-        for (SchemaField partition : getPartitionKeys(client, schemaName, tableName)) {
+        for (SchemaField partition : getPartitionKeys(client, table.getSchemaName(), table.getTableName())) {
             list.add(partition.getFieldName());
         }
+
         return list.build();
     }
 
     @Override
-    public List<Map<String, String>> listTablePartitionValues(String catalogName, String schemaName, String tableName)
+    public List<Map<String, String>> listTablePartitionValues(QualifiedTablePrefix prefix)
     {
-        checkTableName(catalogName, schemaName, tableName);
-        ImportClient client = importClientManager.getClient(catalogName);
+        checkNotNull(prefix, "prefix is null");
+        ImportClient client = importClientManager.getClient(prefix.getCatalogName());
+
+        Iterable<String> databaseNames = prefix.hasSchemaName() ? prefix.getSchemaName().asSet() : getDatabaseNames(client);
 
         ImmutableList.Builder<Map<String, String>> list = ImmutableList.builder();
-        for (PartitionInfo partition : getPartitions(client, schemaName, tableName)) {
-            list.add(partition.getKeyFields());
+
+        for (String databaseName : databaseNames) {
+            Iterable<String> tableNames = prefix.hasTableName() ? prefix.getTableName().asSet() : getTableNames(client, databaseName);
+            for (String tblName : tableNames) {
+                for (PartitionInfo partition : getPartitions(client, databaseName, tblName)) {
+                    list.add(partition.getKeyFields());
+                }
+            }
         }
         return list.build();
     }

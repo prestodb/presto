@@ -968,7 +968,7 @@ public abstract class AbstractTestQueries
     private static void insertRows(TableMetadata tableMetadata, Handle handle, RecordSet data)
     {
         String vars = Joiner.on(',').join(nCopies(tableMetadata.getColumns().size(), "?"));
-        String sql = format("INSERT INTO %s VALUES (%s)", tableMetadata.getTableName(), vars);
+        String sql = format("INSERT INTO %s VALUES (%s)", tableMetadata.getTable().getTableName(), vars);
 
         RecordCursor cursor = data.cursor(new OperatorStats());
         while (true) {
