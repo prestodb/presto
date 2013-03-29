@@ -1,5 +1,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.sql.analyzer.Session;
+
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.sql.analyzer.Symbol;
@@ -28,6 +30,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
 import static com.google.common.collect.Iterables.concat;
@@ -47,8 +51,12 @@ public class PruneUnreferencedOutputs
         extends PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan, Map<Symbol, Type> types)
+    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types)
     {
+        checkNotNull(plan, "plan is null");
+        checkNotNull(session, "session is null");
+        checkNotNull(types, "types is null");
+
         return PlanRewriter.rewriteWith(new Rewriter(types), plan, ImmutableSet.<Symbol>of());
     }
 

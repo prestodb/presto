@@ -68,6 +68,7 @@ import com.facebook.presto.split.NativeDataStreamProvider;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
+import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.CreateOrReplaceMaterializedView;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -101,6 +102,7 @@ import javax.inject.Singleton;
 
 import java.io.File;
 import java.lang.annotation.Annotation;
+import java.util.List;
 
 import static com.facebook.presto.server.ConditionalModule.installIfPropertyEquals;
 import static com.facebook.presto.server.DbiProvider.bindDbiToDataSource;
@@ -242,7 +244,7 @@ public class ServerMainModule
         executionBinder.addBinding(ShowFunctions.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowTables.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
 
-        binder.bind(PlanOptimizersFactory.class).in(Scopes.SINGLETON);
+        binder.bind(new TypeLiteral<List<PlanOptimizer>>() {}).toProvider(PlanOptimizersFactory.class).in(Scopes.SINGLETON);
     }
 
     @Provides

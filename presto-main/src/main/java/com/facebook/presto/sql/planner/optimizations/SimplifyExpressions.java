@@ -6,19 +6,11 @@ import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.SymbolResolver;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.LimitNode;
-import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeRewriter;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
-import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.SortNode;
-import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.base.Function;
@@ -27,21 +19,25 @@ import com.google.common.collect.Maps;
 
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class SimplifyExpressions
         extends PlanOptimizer
 {
     private final Metadata metadata;
-    private final Session session;
 
-    public SimplifyExpressions(Metadata metadata, Session session)
+    public SimplifyExpressions(Metadata metadata)
     {
-        this.metadata = metadata;
-        this.session = session;
+        this.metadata = checkNotNull(metadata, "metadata is null");
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Map<Symbol, Type> types)
+    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types)
     {
+        checkNotNull(plan, "plan is null");
+        checkNotNull(session, "session is null");
+        checkNotNull(types, "types is null");
+
         ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(new SymbolResolver()
         {
             @Override
