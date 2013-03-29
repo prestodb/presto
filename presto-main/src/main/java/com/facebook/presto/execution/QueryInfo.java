@@ -10,6 +10,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import java.net.URI;
 import java.util.List;
@@ -25,7 +26,7 @@ public class QueryInfo
     private final String query;
     private final QueryStats queryStats;
     private final StageInfo outputStage;
-    private final List<FailureInfo> failures;
+    private final FailureInfo failureInfo;
 
     @JsonCreator
     public QueryInfo(@JsonProperty("queryId") String queryId,
@@ -36,7 +37,7 @@ public class QueryInfo
             @JsonProperty("query") String query,
             @JsonProperty("queryStats") QueryStats queryStats,
             @JsonProperty("outputStage") StageInfo outputStage,
-            @JsonProperty("failures") List<FailureInfo> failures)
+            @JsonProperty("failureInfo") FailureInfo failureInfo)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(session, "session is null");
@@ -45,7 +46,6 @@ public class QueryInfo
         Preconditions.checkNotNull(fieldNames, "fieldNames is null");
         Preconditions.checkNotNull(queryStats, "queryStats is null");
         Preconditions.checkNotNull(query, "query is null");
-        Preconditions.checkNotNull(failures, "failures is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -55,7 +55,7 @@ public class QueryInfo
         this.query = query;
         this.queryStats = queryStats;
         this.outputStage = outputStage;
-        this.failures = failures;
+        this.failureInfo = failureInfo;
     }
 
     @JsonProperty
@@ -106,10 +106,11 @@ public class QueryInfo
         return outputStage;
     }
 
+    @Nullable
     @JsonProperty
-    public List<FailureInfo> getFailures()
+    public FailureInfo getFailureInfo()
     {
-        return failures;
+        return failureInfo;
     }
 
     @Override

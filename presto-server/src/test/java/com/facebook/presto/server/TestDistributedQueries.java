@@ -6,7 +6,6 @@ package com.facebook.presto.server;
 import com.facebook.presto.AbstractTestQueries;
 import com.facebook.presto.cli.ClientSession;
 import com.facebook.presto.cli.HttpQueryClient;
-import com.facebook.presto.execution.FailureInfo;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.ingest.SerializedPartitionChunk;
@@ -289,11 +288,10 @@ public class TestDistributedQueries
                 }
                 QueryState state = queryInfo.getState();
                 if (state == QueryState.FAILED) {
-                    FailureInfo failureInfo = Iterables.getFirst(queryInfo.getFailures(), null);
-                    if (failureInfo != null) {
-                        throw failureInfo.toException();
+                    if (queryInfo.getFailureInfo() == null) {
+                        throw new RuntimeException("Query failed for an unknown reason");
                     }
-                    throw new RuntimeException("Query " + queryInfo.getQueryId() + " failed for an unknown reason");
+                    throw queryInfo.getFailureInfo().toException();
                 }
                 else if (state == QueryState.CANCELED) {
                     throw new RuntimeException("Query was cancelled");

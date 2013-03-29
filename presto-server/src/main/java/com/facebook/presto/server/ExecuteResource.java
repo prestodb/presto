@@ -7,9 +7,7 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.tuple.TupleInfo;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.server.HttpServerInfo;
@@ -29,12 +27,10 @@ import java.lang.annotation.Target;
 import java.net.URI;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 
 import static com.facebook.presto.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.PrestoHeaders.PRESTO_USER;
-import static com.facebook.presto.cli.Query.getFailureMessages;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -143,11 +139,10 @@ public class ExecuteResource
 
     private static String failureMessage(QueryInfo queryInfo)
     {
-        Set<String> failureMessages = ImmutableSet.copyOf(getFailureMessages(queryInfo));
-        if (failureMessages.isEmpty()) {
+        if (queryInfo.getFailureInfo() == null) {
             return format("Query failed for an unknown reason (#%s)", queryInfo.getQueryId());
         }
-        return format("Query failed (#%s): %s", queryInfo.getQueryId(), Joiner.on("; ").join(failureMessages));
+        return format("Query failed (#%s): %s", queryInfo.getQueryId(), queryInfo.getFailureInfo().getMessage());
     }
 
     private static List<TupleInfo.Type> getFieldTypes(List<TupleInfo> tupleInfos)

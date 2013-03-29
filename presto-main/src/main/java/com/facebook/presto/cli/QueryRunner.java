@@ -1,12 +1,12 @@
 package com.facebook.presto.cli;
 
-import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
 import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
-import com.google.common.base.Preconditions;
 import com.google.inject.Binder;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
@@ -32,16 +32,14 @@ public class QueryRunner
         implements Closeable
 {
     private final ExecutorService executor = Executors.newCachedThreadPool();
-    private final JsonCodec<QueryInfo> queryInfoCodec;
+    private final JsonCodec<QueryResults> queryResultsCodec;
     private final ClientSession session;
     private final AsyncHttpClient httpClient;
 
-    public QueryRunner(
-            ClientSession session,
-            JsonCodec<QueryInfo> queryInfoCodec)
+    public QueryRunner(ClientSession session, JsonCodec<QueryResults> queryResultsCodec)
     {
         this.session = checkNotNull(session, "session is null");
-        this.queryInfoCodec = checkNotNull(queryInfoCodec, "queryInfoCodec is null");
+        this.queryResultsCodec = checkNotNull(queryResultsCodec, "queryResultsCodec is null");
         this.httpClient = new StandaloneNettyAsyncHttpClient("cli",
                 new HttpClientConfig()
                         .setConnectTimeout(new Duration(1, TimeUnit.DAYS))
@@ -55,9 +53,7 @@ public class QueryRunner
 
     public Query startQuery(String query)
     {
-        Preconditions.checkNotNull(query, "query is null");
-        HttpQueryClient client = new HttpQueryClient(session, query, httpClient, queryInfoCodec);
-        return new Query(client);
+        return new Query(new StatementClient(httpClient, queryResultsCodec, session, query));
     }
 
     @Override
@@ -69,9 +65,7 @@ public class QueryRunner
 
     public static QueryRunner create(ClientSession session)
     {
-        JsonCodecFactory codecs = createCodecFactory();
-        JsonCodec<QueryInfo> queryInfoCodec = codecs.jsonCodec(QueryInfo.class);
-        return new QueryRunner(session, queryInfoCodec);
+        return new QueryRunner(session, createCodecFactory().jsonCodec(QueryResults.class));
     }
 
     private static JsonCodecFactory createCodecFactory()

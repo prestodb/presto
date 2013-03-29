@@ -5,9 +5,13 @@ package com.facebook.presto.client;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Function;
+
+import javax.annotation.concurrent.Immutable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+@Immutable
 public class Column
 {
     private final String name;
@@ -30,5 +34,17 @@ public class Column
     public String getType()
     {
         return type;
+    }
+
+    public static Function<Column, String> nameGetter()
+    {
+        return new Function<Column, String>()
+        {
+            @Override
+            public String apply(Column input)
+            {
+                return input.getName();
+            }
+        };
     }
 }

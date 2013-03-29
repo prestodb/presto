@@ -16,10 +16,10 @@ public class ClientOptions
     public String user = System.getProperty("user.name");
 
     @Option(name = "--catalog", title = "catalog")
-    public String catalog;
+    public String catalog = "default";
 
     @Option(name = "--schema", title = "schema")
-    public String schema;
+    public String schema = "default";
 
     @Option(name = "--debug", title = "debug")
     public boolean debug;
@@ -30,14 +30,13 @@ public class ClientOptions
     @Option(name = "--output-format", title = "output-format")
     public OutputFormat outputFormat = OutputFormat.CSV;
 
-    public static enum OutputFormat
+    public enum OutputFormat
     {
         PAGED,
         CSV,
         TSV,
         CSV_HEADER,
-        TSV_HEADER;
-
+        TSV_HEADER
     }
 
     public ClientSession toClientSession()

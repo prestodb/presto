@@ -2,14 +2,15 @@
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
 package com.facebook.presto.client;
+
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
+import javax.validation.constraints.NotNull;
 
-import java.net.URI;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -17,7 +18,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 @Immutable
 public class StageStats
 {
-    private final URI stageUri;
     private final int stageNumber;
     private final String state;
     private final boolean done;
@@ -35,7 +35,6 @@ public class StageStats
 
     @JsonCreator
     public StageStats(
-            @JsonProperty("stageUri") URI stageUri,
             @JsonProperty("stageNumber") int stageNumber,
             @JsonProperty("state") String state,
             @JsonProperty("done") boolean done,
@@ -51,7 +50,6 @@ public class StageStats
             @JsonProperty("processedBytes") long processedBytes,
             @JsonProperty("subStages") List<StageStats> subStages)
     {
-        this.stageUri = checkNotNull(stageUri, "stageUri is null");
         this.stageNumber = stageNumber;
         this.state = checkNotNull(state, "state is null");
         this.done = done;
@@ -69,17 +67,12 @@ public class StageStats
     }
 
     @JsonProperty
-    public URI getStageUri()
-    {
-        return stageUri;
-    }
-
-    @JsonProperty
     public int getStageNumber()
     {
         return stageNumber;
     }
 
+    @NotNull
     @JsonProperty
     public String getState()
     {
@@ -152,6 +145,7 @@ public class StageStats
         return processedBytes;
     }
 
+    @NotNull
     @JsonProperty
     public List<StageStats> getSubStages()
     {
@@ -162,7 +156,6 @@ public class StageStats
     public String toString()
     {
         return Objects.toStringHelper(this)
-                .add("stageUri", stageUri)
                 .add("stageNumber", stageNumber)
                 .add("state", state)
                 .add("done", done)
@@ -187,7 +180,6 @@ public class StageStats
 
     public static class Builder
     {
-        private URI stageUri;
         private int stageNumber;
         private String state;
         private boolean done;
@@ -204,12 +196,6 @@ public class StageStats
         private List<StageStats> subStages;
 
         private Builder() {}
-
-        public Builder setStageUri(URI stageUri)
-        {
-            this.stageUri = checkNotNull(stageUri, "stageUri is null");
-            return this;
-        }
 
         public Builder setStageNumber(int stageNumber)
         {
@@ -298,7 +284,6 @@ public class StageStats
         public StageStats build()
         {
             return new StageStats(
-                    stageUri,
                     stageNumber,
                     state,
                     done,

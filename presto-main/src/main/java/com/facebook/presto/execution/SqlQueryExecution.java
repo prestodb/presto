@@ -254,7 +254,7 @@ public class SqlQueryExecution
             StageState outputStageState = outputStageInfo.getState();
             if (outputStageState.isDone()) {
                 if (outputStageState == StageState.FAILED) {
-                    stateMachine.fail();
+                    stateMachine.fail(failureCause(outputStageInfo));
                 }
                 else if (outputStageState == StageState.CANCELED) {
                     stateMachine.cancel();
@@ -275,6 +275,28 @@ public class SqlQueryExecution
                 }
             }
         }
+    }
+
+    private static Throwable failureCause(StageInfo stageInfo)
+    {
+        if (!stageInfo.getFailures().isEmpty()) {
+            return stageInfo.getFailures().get(0).toException();
+        }
+
+        for (TaskInfo taskInfo : stageInfo.getTasks()) {
+            if (!taskInfo.getFailures().isEmpty()) {
+                return taskInfo.getFailures().get(0).toException();
+            }
+        }
+
+        for (StageInfo subStageInfo : stageInfo.getSubStages()) {
+            Throwable cause = failureCause(subStageInfo);
+            if (cause != null) {
+                return cause;
+            }
+        }
+
+        return null;
     }
 
     private static Predicate<StageState> isStageRunningOrDone()

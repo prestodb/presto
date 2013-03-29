@@ -1,23 +1,15 @@
 package com.facebook.presto.cli;
 
-import com.facebook.presto.execution.ExecutionStats;
-import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.execution.StageInfo;
-import com.facebook.presto.execution.StageState;
-import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.Uninterruptibles;
+import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.StageStats;
+import com.facebook.presto.client.StatementClient;
+import com.facebook.presto.client.StatementStats;
+import com.google.common.base.Strings;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.io.PrintStream;
-import java.net.URI;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.cli.FormatUtils.formatCount;
 import static com.facebook.presto.cli.FormatUtils.formatCountRate;
@@ -26,9 +18,6 @@ import static com.facebook.presto.cli.FormatUtils.formatDataSize;
 import static com.facebook.presto.cli.FormatUtils.formatProgressBar;
 import static com.facebook.presto.cli.FormatUtils.formatTime;
 import static com.facebook.presto.cli.FormatUtils.pluralize;
-import static com.facebook.presto.execution.StageInfo.globalExecutionStats;
-import static com.facebook.presto.execution.StageInfo.stageOnlyExecutionStats;
-import static com.facebook.presto.execution.StageInfo.stageStateGetter;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -40,13 +29,13 @@ public class StatusPrinter
     private static final Logger log = Logger.get(StatusPrinter.class);
 
     private final long start = System.nanoTime();
-    private final HttpQueryClient queryClient;
+    private final StatementClient client;
     private final PrintStream out;
     private final ConsolePrinter console;
 
-    public StatusPrinter(HttpQueryClient queryClient, PrintStream out)
+    public StatusPrinter(StatementClient client, PrintStream out)
     {
-        this.queryClient = queryClient;
+        this.client = client;
         this.out = out;
         this.console = new ConsolePrinter(out);
     }
@@ -74,24 +63,25 @@ Parallelism: 2.5
         try {
             while (true) {
                 try {
-                    QueryInfo queryInfo = queryClient.getQueryInfo(false);
-
-                    // if query is no longer running, finish
-                    if ((queryInfo == null) || queryInfo.getState().isDone()) {
+                    // exit if no more results
+                    if (!client.hasNext()) {
                         return;
                     }
 
                     // check if there is there is pending output
-                    if (queryInfo.resultsPending()) {
+                    if (client.current().getData() != null) {
                         return;
                     }
 
+                    // update screen if enough time has passed
                     if (Duration.nanosSince(lastPrint).convertTo(SECONDS) >= 0.5) {
                         console.repositionCursor();
-                        printQueryInfo(queryInfo);
+                        printQueryInfo(client.current());
                         lastPrint = System.nanoTime();
                     }
-                    Uninterruptibles.sleepUninterruptibly(100, MILLISECONDS);
+
+                    // fetch next results (server will wait for a while if no data)
+                    client.next();
                 }
                 catch (Exception e) {
                     log.debug(e, "error printing status");
@@ -107,16 +97,11 @@ Parallelism: 2.5
     {
         Duration wallTime = Duration.nanosSince(start);
 
-        QueryInfo queryInfo = queryClient.getQueryInfo(true);
+        QueryResults results = client.current();
+        StatementStats stats = results.getStats();
 
-        StageInfo outputStage = queryInfo.getOutputStage();
-
-        // sum all stats (used for global stats like cpu time)
-        ExecutionStats globalExecutionStats = globalExecutionStats(outputStage);
-
-        int nodes = uniqueNodes(outputStage).size();
-
-        if (nodes == 0 || globalExecutionStats.getSplits() == 0) {
+        int nodes = stats.getNodes();
+        if ((nodes == 0) || (stats.getTotalSplits() == 0)) {
             return;
         }
 
@@ -125,40 +110,41 @@ Parallelism: 2.5
 
         // Query 12, FINISHED, 1 node
         String querySummary = String.format("Query %s, %s, %,d %s",
-                queryInfo.getQueryId(),
-                queryInfo.getState(),
+                results.getQueryId(),
+                stats.getState(),
                 nodes,
                 pluralize("node", nodes));
         out.println(querySummary);
 
-        if (queryClient.isDebug()) {
-            out.println(queryClient.getQueryLocation() + "?pretty");
+        if (client.isDebug()) {
+            out.println(results.getQueryInfoUri() + "?pretty");
         }
 
         // Splits: 1000 total, 842 done (84.20%)
         String splitsSummary = String.format("Splits: %,d total, %,d done (%.2f%%)",
-                globalExecutionStats.getSplits(),
-                globalExecutionStats.getCompletedSplits(),
-                Math.min(100, globalExecutionStats.getCompletedSplits() * 100.0 / globalExecutionStats.getSplits()));
+                stats.getTotalSplits(),
+                stats.getCompletedSplits(),
+                percentage(stats.getCompletedSplits(), stats.getTotalSplits()));
         out.println(splitsSummary);
 
-        if (queryClient.isDebug()) {
+        if (client.isDebug()) {
             // CPU Time: 565.2s total,   26K rows/s, 3.85MB/s
-            Duration cpuTime = globalExecutionStats.getSplitCpuTime();
+            Duration cpuTime = millis(stats.getCpuTimeMillis());
             String cpuTimeSummary = String.format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
                     cpuTime.convertTo(SECONDS),
-                    formatCountRate(globalExecutionStats.getCompletedPositionCount(), cpuTime, false),
-                    formatDataRate(globalExecutionStats.getCompletedDataSize(), cpuTime, true),
-                    (int) (globalExecutionStats.getSplitCpuTime().toMillis() * 100.0 / (globalExecutionStats.getSplitWallTime().toMillis() + 1))); // Add 1 to avoid divide by zero
+                    formatCountRate(stats.getProcessedRows(), cpuTime, false),
+                    formatDataRate(bytes(stats.getProcessedBytes()), cpuTime, true),
+                    (int) percentage(stats.getCpuTimeMillis(), stats.getWallTimeMillis()));
             out.println(cpuTimeSummary);
 
             double parallelism = cpuTime.toMillis() / wallTime.toMillis();
 
             // Per Node: 3.5 parallelism, 83.3K rows/s, 0.7 MB/s
+            DataSize bytesPerNode = bytes(stats.getProcessedBytes() / nodes);
             String perNodeSummary = String.format("Per Node: %.1f parallelism, %5s rows/s, %8s",
                     parallelism / nodes,
-                    formatCountRate(globalExecutionStats.getCompletedPositionCount() / nodes, wallTime, false),
-                    formatDataRate(new DataSize(globalExecutionStats.getCompletedDataSize().toBytes() / nodes, BYTE), wallTime, true));
+                    formatCountRate((int) (stats.getProcessedRows() / nodes), wallTime, false),
+                    formatDataRate(bytesPerNode, wallTime, true));
             reprintLine(perNodeSummary);
 
             out.println(String.format("Parallelism: %.1f", parallelism));
@@ -167,10 +153,10 @@ Parallelism: 2.5
         // 0:32 [2.12GB, 15M rows] [67MB/s, 463K rows/s]
         String statsLine = String.format("%s [%s rows, %s] [%s rows/s, %s]",
                 formatTime(wallTime),
-                formatCount(globalExecutionStats.getCompletedPositionCount()),
-                formatDataSize(globalExecutionStats.getCompletedDataSize(), true),
-                formatCountRate(globalExecutionStats.getCompletedPositionCount(), wallTime, false),
-                formatDataRate(globalExecutionStats.getCompletedDataSize(), wallTime, true));
+                formatCount(stats.getProcessedRows()),
+                formatDataSize(bytes(stats.getProcessedBytes()), true),
+                formatCountRate(stats.getProcessedRows(), wallTime, false),
+                formatDataRate(bytes(stats.getProcessedBytes()), wallTime, true));
 
         out.println(statsLine);
 
@@ -178,22 +164,18 @@ Parallelism: 2.5
         out.println();
     }
 
-    private void printQueryInfo(QueryInfo queryInfo)
+    private void printQueryInfo(QueryResults results)
     {
+        StatementStats stats = results.getStats();
         Duration wallTime = Duration.nanosSince(start);
 
-        StageInfo outputStage = queryInfo.getOutputStage();
-
-        ExecutionStats globalExecutionStats = globalExecutionStats(outputStage);
-
-        int nodes = uniqueNodes(outputStage).size();
-
-        if (nodes == 0 || globalExecutionStats.getSplits() == 0) {
-            return ;
+        int nodes = stats.getNodes();
+        if ((nodes == 0) || (stats.getTotalSplits() == 0)) {
+            return;
         }
 
         // cap progress at 99%, otherwise it looks weird when the query is still running and it says 100%
-        int progressPercentage = min(99, (int) ((globalExecutionStats.getCompletedSplits() * 100.0) / globalExecutionStats.getSplits()));
+        int progressPercentage = (int) min(99, percentage(stats.getCompletedSplits(), stats.getTotalSplits()));
 
         if (console.isRealTerminal()) {
             // blank line
@@ -206,52 +188,53 @@ Parallelism: 2.5
                 reprintLine("must be at least");
                 reprintLine("80 characters wide");
                 reprintLine("");
-                reprintLine(queryInfo.getState().toString());
+                reprintLine(stats.getState());
                 reprintLine(String.format("%s %d%%", formatTime(wallTime), progressPercentage));
                 return;
             }
 
             // Query 10, RUNNING, 1 node, 778 splits
             String querySummary = String.format("Query %s, %s, %,d %s, %,d splits",
-                    queryInfo.getQueryId(),
-                    queryInfo.getState(),
+                    results.getQueryId(),
+                    stats.getState(),
                     nodes,
                     pluralize("node", nodes),
-                    globalExecutionStats.getSplits());
+                    stats.getTotalSplits());
             reprintLine(querySummary);
 
-            if (queryClient.isDebug()) {
-                reprintLine(queryClient.getQueryLocation() + "?pretty");
+            if (client.isDebug()) {
+                reprintLine(results.getQueryInfoUri() + "?pretty");
             }
 
-            if (queryInfo.getState() == QueryState.PLANNING) {
+            if ("PLANNING".equals(stats.getState())) {
                 return;
             }
 
-            if (queryClient.isDebug()) {
+            if (client.isDebug()) {
                 // Splits:   620 queued, 34 running, 124 done
                 String splitsSummary = String.format("Splits:   %,d queued, %,d running, %,d done",
-                        max(0, globalExecutionStats.getSplits() - globalExecutionStats.getStartedSplits()),
-                        max(0, globalExecutionStats.getStartedSplits() - globalExecutionStats.getCompletedSplits()),
-                        globalExecutionStats.getCompletedSplits());
+                        stats.getQueuedSplits(),
+                        stats.getRunningSplits(),
+                        stats.getCompletedSplits());
                 reprintLine(splitsSummary);
 
                 // CPU Time: 56.5s total, 36.4K rows/s, 4.44MB/s, 60% active
-                Duration cpuTime = globalExecutionStats.getSplitCpuTime();
+                Duration cpuTime = millis(stats.getCpuTimeMillis());
                 String cpuTimeSummary = String.format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
                         cpuTime.convertTo(SECONDS),
-                        formatCountRate(globalExecutionStats.getCompletedPositionCount(), cpuTime, false),
-                        formatDataRate(globalExecutionStats.getCompletedDataSize(), cpuTime, true),
-                        (int) (globalExecutionStats.getSplitCpuTime().toMillis() * 100.0 / (globalExecutionStats.getSplitWallTime().toMillis() + 1))); // Add 1 to avoid divide by zero
+                        formatCountRate(stats.getProcessedRows(), cpuTime, false),
+                        formatDataRate(bytes(stats.getProcessedBytes()), cpuTime, true),
+                        (int) percentage(stats.getCpuTimeMillis(), stats.getWallTimeMillis()));
                 reprintLine(cpuTimeSummary);
 
                 double parallelism = cpuTime.toMillis() / wallTime.toMillis();
 
                 // Per Node: 3.5 parallelism, 83.3K rows/s, 0.7 MB/s
+                DataSize bytesPerNode = new DataSize((int) (stats.getProcessedBytes() / nodes), BYTE);
                 String perNodeSummary = String.format("Per Node: %.1f parallelism, %5s rows/s, %8s",
                         parallelism / nodes,
-                        formatCountRate(globalExecutionStats.getCompletedPositionCount() / nodes, wallTime, false),
-                        formatDataRate(new DataSize(globalExecutionStats.getCompletedDataSize().toBytes() / nodes, BYTE), wallTime, true));
+                        formatCountRate((int) (stats.getProcessedRows() / nodes), wallTime, false),
+                        formatDataRate(bytesPerNode, wallTime, true));
                 reprintLine(perNodeSummary);
 
                 reprintLine(String.format("Parallelism: %.1f", parallelism));
@@ -260,39 +243,34 @@ Parallelism: 2.5
             assert terminalWidth >= 75;
             int progressWidth = (min(terminalWidth, 100) - 75) + 17; // progress bar is 17-42 characters wide
 
-
-            boolean noMoreSplits = IterableTransformer.on(StageInfo.getAllStages(queryInfo.getOutputStage()))
-                    .transform(stageStateGetter())
-                    .all(isStageRunningOrDone());
-
-            if (noMoreSplits) {
+            if (stats.isScheduled()) {
                 String progressBar = formatProgressBar(progressWidth,
-                        globalExecutionStats.getCompletedSplits(),
-                        max(0, globalExecutionStats.getStartedSplits() - globalExecutionStats.getCompletedSplits()),
-                        globalExecutionStats.getSplits());
+                        stats.getCompletedSplits(),
+                        max(0, stats.getRunningSplits()),
+                        stats.getTotalSplits());
 
                 // 0:17 [ 103MB,  802K rows] [5.74MB/s, 44.9K rows/s] [=====>>                                   ] 10%
                 String progressLine = String.format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s] %d%%",
                         formatTime(wallTime),
-                        formatCount(globalExecutionStats.getCompletedPositionCount()),
-                        formatDataSize(globalExecutionStats.getCompletedDataSize(), true),
-                        formatCountRate(globalExecutionStats.getCompletedPositionCount(), wallTime, false),
-                        formatDataRate(globalExecutionStats.getCompletedDataSize(), wallTime, true),
+                        formatCount(stats.getProcessedRows()),
+                        formatDataSize(bytes(stats.getProcessedBytes()), true),
+                        formatCountRate(stats.getProcessedRows(), wallTime, false),
+                        formatDataRate(bytes(stats.getProcessedBytes()), wallTime, true),
                         progressBar,
                         progressPercentage);
 
                 reprintLine(progressLine);
             }
             else {
-                String progressBar = formatProgressBar(progressWidth, (int) (Duration.nanosSince(start).convertTo(TimeUnit.SECONDS)));
+                String progressBar = formatProgressBar(progressWidth, (int) (Duration.nanosSince(start).convertTo(SECONDS)));
 
                 // 0:17 [ 103MB,  802K rows] [5.74MB/s, 44.9K rows/s] [    <=>                                  ]
                 String progressLine = String.format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s]",
                         formatTime(wallTime),
-                        formatCount(globalExecutionStats.getCompletedPositionCount()),
-                        formatDataSize(globalExecutionStats.getCompletedDataSize(), true),
-                        formatCountRate(globalExecutionStats.getCompletedPositionCount(), wallTime, false),
-                        formatDataRate(globalExecutionStats.getCompletedDataSize(), wallTime, true),
+                        formatCount(stats.getProcessedRows()),
+                        formatDataSize(bytes(stats.getProcessedBytes()), true),
+                        formatCountRate(stats.getProcessedRows(), wallTime, false),
+                        formatDataRate(bytes(stats.getProcessedBytes()), wallTime, true),
                         progressBar);
 
                 reprintLine(progressLine);
@@ -316,34 +294,32 @@ Parallelism: 2.5
                     "DONE");
             reprintLine(stagesHeader);
 
-            printStageTree(outputStage, "");
+            printStageTree(stats.getRootStage(), "");
         }
         else {
             // Query 31 [S] i[2.7M 67.3MB 62.7MBps] o[35 6.1KB 1KBps] splits[252/16/380]
             String querySummary = String.format("Query %s [%s] i[%s %s %s] o[%s %s %s] splits[%,d/%,d/%,d]",
-                    queryInfo.getQueryId(),
-                    queryInfo.getState().toString().charAt(0),
+                    results.getQueryId(),
+                    stats.getState(),
 
-                    formatCount(globalExecutionStats.getCompletedPositionCount()),
-                    formatDataSize(globalExecutionStats.getCompletedDataSize(), false),
-                    formatDataRate(globalExecutionStats.getCompletedDataSize(), wallTime, false),
+                    formatCount(stats.getProcessedRows()),
+                    formatDataSize(bytes(stats.getProcessedBytes()), false),
+                    formatDataRate(bytes(stats.getProcessedBytes()), wallTime, false),
 
-                    formatCount(globalExecutionStats.getOutputPositionCount()),
-                    formatDataSize(globalExecutionStats.getOutputDataSize(), false),
-                    formatDataRate(globalExecutionStats.getOutputDataSize(), wallTime, false),
+                    formatCount(stats.getProcessedRows()),
+                    formatDataSize(bytes(stats.getProcessedBytes()), false),
+                    formatDataRate(bytes(stats.getProcessedBytes()), wallTime, false),
 
-                    max(0, globalExecutionStats.getSplits() - globalExecutionStats.getStartedSplits()),
-                    max(0, globalExecutionStats.getStartedSplits() - globalExecutionStats.getCompletedSplits()),
-                    globalExecutionStats.getCompletedSplits());
+                    stats.getQueuedSplits(),
+                    stats.getRunningSplits(),
+                    stats.getCompletedSplits());
             reprintLine(querySummary);
         }
     }
 
-    private void printStageTree(StageInfo stage, String indent)
+    private void printStageTree(StageStats stage, String indent)
     {
         Duration elapsedTime = Duration.nanosSince(start);
-
-        ExecutionStats executionStats = stageOnlyExecutionStats(stage);
 
         // STAGE  S    ROWS  ROWS/s  BYTES  BYTES/s  QUEUED    RUN   DONE
         // 0......Q     26M   9077M  9993G    9077M   9077M  9077M  9077M
@@ -352,42 +328,38 @@ Parallelism: 2.5
         //   4....R     26M    627M   673T     627M    627M   627M   627M
         //     5..F     29T    627M   673M     627M    627M   627M   627M
 
-        // todo this is a total hack
-        String id = stage.getStageId().substring(stage.getQueryId().length() + 1);
-        StringBuilder nameBuilder = new StringBuilder();
-        nameBuilder.append(indent).append(id);
-        while (nameBuilder.length() < 10) {
-            nameBuilder.append('.');
-        }
 
-        StageState state = stage.getState();
+        String id = String.valueOf(stage.getStageNumber());
+        String name = indent + id;
+        name += Strings.repeat(".", max(0, 10 - name.length()));
+
         String bytesPerSecond;
         String rowsPerSecond;
-        if (state.isDone()) {
+        if (stage.isDone()) {
             bytesPerSecond = formatDataRate(new DataSize(0, BYTE), new Duration(0, SECONDS), false);
             rowsPerSecond = formatCountRate(0, new Duration(0, SECONDS), false);
         }
         else {
-            bytesPerSecond = formatDataRate(executionStats.getCompletedDataSize(), elapsedTime, false);
-            rowsPerSecond = formatCountRate(executionStats.getCompletedPositionCount(), elapsedTime, false);
+            bytesPerSecond = formatDataRate(bytes(stage.getProcessedBytes()), elapsedTime, false);
+            rowsPerSecond = formatCountRate(stage.getProcessedRows(), elapsedTime, false);
         }
 
         String stageSummary = String.format("%10s%1s  %5s  %6s  %5s  %7s  %6s  %5s  %5s",
-                nameBuilder.toString(),
-                state.toString().charAt(0),
+                name,
+                stageStateCharacter(stage.getState()),
 
-                formatCount(executionStats.getCompletedPositionCount()),
+                formatCount(stage.getProcessedRows()),
                 rowsPerSecond,
 
-                formatDataSize(executionStats.getCompletedDataSize(), false),
+                formatDataSize(bytes(stage.getProcessedBytes()), false),
                 bytesPerSecond,
 
-                executionStats.getQueuedSplits(),
-                executionStats.getRunningSplits(),
-                executionStats.getCompletedSplits());
+                stage.getQueuedSplits(),
+                stage.getRunningSplits(),
+                stage.getCompletedSplits());
         reprintLine(stageSummary);
 
-        for (StageInfo subStage : stage.getSubStages()) {
+        for (StageStats subStage : stage.getSubStages()) {
             printStageTree(subStage, indent + "  ");
         }
     }
@@ -397,33 +369,26 @@ Parallelism: 2.5
         console.reprintLine(line);
     }
 
-    private static Set<String> uniqueNodes(StageInfo stageInfo)
+    private static char stageStateCharacter(String state)
     {
-        if (stageInfo == null) {
-            return ImmutableSet.of();
-        }
-        ImmutableSet.Builder<String> nodes = ImmutableSet.builder();
-        for (TaskInfo task : stageInfo.getTasks()) {
-            // todo add nodeId to TaskInfo
-            URI uri = task.getSelf();
-            nodes.add(uri.getHost() + ":" + uri.getPort());
-        }
-
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            nodes.addAll(uniqueNodes(subStage));
-        }
-        return nodes.build();
+        return "FAILED".equals(state) ? 'X' : state.charAt(0);
     }
 
-    private static Predicate<StageState> isStageRunningOrDone()
+    private static Duration millis(long millis)
     {
-        return new Predicate<StageState>() {
-            @Override
-            public boolean apply(StageState stageState)
-            {
-                return stageState == StageState.RUNNING || stageState.isDone();
-            }
-        };
+        return new Duration(millis, MILLISECONDS);
     }
 
+    private static DataSize bytes(long bytes)
+    {
+        return new DataSize(bytes, BYTE);
+    }
+
+    private static double percentage(double count, double total)
+    {
+        if (total == 0) {
+            return 0;
+        }
+        return min(100, (count * 100.0) / total);
+    }
 }

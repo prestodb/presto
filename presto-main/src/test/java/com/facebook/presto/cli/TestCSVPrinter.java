@@ -1,6 +1,5 @@
 package com.facebook.presto.cli;
 
-import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.io.StringWriter;
@@ -9,15 +8,14 @@ import java.util.List;
 
 import static org.testng.Assert.assertEquals;
 
-public class TestAlignedTuplePrinter
+public class TestCSVPrinter
 {
     @Test
     public void testAlignedPrinting()
             throws Exception
     {
         StringWriter writer = new StringWriter();
-        List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
-        OutputHandler printer = new AlignedTuplePrinter(fieldNames, writer);
+        OutputHandler printer = new CSVPrinter(writer, ',');
 
         printer.processRow(row("hello", "world", 123));
         printer.processRow(row("a", null, 4.5));
@@ -26,17 +24,15 @@ public class TestAlignedTuplePrinter
         printer.close();
 
         String expected = "" +
-                "   first   | last  | quantity \n" +
-                "-----------+-------+----------\n" +
-                " hello     | world |      123 \n" +
-                " a         | NULL  |      4.5 \n" +
-                " some long+| more +|     4567 \n" +
-                " text that+| text  |          \n" +
-                " does not +|       |          \n" +
-                " fit on   +|       |          \n" +
-                " one line  |       |          \n" +
-                " bye       | done  |      -15 \n" +
-                "(4 rows)\n";
+                "\"hello\",\"world\",\"123\"\n" +
+                "\"a\",\"\",\"4.5\"\n" +
+                "\"some long\n" +
+                "text that\n" +
+                "does not\n" +
+                "fit on\n" +
+                "one line\",\"more\n" +
+                "text\",\"4567\"\n" +
+                "\"bye\",\"done\",\"-15\"\n";
 
         assertEquals(writer.getBuffer().toString(), expected);
     }

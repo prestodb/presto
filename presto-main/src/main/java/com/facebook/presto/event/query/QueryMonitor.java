@@ -8,22 +8,20 @@ import com.google.inject.Inject;
 import io.airlift.event.client.EventClient;
 import io.airlift.json.JsonCodec;
 
-import java.util.List;
-
 import static com.facebook.presto.execution.StageInfo.globalExecutionStats;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class QueryMonitor
 {
-    private final JsonCodec<StageInfo> stageInfoJsonCodec;
-    private final JsonCodec<List<FailureInfo>> failureInfoJsonCodec;
+    private final JsonCodec<StageInfo> stageInfoCodec;
+    private final JsonCodec<FailureInfo> failureInfoCodec;
     private final EventClient eventClient;
 
     @Inject
-    public QueryMonitor(JsonCodec<StageInfo> stageInfoJsonCodec, JsonCodec<List<FailureInfo>> failureInfoJsonCodec, EventClient eventClient)
+    public QueryMonitor(JsonCodec<StageInfo> stageInfoCodec, JsonCodec<FailureInfo> failureInfoCodec, EventClient eventClient)
     {
-        this.stageInfoJsonCodec = checkNotNull(stageInfoJsonCodec, "stageInfoJsonCodec is null");
-        this.failureInfoJsonCodec = checkNotNull(failureInfoJsonCodec, "failureInfoJsonCodec is null");
+        this.stageInfoCodec = checkNotNull(stageInfoCodec, "stageInfoCodec is null");
+        this.failureInfoCodec = checkNotNull(failureInfoCodec, "failureInfoCodec is null");
         this.eventClient = checkNotNull(eventClient, "eventClient is null");
     }
 
@@ -66,8 +64,8 @@ public class QueryMonitor
                         globalExecutionStats.getCompletedDataSize(),
                         globalExecutionStats.getCompletedPositionCount(),
                         globalExecutionStats.getSplits(),
-                        stageInfoJsonCodec.toJson(queryInfo.getOutputStage()),
-                        failureInfoJsonCodec.toJson(queryInfo.getFailures())
+                        stageInfoCodec.toJson(queryInfo.getOutputStage()),
+                        failureInfoCodec.toJson(queryInfo.getFailureInfo())
                 )
         );
     }

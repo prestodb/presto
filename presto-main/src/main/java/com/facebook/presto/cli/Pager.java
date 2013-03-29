@@ -4,6 +4,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
+
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -107,7 +108,11 @@ public class Pager
         return new FilterOutputStream(out)
         {
             @Override
-            public void close() {}
+            public void close()
+                    throws IOException
+            {
+                flush();
+            }
         };
     }
 }
