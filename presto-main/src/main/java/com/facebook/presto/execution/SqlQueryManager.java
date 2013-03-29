@@ -6,6 +6,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.base.Function;
@@ -20,6 +21,7 @@ import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -52,12 +54,14 @@ public class SqlQueryManager
 
     private final ScheduledExecutorService queryManagementExecutor;
     private final QueryMonitor queryMonitor;
+    private final LocationFactory locationFactory;
 
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
 
     @Inject
     public SqlQueryManager(QueryManagerConfig config,
             QueryMonitor queryMonitor,
+            LocationFactory locationFactory,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories)
     {
         checkNotNull(config, "config is null");
@@ -65,6 +69,7 @@ public class SqlQueryManager
         this.executionFactories = checkNotNull(executionFactories, "executionFactories is null");
         this.queryExecutor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
         this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
+        this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
 
         this.maxQueryAge = config.getMaxQueryAge();
         this.clientTimeout = config.getClientTimeout();
@@ -154,18 +159,22 @@ public class SqlQueryManager
     public QueryInfo createQuery(Session session, String query)
     {
         checkNotNull(query, "query is null");
-        Preconditions.checkArgument(query.length() > 0, "query must not be empty string");
+        Preconditions.checkArgument(!query.isEmpty(), "query must not be empty string");
 
         String queryId = String.valueOf(nextQueryId.getAndIncrement());
 
-        QueryExecution queryExecution;
-
-        // parse the SQL query
-        Statement statement = SqlParser.createStatement(query);
+        Statement statement;
+        try {
+            statement = SqlParser.createStatement(query);
+        }
+        catch (ParsingException e) {
+            return createFailedQuery(session, query, queryId, e);
+        }
 
         QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(statement.getClass());
         Preconditions.checkState(queryExecutionFactory != null, "Unsupported statement type %s", statement.getClass().getName());
-        queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement);
+        assert queryExecutionFactory != null; // IDEA-60343
+        QueryExecution queryExecution = queryExecutionFactory.createQueryExecution(queryId, query, session, statement);
 
         queryMonitor.createdEvent(queryExecution.getQueryInfo());
 
@@ -256,6 +265,18 @@ public class SqlQueryManager
                 log.warn(e, "Error while inspecting age of query %s", queryExecution.getQueryInfo().getQueryId());
             }
         }
+    }
+
+    private QueryInfo createFailedQuery(Session session, String query, String queryId, Throwable cause)
+    {
+        URI self = locationFactory.createQueryLocation(queryId);
+        QueryExecution execution = new FailedQueryExecution(queryId, query, session, self, cause);
+
+        queries.put(queryId, execution);
+        queryMonitor.createdEvent(execution.getQueryInfo());
+        queryMonitor.completionEvent(execution.getQueryInfo());
+
+        return execution.getQueryInfo();
     }
 
     private static class QueryStarter
