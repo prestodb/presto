@@ -1,7 +1,7 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.ingest.InMemoryRecordSet;
+import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -21,6 +21,7 @@ import java.util.List;
 import static com.facebook.presto.operator.OperatorAssertions.assertOperatorEquals;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -91,5 +92,28 @@ public class TestDatabaseStorageManager
 //        assertOperatorEquals(
 //                new AlignmentOperator(storageManager.getBlocks(shardId, columnIds.get(0))),
 //                new RecordProjectOperator(records, createProjection(0, VARIABLE_BINARY)));
+    }
+
+    @Test
+    public void testShardPath()
+    {
+        File result = DatabaseStorageManager.getShardPath(new File("/"), 0);
+        assertEquals(result.getAbsolutePath(), "/00/00/00/00");
+        result = DatabaseStorageManager.getShardPath(new File("/"), 1);
+        assertEquals(result.getAbsolutePath(), "/01/00/00/00");
+        result = DatabaseStorageManager.getShardPath(new File("/"), 100);
+        assertEquals(result.getAbsolutePath(), "/00/01/00/00");
+        result = DatabaseStorageManager.getShardPath(new File("/"), 10_000);
+        assertEquals(result.getAbsolutePath(), "/00/00/01/00");
+        result = DatabaseStorageManager.getShardPath(new File("/"), 1_000_000);
+        assertEquals(result.getAbsolutePath(), "/00/00/00/01");
+        result = DatabaseStorageManager.getShardPath(new File("/"), 99_999_999);
+        assertEquals(result.getAbsolutePath(), "/99/99/99/99");
+        result = DatabaseStorageManager.getShardPath(new File("/"), 100_000_000);
+        assertEquals(result.getAbsolutePath(), "/00/00/00/100");
+        result = DatabaseStorageManager.getShardPath(new File("/"), 12345);
+        assertEquals(result.getAbsolutePath(), "/45/23/01/00");
+        result = DatabaseStorageManager.getShardPath(new File("/"), 4815162342L);
+        assertEquals(result.getAbsolutePath(), "/42/23/16/4815");
     }
 }

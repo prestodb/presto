@@ -50,6 +50,7 @@ statement returns [Statement value]
     | showPartitions  { $value = $showPartitions.value; }
     | showFunctions   { $value = $showFunctions.value; }
     | createOrReplaceMaterializedView { $value = $createOrReplaceMaterializedView.value; }
+    | dropTable       { $value = $dropTable.value; }
     ;
 
 query returns [Query value]
@@ -394,4 +395,8 @@ showFunctions returns [Statement value]
 
 createOrReplaceMaterializedView returns [Statement value]
     : ^(CREATE_OR_REPLACE_MATERIALIZED_VIEW qname restrictedSelectStmt) { $value = new CreateOrReplaceMaterializedView($qname.value, $restrictedSelectStmt.value); }
+    ;
+
+dropTable returns [Statement value]
+    : ^(DROP_TABLE qname) { $value = new DropTable($qname.value); }
     ;

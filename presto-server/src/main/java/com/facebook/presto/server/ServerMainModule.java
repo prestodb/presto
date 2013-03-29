@@ -3,12 +3,13 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.event.query.QueryCompletionEvent;
 import com.facebook.presto.event.query.QueryCreatedEvent;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.CreateOrReplaceMaterializedViewExecution.CreateOrReplaceMaterializedViewExecutionFactory;
-import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.execution.DropTableExecution.DropTableExecutionFactory;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.QueryIdGenerator;
@@ -41,6 +42,7 @@ import com.facebook.presto.metadata.DatabaseShardManager;
 import com.facebook.presto.metadata.DatabaseStorageManager;
 import com.facebook.presto.metadata.ForAlias;
 import com.facebook.presto.metadata.ForMetadata;
+import com.facebook.presto.metadata.ForShardCleaner;
 import com.facebook.presto.metadata.ForShardManager;
 import com.facebook.presto.metadata.ForStorageManager;
 import com.facebook.presto.metadata.HandleJsonModule;
@@ -52,6 +54,8 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.NativeMetadata;
 import com.facebook.presto.metadata.NodeManager;
+import com.facebook.presto.metadata.ShardCleaner;
+import com.facebook.presto.metadata.ShardCleanerConfig;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.metadata.StorageManagerConfig;
@@ -70,6 +74,7 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.PlanOptimizersFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.tree.CreateOrReplaceMaterializedView;
+import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Query;
@@ -193,6 +198,10 @@ public class ServerMainModule
         binder.bind(ShardResource.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(ShardImport.class);
 
+        bindConfig(binder).to(ShardCleanerConfig.class);
+        binder.bind(ShardCleaner.class).in(Scopes.SINGLETON);
+        httpClientBinder(binder).bindHttpClient("shard-cleaner", ForShardCleaner.class);
+
         ServiceAnnouncementBuilder announcementBuilder = discoveryBinder(binder).bindHttpAnnouncement("presto");
         String datasources = configurationFactory.getProperties().get("datasources");
         if (datasources != null) {
@@ -242,6 +251,7 @@ public class ServerMainModule
                 new TypeLiteral<Class<? extends Statement>>() {},
                 new TypeLiteral<QueryExecutionFactory<?>>() {});
         executionBinder.addBinding(CreateOrReplaceMaterializedView.class).to(CreateOrReplaceMaterializedViewExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(DropTable.class).to(DropTableExecutionFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(Query.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);

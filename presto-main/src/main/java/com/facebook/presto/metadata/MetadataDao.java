@@ -1,5 +1,8 @@
 package com.facebook.presto.metadata;
 
+import io.airlift.log.Logger;
+import io.airlift.units.Duration;
+import org.skife.jdbi.v2.exceptions.UnableToObtainConnectionException;
 import org.skife.jdbi.v2.sqlobject.Bind;
 import org.skife.jdbi.v2.sqlobject.BindBean;
 import org.skife.jdbi.v2.sqlobject.GetGeneratedKeys;
@@ -8,6 +11,7 @@ import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public interface MetadataDao
 {
@@ -104,4 +108,44 @@ public interface MetadataDao
             @Bind("columnName") String columnName,
             @Bind("ordinalPosition") int ordinalPosition,
             @Bind("dataType") String dataType);
+
+
+    @SqlUpdate("DELETE FROM tables WHERE table_id = :tableId")
+    int dropTable(@Bind("tableId") long tableId);
+
+    @SqlUpdate("DELETE FROM columns WHERE table_id = :tableId")
+    int dropColumns(@Bind("tableId") long tableId);
+
+    public static class Utils
+    {
+        public static final Logger log = Logger.get(MetadataDao.class);
+
+        public static void dropTable(MetadataDao dao, long tableId)
+        {
+            dao.dropColumns(tableId);
+            dao.dropTable(tableId);
+        }
+
+        public static void createMetadataTablesWithRetry(MetadataDao dao)
+            throws InterruptedException
+        {
+            Duration delay = new Duration(10, TimeUnit.SECONDS);
+            while (true) {
+                try {
+                    createMetadataTables(dao);
+                    return;
+                }
+                catch (UnableToObtainConnectionException e) {
+                    log.warn("Failed to connect to database. Will retry again in %s. Exception: %s", delay, e.getMessage());
+                    Thread.sleep((long) delay.toMillis());
+                }
+            }
+        }
+
+        public static void createMetadataTables(MetadataDao dao)
+        {
+            dao.createTablesTable();
+            dao.createColumnsTable();
+        }
     }
+}

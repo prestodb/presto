@@ -14,12 +14,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Singleton
 public class Sitevars
 {
-    private final AtomicBoolean importsEnabled = new AtomicBoolean(true);
+    private final AtomicBoolean importsEnabled;
+    private final AtomicBoolean dropEnabled;
+    private final AtomicBoolean shardCleaningEnabled;
 
     @Inject
     public Sitevars(SitevarsConfig config)
     {
-        this.importsEnabled.set(config.isImportsEnabled());
+        this.importsEnabled = new AtomicBoolean(config.isImportsEnabled());
+        this.dropEnabled = new AtomicBoolean(config.isDropEnabled());
+        this.shardCleaningEnabled = new AtomicBoolean(config.isShardCleaningEnabled());
     }
 
     @Managed
@@ -32,6 +36,32 @@ public class Sitevars
     public Sitevars setImportsEnabled(boolean importsEnabled)
     {
         this.importsEnabled.set(importsEnabled);
+        return this;
+    }
+
+    @Managed
+    public boolean isDropEnabled()
+    {
+        return dropEnabled.get();
+    }
+
+    @Managed
+    public Sitevars setDropEnabled(boolean dropEnabled)
+    {
+        this.dropEnabled.set(dropEnabled);
+        return this;
+    }
+
+    @Managed
+    public boolean isShardCleaningEnabled()
+    {
+        return shardCleaningEnabled.get();
+    }
+
+    @Managed
+    public Sitevars setShardCleaningEnabled(boolean shardCleaningEnabled)
+    {
+        this.shardCleaningEnabled.set(shardCleaningEnabled);
         return this;
     }
 }

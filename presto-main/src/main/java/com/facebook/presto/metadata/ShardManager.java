@@ -1,7 +1,10 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.ingest.SerializedPartitionChunk;
+import com.google.common.base.Optional;
 import com.google.common.collect.Multimap;
+
+import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Set;
@@ -24,6 +27,17 @@ public interface ShardManager
      * Mark shard as complete with data residing on given node
      */
     void commitShard(long shardId, String nodeIdentifier);
+
+    /**
+     * Remove a shard from a node. When this method returns successfully, the shard will be no longer retrieved
+     * from that node.
+     */
+    void disassociateShard(long shardId, @Nullable String nodeIdentifier);
+
+    /**
+     * Drop all information about a given shard.
+     */
+    void dropShard(long shardId);
 
     /**
      * Get the names of all current partitions that have started importing for table (and possibly finished or errored out).
@@ -54,7 +68,17 @@ public interface ShardManager
     Multimap<Long, String> getShardNodes(long tableId, String partitionName);
 
     /**
+     * Return a collection of all nodes that were used in this shard manager.
+     */
+    public Iterable<String> getAllNodesInUse();
+
+    /**
      * Drop all record of the specified partition
      */
     void dropPartition(long tableId, String partitionName);
+
+    /**
+     * Return a list of all shard ids for a given node that are no referenced by a table.
+     */
+    Iterable<Long> getOrphanedShardIds(Optional<String> nodeIdentifier);
 }

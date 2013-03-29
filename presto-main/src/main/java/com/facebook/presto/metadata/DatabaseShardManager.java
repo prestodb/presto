@@ -1,6 +1,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.ingest.SerializedPartitionChunk;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
@@ -13,7 +14,9 @@ import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.VoidTransactionCallback;
 import org.skife.jdbi.v2.exceptions.UnableToObtainConnectionException;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
+
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -93,6 +96,28 @@ public class DatabaseShardManager
     }
 
     @Override
+    public void disassociateShard(long shardId, @Nullable String nodeIdentifier)
+    {
+        dao.dropShardNode(shardId, nodeIdentifier);
+    }
+
+    @Override
+    public void dropShard(final long shardId)
+    {
+        dbi.inTransaction(new VoidTransactionCallback()
+        {
+            @Override
+            protected void execute(Handle handle, TransactionStatus status)
+            {
+                ShardManagerDao dao = handle.attach(ShardManagerDao.class);
+                dao.deleteShardFromImportPartitionShards(shardId);
+                dao.dropShardNode(shardId, null);
+                dao.deleteShard(shardId);
+            }
+        });
+    }
+
+    @Override
     public Set<String> getAllPartitions(long tableId)
     {
         return dao.getAllPartitions(tableId);
@@ -125,6 +150,12 @@ public class DatabaseShardManager
     }
 
     @Override
+    public Iterable<String> getAllNodesInUse()
+    {
+        return dao.getAllNodesInUse();
+    }
+
+    @Override
     public void dropPartition(final long tableId, final String partitionName)
     {
         dbi.inTransaction(new VoidTransactionCallback()
@@ -143,6 +174,17 @@ public class DatabaseShardManager
                 dao.dropPartition(tableId, partitionName);
             }
         });
+    }
+
+    @Override
+    public Iterable<Long> getOrphanedShardIds(Optional<String> nodeIdentifier)
+    {
+        if (nodeIdentifier.isPresent()) {
+            return dao.getOrphanedShards(nodeIdentifier.get());
+        }
+        else {
+            return dao.getAllOrphanedShards();
+        }
     }
 
     private long getOrCreateNodeId(final String nodeIdentifier)

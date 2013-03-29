@@ -1,21 +1,18 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.metadata.MetadataDao.Utils;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
-import io.airlift.log.Logger;
-import io.airlift.units.Duration;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.VoidTransactionCallback;
-import org.skife.jdbi.v2.exceptions.UnableToObtainConnectionException;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkTable;
 import static com.facebook.presto.util.SqlUtils.runIgnoringConstraintViolation;
@@ -23,10 +20,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class NativeMetadata
-        implements Metadata
+        extends AbstractMetadata
 {
-    private static final Logger log = Logger.get(NativeMetadata.class);
-
     private final IDBI dbi;
     private final MetadataDao dao;
     private final FunctionRegistry functions = new FunctionRegistry();
@@ -35,11 +30,10 @@ public class NativeMetadata
     public NativeMetadata(@ForMetadata IDBI dbi)
             throws InterruptedException
     {
-        this.dbi = dbi;
+        this.dbi = checkNotNull(dbi, "dbi is null");
         this.dao = dbi.onDemand(MetadataDao.class);
 
-        // keep retrying if database is unavailable when the server starts
-        createTablesWithRetry();
+        Utils.createMetadataTablesWithRetry(dao);
     }
 
     @Override
@@ -171,25 +165,21 @@ public class NativeMetadata
         });
     }
 
-    private void createTablesWithRetry()
-            throws InterruptedException
+    @Override
+    public void dropTable(final TableMetadata table)
     {
-        Duration delay = new Duration(10, TimeUnit.SECONDS);
-        while (true) {
-            try {
-                createTables();
-                return;
+        dbi.inTransaction(new VoidTransactionCallback()
+        {
+            @Override
+            protected void execute(final Handle handle, TransactionStatus status)
+                    throws Exception
+            {
+                MetadataDao dao = handle.attach(MetadataDao.class);
+                Long tableId = dao.getTableId(table.getTable());
+                if (tableId != null) {
+                    Utils.dropTable(dao, tableId);
+                }
             }
-            catch (UnableToObtainConnectionException e) {
-                log.warn("Failed to connect to database. Will retry again in %s. Exception: %s", delay, e.getMessage());
-                Thread.sleep((long) delay.toMillis());
-            }
-        }
-    }
-
-    private void createTables()
-    {
-        dao.createTablesTable();
-        dao.createColumnsTable();
+        });
     }
 }
