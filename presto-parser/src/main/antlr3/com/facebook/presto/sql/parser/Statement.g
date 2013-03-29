@@ -63,6 +63,7 @@ tokens {
     SHOW_FUNCTIONS;
     CREATE_TABLE;
     CREATE_OR_REPLACE_MATERIALIZED_VIEW;
+    DROP_TABLE;
     TABLE_ELEMENT_LIST;
     COLUMN_DEF;
     NOT_NULL;
@@ -127,6 +128,7 @@ statement
     | showFunctionsStmt
     | createTableStmt
     | createOrReplaceMaterializedViewStmt
+    | dropTableStmt
     ;
 
 selectStmt
@@ -452,6 +454,10 @@ showFunctionsStmt
     : SHOW FUNCTIONS -> SHOW_FUNCTIONS
     ;
 
+dropTableStmt
+    : DROP TABLE qname -> ^(DROP_TABLE qname)
+    ;
+
 createOrReplaceMaterializedViewStmt
     : CREATE OR REPLACE MATERIALIZED VIEW qname AS restrictedSelectStmt -> ^(CREATE_OR_REPLACE_MATERIALIZED_VIEW qname restrictedSelectStmt)
     ;
@@ -638,6 +644,7 @@ FUNCTIONS: 'FUNCTIONS';
 MATERIALIZED: 'MATERIALIZED';
 VIEW: 'VIEW';
 REPLACE: 'REPLACE';
+DROP: 'DROP';
 
 EQ  : '=';
 NEQ : '<>' | '!=';

@@ -110,6 +110,14 @@ public class TestingMetadata
         tables.put(key, table);
     }
 
+    @Override
+    public synchronized void dropTable(TableMetadata table)
+    {
+        QualifiedTableName key = table.getTable();
+        checkArgument(tables.containsKey(key), "Table '%s' not defined", key);
+        tables.remove(key);
+    }
+
     private List<TableColumn> getTableColumns(Predicate<QualifiedTableName> predicate)
     {
         Iterable<TableMetadata> values = filterKeys(tables, predicate).values();

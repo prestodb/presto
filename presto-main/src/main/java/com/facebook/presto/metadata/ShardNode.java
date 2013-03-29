@@ -15,8 +15,8 @@ public class ShardNode
 
     public ShardNode(long shardId, String nodeIdentifier)
     {
-        this.shardId = checkNotNull(shardId, "shardId is null");
-        this.nodeIdentifier = checkNotNull(nodeIdentifier, "nodeIdentifier");
+        this.shardId = shardId;
+        this.nodeIdentifier = checkNotNull(nodeIdentifier, "nodeIdentifier is null");
     }
 
     public long getShardId()
@@ -36,7 +36,8 @@ public class ShardNode
         public ShardNode map(int index, ResultSet r, StatementContext ctx)
                 throws SQLException
         {
-            return new ShardNode(r.getLong("shard_id"), r.getString("node_identifier"));
+            return new ShardNode(r.getLong("shard_id"),
+                    r.getString("node_identifier"));
         }
     }
 }

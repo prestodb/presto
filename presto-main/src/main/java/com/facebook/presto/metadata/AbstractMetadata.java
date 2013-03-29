@@ -64,6 +64,12 @@ public abstract class AbstractMetadata
     }
 
     @Override
+    public void dropTable(TableMetadata table)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public QualifiedTableName getTableName(TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();

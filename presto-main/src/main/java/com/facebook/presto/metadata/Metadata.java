@@ -28,6 +28,8 @@ public interface Metadata
 
     void createTable(TableMetadata table);
 
+    void dropTable(TableMetadata table);
+
     QualifiedTableName getTableName(TableHandle tableHandle);
 
     TableColumn getTableColumn(TableHandle tableHandle, ColumnHandle columnHandle);

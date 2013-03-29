@@ -10,13 +10,17 @@ import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileReader;
 import com.facebook.presto.serde.BlocksFileStats;
 import com.facebook.presto.serde.BlocksFileWriter;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 import com.google.common.io.OutputSupplier;
 import com.google.common.primitives.Ints;
@@ -107,7 +111,7 @@ public class DatabaseStorageManager
             throws IOException
     {
         File shardPath = getShardPath(baseStagingDir, shardId);
-        List<File> outputFiles = getOuputFiles(shardPath, columnIds);
+        List<File> outputFiles = getOutputFiles(shardPath, columnIds);
         List<BlocksFileWriter> writers = getFileWriters(outputFiles);
 
         ImportingOperator.importData(source, writers);
@@ -115,7 +119,7 @@ public class DatabaseStorageManager
         return outputFiles;
     }
 
-    private static List<File> getOuputFiles(File shardPath, List<Long> columnIds)
+    private static List<File> getOutputFiles(File shardPath, List<Long> columnIds)
             throws IOException
     {
         ImmutableList.Builder<File> files = ImmutableList.builder();
@@ -223,9 +227,35 @@ public class DatabaseStorageManager
         };
     }
 
-    private static File getShardPath(File baseDir, long shardId)
+    /**
+     * Generate a file system path for a shard id. This creates a four level deep, two digit directory
+     * where the least significant digits are the first level, the next significant digits are the second
+     * and so on. Numbers that have more than eight digits are lumped together in the last level.
+     *
+     * <pre>
+     *   1 --> 01/00/00/00
+     *   1000 -> 00/10/00/00
+     *   123456 -> 56/34/12/00
+     *   4815162342 -> 42/23/16/4815
+     * </pre>
+     *
+     * This ensures that files are spread out evenly through the tree while a path can still be easily navigated
+     * by a human being.
+     *
+     * @param baseDir
+     * @param shardId
+     * @return
+     */
+    @VisibleForTesting
+    static File getShardPath(File baseDir, long shardId)
     {
-        return new File(baseDir, String.valueOf(shardId));
+        Preconditions.checkArgument(shardId >= 0, "shardId must be >= 0");
+
+        String value = format("%08d", shardId);
+        int split = value.length() - 6;
+        List<String> pathElements = ImmutableList.copyOf(Splitter.fixedLength(2).limit(3).split(value.substring(split)));
+        String path = Joiner.on('/').join(Lists.reverse(pathElements)) + "/" + value.substring(0, split);
+        return new File(baseDir, path);
     }
 
     private static File getColumnFile(File shardPath, long columnId, BlocksFileEncoding encoding)

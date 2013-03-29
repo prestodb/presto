@@ -23,7 +23,9 @@ public class TestSitevarsConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(SitevarsConfig.class)
-                .setImportsEnabled(true));
+                .setImportsEnabled(true)
+                .setDropEnabled(true)
+                .setShardCleaningEnabled(true));
     }
 
     @Test
@@ -31,10 +33,14 @@ public class TestSitevarsConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("sitevar.imports-enabled", "false")
+                .put("sitevar.drop-enabled", "false")
+                .put("sitevar.shard-cleaning-enabled", "false")
                 .build();
 
         SitevarsConfig expected = new SitevarsConfig()
-                .setImportsEnabled(false);
+                .setImportsEnabled(false)
+                .setDropEnabled(false)
+                .setShardCleaningEnabled(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
