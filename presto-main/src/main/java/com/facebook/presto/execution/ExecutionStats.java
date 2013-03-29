@@ -349,16 +349,32 @@ public class ExecutionStats
         splits.addAndGet(stats.getSplits());
         startedSplits.addAndGet(stats.getStartedSplits());
         completedSplits.addAndGet(stats.getCompletedSplits());
-        addSplitWallTime(stats.getSplitWallTime());
-        addSplitCpuTime(stats.getSplitCpuTime());
-        addSplitUserTime(stats.getSplitUserTime());
-        addSinkBufferWaitTime(stats.getSinkBufferWaitTime());
-        addExchangeWaitTime(stats.getExchangeWaitTime());
-        addInputDataSize(stats.getInputDataSize());
+        if (stats.getSplitWallTime() != null) {
+            addSplitWallTime(stats.getSplitWallTime());
+        }
+        if (stats.getSplitCpuTime() != null) {
+            addSplitCpuTime(stats.getSplitCpuTime());
+        }
+        if (stats.getSplitUserTime() != null) {
+            addSplitUserTime(stats.getSplitUserTime());
+        }
+        if (stats.getSinkBufferWaitTime() != null) {
+            addSinkBufferWaitTime(stats.getSinkBufferWaitTime());
+        }
+        if (stats.getExchangeWaitTime() != null) {
+            addExchangeWaitTime(stats.getExchangeWaitTime());
+        }
+        if (stats.getInputDataSize() != null) {
+            addInputDataSize(stats.getInputDataSize());
+        }
         inputPositionCount.addAndGet(stats.getInputPositionCount());
-        addCompletedDataSize(stats.getCompletedDataSize());
+        if (stats.getCompletedDataSize() != null) {
+            addCompletedDataSize(stats.getCompletedDataSize());
+        }
         completedPositionCount.addAndGet(stats.getCompletedPositionCount());
-        addOutputDataSize(stats.getOutputDataSize());
+        if (stats.getOutputDataSize() != null) {
+            addOutputDataSize(stats.getOutputDataSize());
+        }
         outputPositionCount.addAndGet(stats.getOutputPositionCount());
     }
 
