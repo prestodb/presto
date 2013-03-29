@@ -14,6 +14,8 @@ import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 
+import javax.inject.Provider;
+
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
