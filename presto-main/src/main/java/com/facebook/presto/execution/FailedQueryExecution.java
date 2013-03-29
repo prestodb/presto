@@ -27,7 +27,7 @@ public class FailedQueryExecution
                 checkNotNull(query, "query is null"),
                 queryStats,
                 null,
-                ImmutableList.of(toFailure(checkNotNull(cause, "cause is null"))));
+                toFailure(checkNotNull(cause, "cause is null")));
     }
 
     @Override

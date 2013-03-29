@@ -19,7 +19,6 @@ import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.net.HttpHeaders;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
@@ -29,9 +28,9 @@ import io.airlift.json.JsonCodec;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.ws.rs.core.Response.Status;
+
 import java.io.Closeable;
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -195,46 +194,6 @@ public class HttpQueryClient
     public boolean isCanceled()
     {
         return canceled.get();
-    }
-
-    public boolean cancelLeafStage()
-    {
-        QueryInfo queryInfo = getQueryInfo(false);
-        if (queryInfo == null) {
-            return false;
-        }
-
-        if (queryInfo.getOutputStage() == null) {
-            // query is not running yet, cannot cancel leaf stage
-            return false;
-        }
-
-        // query is running, cancel the leaf-most running stage
-        return cancelLeafStage(queryInfo.getOutputStage());
-    }
-
-    private boolean cancelLeafStage(StageInfo stage)
-    {
-        // if this stage is already done, we can't cancel it
-        if (stage.getState().isDone()) {
-            return false;
-        }
-
-        // attempt to cancel a sub stage
-        List<StageInfo> subStages = new ArrayList<>(stage.getSubStages());
-        // check in reverse order since build side of a join will be later in the list
-        subStages = Lists.reverse(subStages);
-        for (StageInfo subStage : subStages) {
-            if (cancelLeafStage(subStage)) {
-                return true;
-            }
-        }
-
-        // cancel this stage
-        Request.Builder requestBuilder = prepareDelete().setUri(stage.getSelf());
-        Request request = requestBuilder.build();
-        httpClient.execute(request, createStatusResponseHandler());
-        return true;
     }
 
     public void close()

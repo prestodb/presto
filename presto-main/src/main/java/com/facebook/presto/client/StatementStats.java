@@ -7,7 +7,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+import javax.validation.constraints.NotNull;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -16,6 +18,7 @@ public class StatementStats
 {
     private final String state;
     private final boolean done;
+    private final boolean scheduled;
     private final int nodes;
     private final int totalSplits;
     private final int queuedSplits;
@@ -32,6 +35,7 @@ public class StatementStats
     public StatementStats(
             @JsonProperty("state") String state,
             @JsonProperty("done") boolean done,
+            @JsonProperty("scheduled") boolean scheduled,
             @JsonProperty("nodes") int nodes,
             @JsonProperty("totalSplits") int totalSplits,
             @JsonProperty("queuedSplits") int queuedSplits,
@@ -46,6 +50,7 @@ public class StatementStats
     {
         this.state = checkNotNull(state, "state is null");
         this.done = done;
+        this.scheduled = scheduled;
         this.nodes = nodes;
         this.totalSplits = totalSplits;
         this.queuedSplits = queuedSplits;
@@ -59,6 +64,7 @@ public class StatementStats
         this.rootStage = rootStage;
     }
 
+    @NotNull
     @JsonProperty
     public String getState()
     {
@@ -69,6 +75,12 @@ public class StatementStats
     public boolean isDone()
     {
         return done;
+    }
+
+    @JsonProperty
+    public boolean isScheduled()
+    {
+        return scheduled;
     }
 
     @JsonProperty
@@ -131,6 +143,7 @@ public class StatementStats
         return processedBytes;
     }
 
+    @Nullable
     @JsonProperty
     public StageStats getRootStage()
     {
@@ -141,6 +154,9 @@ public class StatementStats
     public String toString()
     {
         return Objects.toStringHelper(this)
+                .add("state", state)
+                .add("done", done)
+                .add("scheduled", scheduled)
                 .add("nodes", nodes)
                 .add("totalSplits", totalSplits)
                 .add("queuedSplits", queuedSplits)
@@ -164,6 +180,7 @@ public class StatementStats
     {
         private String state;
         private boolean done;
+        private boolean scheduled;
         private int nodes;
         private int totalSplits;
         private int queuedSplits;
@@ -193,6 +210,12 @@ public class StatementStats
         public Builder setNodes(int nodes)
         {
             this.nodes = nodes;
+            return this;
+        }
+
+        public Builder setScheduled(boolean scheduled)
+        {
+            this.scheduled = scheduled;
             return this;
         }
 
@@ -261,6 +284,7 @@ public class StatementStats
             return new StatementStats(
                     state,
                     done,
+                    scheduled,
                     nodes,
                     totalSplits,
                     queuedSplits,

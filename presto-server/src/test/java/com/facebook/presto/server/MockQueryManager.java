@@ -174,7 +174,7 @@ public class MockQueryManager
                             ImmutableList.<TaskInfo>of(outputTask),
                             ImmutableList.<StageInfo>of(),
                             ImmutableList.<FailureInfo>of()),
-                    ImmutableList.<FailureInfo>of());
+                    null);
         }
     }
 }

@@ -8,11 +8,11 @@ import io.airlift.log.Logger;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
+
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.execution.FailureInfo.toFailures;
+import static com.facebook.presto.execution.FailureInfo.toFailure;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 @ThreadSafe
@@ -31,7 +31,7 @@ public class QueryStateMachine
     private QueryState queryState = QueryState.QUEUED;
 
     @GuardedBy("this")
-    private final List<Throwable> failureCauses = new ArrayList<>();
+    private Throwable failureCause;
 
     @GuardedBy("this")
     private List<String> outputFieldNames = ImmutableList.of();
@@ -80,7 +80,7 @@ public class QueryStateMachine
                 query,
                 queryStats,
                 stageInfo,
-                toFailures(failureCauses));
+                toFailure(failureCause));
     }
 
     public synchronized void setOutputFieldNames(List<String> outputFieldNames)
@@ -164,23 +164,29 @@ public class QueryStateMachine
         return true;
     }
 
-    public boolean fail()
-    {
-        return fail(null);
-    }
-
     public boolean fail(@Nullable Throwable cause)
     {
-        // transition to failed state, only if not already finished
         synchronized (this) {
-            // transition to failed state, only if not already finished
-            if (queryState.isDone()) {
+            // only fail is query has not already completed successfully
+            if (queryState.isDone() && (queryState != QueryState.FAILED)) {
                 return false;
             }
-            queryState = QueryState.FAILED;
+
             if (cause != null) {
-                failureCauses.add(cause);
+                if (failureCause == null) {
+                    failureCause = cause;
+                }
+                else {
+                    failureCause.addSuppressed(cause);
+                }
             }
+
+            // skip if failure has already been reported
+            if (queryState == QueryState.FAILED) {
+                return true;
+            }
+
+            queryState = QueryState.FAILED;
         }
 
         log.debug("Failed query %s", queryId);

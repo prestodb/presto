@@ -170,7 +170,7 @@ public class ServerMainModule
         jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);
 
         jsonCodecBinder(binder).bindJsonCodec(StageInfo.class);
-        jsonCodecBinder(binder).bindListJsonCodec(FailureInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(FailureInfo.class);
         binder.bind(QueryMonitor.class).in(Scopes.SINGLETON);
         eventBinder(binder).bindEventClient(QueryCreatedEvent.class);
         eventBinder(binder).bindEventClient(QueryCompletionEvent.class);

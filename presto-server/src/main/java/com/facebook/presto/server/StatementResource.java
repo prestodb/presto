@@ -3,11 +3,13 @@ package com.facebook.presto.server;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryData;
+import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StageStats;
 import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.execution.BufferInfo;
 import com.facebook.presto.execution.ExecutionStats;
+import com.facebook.presto.execution.FailureInfo;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.StageInfo;
@@ -19,11 +21,14 @@ import com.facebook.presto.server.ExecuteResource.ForExecute;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
+import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.log.Logger;
@@ -47,6 +52,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
+
 import java.io.Closeable;
 import java.net.URI;
 import java.util.ArrayList;
@@ -66,12 +72,16 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.execution.StageInfo.globalExecutionStats;
 import static com.facebook.presto.execution.StageInfo.stageOnlyExecutionStats;
+import static com.facebook.presto.execution.StageInfo.stageStateGetter;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static java.lang.String.format;
 import static java.util.Collections.newSetFromMap;
 
 @Path("/v1/statement")
@@ -113,12 +123,27 @@ public class StatementResource
             @Context UriInfo uriInfo)
             throws InterruptedException
     {
-        checkNotNull(statement, "statement is null");
+        assertRequest(!isNullOrEmpty(statement), "SQL statement is empty");
+        assertRequest(!isNullOrEmpty(user), "User (%s) is empty", PRESTO_USER);
+        assertRequest(!isNullOrEmpty(catalog), "Catalog (%s) is empty", PRESTO_CATALOG);
+        assertRequest(!isNullOrEmpty(schema), "Schema (%s) is empty", PRESTO_SCHEMA);
 
         Session session = new Session(user, catalog, schema);
         Query query = new Query(session, statement, queryManager, httpClient);
         queries.put(query.getQueryId(), query);
         return Response.ok(query.getNextResults(uriInfo, new Duration(100, TimeUnit.MILLISECONDS))).build();
+    }
+
+    private static void assertRequest(boolean expression, String format, Object... args)
+    {
+        if (!expression) {
+            Response request = Response
+                    .status(Status.BAD_REQUEST)
+                    .type(MediaType.TEXT_PLAIN)
+                    .entity(format(format, args))
+                    .build();
+            throw new WebApplicationException(request);
+        }
     }
 
     @GET
@@ -242,15 +267,19 @@ public class StatementResource
 
             // first time through, self is null
             QueryResults queryResults = new QueryResults(
+                    queryId,
                     uriInfo.getRequestUriBuilder().replaceQuery("").replacePath(queryInfo.getSelf().getPath()).build(),
+                    findCancelableLeafStage(queryInfo),
                     nextResultsUri,
                     data,
-                    toStatementStats(uriInfo, queryInfo));
+                    toStatementStats(queryInfo),
+                    toQueryError(queryInfo));
 
             // cache the last results
             if (lastResult != null) {
                 lastResultPath = lastResult.getNext().getPath();
-            } else {
+            }
+            else {
                 lastResultPath = null;
             }
             lastResult = queryResults;
@@ -343,13 +372,14 @@ public class StatementResource
             return list.build();
         }
 
-        private StatementStats toStatementStats(UriInfo uriInfo, QueryInfo queryInfo)
+        private static StatementStats toStatementStats(QueryInfo queryInfo)
         {
             ExecutionStats executionStats = globalExecutionStats(queryInfo.getOutputStage());
 
             return StatementStats.builder()
                     .setState(queryInfo.getState().toString())
                     .setDone(queryInfo.getState().isDone())
+                    .setScheduled(isScheduled(queryInfo))
                     .setNodes(globalUniqueNodes(queryInfo.getOutputStage()).size())
                     .setTotalSplits(executionStats.getSplits())
                     .setQueuedSplits(executionStats.getQueuedSplits())
@@ -360,11 +390,11 @@ public class StatementResource
                     .setWallTimeMillis((long) executionStats.getSplitWallTime().toMillis())
                     .setProcessedRows(executionStats.getCompletedPositionCount())
                     .setProcessedBytes(executionStats.getCompletedDataSize().toBytes())
-                    .setRootStage(toStageStats(uriInfo, queryInfo.getOutputStage()))
+                    .setRootStage(toStageStats(queryInfo.getOutputStage()))
                     .build();
         }
 
-        private StageStats toStageStats(UriInfo uriInfo, StageInfo stageInfo)
+        private static StageStats toStageStats(StageInfo stageInfo)
         {
             if (stageInfo == null) {
                 return null;
@@ -374,7 +404,7 @@ public class StatementResource
 
             ImmutableList.Builder<StageStats> subStages = ImmutableList.builder();
             for (StageInfo subStage : stageInfo.getSubStages()) {
-                subStages.add(toStageStats(uriInfo, subStage));
+                subStages.add(toStageStats(subStage));
             }
 
             Set<String> uniqueNodes = new HashSet<>();
@@ -385,7 +415,6 @@ public class StatementResource
             }
 
             return StageStats.builder()
-                    .setStageUri(uriInfo.getRequestUriBuilder().replaceQuery("").replacePath(stageInfo.getSelf().getPath()).build())
                     .setStageNumber(Integer.parseInt(stageInfo.getStageId().substring(stageInfo.getQueryId().length() + 1)))
                     .setState(stageInfo.getState().toString())
                     .setDone(stageInfo.getState().isDone())
@@ -419,6 +448,69 @@ public class StatementResource
                 nodes.addAll(globalUniqueNodes(subStage));
             }
             return nodes.build();
+        }
+
+        private static boolean isScheduled(QueryInfo queryInfo)
+        {
+            StageInfo stage = queryInfo.getOutputStage();
+            if (stage == null) {
+                return false;
+            }
+            return IterableTransformer.on(getAllStages(stage))
+                    .transform(stageStateGetter())
+                    .all(isStageRunningOrDone());
+        }
+
+        private static Predicate<StageState> isStageRunningOrDone()
+        {
+            return new Predicate<StageState>()
+            {
+                @Override
+                public boolean apply(StageState state)
+                {
+                    return (state == StageState.RUNNING) || state.isDone();
+                }
+            };
+        }
+
+        private static URI findCancelableLeafStage(QueryInfo queryInfo)
+        {
+            if (queryInfo.getOutputStage() == null) {
+                // query is not running yet, cannot cancel leaf stage
+                return null;
+            }
+
+            // query is running, find the leaf-most running stage
+            return findCancelableLeafStage(queryInfo.getOutputStage());
+        }
+
+        private static URI findCancelableLeafStage(StageInfo stage)
+        {
+            // if this stage is already done, we can't cancel it
+            if (stage.getState().isDone()) {
+                return null;
+            }
+
+            // attempt to find a cancelable sub stage
+            // check in reverse order since build side of a join will be later in the list
+            for (StageInfo subStage : Lists.reverse(stage.getSubStages())) {
+                URI leafStage = findCancelableLeafStage(subStage);
+                if (leafStage != null) {
+                    return leafStage;
+                }
+            }
+
+            // no matching sub stage, so return this stage
+            return stage.getSelf();
+        }
+
+        private static QueryError toQueryError(QueryInfo queryInfo)
+        {
+            if (queryInfo.getFailureInfo() == null) {
+                return null;
+            }
+            FailureInfo failure = queryInfo.getFailureInfo();
+            return new QueryError(failure.getMessage(), null, 0, failure.getErrorLocation(), failure);
         }
 
         private static class RowIterable
