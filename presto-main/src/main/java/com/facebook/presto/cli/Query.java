@@ -109,7 +109,7 @@ public class Query
             }
         }
 
-        List<String> fieldNames = Lists.transform(results.getData().getColumns(), Column.nameGetter());
+        List<String> fieldNames = Lists.transform(results.getColumns(), Column.nameGetter());
         switch (outputFormat) {
             case PAGED:
                 pageOutput(Pager.LESS, fieldNames);
