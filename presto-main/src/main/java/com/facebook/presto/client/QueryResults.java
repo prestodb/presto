@@ -6,14 +6,17 @@ package com.facebook.presto.client;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import javax.validation.constraints.NotNull;
 
 import java.net.URI;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Iterables.unmodifiableIterable;
 
 @Immutable
 public class QueryResults
@@ -22,7 +25,8 @@ public class QueryResults
     private final URI queryInfoUri;
     private final URI partialCancelUri;
     private final URI next;
-    private final QueryData data;
+    private final List<Column> columns;
+    private final Iterable<List<Object>> data;
     private final StatementStats stats;
     private final QueryError error;
 
@@ -32,15 +36,30 @@ public class QueryResults
             @JsonProperty("queryInfoUri") URI queryInfoUri,
             @JsonProperty("partialCancelUri") URI partialCancelUri,
             @JsonProperty("next") URI next,
-            @JsonProperty("data") QueryData data,
+            @JsonProperty("columns") List<Column> columns,
+            @JsonProperty("data") List<List<Object>> data,
             @JsonProperty("stats") StatementStats stats,
             @JsonProperty("error") QueryError error)
+    {
+        this(queryId, queryInfoUri, partialCancelUri, next, columns, (Iterable<List<Object>>) data, stats, error);
+    }
+
+    public QueryResults(
+            String queryId,
+            URI queryInfoUri,
+            URI partialCancelUri,
+            URI next,
+            List<Column> columns,
+            Iterable<List<Object>> data,
+            StatementStats stats,
+            QueryError error)
     {
         this.queryId = checkNotNull(queryId, "queryId is null");
         this.queryInfoUri = checkNotNull(queryInfoUri, "queryInfoUri is null");
         this.partialCancelUri = partialCancelUri;
         this.next = next;
-        this.data = data;
+        this.columns = (columns != null) ? ImmutableList.copyOf(columns) : null;
+        this.data = (data != null) ? unmodifiableIterable(data) : null;
         this.stats = checkNotNull(stats, "stats is null");
         this.error = error;
     }
@@ -75,7 +94,14 @@ public class QueryResults
 
     @Nullable
     @JsonProperty
-    public QueryData getData()
+    public List<Column> getColumns()
+    {
+        return columns;
+    }
+
+    @Nullable
+    @JsonProperty
+    public Iterable<List<Object>> getData()
     {
         return data;
     }
@@ -102,7 +128,8 @@ public class QueryResults
                 .add("queryInfoUri", queryInfoUri)
                 .add("partialCancelUri", partialCancelUri)
                 .add("next", next)
-                .add("data", data)
+                .add("columns", columns)
+                .add("hasData", data != null)
                 .add("stats", stats)
                 .add("error", error)
                 .toString();

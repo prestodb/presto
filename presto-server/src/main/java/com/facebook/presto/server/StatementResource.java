@@ -2,7 +2,6 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.client.Column;
-import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StageStats;
@@ -254,7 +253,7 @@ public class StatementResource
                 throws InterruptedException
         {
             // this call blocks so don't call while holding a lock
-            QueryData data = getData(maxWaitTime);
+            Iterable<List<Object>> data = getData(maxWaitTime);
 
             // get the query info before returning
             QueryInfo queryInfo = queryManager.getQueryInfo(queryId, false);
@@ -271,6 +270,7 @@ public class StatementResource
                     uriInfo.getRequestUriBuilder().replaceQuery("").replacePath(queryInfo.getSelf().getPath()).build(),
                     findCancelableLeafStage(queryInfo),
                     nextResultsUri,
+                    columns,
                     data,
                     toStatementStats(queryInfo),
                     toQueryError(queryInfo));
@@ -286,7 +286,7 @@ public class StatementResource
             return queryResults;
         }
 
-        private synchronized QueryData getData(Duration maxWaitTime)
+        private synchronized Iterable<List<Object>> getData(Duration maxWaitTime)
                 throws InterruptedException
         {
             QueryInfo queryInfo = queryManager.getQueryInfo(queryId, false);
@@ -314,7 +314,7 @@ public class StatementResource
                 return null;
             }
 
-            return new QueryData(columns, new RowIterable(page));
+            return new RowIterable(page);
         }
 
         private synchronized void updateExchangeClient(StageInfo outputStage)

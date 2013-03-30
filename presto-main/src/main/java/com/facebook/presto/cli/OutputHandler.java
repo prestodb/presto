@@ -1,6 +1,5 @@
 package com.facebook.presto.cli;
 
-import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.StatementClient;
 
 import java.io.Closeable;
@@ -15,9 +14,9 @@ public abstract class OutputHandler
             throws IOException
     {
         while (true) {
-            QueryData data = client.current().getData();
+            Iterable<List<Object>> data = client.current().getData();
             if (data != null) {
-                for (List<Object> tuple : data.getData()) {
+                for (List<Object> tuple : data) {
                     handler.processRow(Collections.unmodifiableList(tuple));
                 }
             }
