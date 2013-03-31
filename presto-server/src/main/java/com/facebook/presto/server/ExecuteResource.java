@@ -1,14 +1,12 @@
 package com.facebook.presto.server;
 
-import com.facebook.presto.ResultsIterator;
 import com.facebook.presto.cli.ClientSession;
-import com.facebook.presto.cli.HttpQueryClient;
-import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.client.Column;
+import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.StatementClient;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Uninterruptibles;
+import com.google.common.base.Function;
+import com.google.common.collect.AbstractIterator;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.json.JsonCodec;
@@ -18,6 +16,7 @@ import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
@@ -28,25 +27,32 @@ import java.util.List;
 import static com.facebook.presto.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.PrestoHeaders.PRESTO_USER;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.server.StatementResource.assertRequest;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.Iterators.concat;
+import static com.google.common.collect.Iterators.transform;
 import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static javax.ws.rs.core.Response.Status.INTERNAL_SERVER_ERROR;
+import static javax.ws.rs.core.Response.status;
 
 @Path("/v1/execute")
 public class ExecuteResource
 {
     private final HttpServerInfo serverInfo;
     private final AsyncHttpClient httpClient;
-    private final JsonCodec<QueryInfo> queryInfoCodec;
+    private final JsonCodec<QueryResults> queryResultsCodec;
 
     @Inject
-    public ExecuteResource(HttpServerInfo serverInfo, @ForExecute AsyncHttpClient httpClient, JsonCodec<QueryInfo> queryInfoCodec)
+    public ExecuteResource(
+            HttpServerInfo serverInfo,
+            @ForExecute AsyncHttpClient httpClient,
+            JsonCodec<QueryResults> queryResultsCodec)
     {
         this.serverInfo = checkNotNull(serverInfo, "serverInfo is null");
         this.httpClient = checkNotNull(httpClient, "httpClient is null");
-        this.queryInfoCodec = checkNotNull(queryInfoCodec, "queryInfoCodec is null");
+        this.queryResultsCodec = checkNotNull(queryResultsCodec, "queryResultsCodec is null");
     }
 
     @POST
@@ -57,21 +63,18 @@ public class ExecuteResource
             @HeaderParam(PRESTO_CATALOG) String catalog,
             @HeaderParam(PRESTO_SCHEMA) String schema)
     {
-        checkNotNull(query, "query is null");
+        assertRequest(!isNullOrEmpty(query), "SQL query is empty");
+        assertRequest(!isNullOrEmpty(user), "User (%s) is empty", PRESTO_USER);
+        assertRequest(!isNullOrEmpty(catalog), "Catalog (%s) is empty", PRESTO_CATALOG);
+        assertRequest(!isNullOrEmpty(schema), "Schema (%s) is empty", PRESTO_SCHEMA);
 
         ClientSession session = new ClientSession(serverUri(), user, catalog, schema, false);
 
-        HttpQueryClient queryClient = new HttpQueryClient(session, query, httpClient, queryInfoCodec);
+        StatementClient client = new StatementClient(httpClient, queryResultsCodec, session, query);
 
-        QueryInfo queryInfo = waitForResults(queryClient);
-        Operator operator = queryClient.getResultsOperator();
-
-        List<String> fieldNames = ImmutableList.copyOf(queryInfo.getFieldNames());
-        List<TupleInfo.Type> fieldTypes = getFieldTypes(operator.getTupleInfos());
-        List<Column> columns = createColumnList(fieldNames, fieldTypes);
-
-        ResultsIterator resultsIterator = new ResultsIterator(operator);
-        QueryResults results = new QueryResults(columns, resultsIterator);
+        List<Column> columns = getColumns(client);
+        Iterator<List<Object>> iterator = flatten(new ResultsPageIterator(client));
+        SimpleQueryResults results = new SimpleQueryResults(columns, iterator);
 
         return Response.ok(results, MediaType.APPLICATION_JSON_TYPE).build();
     }
@@ -82,87 +85,90 @@ public class ExecuteResource
         return serverInfo.getHttpUri();
     }
 
-    private static QueryInfo waitForResults(HttpQueryClient queryClient)
+    private static List<Column> getColumns(StatementClient client)
     {
-        QueryInfo queryInfo = waitForQuery(queryClient);
-        if (queryInfo == null) {
-            throw new RuntimeException("Query is gone (server restarted?)");
-        }
-        if (queryInfo.getState().isDone()) {
-            switch (queryInfo.getState()) {
-                case CANCELED:
-                    throw new RuntimeException(format("Query was canceled (#%s)", queryInfo.getQueryId()));
-                case FAILED:
-                    throw new RuntimeException(failureMessage(queryInfo));
-                default:
-                    throw new RuntimeException(format("Query finished with no output (#%s)", queryInfo.getQueryId()));
-            }
-        }
-        return queryInfo;
-    }
-
-    private static QueryInfo waitForQuery(HttpQueryClient queryClient)
-    {
-        int errors = 0;
         while (true) {
-            try {
-                QueryInfo queryInfo = queryClient.getQueryInfo(false);
-
-                // if query is no longer running, finish
-                if ((queryInfo == null) || queryInfo.getState().isDone()) {
-                    return queryInfo;
-                }
-
-                // check if there is there is pending output
-                if (queryInfo.resultsPending()) {
-                    return queryInfo;
-                }
-
-                // TODO: add a blocking method on server
-                Uninterruptibles.sleepUninterruptibly(100, MILLISECONDS);
+            List<Column> columns = client.current().getColumns();
+            if (columns != null) {
+                return columns;
             }
-            catch (Exception e) {
-                errors++;
-                if (errors > 10) {
-                    throw new RuntimeException("Error waiting for query results", e);
+
+            if (!client.hasNext()) {
+                throw internalServerError("No columns");
+            }
+            client.next();
+        }
+    }
+
+    private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator)
+    {
+        return concat(transform(iterator, new Function<Iterable<T>, Iterator<T>>()
+        {
+            @Override
+            public Iterator<T> apply(Iterable<T> input)
+            {
+                return input.iterator();
+            }
+        }));
+    }
+
+    private static class ResultsPageIterator
+            extends AbstractIterator<Iterable<List<Object>>>
+    {
+        private final StatementClient client;
+        private boolean first = true;
+
+        private ResultsPageIterator(StatementClient client)
+        {
+            this.client = checkNotNull(client, "client is null");
+        }
+
+        @Override
+        protected Iterable<List<Object>> computeNext()
+        {
+            if (first) {
+                first = false;
+                Iterable<List<Object>> data = client.current().getData();
+                if (data != null) {
+                    return data;
                 }
             }
+
+            while (client.hasNext()) {
+                client.next();
+                Iterable<List<Object>> data = client.current().getData();
+                if (data != null) {
+                    return data;
+                }
+            }
+
+            if (!"FINISHED".equals(client.current().getStats().getState())) {
+                throw internalServerError(failureMessage(client.current()));
+            }
+
+            return endOfData();
         }
     }
 
-    private static String failureMessage(QueryInfo queryInfo)
+    private static WebApplicationException internalServerError(String message)
     {
-        if (queryInfo.getFailureInfo() == null) {
-            return format("Query failed for an unknown reason (#%s)", queryInfo.getQueryId());
-        }
-        return format("Query failed (#%s): %s", queryInfo.getQueryId(), queryInfo.getFailureInfo().getMessage());
+        return new WebApplicationException(status(INTERNAL_SERVER_ERROR).entity(message).build());
     }
 
-    private static List<TupleInfo.Type> getFieldTypes(List<TupleInfo> tupleInfos)
+    private static String failureMessage(QueryResults results)
     {
-        ImmutableList.Builder<TupleInfo.Type> list = ImmutableList.builder();
-        for (TupleInfo tupleInfo : tupleInfos) {
-            list.addAll(tupleInfo.getTypes());
+        if (results.getError() == null) {
+            return format("Query failed for an unknown reason (#%s)", results.getQueryId());
         }
-        return list.build();
+        return format("Query failed (#%s): %s", results.getQueryId(), results.getError().getMessage());
     }
 
-    private static List<Column> createColumnList(List<String> names, List<TupleInfo.Type> types)
-    {
-        checkArgument(names.size() == types.size(), "names and types size mismatch");
-        ImmutableList.Builder<Column> list = ImmutableList.builder();
-        for (int i = 0; i < names.size(); i++) {
-            list.add(new Column(names.get(i), types.get(i)));
-        }
-        return list.build();
-    }
-
-    public static class QueryResults
+    public static class SimpleQueryResults
     {
         private final List<Column> columns;
         private final Iterator<List<Object>> data;
 
-        public QueryResults(List<Column> columns, Iterator<List<Object>> data)
+        public SimpleQueryResults(List<Column> columns, Iterator<List<Object>> data)
         {
             this.columns = checkNotNull(columns, "columns is null");
             this.data = checkNotNull(data, "data is null");
@@ -178,38 +184,6 @@ public class ExecuteResource
         public Iterator<List<Object>> getData()
         {
             return data;
-        }
-    }
-
-    public static class Column
-    {
-        private final String name;
-        private final TupleInfo.Type type;
-
-        public Column(String name, TupleInfo.Type type)
-        {
-            this.name = checkNotNull(name, "name is null");
-            this.type = checkNotNull(type, "type is null");
-        }
-
-        @JsonProperty
-        public String getName()
-        {
-            return name;
-        }
-
-        @JsonProperty
-        public String getType()
-        {
-            switch (type) {
-                case FIXED_INT_64:
-                    return "bigint";
-                case DOUBLE:
-                    return "double";
-                case VARIABLE_BINARY:
-                    return "varchar";
-            }
-            throw new IllegalArgumentException("unhandled type: " + type);
         }
     }
 }
