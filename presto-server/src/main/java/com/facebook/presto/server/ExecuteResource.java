@@ -14,7 +14,6 @@ import io.airlift.http.server.HttpServerInfo;
 import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
-import javax.inject.Qualifier;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
@@ -22,8 +21,6 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
 import java.net.URI;
 import java.util.Iterator;
 import java.util.List;
@@ -35,10 +32,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.ElementType.METHOD;
-import static java.lang.annotation.ElementType.PARAMETER;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @Path("/v1/execute")
@@ -219,10 +212,4 @@ public class ExecuteResource
             throw new IllegalArgumentException("unhandled type: " + type);
         }
     }
-
-    @Retention(RUNTIME)
-    @Target({FIELD, PARAMETER, METHOD})
-    @Qualifier
-    public @interface ForExecute
-    {}
 }
