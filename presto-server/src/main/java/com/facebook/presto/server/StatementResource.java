@@ -132,7 +132,7 @@ public class StatementResource
         return Response.ok(query.getNextResults(uriInfo, new Duration(100, TimeUnit.MILLISECONDS))).build();
     }
 
-    private static void assertRequest(boolean expression, String format, Object... args)
+    static void assertRequest(boolean expression, String format, Object... args)
     {
         if (!expression) {
             Response request = Response

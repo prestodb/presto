@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.event.query.QueryCompletionEvent;
 import com.facebook.presto.event.query.QueryCreatedEvent;
 import com.facebook.presto.event.query.QueryMonitor;
@@ -209,6 +210,7 @@ public class ServerMainModule
 
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(QueryResults.class);
         binder.bind(StatementResource.class).in(Scopes.SINGLETON);
         binder.bind(ExecuteResource.class).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindAsyncHttpClient("execute", ForExecute.class);

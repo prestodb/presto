@@ -1,5 +1,7 @@
 package com.facebook.presto.server;
 
+import com.facebook.presto.PrestoHeaders;
+import com.facebook.presto.sql.analyzer.Session;
 import com.google.common.base.Charsets;
 import com.google.common.io.Closeables;
 import com.google.common.net.HttpHeaders;
@@ -57,6 +59,9 @@ public class TestExecuteResource
     {
         Request request = preparePost()
                 .setUri(server.resolve("/v1/execute"))
+                .setHeader(PrestoHeaders.PRESTO_USER, "test")
+                .setHeader(PrestoHeaders.PRESTO_CATALOG, Session.DEFAULT_CATALOG)
+                .setHeader(PrestoHeaders.PRESTO_SCHEMA, Session.DEFAULT_SCHEMA)
                 .setBodyGenerator(createStaticBodyGenerator(query, Charsets.UTF_8))
                 .build();
         return client.execute(request, createStringResponseHandler());
