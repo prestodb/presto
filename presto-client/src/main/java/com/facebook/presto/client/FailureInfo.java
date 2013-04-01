@@ -1,15 +1,12 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.client;
 
-import com.facebook.presto.sql.parser.ParsingException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 
 import javax.annotation.Nullable;
 
@@ -17,55 +14,9 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.Functions.toStringFunction;
-import static com.google.common.collect.Iterables.transform;
-import static java.util.Arrays.asList;
-
 public class FailureInfo
 {
     private static final Pattern STACK_TRACE_PATTERN = Pattern.compile("(.*)\\.(.*)\\(([^:]*)(?::(.*))?\\)");
-
-    public static FailureInfo toFailure(Throwable failure)
-    {
-        if (failure == null) {
-            return null;
-        }
-        // todo prevent looping with suppressed cause loops and such
-        return new FailureInfo(failure.getClass().getCanonicalName(),
-                failure.getMessage(),
-                toFailure(failure.getCause()),
-                toFailures(asList(failure.getSuppressed())),
-                Lists.transform(asList(failure.getStackTrace()), toStringFunction()),
-                getErrorLocation(failure));
-    }
-
-    public static List<FailureInfo> toFailures(Iterable<? extends Throwable> failures)
-    {
-        return ImmutableList.copyOf(transform(failures, toFailureFunction()));
-    }
-
-    private static Function<Throwable, FailureInfo> toFailureFunction()
-    {
-        return new Function<Throwable, FailureInfo>()
-        {
-            @Override
-            public FailureInfo apply(Throwable throwable)
-            {
-                return toFailure(throwable);
-            }
-        };
-    }
-
-    @Nullable
-    private static ErrorLocation getErrorLocation(Throwable throwable)
-    {
-        // TODO: this is a big hack
-        if (throwable instanceof ParsingException) {
-            ParsingException e = (ParsingException) throwable;
-            return new ErrorLocation(e.getLineNumber(), e.getColumnNumber());
-        }
-        return null;
-    }
 
     private final String type;
     private final String message;
@@ -200,17 +151,5 @@ public class FailureInfo
             }
             return type;
         }
-    }
-
-    public static Function<FailureInfo, String> messageGetter()
-    {
-        return new Function<FailureInfo, String>()
-        {
-            @Override
-            public String apply(FailureInfo input)
-            {
-                return input.getMessage();
-            }
-        };
     }
 }

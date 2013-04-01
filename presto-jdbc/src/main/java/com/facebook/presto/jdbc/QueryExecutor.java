@@ -1,6 +1,6 @@
 package com.facebook.presto.jdbc;
 
-import com.facebook.presto.cli.ClientSession;
+import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.cli.HttpQueryClient;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.metadata.HandleJsonModule;

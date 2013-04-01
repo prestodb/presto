@@ -1,6 +1,7 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.cli.ClientOptions.OutputFormat;
+import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.ingest.RuntimeIOException;
 import com.facebook.presto.sql.parser.StatementSplitter;
 import com.google.common.base.Strings;

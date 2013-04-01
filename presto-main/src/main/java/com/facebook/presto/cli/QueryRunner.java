@@ -1,5 +1,6 @@
 package com.facebook.presto.cli;
 
+import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.metadata.HandleJsonModule;

@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.tuple.TupleInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;

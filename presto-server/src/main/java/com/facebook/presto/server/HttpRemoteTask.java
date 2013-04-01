@@ -8,7 +8,7 @@ import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.BufferInfo;
 import com.facebook.presto.execution.ExecutionStats.ExecutionStatsSnapshot;
-import com.facebook.presto.execution.FailureInfo;
+import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
 import com.facebook.presto.execution.SharedBufferInfo;

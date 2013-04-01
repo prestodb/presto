@@ -12,7 +12,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.net.URI;
 import java.util.List;
 
-import static com.facebook.presto.execution.FailureInfo.toFailure;
+import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 @ThreadSafe

@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.cli;
 
+import com.facebook.presto.client.ClientSession;
 import io.airlift.command.Option;
 
 import java.net.URI;

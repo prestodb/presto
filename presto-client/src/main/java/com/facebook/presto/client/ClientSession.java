@@ -1,7 +1,7 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto.cli;
+package com.facebook.presto.client;
 
 import com.google.common.base.Objects;
 

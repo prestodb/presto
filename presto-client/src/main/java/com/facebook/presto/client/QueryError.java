@@ -1,7 +1,5 @@
 package com.facebook.presto.client;
 
-import com.facebook.presto.execution.ErrorLocation;
-import com.facebook.presto.execution.FailureInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
