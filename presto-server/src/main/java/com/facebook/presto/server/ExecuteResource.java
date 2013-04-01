@@ -1,6 +1,6 @@
 package com.facebook.presto.server;
 
-import com.facebook.presto.cli.ClientSession;
+import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
@@ -24,9 +24,9 @@ import java.net.URI;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.PrestoHeaders.PRESTO_CATALOG;
-import static com.facebook.presto.PrestoHeaders.PRESTO_SCHEMA;
-import static com.facebook.presto.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.server.StatementResource.assertRequest;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;

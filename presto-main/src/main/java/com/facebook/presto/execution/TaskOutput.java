@@ -25,7 +25,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.execution.FailureInfo.toFailures;
+import static com.facebook.presto.util.Failures.toFailures;
 
 @ThreadSafe
 public class TaskOutput

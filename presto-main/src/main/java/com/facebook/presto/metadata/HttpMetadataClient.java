@@ -1,6 +1,6 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.cli.ClientSession;
+import com.facebook.presto.client.ClientSession;
 import com.google.inject.TypeLiteral;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;

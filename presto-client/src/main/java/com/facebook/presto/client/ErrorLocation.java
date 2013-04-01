@@ -1,4 +1,4 @@
-package com.facebook.presto.execution;
+package com.facebook.presto.client;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

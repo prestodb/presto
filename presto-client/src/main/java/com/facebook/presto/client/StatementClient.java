@@ -1,7 +1,5 @@
 package com.facebook.presto.client;
 
-import com.facebook.presto.PrestoHeaders;
-import com.facebook.presto.cli.ClientSession;
 import com.google.common.base.Charsets;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.JsonResponseHandler;

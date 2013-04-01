@@ -3,7 +3,8 @@
  */
 package com.facebook.presto.cli;
 
-import com.facebook.presto.PrestoHeaders;
+import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.execution.BufferInfo;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.StageInfo;

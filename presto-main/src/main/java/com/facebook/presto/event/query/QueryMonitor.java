@@ -1,7 +1,7 @@
 package com.facebook.presto.event.query;
 
 import com.facebook.presto.execution.ExecutionStats;
-import com.facebook.presto.execution.FailureInfo;
+import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.StageInfo;
 import com.google.inject.Inject;

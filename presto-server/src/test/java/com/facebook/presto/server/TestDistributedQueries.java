@@ -4,7 +4,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.AbstractTestQueries;
-import com.facebook.presto.cli.ClientSession;
+import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.cli.HttpQueryClient;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;

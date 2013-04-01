@@ -58,6 +58,7 @@
         <module>presto-spi</module>
         <module>presto-hive</module>
         <module>presto-hive-plugin</module>
+        <module>presto-client</module>
         <module>presto-main</module>
         <module>presto-jdbc</module>
         <module>presto-server</module>
@@ -89,6 +90,12 @@
                 <artifactId>presto-hive</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-client</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
