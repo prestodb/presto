@@ -6,8 +6,10 @@ import org.antlr.runtime.tree.Tree;
 
 import java.util.List;
 
-public class TreePrinter
+public final class TreePrinter
 {
+    private TreePrinter() {}
+
     public static String treeToString(Tree tree)
     {
         return treeToString(tree, 1);
