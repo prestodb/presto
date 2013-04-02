@@ -46,6 +46,7 @@ import com.google.common.collect.Multimap;
 import com.google.inject.Inject;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,8 +56,6 @@ import java.util.concurrent.Callable;
 import static com.facebook.presto.metadata.ImportColumnHandle.columnNameGetter;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.tree.ComparisonExpression.matchesPattern;
-import static com.facebook.presto.util.IterableUtils.limit;
-import static com.facebook.presto.util.IterableUtils.shuffle;
 import static com.facebook.presto.util.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.in;
@@ -146,15 +145,15 @@ public class SplitManager
                 .stopOn(ObjectNotFoundException.class)
                 .stopOnIllegalExceptions()
                 .runUnchecked(new Callable<Iterable<PartitionChunk>>()
-        {
-            @Override
-            public Iterable<PartitionChunk> call()
-                    throws Exception
-            {
-                ImportClient importClient = importClientManager.getClient(sourceName);
-                return importClient.getPartitionChunks(databaseName, tableName, partitions, columns);
-            }
-        });
+                {
+                    @Override
+                    public Iterable<PartitionChunk> call()
+                            throws Exception
+                    {
+                        ImportClient importClient = importClientManager.getClient(sourceName);
+                        return importClient.getPartitionChunks(databaseName, tableName, partitions, columns);
+                    }
+                });
 
         return Iterables.transform(chunks, createImportSplitFunction(sourceName));
     }
@@ -245,15 +244,15 @@ public class SplitManager
                 .stopOn(ObjectNotFoundException.class)
                 .stopOnIllegalExceptions()
                 .runUnchecked(new Callable<List<PartitionInfo>>()
-        {
-            @Override
-            public List<PartitionInfo> call()
-                    throws Exception
-            {
-                ImportClient importClient = importClientManager.getClient(sourceName);
-                return importClient.getPartitions(databaseName, tableName, bindings);
-            }
-        });
+                {
+                    @Override
+                    public List<PartitionInfo> call()
+                            throws Exception
+                    {
+                        ImportClient importClient = importClientManager.getClient(sourceName);
+                        return importClient.getPartitions(databaseName, tableName, bindings);
+                    }
+                });
     }
 
     private QualifiedNameReference extractReference(ComparisonExpression expression)
@@ -286,15 +285,15 @@ public class SplitManager
                 .stopOn(ObjectNotFoundException.class)
                 .stopOnIllegalExceptions()
                 .runUnchecked(new Callable<List<SchemaField>>()
-        {
-            @Override
-            public List<SchemaField> call()
-                    throws Exception
-            {
-                ImportClient client = importClientManager.getClient(sourceName);
-                return client.getPartitionKeys(databaseName, tableName);
-            }
-        });
+                {
+                    @Override
+                    public List<SchemaField> call()
+                            throws Exception
+                    {
+                        ImportClient client = importClientManager.getClient(sourceName);
+                        return client.getPartitionKeys(databaseName, tableName);
+                    }
+                });
     }
 
     private List<PartitionInfo> prunePartitions(Session session, List<PartitionInfo> partitions, Expression predicate, Map<String, Symbol> columnNameToSymbol)
@@ -394,5 +393,17 @@ public class SplitManager
                 return input.getName();
             }
         };
+    }
+
+    private static <T> List<T> limit(Iterable<T> iterable, int limitSize)
+    {
+        return ImmutableList.copyOf(Iterables.limit(iterable, limitSize));
+    }
+
+    private static <T> List<T> shuffle(Iterable<T> iterable)
+    {
+        List<T> list = Lists.newArrayList(iterable);
+        Collections.shuffle(list);
+        return list;
     }
 }

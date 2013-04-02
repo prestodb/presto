@@ -3,8 +3,9 @@ package com.facebook.presto.sql.tree;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
-import static com.facebook.presto.util.IterableUtils.sameElements;
+import java.util.Iterator;
 
 public final class TreeRewriter<C>
 {
@@ -737,5 +738,24 @@ public final class TreeRewriter<C>
         {
             return defaultRewrite;
         }
+    }
+
+    @SuppressWarnings("ObjectEquality")
+    private static <T> boolean sameElements(Iterable<? extends T> a, Iterable<? extends T> b)
+    {
+        if (Iterables.size(a) != Iterables.size(b)) {
+            return false;
+        }
+
+        Iterator<? extends T> first = a.iterator();
+        Iterator<? extends T> second = b.iterator();
+
+        while (first.hasNext() && second.hasNext()) {
+            if (first.next() != second.next()) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
