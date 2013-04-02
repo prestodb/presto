@@ -1,13 +1,13 @@
 package com.facebook.presto.jdbc;
 
-import com.facebook.presto.ResultsIterator;
-import com.facebook.presto.cli.HttpQueryClient;
-import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.client.Column;
+import com.facebook.presto.client.QueryError;
+import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.StatementClient;
+import com.google.common.base.Function;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.Uninterruptibles;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -30,15 +30,18 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.Calendar;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Throwables.propagate;
+import static com.google.common.base.Throwables.propagateIfInstanceOf;
+import static com.google.common.collect.Iterators.concat;
+import static com.google.common.collect.Iterators.transform;
 import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class JdbcResultSet
         implements ResultSet
@@ -46,28 +49,23 @@ public class JdbcResultSet
     private static final int VARIABLE_BINARY_MAX = 1024 * 1024 * 1024;
 
     private final AtomicBoolean closed = new AtomicBoolean();
-    private final HttpQueryClient queryClient;
-    private final ResultsIterator results;
+    private final StatementClient client;
+    private final Iterator<List<Object>> results;
     private final Map<String, Integer> fieldMap;
     private final ResultSetMetaData resultSetMetaData;
     private final AtomicReference<List<Object>> row = new AtomicReference<>();
     private final AtomicBoolean wasNull = new AtomicBoolean();
 
-    JdbcResultSet(HttpQueryClient queryClient)
+    JdbcResultSet(StatementClient client)
             throws SQLException
     {
-        this.queryClient = checkNotNull(queryClient, "queryClient is null");
+        this.client = checkNotNull(client, "client is null");
 
-        QueryInfo queryInfo = waitForResults();
-        Operator operator = queryClient.getResultsOperator();
+        List<Column> columns = getColumns(client);
+        this.fieldMap = getFieldMap(columns);
+        this.resultSetMetaData = new JdbcResultSetMetaData(getColumnInfo(columns));
 
-        results = new ResultsIterator(operator);
-
-        List<String> fieldNames = ImmutableList.copyOf(queryInfo.getFieldNames());
-        List<TupleInfo.Type> fieldTypes = getFieldTypes(operator.getTupleInfos());
-
-        fieldMap = getFieldMap(fieldNames);
-        resultSetMetaData = new JdbcResultSetMetaData(getColumnInfo(fieldNames, fieldTypes));
+        this.results = flatten(new ResultsPageIterator(client));
     }
 
     @Override
@@ -75,21 +73,25 @@ public class JdbcResultSet
             throws SQLException
     {
         checkOpen();
-        if (!results.hasNext()) {
-            row.set(null);
-            return false;
+        try {
+            if (!results.hasNext()) {
+                row.set(null);
+                return false;
+            }
+            row.set(results.next());
+            return true;
         }
-        row.set(results.next());
-        return true;
+        catch (RuntimeException e) {
+            propagateIfInstanceOf(e, SQLException.class);
+            throw new SQLException("Error fetching results", e);
+        }
     }
 
     @Override
     public void close()
             throws SQLException
     {
-        if (!closed.getAndSet(true)) {
-            queryClient.close();
-        }
+        client.close();
     }
 
     @Override
@@ -1483,122 +1485,133 @@ public class JdbcResultSet
         return index;
     }
 
-    private QueryInfo waitForResults()
+    private static List<Column> getColumns(StatementClient client)
             throws SQLException
     {
-        QueryInfo queryInfo = waitForQuery();
-        if (queryInfo == null) {
-            throw new SQLException("Query is gone (server restarted?)");
-        }
-        if (queryInfo.getState().isDone()) {
-            switch (queryInfo.getState()) {
-                case CANCELED:
-                    throw new SQLException(format("Query was canceled (#%s)", queryInfo.getQueryId()));
-                case FAILED:
-                    throw new SQLException(failureMessage(queryInfo));
-                default:
-                    throw new SQLException(format("Query finished with no output (#%s)", queryInfo.getQueryId()));
-            }
-        }
-        return queryInfo;
-    }
-
-    private QueryInfo waitForQuery()
-            throws SQLException
-    {
-        int errors = 0;
         while (true) {
-            try {
-                QueryInfo queryInfo = queryClient.getQueryInfo(false);
-
-                // if query is no longer running, finish
-                if ((queryInfo == null) || queryInfo.getState().isDone()) {
-                    return queryInfo;
-                }
-
-                // check if there is there is pending output
-                if (queryInfo.resultsPending()) {
-                    return queryInfo;
-                }
-
-                // TODO: add a blocking method on server
-                Uninterruptibles.sleepUninterruptibly(100, MILLISECONDS);
+            List<Column> columns = client.current().getColumns();
+            if (columns != null) {
+                return columns;
             }
-            catch (Exception e) {
-                errors++;
-                if (errors > 10) {
-                    throw new SQLException("Error waiting for query results", e);
+
+            if (!client.hasNext()) {
+                QueryResults results = client.current();
+                if (results.getError() == null) {
+                    throw new SQLException(format("Query has no columns (#%s)", results.getQueryId()));
                 }
+                throw resultsException(results);
             }
+            client.next();
         }
     }
 
-    private static String failureMessage(QueryInfo queryInfo)
+    private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator)
     {
-        if (queryInfo.getFailureInfo() == null) {
-            return format("Query failed for an unknown reason (#%s)", queryInfo.getQueryId());
-        }
-        return format("Query failed (#%s): %s", queryInfo.getQueryId(), queryInfo.getFailureInfo().getMessage());
+        return concat(transform(iterator, new Function<Iterable<T>, Iterator<T>>()
+        {
+            @Override
+            public Iterator<T> apply(Iterable<T> input)
+            {
+                return input.iterator();
+            }
+        }));
     }
 
-    private static Map<String, Integer> getFieldMap(List<String> fieldNames)
+    private static class ResultsPageIterator
+            extends AbstractIterator<Iterable<List<Object>>>
+    {
+        private final StatementClient client;
+        private boolean first = true;
+
+        private ResultsPageIterator(StatementClient client)
+        {
+            this.client = checkNotNull(client, "client is null");
+        }
+
+        @Override
+        protected Iterable<List<Object>> computeNext()
+        {
+            if (first) {
+                first = false;
+                Iterable<List<Object>> data = client.current().getData();
+                if (data != null) {
+                    return data;
+                }
+            }
+
+            while (client.hasNext()) {
+                client.next();
+                Iterable<List<Object>> data = client.current().getData();
+                if (data != null) {
+                    return data;
+                }
+            }
+
+            if (!"FINISHED".equals(client.current().getStats().getState())) {
+                throw propagate(resultsException(client.current()));
+            }
+
+            return endOfData();
+        }
+    }
+
+    private static SQLException resultsException(QueryResults results)
+    {
+        QueryError error = results.getError();
+        if (error == null) {
+            return new SQLException(format("Query failed for an unknown reason (#%s)", results.getQueryId()));
+        }
+        String message = format("Query failed (#%s): %s", results.getQueryId(), error.getMessage());
+        Throwable cause = (error.getFailureInfo() == null) ? null : error.getFailureInfo().toException();
+        return new SQLException(message, error.getSqlState(), error.getErrorCode(), cause);
+    }
+
+    private static Map<String, Integer> getFieldMap(List<Column> columns)
     {
         ImmutableMap.Builder<String, Integer> map = ImmutableMap.builder();
-        for (int i = 0; i < fieldNames.size(); i++) {
-            map.put(fieldNames.get(i).toLowerCase(), i + 1);
+        for (int i = 0; i < columns.size(); i++) {
+            map.put(columns.get(i).getName().toLowerCase(), i + 1);
         }
         return map.build();
     }
 
-    private static List<TupleInfo.Type> getFieldTypes(List<TupleInfo> tupleInfos)
+    private static List<ColumnInfo> getColumnInfo(List<Column> columns)
     {
-        ImmutableList.Builder<TupleInfo.Type> list = ImmutableList.builder();
-        for (TupleInfo tupleInfo : tupleInfos) {
-            list.addAll(tupleInfo.getTypes());
-        }
-        return list.build();
-    }
-
-    private static List<ColumnInfo> getColumnInfo(List<String> fieldNames, List<TupleInfo.Type> fieldTypes)
-    {
-        checkArgument(fieldNames.size() == fieldTypes.size(), "names / types size mismatch");
         ImmutableList.Builder<ColumnInfo> list = ImmutableList.builder();
-        for (int i = 0; i < fieldNames.size(); i++) {
-            String name = fieldNames.get(i);
-            TupleInfo.Type type = fieldTypes.get(i);
+        for (Column column : columns) {
             ColumnInfo.Builder builder = new ColumnInfo.Builder()
                     .setCatalogName("") // TODO
                     .setSchemaName("") // TODO
                     .setTableName("") // TODO
-                    .setColumnLabel(name)
-                    .setColumnName(name) // TODO
-                    .setColumnTypeName(type.getName().toUpperCase())
+                    .setColumnLabel(column.getName())
+                    .setColumnName(column.getName()) // TODO
+                    .setColumnTypeName(column.getType().toUpperCase())
                     .setNullable(ResultSetMetaData.columnNullableUnknown)
                     .setCurrency(false);
-            setTypeInfo(builder, type);
+            setTypeInfo(builder, column.getType());
             list.add(builder.build());
         }
         return list.build();
     }
 
-    private static void setTypeInfo(ColumnInfo.Builder builder, TupleInfo.Type type)
+    private static void setTypeInfo(ColumnInfo.Builder builder, String type)
     {
         switch (type) {
-            case FIXED_INT_64:
+            case "bigint":
                 builder.setColumnType(Types.BIGINT);
                 builder.setSigned(true);
                 builder.setPrecision(19);
                 builder.setScale(0);
                 builder.setColumnDisplaySize(20);
                 break;
-            case DOUBLE:
+            case "double":
                 builder.setColumnType(Types.DOUBLE);
                 builder.setSigned(true);
                 builder.setPrecision(17);
                 builder.setScale(0);
                 builder.setColumnDisplaySize(24);
                 break;
-            case VARIABLE_BINARY:
+            case "varchar":
                 builder.setColumnType(Types.LONGNVARCHAR);
                 builder.setSigned(true);
                 builder.setPrecision(VARIABLE_BINARY_MAX);
