@@ -82,7 +82,7 @@ public class IterableTransformer<E>
 
     public <V> MapTransformer<E, V> toMap(Function<? super E, V> valueFunction)
     {
-        return new MapTransformer<>(IterableUtils.toMap(iterable, valueFunction));
+        return new MapTransformer<>(Maps.toMap(iterable, valueFunction));
     }
 
     public List<E> list()
