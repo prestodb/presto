@@ -4,8 +4,8 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.block.rle.RunLengthEncodedBlock;
-import com.facebook.presto.slice.SliceOutput;
 import com.facebook.presto.tuple.Tuple;
+import io.airlift.slice.SliceOutput;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;

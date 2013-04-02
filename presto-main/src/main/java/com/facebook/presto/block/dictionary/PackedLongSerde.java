@@ -1,9 +1,9 @@
 package com.facebook.presto.block.dictionary;
 
-import com.facebook.presto.slice.SizeOf;
-import com.facebook.presto.slice.SliceInput;
-import com.facebook.presto.slice.SliceOutput;
 import com.google.common.collect.AbstractIterator;
+import io.airlift.slice.SizeOf;
+import io.airlift.slice.SliceInput;
+import io.airlift.slice.SliceOutput;
 
 import java.util.Iterator;
 

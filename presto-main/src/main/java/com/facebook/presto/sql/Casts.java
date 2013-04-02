@@ -1,8 +1,8 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.operator.scalar.MathFunctions;
-import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.Slices;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import static com.google.common.base.Charsets.US_ASCII;
 import static com.google.common.base.Charsets.UTF_8;

@@ -1,9 +1,9 @@
 package com.facebook.presto.sql.tree;
 
-import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.Slices;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import static com.google.common.base.Charsets.UTF_8;
 

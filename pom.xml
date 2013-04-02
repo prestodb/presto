@@ -270,6 +270,12 @@
 
             <dependency>
                 <groupId>io.airlift</groupId>
+                <artifactId>slice</artifactId>
+                <version>0.1-SNAPSHOT</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
                 <artifactId>airline</artifactId>
                 <version>0.5</version>
             </dependency>

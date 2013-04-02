@@ -1,6 +1,6 @@
 package com.facebook.presto.tuple;
 
-import com.facebook.presto.slice.Slice;
+import io.airlift.slice.Slice;
 
 public interface TupleReadable
 {

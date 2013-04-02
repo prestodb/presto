@@ -1,7 +1,7 @@
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.slice.Slice;
 import com.google.common.base.Throwables;
+import io.airlift.slice.Slice;
 
 import java.io.IOException;
 

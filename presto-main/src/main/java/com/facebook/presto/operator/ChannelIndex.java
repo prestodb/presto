@@ -6,9 +6,9 @@ package com.facebook.presto.operator;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import it.unimi.dsi.fastutil.Swapper;
@@ -20,8 +20,8 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceOffset;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
-import static com.facebook.presto.slice.SizeOf.sizeOf;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.sizeOf;
 
 /**
  * ChannelIndex a low-level data structure which contains the address of every value position with a channel.

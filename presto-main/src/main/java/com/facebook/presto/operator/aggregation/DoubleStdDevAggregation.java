@@ -1,8 +1,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.BlockBuilder;
-
-import com.facebook.presto.slice.Slice;
+import io.airlift.slice.Slice;
 
 public class DoubleStdDevAggregation
         extends DoubleVarianceAggregation

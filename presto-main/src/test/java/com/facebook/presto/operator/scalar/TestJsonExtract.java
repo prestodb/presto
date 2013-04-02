@@ -1,10 +1,10 @@
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.Slices;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.google.common.base.Charsets;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.io.IOException;

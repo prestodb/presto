@@ -4,7 +4,6 @@ import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Input;
 import com.facebook.presto.operator.ProjectionFunction;
-import com.facebook.presto.slice.Slice;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
@@ -12,6 +11,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.TreeRewriter;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
+import io.airlift.slice.Slice;
 
 import java.util.Map;
 

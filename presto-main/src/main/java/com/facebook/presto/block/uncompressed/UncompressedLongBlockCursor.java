@@ -3,14 +3,14 @@ package com.facebook.presto.block.uncompressed;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
+import io.airlift.slice.Slice;
 
-import static com.facebook.presto.slice.SizeOf.SIZE_OF_BYTE;
-import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
+import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
 public class UncompressedLongBlockCursor
         implements BlockCursor

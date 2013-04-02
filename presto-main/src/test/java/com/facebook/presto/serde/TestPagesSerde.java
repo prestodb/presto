@@ -6,15 +6,15 @@ package com.facebook.presto.serde;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.slice.DynamicSliceOutput;
+import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
 import java.util.Iterator;
 
-import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.serde.PagesSerde.readPages;
 import static com.facebook.presto.serde.PagesSerde.writePages;
+import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
 import static org.testng.Assert.assertFalse;
 
 public class TestPagesSerde

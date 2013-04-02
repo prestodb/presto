@@ -3,10 +3,10 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;

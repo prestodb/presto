@@ -3,11 +3,11 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.Slices;
 import com.facebook.presto.sql.analyzer.Session;
 import com.google.common.base.Charsets;
 import com.google.common.primitives.Ints;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.joda.time.DateTimeField;
 import org.joda.time.DateTimeZone;
 import org.joda.time.chrono.ISOChronology;
