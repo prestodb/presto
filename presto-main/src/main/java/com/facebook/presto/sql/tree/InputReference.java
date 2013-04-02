@@ -1,14 +1,13 @@
 package com.facebook.presto.sql.tree;
 
-import com.facebook.presto.operator.Input;
 import com.google.common.base.Objects;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
- * An reference to a {@link com.facebook.presto.operator.Input}
- *
- * This is used to replace QualifiedNameReferences with direct references to the physical
+ * A reference to an execution engine {@link Input}.
+ * <p/>
+ * This is used to replace a {@link QualifiedNameReference} with a direct reference to the physical
  * channel and field to avoid unnecessary lookups in a symbol->input map during evaluation
  */
 public class InputReference

@@ -4,6 +4,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.tuple.TupleReadable;

@@ -8,6 +8,7 @@ import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.FixedWidthAggregationFunction;
 import com.facebook.presto.operator.aggregation.VariableWidthAggregationFunction;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
+import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
