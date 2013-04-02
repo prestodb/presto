@@ -51,6 +51,7 @@ public class TestingPrestoServer
                 new TestingJmxModule(),
                 new InMemoryEventModule(),
                 new TraceTokenModule(),
+                new FailureDetectorModule(),
                 new ServerMainModule());
 
         Injector injector = app
