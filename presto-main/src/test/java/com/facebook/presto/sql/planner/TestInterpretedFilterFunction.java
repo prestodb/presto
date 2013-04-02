@@ -4,12 +4,12 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.TestingMetadata;
-import com.facebook.presto.operator.Input;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Input;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 

@@ -1,6 +1,6 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.operator.Input;
+import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.tuple.TupleReadable;
 
 public class TupleInputResolver

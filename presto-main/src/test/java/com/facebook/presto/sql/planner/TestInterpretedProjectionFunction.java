@@ -7,7 +7,6 @@ import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.TestingMetadata;
-import com.facebook.presto.operator.Input;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.NameToSymbolRewriter;
 import com.facebook.presto.sql.analyzer.Session;
@@ -16,6 +15,7 @@ import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.TreeRewriter;
 import com.facebook.presto.tuple.TupleInfo;
@@ -27,6 +27,7 @@ import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
+
 import java.util.Map;
 
 import static com.facebook.presto.sql.analyzer.Type.DOUBLE;
