@@ -7,11 +7,11 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.Input;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.slice.Slice;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import org.apache.commons.math.stat.descriptive.DescriptiveStatistics;
 import org.testng.annotations.Test;
 

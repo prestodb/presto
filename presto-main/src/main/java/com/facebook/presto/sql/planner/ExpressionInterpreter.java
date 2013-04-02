@@ -3,7 +3,6 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.scalar.UnixTimeFunctions;
-import com.facebook.presto.slice.Slice;
 import com.facebook.presto.sql.Casts;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
@@ -42,8 +41,10 @@ import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
+
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;

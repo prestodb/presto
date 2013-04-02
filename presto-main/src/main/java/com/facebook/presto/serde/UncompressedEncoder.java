@@ -4,11 +4,11 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.slice.DynamicSliceOutput;
-import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.SliceOutput;
 import com.facebook.presto.tuple.Tuple;
 import com.google.common.base.Preconditions;
+import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
 
 import static com.google.common.base.Preconditions.checkNotNull;

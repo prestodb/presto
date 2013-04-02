@@ -1,13 +1,13 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.slice.DynamicSliceOutput;
-import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.SliceOutput;
-import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Charsets;
+import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 

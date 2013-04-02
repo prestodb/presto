@@ -6,10 +6,10 @@ package com.facebook.presto.block.rle;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
+import io.airlift.slice.Slice;
 
 public final class RunLengthEncodedBlockCursor implements BlockCursor
 {

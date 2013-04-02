@@ -3,13 +3,13 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.slice.SizeOf;
-import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.block.dictionary.Dictionary;
 import com.facebook.presto.block.uncompressed.UncompressedTupleInfoSerde;
-import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.SliceInput;
-import com.facebook.presto.slice.SliceOutput;
+import com.facebook.presto.tuple.TupleInfo;
+import io.airlift.slice.SizeOf;
+import io.airlift.slice.Slice;
+import io.airlift.slice.SliceInput;
+import io.airlift.slice.SliceOutput;
 
 import static com.google.common.base.Preconditions.checkArgument;
 

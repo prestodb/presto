@@ -6,13 +6,13 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.operator.aggregation.AggregationFunction;
 import com.facebook.presto.operator.aggregation.FixedWidthAggregationFunction;
 import com.facebook.presto.operator.aggregation.VariableWidthAggregationFunction;
-import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.Slices;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.util.List;
 

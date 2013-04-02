@@ -1,7 +1,7 @@
 package com.facebook.presto.tuple;
 
-import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.TupleInfo.Type;
+import io.airlift.slice.Slice;
 import it.unimi.dsi.fastutil.ints.AbstractIntComparator;
 
 import java.util.List;

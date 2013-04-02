@@ -1,9 +1,9 @@
 package com.facebook.presto.block;
 
-import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
+import io.airlift.slice.Slice;
 
 /**
  * Iterate as:

@@ -3,14 +3,14 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
+import io.airlift.slice.Slice;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_LONG;
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;
-import static com.google.common.base.Preconditions.*;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ApproximateCountDistinctAggregation
         implements FixedWidthAggregationFunction

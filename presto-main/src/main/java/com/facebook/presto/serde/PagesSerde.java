@@ -5,12 +5,12 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.operator.Page;
-import com.facebook.presto.slice.SliceInput;
-import com.facebook.presto.slice.SliceOutput;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.io.InputSupplier;
+import io.airlift.slice.SliceInput;
+import io.airlift.slice.SliceOutput;
 
 import java.io.IOException;
 import java.util.Iterator;

@@ -3,9 +3,9 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.SliceInput;
-import com.facebook.presto.slice.SliceOutput;
+import io.airlift.slice.Slice;
+import io.airlift.slice.SliceInput;
+import io.airlift.slice.SliceOutput;
 
 public class BlocksFileStats
 {

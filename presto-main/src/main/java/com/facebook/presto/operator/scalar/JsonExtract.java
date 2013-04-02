@@ -1,8 +1,5 @@
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.slice.DynamicSliceOutput;
-import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.Slices;
 import com.facebook.presto.util.ThreadLocalCache;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -14,6 +11,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import javax.annotation.Nullable;
 

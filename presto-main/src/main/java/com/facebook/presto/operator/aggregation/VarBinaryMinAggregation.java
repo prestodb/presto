@@ -6,9 +6,9 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.slice.Slice;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.Ordering;
+import io.airlift.slice.Slice;
 
 public class VarBinaryMinAggregation
         implements VariableWidthAggregationFunction<Slice>

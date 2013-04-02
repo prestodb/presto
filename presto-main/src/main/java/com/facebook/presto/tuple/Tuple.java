@@ -1,10 +1,10 @@
 package com.facebook.presto.tuple;
 
-import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.SliceOutput;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
+import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 import java.util.ArrayList;
 import java.util.Collections;

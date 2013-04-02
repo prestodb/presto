@@ -5,13 +5,13 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.slice.SizeOf;
-import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.SliceInput;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.primitives.Ints;
+import io.airlift.slice.SizeOf;
+import io.airlift.slice.Slice;
+import io.airlift.slice.SliceInput;
 import io.airlift.units.DataSize;
 
 import java.util.Iterator;

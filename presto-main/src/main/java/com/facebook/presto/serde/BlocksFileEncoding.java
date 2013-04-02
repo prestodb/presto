@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.serde;
 
-import com.facebook.presto.slice.SliceOutput;
+import io.airlift.slice.SliceOutput;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 

@@ -7,9 +7,9 @@ import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.slice.DynamicSliceOutput;
 import com.facebook.presto.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tuple.TupleInfo.SINGLE_VARBINARY;

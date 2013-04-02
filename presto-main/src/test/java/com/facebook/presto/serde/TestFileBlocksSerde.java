@@ -5,10 +5,10 @@ package com.facebook.presto.serde;
 
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
-import com.facebook.presto.slice.DynamicSliceOutput;
-import com.facebook.presto.slice.Slice;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.OutputSupplier;
+import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import java.util.List;

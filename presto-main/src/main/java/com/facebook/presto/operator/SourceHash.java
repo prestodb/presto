@@ -5,7 +5,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.slice.Slice;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 

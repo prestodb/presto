@@ -1,18 +1,18 @@
 package com.facebook.presto.tuple;
 
-import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tuple.TupleInfo.Builder;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.slice.SizeOf.SIZE_OF_BYTE;
-import static com.facebook.presto.slice.SizeOf.SIZE_OF_DOUBLE;
-import static com.facebook.presto.slice.SizeOf.SIZE_OF_INT;
-import static com.facebook.presto.slice.SizeOf.SIZE_OF_LONG;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
 import static com.facebook.presto.tuple.Tuples.NULL_LONG_TUPLE;
+import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -180,7 +180,7 @@ public class TestTupleInfo
     @Test
     public void testSingleVariableLengthMemoryLayout()
     {
-        Slice binary = Slices.wrappedBuffer(new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 });
+        Slice binary = Slices.wrappedBuffer(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
 
         Tuple tuple = TupleInfo.SINGLE_VARBINARY.builder()
                 .append(binary)

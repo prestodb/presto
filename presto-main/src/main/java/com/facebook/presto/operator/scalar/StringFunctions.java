@@ -1,10 +1,10 @@
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.slice.Slice;
-import com.facebook.presto.slice.Slices;
 import com.google.common.base.Ascii;
 import com.google.common.base.Charsets;
 import com.google.common.primitives.Ints;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 @SuppressWarnings("UnusedDeclaration")
 public final class StringFunctions

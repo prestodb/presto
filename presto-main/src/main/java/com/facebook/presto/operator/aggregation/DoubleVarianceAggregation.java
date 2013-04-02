@@ -2,7 +2,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.slice.Slice;
+import io.airlift.slice.Slice;
 
 /**
  * Generate the variance for a given set of values. This implements the

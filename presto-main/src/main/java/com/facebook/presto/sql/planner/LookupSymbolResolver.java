@@ -1,14 +1,14 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.slice.Slices;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 
 import java.util.Map;
 
 import static com.google.common.base.Charsets.UTF_8;
-import static com.google.common.base.Preconditions.*;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class LookupSymbolResolver
         implements SymbolResolver

@@ -1,8 +1,8 @@
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.slice.SizeOf;
-import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
+import io.airlift.slice.SizeOf;
+import io.airlift.slice.Slice;
 
 /**
  * TODO implement 4 bit per bucket optimization

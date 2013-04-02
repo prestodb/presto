@@ -4,14 +4,14 @@
 package com.facebook.presto.serde;
 
 import com.facebook.presto.block.Block;
-import com.facebook.presto.slice.OutputStreamSliceOutput;
-import com.facebook.presto.slice.SliceOutput;
 import com.facebook.presto.tuple.Tuple;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.io.OutputSupplier;
+import io.airlift.slice.OutputStreamSliceOutput;
+import io.airlift.slice.SliceOutput;
 
 import java.io.Closeable;
 import java.io.IOException;
