@@ -1,6 +1,5 @@
 package com.facebook.presto.sql.tree;
 
-import com.facebook.presto.util.MoreFunctions;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -11,6 +10,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nullable;
+
 import java.util.List;
 
 public class QualifiedName
@@ -57,7 +57,7 @@ public class QualifiedName
         Preconditions.checkNotNull(parts, "parts");
         Preconditions.checkArgument(!Iterables.isEmpty(parts), "parts is empty");
 
-        this.parts = ImmutableList.copyOf(Iterables.transform(parts, MoreFunctions.toLowerCase()));
+        this.parts = ImmutableList.copyOf(Iterables.transform(parts, toLowerCase()));
     }
 
     public List<String> getParts()
@@ -107,7 +107,6 @@ public class QualifiedName
         };
     }
 
-
     public static Function<String, QualifiedName> addPrefixFunction(final QualifiedName prefix)
     {
         return new Function<String, QualifiedName>()
@@ -148,5 +147,17 @@ public class QualifiedName
     public int hashCode()
     {
         return parts.hashCode();
+    }
+
+    private static Function<String, String> toLowerCase()
+    {
+        return new Function<String, String>()
+        {
+            @Override
+            public String apply(String s)
+            {
+                return s.toLowerCase();
+            }
+        };
     }
 }

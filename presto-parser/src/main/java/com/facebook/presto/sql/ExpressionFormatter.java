@@ -45,8 +45,10 @@ import java.util.List;
 import static com.facebook.presto.sql.SqlFormatter.orderByFormatterFunction;
 import static com.google.common.collect.Iterables.transform;
 
-public class ExpressionFormatter
+public final class ExpressionFormatter
 {
+    private ExpressionFormatter() {}
+
     public static String toString(Expression expression)
     {
         return new Formatter().process(expression, null);
