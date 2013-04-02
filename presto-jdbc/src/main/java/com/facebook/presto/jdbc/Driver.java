@@ -13,6 +13,7 @@ import java.util.Properties;
 import java.util.logging.Logger;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.lang.String.format;
 
 public class Driver
         implements java.sql.Driver
@@ -49,7 +50,12 @@ public class Driver
         if (!acceptsURL(url)) {
             return null;
         }
+
         String user = info.getProperty(USER_PROPERTY);
+        if (isNullOrEmpty(user)) {
+            throw new SQLException(format("Username property (%s) must be set", USER_PROPERTY));
+        }
+
         return new JdbcConnection(parseDriverUrl(url), user);
     }
 

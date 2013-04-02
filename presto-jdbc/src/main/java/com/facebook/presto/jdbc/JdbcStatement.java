@@ -11,7 +11,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Throwables.propagateIfInstanceOf;
 
 public class JdbcStatement
         implements Statement
@@ -35,8 +34,7 @@ public class JdbcStatement
         try {
             return new JdbcResultSet(connection().startQuery(sql));
         }
-        catch (Exception e) {
-            propagateIfInstanceOf(e, SQLException.class);
+        catch (RuntimeException e) {
             throw new SQLException("Error executing query", e);
         }
     }
