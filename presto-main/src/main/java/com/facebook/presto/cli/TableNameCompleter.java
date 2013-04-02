@@ -1,5 +1,6 @@
 package com.facebook.presto.cli;
 
+import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.metadata.HttpMetadataClient;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;

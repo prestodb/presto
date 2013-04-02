@@ -20,8 +20,8 @@ public interface QueryExecution
 
     void cancelStage(String stageId);
 
-    public interface QueryExecutionFactory<T extends QueryExecution>
+    interface QueryExecutionFactory<T extends QueryExecution>
     {
-        public abstract T createQueryExecution(String queryId, String query, Session session, Statement statement);
+        T createQueryExecution(String queryId, String query, Session session, Statement statement);
     }
 }

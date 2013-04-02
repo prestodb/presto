@@ -1,15 +1,14 @@
 package com.facebook.presto.cli;
 
 import com.google.common.base.Splitter;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.operator.OutputProcessor.OutputHandler;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.repeat;
@@ -22,6 +21,7 @@ public class AlignedTuplePrinter
     private static final int MAX_BUFFERED_ROWS = 10_000;
     private static final Splitter LINE_SPLITTER = Splitter.on('\n');
 
+    private final AtomicBoolean closed = new AtomicBoolean();
     private final List<List<?>> rowBuffer = new ArrayList<>(MAX_BUFFERED_ROWS);
     private final List<String> fieldNames;
     private final Writer writer;
@@ -36,6 +36,7 @@ public class AlignedTuplePrinter
 
     @Override
     public void processRow(List<?> values)
+            throws IOException
     {
         checkState(fieldNames.size() == values.size(), "field names size does not match row size");
         rowBuffer.add(values);
@@ -46,29 +47,17 @@ public class AlignedTuplePrinter
     }
 
     @Override
-    public void finish()
+    public void close()
+            throws IOException
     {
-        flush();
-        try {
+        if (!closed.getAndSet(true)) {
+            flush();
             writer.append(format("(%s row%s)%n", rowCount, (rowCount != 1) ? "s" : ""));
             writer.flush();
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
         }
     }
 
     private void flush()
-    {
-        try {
-            doFlush();
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
-    }
-
-    private void doFlush()
             throws IOException
     {
         int columns = fieldNames.size();

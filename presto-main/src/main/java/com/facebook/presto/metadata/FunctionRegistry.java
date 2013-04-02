@@ -12,12 +12,11 @@ import com.facebook.presto.operator.scalar.ScalarFunction;
 import com.facebook.presto.operator.scalar.StringFunctions;
 import com.facebook.presto.operator.scalar.UnixTimeFunctions;
 import com.facebook.presto.operator.window.CumulativeDistributionFunction;
-import com.facebook.presto.operator.window.PercentRankFunction;
 import com.facebook.presto.operator.window.DenseRankFunction;
+import com.facebook.presto.operator.window.PercentRankFunction;
 import com.facebook.presto.operator.window.RankFunction;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.WindowFunction;
-import com.facebook.presto.slice.Slice;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
@@ -29,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
+import io.airlift.slice.Slice;
 
 import javax.inject.Provider;
 

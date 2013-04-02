@@ -1,14 +1,12 @@
 package com.facebook.presto.jdbc;
 
+import com.facebook.presto.ResultsIterator;
+import com.facebook.presto.cli.HttpQueryClient;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.operator.Operator;
-import com.facebook.presto.cli.HttpQueryClient;
-import com.facebook.presto.ResultsIterator;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Uninterruptibles;
 
 import java.io.InputStream;
@@ -34,11 +32,9 @@ import java.sql.Types;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.cli.Query.getFailureMessages;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
@@ -1539,11 +1535,10 @@ public class JdbcResultSet
 
     private static String failureMessage(QueryInfo queryInfo)
     {
-        Set<String> failureMessages = ImmutableSet.copyOf(getFailureMessages(queryInfo));
-        if (failureMessages.isEmpty()) {
+        if (queryInfo.getFailureInfo() == null) {
             return format("Query failed for an unknown reason (#%s)", queryInfo.getQueryId());
         }
-        return format("Query failed (#%s): %s", queryInfo.getQueryId(), Joiner.on("; ").join(failureMessages));
+        return format("Query failed (#%s): %s", queryInfo.getQueryId(), queryInfo.getFailureInfo().getMessage());
     }
 
     private static Map<String, Integer> getFieldMap(List<String> fieldNames)

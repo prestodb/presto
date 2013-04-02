@@ -1,8 +1,8 @@
 package com.facebook.presto.block.dictionary;
 
-import com.facebook.presto.slice.DynamicSliceOutput;
-import com.facebook.presto.slice.SliceOutput;
 import com.google.common.collect.Iterables;
+import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.SliceOutput;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;

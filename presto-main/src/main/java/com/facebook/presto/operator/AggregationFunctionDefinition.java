@@ -4,6 +4,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.aggregation.AggregationFunction;
+import com.facebook.presto.sql.tree.Input;
 import com.google.common.base.Preconditions;
 
 import javax.annotation.Nullable;

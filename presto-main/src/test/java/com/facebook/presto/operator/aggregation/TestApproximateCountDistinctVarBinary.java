@@ -1,13 +1,9 @@
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.slice.Slices;
 import com.facebook.presto.tuple.TupleInfo;
-import com.google.common.primitives.Longs;
+import io.airlift.slice.Slices;
 
 import java.util.concurrent.ThreadLocalRandom;
-
-import static com.google.common.base.Charsets.*;
-import static com.google.common.base.Charsets.UTF_8;
 
 public class TestApproximateCountDistinctVarBinary
         extends AbstractTestApproximateCountDistinct

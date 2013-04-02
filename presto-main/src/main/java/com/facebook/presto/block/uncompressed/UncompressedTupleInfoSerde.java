@@ -1,9 +1,9 @@
 package com.facebook.presto.block.uncompressed;
 
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.slice.SliceInput;
-import com.facebook.presto.slice.SliceOutput;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.SliceInput;
+import io.airlift.slice.SliceOutput;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 

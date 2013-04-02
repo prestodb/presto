@@ -5,11 +5,11 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.PagesSerde;
-import com.facebook.presto.slice.InputStreamSliceInput;
-import com.facebook.presto.slice.OutputStreamSliceOutput;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
+import io.airlift.slice.InputStreamSliceInput;
+import io.airlift.slice.OutputStreamSliceOutput;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.Produces;
@@ -19,6 +19,7 @@ import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.ext.MessageBodyReader;
 import javax.ws.rs.ext.MessageBodyWriter;
 import javax.ws.rs.ext.Provider;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;

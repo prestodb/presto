@@ -4,7 +4,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.serde.PagesSerde;
-import com.facebook.presto.slice.InputStreamSliceInput;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -15,11 +14,13 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 import io.airlift.log.Logger;
+import io.airlift.slice.InputStreamSliceInput;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.ws.rs.core.Response.Status;
+
 import java.io.Closeable;
 import java.net.URI;
 import java.util.Iterator;

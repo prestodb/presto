@@ -6,9 +6,9 @@ package com.facebook.presto.block.dictionary;
 import com.facebook.presto.block.BlockBuilder;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.slice.Slice;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 
 import java.util.HashMap;
 import java.util.List;

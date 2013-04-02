@@ -3,10 +3,10 @@ package com.facebook.presto.serde;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.dictionary.Dictionary;
 import com.facebook.presto.block.dictionary.DictionaryEncodedBlock;
-import com.facebook.presto.slice.SliceInput;
-import com.facebook.presto.slice.SliceOutput;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
+import io.airlift.slice.SliceInput;
+import io.airlift.slice.SliceOutput;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 

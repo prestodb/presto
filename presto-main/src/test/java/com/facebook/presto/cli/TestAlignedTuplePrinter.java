@@ -7,13 +7,13 @@ import java.io.StringWriter;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.operator.OutputProcessor.OutputHandler;
 import static org.testng.Assert.assertEquals;
 
 public class TestAlignedTuplePrinter
 {
     @Test
     public void testAlignedPrinting()
+            throws Exception
     {
         StringWriter writer = new StringWriter();
         List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
@@ -23,7 +23,7 @@ public class TestAlignedTuplePrinter
         printer.processRow(row("a", null, 4.5));
         printer.processRow(row("some long\ntext that\ndoes not\nfit on\none line", "more\ntext", 4567));
         printer.processRow(row("bye", "done", -15));
-        printer.finish();
+        printer.close();
 
         String expected = "" +
                 "   first   | last  | quantity \n" +

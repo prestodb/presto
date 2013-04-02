@@ -1,7 +1,7 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.operator.Input;
 import com.facebook.presto.sql.analyzer.Symbol;
+import com.facebook.presto.sql.tree.Input;
 import com.facebook.presto.sql.tree.InputReference;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRewriter;

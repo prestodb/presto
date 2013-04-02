@@ -2,11 +2,11 @@ package com.facebook.presto.block.dictionary;
 
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockBuilder;
+import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
-import com.facebook.presto.block.BlockCursor;
-import com.facebook.presto.slice.Slice;
 import com.google.common.primitives.Ints;
+import io.airlift.slice.Slice;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndex;

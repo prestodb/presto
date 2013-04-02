@@ -3,11 +3,12 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.event.query.QueryCompletionEvent;
 import com.facebook.presto.event.query.QueryCreatedEvent;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.CreateOrReplaceMaterializedViewExecution.CreateOrReplaceMaterializedViewExecutionFactory;
-import com.facebook.presto.execution.FailureInfo;
+import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.QueryInfo;
@@ -170,7 +171,7 @@ public class ServerMainModule
         jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);
 
         jsonCodecBinder(binder).bindJsonCodec(StageInfo.class);
-        jsonCodecBinder(binder).bindListJsonCodec(FailureInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(FailureInfo.class);
         binder.bind(QueryMonitor.class).in(Scopes.SINGLETON);
         eventBinder(binder).bindEventClient(QueryCreatedEvent.class);
         eventBinder(binder).bindEventClient(QueryCompletionEvent.class);
@@ -209,9 +210,10 @@ public class ServerMainModule
 
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(QueryResults.class);
         binder.bind(StatementResource.class).in(Scopes.SINGLETON);
         binder.bind(ExecuteResource.class).in(Scopes.SINGLETON);
-        httpClientBinder(binder).bindAsyncHttpClient("execute", ExecuteResource.ForExecute.class);
+        httpClientBinder(binder).bindAsyncHttpClient("execute", ForExecute.class);
 
         binder.install(new HandleJsonModule());
 
