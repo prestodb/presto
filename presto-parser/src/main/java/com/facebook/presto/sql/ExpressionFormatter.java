@@ -153,7 +153,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitQualifiedNameReference(QualifiedNameReference node, Void context)
         {
-            return node.getName().toString();
+            return '"' + node.getName().toString() + '"';
         }
 
         @Override
