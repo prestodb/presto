@@ -11,6 +11,7 @@ import com.facebook.presto.execution.ExecutionStats;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
@@ -257,9 +258,14 @@ public class StatementResource
             // get the query info before returning
             QueryInfo queryInfo = queryManager.getQueryInfo(queryId, false);
 
-            // only return a next if the query is not done
+            // close exchange client if the query has failed
+            if (queryInfo.getState().isDone() && (queryInfo.getState() != QueryState.FINISHED)) {
+                exchangeClient.close();
+            }
+
+            // only return a next if the query is not done or there is more data to send (due to buffering)
             URI nextResultsUri = null;
-            if (!queryInfo.getState().isDone()) {
+            if ((!queryInfo.getState().isDone()) || (!exchangeClient.isClosed())) {
                 nextResultsUri = createNextResultsUri(uriInfo);
             }
 
@@ -289,10 +295,6 @@ public class StatementResource
                 throws InterruptedException
         {
             QueryInfo queryInfo = queryManager.getQueryInfo(queryId, false);
-            if (queryInfo.getState().isDone()) {
-                // query is done
-                return null;
-            }
 
             StageInfo outputStage = queryInfo.getOutputStage();
             if (outputStage == null) {
