@@ -163,6 +163,7 @@ public class ServerMainModule
         binder.bind(ImportMetadata.class).in(Scopes.SINGLETON);
 
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
+        ExportBinder.newExporter(binder).export(SplitManager.class).withGeneratedName();
 
         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
         jsonCodecBinder(binder).bindJsonCodec(Split.class);

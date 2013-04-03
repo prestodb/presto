@@ -5,8 +5,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.Path;
 
+import java.net.InetAddress;
 import java.util.List;
 import java.util.Properties;
 
@@ -22,6 +24,7 @@ public class HivePartitionChunk
     private final Properties schema;
     private final List<HivePartitionKey> partitionKeys;
     private final List<HiveColumn> columns;
+    private final List<InetAddress> hosts;
 
     @JsonCreator
     public HivePartitionChunk(
@@ -30,7 +33,8 @@ public class HivePartitionChunk
             @JsonProperty("length") long length,
             @JsonProperty("schema") Properties schema,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
-            @JsonProperty("columns") List<HiveColumn> columns)
+            @JsonProperty("columns") List<HiveColumn> columns,
+            @JsonProperty("hosts") List<InetAddress> hosts)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -38,6 +42,7 @@ public class HivePartitionChunk
         checkNotNull(schema, "schema is null");
         checkNotNull(partitionKeys, "partitionKeys is null");
         checkNotNull(columns, "columns is null");
+        checkNotNull(hosts, "hosts is null");
 
         this.path = path;
         this.start = start;
@@ -45,6 +50,7 @@ public class HivePartitionChunk
         this.schema = schema;
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.columns = ImmutableList.copyOf(columns);
+        this.hosts = ImmutableList.copyOf(hosts);
     }
 
     @JsonProperty
@@ -82,6 +88,23 @@ public class HivePartitionChunk
     public List<HiveColumn> getColumns()
     {
         return columns;
+    }
+
+    @JsonProperty
+    public List<InetAddress> getHosts()
+    {
+        return hosts;
+    }
+
+    @Override
+    public Object getInfo()
+    {
+        return ImmutableMap.builder()
+                .put("path", path.toString())
+                .put("start", start)
+                .put("length", length)
+                .put("hosts", hosts)
+                .build();
     }
 
     @Override

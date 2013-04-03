@@ -1,6 +1,5 @@
 package com.facebook.presto.split;
 
-import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ImportColumnHandle;
@@ -36,6 +35,7 @@ import com.facebook.presto.util.MoreFunctions;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -44,14 +44,20 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.inject.Inject;
+import org.weakref.jmx.Managed;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.metadata.ImportColumnHandle.columnNameGetter;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
@@ -61,6 +67,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Predicates.or;
+import static com.google.common.collect.Maps.uniqueIndex;
 
 public class SplitManager
 {
@@ -69,13 +76,43 @@ public class SplitManager
     private final ImportClientManager importClientManager;
     private final Metadata metadata;
 
+    private final AtomicLong scheduleLocal = new AtomicLong();
+    private final AtomicLong scheduleRack = new AtomicLong();
+    private final AtomicLong scheduleRandom = new AtomicLong();
+
     @Inject
-    public SplitManager(NodeManager nodeManager, ShardManager shardManager, ImportClientManager importClientManager, Metadata metadata, QueryManagerConfig config)
+    public SplitManager(NodeManager nodeManager, ShardManager shardManager, ImportClientManager importClientManager, Metadata metadata)
     {
         this.nodeManager = checkNotNull(nodeManager, "nodeManager is null");
         this.shardManager = checkNotNull(shardManager, "shardManager is null");
         this.importClientManager = checkNotNull(importClientManager, "importClientFactory is null");
         this.metadata = checkNotNull(metadata, "metadata is null");
+    }
+
+    @Managed
+    public long getScheduleLocal()
+    {
+        return scheduleLocal.get();
+    }
+
+    @Managed
+    public long getScheduleRack()
+    {
+        return scheduleRack.get();
+    }
+
+    @Managed
+    public long getScheduleRandom()
+    {
+        return scheduleRandom.get();
+    }
+
+    @Managed
+    public void reset()
+    {
+        scheduleLocal.set(0);
+        scheduleRack.set(0);
+        scheduleRandom.set(0);
     }
 
     public Iterable<SplitAssignments> getSplitAssignments(Session session, TableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
@@ -126,7 +163,7 @@ public class SplitManager
 
     private static Map<String, Node> getNodeMap(Set<Node> nodes)
     {
-        return Maps.uniqueIndex(nodes, Node.getIdentifierFunction());
+        return uniqueIndex(nodes, Node.getIdentifierFunction());
     }
 
     private Iterable<SplitAssignments> getImportSplitAssignments(Session session, ImportTableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
@@ -193,7 +230,7 @@ public class SplitManager
                         matchesPattern(ComparisonExpression.Type.EQUAL, DoubleLiteral.class, QualifiedNameReference.class)))
                 .set();
 
-        Map<String, SchemaField> partitionKeys = Maps.uniqueIndex(getPartitionKeys(sourceName, databaseName, tableName), fieldNameGetter());
+        Map<String, SchemaField> partitionKeys = uniqueIndex(getPartitionKeys(sourceName, databaseName, tableName), fieldNameGetter());
 
         final Map<String, Object> bindings = new HashMap<>(); // map of columnName -> value
         for (ComparisonExpression comparison : comparisons) {
@@ -363,12 +400,83 @@ public class SplitManager
             public SplitAssignments apply(PartitionChunk chunk)
             {
                 ImportClient importClient = importClientManager.getClient(sourceName);
-                Split split = new ImportSplit(sourceName, SerializedPartitionChunk.create(importClient, chunk));
-                List<Node> nodes = limit(shuffle(nodeManager.getActiveDatasourceNodes(sourceName)), 3);
+                Split split = new ImportSplit(sourceName, SerializedPartitionChunk.create(importClient, chunk), chunk.getInfo());
+
+                List<Node> nodes = chooseNodes(sourceName, chunk.getHosts(), 3);
                 Preconditions.checkState(!nodes.isEmpty(), "No active %s data nodes", sourceName);
                 return new SplitAssignments(split, nodes);
             }
         };
+    }
+
+    private List<Node> chooseNodes(String sourceName, List<InetAddress> hosts, int limit)
+    {
+        ArrayListMultimap<InetAddress, Node> nodesByHost = indexNodesByHost(nodeManager.getActiveDatasourceNodes(sourceName));
+
+        List<Node> chosen = new ArrayList<>(limit);
+        List<InetAddress> nonLocalHosts = new ArrayList<>();
+        for (InetAddress host : hosts) {
+            List<Node> nodes = nodesByHost.get(host);
+            if (nodes != null && !nodes.isEmpty()) {
+                // only allow host to be used once
+                Node node = nodes.remove(0);
+                scheduleLocal.incrementAndGet();
+                chosen.add(node);
+                if (chosen.size() == limit) {
+                    return ImmutableList.copyOf(chosen);
+                }
+            } else {
+                // remember the hosts we did not find
+                nonLocalHosts.add(host);
+            }
+        }
+
+        // look for a host "near" the the non-local hosts
+        for (InetAddress nonLocalHost : nonLocalHosts) {
+            for (Entry<InetAddress, Node> entry : ImmutableList.copyOf(nodesByHost.entries())) {
+                if (isRackLocal(nonLocalHost, entry.getKey())) {
+                    // only allow host to be used once
+                    nodesByHost.remove(entry.getKey(), entry.getValue());
+                    scheduleRack.incrementAndGet();
+                    chosen.add(entry.getValue());
+                    if (chosen.size() == limit) {
+                        return ImmutableList.copyOf(chosen);
+                    }
+                }
+            }
+        }
+
+        // add some random nodes if below the limit
+        if (chosen.size() < limit) {
+            int randomCount = limit - chosen.size();
+            scheduleRandom.addAndGet(randomCount);
+            chosen.addAll(limit(shuffle(nodesByHost.values()), randomCount));
+        }
+
+        return ImmutableList.copyOf(chosen);
+    }
+
+    private ArrayListMultimap<InetAddress, Node> indexNodesByHost(Set<Node> nodes)
+    {
+        ArrayListMultimap<InetAddress, Node> nodesByHost = ArrayListMultimap.create();
+        for (Node node : nodes) {
+            try {
+                nodesByHost.put(InetAddress.getByName(node.getHttpUri().getHost()), node);
+            }
+            catch (UnknownHostException e) {
+                // skip nodes with a bad inet address
+            }
+        }
+        return nodesByHost;
+    }
+
+    private static boolean isRackLocal(InetAddress inetAddress1, InetAddress inetAddress2)
+    {
+        byte[] address1 = inetAddress1.getAddress();
+        byte[] address2 = inetAddress2.getAddress();
+
+        // if the first 24 bits match, assume it is rack local
+        return address1[0] == address2[0] && address1[1] == address2[1] && address1[2] == address2[2];
     }
 
     private static Function<SchemaField, String> fieldNameGetter()

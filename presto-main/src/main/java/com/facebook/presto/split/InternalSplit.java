@@ -58,6 +58,12 @@ public class InternalSplit
         return filters;
     }
 
+    @Override
+    public Object getInfo()
+    {
+        return this;
+    }
+
     public static class ICHSerializer
             extends JsonSerializer<InternalColumnHandle>
     {
