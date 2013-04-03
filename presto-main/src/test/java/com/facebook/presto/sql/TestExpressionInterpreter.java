@@ -336,6 +336,13 @@ public class TestExpressionInterpreter
     }
 
     @Test
+    public void testReservedWithDoubleQuotes()
+            throws Exception
+    {
+        assertOptimizedEquals("\"time\"", "\"time\"");
+    }
+
+    @Test
     public void testSearchCase()
             throws Exception
     {
