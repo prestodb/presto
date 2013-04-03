@@ -10,6 +10,7 @@ import com.facebook.presto.util.CpuTimer.CpuDuration;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import io.airlift.stats.DecayCounter;
 import io.airlift.stats.DecayCounter.DecayCounterSnapshot;
 import io.airlift.stats.ExponentialDecay;
@@ -20,6 +21,7 @@ import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -28,6 +30,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public class OperatorStats
 {
     private final TaskOutput taskOutput;
+
+    private final List<Object> splitInfo = new CopyOnWriteArrayList<>();
 
     private final AtomicLong startTime = new AtomicLong();
     private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
@@ -51,6 +55,11 @@ public class OperatorStats
     {
         Preconditions.checkNotNull(taskOutput, "taskOutput is null");
         this.taskOutput = taskOutput;
+    }
+
+    public void addSplitInfo(Object info)
+    {
+        splitInfo.add(info);
     }
 
     public boolean isDone()
@@ -174,7 +183,8 @@ public class OperatorStats
                 completedPositions.snapshot(),
                 wall,
                 cpu,
-                user);
+                user,
+                splitInfo);
     }
 
     private void updateTaskOutputTimings()
@@ -208,6 +218,8 @@ public class OperatorStats
         private final Duration cpu;
         private final Duration user;
 
+        private final List<Object> splitInfo;
+
         @JsonCreator
         public SplitExecutionStats(
                 @JsonProperty("executionStartTime") DateTime executionStartTime,
@@ -217,7 +229,8 @@ public class OperatorStats
                 @JsonProperty("completedPositions") SmallCounterStatSnapshot completedPositions,
                 @JsonProperty("wall") Duration wall,
                 @JsonProperty("cpu") Duration cpu,
-                @JsonProperty("user") Duration user)
+                @JsonProperty("user") Duration user,
+                @JsonProperty("splitInfo") List<Object> splitInfo)
         {
             this.executionStartTime = executionStartTime;
             this.timeToFirstByte = timeToFirstByte;
@@ -227,6 +240,7 @@ public class OperatorStats
             this.wall = wall;
             this.cpu = cpu;
             this.user = user;
+            this.splitInfo = ImmutableList.copyOf(splitInfo);
         }
 
         @JsonProperty
@@ -275,6 +289,12 @@ public class OperatorStats
         public Duration getUser()
         {
             return user;
+        }
+
+        @JsonProperty
+        public List<Object> getSplitInfo()
+        {
+            return splitInfo;
         }
     }
 

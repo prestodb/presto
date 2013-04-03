@@ -31,6 +31,12 @@ public class TpchSplit
     }
 
     @Override
+    public Object getInfo()
+    {
+        return this;
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
