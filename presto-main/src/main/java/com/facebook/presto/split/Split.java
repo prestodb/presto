@@ -16,4 +16,6 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 public interface Split
 {
     DataSourceType getDataSourceType();
+
+    Object getInfo();
 }

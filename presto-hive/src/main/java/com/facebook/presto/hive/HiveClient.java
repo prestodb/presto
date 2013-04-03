@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
+import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -51,6 +52,8 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -75,7 +78,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Iterables.transform;
-import static java.lang.Math.min;
 import static org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat.SymlinkTextInputSplit;
 
 
@@ -377,6 +379,18 @@ public class HiveClient
             {
                 throw new UnsupportedOperationException();
             }
+
+            @Override
+            public List<InetAddress> getHosts()
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public Object getInfo()
+            {
+                throw new UnsupportedOperationException();
+            }
         };
 
         private final Table table;
@@ -442,8 +456,10 @@ public class HiveClient
                     semaphore.acquire();
                     final Properties schema = getPartitionSchema(table, partition);
                     final List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition);
-                    final InputFormat inputFormat = getInputFormat(fileSystemCache.getConfiguration(), schema, false);
+                    final InputFormat<?, ?> inputFormat = getInputFormat(fileSystemCache.getConfiguration(), schema, false);
                     Path partitionPath = new CachingPath(getPartitionLocation(table, partition), fileSystemCache);
+
+                    final FileSystem fs = partitionPath.getFileSystem(fileSystemCache.getConfiguration());
 
                     if (inputFormat instanceof SymlinkTextInputFormat) {
                         JobConf jobConf = new JobConf(fileSystemCache.getConfiguration());
@@ -451,13 +467,16 @@ public class HiveClient
                         InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
                         for (InputSplit rawSplit : splits) {
                             FileSplit split = ((SymlinkTextInputSplit) rawSplit).getTargetSplit();
-                            partitionChunkQueue.addToQueue(new HivePartitionChunk(
-                                    split.getPath(), split.getStart(), split.getLength(), schema, partitionKeys, columns));
+                            partitionChunkQueue.addToQueue(createHivePartitionChunks(fs.getFileStatus(split.getPath()),
+                                    split.getStart(),
+                                    split.getLength(),
+                                    schema,
+                                    partitionKeys,
+                                    fs,
+                                    false));
                         }
                         continue;
                     }
-
-                    FileSystem fs = partitionPath.getFileSystem(fileSystemCache.getConfiguration());
 
                     ListenableFuture<Void> partitionFuture = new AsyncRecursiveWalker(fs, suspendingExecutor).beginWalk(partitionPath, new FileStatusCallback()
                     {
@@ -469,11 +488,7 @@ public class HiveClient
                                         file.getPath().getFileSystem(fileSystemCache.getConfiguration()),
                                         file.getPath());
 
-                                long splitSize = splittable ? maxChunkBytes : file.getLen();
-                                for (long start = 0; start < file.getLen(); start += splitSize) {
-                                    long length = min(splitSize, file.getLen() - start);
-                                    partitionChunkQueue.addToQueue(new HivePartitionChunk(file.getPath(), start, length, schema, partitionKeys, columns));
-                                }
+                                partitionChunkQueue.addToQueue(createHivePartitionChunks(file, 0, file.getLen(), schema, partitionKeys, fs, splittable));
                             }
                             catch (IOException e) {
                                 partitionChunkQueue.fail(e);
@@ -520,6 +535,54 @@ public class HiveClient
             }
         }
 
+        private List<HivePartitionChunk> createHivePartitionChunks(FileStatus file,
+                long start,
+                long length,
+                Properties schema,
+                List<HivePartitionKey> partitionKeys,
+                FileSystem fs,
+                boolean splittable)
+                throws IOException
+        {
+            BlockLocation[] fileBlockLocations = fs.getFileBlockLocations(file, start, length);
+
+            ImmutableList.Builder<HivePartitionChunk> builder = ImmutableList.builder();
+            if (splittable) {
+                for (BlockLocation blockLocation : fileBlockLocations) {
+                    builder.add(new HivePartitionChunk(file.getPath(),
+                            blockLocation.getOffset(),
+                            blockLocation.getLength(),
+                            schema,
+                            partitionKeys,
+                            columns,
+                            toInetAddress(blockLocation.getHosts())));
+                }
+            } else {
+                // not splittable, use the hosts from the first block
+                builder.add(new HivePartitionChunk(file.getPath(),
+                        start,
+                        length,
+                        schema,
+                        partitionKeys,
+                        columns,
+                        toInetAddress(fileBlockLocations[0].getHosts())));
+            }
+            return builder.build();
+        }
+
+        private List<InetAddress> toInetAddress(String[] hosts)
+        {
+            ImmutableList.Builder<InetAddress> builder = ImmutableList.builder();
+            for (String host : hosts) {
+                try {
+                    builder.add(InetAddress.getByName(host));
+                }
+                catch (UnknownHostException e) {
+                }
+            }
+            return builder.build();
+        }
+
         private static class PartitionChunkQueue
                 extends AbstractIterator<PartitionChunk>
         {
@@ -533,6 +596,13 @@ public class HiveClient
             {
                 this.maxOutstandingChunks = maxOutstandingChunks;
                 this.suspendingExecutor = suspendingExecutor;
+            }
+
+            private void addToQueue(List<? extends PartitionChunk> chunks)
+            {
+                for (PartitionChunk chunk : chunks) {
+                    addToQueue(chunk);
+                }
             }
 
             private void addToQueue(PartitionChunk chunk)
@@ -578,7 +648,7 @@ public class HiveClient
         }
     }
 
-    private static boolean isSplittable(InputFormat inputFormat, FileSystem fileSystem, Path path)
+    private static boolean isSplittable(InputFormat<?,?> inputFormat, FileSystem fileSystem, Path path)
     {
         // use reflection to get isSplitable method on InputFormat
         Method method = null;
@@ -630,7 +700,7 @@ public class HiveClient
         };
     }
 
-    public static final Predicate<PartitionInfo> partitionMatches(final Map<String, Object> filters)
+    public static Predicate<PartitionInfo> partitionMatches(final Map<String, Object> filters)
     {
         return new Predicate<PartitionInfo>()
         {

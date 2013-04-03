@@ -10,14 +10,16 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class ImportSplit
         implements Split
 {
-    private String sourceName;
+    private final String sourceName;
     private final SerializedPartitionChunk serializedChunk;
+    private final Object info;
 
     @JsonCreator
-    public ImportSplit(@JsonProperty("sourceName") String sourceName, @JsonProperty("serializedChunk") SerializedPartitionChunk serializedChunk)
+    public ImportSplit(@JsonProperty("sourceName") String sourceName, @JsonProperty("serializedChunk") SerializedPartitionChunk serializedChunk, @JsonProperty("info") Object info)
     {
         this.sourceName = checkNotNull(sourceName, "sourceName is null");
         this.serializedChunk = checkNotNull(serializedChunk, "serializedChunk is null");
+        this.info = checkNotNull(info, "info is null");
     }
 
     @Override
@@ -36,5 +38,11 @@ public class ImportSplit
     public SerializedPartitionChunk getSerializedChunk()
     {
         return serializedChunk;
+    }
+
+    @JsonProperty
+    public Object getInfo()
+    {
+        return info;
     }
 }

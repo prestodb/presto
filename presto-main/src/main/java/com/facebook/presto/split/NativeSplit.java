@@ -28,4 +28,10 @@ public class NativeSplit
     {
         return shardId;
     }
+
+    @Override
+    public Object getInfo()
+    {
+        return this;
+    }
 }

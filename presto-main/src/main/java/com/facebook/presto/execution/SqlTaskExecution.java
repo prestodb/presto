@@ -407,6 +407,7 @@ public class SqlTaskExecution
     {
         private final AtomicBoolean started = new AtomicBoolean();
         private final TaskOutput taskOutput;
+        private final PlanNodeId partitionedSource;
         private final Operator operator;
         private final OperatorStats operatorStats;
         private final Map<PlanNodeId, SourceOperator> sourceOperators;
@@ -421,7 +422,7 @@ public class SqlTaskExecution
                 ExchangeOperatorFactory exchangeOperatorFactory)
         {
             this.taskOutput = taskOutput;
-
+            partitionedSource = fragment.getPartitionedSource();
             operatorStats = new OperatorStats(taskOutput);
 
             LocalExecutionPlanner planner = new LocalExecutionPlanner(session,
@@ -443,6 +444,9 @@ public class SqlTaskExecution
             SourceOperator sourceOperator = sourceOperators.get(sourceId);
             Preconditions.checkArgument(sourceOperator != null, "Unknown plan source %s; known sources are %s", sourceId, sourceOperators.keySet());
             sourceOperator.addSplit(split);
+            if (sourceId.equals(partitionedSource)) {
+                operatorStats.addSplitInfo(split.getInfo());
+            }
         }
 
         public void noMoreSplits(PlanNodeId sourceId)
