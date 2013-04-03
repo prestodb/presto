@@ -8,6 +8,7 @@ import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -22,6 +23,9 @@ public class HiveClientConfig
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
     private HostAndPort metastoreSocksProxy;
     private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
+
+    private Duration fileSystemCacheTtl = new Duration(1, TimeUnit.DAYS);
+    private Duration dfsTimeout = new Duration(10, TimeUnit.SECONDS);
 
     @NotNull
     public DataSize getMaxChunkSize()
@@ -110,6 +114,33 @@ public class HiveClientConfig
     public HiveClientConfig setPartitionBatchSize(int partitionBatchSize)
     {
         this.partitionBatchSize = partitionBatchSize;
+        return this;
+    }
+
+    @NotNull
+    public Duration getFileSystemCacheTtl()
+    {
+        return fileSystemCacheTtl;
+    }
+
+    @Config("hive.file-system-cache-ttl")
+    public HiveClientConfig setFileSystemCacheTtl(Duration fileSystemCacheTtl)
+    {
+        this.fileSystemCacheTtl = fileSystemCacheTtl;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1ms")
+    public Duration getDfsTimeout()
+    {
+        return dfsTimeout;
+    }
+
+    @Config("hive.dfs-timeout")
+    public HiveClientConfig setDfsTimeout(Duration dfsTimeout)
+    {
+        this.dfsTimeout = dfsTimeout;
         return this;
     }
 }
