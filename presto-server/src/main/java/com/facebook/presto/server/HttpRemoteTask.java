@@ -274,6 +274,7 @@ public class HttpRemoteTask
     @Override
     public ListenableFuture<?> updateState(boolean forceRefresh)
     {
+        Preconditions.checkState(!Thread.holdsLock(this), "Update state can not be called while holding a lock on this");
         Request request;
         CurrentRequest currentRequest;
         synchronized (this) {
@@ -377,13 +378,18 @@ public class HttpRemoteTask
     @Override
     public void cancel()
     {
+        CurrentRequest requestToCancel = null;
         synchronized (this) {
             pendingSplits.clear();
 
-            if (!canceled && currentRequest != null) {
-                currentRequest.cancel(true);
+            if (!canceled) {
+                requestToCancel = currentRequest;
                 canceled = true;
             }
+        }
+        // must cancel out side of synchronized block to avoid potential deadlocks
+        if (requestToCancel != null) {
+            requestToCancel.cancel(true);
         }
         updateState(false);
     }
@@ -395,10 +401,10 @@ public class HttpRemoteTask
     }
 
     @Override
-    public synchronized String toString()
+    public String toString()
     {
         return Objects.toStringHelper(this)
-                .addValue(taskInfo)
+                .addValue(getTaskInfo())
                 .toString();
     }
 
@@ -422,17 +428,22 @@ public class HttpRemoteTask
             this.sources = ImmutableList.copyOf(sources);
         }
 
-        public synchronized void requestAnotherUpdate()
+        public void requestAnotherUpdate()
         {
-            this.anotherUpdateRequested = true;
+            synchronized (HttpRemoteTask.this) {
+                this.anotherUpdateRequested = true;
+            }
         }
 
-        public synchronized void setRequestFuture(ListenableFuture<JsonResponse<TaskInfo>> requestFuture)
+        public void setRequestFuture(ListenableFuture<JsonResponse<TaskInfo>> requestFuture)
         {
-            Preconditions.checkNotNull(requestFuture, "requestFuture is null");
-            Preconditions.checkState(this.requestFuture == null, "requestFuture already set");
+            synchronized (HttpRemoteTask.this) {
+                Preconditions.checkNotNull(requestFuture, "requestFuture is null");
+                Preconditions.checkState(this.requestFuture == null, "requestFuture already set");
 
-            this.requestFuture = requestFuture;
+                this.requestFuture = requestFuture;
+            }
+
             if (isDone()) {
                 requestFuture.cancel(true);
             } else {
@@ -442,10 +453,14 @@ public class HttpRemoteTask
 
         public boolean cancel(boolean mayInterruptIfRunning)
         {
-            synchronized (this) {
-                if (requestFuture != null) {
-                    requestFuture.cancel(true);
-                }
+            Future<?> requestToCancel;
+            synchronized (HttpRemoteTask.this) {
+                requestToCancel = requestFuture;
+            }
+
+            // must cancel out side of synchronized block to avoid potential deadlocks
+            if (requestToCancel != null) {
+                requestFuture.cancel(true);
             }
             return super.cancel(true);
         }
@@ -462,9 +477,11 @@ public class HttpRemoteTask
         public void onSuccess(JsonResponse<TaskInfo> response)
         {
             try {
+                TaskInfo taskInfo = getTaskInfo();
                 if (response.getStatusCode() != HttpStatus.GONE.code()) {
                     checkState(response.getStatusCode() == HttpStatus.OK.code(),
-                            "Expected response code to be %s, but was %s: %s",
+                            "Expected response code from %s to be %s, but was %s: %s",
+                            taskInfo.getSelf(),
                             HttpStatus.OK.code(),
                             response.getStatusCode(),
                             response.getStatusMessage());
@@ -518,14 +535,12 @@ public class HttpRemoteTask
 
         private void updateIfNecessary()
         {
-            synchronized (this) {
+            synchronized (HttpRemoteTask.this) {
                 if (!anotherUpdateRequested) {
                     return;
                 }
-            }
 
-            // is this is no longer the current request, don't do anything
-            synchronized (HttpRemoteTask.this) {
+                // if this is no longer the current request, don't do anything
                 if (currentRequest != this) {
                     return;
                 }
@@ -535,20 +550,21 @@ public class HttpRemoteTask
         }
 
         @Override
-        public synchronized void onFailure(Throwable t)
+        public void onFailure(Throwable t)
         {
-            setException(t);
+            synchronized (HttpRemoteTask.this) {
+                setException(t);
 
-            if (!(t instanceof CancellationException)) {
-                TaskInfo taskInfo = getTaskInfo();
-                if (isSocketError(t)) {
-                    log.warn("%s task %s: %s: %s", "Error updating", taskInfo.getTaskId(), t.getMessage(), taskInfo.getSelf());
-                }
-                else {
-                    log.warn(t, "%s task %s: %s", "Error updating", taskInfo.getTaskId(), taskInfo.getSelf());
+                if (!(t instanceof CancellationException)) {
+                    TaskInfo taskInfo = getTaskInfo();
+                    if (isSocketError(t)) {
+                        log.warn("%s task %s: %s: %s", "Error updating", taskInfo.getTaskId(), t.getMessage(), taskInfo.getSelf());
+                    }
+                    else {
+                        log.warn(t, "%s task %s: %s", "Error updating", taskInfo.getTaskId(), taskInfo.getSelf());
+                    }
                 }
             }
-
             updateState(false);
         }
 
