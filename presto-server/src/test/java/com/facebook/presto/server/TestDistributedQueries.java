@@ -5,9 +5,10 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.AbstractTestQueries;
 import com.facebook.presto.client.ClientSession;
-import com.facebook.presto.cli.HttpQueryClient;
-import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.client.Column;
+import com.facebook.presto.client.QueryError;
+import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ColumnMetadata;
@@ -16,8 +17,8 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeColumnHandle;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.NodeManager;
-import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.metadata.TableMetadata;
@@ -34,6 +35,8 @@ import com.facebook.presto.sql.tree.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
 import com.facebook.presto.tpch.TpchSplit;
 import com.facebook.presto.tpch.TpchTableHandle;
+import com.facebook.presto.tuple.Tuple;
+import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleReadable;
 import com.facebook.presto.util.MaterializedResult;
 import com.facebook.presto.util.MaterializedTuple;
@@ -42,11 +45,9 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.Closeables;
 import com.google.common.io.Files;
-import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.inject.Binder;
 import com.google.inject.Binding;
 import com.google.inject.Guice;
@@ -92,19 +93,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.util.MaterializedResult.materialize;
+import static com.facebook.presto.tuple.TupleInfo.Type;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Iterables.transform;
+import static java.lang.Math.abs;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestDistributedQueries
         extends AbstractTestQueries
 {
     private static final Logger log = Logger.get(TestDistributedQueries.class.getSimpleName());
-    private final JsonCodec<QueryInfo> queryInfoCodec = createCodecFactory().jsonCodec(QueryInfo.class);
+    private final JsonCodec<QueryResults> queryResultsCodec = createCodecFactory().jsonCodec(QueryResults.class);
 
     private String catalog;
     private String schema;
@@ -138,8 +142,9 @@ public class TestDistributedQueries
     {
         MaterializedResult result = computeActual("SHOW TABLES");
         assertEquals(result.getMaterializedTuples().size(), 2);
-        ImmutableSet<String> tableNames = ImmutableSet.copyOf(Iterables.transform(result.getMaterializedTuples(), new Function<MaterializedTuple, String>()
+        ImmutableSet<String> tableNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), new Function<MaterializedTuple, String>()
         {
+            @Override
             public String apply(MaterializedTuple input)
             {
                 assertEquals(input.getFieldCount(), 1);
@@ -154,8 +159,9 @@ public class TestDistributedQueries
             throws Exception
     {
         MaterializedResult result = computeActual("SHOW COLUMNS FROM orders");
-        ImmutableSet<String> columnNames = ImmutableSet.copyOf(Iterables.transform(result.getMaterializedTuples(), new Function<MaterializedTuple, String>()
+        ImmutableSet<String> columnNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), new Function<MaterializedTuple, String>()
         {
+            @Override
             public String apply(MaterializedTuple input)
             {
                 assertEquals(input.getFieldCount(), 3);
@@ -170,8 +176,9 @@ public class TestDistributedQueries
             throws Exception
     {
         MaterializedResult result = computeActual("SHOW FUNCTIONS");
-        ImmutableSet<String> functionNames = ImmutableSet.copyOf(Iterables.transform(result.getMaterializedTuples(), new Function<MaterializedTuple, String>()
+        ImmutableSet<String> functionNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), new Function<MaterializedTuple, String>()
         {
+            @Override
             public String apply(MaterializedTuple input)
             {
                 assertEquals(input.getFieldCount(), 3);
@@ -264,7 +271,7 @@ public class TestDistributedQueries
                     public boolean filter(TupleReadable... cursors)
                     {
                         TupleReadable cursor = cursors[0];
-                        return Math.abs(cursor.getTuple().hashCode()) % servers.size() == serverIndex;
+                        return (abs(cursor.getTuple().hashCode()) % servers.size()) == serverIndex;
                     }
                 }, projectionFunctions);
                 PrestoTestingServer server = servers.get(i);
@@ -280,42 +287,106 @@ public class TestDistributedQueries
     {
         ClientSession session = new ClientSession(coordinator.getBaseUrl(), "testuser", "default", "default", true);
 
-        try (HttpQueryClient client = new HttpQueryClient(session, sql, httpClient, queryInfoCodec)) {
-            boolean loggedUri = false;
-            while (true) {
-                QueryInfo queryInfo = client.getQueryInfo(false);
-                if (!loggedUri && queryInfo.getSelf() != null) {
-                    log.info("Query %s: %s?pretty", queryInfo.getQueryId(), queryInfo.getSelf());
-                    loggedUri = true;
-                }
-                QueryState state = queryInfo.getState();
-                if (state == QueryState.FAILED) {
-                    if (queryInfo.getFailureInfo() == null) {
-                        throw new RuntimeException("Query failed for an unknown reason");
-                    }
-                    throw queryInfo.getFailureInfo().toException();
-                }
-                else if (state == QueryState.CANCELED) {
-                    throw new RuntimeException("Query was cancelled");
-                }
-                else if (state == QueryState.RUNNING || state.isDone()) {
-                    break;
-                }
-                Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
-            }
+        try (StatementClient client = new StatementClient(httpClient, queryResultsCodec, session, sql)) {
+            AtomicBoolean loggedUri = new AtomicBoolean(false);
+            ImmutableList.Builder<Tuple> rows = ImmutableList.builder();
+            TupleInfo tupleInfo = null;
 
-            MaterializedResult materializedResult = materialize(client.getResultsOperator());
-            QueryInfo queryInfo = client.getQueryInfo(true);
-            if (queryInfo.getState() != QueryState.FINISHED) {
-                throw new RuntimeException("Expected query to be FINISHED, but is " + queryInfo.getState());
+            while (true) {
+                QueryResults results = client.current();
+                if (!loggedUri.getAndSet(true)) {
+                    log.info("Query %s: %s?pretty", results.getQueryId(), results.getQueryInfoUri());
+                }
+
+                if ((tupleInfo == null) && (results.getColumns() != null)) {
+                    tupleInfo = getTupleInfo(results.getColumns());
+                }
+                if (results.getData() != null) {
+                    rows.addAll(transform(results.getData(), dataToTuple(tupleInfo)));
+                }
+
+                if (!client.hasNext()) {
+                    String state = results.getStats().getState();
+                    if ("FINISHED".equals(state)) {
+                        return new MaterializedResult(rows.build(), tupleInfo);
+                    }
+
+                    QueryError error = results.getError();
+                    if (error != null) {
+                        if (error.getFailureInfo() != null) {
+                            throw error.getFailureInfo().toException();
+                        }
+                        throw new RuntimeException("Query failed: " + error.getMessage());
+                    }
+                    throw new RuntimeException("Query failed for an unknown reason");
+                }
+                client.next();
             }
 
             // dump query info to console for debugging (NOTE: not pretty printed)
             // JsonCodec<QueryInfo> queryInfoJsonCodec = createCodecFactory().prettyPrint().jsonCodec(QueryInfo.class);
             // log.info("\n" + queryInfoJsonCodec.toJson(queryInfo));
-
-            return materializedResult;
         }
+    }
+
+    private static TupleInfo getTupleInfo(List<Column> columns)
+    {
+        return new TupleInfo(transform(transform(columns, Column.typeGetter()), tupleType()));
+    }
+
+    private static Function<String, Type> tupleType()
+    {
+        return new Function<String, Type>()
+        {
+            @Override
+            public Type apply(String type)
+            {
+                switch (type) {
+                    case "bigint":
+                        return Type.FIXED_INT_64;
+                    case "double":
+                        return Type.DOUBLE;
+                    case "varchar":
+                        return Type.VARIABLE_BINARY;
+                }
+                throw new AssertionError("Unhandled type: " + type);
+            }
+        };
+    }
+
+    private static Function<List<Object>, Tuple> dataToTuple(final TupleInfo tupleInfo)
+    {
+        return new Function<List<Object>, Tuple>()
+        {
+            @Override
+            public Tuple apply(List<Object> data)
+            {
+                checkArgument(data.size() == tupleInfo.getTypes().size(), "columns size does not match tuple info");
+                TupleInfo.Builder tuple = tupleInfo.builder();
+                for (int i = 0; i < data.size(); i++) {
+                    Object value = data.get(i);
+                    if (value == null) {
+                        tuple.appendNull();
+                        continue;
+                    }
+                    Type type = tupleInfo.getTypes().get(i);
+                    switch (type) {
+                        case FIXED_INT_64:
+                            tuple.append(((Number) value).longValue());
+                            break;
+                        case DOUBLE:
+                            tuple.append(((Number) value).doubleValue());
+                            break;
+                        case VARIABLE_BINARY:
+                            tuple.append((String) value);
+                            break;
+                        default:
+                            throw new AssertionError("unhandled type: " + type);
+                    }
+                }
+                return tuple.build();
+            }
+        };
     }
 
     // TODO: replace this with util version
@@ -562,7 +633,8 @@ public class TestDistributedQueries
         Injector injector = Guice.createInjector(Stage.PRODUCTION,
                 new JsonModule(),
                 new HandleJsonModule(),
-                new Module() {
+                new Module()
+                {
                     @Override
                     public void configure(Binder binder)
                     {
