@@ -6,6 +6,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 import com.google.common.io.Closeables;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.units.Duration;
@@ -13,19 +14,18 @@ import io.airlift.units.Duration;
 import javax.annotation.Nullable;
 import java.io.Closeable;
 import java.net.URI;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.Deque;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static java.util.Collections.synchronizedSet;
-
 public class ExchangeClient
-    implements Closeable
+        implements Closeable
 {
     private final int maxBufferedPages;
     private final int expectedPagesPerRequest;
@@ -34,9 +34,9 @@ public class ExchangeClient
     private final Set<URI> locations;
     private final AtomicBoolean noMoreLocations;
 
-    private final Map<URI, HttpPageBufferClient> allClients = new HashMap<>();
-    private final LinkedBlockingDeque<HttpPageBufferClient> queuedClients = new LinkedBlockingDeque<>();
-    private final Set<HttpPageBufferClient> completedClients = synchronizedSet(new HashSet<HttpPageBufferClient>());
+    private final Map<URI, HttpPageBufferClient> allClients = new ConcurrentHashMap<>();
+    private final Deque<HttpPageBufferClient> queuedClients = new LinkedList<>();
+    private final Set<HttpPageBufferClient> completedClients = Sets.newSetFromMap(new ConcurrentHashMap<HttpPageBufferClient, Boolean>());
 
     private final LinkedBlockingDeque<Page> pageBuffer = new LinkedBlockingDeque<>();
 
@@ -133,6 +133,13 @@ public class ExchangeClient
         }
     }
 
+    private synchronized void addClientToQueue(HttpPageBufferClient client)
+    {
+        if (!queuedClients.contains(client)) {
+            queuedClients.add(client);
+        }
+    }
+
     private class ExchangeClientCallback
             implements ClientCallback
     {
@@ -149,7 +156,7 @@ public class ExchangeClient
         public void requestComplete(HttpPageBufferClient client)
         {
             Preconditions.checkNotNull(client, "client is null");
-            queuedClients.add(client);
+            addClientToQueue(client);
             scheduleRequestIfNecessary();
         }
 
