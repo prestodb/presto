@@ -131,7 +131,10 @@ public class HttpPageBufferClient
     public synchronized void scheduleRequest()
     {
         Preconditions.checkState(!closed, getClass().getSimpleName() + " is closed");
-        Preconditions.checkState(future == null, getClass().getSimpleName() + " is already running");
+        if (future != null) {
+            log.debug("scheduleRequest() called, but future is not null");
+            return;
+        }
 
         future = httpClient.executeAsync(prepareGet().setUri(location).build(), new PageResponseHandler());
         lastUpdate = DateTime.now();
