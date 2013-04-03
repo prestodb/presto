@@ -278,7 +278,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>slice</artifactId>
-                <version>0.1-SNAPSHOT</version>
+                <version>0.1</version>
             </dependency>
 
             <dependency>
