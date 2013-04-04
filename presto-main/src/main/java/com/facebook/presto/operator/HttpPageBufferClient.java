@@ -130,7 +130,10 @@ public class HttpPageBufferClient
 
     public synchronized void scheduleRequest()
     {
-        Preconditions.checkState(!closed, getClass().getSimpleName() + " is closed");
+        if (closed) {
+            log.debug("scheduleRequest() called, but client has been closed");
+            return;
+        }
         if (future != null) {
             log.debug("scheduleRequest() called, but future is not null");
             return;
