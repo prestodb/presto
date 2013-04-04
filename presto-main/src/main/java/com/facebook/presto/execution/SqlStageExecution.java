@@ -33,6 +33,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -70,7 +71,6 @@ import static com.google.common.collect.Iterables.transform;
 public class SqlStageExecution
         implements StageExecutionNode
 {
-
     private static final Logger log = Logger.get(SqlStageExecution.class);
 
     // NOTE: DO NOT call methods on the parent while holding a lock on the child.  Locks
@@ -106,6 +106,8 @@ public class SqlStageExecution
     private boolean noMoreOutputIds;
 
     private final ExecutorService executor;
+
+    private final StageStats stageStats = new StageStats();
 
     private final Comparator<Node> byPendingSplitsCount = new Comparator<Node>()
     {
@@ -221,6 +223,7 @@ public class SqlStageExecution
                 location,
                 fragment,
                 tupleInfos,
+                stageStats.snapshot(),
                 taskInfos,
                 subStageInfos,
                 toFailures(failureCauses));
@@ -323,7 +326,11 @@ public class SqlStageExecution
                 scheduleTask(nextTaskId, randomNode, null);
             }
             else {
+                long getSplitStart = System.nanoTime();
                 for (SplitAssignments assignment : splits.get()) {
+                    stageStats.addGetSplitDuration(Duration.nanosSince(getSplitStart));
+
+                    long scheduleSplitStart = System.nanoTime();
                     Node chosen = chooseNode(assignment);
 
                     // if query has been canceled, exit cleanly; query will never run regardless
@@ -334,10 +341,14 @@ public class SqlStageExecution
                     RemoteTask task = tasks.get(chosen);
                     if (task == null) {
                         scheduleTask(nextTaskId, chosen, assignment.getSplit());
+                        stageStats.addScheduleTaskDuration(Duration.nanosSince(scheduleSplitStart));
                     }
                     else {
                         task.addSplit(assignment.getSplit());
+                        stageStats.addAddSplitDuration(Duration.nanosSince(scheduleSplitStart));
                     }
+
+                    getSplitStart = System.nanoTime();
                 }
 
                 for (RemoteTask task : tasks.values()) {

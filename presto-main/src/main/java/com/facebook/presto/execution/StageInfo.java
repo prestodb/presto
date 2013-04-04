@@ -4,6 +4,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.execution.StageStats.StageStatsSnapshot;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.tuple.TupleInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -15,19 +16,20 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
-
 import java.net.URI;
 import java.util.List;
 
 @Immutable
 public class StageInfo
 {
+
     private final String queryId;
     private final String stageId;
     private final StageState state;
     private final URI self;
     private final PlanFragment plan;
     private final List<TupleInfo> tupleInfos;
+    private final StageStatsSnapshot stageStats;
     private final List<TaskInfo> tasks;
     private final List<StageInfo> subStages;
     private final List<FailureInfo> failures;
@@ -39,6 +41,7 @@ public class StageInfo
             @JsonProperty("self") URI self,
             @JsonProperty("plan") @Nullable PlanFragment plan,
             @JsonProperty("tupleInfos") List<TupleInfo> tupleInfos,
+            @JsonProperty("stageStats") StageStatsSnapshot stageStats,
             @JsonProperty("tasks") List<TaskInfo> tasks,
             @JsonProperty("subStages") List<StageInfo> subStages,
             @JsonProperty("failures") List<FailureInfo> failures)
@@ -47,6 +50,7 @@ public class StageInfo
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(state, "state is null");
         Preconditions.checkNotNull(self, "self is null");
+        Preconditions.checkNotNull(stageStats, "stageStats is null");
         Preconditions.checkNotNull(tasks, "tasks is null");
         Preconditions.checkNotNull(subStages, "subStages is null");
         Preconditions.checkNotNull(failures, "failures is null");
@@ -57,6 +61,7 @@ public class StageInfo
         this.self = self;
         this.plan = plan;
         this.tupleInfos = tupleInfos;
+        this.stageStats = stageStats;
         this.tasks = ImmutableList.copyOf(tasks);
         this.subStages = subStages;
         this.failures = failures;
@@ -97,6 +102,12 @@ public class StageInfo
     public List<TupleInfo> getTupleInfos()
     {
         return tupleInfos;
+    }
+
+    @JsonProperty
+    public StageStatsSnapshot getStageStats()
+    {
+        return stageStats;
     }
 
     @JsonProperty

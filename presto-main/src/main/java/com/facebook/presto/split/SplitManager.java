@@ -44,7 +44,9 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.inject.Inject;
+import io.airlift.stats.DistributionStat;
 import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -79,6 +81,7 @@ public class SplitManager
     private final AtomicLong scheduleLocal = new AtomicLong();
     private final AtomicLong scheduleRack = new AtomicLong();
     private final AtomicLong scheduleRandom = new AtomicLong();
+    private final DistributionStat chooseNodesTime = new DistributionStat();
 
     @Inject
     public SplitManager(NodeManager nodeManager, ShardManager shardManager, ImportClientManager importClientManager, Metadata metadata)
@@ -105,6 +108,13 @@ public class SplitManager
     public long getScheduleRandom()
     {
         return scheduleRandom.get();
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getChooseNodesTime()
+    {
+        return chooseNodesTime;
     }
 
     @Managed
@@ -411,49 +421,55 @@ public class SplitManager
 
     private List<Node> chooseNodes(String sourceName, List<InetAddress> hosts, int limit)
     {
-        ArrayListMultimap<InetAddress, Node> nodesByHost = indexNodesByHost(nodeManager.getActiveDatasourceNodes(sourceName));
+        long startTime = System.nanoTime();
+        try {
+            ArrayListMultimap<InetAddress, Node> nodesByHost = indexNodesByHost(nodeManager.getActiveDatasourceNodes(sourceName));
 
-        List<Node> chosen = new ArrayList<>(limit);
-        List<InetAddress> nonLocalHosts = new ArrayList<>();
-        for (InetAddress host : hosts) {
-            List<Node> nodes = nodesByHost.get(host);
-            if (nodes != null && !nodes.isEmpty()) {
-                // only allow host to be used once
-                Node node = nodes.remove(0);
-                scheduleLocal.incrementAndGet();
-                chosen.add(node);
-                if (chosen.size() == limit) {
-                    return ImmutableList.copyOf(chosen);
-                }
-            } else {
-                // remember the hosts we did not find
-                nonLocalHosts.add(host);
-            }
-        }
-
-        // look for a host "near" the the non-local hosts
-        for (InetAddress nonLocalHost : nonLocalHosts) {
-            for (Entry<InetAddress, Node> entry : ImmutableList.copyOf(nodesByHost.entries())) {
-                if (isRackLocal(nonLocalHost, entry.getKey())) {
+            List<Node> chosen = new ArrayList<>(limit);
+            List<InetAddress> nonLocalHosts = new ArrayList<>();
+            for (InetAddress host : hosts) {
+                List<Node> nodes = nodesByHost.get(host);
+                if (nodes != null && !nodes.isEmpty()) {
                     // only allow host to be used once
-                    nodesByHost.remove(entry.getKey(), entry.getValue());
-                    scheduleRack.incrementAndGet();
-                    chosen.add(entry.getValue());
+                    Node node = nodes.remove(0);
+                    scheduleLocal.incrementAndGet();
+                    chosen.add(node);
                     if (chosen.size() == limit) {
                         return ImmutableList.copyOf(chosen);
                     }
+                } else {
+                    // remember the hosts we did not find
+                    nonLocalHosts.add(host);
                 }
             }
-        }
 
-        // add some random nodes if below the limit
-        if (chosen.size() < limit) {
-            int randomCount = limit - chosen.size();
-            scheduleRandom.addAndGet(randomCount);
-            chosen.addAll(limit(shuffle(nodesByHost.values()), randomCount));
-        }
+            // look for a host "near" the the non-local hosts
+            for (InetAddress nonLocalHost : nonLocalHosts) {
+                for (Entry<InetAddress, Node> entry : ImmutableList.copyOf(nodesByHost.entries())) {
+                    if (isRackLocal(nonLocalHost, entry.getKey())) {
+                        // only allow host to be used once
+                        nodesByHost.remove(entry.getKey(), entry.getValue());
+                        scheduleRack.incrementAndGet();
+                        chosen.add(entry.getValue());
+                        if (chosen.size() == limit) {
+                            return ImmutableList.copyOf(chosen);
+                        }
+                    }
+                }
+            }
 
-        return ImmutableList.copyOf(chosen);
+            // add some random nodes if below the limit
+            if (chosen.size() < limit) {
+                int randomCount = limit - chosen.size();
+                scheduleRandom.addAndGet(randomCount);
+                chosen.addAll(limit(shuffle(nodesByHost.values()), randomCount));
+            }
+
+            return ImmutableList.copyOf(chosen);
+        }
+        finally {
+            chooseNodesTime.add(System.nanoTime() - startTime);
+        }
     }
 
     private ArrayListMultimap<InetAddress, Node> indexNodesByHost(Set<Node> nodes)
