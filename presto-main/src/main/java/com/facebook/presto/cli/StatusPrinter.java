@@ -230,10 +230,10 @@ Parallelism: 2.5
                 double parallelism = cpuTime.toMillis() / wallTime.toMillis();
 
                 // Per Node: 3.5 parallelism, 83.3K rows/s, 0.7 MB/s
-                DataSize bytesPerNode = new DataSize((int) (stats.getProcessedBytes() / nodes), BYTE);
+                DataSize bytesPerNode = new DataSize(1.0 * stats.getProcessedBytes() / nodes, BYTE);
                 String perNodeSummary = String.format("Per Node: %.1f parallelism, %5s rows/s, %8s",
                         parallelism / nodes,
-                        formatCountRate((int) (stats.getProcessedRows() / nodes), wallTime, false),
+                        formatCountRate(1.0 * stats.getProcessedRows() / nodes, wallTime, false),
                         formatDataRate(bytesPerNode, wallTime, true));
                 reprintLine(perNodeSummary);
 
