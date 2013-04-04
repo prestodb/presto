@@ -13,18 +13,14 @@ public abstract class OutputHandler
     public static void processOutput(StatementClient client, OutputHandler handler)
             throws IOException
     {
-        while (true) {
+        while (client.isValid()) {
             Iterable<List<Object>> data = client.current().getData();
             if (data != null) {
                 for (List<Object> tuple : data) {
                     handler.processRow(Collections.unmodifiableList(tuple));
                 }
             }
-
-            if (!client.hasNext()) {
-                break;
-            }
-            client.next();
+            client.advance();
         }
     }
 

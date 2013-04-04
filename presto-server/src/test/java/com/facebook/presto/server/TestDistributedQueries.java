@@ -292,7 +292,7 @@ public class TestDistributedQueries
             ImmutableList.Builder<Tuple> rows = ImmutableList.builder();
             TupleInfo tupleInfo = null;
 
-            while (true) {
+            while (client.isValid()) {
                 QueryResults results = client.current();
                 if (!loggedUri.getAndSet(true)) {
                     log.info("Query %s: %s?pretty", results.getQueryId(), results.getQueryInfoUri());
@@ -305,23 +305,22 @@ public class TestDistributedQueries
                     rows.addAll(transform(results.getData(), dataToTuple(tupleInfo)));
                 }
 
-                if (!client.hasNext()) {
-                    String state = results.getStats().getState();
-                    if ("FINISHED".equals(state)) {
-                        return new MaterializedResult(rows.build(), tupleInfo);
-                    }
-
-                    QueryError error = results.getError();
-                    if (error != null) {
-                        if (error.getFailureInfo() != null) {
-                            throw error.getFailureInfo().toException();
-                        }
-                        throw new RuntimeException("Query failed: " + error.getMessage());
-                    }
-                    throw new RuntimeException("Query failed for an unknown reason");
-                }
-                client.next();
+                client.advance();
             }
+
+            QueryResults results = client.finalResults();
+            if ("FINISHED".equals(results.getStats().getState())) {
+                return new MaterializedResult(rows.build(), tupleInfo);
+            }
+
+            QueryError error = results.getError();
+            if (error != null) {
+                if (error.getFailureInfo() != null) {
+                    throw error.getFailureInfo().toException();
+                }
+                throw new RuntimeException("Query failed: " + error.getMessage());
+            }
+            throw new RuntimeException("Query failed for an unknown reason");
 
             // dump query info to console for debugging (NOTE: not pretty printed)
             // JsonCodec<QueryInfo> queryInfoJsonCodec = createCodecFactory().prettyPrint().jsonCodec(QueryInfo.class);
