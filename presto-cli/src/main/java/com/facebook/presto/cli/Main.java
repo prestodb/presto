@@ -1,9 +1,8 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto;
+package com.facebook.presto.cli;
 
-import com.facebook.presto.cli.Console;
 import io.airlift.command.Cli;
 import io.airlift.command.Cli.CliBuilder;
 import io.airlift.command.Help;

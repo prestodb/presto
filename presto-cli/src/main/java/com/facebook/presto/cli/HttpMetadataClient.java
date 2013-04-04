@@ -1,4 +1,4 @@
-package com.facebook.presto.metadata;
+package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
 import com.google.inject.TypeLiteral;
@@ -36,8 +36,7 @@ public class HttpMetadataClient
         checkNotNull(session, "session is null");
         this.httpClient = checkNotNull(httpClient, "httpClient is null");
 
-        this.metadataResponseCodec = jsonCodec(new TypeLiteral<Map<String, List<String>>>() {
-        });
+        this.metadataResponseCodec = jsonCodec(new TypeLiteral<Map<String, List<String>>>() {});
 
         this.queryUri = HttpUriBuilder.uriBuilderFrom(session.getServer()).appendPath("/v1/metadata").build();
     }

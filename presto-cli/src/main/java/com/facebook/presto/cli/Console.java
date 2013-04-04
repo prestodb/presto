@@ -2,9 +2,9 @@ package com.facebook.presto.cli;
 
 import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.client.ClientSession;
-import com.facebook.presto.ingest.RuntimeIOException;
 import com.facebook.presto.sql.parser.StatementSplitter;
 import com.google.common.base.Strings;
+import com.google.common.base.Throwables;
 import io.airlift.command.Command;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
@@ -46,11 +46,11 @@ public class Console
         initializeLogging(session.isDebug());
 
         try (QueryRunner queryRunner = QueryRunner.create(session)) {
-            if (!hasQuery) {
-                runConsole(queryRunner);
+            if (hasQuery) {
+                executeCommand(queryRunner, clientOptions.execute, clientOptions.outputFormat);
             }
             else {
-                executeCommand(queryRunner, clientOptions.execute, clientOptions.outputFormat);
+                runConsole(queryRunner);
             }
         }
     }
@@ -131,7 +131,7 @@ public class Console
         }
     }
 
-    private void process(QueryRunner queryRunner, String sql, OutputFormat outputFormat)
+    private static void process(QueryRunner queryRunner, String sql, OutputFormat outputFormat)
     {
         try (Query query = queryRunner.startQuery(sql)) {
             query.renderOutput(System.out, outputFormat);
@@ -186,7 +186,7 @@ public class Console
             }
         }
         catch (IOException e) {
-            throw new RuntimeIOException(e);
+            throw Throwables.propagate(e);
         }
         finally {
             System.setOut(out);
