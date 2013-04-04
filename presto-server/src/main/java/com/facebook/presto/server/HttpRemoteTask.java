@@ -45,6 +45,7 @@ import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
 import java.net.SocketException;
@@ -52,9 +53,11 @@ import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Queue;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -66,17 +69,18 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.preparePost;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class HttpRemoteTask
         implements RemoteTask
 {
     private static final Logger log = Logger.get(HttpRemoteTask.class);
-    private static final int MAX_CONSECUTIVE_ERROR_COUNT = 10;
-    private static final Duration MIN_ERROR_DURATION = new Duration(30, TimeUnit.SECONDS);
 
     private final Session session;
     private final String nodeId;
     private final PlanFragment planFragment;
+    private final int maxConsecutiveErrorCount;
+    private final Duration minErrorDuration;
 
     private final AtomicLong nextSplitId = new AtomicLong();
 
@@ -107,7 +111,8 @@ public class HttpRemoteTask
     private final RateLimiter requestRateLimiter = RateLimiter.create(10);
 
     private final AtomicLong lastSuccessfulRequest = new AtomicLong(System.nanoTime());
-    private final AtomicLong consecutiveErrorCount = new AtomicLong();
+    private final AtomicLong errorCount = new AtomicLong();
+    private final Queue<Throwable> errorsSinceLastSuccess = new ConcurrentLinkedQueue<>();
 
     public HttpRemoteTask(Session session,
             String queryId,
@@ -120,6 +125,8 @@ public class HttpRemoteTask
             Multimap<PlanNodeId, URI> initialExchangeLocations,
             Set<String> initialOutputIds,
             AsyncHttpClient httpClient,
+            int maxConsecutiveErrorCount,
+            Duration minErrorDuration,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec)
     {
@@ -142,6 +149,8 @@ public class HttpRemoteTask
         this.taskInfoCodec = taskInfoCodec;
         this.taskUpdateRequestCodec = taskUpdateRequestCodec;
         tupleInfos = planFragment.getTupleInfos();
+        this.maxConsecutiveErrorCount = maxConsecutiveErrorCount;
+        this.minErrorDuration = minErrorDuration;
 
 
         for (Entry<PlanNodeId, URI> entry : initialExchangeLocations.entries()) {
@@ -396,14 +405,32 @@ public class HttpRemoteTask
         updateState(false);
     }
 
-    private void requestFailed()
+    private void requestFailed(long startTime, Throwable reason)
     {
-        consecutiveErrorCount.incrementAndGet();
+        // remember the first 10 errors
+        if (errorsSinceLastSuccess.size() < 10) {
+            errorsSinceLastSuccess.add(reason);
+        }
 
         // fail the task, if we have more than X failures in a row and more than Y seconds have passed since the last request
-        if (consecutiveErrorCount.get() > MAX_CONSECUTIVE_ERROR_COUNT && Duration.nanosSince(lastSuccessfulRequest.get()).compareTo(MIN_ERROR_DURATION) > 0) {
+        long errorCount = this.errorCount.incrementAndGet();
+        Duration timeSinceLastSuccess = Duration.nanosSince(lastSuccessfulRequest.get());
+        if (errorCount > maxConsecutiveErrorCount && timeSinceLastSuccess.compareTo(minErrorDuration) > 0) {
             // it is weird to mark the task failed locally and then cancel the remote task, but there is no way to tell a remote task that it is failed
-            failTask(new RuntimeException("Too many requests failed"));
+            Duration duration = Duration.nanosSince(startTime);
+            DateTime start = new DateTime(NANOSECONDS.toMillis(System.currentTimeMillis() - (long) duration.toMillis()));
+            DateTime end = new DateTime();
+            RuntimeException exception = new RuntimeException(String.format("Too many requests to %s failed: %s failures: %s time since last: start %s: end %s: duration %s",
+                    taskInfo.getSelf(),
+                    errorCount,
+                    timeSinceLastSuccess,
+                    start,
+                    end,
+                    duration));
+            for (Throwable error : errorsSinceLastSuccess) {
+                exception.addSuppressed(error);
+            }
+            failTask(exception);
             cancel();
         }
     }
@@ -515,7 +542,8 @@ public class HttpRemoteTask
                     // update task info
                     updateTaskInfo(response.getValue());
                     lastSuccessfulRequest.set(System.nanoTime());
-                    consecutiveErrorCount.set(0);
+                    errorCount.set(0);
+                    errorsSinceLastSuccess.clear();
 
                     // remove acknowledged splits, which frees memory
                     acknowledgeSources(sources);
@@ -524,16 +552,16 @@ public class HttpRemoteTask
                 }
                 else if (response.getStatusCode() == HttpStatus.INTERNAL_SERVER_ERROR.code()) {
                     // log failure
-                    log.debug(String.format("Server at %s returned %s: %s",
+                    String message = String.format("Server at %s returned %s: %s",
                             taskInfo.getSelf(),
                             response.getStatusCode(),
-                            response.getStatusMessage()));
-                    requestFailed();
+                            response.getStatusMessage());
+                    log.debug(message);
+                    requestFailed(startTime, new RuntimeException(message));
                     updateState(false);
                 }
                 else if (response.getStatusCode() == HttpStatus.SERVICE_UNAVAILABLE.code()) {
-                    requestFailed();
-                    // don't update immediately so the server can get a break
+                    requestFailed(startTime, new RuntimeException("Server at %s returned SERVICE_UNAVAILABLE"));
                 }
                 else {
                     // Something is broken in the server or the client, so fail the task immediately
@@ -549,8 +577,11 @@ public class HttpRemoteTask
                 }
             }
             catch (Throwable t) {
-                setException(t);
-                requestFailed();
+                // cancellation is not a failure
+                if (!(t instanceof CancellationException)) {
+                    setException(t);
+                    requestFailed(startTime, t);
+                }
             }
             finally {
                 set(null);
@@ -589,7 +620,7 @@ public class HttpRemoteTask
                     }
                 }
             }
-            requestFailed();
+            requestFailed(startTime, t);
             updateState(false);
         }
 
