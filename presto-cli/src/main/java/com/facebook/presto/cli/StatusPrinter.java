@@ -61,14 +61,9 @@ Parallelism: 2.5
     {
         long lastPrint = System.nanoTime();
         try {
-            while (true) {
+            while (client.isValid()) {
                 try {
-                    // exit if no more results
-                    if (!client.hasNext()) {
-                        return;
-                    }
-
-                    // check if there is there is pending output
+                    // exit status loop if there is there is pending output
                     if (client.current().getData() != null) {
                         return;
                     }
@@ -81,9 +76,9 @@ Parallelism: 2.5
                     }
 
                     // fetch next results (server will wait for a while if no data)
-                    client.next();
+                    client.advance();
                 }
-                catch (Exception e) {
+                catch (RuntimeException e) {
                     log.debug(e, "error printing status");
                 }
             }
@@ -97,7 +92,7 @@ Parallelism: 2.5
     {
         Duration wallTime = Duration.nanosSince(start);
 
-        QueryResults results = client.current();
+        QueryResults results = client.finalResults();
         StatementStats stats = results.getStats();
 
         int nodes = stats.getNodes();

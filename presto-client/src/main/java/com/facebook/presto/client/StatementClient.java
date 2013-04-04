@@ -37,6 +37,7 @@ public class StatementClient
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean gone = new AtomicBoolean();
+    private final AtomicBoolean valid = new AtomicBoolean(true);
 
     public StatementClient(AsyncHttpClient httpClient, JsonCodec<QueryResults> queryResultsCodec, ClientSession session, String query)
     {
@@ -95,24 +96,33 @@ public class StatementClient
 
     public QueryResults current()
     {
+        checkState(isValid(), "current position is not valid (cursor past end)");
         return currentResults.get();
     }
 
-    public boolean hasNext()
+    public QueryResults finalResults()
     {
-        return (!isClosed()) && (current().getNext() != null);
+        checkState(!isValid(), "current position is still valid");
+        return currentResults.get();
     }
 
-    public synchronized QueryResults next()
+    public boolean isValid()
     {
-        checkState(!isClosed(), "client is closed");
-        checkState(hasNext(), "no next");
+        return valid.get();
+    }
+
+    public boolean advance()
+    {
+        if (isClosed() || (current().getNext() == null)) {
+            valid.set(false);
+            return false;
+        }
 
         // TODO: retry on error
         Request request = prepareGet().setUri(current().getNext()).build();
         QueryResults results = httpClient.execute(request, responseHandler);
         currentResults.set(results);
-        return results;
+        return true;
     }
 
     public boolean cancelLeafStage()
@@ -133,7 +143,7 @@ public class StatementClient
     public void close()
     {
         if (!closed.getAndSet(true)) {
-            URI uri = current().getNext();
+            URI uri = currentResults.get().getNext();
             if (uri != null) {
                 Request request = prepareDelete().setUri(uri).build();
                 httpClient.executeAsync(request, createStatusResponseHandler());

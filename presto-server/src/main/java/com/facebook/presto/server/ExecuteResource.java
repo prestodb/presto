@@ -87,17 +87,19 @@ public class ExecuteResource
 
     private static List<Column> getColumns(StatementClient client)
     {
-        while (true) {
+        while (client.isValid()) {
             List<Column> columns = client.current().getColumns();
             if (columns != null) {
                 return columns;
             }
-
-            if (!client.hasNext()) {
-                throw internalServerError("No columns");
-            }
-            client.next();
+            client.advance();
         }
+
+        QueryResults results = client.finalResults();
+        if (results.getError() == null) {
+            throw internalServerError("No columns");
+        }
+        throw internalServerError(failureMessage(results));
     }
 
     private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator)
@@ -116,7 +118,6 @@ public class ExecuteResource
             extends AbstractIterator<Iterable<List<Object>>>
     {
         private final StatementClient client;
-        private boolean first = true;
 
         private ResultsPageIterator(StatementClient client)
         {
@@ -126,24 +127,17 @@ public class ExecuteResource
         @Override
         protected Iterable<List<Object>> computeNext()
         {
-            if (first) {
-                first = false;
+            while (client.isValid()) {
                 Iterable<List<Object>> data = client.current().getData();
+                client.advance();
                 if (data != null) {
                     return data;
                 }
             }
 
-            while (client.hasNext()) {
-                client.next();
-                Iterable<List<Object>> data = client.current().getData();
-                if (data != null) {
-                    return data;
-                }
-            }
-
-            if (!"FINISHED".equals(client.current().getStats().getState())) {
-                throw internalServerError(failureMessage(client.current()));
+            QueryResults results = client.finalResults();
+            if (!"FINISHED".equals(results.getStats().getState())) {
+                throw internalServerError(failureMessage(results));
             }
 
             return endOfData();
