@@ -19,14 +19,16 @@ public class TestQueryManagerConfig
                 .setCoordinator(true)
                 .setMaxShardProcessorThreads(Runtime.getRuntime().availableProcessors() * 4)
                 .setMaxQueryAge(new Duration(15, TimeUnit.MINUTES))
-                .setClientTimeout(new Duration(1, TimeUnit.MINUTES))
+                .setClientTimeout(new Duration(5, TimeUnit.MINUTES))
                 .setMaxOperatorMemoryUsage(new DataSize(256, Unit.MEGABYTE))
                 .setMaxPendingSplitsPerNode(100)
                 .setExchangeMaxBufferedPages(100)
                 .setExchangeExpectedPagesPerRequest(10)
                 .setExchangeConcurrentRequestMultiplier(3)
                 .setQueryManagerExecutorPoolSize(100)
-                .setSinkMaxBufferedPages(null));
+                .setSinkMaxBufferedPages(null)
+                .setRemoteTaskMaxConsecutiveErrorCount(Integer.MAX_VALUE)
+                .setRemoteTaskMinErrorDuration(new Duration(3, TimeUnit.MINUTES)));
     }
 
     @Test
@@ -44,6 +46,8 @@ public class TestQueryManagerConfig
                 .put("exchange.page-buffer-max", "11")
                 .put("exchange.expected-pages-per-request", "12")
                 .put("exchange.concurrent-request-multiplier", "13")
+                .put("query.remote-task.max-consecutive-error-count", "300")
+                .put("query.remote-task.min-error-duration", "30s")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -57,7 +61,9 @@ public class TestQueryManagerConfig
                 .setExchangeExpectedPagesPerRequest(12)
                 .setExchangeConcurrentRequestMultiplier(13)
                 .setQueryManagerExecutorPoolSize(11)
-                .setSinkMaxBufferedPages(999);
+                .setSinkMaxBufferedPages(999)
+                .setRemoteTaskMaxConsecutiveErrorCount(300)
+                .setRemoteTaskMinErrorDuration(new Duration(30, TimeUnit.SECONDS));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

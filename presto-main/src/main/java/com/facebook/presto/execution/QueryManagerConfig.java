@@ -19,13 +19,16 @@ public class QueryManagerConfig
     private int maxShardProcessorThreads = Runtime.getRuntime().availableProcessors() * 4;
     private Integer sinkMaxBufferedPages;
     private Duration maxQueryAge = new Duration(15, TimeUnit.MINUTES);
-    private Duration clientTimeout = new Duration(1, TimeUnit.MINUTES);
+    private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
 
     private int exchangeMaxBufferedPages = 100;
     private int exchangeExpectedPagesPerRequest = 10;
     private int exchangeConcurrentRequestMultiplier = 3;
 
     private int queryManagerExecutorPoolSize = 100;
+
+    private int remoteTaskMaxConsecutiveErrorCount = Integer.MAX_VALUE;
+    private Duration remoteTaskMinErrorDuration = new Duration(3, TimeUnit.MINUTES);
 
     public boolean isCoordinator()
     {
@@ -166,6 +169,32 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryManagerExecutorPoolSize(int queryManagerExecutorPoolSize)
     {
         this.queryManagerExecutorPoolSize = queryManagerExecutorPoolSize;
+        return this;
+    }
+
+    @Min(0)
+    public int getRemoteTaskMaxConsecutiveErrorCount()
+    {
+        return remoteTaskMaxConsecutiveErrorCount;
+    }
+
+    @Config("query.remote-task.max-consecutive-error-count")
+    public QueryManagerConfig setRemoteTaskMaxConsecutiveErrorCount(int remoteTaskMaxConsecutiveErrorCount)
+    {
+        this.remoteTaskMaxConsecutiveErrorCount = remoteTaskMaxConsecutiveErrorCount;
+        return this;
+    }
+
+    @NotNull
+    public Duration getRemoteTaskMinErrorDuration()
+    {
+        return remoteTaskMinErrorDuration;
+    }
+
+    @Config("query.remote-task.min-error-duration")
+    public QueryManagerConfig setRemoteTaskMinErrorDuration(Duration remoteTaskMinErrorDuration)
+    {
+        this.remoteTaskMinErrorDuration = remoteTaskMinErrorDuration;
         return this;
     }
 }

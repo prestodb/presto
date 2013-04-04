@@ -4,6 +4,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.execution.LocationFactory;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.TaskInfo;
@@ -16,6 +17,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.json.JsonCodec;
+import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 import java.net.URI;
@@ -28,9 +30,12 @@ public class HttpRemoteTaskFactory
     private final LocationFactory locationFactory;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
+    private final int maxConsecutiveErrorCount;
+    private final Duration minErrorDuration;
 
     @Inject
-    public HttpRemoteTaskFactory(@ForScheduler AsyncHttpClient httpClient,
+    public HttpRemoteTaskFactory(QueryManagerConfig config,
+            @ForScheduler AsyncHttpClient httpClient,
             LocationFactory locationFactory,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec)
@@ -39,6 +44,8 @@ public class HttpRemoteTaskFactory
         this.locationFactory = locationFactory;
         this.taskInfoCodec = taskInfoCodec;
         this.taskUpdateRequestCodec = taskUpdateRequestCodec;
+        this.maxConsecutiveErrorCount = config.getRemoteTaskMaxConsecutiveErrorCount();
+        this.minErrorDuration = config.getRemoteTaskMinErrorDuration();
     }
 
     @Override
@@ -63,6 +70,8 @@ public class HttpRemoteTaskFactory
                 initialExchangeLocations,
                 initialOutputIds,
                 httpClient,
+                maxConsecutiveErrorCount,
+                minErrorDuration,
                 taskInfoCodec,
                 taskUpdateRequestCodec
         );
