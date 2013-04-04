@@ -359,6 +359,7 @@ public class TestDistributedQueries
                     .put("exchange.http-client.read-timeout", "1h")
                     .put("presto-metastore.db.filename", new File(baseDataDir, "db/MetaStore").getPath())
                     .put("discovery.uri", discoveryUri.toASCIIString())
+                    .put("failure-detector.warmup-interval", "0ms")
                     .build();
 
             Bootstrap app = new Bootstrap(
