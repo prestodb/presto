@@ -6,9 +6,9 @@ package com.facebook.presto.server;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.BufferInfo;
 import com.facebook.presto.execution.ExecutionStats.ExecutionStatsSnapshot;
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
 import com.facebook.presto.execution.SharedBufferInfo;
@@ -57,10 +57,9 @@ import java.util.TreeSet;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -72,6 +71,8 @@ public class HttpRemoteTask
         implements RemoteTask
 {
     private static final Logger log = Logger.get(HttpRemoteTask.class);
+    private static final int MAX_CONSECUTIVE_ERROR_COUNT = 10;
+    private static final Duration MIN_ERROR_DURATION = new Duration(30, TimeUnit.SECONDS);
 
     private final Session session;
     private final String nodeId;
@@ -105,7 +106,8 @@ public class HttpRemoteTask
 
     private final RateLimiter requestRateLimiter = RateLimiter.create(10);
 
-    private final AtomicBoolean hasResponseError = new AtomicBoolean();
+    private final AtomicLong lastSuccessfulRequest = new AtomicLong(System.nanoTime());
+    private final AtomicLong consecutiveErrorCount = new AtomicLong();
 
     public HttpRemoteTask(Session session,
             String queryId,
@@ -394,6 +396,37 @@ public class HttpRemoteTask
         updateState(false);
     }
 
+    private void requestFailed()
+    {
+        consecutiveErrorCount.incrementAndGet();
+
+        // fail the task, if we have more than X failures in a row and more than Y seconds have passed since the last request
+        if (consecutiveErrorCount.get() > MAX_CONSECUTIVE_ERROR_COUNT && Duration.nanosSince(lastSuccessfulRequest.get()).compareTo(MIN_ERROR_DURATION) > 0) {
+            // it is weird to mark the task failed locally and then cancel the remote task, but there is no way to tell a remote task that it is failed
+            failTask(new RuntimeException("Too many requests failed"));
+            cancel();
+        }
+    }
+
+    /**
+     * Move the task directly to the failed state
+     */
+    private void failTask(Exception cause)
+    {
+        TaskInfo taskInfo = getTaskInfo();
+        updateTaskInfo(new TaskInfo(taskInfo.getQueryId(),
+                taskInfo.getStageId(),
+                taskInfo.getTaskId(),
+                TaskInfo.MAX_VERSION,
+                TaskState.FAILED,
+                taskInfo.getSelf(),
+                taskInfo.getOutputBuffers(),
+                taskInfo.getNoMoreSplits(),
+                taskInfo.getStats(),
+                ImmutableList.<SplitExecutionStats>of(),
+                ImmutableList.of(toFailure(cause))));
+    }
+
     private RemoteSplit createRemoteSplitFor(URI taskLocation)
     {
         URI splitLocation = uriBuilderFrom(taskLocation).appendPath("results").appendPath(nodeId).build();
@@ -478,55 +511,46 @@ public class HttpRemoteTask
         {
             try {
                 TaskInfo taskInfo = getTaskInfo();
-                if (response.getStatusCode() != HttpStatus.GONE.code()) {
-                    checkState(response.getStatusCode() == HttpStatus.OK.code(),
-                            "Expected response code from %s to be %s, but was %s: %s",
-                            taskInfo.getSelf(),
-                            HttpStatus.OK.code(),
-                            response.getStatusCode(),
-                            response.getStatusMessage());
-
+                if (response.getStatusCode() == HttpStatus.OK.code() && response.hasValue()) {
                     // update task info
-                    if (response.hasValue()) {
-                        try {
-                            updateTaskInfo(response.getValue());
-                        }
-                        catch (Exception ignored) {
-                            // if we got bad json back, update again
-                            updateState(false);
-                            return;
-                        }
-                        hasResponseError.set(false);
-                    }
-                    else if (response.getException() != null) {
-                        if (hasResponseError.compareAndSet(false, true)) {
-                            log.error(response.getException(), "Error decoding json response from %s", taskInfo.getSelf());
-                        }
-                        else {
-                            log.debug("Error decoding json response from %s", taskInfo.getSelf());
-                        }
-                    }
+                    updateTaskInfo(response.getValue());
+                    lastSuccessfulRequest.set(System.nanoTime());
+                    consecutiveErrorCount.set(0);
 
                     // remove acknowledged splits, which frees memory
                     acknowledgeSources(sources);
 
                     updateIfNecessary();
                 }
-                else {
-                    updateTaskInfo(new TaskInfo(taskInfo.getQueryId(),
-                            taskInfo.getStageId(),
-                            taskInfo.getTaskId(),
-                            TaskInfo.MAX_VERSION,
-                            TaskState.CANCELED,
+                else if (response.getStatusCode() == HttpStatus.INTERNAL_SERVER_ERROR.code()) {
+                    // log failure
+                    log.debug(String.format("Server at %s returned %s: %s",
                             taskInfo.getSelf(),
-                            taskInfo.getOutputBuffers(),
-                            taskInfo.getNoMoreSplits(),
-                            taskInfo.getStats(),
-                            ImmutableList.<SplitExecutionStats>of(),
-                            ImmutableList.<FailureInfo>of()));
+                            response.getStatusCode(),
+                            response.getStatusMessage()));
+                    requestFailed();
+                    updateState(false);
                 }
-            } catch (Throwable t) {
+                else if (response.getStatusCode() == HttpStatus.SERVICE_UNAVAILABLE.code()) {
+                    requestFailed();
+                    // don't update immediately so the server can get a break
+                }
+                else {
+                    // Something is broken in the server or the client, so fail the task immediately
+                    Exception cause = response.getException();
+                    if (cause == null) {
+                        cause = new RuntimeException(String.format("Expected response code from %s to be %s, but was %s: %s",
+                                taskInfo.getSelf(),
+                                HttpStatus.OK.code(),
+                                response.getStatusCode(),
+                                response.getStatusMessage()));
+                    }
+                    failTask(cause);
+                }
+            }
+            catch (Throwable t) {
                 setException(t);
+                requestFailed();
             }
             finally {
                 set(null);
@@ -565,6 +589,7 @@ public class HttpRemoteTask
                     }
                 }
             }
+            requestFailed();
             updateState(false);
         }
 
