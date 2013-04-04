@@ -10,13 +10,13 @@ import io.airlift.http.client.netty.NettyAsyncHttpClientConfig;
 import io.airlift.http.client.netty.NettyIoPoolConfig;
 import io.airlift.http.client.netty.StandaloneNettyAsyncHttpClient;
 import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonCodecFactory;
 import io.airlift.units.Duration;
 
 import java.io.Closeable;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.airlift.json.JsonCodec.jsonCodec;
 
 public class QueryExecutor
         implements Closeable
@@ -51,6 +51,6 @@ public class QueryExecutor
 
     public static QueryExecutor create(String userAgent)
     {
-        return new QueryExecutor(userAgent, new JsonCodecFactory().jsonCodec(QueryResults.class));
+        return new QueryExecutor(userAgent, jsonCodec(QueryResults.class));
     }
 }
