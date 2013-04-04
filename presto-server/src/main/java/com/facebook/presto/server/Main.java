@@ -45,6 +45,7 @@ public class Main implements Runnable
                 new TraceTokenModule(),
                 new JsonEventModule(),
                 new HttpEventModule(),
+                new FailureDetectorModule(),
                 new ServerMainModule());
 
         modules.addAll(getAdditionalModules());

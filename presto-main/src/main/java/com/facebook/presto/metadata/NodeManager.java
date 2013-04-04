@@ -1,5 +1,7 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.server.FailureDetector;
+import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -15,6 +17,8 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Predicates.in;
+import static com.google.common.base.Predicates.not;
 import static java.util.Arrays.asList;
 
 public class NodeManager
@@ -22,18 +26,20 @@ public class NodeManager
     private static final Splitter DATASOURCES_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
     private final ServiceSelector serviceSelector;
     private final NodeInfo nodeInfo;
+    private final FailureDetector failureDetector;
 
     @Inject
-    public NodeManager(@ServiceType("presto") ServiceSelector serviceSelector, NodeInfo nodeInfo)
+    public NodeManager(@ServiceType("presto") ServiceSelector serviceSelector, NodeInfo nodeInfo, FailureDetector failureDetector)
     {
         this.serviceSelector = checkNotNull(serviceSelector, "serviceSelector is null");
         this.nodeInfo = checkNotNull(nodeInfo, "nodeInfo is null");
+        this.failureDetector = checkNotNull(failureDetector, "failureDetector is null");
     }
 
     public Set<Node> getActiveNodes()
     {
         ImmutableSet.Builder<Node> nodes = ImmutableSet.builder();
-        for (ServiceDescriptor descriptor : serviceSelector.selectAllServices()) {
+        for (ServiceDescriptor descriptor : getLiveServices()) {
             try {
                 nodes.add(nodeFromServiceDescriptor(descriptor));
             }
@@ -48,7 +54,7 @@ public class NodeManager
     public Set<Node> getActiveDatasourceNodes(String datasourceName)
     {
         ImmutableSet.Builder<Node> nodes = ImmutableSet.builder();
-        for (ServiceDescriptor descriptor : serviceSelector.selectAllServices()) {
+        for (ServiceDescriptor descriptor : getLiveServices()) {
             String datasources = descriptor.getProperties().get("datasources");
             if (datasources == null) {
                 continue;
@@ -75,6 +81,15 @@ public class NodeManager
             }
         }
         throw new IllegalStateException("current node is not in active set");
+    }
+
+    private Set<ServiceDescriptor> getLiveServices()
+    {
+        // This is currently a blacklist.
+        // TODO: make it a whitelist (a failure-detecting service selector) and maybe build in support for injecting this in airlift
+        return IterableTransformer.on(serviceSelector.selectAllServices())
+                .select(not(in(failureDetector.getFailed())))
+                .set();
     }
 
     private static Node nodeFromServiceDescriptor(ServiceDescriptor descriptor)

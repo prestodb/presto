@@ -1,5 +1,7 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.server.FailureDetector;
+import com.facebook.presto.server.NoOpFailureDetector;
 import com.google.common.collect.ImmutableList;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
@@ -48,7 +50,7 @@ public class TestNodeManager
     public void testGetActiveNodes()
             throws Exception
     {
-        NodeManager manager = new NodeManager(selector, new NodeInfo("test"));
+        NodeManager manager = new NodeManager(selector, new NodeInfo("test"), new NoOpFailureDetector());
         Set<Node> activeNodes = manager.getActiveNodes();
 
         assertEqualsIgnoreOrder(activeNodes, nodes);
@@ -69,7 +71,7 @@ public class TestNodeManager
                 .setEnvironment("test")
                 .setNodeId(expected.getNodeIdentifier()));
 
-        NodeManager manager = new NodeManager(selector, nodeInfo);
+        NodeManager manager = new NodeManager(selector, nodeInfo, new NoOpFailureDetector());
 
         assertEquals(manager.getCurrentNode(), expected);
     }
@@ -77,7 +79,7 @@ public class TestNodeManager
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "current node is not in active set")
     public void testGetCurrentNodeNotActive()
     {
-        NodeManager manager = new NodeManager(selector, new NodeInfo("test"));
+        NodeManager manager = new NodeManager(selector, new NodeInfo("test"), new NoOpFailureDetector());
         manager.getCurrentNode();
     }
 }

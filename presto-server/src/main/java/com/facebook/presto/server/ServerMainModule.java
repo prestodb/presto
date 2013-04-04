@@ -249,6 +249,8 @@ public class ServerMainModule
         executionBinder.addBinding(ShowTables.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
 
         binder.bind(new TypeLiteral<List<PlanOptimizer>>() {}).toProvider(PlanOptimizersFactory.class).in(Scopes.SINGLETON);
+
+        binder.bind(NodeResource.class).in(Scopes.SINGLETON);
     }
 
     @Provides
