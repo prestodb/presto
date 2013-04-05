@@ -20,6 +20,7 @@ import java.util.UUID;
 import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotSame;
 
 public class TestNodeManager
@@ -73,13 +74,12 @@ public class TestNodeManager
 
         NodeManager manager = new NodeManager(selector, nodeInfo, new NoOpFailureDetector());
 
-        assertEquals(manager.getCurrentNode(), expected);
+        assertEquals(manager.getCurrentNode().get(), expected);
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "current node is not in active set")
     public void testGetCurrentNodeNotActive()
     {
         NodeManager manager = new NodeManager(selector, new NodeInfo("test"), new NoOpFailureDetector());
-        manager.getCurrentNode();
+        assertFalse(manager.getCurrentNode().isPresent());
     }
 }
