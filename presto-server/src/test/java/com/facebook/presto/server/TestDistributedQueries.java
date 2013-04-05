@@ -15,6 +15,7 @@ import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeColumnHandle;
 import com.facebook.presto.metadata.NativeTableHandle;
+import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.ShardManager;
@@ -96,6 +97,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.util.MaterializedResult.materialize;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestDistributedQueries
@@ -342,6 +344,7 @@ public class TestDistributedQueries
         private final ShardManager shardManager;
         private final StorageManager storageManager;
         private final NodeInfo nodeInfo;
+        private final NodeManager nodeManager;
 
         public PrestoTestingServer(URI discoveryUri)
                 throws Exception
@@ -388,6 +391,7 @@ public class TestDistributedQueries
             metadata = injector.getInstance(Metadata.class);
             shardManager = injector.getInstance(ShardManager.class);
             storageManager = injector.getInstance(StorageManager.class);
+            nodeManager = injector.getInstance(NodeManager.class);
 
             server = injector.getInstance(TestingHttpServer.class);
 
@@ -461,6 +465,15 @@ public class TestDistributedQueries
                     }
                 }
             }
+
+            // HACK ALERT!!!! This is to work around the fact that calling get() on the future returned by CachingServiceSelector.refresh() does not actually
+            // guarantee that the selectors have been refreshed. TODO: remove the loop when this is fixed: https://github.com/airlift/airlift/issues/78
+            long start = System.nanoTime();
+            while (!nodeManager.getCurrentNode().isPresent() && Duration.nanosSince(start).convertTo(TimeUnit.SECONDS) < 1) {
+                nodeManager.refreshNodes(true);
+            }
+
+            assertTrue(nodeManager.getCurrentNode().isPresent(), "Current node is not in active set");
         }
 
         @Override

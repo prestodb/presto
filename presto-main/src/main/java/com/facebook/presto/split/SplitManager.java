@@ -34,19 +34,23 @@ import com.facebook.presto.util.MapTransformer;
 import com.facebook.presto.util.MoreFunctions;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ArrayListMultimap;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.SetMultimap;
+import com.google.common.net.InetAddresses;
 import com.google.inject.Inject;
-import io.airlift.stats.DistributionStat;
 import org.weakref.jmx.Managed;
-import org.weakref.jmx.Nested;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -54,11 +58,14 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.metadata.ImportColumnHandle.columnNameGetter;
@@ -81,7 +88,6 @@ public class SplitManager
     private final AtomicLong scheduleLocal = new AtomicLong();
     private final AtomicLong scheduleRack = new AtomicLong();
     private final AtomicLong scheduleRandom = new AtomicLong();
-    private final DistributionStat chooseNodesTime = new DistributionStat();
 
     @Inject
     public SplitManager(NodeManager nodeManager, ShardManager shardManager, ImportClientManager importClientManager, Metadata metadata)
@@ -108,13 +114,6 @@ public class SplitManager
     public long getScheduleRandom()
     {
         return scheduleRandom.get();
-    }
-
-    @Managed
-    @Nested
-    public DistributionStat getChooseNodesTime()
-    {
-        return chooseNodesTime;
     }
 
     @Managed
@@ -157,7 +156,11 @@ public class SplitManager
     {
         Map<Symbol, InternalColumnHandle> symbols = filterValueInstances(mappings, InternalColumnHandle.class);
         Split split = new InternalSplit(handle, extractFilters(predicate, symbols));
-        List<Node> nodes = ImmutableList.of(nodeManager.getCurrentNode());
+
+        Optional<Node> currentNode = nodeManager.getCurrentNode();
+        Preconditions.checkState(currentNode.isPresent(), "current node is not in the active set");
+
+        List<Node> nodes = ImmutableList.of(currentNode.get());
         return ImmutableList.of(new SplitAssignments(split, nodes));
     }
 
@@ -404,6 +407,32 @@ public class SplitManager
 
     private Function<PartitionChunk, SplitAssignments> createImportSplitFunction(final String sourceName)
     {
+        // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
+        // done as close to when the the split is about to be scheduled
+        final Supplier<NodeMap> nodeMap = Suppliers.memoizeWithExpiration(new Supplier<NodeMap>()
+        {
+            @Override
+            public NodeMap get()
+            {
+                ImmutableSetMultimap.Builder<InetAddress, Node> byHost = ImmutableSetMultimap.builder();
+                ImmutableSetMultimap.Builder<Rack, Node> byRack = ImmutableSetMultimap.builder();
+
+                for (Node node : nodeManager.getActiveDatasourceNodes(sourceName)) {
+                    try {
+                        InetAddress host = InetAddress.getByName(node.getHttpUri().getHost());
+                        byHost.put(host, node);
+
+                        byRack.put(Rack.of(host), node);
+                    }
+                    catch (UnknownHostException e) {
+                        // ignore
+                    }
+                }
+
+                return new NodeMap(byHost.build(), byRack.build());
+            }
+        }, 5, TimeUnit.SECONDS);
+
         return new Function<PartitionChunk, SplitAssignments>()
         {
             @Override
@@ -412,87 +441,55 @@ public class SplitManager
                 ImportClient importClient = importClientManager.getClient(sourceName);
                 Split split = new ImportSplit(sourceName, SerializedPartitionChunk.create(importClient, chunk), chunk.getInfo());
 
-                List<Node> nodes = chooseNodes(sourceName, chunk.getHosts(), 3);
+                List<Node> nodes = chooseNodes(nodeMap.get(), chunk.getHosts(), 3);
                 Preconditions.checkState(!nodes.isEmpty(), "No active %s data nodes", sourceName);
                 return new SplitAssignments(split, nodes);
             }
         };
     }
 
-    private List<Node> chooseNodes(String sourceName, List<InetAddress> hosts, int limit)
+    private List<Node> chooseNodes(NodeMap nodeMap, List<InetAddress> hints, int limit)
     {
-        long startTime = System.nanoTime();
-        try {
-            ArrayListMultimap<InetAddress, Node> nodesByHost = indexNodesByHost(nodeManager.getActiveDatasourceNodes(sourceName));
+        List<InetAddress> shuffledHints = new ArrayList<>(hints);
+        Collections.shuffle(shuffledHints);
 
-            List<Node> chosen = new ArrayList<>(limit);
-            List<InetAddress> nonLocalHosts = new ArrayList<>();
-            for (InetAddress host : hosts) {
-                List<Node> nodes = nodesByHost.get(host);
-                if (nodes != null && !nodes.isEmpty()) {
-                    // only allow host to be used once
-                    Node node = nodes.remove(0);
+        Set<Node> chosen = new LinkedHashSet<>(limit);
+
+        for (InetAddress hint : shuffledHints) {
+            for (Node node : nodeMap.getNodesByHost().get(hint)) {
+                if (chosen.add(node)) {
                     scheduleLocal.incrementAndGet();
-                    chosen.add(node);
                     if (chosen.size() == limit) {
                         return ImmutableList.copyOf(chosen);
                     }
-                } else {
-                    // remember the hosts we did not find
-                    nonLocalHosts.add(host);
                 }
             }
+        }
 
-            // look for a host "near" the the non-local hosts
-            for (InetAddress nonLocalHost : nonLocalHosts) {
-                for (Entry<InetAddress, Node> entry : ImmutableList.copyOf(nodesByHost.entries())) {
-                    if (isRackLocal(nonLocalHost, entry.getKey())) {
-                        // only allow host to be used once
-                        nodesByHost.remove(entry.getKey(), entry.getValue());
-                        scheduleRack.incrementAndGet();
-                        chosen.add(entry.getValue());
-                        if (chosen.size() == limit) {
-                            return ImmutableList.copyOf(chosen);
-                        }
+        // look for a host "near" the the non-local hosts
+        for (InetAddress hint : shuffledHints) {
+            for (Node node : nodeMap.getNodesByRack().get(Rack.of(hint))) {
+                if (chosen.add(node)) {
+                    scheduleRack.incrementAndGet();
+                    if (chosen.size() == limit) {
+                        return ImmutableList.copyOf(chosen);
                     }
                 }
             }
-
-            // add some random nodes if below the limit
-            if (chosen.size() < limit) {
-                int randomCount = limit - chosen.size();
-                scheduleRandom.addAndGet(randomCount);
-                chosen.addAll(limit(shuffle(nodesByHost.values()), randomCount));
-            }
-
-            return ImmutableList.copyOf(chosen);
         }
-        finally {
-            chooseNodesTime.add(System.nanoTime() - startTime);
-        }
-    }
 
-    private ArrayListMultimap<InetAddress, Node> indexNodesByHost(Set<Node> nodes)
-    {
-        ArrayListMultimap<InetAddress, Node> nodesByHost = ArrayListMultimap.create();
-        for (Node node : nodes) {
-            try {
-                nodesByHost.put(InetAddress.getByName(node.getHttpUri().getHost()), node);
-            }
-            catch (UnknownHostException e) {
-                // skip nodes with a bad inet address
+        // add some random nodes if below the limit
+        if (chosen.size() < limit) {
+            for (Node node : lazyShuffle(nodeMap.getNodesByHost().values())) {
+                chosen.add(node);
+                scheduleRandom.incrementAndGet();
+                if (chosen.size() == limit) {
+                    return ImmutableList.copyOf(chosen);
+                }
             }
         }
-        return nodesByHost;
-    }
 
-    private static boolean isRackLocal(InetAddress inetAddress1, InetAddress inetAddress2)
-    {
-        byte[] address1 = inetAddress1.getAddress();
-        byte[] address2 = inetAddress2.getAddress();
-
-        // if the first 24 bits match, assume it is rack local
-        return address1[0] == address2[0] && address1[1] == address2[1] && address1[2] == address2[2];
+        return ImmutableList.copyOf(chosen);
     }
 
     private static Function<SchemaField, String> fieldNameGetter()
@@ -519,15 +516,99 @@ public class SplitManager
         };
     }
 
-    private static <T> List<T> limit(Iterable<T> iterable, int limitSize)
+    private static <T> Iterable<T> lazyShuffle(final Iterable<T> iterable)
     {
-        return ImmutableList.copyOf(Iterables.limit(iterable, limitSize));
+        return new Iterable<T>()
+        {
+            @Override
+            public Iterator<T> iterator()
+            {
+                return new AbstractIterator<T>()
+                {
+                    List<T> list = Lists.newArrayList(iterable);
+                    int limit = list.size();
+
+                    @Override
+                    protected T computeNext()
+                    {
+                        if (limit == 0) {
+                            return endOfData();
+                        }
+
+                        int position = ThreadLocalRandom.current().nextInt(limit);
+
+                        T result = list.get(position);
+                        list.set(position, list.get(limit - 1));
+                        limit--;
+
+                        return result;
+                    }
+                };
+            }
+        };
     }
 
-    private static <T> List<T> shuffle(Iterable<T> iterable)
+    private static class NodeMap
     {
-        List<T> list = Lists.newArrayList(iterable);
-        Collections.shuffle(list);
-        return list;
+        private final SetMultimap<InetAddress, Node> nodesByHost;
+        private final SetMultimap<Rack, Node> nodesByRack;
+
+        public NodeMap(SetMultimap<InetAddress, Node> nodesByHost, SetMultimap<Rack, Node> nodesByRack)
+        {
+            this.nodesByHost = nodesByHost;
+            this.nodesByRack = nodesByRack;
+        }
+
+        public SetMultimap<InetAddress, Node> getNodesByHost()
+        {
+            return nodesByHost;
+        }
+
+        public SetMultimap<Rack, Node> getNodesByRack()
+        {
+            return nodesByRack;
+        }
+    }
+
+    private static class Rack
+    {
+        private int id;
+
+        public static Rack of(InetAddress address)
+        {
+            // TODO: this needs to be pluggable
+            int id = InetAddresses.coerceToInteger(address) & 0xFF_FF_FF_00;
+            return new Rack(id);
+        }
+
+        private Rack(int id)
+        {
+            this.id = id;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            Rack rack = (Rack) o;
+
+            if (id != rack.id) {
+                return false;
+            }
+
+            return true;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return id;
+        }
     }
 }
