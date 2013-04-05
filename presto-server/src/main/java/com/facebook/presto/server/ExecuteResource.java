@@ -95,11 +95,10 @@ public class ExecuteResource
             client.advance();
         }
 
-        QueryResults results = client.finalResults();
-        if (results.getError() == null) {
+        if (!client.isFailed()) {
             throw internalServerError("No columns");
         }
-        throw internalServerError(failureMessage(results));
+        throw internalServerError(failureMessage(client.finalResults()));
     }
 
     private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator)
@@ -135,9 +134,8 @@ public class ExecuteResource
                 }
             }
 
-            QueryResults results = client.finalResults();
-            if (!"FINISHED".equals(results.getStats().getState())) {
-                throw internalServerError(failureMessage(results));
+            if (client.isFailed()) {
+                throw internalServerError(failureMessage(client.finalResults()));
             }
 
             return endOfData();
@@ -151,9 +149,6 @@ public class ExecuteResource
 
     private static String failureMessage(QueryResults results)
     {
-        if (results.getError() == null) {
-            return format("Query failed for an unknown reason (#%s)", results.getQueryId());
-        }
         return format("Query failed (#%s): %s", results.getQueryId(), results.getError().getMessage());
     }
 

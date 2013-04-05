@@ -308,19 +308,16 @@ public class TestDistributedQueries
                 client.advance();
             }
 
-            QueryResults results = client.finalResults();
-            if ("FINISHED".equals(results.getStats().getState())) {
+            if (!client.isFailed()) {
                 return new MaterializedResult(rows.build(), tupleInfo);
             }
 
-            QueryError error = results.getError();
-            if (error != null) {
-                if (error.getFailureInfo() != null) {
-                    throw error.getFailureInfo().toException();
-                }
-                throw new RuntimeException("Query failed: " + error.getMessage());
+            QueryError error = client.finalResults().getError();
+            assert error != null;
+            if (error.getFailureInfo() != null) {
+                throw error.getFailureInfo().toException();
             }
-            throw new RuntimeException("Query failed for an unknown reason");
+            throw new RuntimeException("Query failed: " + error.getMessage());
 
             // dump query info to console for debugging (NOTE: not pretty printed)
             // JsonCodec<QueryInfo> queryInfoJsonCodec = createCodecFactory().prettyPrint().jsonCodec(QueryInfo.class);
