@@ -332,7 +332,7 @@ public class StatementResource
                 URI uri = uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(bufferId).build();
                 locations.add(uri);
             }
-            if (outputStage.getState() != StageState.PLANNED && outputStage.getState() != StageState.SCHEDULED) {
+            if ((outputStage.getState() != StageState.PLANNED) && (outputStage.getState() != StageState.SCHEDULING)) {
                 noMoreLocations.set(true);
             }
         }
