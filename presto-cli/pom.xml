@@ -13,6 +13,8 @@
 
     <properties>
         <main-class>com.facebook.presto.cli.Main</main-class>
+        <cli.skip-execute>false</cli.skip-execute>
+        <cli.main-class>${main-class}</cli.main-class>
     </properties>
 
     <dependencies>
@@ -138,34 +140,4 @@
             </plugin>
         </plugins>
     </build>
-
-    <profiles>
-        <profile>
-            <id>console</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>exec-maven-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>console</id>
-                                <goals>
-                                    <goal>java</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                        <configuration>
-                            <executable>${java.home}/bin/java</executable>
-                            <mainClass>${main-class}</mainClass>
-                            <arguments>
-                                <argument>console</argument>
-                                <argument>--debug</argument>
-                            </arguments>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>
