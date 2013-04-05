@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class StatementStats
 {
     private final String state;
-    private final boolean done;
     private final boolean scheduled;
     private final int nodes;
     private final int totalSplits;
@@ -34,7 +33,6 @@ public class StatementStats
     @JsonCreator
     public StatementStats(
             @JsonProperty("state") String state,
-            @JsonProperty("done") boolean done,
             @JsonProperty("scheduled") boolean scheduled,
             @JsonProperty("nodes") int nodes,
             @JsonProperty("totalSplits") int totalSplits,
@@ -49,7 +47,6 @@ public class StatementStats
             @JsonProperty("rootStage") StageStats rootStage)
     {
         this.state = checkNotNull(state, "state is null");
-        this.done = done;
         this.scheduled = scheduled;
         this.nodes = nodes;
         this.totalSplits = totalSplits;
@@ -69,12 +66,6 @@ public class StatementStats
     public String getState()
     {
         return state;
-    }
-
-    @JsonProperty
-    public boolean isDone()
-    {
-        return done;
     }
 
     @JsonProperty
@@ -155,7 +146,6 @@ public class StatementStats
     {
         return Objects.toStringHelper(this)
                 .add("state", state)
-                .add("done", done)
                 .add("scheduled", scheduled)
                 .add("nodes", nodes)
                 .add("totalSplits", totalSplits)
@@ -179,7 +169,6 @@ public class StatementStats
     public static class Builder
     {
         private String state;
-        private boolean done;
         private boolean scheduled;
         private int nodes;
         private int totalSplits;
@@ -198,12 +187,6 @@ public class StatementStats
         public Builder setState(String state)
         {
             this.state = checkNotNull(state, "state is null");
-            return this;
-        }
-
-        public Builder setDone(boolean done)
-        {
-            this.done = done;
             return this;
         }
 
@@ -283,7 +266,6 @@ public class StatementStats
         {
             return new StatementStats(
                     state,
-                    done,
                     scheduled,
                     nodes,
                     totalSplits,

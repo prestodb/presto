@@ -1497,7 +1497,7 @@ public class JdbcResultSet
         }
 
         QueryResults results = client.finalResults();
-        if (results.getError() == null) {
+        if (!client.isFailed()) {
             throw new SQLException(format("Query has no columns (#%s)", results.getQueryId()));
         }
         throw resultsException(results);
@@ -1536,9 +1536,8 @@ public class JdbcResultSet
                 }
             }
 
-            QueryResults results = client.finalResults();
-            if (!"FINISHED".equals(results.getStats().getState())) {
-                throw propagate(resultsException(results));
+            if (client.isFailed()) {
+                throw propagate(resultsException(client.finalResults()));
             }
 
             return endOfData();
@@ -1548,9 +1547,6 @@ public class JdbcResultSet
     private static SQLException resultsException(QueryResults results)
     {
         QueryError error = results.getError();
-        if (error == null) {
-            return new SQLException(format("Query failed for an unknown reason (#%s)", results.getQueryId()));
-        }
         String message = format("Query failed (#%s): %s", results.getQueryId(), error.getMessage());
         Throwable cause = (error.getFailureInfo() == null) ? null : error.getFailureInfo().toException();
         return new SQLException(message, error.getSqlState(), error.getErrorCode(), cause);

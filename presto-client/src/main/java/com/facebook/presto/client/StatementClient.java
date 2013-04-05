@@ -2,7 +2,7 @@ package com.facebook.presto.client;
 
 import com.google.common.base.Charsets;
 import io.airlift.http.client.AsyncHttpClient;
-import io.airlift.http.client.JsonResponseHandler;
+import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 
@@ -15,23 +15,25 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
+import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpStatus.Family;
 import static io.airlift.http.client.HttpStatus.familyForStatusCode;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
+import static java.lang.String.format;
 
 @ThreadSafe
 public class StatementClient
         implements Closeable
 {
     private final AsyncHttpClient httpClient;
-    private final JsonResponseHandler<QueryResults> responseHandler;
+    private final FullJsonResponseHandler<QueryResults> responseHandler;
     private final boolean debug;
     private final String query;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
@@ -47,12 +49,12 @@ public class StatementClient
         checkNotNull(query, "query is null");
 
         this.httpClient = httpClient;
-        this.responseHandler = createJsonResponseHandler(queryResultsCodec);
+        this.responseHandler = createFullJsonResponseHandler(queryResultsCodec);
         this.debug = session.isDebug();
         this.query = query;
 
         Request request = buildQueryRequest(session, query);
-        currentResults.set(httpClient.execute(request, responseHandler));
+        currentResults.set(httpClient.execute(request, responseHandler).getValue());
     }
 
     private static Request buildQueryRequest(ClientSession session, String query)
@@ -94,6 +96,11 @@ public class StatementClient
         return gone.get();
     }
 
+    public boolean isFailed()
+    {
+        return currentResults.get().getError() != null;
+    }
+
     public QueryResults current()
     {
         checkState(isValid(), "current position is not valid (cursor past end)");
@@ -102,13 +109,13 @@ public class StatementClient
 
     public QueryResults finalResults()
     {
-        checkState(!isValid(), "current position is still valid");
+        checkState((!isValid()) || isFailed(), "current position is still valid");
         return currentResults.get();
     }
 
     public boolean isValid()
     {
-        return valid.get();
+        return valid.get() && (!isGone()) && (!isClosed());
     }
 
     public boolean advance()
@@ -118,11 +125,27 @@ public class StatementClient
             return false;
         }
 
-        // TODO: retry on error
+        // TODO: retry on error and handle 503
         Request request = prepareGet().setUri(current().getNext()).build();
-        QueryResults results = httpClient.execute(request, responseHandler);
-        currentResults.set(results);
-        return true;
+        JsonResponse<QueryResults> response;
+        try {
+            response = httpClient.execute(request, responseHandler);
+        }
+        catch (RuntimeException e) {
+            gone.set(true);
+            throw new RuntimeException("Error fetching next", e);
+        }
+
+        if (response.hasValue()) {
+            currentResults.set(response.getValue());
+            return true;
+        }
+
+        gone.set(true);
+        throw new RuntimeException(format("Error fetching next: %s %s: %s",
+                response.getStatusCode(),
+                response.getStatusMessage(),
+                response.getException()));
     }
 
     public boolean cancelLeafStage()
