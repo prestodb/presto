@@ -52,6 +52,9 @@
         <dep.antlr.version>3.4</dep.antlr.version>
         <dep.airlift.version>0.75</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
+
+        <cli.skip-execute>true</cli.skip-execute>
+        <cli.main-class>None</cli.main-class>
     </properties>
 
     <modules>
@@ -441,4 +444,36 @@
             </plugins>
         </pluginManagement>
     </build>
+
+    <profiles>
+        <!-- run console for development: mvn -q -P console compile exec:java -->
+        <profile>
+            <id>console</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>console</id>
+                                <goals>
+                                    <goal>java</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <skip>${cli.skip-execute}</skip>
+                            <executable>${java.home}/bin/java</executable>
+                            <mainClass>${cli.main-class}</mainClass>
+                            <arguments>
+                                <argument>console</argument>
+                                <argument>--debug</argument>
+                            </arguments>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
