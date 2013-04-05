@@ -441,50 +441,40 @@ public class SplitManager
                 ImportClient importClient = importClientManager.getClient(sourceName);
                 Split split = new ImportSplit(sourceName, SerializedPartitionChunk.create(importClient, chunk), chunk.getInfo());
 
-                List<Node> nodes = chooseNodes(nodeMap.get(), chunk.getHosts(), 3);
+                List<Node> nodes = chooseNodes(nodeMap.get(), chunk.getHosts(), 10);
                 Preconditions.checkState(!nodes.isEmpty(), "No active %s data nodes", sourceName);
                 return new SplitAssignments(split, nodes);
             }
         };
     }
 
-    private List<Node> chooseNodes(NodeMap nodeMap, List<InetAddress> hints, int limit)
+    private List<Node> chooseNodes(NodeMap nodeMap, List<InetAddress> hints, int minCount)
     {
-        List<InetAddress> shuffledHints = new ArrayList<>(hints);
-        Collections.shuffle(shuffledHints);
+        Set<Node> chosen = new LinkedHashSet<>(minCount);
 
-        Set<Node> chosen = new LinkedHashSet<>(limit);
-
-        for (InetAddress hint : shuffledHints) {
+        for (InetAddress hint : hints) {
             for (Node node : nodeMap.getNodesByHost().get(hint)) {
                 if (chosen.add(node)) {
                     scheduleLocal.incrementAndGet();
-                    if (chosen.size() == limit) {
-                        return ImmutableList.copyOf(chosen);
-                    }
                 }
             }
-        }
 
-        // look for a host "near" the the non-local hosts
-        for (InetAddress hint : shuffledHints) {
             for (Node node : nodeMap.getNodesByRack().get(Rack.of(hint))) {
                 if (chosen.add(node)) {
                     scheduleRack.incrementAndGet();
-                    if (chosen.size() == limit) {
-                        return ImmutableList.copyOf(chosen);
-                    }
                 }
             }
         }
 
-        // add some random nodes if below the limit
-        if (chosen.size() < limit) {
+        // add some random nodes if below the minimum count
+        if (chosen.size() < minCount) {
             for (Node node : lazyShuffle(nodeMap.getNodesByHost().values())) {
-                chosen.add(node);
-                scheduleRandom.incrementAndGet();
-                if (chosen.size() == limit) {
-                    return ImmutableList.copyOf(chosen);
+                if (chosen.add(node)) {;
+                    scheduleRandom.incrementAndGet();
+                }
+
+                if (chosen.size() == minCount) {
+                    break;
                 }
             }
         }
