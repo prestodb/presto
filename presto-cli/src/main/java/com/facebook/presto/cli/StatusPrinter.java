@@ -61,14 +61,9 @@ Parallelism: 2.5
     {
         long lastPrint = System.nanoTime();
         try {
-            while (true) {
+            while (client.isValid()) {
                 try {
-                    // exit if no more results
-                    if (!client.hasNext()) {
-                        return;
-                    }
-
-                    // check if there is there is pending output
+                    // exit status loop if there is there is pending output
                     if (client.current().getData() != null) {
                         return;
                     }
@@ -81,9 +76,9 @@ Parallelism: 2.5
                     }
 
                     // fetch next results (server will wait for a while if no data)
-                    client.next();
+                    client.advance();
                 }
-                catch (Exception e) {
+                catch (RuntimeException e) {
                     log.debug(e, "error printing status");
                 }
             }
@@ -97,7 +92,7 @@ Parallelism: 2.5
     {
         Duration wallTime = Duration.nanosSince(start);
 
-        QueryResults results = client.current();
+        QueryResults results = client.finalResults();
         StatementStats stats = results.getStats();
 
         int nodes = stats.getNodes();
@@ -168,11 +163,6 @@ Parallelism: 2.5
         StatementStats stats = results.getStats();
         Duration wallTime = Duration.nanosSince(start);
 
-        int nodes = stats.getNodes();
-        if ((nodes == 0) || (stats.getTotalSplits() == 0)) {
-            return;
-        }
-
         // cap progress at 99%, otherwise it looks weird when the query is still running and it says 100%
         int progressPercentage = (int) min(99, percentage(stats.getCompletedSplits(), stats.getTotalSplits()));
 
@@ -192,6 +182,8 @@ Parallelism: 2.5
                 return;
             }
 
+            int nodes = stats.getNodes();
+
             // Query 10, RUNNING, 1 node, 778 splits
             String querySummary = String.format("Query %s, %s, %,d %s, %,d splits",
                     results.getQueryId(),
@@ -205,7 +197,7 @@ Parallelism: 2.5
                 reprintLine(results.getQueryInfoUri() + "?pretty");
             }
 
-            if ("PLANNING".equals(stats.getState())) {
+            if ((nodes == 0) || (stats.getTotalSplits() == 0)) {
                 return;
             }
 

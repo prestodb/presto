@@ -20,6 +20,7 @@ import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestDriver
 {
@@ -46,14 +47,13 @@ public class TestDriver
     public void testDriverManager()
             throws Exception
     {
-        String url = format("jdbc:presto://%s/", address);
-        try (Connection connection = DriverManager.getConnection(url)) {
+        try (Connection connection = createConnection()) {
             try (ResultSet tableTypes = connection.getMetaData().getTableTypes()) {
                 assertRowCount(tableTypes, 1);
             }
 
             try (Statement statement = connection.createStatement()) {
-                try (ResultSet rs = statement.executeQuery("select 123 x, 'foo' y from dual")) {
+                try (ResultSet rs = statement.executeQuery("SELECT 123 x, 'foo' y FROM dual")) {
                     ResultSetMetaData metadata = rs.getMetaData();
 
                     assertEquals(metadata.getColumnCount(), 2);
@@ -74,6 +74,35 @@ public class TestDriver
                 }
             }
         }
+    }
+
+    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = ".* Table .* does not exist")
+    public void testBadQuery()
+            throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            try (Statement statement = connection.createStatement()) {
+                try (ResultSet ignored = statement.executeQuery("SELECT * FROM bad_table")) {
+                    fail("expected exception");
+                }
+            }
+        }
+    }
+
+    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Username property \\(user\\) must be set")
+    public void testUserIsRequired()
+            throws Exception
+    {
+        try (Connection ignored = DriverManager.getConnection("jdbc:presto://test.invalid/")) {
+            fail("expected exception");
+        }
+    }
+
+    private Connection createConnection()
+            throws SQLException
+    {
+        String url = format("jdbc:presto://%s/", address);
+        return DriverManager.getConnection(url, "test", null);
     }
 
     private static void assertRowCount(ResultSet rs, int expected)

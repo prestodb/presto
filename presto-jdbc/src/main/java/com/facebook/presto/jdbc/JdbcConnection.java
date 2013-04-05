@@ -1,7 +1,7 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.client.ClientSession;
-import com.facebook.presto.cli.HttpQueryClient;
+import com.facebook.presto.client.StatementClient;
 import com.google.common.net.HostAndPort;
 
 import java.net.URI;
@@ -48,7 +48,7 @@ public class JdbcConnection
     {
         this.uri = checkNotNull(uri, "uri is null");
         this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
-        this.user = user;
+        this.user = checkNotNull(user, "user is null");
         this.queryExecutor = QueryExecutor.create(DRIVER_NAME + "/" + DRIVER_VERSION);
         catalog.set("default");
         schema.set("default");
@@ -476,7 +476,7 @@ public class JdbcConnection
         return user;
     }
 
-    HttpQueryClient startQuery(String sql)
+    StatementClient startQuery(String sql)
     {
         URI uri = createHttpUri(address);
         ClientSession session = new ClientSession(uri, user, catalog.get(), schema.get(), false);

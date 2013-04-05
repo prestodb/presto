@@ -2,15 +2,16 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.client.Column;
+import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StageStats;
 import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.execution.BufferInfo;
 import com.facebook.presto.execution.ExecutionStats;
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
@@ -74,6 +75,7 @@ import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.execution.StageInfo.globalExecutionStats;
 import static com.facebook.presto.execution.StageInfo.stageOnlyExecutionStats;
 import static com.facebook.presto.execution.StageInfo.stageStateGetter;
+import static com.facebook.presto.util.Failures.toFailure;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -257,9 +259,14 @@ public class StatementResource
             // get the query info before returning
             QueryInfo queryInfo = queryManager.getQueryInfo(queryId, false);
 
-            // only return a next if the query is not done
+            // close exchange client if the query has failed
+            if (queryInfo.getState().isDone() && (queryInfo.getState() != QueryState.FINISHED)) {
+                exchangeClient.close();
+            }
+
+            // only return a next if the query is not done or there is more data to send (due to buffering)
             URI nextResultsUri = null;
-            if (!queryInfo.getState().isDone()) {
+            if ((!queryInfo.getState().isDone()) || (!exchangeClient.isClosed())) {
                 nextResultsUri = createNextResultsUri(uriInfo);
             }
 
@@ -289,10 +296,6 @@ public class StatementResource
                 throws InterruptedException
         {
             QueryInfo queryInfo = queryManager.getQueryInfo(queryId, false);
-            if (queryInfo.getState().isDone()) {
-                // query is done
-                return null;
-            }
 
             StageInfo outputStage = queryInfo.getOutputStage();
             if (outputStage == null) {
@@ -330,7 +333,7 @@ public class StatementResource
                 URI uri = uriBuilderFrom(taskInfo.getSelf()).appendPath("results").appendPath(bufferId).build();
                 locations.add(uri);
             }
-            if (outputStage.getState() != StageState.PLANNED && outputStage.getState() != StageState.SCHEDULED) {
+            if ((outputStage.getState() != StageState.PLANNED) && (outputStage.getState() != StageState.SCHEDULING)) {
                 noMoreLocations.set(true);
             }
         }
@@ -377,7 +380,6 @@ public class StatementResource
 
             return StatementStats.builder()
                     .setState(queryInfo.getState().toString())
-                    .setDone(queryInfo.getState().isDone())
                     .setScheduled(isScheduled(queryInfo))
                     .setNodes(globalUniqueNodes(queryInfo.getOutputStage()).size())
                     .setTotalSplits(executionStats.getSplits())
@@ -505,10 +507,15 @@ public class StatementResource
 
         private static QueryError toQueryError(QueryInfo queryInfo)
         {
-            if (queryInfo.getFailureInfo() == null) {
-                return null;
-            }
             FailureInfo failure = queryInfo.getFailureInfo();
+            if (failure == null) {
+                QueryState state = queryInfo.getState();
+                if ((!state.isDone()) || (state == QueryState.FINISHED)) {
+                    return null;
+                }
+                log.warn("Query %s in state %s has no failure info", queryInfo.getQueryId(), state);
+                failure = toFailure(new RuntimeException(format("Query is %s (reason unknown)", state)));
+            }
             return new QueryError(failure.getMessage(), null, 0, failure.getErrorLocation(), failure);
         }
 

@@ -156,6 +156,7 @@ public class QueryStateMachine
                 return false;
             }
             queryState = QueryState.CANCELED;
+            failureCause = new RuntimeException("Query was canceled");
         }
 
         log.debug("Canceled query %s", queryId);

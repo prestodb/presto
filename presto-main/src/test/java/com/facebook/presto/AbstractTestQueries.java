@@ -16,6 +16,7 @@ import com.facebook.presto.util.TestingTpchBlocksProvider;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
+import com.google.common.collect.Iterables;
 import io.airlift.slice.Slices;
 import org.intellij.lang.annotations.Language;
 import org.skife.jdbi.v2.DBI;
@@ -24,7 +25,6 @@ import org.skife.jdbi.v2.PreparedBatch;
 import org.skife.jdbi.v2.PreparedBatchPart;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
-import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -45,6 +45,7 @@ import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueries
 {
@@ -897,12 +898,11 @@ public abstract class AbstractTestQueries
         ImmutableMultiset<?> actualSet = ImmutableMultiset.copyOf(actual);
         ImmutableMultiset<?> expectedSet = ImmutableMultiset.copyOf(expected);
         if (!actualSet.equals(expectedSet)) {
-
-            Assert.fail(String.format("not equal\nActual %s rows:\n%s\nExpected %s rows:\n%s\n",
+            fail(format("not equal\nActual %s rows:\n    %s\nExpected %s rows:\n    %s\n",
                     actualSet.size(),
-                    Joiner.on("\n    ").join(actualSet),
+                    Joiner.on("\n    ").join(Iterables.limit(actualSet, 100)),
                     expectedSet.size(),
-                    Joiner.on("\n    ").join(expectedSet)));
+                    Joiner.on("\n    ").join(Iterables.limit(expectedSet, 100))));
         }
     }
 

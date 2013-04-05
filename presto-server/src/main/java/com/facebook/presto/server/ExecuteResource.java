@@ -87,17 +87,18 @@ public class ExecuteResource
 
     private static List<Column> getColumns(StatementClient client)
     {
-        while (true) {
+        while (client.isValid()) {
             List<Column> columns = client.current().getColumns();
             if (columns != null) {
                 return columns;
             }
-
-            if (!client.hasNext()) {
-                throw internalServerError("No columns");
-            }
-            client.next();
+            client.advance();
         }
+
+        if (!client.isFailed()) {
+            throw internalServerError("No columns");
+        }
+        throw internalServerError(failureMessage(client.finalResults()));
     }
 
     private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator)
@@ -116,7 +117,6 @@ public class ExecuteResource
             extends AbstractIterator<Iterable<List<Object>>>
     {
         private final StatementClient client;
-        private boolean first = true;
 
         private ResultsPageIterator(StatementClient client)
         {
@@ -126,24 +126,16 @@ public class ExecuteResource
         @Override
         protected Iterable<List<Object>> computeNext()
         {
-            if (first) {
-                first = false;
+            while (client.isValid()) {
                 Iterable<List<Object>> data = client.current().getData();
+                client.advance();
                 if (data != null) {
                     return data;
                 }
             }
 
-            while (client.hasNext()) {
-                client.next();
-                Iterable<List<Object>> data = client.current().getData();
-                if (data != null) {
-                    return data;
-                }
-            }
-
-            if (!"FINISHED".equals(client.current().getStats().getState())) {
-                throw internalServerError(failureMessage(client.current()));
+            if (client.isFailed()) {
+                throw internalServerError(failureMessage(client.finalResults()));
             }
 
             return endOfData();
@@ -157,9 +149,6 @@ public class ExecuteResource
 
     private static String failureMessage(QueryResults results)
     {
-        if (results.getError() == null) {
-            return format("Query failed for an unknown reason (#%s)", results.getQueryId());
-        }
         return format("Query failed (#%s): %s", results.getQueryId(), results.getError().getMessage());
     }
 

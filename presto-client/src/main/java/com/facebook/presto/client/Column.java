@@ -47,4 +47,16 @@ public class Column
             }
         };
     }
+
+    public static Function<Column, String> typeGetter()
+    {
+        return new Function<Column, String>()
+        {
+            @Override
+            public String apply(Column input)
+            {
+                return input.getType();
+            }
+        };
+    }
 }

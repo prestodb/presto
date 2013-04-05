@@ -87,41 +87,37 @@ public class Query
             statusPrinter.printInitialStatusUpdates();
         }
 
-        if (client.isClosed()) {
-            errorChannel.println("Query aborted by user");
-            return;
-        }
-        if (client.isGone()) {
-            errorChannel.println("Query is gone (server restarted?)");
-            return;
-        }
-
-        QueryResults results = client.current();
-
-        if (results.getStats().isDone()) {
-            switch (results.getStats().getState()) {
-                case "CANCELED":
-                    errorChannel.printf("Query %s was canceled\n", results.getQueryId());
-                    return;
-                case "FAILED":
-                    renderFailure(results, errorChannel);
-                    return;
+        if ((!client.isFailed()) && (!client.isGone())) {
+            QueryResults results = client.isValid() ? client.current() : client.finalResults();
+            if (results.getColumns() == null) {
+                errorChannel.printf("Query %s has no columns\n", results.getQueryId());
+                return;
             }
-        }
 
-        List<String> fieldNames = Lists.transform(results.getColumns(), Column.nameGetter());
-        switch (outputFormat) {
-            case PAGED:
-                pageOutput(Pager.LESS, fieldNames);
-                break;
-            default:
-                sendOutput(out, outputFormat, fieldNames);
-                break;
+            List<String> fieldNames = Lists.transform(results.getColumns(), Column.nameGetter());
+            switch (outputFormat) {
+                case PAGED:
+                    pageOutput(Pager.LESS, fieldNames);
+                    break;
+                default:
+                    sendOutput(out, outputFormat, fieldNames);
+                    break;
+            }
         }
 
         if (statusPrinter != null) {
             // print final info after the user exits from the pager
             statusPrinter.printFinalInfo();
+        }
+
+        if (client.isClosed()) {
+            errorChannel.println("Query aborted by user");
+        }
+        else if (client.isGone()) {
+            errorChannel.println("Query is gone (server restarted?)");
+        }
+        else if (client.isFailed()) {
+            renderFailure(client.finalResults(), errorChannel);
         }
     }
 
@@ -179,16 +175,11 @@ public class Query
 
     public void renderFailure(QueryResults results, PrintStream out)
     {
-        if (results.getError() == null) {
-            out.printf("Query %s failed for an unknown reason%n", results.getQueryId());
+        out.printf("Query %s failed: %s%n", results.getQueryId(), results.getError().getMessage());
+        if (client.isDebug()) {
+            renderStack(results, out);
         }
-        else {
-            out.printf("Query %s failed: %s%n", results.getQueryId(), results.getError().getMessage());
-            if (client.isDebug()) {
-                renderStack(results, out);
-            }
-            renderErrorLocation(client.getQuery(), results, out);
-        }
+        renderErrorLocation(client.getQuery(), results, out);
     }
 
     private static void renderErrorLocation(String query, QueryResults results, PrintStream out)
