@@ -1,5 +1,6 @@
 package com.facebook.presto.server;
 
+import com.facebook.presto.metadata.NodeManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
@@ -61,6 +62,8 @@ public class TestingPrestoServer
                 .initialize();
 
         injector.getInstance(Announcer.class).start();
+
+        injector.getInstance(NodeManager.class).refreshNodes(true);
 
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
 
