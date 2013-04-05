@@ -1,13 +1,14 @@
 package com.facebook.presto.client;
 
 import com.google.common.base.Charsets;
+import com.google.common.util.concurrent.RateLimiter;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.FullJsonResponseHandler;
+import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 
 import javax.annotation.concurrent.ThreadSafe;
-
 import java.io.Closeable;
 import java.net.URI;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -27,6 +28,7 @@ import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerat
 import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 @ThreadSafe
 public class StatementClient
@@ -40,6 +42,7 @@ public class StatementClient
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean gone = new AtomicBoolean();
     private final AtomicBoolean valid = new AtomicBoolean(true);
+    private final RateLimiter requestRateLimiter = RateLimiter.create(10);
 
     public StatementClient(AsyncHttpClient httpClient, JsonCodec<QueryResults> queryResultsCodec, ClientSession session, String query)
     {
@@ -125,27 +128,39 @@ public class StatementClient
             return false;
         }
 
-        // TODO: retry on error and handle 503
         Request request = prepareGet().setUri(current().getNext()).build();
-        JsonResponse<QueryResults> response;
-        try {
-            response = httpClient.execute(request, responseHandler);
-        }
-        catch (RuntimeException e) {
-            gone.set(true);
-            throw new RuntimeException("Error fetching next", e);
-        }
 
-        if (response.hasValue()) {
-            currentResults.set(response.getValue());
-            return true;
+        Exception cause = null;
+        long start = System.nanoTime();
+        while ((System.nanoTime() - start) < MINUTES.toNanos(2)) {
+
+            // limit request rate
+            requestRateLimiter.acquire();
+
+            JsonResponse<QueryResults> response;
+            try {
+                response = httpClient.execute(request, responseHandler);
+            }
+            catch (RuntimeException e) {
+                cause = e;
+                continue;
+            }
+
+            if (response.getStatusCode() == HttpStatus.OK.code() && response.hasValue()) {
+                currentResults.set(response.getValue());
+                return true;
+            }
+            else if (response.getStatusCode() != HttpStatus.SERVICE_UNAVAILABLE.code()) {
+                gone.set(true);
+                throw new RuntimeException(format("Error fetching next at %s returned %s: %s",
+                        request.getUri(),
+                        response.getStatusCode(),
+                        response.getStatusMessage()));
+            }
         }
 
         gone.set(true);
-        throw new RuntimeException(format("Error fetching next: %s %s: %s",
-                response.getStatusCode(),
-                response.getStatusMessage(),
-                response.getException()));
+        throw new RuntimeException("Error fetching next", cause);
     }
 
     public boolean cancelLeafStage()
