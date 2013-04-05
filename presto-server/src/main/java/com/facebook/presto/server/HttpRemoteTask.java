@@ -286,6 +286,10 @@ public class HttpRemoteTask
     public ListenableFuture<?> updateState(boolean forceRefresh)
     {
         Preconditions.checkState(!Thread.holdsLock(this), "Update state can not be called while holding a lock on this");
+
+        // if we have an old request outstanding, cancel it
+        cancelStaleRequest();
+
         Request request;
         CurrentRequest currentRequest;
         synchronized (this) {
@@ -296,9 +300,6 @@ public class HttpRemoteTask
 
             if (!forceRefresh) {
                 if (this.currentRequest != null) {
-                    // if current request is old, cancel it so we can begin a new request
-                    this.currentRequest.cancelIfOlderThan(new Duration(2, TimeUnit.SECONDS));
-
                     if (!this.currentRequest.isDone()) {
                         // request is still running, but when it finishes, it should update again
                         this.currentRequest.requestAnotherUpdate();
@@ -343,6 +344,25 @@ public class HttpRemoteTask
         ListenableFuture<JsonResponse<TaskInfo>> future = httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec));
         currentRequest.setRequestFuture(future);
         return currentRequest;
+    }
+
+    private void cancelStaleRequest()
+    {
+        Preconditions.checkState(!Thread.holdsLock(this), "Update state can not be called while holding a lock on this");
+
+        CurrentRequest requestToCancel;
+        synchronized (this) {
+            if (currentRequest == null) {
+                return;
+            }
+            if (Duration.nanosSince(currentRequest.startTime).compareTo(new Duration(2, TimeUnit.SECONDS)) < 0) {
+                return;
+            }
+
+            requestToCancel = currentRequest;
+            currentRequest = null;
+        }
+        requestToCancel.cancel(true);
     }
 
     @Override
@@ -513,6 +533,9 @@ public class HttpRemoteTask
 
         public boolean cancel(boolean mayInterruptIfRunning)
         {
+            // cancel will trigger call backs that can result in a dead lock
+            Preconditions.checkState(!Thread.holdsLock(HttpRemoteTask.this), "Update state can not be called while holding a lock on HttpRemoteTask.this");
+
             Future<?> requestToCancel;
             synchronized (HttpRemoteTask.this) {
                 requestToCancel = requestFuture;
@@ -523,14 +546,6 @@ public class HttpRemoteTask
                 requestFuture.cancel(true);
             }
             return super.cancel(true);
-        }
-
-        public void cancelIfOlderThan(Duration maxRequestTime)
-        {
-            if (isDone() || Duration.nanosSince(startTime).compareTo(maxRequestTime) < 0) {
-                return;
-            }
-            cancel(true);
         }
 
         @Override
