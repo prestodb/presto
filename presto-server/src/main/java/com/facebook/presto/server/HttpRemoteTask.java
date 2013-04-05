@@ -47,6 +47,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
@@ -61,6 +62,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.collect.Iterables.transform;
@@ -84,8 +86,8 @@ public class HttpRemoteTask
 
     private final AtomicLong nextSplitId = new AtomicLong();
 
-    @GuardedBy("this")
-    private TaskInfo taskInfo;
+    // a lock on "this" is required for mutual exclusion
+    private final AtomicReference<TaskInfo> taskInfo = new AtomicReference<>();
     @GuardedBy("this")
     private boolean canceled;
     @GuardedBy("this")
@@ -173,7 +175,7 @@ public class HttpRemoteTask
             pendingSplits.put(planFragment.getPartitionedSource(), new ScheduledSplit(nextSplitId.getAndIncrement(), initialSplit));
         }
 
-        taskInfo = new TaskInfo(queryId,
+        taskInfo.set(new TaskInfo(queryId,
                 stageId,
                 taskId,
                 TaskInfo.MIN_VERSION,
@@ -183,24 +185,26 @@ public class HttpRemoteTask
                 ImmutableSet.<PlanNodeId>of(),
                 new ExecutionStatsSnapshot(),
                 ImmutableList.<SplitExecutionStats>of(),
-                ImmutableList.<FailureInfo>of());
+                ImmutableList.<FailureInfo>of()));
     }
 
     @Override
-    public synchronized String getTaskId()
+    public String getTaskId()
     {
-        return taskInfo.getTaskId();
+        return taskInfo.get().getTaskId();
     }
 
     @Override
-    public synchronized TaskInfo getTaskInfo()
+    public TaskInfo getTaskInfo()
     {
-        return taskInfo;
+        return taskInfo.get();
     }
 
     @Override
     public void addSplit(Split split)
     {
+        Preconditions.checkState(!Thread.holdsLock(this), "Update state can not be called while holding a lock on this");
+
         synchronized (this) {
             Preconditions.checkNotNull(split, "split is null");
             Preconditions.checkState(!noMoreSplits, "noMoreSplits has already been set");
@@ -217,6 +221,8 @@ public class HttpRemoteTask
     @Override
     public void noMoreSplits()
     {
+        Preconditions.checkState(!Thread.holdsLock(this), "Update state can not be called while holding a lock on this");
+
         synchronized (this) {
             Preconditions.checkState(!noMoreSplits, "noMoreSplits has already been set");
             noMoreSplits = true;
@@ -227,6 +233,8 @@ public class HttpRemoteTask
     @Override
     public void addExchangeLocations(Multimap<PlanNodeId, URI> additionalLocations, boolean noMore)
     {
+        Preconditions.checkState(!Thread.holdsLock(this), "Update state can not be called while holding a lock on this");
+
         // determine which locations are new
         synchronized (this) {
             Preconditions.checkState(!noMoreExchangeLocations || exchangeLocations.entries().containsAll(additionalLocations.entries()),
@@ -252,6 +260,7 @@ public class HttpRemoteTask
     @Override
     public void addOutputBuffers(Set<String> outputBuffers, boolean noMore)
     {
+        Preconditions.checkState(!Thread.holdsLock(this), "Update state can not be called while holding a lock on this");
         synchronized (this) {
             if (noMoreOutputIds == noMore && this.outputIds.containsAll(outputBuffers)) {
                 // duplicate request
@@ -266,16 +275,16 @@ public class HttpRemoteTask
 
     private synchronized void updateTaskInfo(TaskInfo newValue)
     {
-        if (taskInfo.getState().isDone()) {
+        if (taskInfo.get().getState().isDone()) {
             // never update if the task has reached a terminal state
             return;
         }
-        if (newValue.getVersion() < taskInfo.getVersion()) {
+        if (newValue.getVersion() < taskInfo.get().getVersion()) {
             // don't update to an older version (same version is ok)
             return;
         }
 
-        taskInfo = newValue;
+        taskInfo.set(newValue);
         if (newValue.getState().isDone()) {
             // splits can be huge so clear the list
             pendingSplits.clear();
@@ -294,7 +303,7 @@ public class HttpRemoteTask
         CurrentRequest currentRequest;
         synchronized (this) {
             // don't update if the task hasn't been started yet or if it is already finished
-            if (taskInfo.getState().isDone()) {
+            if (taskInfo.get().getState().isDone()) {
                 return Futures.immediateFuture(null);
             }
 
@@ -321,18 +330,18 @@ public class HttpRemoteTask
             List<TaskSource> sources = getSources();
             currentRequest = new CurrentRequest(sources);
             if (canceled) {
-                request = prepareDelete().setUri(taskInfo.getSelf()).build();
+                request = prepareDelete().setUri(taskInfo.get().getSelf()).build();
             }
             else {
                 TaskUpdateRequest updateRequest = new TaskUpdateRequest(session,
-                        taskInfo.getQueryId(),
-                        taskInfo.getStageId(),
+                        taskInfo.get().getQueryId(),
+                        taskInfo.get().getStageId(),
                         planFragment,
                         sources,
                         new OutputBuffers(outputIds, noMoreOutputIds));
 
                 request = preparePost()
-                        .setUri(uriBuilderFrom(taskInfo.getSelf()).build())
+                        .setUri(uriBuilderFrom(taskInfo.get().getSelf()).build())
                         .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
                         .setBodyGenerator(jsonBodyGenerator(taskUpdateRequestCodec, updateRequest))
                         .build();
@@ -372,7 +381,7 @@ public class HttpRemoteTask
         if (planFragment.isPartitioned()) {
             pendingSplitCount = pendingSplits.get(planFragment.getPartitionedSource()).size();
         }
-        return pendingSplitCount + taskInfo.getStats().getQueuedSplits();
+        return pendingSplitCount + taskInfo.get().getStats().getQueuedSplits();
     }
 
     private synchronized List<TaskSource> getSources()
@@ -441,7 +450,7 @@ public class HttpRemoteTask
             DateTime start = new DateTime(NANOSECONDS.toMillis(System.currentTimeMillis() - (long) duration.toMillis()));
             DateTime end = new DateTime();
             RuntimeException exception = new RuntimeException(String.format("Too many requests to %s failed: %s failures: %s time since last: start %s: end %s: duration %s",
-                    taskInfo.getSelf(),
+                    taskInfo.get().getSelf(),
                     errorCount,
                     timeSinceLastSuccess,
                     start,
@@ -622,32 +631,53 @@ public class HttpRemoteTask
         @Override
         public void onFailure(Throwable t)
         {
-            synchronized (HttpRemoteTask.this) {
-                setException(t);
+            setException(t);
 
-                if (!(t instanceof CancellationException)) {
-                    TaskInfo taskInfo = getTaskInfo();
-                    if (isSocketError(t)) {
-                        log.warn("%s task %s: %s: %s", "Error updating", taskInfo.getTaskId(), t.getMessage(), taskInfo.getSelf());
-                    }
-                    else {
-                        log.warn(t, "%s task %s: %s", "Error updating", taskInfo.getTaskId(), taskInfo.getSelf());
-                    }
+            if (!(t instanceof CancellationException)) {
+                TaskInfo taskInfo = getTaskInfo();
+                if (isSocketError(t)) {
+                    log.warn("%s task %s: %s: %s", "Error updating", taskInfo.getTaskId(), t.getMessage(), taskInfo.getSelf());
+                }
+                else {
+                    log.warn(t, "%s task %s: %s", "Error updating", taskInfo.getTaskId(), taskInfo.getSelf());
                 }
             }
+
             requestFailed(startTime, t);
             updateState(false);
         }
 
-        private boolean isSocketError(Throwable t)
+
+        @Override
+        protected boolean set(@Nullable Void value)
         {
-            while (t != null) {
-                if ((t instanceof SocketException) || (t instanceof SocketTimeoutException)) {
-                    return true;
-                }
-                t = t.getCause();
-            }
-            return false;
+            // these calls trigger callbacks that can cause a dead lock if a lock is held on this
+            Preconditions.checkState(!Thread.holdsLock(HttpRemoteTask.this), "Update state can not be called while holding a lock on HttpRemoteTask.this");
+            // this code does not synchronize on itself, but leave this here in case someone decides that is a good idea one day
+            Preconditions.checkState(!Thread.holdsLock(this), "Update state can not be called while holding a lock on this");
+            return super.set(value);
         }
+
+        @Override
+        protected boolean setException(Throwable throwable)
+        {
+            // these calls trigger callbacks that can cause a dead lock if a lock is held on this
+            Preconditions.checkState(!Thread.holdsLock(HttpRemoteTask.this), "Update state can not be called while holding a lock on HttpRemoteTask.this");
+            // this code does not synchronize on itself, but leave this here in case someone decides that is a good idea one day
+            Preconditions.checkState(!Thread.holdsLock(this), "Update state can not be called while holding a lock on this");
+            return super.setException(throwable);
+        }
+
+    }
+
+    private static boolean isSocketError(Throwable t)
+    {
+        while (t != null) {
+            if ((t instanceof SocketException) || (t instanceof SocketTimeoutException)) {
+                return true;
+            }
+            t = t.getCause();
+        }
+        return false;
     }
 }

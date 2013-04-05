@@ -584,6 +584,8 @@ public class SqlStageExecution
 
     private void doUpdateState()
     {
+        Preconditions.checkState(!Thread.holdsLock(this), "Can not doUpdateState while holding a lock on this");
+
         synchronized (this) {
             StageState currentState = stageState.get();
             if (currentState.isDone()) {
