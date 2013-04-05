@@ -13,6 +13,7 @@ import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
+import com.facebook.presto.execution.StageStats;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tuple.TupleInfo;
@@ -171,6 +172,7 @@ public class MockQueryManager
                             locationFactory.createStageLocation(queryId, stageId),
                             null,
                             TUPLE_INFOS,
+                            new StageStats().snapshot(),
                             ImmutableList.<TaskInfo>of(outputTask),
                             ImmutableList.<StageInfo>of(),
                             ImmutableList.<FailureInfo>of()),
