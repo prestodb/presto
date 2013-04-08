@@ -150,7 +150,8 @@ public class StatementClient
                 currentResults.set(response.getValue());
                 return true;
             }
-            else if (response.getStatusCode() != HttpStatus.SERVICE_UNAVAILABLE.code()) {
+
+            if (response.getStatusCode() != HttpStatus.SERVICE_UNAVAILABLE.code()) {
                 gone.set(true);
                 throw new RuntimeException(format("Error fetching next at %s returned %s: %s",
                         request.getUri(),
