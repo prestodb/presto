@@ -2,9 +2,9 @@ package com.facebook.presto.cli;
 
 import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.client.Column;
+import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
-import com.facebook.presto.client.ErrorLocation;
 import com.google.common.base.Charsets;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
@@ -86,6 +86,9 @@ public class Query
             statusPrinter = new StatusPrinter(client, out);
             statusPrinter.printInitialStatusUpdates();
         }
+        else {
+            waitForData();
+        }
 
         if ((!client.isFailed()) && (!client.isGone())) {
             QueryResults results = client.isValid() ? client.current() : client.finalResults();
@@ -118,6 +121,13 @@ public class Query
         }
         else if (client.isFailed()) {
             renderFailure(client.finalResults(), errorChannel);
+        }
+    }
+
+    private void waitForData()
+    {
+        while (client.isValid() && (client.current().getData() == null)) {
+            client.advance();
         }
     }
 
