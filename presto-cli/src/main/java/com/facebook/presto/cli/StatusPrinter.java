@@ -10,6 +10,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.io.PrintStream;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.cli.FormatUtils.formatCount;
 import static com.facebook.presto.cli.FormatUtils.formatCountRate;
@@ -105,14 +106,14 @@ Parallelism: 2.5
 
         // Query 12, FINISHED, 1 node
         String querySummary = String.format("Query %s, %s, %,d %s",
-                results.getQueryId(),
+                results.getId(),
                 stats.getState(),
                 nodes,
                 pluralize("node", nodes));
         out.println(querySummary);
 
         if (client.isDebug()) {
-            out.println(results.getQueryInfoUri() + "?pretty");
+            out.println(results.getInfoUri() + "?pretty");
         }
 
         // Splits: 1000 total, 842 done (84.20%)
@@ -186,7 +187,7 @@ Parallelism: 2.5
 
             // Query 10, RUNNING, 1 node, 778 splits
             String querySummary = String.format("Query %s, %s, %,d %s, %,d splits",
-                    results.getQueryId(),
+                    results.getId(),
                     stats.getState(),
                     nodes,
                     pluralize("node", nodes),
@@ -194,7 +195,7 @@ Parallelism: 2.5
             reprintLine(querySummary);
 
             if (client.isDebug()) {
-                reprintLine(results.getQueryInfoUri() + "?pretty");
+                reprintLine(results.getInfoUri() + "?pretty");
             }
 
             if ((nodes == 0) || (stats.getTotalSplits() == 0)) {
@@ -284,12 +285,12 @@ Parallelism: 2.5
                     "DONE");
             reprintLine(stagesHeader);
 
-            printStageTree(stats.getRootStage(), "");
+            printStageTree(stats.getRootStage(), "", new AtomicInteger());
         }
         else {
             // Query 31 [S] i[2.7M 67.3MB 62.7MBps] o[35 6.1KB 1KBps] splits[252/16/380]
             String querySummary = String.format("Query %s [%s] i[%s %s %s] o[%s %s %s] splits[%,d/%,d/%,d]",
-                    results.getQueryId(),
+                    results.getId(),
                     stats.getState(),
 
                     formatCount(stats.getProcessedRows()),
@@ -307,7 +308,7 @@ Parallelism: 2.5
         }
     }
 
-    private void printStageTree(StageStats stage, String indent)
+    private void printStageTree(StageStats stage, String indent, AtomicInteger stageNumberCounter)
     {
         Duration elapsedTime = Duration.nanosSince(start);
 
@@ -319,7 +320,7 @@ Parallelism: 2.5
         //     5..F     29T    627M   673M     627M    627M   627M   627M
 
 
-        String id = String.valueOf(stage.getStageNumber());
+        String id = String.valueOf(stageNumberCounter.getAndIncrement());
         String name = indent + id;
         name += Strings.repeat(".", max(0, 10 - name.length()));
 
@@ -350,7 +351,7 @@ Parallelism: 2.5
         reprintLine(stageSummary);
 
         for (StageStats subStage : stage.getSubStages()) {
-            printStageTree(subStage, indent + "  ");
+            printStageTree(subStage, indent + "  ", stageNumberCounter);
         }
     }
 

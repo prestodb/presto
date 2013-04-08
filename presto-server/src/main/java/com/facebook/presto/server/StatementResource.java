@@ -242,7 +242,7 @@ public class StatementResource
             }
 
             // if this is not a request for the next results, return not found
-            if (lastResult.getNext() == null || !requestedPath.equals(lastResult.getNext().getPath())) {
+            if (lastResult.getNextUri() == null || !requestedPath.equals(lastResult.getNextUri().getPath())) {
                 // unknown token
                 throw new WebApplicationException(Status.NOT_FOUND);
             }
@@ -283,7 +283,7 @@ public class StatementResource
 
             // cache the last results
             if (lastResult != null) {
-                lastResultPath = lastResult.getNext().getPath();
+                lastResultPath = lastResult.getNextUri().getPath();
             }
             else {
                 lastResultPath = null;
@@ -416,7 +416,7 @@ public class StatementResource
             }
 
             return StageStats.builder()
-                    .setStageNumber(Integer.parseInt(stageInfo.getStageId().substring(stageInfo.getQueryId().length() + 1)))
+                    .setStageId(stageInfo.getStageId().substring(stageInfo.getQueryId().length() + 1))
                     .setState(stageInfo.getState().toString())
                     .setDone(stageInfo.getState().isDone())
                     .setNodes(uniqueNodes.size())
