@@ -5,12 +5,15 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.PrestoMediaTypes;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.BufferResult;
 import com.facebook.presto.execution.NoSuchBufferException;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.operator.Page;
 import com.google.common.base.Throwables;
 import com.google.common.reflect.TypeToken;
+import com.google.common.util.concurrent.RateLimiter;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;
@@ -113,6 +116,9 @@ public class TaskResource
         return Response.status(Status.NOT_FOUND).build();
     }
 
+    private static final Logger log = Logger.get(TaskResource.class);
+    private final RateLimiter limiter = RateLimiter.create(0.2);
+
     @GET
     @Path("{taskId}/results/{outputId}")
     @Produces(PrestoMediaTypes.PRESTO_PAGES)
@@ -124,30 +130,28 @@ public class TaskResource
 
         // todo we need a much better way to determine if a task is unknown (e.g. not scheduled yet), done, or there is current no more data
         try {
-            List<Page> pages = taskManager.getTaskResults(taskId, outputId, DEFAULT_MAX_PAGE_COUNT, DEFAULT_MAX_WAIT_TIME);
-            if (pages.isEmpty()) {
-                // this is a safe race condition, because is done will only be true if the task is failed or if all results have been consumed
-                // todo also return "GONE" if the specific buffer is finished
-                if (isDone(taskId)) {
-                    return Response.status(Status.GONE).build();
-                }
-                else {
-                    return Response.status(Status.NO_CONTENT).build();
-                }
-            }
-            GenericEntity<?> entity = new GenericEntity<>(pages, new TypeToken<List<Page>>() {}.getType());
-            return Response.ok(entity).build();
-        }
-        catch (NoSuchBufferException e) {
-            return Response.status(Status.NO_CONTENT).build();
-        }
-        catch (NoSuchElementException e) {
-            if (isDone(taskId)) {
+            BufferResult<Page> result = taskManager.getTaskResults(taskId, outputId, DEFAULT_MAX_PAGE_COUNT, DEFAULT_MAX_WAIT_TIME);
+            if (!result.isEmpty()) {
+                GenericEntity<?> entity = new GenericEntity<>(result.getElements(), new TypeToken<List<Page>>() {}.getType());
+                return Response.ok(entity).build();
+            } else if (result.isBufferClosed()) {
                 return Response.status(Status.GONE).build();
             }
-            else {
-                return Response.status(Status.NO_CONTENT).build();
+        }
+        catch (NoSuchElementException | NoSuchBufferException ignored) {
+            // task has not been scheduled or buffer has not been created yet
+            // this is treated the same as no-data
+            if (limiter.tryAcquire()) {
+                log.debug(ignored, "Error getting results");
             }
+        }
+
+        // this is a safe race condition, because isDone will only be true if the task is failed or if all results have been consumed
+        if (isDone(taskId)) {
+            return Response.status(Status.GONE).build();
+        }
+        else {
+            return Response.status(Status.NO_CONTENT).build();
         }
     }
 

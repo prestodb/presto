@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.presto.execution.BufferResult.emptyResults;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
@@ -161,7 +162,7 @@ public class SharedBuffer<T>
         return true;
     }
 
-    public synchronized List<T> get(String outputId, int maxCount, Duration maxWait)
+    public synchronized BufferResult<T> get(String outputId, int maxCount, Duration maxWait)
             throws InterruptedException
     {
         Preconditions.checkNotNull(outputId, "outputId is null");
@@ -173,7 +174,7 @@ public class SharedBuffer<T>
         }
 
         if (state == QueueState.FINISHED) {
-            return ImmutableList.of();
+            return emptyResults(true);
         }
 
         // wait for elements to arrive
@@ -187,20 +188,16 @@ public class SharedBuffer<T>
             }
         }
 
-        if (state == QueueState.FINISHED) {
-            return ImmutableList.of();
-        }
-
         // remove queue from set before calling getElements because getElements changes
         // the sequence number of the queue which is used for identity comparison in the
         // sorted set
         openQueuesBySequenceId.remove(namedQueue);
 
         // get the elements
-        List<T> elements = namedQueue.getElements(maxCount);
+        BufferResult<T> results = namedQueue.getElements(maxCount);
 
         // only add back the queue if it is still open
-        if (!closed.get() || !namedQueue.isEmpty()) {
+        if (!closed.get() || !results.isBufferClosed()) {
             openQueuesBySequenceId.add(namedQueue);
         } else {
             namedQueue.setFinished();
@@ -208,7 +205,7 @@ public class SharedBuffer<T>
 
         updateState();
 
-        return elements;
+        return results;
     }
 
     public synchronized void abort(String outputId)
@@ -363,22 +360,22 @@ public class SharedBuffer<T>
             return masterQueue.size() - listOffset;
         }
 
-        public List<T> getElements(int maxElementCount)
+        public BufferResult<T> getElements(int maxElementCount)
         {
             Preconditions.checkState(Thread.holdsLock(SharedBuffer.this), "Thread must hold a lock on the %s", SharedBuffer.class.getSimpleName());
 
             if (finished) {
-                return ImmutableList.of();
+                return emptyResults(true);
             }
 
             int listOffset = Ints.checkedCast(sequenceId - masterSequenceId);
             if (listOffset >= masterQueue.size()) {
-                return ImmutableList.of();
+                return emptyResults(false);
             }
 
             List<T> elements = masterQueue.subList(listOffset, Math.min(listOffset + maxElementCount, masterQueue.size()));
             sequenceId += elements.size();
-            return ImmutableList.copyOf(elements);
+            return new BufferResult<>(false, ImmutableList.copyOf(elements));
         }
 
         @Override

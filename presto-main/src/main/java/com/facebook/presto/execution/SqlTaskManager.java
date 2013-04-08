@@ -188,7 +188,7 @@ public class SqlTaskManager
     }
 
     @Override
-    public List<Page> getTaskResults(TaskId taskId, String outputName, int maxPageCount, Duration maxWaitTime)
+    public BufferResult<Page> getTaskResults(TaskId taskId, String outputName, int maxPageCount, Duration maxWaitTime)
             throws InterruptedException
     {
         Preconditions.checkNotNull(taskId, "taskId is null");

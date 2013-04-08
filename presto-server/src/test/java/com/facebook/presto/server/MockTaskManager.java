@@ -6,6 +6,7 @@ package com.facebook.presto.server;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.BufferResult;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskOutput;
@@ -118,7 +119,7 @@ public class MockTaskManager
     }
 
     @Override
-    public List<Page> getTaskResults(TaskId taskId, String outputId, int maxPageCount, Duration maxWaitTime)
+    public BufferResult<Page> getTaskResults(TaskId taskId, String outputId, int maxPageCount, Duration maxWaitTime)
             throws InterruptedException
     {
         Preconditions.checkNotNull(taskId, "taskId is null");

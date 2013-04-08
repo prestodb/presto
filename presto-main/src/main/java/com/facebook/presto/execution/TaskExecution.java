@@ -24,7 +24,7 @@ public interface TaskExecution
 
     void fail(Throwable cause);
 
-    List<Page> getResults(String outputId, int maxPageCount, Duration maxWait)
+    BufferResult<Page> getResults(String outputId, int maxPageCount, Duration maxWait)
             throws InterruptedException;
 
     void abortResults(String outputId);

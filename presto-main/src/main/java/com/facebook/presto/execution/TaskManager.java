@@ -20,7 +20,7 @@ public interface TaskManager
 
     TaskInfo updateTask(Session session, TaskId taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputIds);
 
-    List<Page> getTaskResults(TaskId taskId, String outputName, int maxPageCount, Duration maxWaitTime)
+    BufferResult<Page> getTaskResults(TaskId taskId, String outputName, int maxPageCount, Duration maxWaitTime)
             throws InterruptedException;
 
     TaskInfo abortTaskResults(TaskId taskId, String outputId);
