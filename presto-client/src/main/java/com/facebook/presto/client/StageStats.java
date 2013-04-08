@@ -18,7 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 @Immutable
 public class StageStats
 {
-    private final int stageNumber;
+    private final String stageId;
     private final String state;
     private final boolean done;
     private final int nodes;
@@ -35,7 +35,7 @@ public class StageStats
 
     @JsonCreator
     public StageStats(
-            @JsonProperty("stageNumber") int stageNumber,
+            @JsonProperty("stageId") String stageId,
             @JsonProperty("state") String state,
             @JsonProperty("done") boolean done,
             @JsonProperty("nodes") int nodes,
@@ -50,7 +50,7 @@ public class StageStats
             @JsonProperty("processedBytes") long processedBytes,
             @JsonProperty("subStages") List<StageStats> subStages)
     {
-        this.stageNumber = stageNumber;
+        this.stageId = stageId;
         this.state = checkNotNull(state, "state is null");
         this.done = done;
         this.nodes = nodes;
@@ -67,9 +67,9 @@ public class StageStats
     }
 
     @JsonProperty
-    public int getStageNumber()
+    public String getStageId()
     {
-        return stageNumber;
+        return stageId;
     }
 
     @NotNull
@@ -156,7 +156,6 @@ public class StageStats
     public String toString()
     {
         return Objects.toStringHelper(this)
-                .add("stageNumber", stageNumber)
                 .add("state", state)
                 .add("done", done)
                 .add("nodes", nodes)
@@ -180,7 +179,7 @@ public class StageStats
 
     public static class Builder
     {
-        private int stageNumber;
+        private String stageId;
         private String state;
         private boolean done;
         private int nodes;
@@ -197,9 +196,9 @@ public class StageStats
 
         private Builder() {}
 
-        public Builder setStageNumber(int stageNumber)
+        public Builder setStageId(String stageId)
         {
-            this.stageNumber = stageNumber;
+            this.stageId = checkNotNull(stageId, "stageId is null");
             return this;
         }
 
@@ -284,7 +283,7 @@ public class StageStats
         public StageStats build()
         {
             return new StageStats(
-                    stageNumber,
+                    stageId,
                     state,
                     done,
                     nodes,

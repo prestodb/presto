@@ -93,7 +93,7 @@ public class Query
         if ((!client.isFailed()) && (!client.isGone())) {
             QueryResults results = client.isValid() ? client.current() : client.finalResults();
             if (results.getColumns() == null) {
-                errorChannel.printf("Query %s has no columns\n", results.getQueryId());
+                errorChannel.printf("Query %s has no columns\n", results.getId());
                 return;
             }
 
@@ -185,7 +185,7 @@ public class Query
 
     public void renderFailure(QueryResults results, PrintStream out)
     {
-        out.printf("Query %s failed: %s%n", results.getQueryId(), results.getError().getMessage());
+        out.printf("Query %s failed: %s%n", results.getId(), results.getError().getMessage());
         if (client.isDebug()) {
             renderStack(results, out);
         }

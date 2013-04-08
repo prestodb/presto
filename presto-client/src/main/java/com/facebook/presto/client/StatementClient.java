@@ -123,12 +123,12 @@ public class StatementClient
 
     public boolean advance()
     {
-        if (isClosed() || (current().getNext() == null)) {
+        if (isClosed() || (current().getNextUri() == null)) {
             valid.set(false);
             return false;
         }
 
-        Request request = prepareGet().setUri(current().getNext()).build();
+        Request request = prepareGet().setUri(current().getNextUri()).build();
 
         Exception cause = null;
         long start = System.nanoTime();
@@ -182,7 +182,7 @@ public class StatementClient
     public void close()
     {
         if (!closed.getAndSet(true)) {
-            URI uri = currentResults.get().getNext();
+            URI uri = currentResults.get().getNextUri();
             if (uri != null) {
                 Request request = prepareDelete().setUri(uri).build();
                 httpClient.executeAsync(request, createStatusResponseHandler());
