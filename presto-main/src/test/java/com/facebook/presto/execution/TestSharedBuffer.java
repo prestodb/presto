@@ -19,6 +19,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.execution.BufferResult.bufferResult;
+import static com.facebook.presto.execution.BufferResult.emptyResults;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -66,11 +68,11 @@ public class TestSharedBuffer
         assertQueueState(sharedBuffer, "first", 3, 0);
 
         // get the three elements
-        assertEquals(sharedBuffer.get("first", 10, NO_WAIT), ImmutableList.of(0, 1, 2));
+        assertEquals(sharedBuffer.get("first", 10, NO_WAIT), bufferResult(0, 1, 2));
         assertQueueState(sharedBuffer, "first", 0, 3);
 
         // try to get some more pages
-        assertEquals(sharedBuffer.get("first", 10, NO_WAIT), ImmutableList.of());
+        assertEquals(sharedBuffer.get("first", 10, NO_WAIT), emptyResults(false));
 
         // fill the buffer (we already added 3 pages)
         for (int i = 3; i < 10; i++) {
@@ -82,7 +84,7 @@ public class TestSharedBuffer
         assertFalse(sharedBuffer.offer(99));
 
         // remove a page
-        assertEquals(sharedBuffer.get("first", 1, NO_WAIT), ImmutableList.of(3));
+        assertEquals(sharedBuffer.get("first", 1, NO_WAIT), bufferResult(3));
         assertQueueState(sharedBuffer, "first", 6, 4);
 
         // try to add one more page, which should fail
@@ -92,7 +94,7 @@ public class TestSharedBuffer
         // add another buffer and verify it sees all pages
         sharedBuffer.addQueue("second");
         assertQueueState(sharedBuffer, "second", 10, 0);
-        assertEquals(sharedBuffer.get("second", 10, NO_WAIT), ImmutableList.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9));
+        assertEquals(sharedBuffer.get("second", 10, NO_WAIT), bufferResult(0, 1, 2, 3, 4, 5, 6, 7, 8, 9));
         assertQueueState(sharedBuffer, "second", 0, 10);
 
         //
@@ -108,7 +110,7 @@ public class TestSharedBuffer
         assertQueueState(sharedBuffer, "second", 4, 10);
 
         // remove a page from the first queue
-        assertEquals(sharedBuffer.get("first", 1, NO_WAIT), ImmutableList.of(4));
+        assertEquals(sharedBuffer.get("first", 1, NO_WAIT), bufferResult(4));
         assertQueueState(sharedBuffer, "first", 9, 5);
         assertQueueState(sharedBuffer, "second", 4, 10);
 
@@ -129,25 +131,25 @@ public class TestSharedBuffer
         assertFalse(sharedBuffer.isFinished());
 
         // remove a page, not finished
-        assertEquals(sharedBuffer.get("first", 1, NO_WAIT), ImmutableList.of(5));
+        assertEquals(sharedBuffer.get("first", 1, NO_WAIT), bufferResult(5));
         assertQueueState(sharedBuffer, "first", 9, 6);
         assertQueueState(sharedBuffer, "second", 5, 10);
         assertFalse(sharedBuffer.isFinished());
 
         // remove all remaining pages from first queue, should not be finished
-        assertEquals(sharedBuffer.get("first", 10, NO_WAIT), ImmutableList.of(6, 7, 8, 9, 10, 11, 12, 13, 14));
+        assertEquals(sharedBuffer.get("first", 10, NO_WAIT), bufferResult(6, 7, 8, 9, 10, 11, 12, 13, 14));
         assertQueueClosed(sharedBuffer, "first", 15);
         assertQueueState(sharedBuffer, "second", 5, 10);
         assertFalse(sharedBuffer.isFinished());
 
         // remove all remaining pages from second queue, should be finished
-        assertEquals(sharedBuffer.get("second", 10, NO_WAIT), ImmutableList.of(10, 11, 12, 13, 14));
+        assertEquals(sharedBuffer.get("second", 10, NO_WAIT), bufferResult(10, 11, 12, 13, 14));
         assertQueueClosed(sharedBuffer, "first", 15);
         assertQueueClosed(sharedBuffer, "second", 15);
         assertFinished(sharedBuffer);
 
-        assertEquals(sharedBuffer.get("first", 10, NO_WAIT), ImmutableList.of());
-        assertEquals(sharedBuffer.get("second", 10, NO_WAIT), ImmutableList.of());
+        assertEquals(sharedBuffer.get("first", 10, NO_WAIT), emptyResults(true));
+        assertEquals(sharedBuffer.get("second", 10, NO_WAIT), emptyResults(true));
     }
 
     @Test
@@ -290,18 +292,18 @@ public class TestSharedBuffer
         sharedBuffer.finish();
 
         sharedBuffer.addQueue("first");
-        assertEquals(sharedBuffer.get("first", 1, NO_WAIT), ImmutableList.of(0));
+        assertEquals(sharedBuffer.get("first", 1, NO_WAIT), bufferResult(0));
         sharedBuffer.abort("first");
         assertQueueClosed(sharedBuffer, "first", 1);
-        assertEquals(sharedBuffer.get("first", 1, NO_WAIT), ImmutableList.of());
+        assertEquals(sharedBuffer.get("first", 1, NO_WAIT), emptyResults(true));
 
         sharedBuffer.addQueue("second");
         sharedBuffer.noMoreQueues();
-        assertEquals(sharedBuffer.get("second", 1, NO_WAIT), ImmutableList.of(0));
+        assertEquals(sharedBuffer.get("second", 1, NO_WAIT), bufferResult(0));
         sharedBuffer.abort("second");
         assertQueueClosed(sharedBuffer, "second", 1);
         assertFinished(sharedBuffer);
-        assertEquals(sharedBuffer.get("second", 1, NO_WAIT), ImmutableList.of());
+        assertEquals(sharedBuffer.get("second", 1, NO_WAIT), emptyResults(true));
     }
 
     @Test
@@ -607,9 +609,9 @@ public class TestSharedBuffer
             try {
                 while (elements.size() < pagesToGet) {
                     try {
-                        List<T> elements = sharedBuffer.get("queue", batchSize, MAX_WAIT);
-                        assertTrue(!elements.isEmpty());
-                        this.elements.addAll(elements);
+                        BufferResult<T> result = sharedBuffer.get("queue", batchSize, MAX_WAIT);
+                        assertTrue(!result.isEmpty());
+                        this.elements.addAll(result.getElements());
                     }
                     catch (FailedQueryException e) {
                         failedQueryException.set(e);
