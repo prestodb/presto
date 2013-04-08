@@ -9,11 +9,14 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.Immutable;
+import javax.validation.constraints.NotNull;
 
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@Immutable
 public class FailureInfo
 {
     private static final Pattern STACK_TRACE_PATTERN = Pattern.compile("(.*)\\.(.*)\\(([^:]*)(?::(.*))?\\)");
@@ -46,38 +49,43 @@ public class FailureInfo
         this.errorLocation = errorLocation;
     }
 
+    @NotNull
     @JsonProperty
     public String getType()
     {
         return type;
     }
 
+    @Nullable
     @JsonProperty
     public String getMessage()
     {
         return message;
     }
 
+    @Nullable
     @JsonProperty
     public FailureInfo getCause()
     {
         return cause;
     }
 
+    @NotNull
     @JsonProperty
     public List<FailureInfo> getSuppressed()
     {
         return suppressed;
     }
 
+    @NotNull
     @JsonProperty
     public List<String> getStack()
     {
         return stack;
     }
 
-    @JsonProperty
     @Nullable
+    @JsonProperty
     public ErrorLocation getErrorLocation()
     {
         return errorLocation;

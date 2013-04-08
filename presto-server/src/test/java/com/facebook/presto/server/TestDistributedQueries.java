@@ -295,7 +295,7 @@ public class TestDistributedQueries
             while (client.isValid()) {
                 QueryResults results = client.current();
                 if (!loggedUri.getAndSet(true)) {
-                    log.info("Query %s: %s?pretty", results.getQueryId(), results.getQueryInfoUri());
+                    log.info("Query %s: %s?pretty", results.getId(), results.getInfoUri());
                 }
 
                 if ((tupleInfo == null) && (results.getColumns() != null)) {
