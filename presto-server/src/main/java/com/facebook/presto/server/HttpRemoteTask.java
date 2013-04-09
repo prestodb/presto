@@ -43,6 +43,7 @@ import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
+import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -72,6 +73,7 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.preparePost;
+import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class HttpRemoteTask
@@ -89,8 +91,6 @@ public class HttpRemoteTask
 
     // a lock on "this" is required for mutual exclusion
     private final AtomicReference<TaskInfo> taskInfo = new AtomicReference<>();
-    @GuardedBy("this")
-    private boolean canceled;
     @GuardedBy("this")
     private CurrentRequest currentRequest;
     @GuardedBy("this")
@@ -206,8 +206,8 @@ public class HttpRemoteTask
             Preconditions.checkState(!noMoreSplits, "noMoreSplits has already been set");
             Preconditions.checkState(planFragment.isPartitioned(), "Plan is not partitioned");
 
-            // only add pending split if not canceled
-            if (!canceled) {
+            // only add pending split if not done
+            if (!getTaskInfo().getState().isDone()) {
                 pendingSplits.put(planFragment.getPartitionedSource(), new ScheduledSplit(nextSplitId.getAndIncrement(), split));
             }
         }
@@ -239,8 +239,8 @@ public class HttpRemoteTask
             SetMultimap<PlanNodeId, URI> newExchangeLocations = HashMultimap.create(additionalLocations);
             newExchangeLocations.entries().removeAll(exchangeLocations.entries());
 
-            // only add pending split if not canceled
-            if (!canceled) {
+            // only add pending split if not done
+            if (!getTaskInfo().getState().isDone()) {
                 for (Entry<PlanNodeId, URI> entry : newExchangeLocations.entries()) {
                     ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), createRemoteSplitFor(entry.getValue()));
                     pendingSplits.put(entry.getKey(), scheduledSplit);
@@ -325,21 +325,16 @@ public class HttpRemoteTask
 
             List<TaskSource> sources = getSources();
             currentRequest = new CurrentRequest(sources);
-            if (canceled) {
-                request = prepareDelete().setUri(taskInfo.get().getSelf()).build();
-            }
-            else {
-                TaskUpdateRequest updateRequest = new TaskUpdateRequest(session,
-                        planFragment,
-                        sources,
-                        new OutputBuffers(outputIds, noMoreOutputIds));
+            TaskUpdateRequest updateRequest = new TaskUpdateRequest(session,
+                    planFragment,
+                    sources,
+                    new OutputBuffers(outputIds, noMoreOutputIds));
 
-                request = preparePost()
-                        .setUri(uriBuilderFrom(taskInfo.get().getSelf()).build())
-                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
-                        .setBodyGenerator(jsonBodyGenerator(taskUpdateRequestCodec, updateRequest))
-                        .build();
-            }
+            request = preparePost()
+                    .setUri(uriBuilderFrom(taskInfo.get().getSelf()).build())
+                    .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
+                    .setBodyGenerator(jsonBodyGenerator(taskUpdateRequestCodec, updateRequest))
+                    .build();
 
             this.currentRequest = currentRequest;
         }
@@ -412,20 +407,56 @@ public class HttpRemoteTask
     @Override
     public void cancel()
     {
-        CurrentRequest requestToCancel = null;
+        CurrentRequest requestToCancel;
+        TaskInfo taskInfo;
         synchronized (this) {
+            // clear pending splits to free memory
             pendingSplits.clear();
 
-            if (!canceled) {
-                requestToCancel = currentRequest;
-                canceled = true;
-            }
+            // cancel pending request
+            requestToCancel = currentRequest;
+
+            // mark task as canceled (if not already done)
+            taskInfo = getTaskInfo();
+            updateTaskInfo(new TaskInfo(taskInfo.getTaskId(),
+                    TaskInfo.MAX_VERSION,
+                    TaskState.CANCELED,
+                    taskInfo.getSelf(),
+                    taskInfo.getOutputBuffers(),
+                    taskInfo.getNoMoreSplits(),
+                    taskInfo.getStats(),
+                    ImmutableList.<SplitExecutionStats>of(),
+                    ImmutableList.<FailureInfo>of()));
         }
+
         // must cancel out side of synchronized block to avoid potential deadlocks
         if (requestToCancel != null) {
             requestToCancel.cancel(true);
         }
-        updateState(false);
+
+        // fire delete to task and ignore response
+        if (taskInfo.getSelf() != null) {
+            final long start = System.nanoTime();
+            final Request request = prepareDelete().setUri(taskInfo.getSelf()).build();
+            Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), new FutureCallback<StatusResponse>() {
+                @Override
+                public void onSuccess(StatusResponse result)
+                {
+                    // assume any response is good enough
+                }
+
+                @Override
+                public void onFailure(Throwable t)
+                {
+                    // reschedule
+                    if (Duration.nanosSince(start).compareTo(new Duration(2, TimeUnit.MINUTES)) < 0) {
+                        Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), this);
+                    } else {
+                        log.error(t, "Unable to cancel task at %s", request.getUri());
+                    }
+                }
+            });
+        }
     }
 
     private void requestFailed(long startTime, Throwable reason)

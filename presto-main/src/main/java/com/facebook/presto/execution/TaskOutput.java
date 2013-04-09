@@ -105,7 +105,7 @@ public class TaskOutput
         return ImmutableSet.copyOf(noMoreSplits);
     }
 
-    public List<Page> getResults(String outputId, int maxPageCount, Duration maxWait)
+    public BufferResult<Page> getResults(String outputId, int maxPageCount, Duration maxWait)
             throws InterruptedException
     {
         return sharedBuffer.get(outputId, maxPageCount, maxWait);
