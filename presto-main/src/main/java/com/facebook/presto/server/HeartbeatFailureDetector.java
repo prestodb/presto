@@ -5,10 +5,9 @@ import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.Threads;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.ServiceType;
@@ -26,10 +25,12 @@ import org.weakref.jmx.Managed;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -52,7 +53,7 @@ import static io.airlift.http.client.Request.Builder.prepareHead;
 public class HeartbeatFailureDetector
         implements FailureDetector
 {
-    private final static Logger log = Logger.get(HeartbeatFailureDetector.class);
+    private static final Logger log = Logger.get(HeartbeatFailureDetector.class);
 
     private final ServiceSelector selector;
     private final AsyncHttpClient httpClient;
@@ -63,9 +64,10 @@ public class HeartbeatFailureDetector
     private final ConcurrentMap<UUID, MonitoringTask> tasks = new ConcurrentHashMap<>();
 
     private final double failureRatioThreshold;
-    private final Duration hearbeatInterval;
+    private final Duration heartbeat;
     private final boolean isEnabled;
     private final Duration warmupInterval;
+    private final Duration gcGraceInterval;
 
     private final AtomicBoolean started = new AtomicBoolean();
 
@@ -78,14 +80,16 @@ public class HeartbeatFailureDetector
         checkNotNull(selector, "selector is null");
         checkNotNull(httpClient, "httpClient is null");
         checkNotNull(config, "config is null");
-        checkArgument((long) config.getHearbeatInterval().toMillis() >= 1, "heartbeat interval must be >= 1ms");
+        checkArgument((long) config.getHeartbeatInterval().toMillis() >= 1, "heartbeat interval must be >= 1ms");
 
         this.selector = selector;
         this.httpClient = httpClient;
 
         this.failureRatioThreshold = config.getFailureRatioThreshold();
-        this.hearbeatInterval = config.getHearbeatInterval();
+        this.heartbeat = config.getHeartbeatInterval();
         this.warmupInterval = config.getWarmupInterval();
+        this.gcGraceInterval = config.getExpirationGraceInterval();
+
         this.isEnabled = config.isEnabled() && queryManagerConfig.isCoordinator();
     }
 
@@ -119,14 +123,10 @@ public class HeartbeatFailureDetector
     @Override
     public Set<ServiceDescriptor> getFailed()
     {
-        ImmutableSet.Builder<ServiceDescriptor> builder = ImmutableSet.builder();
-        for (MonitoringTask task : tasks.values()) {
-            Stats stats = task.getStats();
-            if (stats.getRecentFailureRatio() > failureRatioThreshold || stats.getAge().compareTo(warmupInterval) < 0) {
-                builder.add(task.getService());
-            }
-        }
-        return builder.build();
+        return IterableTransformer.on(tasks.values())
+                .select(isFailedPredicate())
+                .transform(serviceGetter())
+                .set();
     }
 
     @Managed(description = "Number of failed services")
@@ -152,49 +152,50 @@ public class HeartbeatFailureDetector
 
     private void updateMonitoredServices()
     {
-        Set<ServiceDescriptor> active = ImmutableSet.copyOf(selector.selectAllServices());
+        Set<ServiceDescriptor> online = ImmutableSet.copyOf(selector.selectAllServices());
 
-        Set<UUID> activeIds = IterableTransformer.on(active)
+        Set<UUID> onlineIds = IterableTransformer.on(online)
                 .transform(idGetter())
                 .set();
 
         synchronized (tasks) { // make sure only one thread is updating the registrations
-            Set<UUID> current = tasks.keySet();
+            // 1. remove expired tasks
+            List<UUID> expiredIds = IterableTransformer.on(tasks.values())
+                    .select(isExpiredPredicate())
+                    .transform(serviceIdGetter())
+                    .list();
 
-            // cancel tasks for all services that are not longer in discovery
-            for (UUID serviceId : Sets.difference(current, activeIds)) {
-                tasks.remove(serviceId).getFuture().cancel(true);
+            tasks.keySet().removeAll(expiredIds);
+
+            // 2. disable offline services
+            Iterable<MonitoringTask> toDisable = IterableTransformer.on(tasks.values())
+                    .select(compose(not(in(onlineIds)), serviceIdGetter()))
+                    .all();
+
+            for (MonitoringTask task : toDisable) {
+                task.disable();
             }
 
-            // schedule tasks for all new services
-            Set<ServiceDescriptor> newServices = IterableTransformer.on(active)
-                    .select(compose(not(in(current)), idGetter()))
+            // 3. create tasks for new services
+            Set<ServiceDescriptor> newServices = IterableTransformer.on(online)
+                    .select(compose(not(in(tasks.keySet())), idGetter()))
                     .set();
 
             for (final ServiceDescriptor service : newServices) {
                 final URI uri = getHttpUri(service);
 
                 if (uri != null) {
-                    ScheduledFuture<?> future = executor.scheduleAtFixedRate(new Runnable()
-                    {
-                        @Override
-                        public void run()
-                        {
-                            try {
-                                ping(service, uri);
-                            }
-                            catch (Throwable e) {
-                                // ignore to avoid getting unscheduled
-                                log.warn(e, "Error updating services");
-                            }
-                        }
-                    }, (long) hearbeatInterval.toMillis(), (long) hearbeatInterval.toMillis(), TimeUnit.MILLISECONDS);
-
-                    // benign race condition between ping() and registering the MonitoringTask if a ping complets
-                    // before this next line executes. This is not an issue because the recordXXX methods check
-                    // for the presence of the MonitoringTask in the map
-                    tasks.put(service.getId(), new MonitoringTask(future, service, new Stats(uri)));
+                    tasks.put(service.getId(), new MonitoringTask(executor, service, uri));
                 }
+            }
+
+            // 4. enable all online tasks (existing plus newly created)
+            Iterable<MonitoringTask> toEnable = IterableTransformer.on(tasks.values())
+                    .select(compose(in(onlineIds), serviceIdGetter()))
+                    .all();
+
+            for (MonitoringTask task : toEnable) {
+                task.enable();
             }
         }
     }
@@ -214,7 +215,7 @@ public class HeartbeatFailureDetector
         return null;
     }
 
-    private Function<ServiceDescriptor, UUID> idGetter()
+    private static Function<ServiceDescriptor, UUID> idGetter()
     {
         return new Function<ServiceDescriptor, UUID>()
         {
@@ -226,77 +227,77 @@ public class HeartbeatFailureDetector
         };
     }
 
-    private void ping(final ServiceDescriptor service, final URI uri)
+    private static Function<MonitoringTask, ServiceDescriptor> serviceGetter()
     {
-        try {
-            recordStart(service);
-            httpClient.executeAsync(prepareHead().setUri(uri).build(), new ResponseHandler<Object, Exception>()
+        return new Function<MonitoringTask, ServiceDescriptor>()
+        {
+            @Override
+            public ServiceDescriptor apply(MonitoringTask task)
             {
-                @Override
-                public Exception handleException(Request request, Exception exception)
-                {
-                    // ignore error
-                    recordFailure(service, exception);
-
-                    // TODO: this will technically cause an NPE in httpClient, but it's not triggered because
-                    // we never call get() on the response future. This behavior needs to be fixed in airlift
-                    return null;
-                }
-
-                @Override
-                public Object handle(Request request, Response response)
-                        throws Exception
-                {
-                    recordSuccess(service);
-                    return null;
-                }
-            });
-        }
-        catch (Exception e) {
-            log.warn(e, "Error scheduling request for %s", uri);
-        }
+                return task.getService();
+            }
+        };
+    }
+    private static Function<MonitoringTask, UUID> serviceIdGetter()
+    {
+        return new Function<MonitoringTask, UUID>()
+        {
+            @Override
+            public UUID apply(MonitoringTask task)
+            {
+                return task.getService().getId();
+            }
+        };
     }
 
-    private void recordStart(ServiceDescriptor service)
+    private static Predicate<MonitoringTask> isExpiredPredicate()
     {
-        MonitoringTask task = tasks.get(service.getId());
-        if (task != null) {
-            task.getStats().recordStart();
-        }
+        return new Predicate<MonitoringTask>()
+        {
+            @Override
+            public boolean apply(MonitoringTask task)
+            {
+                return task.isExpired();
+            }
+        };
     }
 
-    private void recordSuccess(ServiceDescriptor service)
+    private static Predicate<MonitoringTask> isFailedPredicate()
     {
-        MonitoringTask task = tasks.get(service.getId());
-        if (task != null) {
-            task.getStats().recordSuccess();
-        }
+        return new Predicate<MonitoringTask>()
+        {
+            @Override
+            public boolean apply(MonitoringTask task)
+            {
+                return task.isFailed();
+            }
+        };
     }
 
-    private void recordFailure(ServiceDescriptor service, Exception exception)
+    @ThreadSafe
+    private class MonitoringTask
     {
-        MonitoringTask task = tasks.get(service.getId());
-        if (task != null) {
-            task.getStats().recordFailure(exception);
-        }
-    }
-
-    private static class MonitoringTask
-    {
-        private final ScheduledFuture<?> future;
         private final ServiceDescriptor service;
+        private final URI uri;
         private final Stats stats;
+        private final ScheduledExecutorService executor;
 
-        private MonitoringTask(ScheduledFuture<?> future, ServiceDescriptor service, Stats stats)
+        @GuardedBy("this")
+        private ScheduledFuture<?> future;
+
+        @GuardedBy("this")
+        private Long disabledTimestamp;
+
+        @GuardedBy("this")
+        private Long successTransitionTimestamp;
+
+
+        private MonitoringTask(ScheduledExecutorService executor, ServiceDescriptor service, URI uri)
         {
-            this.future = future;
+            this.uri = uri;
+            this.executor = executor;
             this.service = service;
-            this.stats = stats;
-        }
-
-        public ScheduledFuture<?> getFuture()
-        {
-            return future;
+            this.stats = new Stats(uri);
         }
 
         public Stats getStats()
@@ -307,6 +308,91 @@ public class HeartbeatFailureDetector
         public ServiceDescriptor getService()
         {
             return service;
+        }
+
+        public synchronized void enable()
+        {
+            if (future == null) {
+                future = executor.scheduleAtFixedRate(new Runnable()
+                {
+                    @Override
+                    public void run()
+                    {
+                        try {
+                            ping();
+                            updateState();
+                        }
+                        catch (Throwable e) {
+                            // ignore to avoid getting unscheduled
+                            log.warn(e, "Error pinging service %s (%s)", service.getId(), uri);
+                        }
+                    }
+                }, (long) heartbeat.toMillis(), (long) heartbeat.toMillis(), TimeUnit.MILLISECONDS);
+                disabledTimestamp = null;
+            }
+        }
+
+        public synchronized void disable()
+        {
+            if (future != null) {
+                future.cancel(true);
+                future = null;
+                disabledTimestamp = System.nanoTime();
+            }
+        }
+
+        public synchronized boolean isExpired()
+        {
+            return future == null && disabledTimestamp != null && Duration.nanosSince(disabledTimestamp).compareTo(gcGraceInterval) > 0;
+        }
+
+        public synchronized boolean isFailed()
+        {
+            return future == null || // are we disabled?
+                    successTransitionTimestamp == null || // are we in success state?
+                    Duration.nanosSince(successTransitionTimestamp).compareTo(warmupInterval) < 0; // are we within the warmup period?
+        }
+
+        private void ping()
+        {
+            try {
+                stats.recordStart();
+                httpClient.executeAsync(prepareHead().setUri(uri).build(), new ResponseHandler<Object, Exception>()
+                {
+                    @Override
+                    public Exception handleException(Request request, Exception exception)
+                    {
+                        // ignore error
+                        stats.recordFailure(exception);
+
+                        // TODO: this will technically cause an NPE in httpClient, but it's not triggered because
+                        // we never call get() on the response future. This behavior needs to be fixed in airlift
+                        return null;
+                    }
+
+                    @Override
+                    public Object handle(Request request, Response response)
+                            throws Exception
+                    {
+                        stats.recordSuccess();
+                        return null;
+                    }
+                });
+            }
+            catch (Exception e) {
+                log.warn(e, "Error scheduling request for %s", uri);
+            }
+        }
+
+        private synchronized void updateState()
+        {
+            // is this an over/under transition?
+            if (stats.getRecentFailureRatio() > failureRatioThreshold) {
+                successTransitionTimestamp = null;
+            }
+            else if (successTransitionTimestamp == null) {
+                successTransitionTimestamp = System.nanoTime();
+            }
         }
     }
 

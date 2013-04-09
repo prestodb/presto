@@ -7,8 +7,6 @@ import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import java.util.concurrent.TimeUnit;
 
@@ -16,8 +14,23 @@ public class FailureDetectorConfiguration
 {
     private boolean enabled = true;
     private double failureRatioThreshold = 0.01; // 1% failure rate
-    private Duration hearbeatInterval = new Duration(500, TimeUnit.MILLISECONDS);
+    private Duration heartbeatInterval = new Duration(500, TimeUnit.MILLISECONDS);
     private Duration warmupInterval = new Duration(5, TimeUnit.SECONDS);
+    private Duration expirationGraceInterval = new Duration(10, TimeUnit.MINUTES);
+
+    @NotNull
+    public Duration getExpirationGraceInterval()
+    {
+        return expirationGraceInterval;
+    }
+
+    @Config("failure-detector.expiration-grace-interval")
+    @ConfigDescription("How long to wait before 'forgetting' a service after it disappears from discovery")
+    public FailureDetectorConfiguration setExpirationGraceInterval(Duration expirationGraceInterval)
+    {
+        this.expirationGraceInterval = expirationGraceInterval;
+        return this;
+    }
 
     public boolean isEnabled()
     {
@@ -38,7 +51,7 @@ public class FailureDetectorConfiguration
     }
 
     @Config("failure-detector.warmup-interval")
-    @ConfigDescription("How long to wait before considering a new node alive")
+    @ConfigDescription("How long to wait after transitioning to success before considering a service alive")
     public FailureDetectorConfiguration setWarmupInterval(Duration warmupInterval)
     {
         this.warmupInterval = warmupInterval;
@@ -47,15 +60,15 @@ public class FailureDetectorConfiguration
 
     @MinDuration("1ms")
     @NotNull
-    public Duration getHearbeatInterval()
+    public Duration getHeartbeatInterval()
     {
-        return hearbeatInterval;
+        return heartbeatInterval;
     }
 
     @Config("failure-detector.heartbeat-interval")
-    public FailureDetectorConfiguration setHearbeatInterval(Duration interval)
+    public FailureDetectorConfiguration setHeartbeatInterval(Duration interval)
     {
-        this.hearbeatInterval = interval;
+        this.heartbeatInterval = interval;
         return this;
     }
 
