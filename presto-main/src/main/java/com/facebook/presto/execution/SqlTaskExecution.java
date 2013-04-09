@@ -6,6 +6,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
@@ -63,6 +64,7 @@ public class SqlTaskExecution
     private final Metadata metadata;
     private final DataSize maxOperatorMemoryUsage;
     private final Session session;
+    private final QueryMonitor queryMonitor;
 
     private final AtomicInteger pendingWorkerCount = new AtomicInteger();
 
@@ -87,7 +89,8 @@ public class SqlTaskExecution
             Metadata metadata,
             ExecutorService taskMasterExecutor,
             ListeningExecutorService shardExecutor,
-            DataSize maxOperatorMemoryUsage)
+            DataSize maxOperatorMemoryUsage,
+            QueryMonitor queryMonitor)
     {
         SqlTaskExecution task = new SqlTaskExecution(session,
                 taskId,
@@ -98,7 +101,8 @@ public class SqlTaskExecution
                 exchangeOperatorFactory,
                 metadata,
                 shardExecutor,
-                maxOperatorMemoryUsage);
+                maxOperatorMemoryUsage,
+                queryMonitor);
 
         task.start(taskMasterExecutor);
 
@@ -114,7 +118,8 @@ public class SqlTaskExecution
             ExchangeOperatorFactory exchangeOperatorFactory,
             Metadata metadata,
             ListeningExecutorService shardExecutor,
-            DataSize maxOperatorMemoryUsage)
+            DataSize maxOperatorMemoryUsage,
+            QueryMonitor queryMonitor)
     {
         Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
@@ -123,6 +128,7 @@ public class SqlTaskExecution
         Preconditions.checkNotNull(metadata, "metadata is null");
         Preconditions.checkNotNull(shardExecutor, "shardExecutor is null");
         Preconditions.checkNotNull(maxOperatorMemoryUsage, "maxOperatorMemoryUsage is null");
+        Preconditions.checkNotNull(queryMonitor, "queryMonitor is null");
 
         this.session = session;
         this.taskId = taskId;
@@ -132,6 +138,7 @@ public class SqlTaskExecution
         this.shardExecutor = shardExecutor;
         this.metadata = metadata;
         this.maxOperatorMemoryUsage = maxOperatorMemoryUsage;
+        this.queryMonitor = queryMonitor;
 
         // create output buffers
         this.taskOutput = new TaskOutput(taskId, location, pageBufferMax);
@@ -229,7 +236,8 @@ public class SqlTaskExecution
                 metadata,
                 maxOperatorMemoryUsage,
                 dataStreamProvider,
-                exchangeOperatorFactory);
+                exchangeOperatorFactory,
+                queryMonitor);
 
         // TableScanOperator requires partitioned split to be added before task is started
         if (partitionedSourceId != null) {
@@ -402,6 +410,7 @@ public class SqlTaskExecution
         private final PlanNodeId partitionedSource;
         private final Operator operator;
         private final OperatorStats operatorStats;
+        private final QueryMonitor queryMonitor;
         private final Map<PlanNodeId, SourceOperator> sourceOperators;
 
         private SplitWorker(Session session,
@@ -411,11 +420,13 @@ public class SqlTaskExecution
                 Metadata metadata,
                 DataSize maxOperatorMemoryUsage,
                 DataStreamProvider dataStreamProvider,
-                ExchangeOperatorFactory exchangeOperatorFactory)
+                ExchangeOperatorFactory exchangeOperatorFactory,
+                QueryMonitor queryMonitor)
         {
             this.taskOutput = taskOutput;
             partitionedSource = fragment.getPartitionedSource();
             operatorStats = new OperatorStats(taskOutput);
+            this.queryMonitor = queryMonitor;
 
             LocalExecutionPlanner planner = new LocalExecutionPlanner(session,
                     metadata,
@@ -473,6 +484,7 @@ public class SqlTaskExecution
             }
             finally {
                 operatorStats.finish();
+                queryMonitor.splitCompletionEvent(taskOutput.getTaskInfo(false), operatorStats.snapshot());
             }
             return null;
         }

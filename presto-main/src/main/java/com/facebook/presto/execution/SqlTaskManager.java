@@ -6,6 +6,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.execution.ExecutionStats.ExecutionStatsSnapshot;
 import com.facebook.presto.execution.SharedBuffer.QueueState;
 import com.facebook.presto.metadata.Metadata;
@@ -60,6 +61,7 @@ public class SqlTaskManager
     private final DataStreamProvider dataStreamProvider;
     private final ExchangeOperatorFactory exchangeOperatorFactory;
     private final HttpServerInfo httpServerInfo;
+    private final QueryMonitor queryMonitor;
     private final DataSize maxOperatorMemoryUsage;
     private final Duration maxTaskAge;
     private final Duration clientTimeout;
@@ -73,18 +75,21 @@ public class SqlTaskManager
             DataStreamProvider dataStreamProvider,
             ExchangeOperatorFactory exchangeOperatorFactory,
             HttpServerInfo httpServerInfo,
+            QueryMonitor queryMonitor,
             QueryManagerConfig config)
     {
         Preconditions.checkNotNull(metadata, "metadata is null");
         Preconditions.checkNotNull(dataStreamProvider, "dataStreamProvider is null");
         Preconditions.checkNotNull(exchangeOperatorFactory, "exchangeOperatorFactory is null");
         Preconditions.checkNotNull(httpServerInfo, "httpServerInfo is null");
+        Preconditions.checkNotNull(queryMonitor, "queryMonitor is null");
         Preconditions.checkNotNull(config, "config is null");
 
         this.metadata = metadata;
         this.dataStreamProvider = dataStreamProvider;
         this.exchangeOperatorFactory = exchangeOperatorFactory;
         this.httpServerInfo = httpServerInfo;
+        this.queryMonitor = queryMonitor;
         this.pageBufferMax = config.getSinkMaxBufferedPages() == null ? config.getMaxShardProcessorThreads() * 5 : config.getSinkMaxBufferedPages();
         this.maxOperatorMemoryUsage = config.getMaxOperatorMemoryUsage();
         // Just to be nice, allow tasks to live an extra 30 seconds so queries will be removed first
@@ -180,7 +185,8 @@ public class SqlTaskManager
                         metadata,
                         taskMasterExecutor,
                         shardExecutor,
-                        maxOperatorMemoryUsage
+                        maxOperatorMemoryUsage,
+                        queryMonitor
                 );
                 tasks.put(taskId, taskExecution);
             }
