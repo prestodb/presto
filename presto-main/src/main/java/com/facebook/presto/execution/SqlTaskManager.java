@@ -5,14 +5,20 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.execution.ExecutionStats.ExecutionStatsSnapshot;
+import com.facebook.presto.execution.SharedBuffer.QueueState;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.server.ExchangeOperatorFactory;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.http.server.HttpServerInfo;
@@ -230,9 +236,27 @@ public class SqlTaskManager
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 
-        TaskExecution taskExecution = tasks.remove(taskId);
+        TaskExecution taskExecution = tasks.get(taskId);
         if (taskExecution == null) {
-            return taskInfos.get(taskId);
+            TaskInfo taskInfo = taskInfos.get(taskId);
+            if (taskInfo == null) {
+                // task does not exist yet, mark the task as canceled, so later if a late request
+                // comes in to create the task, the task remains canceled
+                taskInfo = new TaskInfo(taskId,
+                        Long.MAX_VALUE,
+                        TaskState.CANCELED,
+                        URI.create("unknown"),
+                        new SharedBufferInfo(QueueState.FINISHED, 0, ImmutableList.<BufferInfo>of()),
+                        ImmutableSet.<PlanNodeId>of(),
+                        new ExecutionStatsSnapshot(),
+                        ImmutableList.<SplitExecutionStats>of(),
+                        ImmutableList.<FailureInfo>of());
+                TaskInfo existingTaskInfo = taskInfos.putIfAbsent(taskId, taskInfo);
+                if (existingTaskInfo != null) {
+                    taskInfo = existingTaskInfo;
+                }
+            }
+            return taskInfo;
         }
 
         // make sure task is finished
