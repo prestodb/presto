@@ -11,11 +11,11 @@ public interface QueryManager
 {
     List<QueryInfo> getAllQueryInfo();
 
-    QueryInfo getQueryInfo(String queryId, boolean forceRefresh);
+    QueryInfo getQueryInfo(QueryId queryId, boolean forceRefresh);
 
     QueryInfo createQuery(Session session, String query);
 
-    void cancelQuery(String queryId);
+    void cancelQuery(QueryId queryId);
 
-    void cancelStage(String queryId, String stageId);
+    void cancelStage(StageId stageId);
 }

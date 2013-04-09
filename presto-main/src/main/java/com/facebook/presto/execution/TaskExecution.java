@@ -12,7 +12,7 @@ import java.util.List;
 
 public interface TaskExecution
 {
-    String getTaskId();
+    TaskId getTaskId();
 
     TaskInfo getTaskInfo(boolean full);
 

@@ -1,0 +1,95 @@
+/*
+ * Copyright 2004-present Facebook. All Rights Reserved.
+ */
+package com.facebook.presto.execution;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+import com.google.common.base.Objects;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.Immutable;
+import java.util.List;
+import java.util.regex.Pattern;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+@Immutable
+public class QueryId
+{
+    @JsonCreator
+    public static QueryId valueOf(String queryId)
+    {
+        List<String> ids = parseDottedId(queryId, 1, "queryId");
+        return new QueryId(ids.get(0));
+    }
+
+    private final String id;
+
+    public QueryId(String id)
+    {
+        this.id = validateId(id);
+    }
+
+    public String getId()
+    {
+        return id;
+    }
+
+    @JsonValue
+    public String toString()
+    {
+        return id;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hashCode(id);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        final QueryId other = (QueryId) obj;
+        return Objects.equal(this.id, other.id);
+    }
+
+    //
+    // Id helper methods
+    //
+
+    static final Pattern ID_PATTERN = Pattern.compile("[a-z0-9]+");
+
+    static String validateId(String id)
+    {
+        checkNotNull(id, "id is null");
+        checkArgument(!id.isEmpty(), "id is empty");
+        checkArgument(ID_PATTERN.matcher(id).matches(), "Invalid id %s", id);
+        return id;
+    }
+
+    static List<String> parseDottedId(String id, int expectedParts, String name)
+    {
+        checkNotNull(id, "id is null");
+        checkArgument(expectedParts > 0, "expectedParts must be at least 1");
+        checkNotNull(name, "name is null");
+
+        ImmutableList<String> ids = ImmutableList.copyOf(Splitter.on('.').split(id));
+        checkArgument(ids.size() == expectedParts, "Invalid %s %s", name, id);
+
+        for (String part : ids) {
+            checkArgument(!part.isEmpty(), "Invalid id %s", id);
+            checkArgument(ID_PATTERN.matcher(part).matches(), "Invalid id %s", id);
+        }
+        return ids;
+    }
+}

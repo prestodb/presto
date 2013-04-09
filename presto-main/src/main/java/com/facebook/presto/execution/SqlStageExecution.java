@@ -38,7 +38,6 @@ import io.airlift.units.Duration;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -58,9 +57,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.util.Failures.toFailures;
 import static com.facebook.presto.execution.StageInfo.stageStateGetter;
 import static com.facebook.presto.execution.TaskInfo.taskStateGetter;
+import static com.facebook.presto.util.Failures.toFailures;
 import static com.facebook.presto.util.FutureUtils.chainedCallback;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.Iterables.all;
@@ -78,8 +77,7 @@ public class SqlStageExecution
     // holding a lock on the 'this' could cause a deadlock.
     @Nullable
     private final StageExecutionNode parent;
-    private final String queryId;
-    private final String stageId;
+    private final StageId stageId;
     private final URI location;
     private final PlanFragment fragment;
     private final List<TupleInfo> tupleInfos;
@@ -128,7 +126,7 @@ public class SqlStageExecution
         }
     };
 
-    public SqlStageExecution(String queryId,
+    public SqlStageExecution(QueryId queryId,
             LocationFactory locationFactory,
             StageExecutionPlan plan,
             NodeManager nodeManager,
@@ -141,7 +139,7 @@ public class SqlStageExecution
     }
 
     private SqlStageExecution(@Nullable StageExecutionNode parent,
-            String queryId,
+            QueryId queryId,
             AtomicInteger nextStageId,
             LocationFactory locationFactory,
             StageExecutionPlan plan,
@@ -162,9 +160,8 @@ public class SqlStageExecution
         Preconditions.checkNotNull(executor, "executor is null");
 
         this.parent = parent;
-        this.queryId = queryId;
-        this.stageId = queryId + "." + nextStageId.getAndIncrement();
-        this.location = locationFactory.createStageLocation(queryId, stageId);
+        this.stageId = new StageId(queryId, String.valueOf(nextStageId.getAndIncrement()));
+        this.location = locationFactory.createStageLocation(stageId);
         this.fragment = plan.getFragment();
         this.splits = plan.getSplits();
         this.nodeManager = nodeManager;
@@ -193,7 +190,7 @@ public class SqlStageExecution
     }
 
     @Override
-    public void cancelStage(String stageId)
+    public void cancelStage(StageId stageId)
     {
         if (stageId.equals(this.stageId)) {
             cancel();
@@ -217,8 +214,7 @@ public class SqlStageExecution
         List<TaskInfo> taskInfos = IterableTransformer.on(tasks.values()).transform(taskInfoGetter()).list();
         List<StageInfo> subStageInfos = IterableTransformer.on(subStages.values()).transform(stageInfoGetter()).list();
 
-        return new StageInfo(queryId,
-                stageId,
+        return new StageInfo(stageId,
                 stageState.get(),
                 location,
                 fragment,
@@ -416,11 +412,9 @@ public class SqlStageExecution
     private RemoteTask scheduleTask(AtomicInteger nextTaskId, Node node, @Nullable Split initialSplit)
     {
         String nodeIdentifier = node.getNodeIdentifier();
-        String taskId = stageId + '.' + nextTaskId.getAndIncrement();
+        TaskId taskId = new TaskId(stageId, String.valueOf(nextTaskId.getAndIncrement()));
 
         RemoteTask task = remoteTaskFactory.createRemoteTask(session,
-                queryId,
-                stageId,
                 taskId,
                 node,
                 fragment,
@@ -718,7 +712,7 @@ interface StageExecutionNode
 
     ListenableFuture<?> updateState(boolean forceRefresh);
 
-    void cancelStage(String stageId);
+    void cancelStage(StageId stageId);
 
     void cancel();
 }

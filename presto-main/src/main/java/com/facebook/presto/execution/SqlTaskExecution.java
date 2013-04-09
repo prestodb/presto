@@ -54,7 +54,7 @@ import static java.lang.Math.max;
 public class SqlTaskExecution
         implements TaskExecution
 {
-    private final String taskId;
+    private final TaskId taskId;
     private final TaskOutput taskOutput;
     private final DataStreamProvider dataStreamProvider;
     private final ExchangeOperatorFactory exchangeOperatorFactory;
@@ -78,9 +78,7 @@ public class SqlTaskExecution
     private final BlockingDeque<FutureTask<?>> unfinishedWorkerTasks = new LinkedBlockingDeque<>();
 
     public static SqlTaskExecution createSqlTaskExecution(Session session,
-            String queryId,
-            String stageId,
-            String taskId,
+            TaskId taskId,
             URI location,
             PlanFragment fragment,
             int pageBufferMax,
@@ -92,8 +90,6 @@ public class SqlTaskExecution
             DataSize maxOperatorMemoryUsage)
     {
         SqlTaskExecution task = new SqlTaskExecution(session,
-                queryId,
-                stageId,
                 taskId,
                 location,
                 fragment,
@@ -110,9 +106,7 @@ public class SqlTaskExecution
     }
 
     private SqlTaskExecution(Session session,
-            String queryId,
-            String stageId,
-            String taskId,
+            TaskId taskId,
             URI location,
             PlanFragment fragment,
             int pageBufferMax,
@@ -123,8 +117,6 @@ public class SqlTaskExecution
             DataSize maxOperatorMemoryUsage)
     {
         Preconditions.checkNotNull(session, "session is null");
-        Preconditions.checkNotNull(queryId, "queryId is null");
-        Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(fragment, "fragment is null");
         Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
@@ -142,7 +134,7 @@ public class SqlTaskExecution
         this.maxOperatorMemoryUsage = maxOperatorMemoryUsage;
 
         // create output buffers
-        this.taskOutput = new TaskOutput(queryId, stageId, taskId, location, pageBufferMax);
+        this.taskOutput = new TaskOutput(taskId, location, pageBufferMax);
     }
 
     //
@@ -160,7 +152,7 @@ public class SqlTaskExecution
     }
 
     @Override
-    public String getTaskId()
+    public TaskId getTaskId()
     {
         return taskId;
     }

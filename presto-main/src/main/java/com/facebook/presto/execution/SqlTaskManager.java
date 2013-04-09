@@ -58,8 +58,8 @@ public class SqlTaskManager
     private final Duration maxTaskAge;
     private final Duration clientTimeout;
 
-    private final ConcurrentMap<String, TaskInfo> taskInfos = new ConcurrentHashMap<>();
-    private final ConcurrentMap<String, TaskExecution> tasks = new ConcurrentHashMap<>();
+    private final ConcurrentMap<TaskId, TaskInfo> taskInfos = new ConcurrentHashMap<>();
+    private final ConcurrentMap<TaskId, TaskExecution> tasks = new ConcurrentHashMap<>();
 
     @Inject
     public SqlTaskManager(
@@ -123,7 +123,7 @@ public class SqlTaskManager
     @Override
     public List<TaskInfo> getAllTaskInfo(boolean full)
     {
-        Map<String, TaskInfo> taskInfos = new TreeMap<>();
+        Map<TaskId, TaskInfo> taskInfos = new TreeMap<>();
         taskInfos.putAll(taskInfos);
         for (TaskExecution taskExecution : tasks.values()) {
             taskInfos.put(taskExecution.getTaskId(), taskExecution.getTaskInfo(full));
@@ -132,7 +132,7 @@ public class SqlTaskManager
     }
 
     @Override
-    public TaskInfo getTaskInfo(String taskId, boolean full)
+    public TaskInfo getTaskInfo(TaskId taskId, boolean full)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 
@@ -150,9 +150,9 @@ public class SqlTaskManager
     }
 
     @Override
-    public TaskInfo updateTask(Session session, String queryId, String stageId, String taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputIds)
+    public TaskInfo updateTask(Session session, TaskId taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputIds)
     {
-        URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
+        URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId.toString()).build();
 
         TaskExecution taskExecution;
         synchronized (this) {
@@ -165,8 +165,6 @@ public class SqlTaskManager
                 }
 
                 taskExecution = SqlTaskExecution.createSqlTaskExecution(session,
-                        queryId,
-                        stageId,
                         taskId,
                         location,
                         fragment,
@@ -190,7 +188,7 @@ public class SqlTaskManager
     }
 
     @Override
-    public List<Page> getTaskResults(String taskId, String outputName, int maxPageCount, Duration maxWaitTime)
+    public List<Page> getTaskResults(TaskId taskId, String outputName, int maxPageCount, Duration maxWaitTime)
             throws InterruptedException
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
@@ -205,7 +203,7 @@ public class SqlTaskManager
     }
 
     @Override
-    public TaskInfo abortTaskResults(String taskId, String outputId)
+    public TaskInfo abortTaskResults(TaskId taskId, String outputId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(outputId, "outputId is null");
@@ -228,7 +226,7 @@ public class SqlTaskManager
     }
 
     @Override
-    public TaskInfo cancelTask(String taskId)
+    public TaskInfo cancelTask(TaskId taskId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 

@@ -1,5 +1,6 @@
 package com.facebook.presto.event.query;
 
+import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryState;
 import com.google.common.collect.ImmutableList;
 import io.airlift.event.client.EventField;
@@ -17,7 +18,7 @@ import java.util.List;
 @EventType("QueryCompletion")
 public class QueryCompletionEvent
 {
-    private final String queryId;
+    private final QueryId queryId;
     private final String user;
     private final String catalog;
     private final String schema;
@@ -44,7 +45,7 @@ public class QueryCompletionEvent
     private final String failuresJson;
 
     public QueryCompletionEvent(
-            String queryId,
+            QueryId queryId,
             String user,
             String catalog,
             String schema,
@@ -110,7 +111,7 @@ public class QueryCompletionEvent
     @EventField
     public String getQueryId()
     {
-        return queryId;
+        return queryId.toString();
     }
 
     @EventField

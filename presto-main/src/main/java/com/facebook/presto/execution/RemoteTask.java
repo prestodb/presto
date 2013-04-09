@@ -13,7 +13,7 @@ import java.util.Set;
 
 public interface RemoteTask
 {
-    String getTaskId();
+    TaskId getTaskId();
 
     TaskInfo getTaskInfo();
 

@@ -9,6 +9,7 @@ import com.facebook.presto.client.StageStats;
 import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.execution.BufferInfo;
 import com.facebook.presto.execution.ExecutionStats;
+import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
@@ -51,7 +52,6 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
-
 import java.io.Closeable;
 import java.net.URI;
 import java.util.ArrayList;
@@ -95,7 +95,7 @@ public class StatementResource
     private final QueryManager queryManager;
     private final AsyncHttpClient httpClient;
 
-    private final ConcurrentMap<String, Query> queries = new ConcurrentHashMap<>();
+    private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
     private final ScheduledExecutorService queryPurger = Executors.newSingleThreadScheduledExecutor(threadsNamed("query-purger-%d"));
 
     @Inject
@@ -150,7 +150,7 @@ public class StatementResource
     @Path("{queryId}/{token}")
     @Produces(MediaType.APPLICATION_JSON)
     public Response getQueryResults(
-            @PathParam("queryId") String queryId,
+            @PathParam("queryId") QueryId queryId,
             @PathParam("token") long token,
             @QueryParam("maxWait") Duration maxWait,
             @Context UriInfo uriInfo)
@@ -168,7 +168,7 @@ public class StatementResource
     @DELETE
     @Path("{queryId}/{token}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response cancelQuery(@PathParam("queryId") String queryId,
+    public Response cancelQuery(@PathParam("queryId") QueryId queryId,
             @PathParam("token") long token)
     {
         Query query = queries.get(queryId);
@@ -184,7 +184,7 @@ public class StatementResource
             implements Closeable
     {
         private final QueryManager queryManager;
-        private final String queryId;
+        private final QueryId queryId;
         private final ExchangeClient exchangeClient;
 
         private final Set<URI> locations = newSetFromMap(new ConcurrentHashMap<URI, Boolean>());
@@ -223,7 +223,7 @@ public class StatementResource
             queryManager.cancelQuery(queryId);
         }
 
-        public String getQueryId()
+        public QueryId getQueryId()
         {
             return queryId;
         }
@@ -272,7 +272,7 @@ public class StatementResource
 
             // first time through, self is null
             QueryResults queryResults = new QueryResults(
-                    queryId,
+                    queryId.toString(),
                     uriInfo.getRequestUriBuilder().replaceQuery("").replacePath(queryInfo.getSelf().getPath()).build(),
                     findCancelableLeafStage(queryInfo),
                     nextResultsUri,
@@ -340,7 +340,7 @@ public class StatementResource
 
         private synchronized URI createNextResultsUri(UriInfo uriInfo)
         {
-            return uriInfo.getBaseUriBuilder().replacePath("/v1/statement").path(queryId).path(String.valueOf(resultId.incrementAndGet())).replaceQuery("").build();
+            return uriInfo.getBaseUriBuilder().replacePath("/v1/statement").path(queryId.toString()).path(String.valueOf(resultId.incrementAndGet())).replaceQuery("").build();
         }
 
         private static List<Column> createColumnsList(QueryInfo queryInfo)
@@ -416,7 +416,7 @@ public class StatementResource
             }
 
             return StageStats.builder()
-                    .setStageId(stageInfo.getStageId().substring(stageInfo.getQueryId().length() + 1))
+                    .setStageId(String.valueOf(stageInfo.getStageId().getId()))
                     .setState(stageInfo.getState().toString())
                     .setDone(stageInfo.getState().isDone())
                     .setNodes(uniqueNodes.size())
@@ -573,10 +573,10 @@ public class StatementResource
     private static class PurgeQueriesRunnable
             implements Runnable
     {
-        private final Set<String> queryIds;
+        private final Set<QueryId> queryIds;
         private final QueryManager queryManager;
 
-        public PurgeQueriesRunnable(Set<String> queryIds, QueryManager queryManager)
+        public PurgeQueriesRunnable(Set<QueryId> queryIds, QueryManager queryManager)
         {
             this.queryIds = queryIds;
             this.queryManager = queryManager;
@@ -586,8 +586,8 @@ public class StatementResource
         public void run()
         {
             try {
-                for (Iterator<String> iterator = queryIds.iterator(); iterator.hasNext(); ) {
-                    String queryId = iterator.next();
+                for (Iterator<QueryId> iterator = queryIds.iterator(); iterator.hasNext(); ) {
+                    QueryId queryId = iterator.next();
                     try {
                         // if query has been, dropped in the query manager, drop our data
                         queryManager.getQueryInfo(queryId, false);

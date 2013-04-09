@@ -2,6 +2,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockIterable;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskOutput;
 import org.testng.annotations.Test;
 
@@ -38,7 +39,7 @@ public class TestAlignmentOperator
     {
         AlignmentOperator operator = createAlignmentOperator();
 
-        TaskOutput taskOutput = new TaskOutput("unknown", "unknown", "unknown", URI.create("unknown://unknown"), 1000);
+        TaskOutput taskOutput = new TaskOutput(new TaskId("0", "0", "0"), URI.create("unknown://unknown"), 1000);
         taskOutput.addResultQueue("unknown");
         taskOutput.noMoreResultQueues();
 

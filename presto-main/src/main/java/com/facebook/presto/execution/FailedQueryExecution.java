@@ -13,7 +13,7 @@ public class FailedQueryExecution
 {
     private final QueryInfo queryInfo;
 
-    public FailedQueryExecution(String queryId, String query, Session session, URI self, Throwable cause)
+    public FailedQueryExecution(QueryId queryId, String query, Session session, URI self, Throwable cause)
     {
         QueryStats queryStats = new QueryStats();
         queryStats.recordEnd();
@@ -61,7 +61,7 @@ public class FailedQueryExecution
     }
 
     @Override
-    public void cancelStage(String stageId)
+    public void cancelStage(StageId stageId)
     {
         // no-op
     }

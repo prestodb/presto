@@ -8,7 +8,6 @@ import io.airlift.log.Logger;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-
 import java.net.URI;
 import java.util.List;
 
@@ -20,7 +19,7 @@ public class QueryStateMachine
 {
     private static final Logger log = Logger.get(QueryStateMachine.class);
 
-    private final String queryId;
+    private final QueryId queryId;
     private final String query;
     private final Session session;
     private final URI self;
@@ -36,7 +35,7 @@ public class QueryStateMachine
     @GuardedBy("this")
     private List<String> outputFieldNames = ImmutableList.of();
 
-    public QueryStateMachine(String queryId, String query, Session session, URI self, QueryMonitor queryMonitor)
+    public QueryStateMachine(QueryId queryId, String query, Session session, URI self, QueryMonitor queryMonitor)
     {
         this.queryId = checkNotNull(queryId, "queryId is null");
         this.query = checkNotNull(query, "query is null");
@@ -45,7 +44,7 @@ public class QueryStateMachine
         this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
     }
 
-    public String getQueryId()
+    public QueryId getQueryId()
     {
         return queryId;
     }

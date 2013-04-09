@@ -15,8 +15,6 @@ import java.util.List;
 public class TaskUpdateRequest
 {
     private final Session session;
-    private final String queryId;
-    private final String stageId;
     private final PlanFragment fragment;
     private final List<TaskSource> sources;
     private final OutputBuffers outputIds;
@@ -24,22 +22,16 @@ public class TaskUpdateRequest
     @JsonCreator
     public TaskUpdateRequest(
             @JsonProperty("session") Session session,
-            @JsonProperty("queryId") String queryId,
-            @JsonProperty("stageId") String stageId,
             @JsonProperty("fragment") PlanFragment fragment,
             @JsonProperty("sources") List<TaskSource> sources,
             @JsonProperty("outputIds") OutputBuffers outputIds)
     {
         Preconditions.checkNotNull(session, "session is null");
-        Preconditions.checkNotNull(queryId, "queryId is null");
-        Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(fragment, "fragment is null");
         Preconditions.checkNotNull(sources, "sources is null");
         Preconditions.checkNotNull(outputIds, "outputIds is null");
 
         this.session = session;
-        this.queryId = queryId;
-        this.stageId = stageId;
         this.fragment = fragment;
         this.sources = ImmutableList.copyOf(sources);
         this.outputIds = outputIds;
@@ -49,18 +41,6 @@ public class TaskUpdateRequest
     public Session getSession()
     {
         return session;
-    }
-
-    @JsonProperty
-    public String getQueryId()
-    {
-        return queryId;
-    }
-
-    @JsonProperty
-    public String getStageId()
-    {
-        return stageId;
     }
 
     @JsonProperty
@@ -86,8 +66,6 @@ public class TaskUpdateRequest
     {
         return Objects.toStringHelper(this)
                 .add("session", session)
-                .add("queryId", queryId)
-                .add("stageId", stageId)
                 .add("fragment", fragment)
                 .add("sources", sources)
                 .add("outputIds", outputIds)

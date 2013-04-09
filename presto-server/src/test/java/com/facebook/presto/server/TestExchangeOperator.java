@@ -102,6 +102,7 @@ public class TestExchangeOperator
                     public void configure(Binder binder)
                     {
                         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
+                        binder.bind(StageResource.class).in(Scopes.SINGLETON);
                         binder.bind(TaskResource.class).in(Scopes.SINGLETON);
                         binder.bind(QueryManager.class).to(MockQueryManager.class).in(Scopes.SINGLETON);
                         binder.bind(MockTaskManager.class).in(Scopes.SINGLETON);
@@ -194,14 +195,12 @@ public class TestExchangeOperator
 
         Session session = new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA);
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(session,
-                "queryId",
-                "stageId",
                 planFragment,
                 ImmutableList.<TaskSource>of(),
                 new OutputBuffers(ImmutableSet.of("out"), true));
 
         Request request = preparePost()
-                .setUri(httpServer.getBaseUrl().resolve("/v1/task/foo-" + httpServer.getPort()))
+                .setUri(httpServer.getBaseUrl().resolve("/v1/task/query.stage." + httpServer.getPort()))
                 .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
                 .setBodyGenerator(jsonBodyGenerator(jsonCodec(TaskUpdateRequest.class), updateRequest))
                 .build();

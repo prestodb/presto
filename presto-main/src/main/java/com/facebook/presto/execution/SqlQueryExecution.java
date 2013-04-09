@@ -60,7 +60,7 @@ public class SqlQueryExecution
 
     private final AtomicReference<SqlStageExecution> outputStage = new AtomicReference<>();
 
-    public SqlQueryExecution(String queryId,
+    public SqlQueryExecution(QueryId queryId,
             String query,
             Session session,
             URI self,
@@ -202,7 +202,7 @@ public class SqlQueryExecution
     }
 
     @Override
-    public void cancelStage(String stageId)
+    public void cancelStage(StageId stageId)
     {
         Preconditions.checkNotNull(stageId, "stageId is null");
 
@@ -349,7 +349,7 @@ public class SqlQueryExecution
         }
 
         @Override
-        public SqlQueryExecution createQueryExecution(String queryId, String query, Session session, Statement statement)
+        public SqlQueryExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement)
         {
             SqlQueryExecution queryExecution = new SqlQueryExecution(queryId,
                     query,

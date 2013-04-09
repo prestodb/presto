@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.ingest;
 
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskOutput;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.OperatorStats;
@@ -53,7 +54,7 @@ public class TestRecordProjectOperator
 
         RecordProjectOperator operator = new RecordProjectOperator(records, records.getColumns());
 
-        TaskOutput taskOutput = new TaskOutput("unknown", "unknown", "unknown", URI.create("unknown://unknown"), 1000);
+        TaskOutput taskOutput = new TaskOutput(new TaskId("0", "0", "0"), URI.create("unknown://unknown"), 1000);
         taskOutput.addResultQueue("unknown");
         taskOutput.noMoreResultQueues();
 

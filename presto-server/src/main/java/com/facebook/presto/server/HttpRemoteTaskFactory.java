@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTask;
@@ -50,9 +51,7 @@ public class HttpRemoteTaskFactory
 
     @Override
     public RemoteTask createRemoteTask(Session session,
-            String queryId,
-            String stageId,
-            String taskId,
+            TaskId taskId,
             Node node,
             PlanFragment fragment,
             Split initialSplit,
@@ -60,8 +59,6 @@ public class HttpRemoteTaskFactory
             Set<String> initialOutputIds)
     {
         return new HttpRemoteTask(session,
-                queryId,
-                stageId,
                 taskId,
                 node,
                 locationFactory.createTaskLocation(node, taskId),

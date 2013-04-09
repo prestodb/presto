@@ -86,6 +86,7 @@ public class TestQueryResourceServer
                     public void configure(Binder binder)
                     {
                         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
+                        binder.bind(StageResource.class).in(Scopes.SINGLETON);
                         binder.bind(TaskResource.class).in(Scopes.SINGLETON);
                         binder.bind(QueryManager.class).to(MockQueryManager.class).in(Scopes.SINGLETON);
                         binder.bind(MockTaskManager.class).in(Scopes.SINGLETON);
