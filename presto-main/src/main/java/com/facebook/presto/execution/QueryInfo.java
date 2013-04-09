@@ -19,7 +19,7 @@ import java.util.List;
 @Immutable
 public class QueryInfo
 {
-    private final String queryId;
+    private final QueryId queryId;
     private final Session session;
     private final QueryState state;
     private final URI self;
@@ -30,7 +30,7 @@ public class QueryInfo
     private final FailureInfo failureInfo;
 
     @JsonCreator
-    public QueryInfo(@JsonProperty("queryId") String queryId,
+    public QueryInfo(@JsonProperty("queryId") QueryId queryId,
             @JsonProperty("session") Session session,
             @JsonProperty("state") QueryState state,
             @JsonProperty("self") URI self,
@@ -60,7 +60,7 @@ public class QueryInfo
     }
 
     @JsonProperty
-    public String getQueryId()
+    public QueryId getQueryId()
     {
         return queryId;
     }

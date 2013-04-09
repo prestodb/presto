@@ -7,6 +7,7 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.BufferInfo;
 import com.facebook.presto.execution.ExecutionStats.ExecutionStatsSnapshot;
 import com.facebook.presto.execution.RemoteTask;
@@ -117,9 +118,7 @@ public class HttpRemoteTask
     private final Queue<Throwable> errorsSinceLastSuccess = new ConcurrentLinkedQueue<>();
 
     public HttpRemoteTask(Session session,
-            String queryId,
-            String stageId,
-            String taskId,
+            TaskId taskId,
             Node node,
             URI location,
             PlanFragment planFragment,
@@ -133,8 +132,6 @@ public class HttpRemoteTask
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec)
     {
         Preconditions.checkNotNull(session, "session is null");
-        Preconditions.checkNotNull(queryId, "queryId is null");
-        Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(location, "location is null");
         Preconditions.checkNotNull(planFragment, "planFragment1 is null");
@@ -175,8 +172,7 @@ public class HttpRemoteTask
             pendingSplits.put(planFragment.getPartitionedSource(), new ScheduledSplit(nextSplitId.getAndIncrement(), initialSplit));
         }
 
-        taskInfo.set(new TaskInfo(queryId,
-                stageId,
+        taskInfo.set(new TaskInfo(
                 taskId,
                 TaskInfo.MIN_VERSION,
                 TaskState.PLANNED,
@@ -189,7 +185,7 @@ public class HttpRemoteTask
     }
 
     @Override
-    public String getTaskId()
+    public TaskId getTaskId()
     {
         return taskInfo.get().getTaskId();
     }
@@ -334,8 +330,6 @@ public class HttpRemoteTask
             }
             else {
                 TaskUpdateRequest updateRequest = new TaskUpdateRequest(session,
-                        taskInfo.get().getQueryId(),
-                        taskInfo.get().getStageId(),
                         planFragment,
                         sources,
                         new OutputBuffers(outputIds, noMoreOutputIds));
@@ -470,9 +464,7 @@ public class HttpRemoteTask
     private void failTask(Exception cause)
     {
         TaskInfo taskInfo = getTaskInfo();
-        updateTaskInfo(new TaskInfo(taskInfo.getQueryId(),
-                taskInfo.getStageId(),
-                taskInfo.getTaskId(),
+        updateTaskInfo(new TaskInfo(taskInfo.getTaskId(),
                 TaskInfo.MAX_VERSION,
                 TaskState.FAILED,
                 taskInfo.getSelf(),

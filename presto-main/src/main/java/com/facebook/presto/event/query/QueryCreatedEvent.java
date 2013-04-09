@@ -1,5 +1,6 @@
 package com.facebook.presto.event.query;
 
+import com.facebook.presto.execution.QueryId;
 import io.airlift.event.client.EventField;
 import io.airlift.event.client.EventType;
 import org.joda.time.DateTime;
@@ -11,7 +12,7 @@ import java.net.URI;
 @EventType("QueryCreated")
 public class QueryCreatedEvent
 {
-    private final String queryId;
+    private final QueryId queryId;
     private final String user;
     private final String catalog;
     private final String schema;
@@ -20,7 +21,7 @@ public class QueryCreatedEvent
     private final DateTime createTime;
 
     public QueryCreatedEvent(
-            String queryId,
+            QueryId queryId,
             String user,
             String catalog,
             String schema,
@@ -40,7 +41,7 @@ public class QueryCreatedEvent
     @EventField
     public String getQueryId()
     {
-        return queryId;
+        return queryId.toString();
     }
 
     @EventField

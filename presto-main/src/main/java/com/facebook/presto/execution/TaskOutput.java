@@ -32,9 +32,7 @@ public class TaskOutput
 {
     private static final Logger log = Logger.get(TaskOutput.class);
 
-    private final String queryId;
-    private final String stageId;
-    private final String taskId;
+    private final TaskId taskId;
     private final URI location;
     private final SharedBuffer<Page> sharedBuffer;
 
@@ -49,22 +47,18 @@ public class TaskOutput
 
     private final Set<OperatorStats> activeSplits = Sets.newSetFromMap(new ConcurrentHashMap<OperatorStats, Boolean>());
 
-    public TaskOutput(String queryId, String stageId, String taskId, URI location, int pageBufferMax)
+    public TaskOutput(TaskId taskId, URI location, int pageBufferMax)
     {
-        Preconditions.checkNotNull(queryId, "queryId is null");
-        Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(location, "location is null");
         Preconditions.checkArgument(pageBufferMax > 0, "pageBufferMax must be at least 1");
 
-        this.queryId = queryId;
-        this.stageId = stageId;
         this.taskId = taskId;
         this.location = location;
         sharedBuffer = new SharedBuffer<>(pageBufferMax);
     }
 
-    public String getTaskId()
+    public TaskId getTaskId()
     {
         return taskId;
     }
@@ -206,9 +200,7 @@ public class TaskOutput
 
         SharedBufferInfo sharedBufferInfo = sharedBuffer.getInfo();
         synchronized (this) {
-            return new TaskInfo(queryId,
-                    stageId,
-                    taskId,
+            return new TaskInfo(taskId,
                     nextTaskInfoVersion.getAndIncrement(),
                     getState(),
                     location,

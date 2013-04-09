@@ -5,6 +5,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskOutput;
@@ -36,7 +37,7 @@ public class MockTaskManager
     private final int pageBufferMax;
     private final int initialPages;
 
-    private final ConcurrentMap<String, TaskOutput> tasks = new ConcurrentHashMap<>();
+    private final ConcurrentMap<TaskId, TaskOutput> tasks = new ConcurrentHashMap<>();
 
     @Inject
     public MockTaskManager(HttpServerInfo httpServerInfo)
@@ -66,7 +67,7 @@ public class MockTaskManager
     }
 
     @Override
-    public synchronized TaskInfo getTaskInfo(String taskId, boolean full)
+    public synchronized TaskInfo getTaskInfo(TaskId taskId, boolean full)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 
@@ -78,18 +79,17 @@ public class MockTaskManager
     }
 
     @Override
-    public synchronized TaskInfo updateTask(Session session, String queryId, String stageId, String taskId, PlanFragment ignored, List<TaskSource> sources, OutputBuffers outputIds)
+    public synchronized TaskInfo updateTask(Session session, TaskId taskId, PlanFragment ignored, List<TaskSource> sources, OutputBuffers outputIds)
     {
         Preconditions.checkNotNull(session, "session is null");
-        Preconditions.checkNotNull(queryId, "queryId is null");
-        Preconditions.checkNotNull(stageId, "stageId is null");
+        Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(sources, "sources is null");
         Preconditions.checkNotNull(outputIds, "outputIds is null");
 
         TaskOutput taskOutput = tasks.get(taskId);
         if (taskOutput == null) {
-            URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId).build();
-            taskOutput = new TaskOutput(queryId, stageId, taskId, location, pageBufferMax);
+            URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId.toString()).build();
+            taskOutput = new TaskOutput(taskId, location, pageBufferMax);
             tasks.put(taskId, taskOutput);
 
             List<String> data = ImmutableList.of("apple", "banana", "cherry", "date");
@@ -118,7 +118,7 @@ public class MockTaskManager
     }
 
     @Override
-    public List<Page> getTaskResults(String taskId, String outputId, int maxPageCount, Duration maxWaitTime)
+    public List<Page> getTaskResults(TaskId taskId, String outputId, int maxPageCount, Duration maxWaitTime)
             throws InterruptedException
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
@@ -135,7 +135,7 @@ public class MockTaskManager
     }
 
     @Override
-    public synchronized TaskInfo abortTaskResults(String taskId, String outputId)
+    public synchronized TaskInfo abortTaskResults(TaskId taskId, String outputId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(outputId, "outputId is null");
@@ -149,7 +149,7 @@ public class MockTaskManager
     }
 
     @Override
-    public synchronized TaskInfo cancelTask(String taskId)
+    public synchronized TaskInfo cancelTask(TaskId taskId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
 

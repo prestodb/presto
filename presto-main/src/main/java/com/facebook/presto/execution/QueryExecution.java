@@ -18,10 +18,10 @@ public interface QueryExecution
 
     void fail(Throwable cause);
 
-    void cancelStage(String stageId);
+    void cancelStage(StageId stageId);
 
     interface QueryExecutionFactory<T extends QueryExecution>
     {
-        T createQueryExecution(String queryId, String query, Session session, Statement statement);
+        T createQueryExecution(QueryId queryId, String query, Session session, Statement statement);
     }
 }

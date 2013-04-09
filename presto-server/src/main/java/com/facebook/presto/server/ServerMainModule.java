@@ -123,6 +123,7 @@ public class ServerMainModule
     protected void configure()
     {
         binder.bind(QueryResource.class).in(Scopes.SINGLETON);
+        binder.bind(StageResource.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
         bindConfig(binder).to(QueryManagerConfig.class);
 

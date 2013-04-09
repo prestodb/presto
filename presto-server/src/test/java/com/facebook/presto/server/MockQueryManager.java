@@ -6,6 +6,9 @@ package com.facebook.presto.server;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.execution.QueryId;
+import com.facebook.presto.execution.StageId;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
@@ -45,7 +48,7 @@ public class MockQueryManager
     private final MockTaskManager mockTaskManager;
     private final LocationFactory locationFactory;
     private final AtomicInteger nextQueryId = new AtomicInteger();
-    private final ConcurrentMap<String, SimpleQuery> queries = new ConcurrentHashMap<>();
+    private final ConcurrentMap<QueryId, SimpleQuery> queries = new ConcurrentHashMap<>();
 
     @Inject
     public MockQueryManager(MockTaskManager mockTaskManager, LocationFactory locationFactory)
@@ -75,7 +78,7 @@ public class MockQueryManager
     }
 
     @Override
-    public QueryInfo getQueryInfo(String queryId, boolean forceRefresh)
+    public QueryInfo getQueryInfo(QueryId queryId, boolean forceRefresh)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
 
@@ -91,46 +94,42 @@ public class MockQueryManager
     {
         Preconditions.checkNotNull(query, "query is null");
 
-        String queryId = String.valueOf(nextQueryId.getAndIncrement());
+        TaskId outputTaskId = new TaskId(String.valueOf(nextQueryId.getAndIncrement()), "0", "0");
 
-        TaskInfo outputTask = mockTaskManager.updateTask(session,
-                "queryId",
-                "stageId",
-                "queryId",
+        mockTaskManager.updateTask(session,
+                outputTaskId,
                 null,
                 ImmutableList.<TaskSource>of(),
                 new OutputBuffers(ImmutableSet.<String>of("out"), true));
 
-        SimpleQuery simpleQuery = new SimpleQuery(queryId, locationFactory.createQueryLocation(queryId), outputTask.getTaskId(), mockTaskManager, locationFactory);
-        queries.put(queryId, simpleQuery);
+        SimpleQuery simpleQuery = new SimpleQuery(outputTaskId, locationFactory.createQueryLocation(outputTaskId.getQueryId()), mockTaskManager, locationFactory);
+        queries.put(outputTaskId.getQueryId(), simpleQuery);
         return simpleQuery.getQueryInfo();
     }
 
     @Override
-    public void cancelQuery(String queryId)
+    public void cancelQuery(QueryId queryId)
     {
         queries.remove(queryId);
     }
 
     @Override
-    public void cancelStage(String queryId, String stageId)
+    public void cancelStage(StageId stageId)
     {
         // mock queries don't have stages
     }
 
     private static class SimpleQuery
     {
-        private final String queryId;
+        private final TaskId outputTaskId;
         private final URI self;
-        private final String outputTaskId;
         private final MockTaskManager mockTaskManager;
         private final LocationFactory locationFactory;
 
-        private SimpleQuery(String queryId, URI self, String outputTaskId, MockTaskManager mockTaskManager, LocationFactory locationFactory)
+        private SimpleQuery(TaskId outputTaskId, URI self, MockTaskManager mockTaskManager, LocationFactory locationFactory)
         {
-            this.queryId = queryId;
-            this.self = self;
             this.outputTaskId = outputTaskId;
+            this.self = self;
             this.mockTaskManager = mockTaskManager;
             this.locationFactory = locationFactory;
         }
@@ -158,18 +157,16 @@ public class MockQueryManager
                 default:
                     throw new IllegalStateException("Unknown task state " + outputTask.getState());
             }
-            String stageId = queryId + "-0";
-            return new QueryInfo(queryId,
+            return new QueryInfo(outputTaskId.getQueryId(),
                     new Session(null, "test_catalog", "test_schema"),
                     state,
                     self,
                     ImmutableList.of("out"),
                     "query",
                     new QueryStats(),
-                    new StageInfo(queryId,
-                            stageId,
+                    new StageInfo(outputTaskId.getStageId(),
                             StageState.FINISHED,
-                            locationFactory.createStageLocation(queryId, stageId),
+                            locationFactory.createStageLocation(outputTaskId.getStageId()),
                             null,
                             TUPLE_INFOS,
                             new StageStats().snapshot(),

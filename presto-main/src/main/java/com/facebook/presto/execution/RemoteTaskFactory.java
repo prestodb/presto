@@ -16,9 +16,7 @@ import java.util.Set;
 public interface RemoteTaskFactory
 {
     RemoteTask createRemoteTask(Session session,
-            String queryId,
-            String stageId,
-            String taskId,
+            TaskId taskId,
             Node node,
             PlanFragment fragment,
             Split initialSplit, Multimap<PlanNodeId, URI> initialExchangeLocations,
