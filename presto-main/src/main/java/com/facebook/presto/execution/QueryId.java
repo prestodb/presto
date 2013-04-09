@@ -67,7 +67,7 @@ public class QueryId
     // Id helper methods
     //
 
-    static final Pattern ID_PATTERN = Pattern.compile("[a-z0-9]+");
+    static final Pattern ID_PATTERN = Pattern.compile("[_a-z0-9]+");
 
     static String validateId(String id)
     {

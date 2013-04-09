@@ -20,7 +20,6 @@ import org.joda.time.DateTime;
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
-
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +30,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -47,7 +45,6 @@ public class SqlQueryManager
     private final ExecutorService queryExecutor;
     private final Duration maxQueryAge;
 
-    private final AtomicInteger nextQueryId = new AtomicInteger();
     private final ConcurrentMap<QueryId, QueryExecution> queries = new ConcurrentHashMap<>();
 
     private final Duration clientTimeout;
@@ -55,12 +52,14 @@ public class SqlQueryManager
     private final ScheduledExecutorService queryManagementExecutor;
     private final QueryMonitor queryMonitor;
     private final LocationFactory locationFactory;
+    private final QueryIdGenerator queryIdGenerator;
 
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
 
     @Inject
     public SqlQueryManager(QueryManagerConfig config,
             QueryMonitor queryMonitor,
+            QueryIdGenerator queryIdGenerator,
             LocationFactory locationFactory,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories)
     {
@@ -70,6 +69,7 @@ public class SqlQueryManager
         this.queryExecutor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
         this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
         this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
+        this.queryIdGenerator = checkNotNull(queryIdGenerator, "queryIdGenerator is null");
 
         this.maxQueryAge = config.getMaxQueryAge();
         this.clientTimeout = config.getClientTimeout();
@@ -161,7 +161,7 @@ public class SqlQueryManager
         checkNotNull(query, "query is null");
         Preconditions.checkArgument(!query.isEmpty(), "query must not be empty string");
 
-        QueryId queryId = new QueryId(String.valueOf(nextQueryId.getAndIncrement()));
+        QueryId queryId = queryIdGenerator.createNextQueryId();
 
         Statement statement;
         try {
