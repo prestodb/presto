@@ -11,6 +11,7 @@ import com.facebook.presto.execution.CreateOrReplaceMaterializedViewExecution.Cr
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
+import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -126,6 +127,8 @@ public class ServerMainModule
         binder.bind(StageResource.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
         bindConfig(binder).to(QueryManagerConfig.class);
+
+        binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
 
         binder.bind(TaskResource.class).in(Scopes.SINGLETON);
         binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
