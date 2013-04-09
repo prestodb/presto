@@ -16,14 +16,14 @@ public interface TaskManager
 {
     List<TaskInfo> getAllTaskInfo(boolean full);
 
-    TaskInfo getTaskInfo(String taskId, boolean full);
+    TaskInfo getTaskInfo(TaskId taskId, boolean full);
 
-    TaskInfo updateTask(Session session, String queryId, String stageId, String taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputIds);
+    TaskInfo updateTask(Session session, TaskId taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputIds);
 
-    List<Page> getTaskResults(String taskId, String outputName, int maxPageCount, Duration maxWaitTime)
+    List<Page> getTaskResults(TaskId taskId, String outputName, int maxPageCount, Duration maxWaitTime)
             throws InterruptedException;
 
-    TaskInfo abortTaskResults(String taskId, String outputId);
+    TaskInfo abortTaskResults(TaskId taskId, String outputId);
 
-    TaskInfo cancelTask(String taskId);
+    TaskInfo cancelTask(TaskId taskId);
 }

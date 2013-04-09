@@ -3,10 +3,11 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.QueryId;
+import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.sql.analyzer.Session;
-import com.google.common.base.Preconditions;
 import com.google.common.net.HttpHeaders;
 
 import javax.inject.Inject;
@@ -59,7 +60,7 @@ public class QueryResource
 
     @GET
     @Path("{queryId}")
-    public Response getQueryInfo(@PathParam("queryId") String queryId, @HeaderParam(HttpHeaders.CACHE_CONTROL) String cacheControl)
+    public Response getQueryInfo(@PathParam("queryId") QueryId queryId, @HeaderParam(HttpHeaders.CACHE_CONTROL) String cacheControl)
     {
         checkNotNull(queryId, "queryId is null");
 
@@ -86,24 +87,23 @@ public class QueryResource
         checkNotNull(schema, "schema is null");
 
         QueryInfo queryInfo = queryManager.createQuery(new Session(user, catalog, schema), query);
-        URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryInfo.getQueryId()).build();
+        URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryInfo.getQueryId().toString()).build();
         return Response.created(pagesUri).entity(queryInfo).build();
     }
 
     @DELETE
     @Path("{queryId}")
-    public void cancelQuery(@PathParam("queryId") String queryId)
+    public void cancelQuery(@PathParam("queryId") QueryId queryId)
     {
         checkNotNull(queryId, "queryId is null");
         queryManager.cancelQuery(queryId);
     }
 
     @DELETE
-    @Path("{queryId}/stage/{stageId}")
-    public void cancelStage(@PathParam("queryId") String queryId, @PathParam("stageId") String stageId)
+    @Path("stage/{stageId}")
+    public void cancelStage(@PathParam("stageId") StageId stageId)
     {
-        checkNotNull(queryId, "queryId is null");
-        Preconditions.checkNotNull(stageId, "stageId is null");
-        queryManager.cancelStage(queryId, stageId);
+        checkNotNull(stageId, "stageId is null");
+        queryManager.cancelStage(stageId);
     }
 }

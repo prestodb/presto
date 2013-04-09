@@ -3,6 +3,9 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.QueryId;
+import com.facebook.presto.execution.StageId;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.metadata.Node;
 import com.google.common.base.Preconditions;
@@ -31,35 +34,32 @@ public class HttpLocationFactory
 
     @Override
 
-    public URI createQueryLocation(String queryId)
+    public URI createQueryLocation(QueryId queryId)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
         return uriBuilderFrom(baseUri)
                 .appendPath("/v1/query")
-                .appendPath(queryId)
+                .appendPath(queryId.toString())
                 .build();
     }
 
     @Override
-    public URI createStageLocation(String queryId, String stageId)
+    public URI createStageLocation(StageId stageId)
     {
-        Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
         return uriBuilderFrom(baseUri)
-                .appendPath("v1/query")
-                .appendPath(queryId)
-                .appendPath("stage")
-                .appendPath(stageId)
+                .appendPath("v1/stage")
+                .appendPath(stageId.toString())
                 .build();
     }
 
     @Override
-    public URI createTaskLocation(Node node, String taskId)
+    public URI createTaskLocation(Node node, TaskId taskId)
     {
         Preconditions.checkNotNull(taskId, "taskId is null");
         return uriBuilderFrom(node.getHttpUri())
                 .appendPath("/v1/task")
-                .appendPath(taskId)
+                .appendPath(taskId.toString())
                 .build();
     }
 }

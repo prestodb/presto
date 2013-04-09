@@ -4,6 +4,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.PrestoMediaTypes;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.NoSuchBufferException;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
@@ -60,14 +61,12 @@ public class TaskResource
     @Path("{taskId}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response createOrUpdateTask(@PathParam("taskId") String taskId, TaskUpdateRequest taskUpdateRequest, @Context UriInfo uriInfo)
+    public Response createOrUpdateTask(@PathParam("taskId") TaskId taskId, TaskUpdateRequest taskUpdateRequest, @Context UriInfo uriInfo)
     {
         try {
             checkNotNull(taskUpdateRequest, "taskUpdateRequest is null");
 
             TaskInfo taskInfo = taskManager.updateTask(taskUpdateRequest.getSession(),
-                    taskUpdateRequest.getQueryId(),
-                    taskUpdateRequest.getStageId(),
                     taskId,
                     taskUpdateRequest.getFragment(),
                     taskUpdateRequest.getSources(),
@@ -83,7 +82,7 @@ public class TaskResource
     @GET
     @Path("{taskId}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getTaskInfo(@PathParam("taskId") String taskId, @Context() UriInfo uriInfo)
+    public Response getTaskInfo(@PathParam("taskId") TaskId taskId, @Context() UriInfo uriInfo)
     {
         checkNotNull(taskId, "taskId is null");
 
@@ -99,7 +98,7 @@ public class TaskResource
     @DELETE
     @Path("{taskId}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response cancelTask(@PathParam("taskId") String taskId)
+    public Response cancelTask(@PathParam("taskId") TaskId taskId)
     {
         checkNotNull(taskId, "taskId is null");
 
@@ -117,7 +116,7 @@ public class TaskResource
     @GET
     @Path("{taskId}/results/{outputId}")
     @Produces(PrestoMediaTypes.PRESTO_PAGES)
-    public Response getResults(@PathParam("taskId") String taskId, @PathParam("outputId") String outputId)
+    public Response getResults(@PathParam("taskId") TaskId taskId, @PathParam("outputId") String outputId)
             throws InterruptedException
     {
         checkNotNull(taskId, "taskId is null");
@@ -152,7 +151,7 @@ public class TaskResource
         }
     }
 
-    private boolean isDone(String taskId)
+    private boolean isDone(TaskId taskId)
     {
         try {
             return taskManager.getTaskInfo(taskId, false).getState().isDone();
@@ -165,7 +164,7 @@ public class TaskResource
     @DELETE
     @Path("{taskId}/results/{outputId}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response abortResults(@PathParam("taskId") String taskId, @PathParam("outputId") String outputId)
+    public Response abortResults(@PathParam("taskId") TaskId taskId, @PathParam("outputId") String outputId)
     {
         checkNotNull(taskId, "taskId is null");
         checkNotNull(outputId, "outputId is null");

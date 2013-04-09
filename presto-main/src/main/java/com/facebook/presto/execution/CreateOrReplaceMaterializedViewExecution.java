@@ -53,7 +53,7 @@ public class CreateOrReplaceMaterializedViewExecution
 
     private final QueryStateMachine stateMachine;
 
-    CreateOrReplaceMaterializedViewExecution(String queryId,
+    CreateOrReplaceMaterializedViewExecution(QueryId queryId,
             String query,
             Session session,
             URI self,
@@ -112,7 +112,7 @@ public class CreateOrReplaceMaterializedViewExecution
     }
 
     @Override
-    public void cancelStage(String stageId)
+    public void cancelStage(StageId stageId)
     {
     }
 
@@ -211,7 +211,7 @@ public class CreateOrReplaceMaterializedViewExecution
             this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
         }
 
-        public CreateOrReplaceMaterializedViewExecution createQueryExecution(String queryId, String query, Session session, Statement statement)
+        public CreateOrReplaceMaterializedViewExecution createQueryExecution(QueryId queryId, String query, Session session, Statement statement)
         {
             CreateOrReplaceMaterializedViewExecution queryExecution = new CreateOrReplaceMaterializedViewExecution(queryId,
                     query,

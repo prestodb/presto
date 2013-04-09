@@ -22,9 +22,7 @@ import java.util.List;
 @Immutable
 public class StageInfo
 {
-
-    private final String queryId;
-    private final String stageId;
+    private final StageId stageId;
     private final StageState state;
     private final URI self;
     private final PlanFragment plan;
@@ -35,8 +33,7 @@ public class StageInfo
     private final List<FailureInfo> failures;
 
     @JsonCreator
-    public StageInfo(@JsonProperty("queryId") String queryId,
-            @JsonProperty("stageId") String stageId,
+    public StageInfo(@JsonProperty("stageId") StageId stageId,
             @JsonProperty("state") StageState state,
             @JsonProperty("self") URI self,
             @JsonProperty("plan") @Nullable PlanFragment plan,
@@ -46,7 +43,6 @@ public class StageInfo
             @JsonProperty("subStages") List<StageInfo> subStages,
             @JsonProperty("failures") List<FailureInfo> failures)
     {
-        Preconditions.checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(state, "state is null");
         Preconditions.checkNotNull(self, "self is null");
@@ -55,7 +51,6 @@ public class StageInfo
         Preconditions.checkNotNull(subStages, "subStages is null");
         Preconditions.checkNotNull(failures, "failures is null");
 
-        this.queryId = queryId;
         this.stageId = stageId;
         this.state = state;
         this.self = self;
@@ -68,13 +63,7 @@ public class StageInfo
     }
 
     @JsonProperty
-    public String getQueryId()
-    {
-        return queryId;
-    }
-
-    @JsonProperty
-    public String getStageId()
+    public StageId getStageId()
     {
         return stageId;
     }
@@ -132,13 +121,6 @@ public class StageInfo
     {
         ExecutionStats executionStats = new ExecutionStats();
         sumStats(stageInfo, executionStats, false);
-        return executionStats;
-    }
-
-    public static ExecutionStats leafExecutionStats(@Nullable StageInfo stageInfo)
-    {
-        ExecutionStats executionStats = new ExecutionStats();
-        sumStats(stageInfo, executionStats, true);
         return executionStats;
     }
 

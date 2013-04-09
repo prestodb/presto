@@ -20,7 +20,6 @@ import org.joda.time.DateTime;
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
-
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +30,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -47,20 +45,21 @@ public class SqlQueryManager
     private final ExecutorService queryExecutor;
     private final Duration maxQueryAge;
 
-    private final AtomicInteger nextQueryId = new AtomicInteger();
-    private final ConcurrentMap<String, QueryExecution> queries = new ConcurrentHashMap<>();
+    private final ConcurrentMap<QueryId, QueryExecution> queries = new ConcurrentHashMap<>();
 
     private final Duration clientTimeout;
 
     private final ScheduledExecutorService queryManagementExecutor;
     private final QueryMonitor queryMonitor;
     private final LocationFactory locationFactory;
+    private final QueryIdGenerator queryIdGenerator;
 
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
 
     @Inject
     public SqlQueryManager(QueryManagerConfig config,
             QueryMonitor queryMonitor,
+            QueryIdGenerator queryIdGenerator,
             LocationFactory locationFactory,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories)
     {
@@ -70,6 +69,7 @@ public class SqlQueryManager
         this.queryExecutor = Executors.newCachedThreadPool(threadsNamed("query-scheduler-%d"));
         this.queryMonitor = checkNotNull(queryMonitor, "queryMonitor is null");
         this.locationFactory = checkNotNull(locationFactory, "locationFactory is null");
+        this.queryIdGenerator = checkNotNull(queryIdGenerator, "queryIdGenerator is null");
 
         this.maxQueryAge = config.getMaxQueryAge();
         this.clientTimeout = config.getClientTimeout();
@@ -139,7 +139,7 @@ public class SqlQueryManager
     }
 
     @Override
-    public QueryInfo getQueryInfo(String queryId, boolean forceRefresh)
+    public QueryInfo getQueryInfo(QueryId queryId, boolean forceRefresh)
     {
         checkNotNull(queryId, "queryId is null");
 
@@ -161,7 +161,7 @@ public class SqlQueryManager
         checkNotNull(query, "query is null");
         Preconditions.checkArgument(!query.isEmpty(), "query must not be empty string");
 
-        String queryId = String.valueOf(nextQueryId.getAndIncrement());
+        QueryId queryId = queryIdGenerator.createNextQueryId();
 
         Statement statement;
         try {
@@ -187,7 +187,7 @@ public class SqlQueryManager
     }
 
     @Override
-    public void cancelQuery(String queryId)
+    public void cancelQuery(QueryId queryId)
     {
         checkNotNull(queryId, "queryId is null");
 
@@ -200,20 +200,19 @@ public class SqlQueryManager
     }
 
     @Override
-    public void cancelStage(String queryId, String stageId)
+    public void cancelStage(StageId stageId)
     {
-        checkNotNull(queryId, "queryId is null");
         Preconditions.checkNotNull(stageId, "stageId is null");
 
-        log.debug("Cancel query %s stage %s", queryId, stageId);
+        log.debug("Cancel stage %s", stageId);
 
-        QueryExecution query = queries.get(queryId);
+        QueryExecution query = queries.get(stageId.getQueryId());
         if (query != null) {
             query.cancelStage(stageId);
         }
     }
 
-    public void removeQuery(String queryId)
+    public void removeQuery(QueryId queryId)
     {
         Preconditions.checkNotNull(queryId, "queryId is null");
 
@@ -267,7 +266,7 @@ public class SqlQueryManager
         }
     }
 
-    private QueryInfo createFailedQuery(Session session, String query, String queryId, Throwable cause)
+    private QueryInfo createFailedQuery(Session session, String query, QueryId queryId, Throwable cause)
     {
         URI self = locationFactory.createQueryLocation(queryId);
         QueryExecution execution = new FailedQueryExecution(queryId, query, session, self, cause);

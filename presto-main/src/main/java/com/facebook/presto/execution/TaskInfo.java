@@ -39,9 +39,7 @@ public class TaskInfo
      */
     public static final long MAX_VERSION = Long.MAX_VALUE;
 
-    private final String queryId;
-    private final String stageId;
-    private final String taskId;
+    private final TaskId taskId;
     private final long version;
     private final TaskState state;
     private final URI self;
@@ -52,9 +50,7 @@ public class TaskInfo
     private final List<FailureInfo> failures;
 
     @JsonCreator
-    public TaskInfo(@JsonProperty("queryId") String queryId,
-            @JsonProperty("stageId") String stageId,
-            @JsonProperty("taskId") String taskId,
+    public TaskInfo(@JsonProperty("taskId") TaskId taskId,
             @JsonProperty("version") long version,
             @JsonProperty("state") TaskState state,
             @JsonProperty("self") URI self,
@@ -64,8 +60,6 @@ public class TaskInfo
             @JsonProperty("splitStats") List<SplitExecutionStats> splitStats,
             @JsonProperty("failures") List<FailureInfo> failures)
     {
-        Preconditions.checkNotNull(queryId, "queryId is null");
-        Preconditions.checkNotNull(stageId, "stageId is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(state, "state is null");
         Preconditions.checkNotNull(self, "self is null");
@@ -74,8 +68,6 @@ public class TaskInfo
         Preconditions.checkNotNull(stats, "stats is null");
         Preconditions.checkNotNull(failures, "failures is null");
 
-        this.queryId = queryId;
-        this.stageId = stageId;
         this.taskId = taskId;
         this.version = version;
         this.state = state;
@@ -98,19 +90,7 @@ public class TaskInfo
     }
 
     @JsonProperty
-    public String getQueryId()
-    {
-        return queryId;
-    }
-
-    @JsonProperty
-    public String getStageId()
-    {
-        return stageId;
-    }
-
-    @JsonProperty
-    public String getTaskId()
+    public TaskId getTaskId()
     {
         return taskId;
     }

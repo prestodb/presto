@@ -9,9 +9,9 @@ import java.net.URI;
 
 public interface LocationFactory
 {
-    URI createQueryLocation(String queryId);
+    URI createQueryLocation(QueryId queryId);
 
-    URI createStageLocation(String queryId, String stageId);
+    URI createStageLocation(StageId stageId);
 
-    URI createTaskLocation(Node node, String taskId);
+    URI createTaskLocation(Node node, TaskId taskId);
 }
