@@ -1,5 +1,8 @@
-package com.facebook.presto.metadata;
+package com.facebook.presto.server;
 
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
