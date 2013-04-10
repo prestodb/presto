@@ -1,5 +1,8 @@
-package com.facebook.presto.importer;
+package com.facebook.presto.server;
 
+import com.facebook.presto.importer.PeriodicImportJob;
+import com.facebook.presto.importer.PeriodicImportManager;
+import com.facebook.presto.importer.PersistentPeriodicImportJob;
 import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;

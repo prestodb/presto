@@ -10,6 +10,7 @@ import com.google.common.base.Throwables;
 import com.google.common.net.MediaType;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.http.client.AsyncHttpClient.AsyncHttpResponseFuture;
+import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
@@ -19,8 +20,6 @@ import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-import javax.ws.rs.core.Response.Status;
-
 import java.io.Closeable;
 import java.net.URI;
 import java.util.Iterator;
@@ -231,16 +230,16 @@ public class HttpPageBufferClient
             requestsCompleted.incrementAndGet();
 
             // job is finished when we get a GONE response
-            if (response.getStatusCode() == Status.GONE.getStatusCode()) {
+            if (response.getStatusCode() == HttpStatus.GONE.code()) {
                 bufferFinished();
                 return null;
             }
 
             try {
                 // no content means no content was created within the wait period, but query is still ok
-                if (response.getStatusCode() != Status.NO_CONTENT.getStatusCode()) {
+                if (response.getStatusCode() != HttpStatus.NO_CONTENT.code()) {
                     // otherwise we must have gotten an OK response, everything else is considered fatal
-                    if (response.getStatusCode() != Status.OK.getStatusCode()) {
+                    if (response.getStatusCode() != HttpStatus.OK.code()) {
                         log.debug("Expected response code to be 200, but was %s: request=%s, response=%s", response.getStatusCode(), request, response);
                         return null;
                     }
