@@ -7,6 +7,7 @@ import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.sql.analyzer.Session;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -122,5 +123,17 @@ public class QueryInfo
                 .add("state", state)
                 .add("fieldNames", fieldNames)
                 .toString();
+    }
+
+    public static Function<QueryInfo, QueryId> queryIdGetter()
+    {
+        return new Function<QueryInfo, QueryId>()
+        {
+            @Override
+            public QueryId apply(QueryInfo queryInfo)
+            {
+                return queryInfo.getQueryId();
+            }
+        };
     }
 }

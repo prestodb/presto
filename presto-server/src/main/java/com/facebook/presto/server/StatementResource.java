@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
+import com.google.common.collect.Sets;
 import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -58,7 +59,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -71,6 +71,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.execution.QueryInfo.queryIdGetter;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.execution.StageInfo.globalExecutionStats;
 import static com.facebook.presto.execution.StageInfo.stageOnlyExecutionStats;
@@ -80,6 +81,7 @@ import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.Iterables.transform;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static java.lang.String.format;
 import static java.util.Collections.newSetFromMap;
@@ -234,6 +236,8 @@ public class StatementResource
             // is the a repeated request for the last results?
             String requestedPath = uriInfo.getAbsolutePath().getPath();
             if (lastResultPath != null && requestedPath.equals(lastResultPath)) {
+                // tell query manager we are still interested in the query
+                queryManager.getQueryInfo(queryId, false);
                 return lastResult;
             }
 
@@ -586,18 +590,20 @@ public class StatementResource
         public void run()
         {
             try {
-                for (Iterator<QueryId> iterator = queryIds.iterator(); iterator.hasNext(); ) {
-                    QueryId queryId = iterator.next();
-                    try {
-                        // if query has been, dropped in the query manager, drop our data
-                        queryManager.getQueryInfo(queryId, false);
-                    }
-                    catch (NoSuchElementException e) {
-                        iterator.remove();
-                    }
-                    catch (Exception e) {
-                        log.warn(e, "Error while inspecting age of query %s", queryId);
-                    }
+                // Queries are added to the query manager before being recorded in queryIds set.
+                // Therefore, we take a snapshot if queryIds before getting the live queries
+                // from the query manager.  Then we remove only the queries in the snapshot and
+                // not live queries set.  If we did this in the other order, a query could be
+                // registered between fetching the live queries and inspecting the queryIds set.
+
+                Set<QueryId> queryIdsSnapshot = ImmutableSet.copyOf(queryIds);
+                // do not call queryManager.getQueryInfo() since it updates the heartbeat time
+                Set<QueryId> liveQueries = ImmutableSet.copyOf(transform(queryManager.getAllQueryInfo(), queryIdGetter()));
+
+                Set<QueryId> deadQueries = Sets.difference(liveQueries, queryIdsSnapshot);
+                for (QueryId deadQuery : deadQueries) {
+                    queryIdsSnapshot.remove(deadQuery);
+                    log.debug("Removed expired query %s", deadQuery);
                 }
             }
             catch (Throwable e) {
