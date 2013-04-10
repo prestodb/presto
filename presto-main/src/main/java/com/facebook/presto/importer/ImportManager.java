@@ -13,10 +13,13 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.common.net.HttpHeaders;
+import com.google.common.net.MediaType;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
@@ -26,10 +29,6 @@ import org.skife.jdbi.v2.exceptions.UnableToExecuteStatementException;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
-import javax.ws.rs.core.HttpHeaders;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response.Status;
-
 import java.net.URI;
 import java.util.Iterator;
 import java.util.List;
@@ -261,7 +260,7 @@ public class ImportManager
                 return false;
             }
 
-            if (response.getStatusCode() != Status.ACCEPTED.getStatusCode()) {
+            if (response.getStatusCode() != HttpStatus.ACCEPTED.code()) {
                 log.warn("unexpected response status: %s: %s", shardId, response.getStatusCode());
                 return false;
             }
@@ -364,7 +363,7 @@ public class ImportManager
             URI shardUri = uriAppendPaths(worker.getHttpUri(), "/v1/shard/" + shardId);
             Request request = preparePut()
                     .setUri(shardUri)
-                    .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON)
+                    .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
                     .setBodyGenerator(jsonBodyGenerator(shardImportCodec, shardImport))
                     .build();
 
@@ -377,7 +376,7 @@ public class ImportManager
                 return false;
             }
 
-            if (response.getStatusCode() != Status.ACCEPTED.getStatusCode()) {
+            if (response.getStatusCode() != HttpStatus.ACCEPTED.code()) {
                 log.warn("unexpected response status: %s: %s", shardId, response.getStatusCode());
                 return false;
             }
@@ -416,7 +415,7 @@ public class ImportManager
 
         private boolean shardProcessed()
         {
-            Status status;
+            HttpStatus status;
             try {
                 status = shardStatus();
             }
@@ -453,12 +452,12 @@ public class ImportManager
             }
         }
 
-        private Status shardStatus()
+        private HttpStatus shardStatus()
         {
             URI shardUri = uriAppendPaths(worker.getHttpUri(), "/v1/shard/" + shardId);
             Request request = prepareGet().setUri(shardUri).build();
             StatusResponse response = httpClient.execute(request, createStatusResponseHandler());
-            Status status = Status.fromStatusCode(response.getStatusCode());
+            HttpStatus status = HttpStatus.fromStatusCode(response.getStatusCode());
             log.debug("shard status: %s: %s", shardId, status);
             return status;
         }
