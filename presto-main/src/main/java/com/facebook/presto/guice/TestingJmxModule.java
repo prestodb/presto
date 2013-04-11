@@ -1,4 +1,4 @@
-package com.facebook.presto.server;
+package com.facebook.presto.guice;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;

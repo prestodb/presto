@@ -1,4 +1,4 @@
-package com.facebook.presto.server;
+package com.facebook.presto.guice;
 
 import com.google.inject.Binder;
 import com.google.inject.Injector;
@@ -14,7 +14,7 @@ import java.lang.annotation.Annotation;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-class DbiProvider
+public class DbiProvider
         implements Provider<IDBI>
 {
     private final Class<? extends Annotation> annotationType;

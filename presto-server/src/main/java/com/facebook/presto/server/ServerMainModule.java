@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.guice.AbstractConfigurationAwareModule;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.event.query.QueryCompletionEvent;
 import com.facebook.presto.event.query.QueryCreatedEvent;
@@ -105,13 +106,12 @@ import org.skife.jdbi.v2.IDBI;
 import org.weakref.jmx.guice.ExportBinder;
 
 import javax.inject.Singleton;
-
 import java.io.File;
 import java.lang.annotation.Annotation;
 import java.util.List;
 
-import static com.facebook.presto.server.ConditionalModule.installIfPropertyEquals;
-import static com.facebook.presto.server.DbiProvider.bindDbiToDataSource;
+import static com.facebook.presto.guice.ConditionalModule.installIfPropertyEquals;
+import static com.facebook.presto.guice.DbiProvider.bindDbiToDataSource;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.configuration.ConfigurationModule.bindConfig;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
