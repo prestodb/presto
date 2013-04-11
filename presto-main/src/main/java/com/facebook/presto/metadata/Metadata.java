@@ -8,6 +8,12 @@ import java.util.Map;
 
 public interface Metadata
 {
+    int priority();
+
+    boolean canHandle(TableHandle tableHandle);
+
+    boolean canHandle(QualifiedTablePrefix prefix);
+
     FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes);
 
     FunctionInfo getFunction(FunctionHandle handle);

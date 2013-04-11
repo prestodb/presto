@@ -9,20 +9,14 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
-import com.facebook.presto.execution.QueryId;
-import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.guice.TestingJmxModule;
 import com.facebook.presto.metadata.HandleJsonModule;
-import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
-import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.TestingMetadata;
-import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
@@ -48,6 +42,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Stage;
 import com.google.inject.TypeLiteral;
+import com.google.inject.multibindings.Multibinder;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.discovery.DiscoveryServerModule;
@@ -68,7 +63,6 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.JsonModule;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.airlift.node.NodeInfo;
 import io.airlift.node.NodeModule;
 import io.airlift.testing.FileUtils;
 import io.airlift.tracetoken.TraceTokenModule;
@@ -87,7 +81,6 @@ import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -363,17 +356,11 @@ public class TestDistributedQueries
     public static class PrestoTestingServer
             implements Closeable
     {
-        private static final AtomicLong NEXT_PARTITION_ID = new AtomicLong();
-
         private final File baseDataDir;
         private final LifeCycleManager lifeCycleManager;
         private final TestingHttpServer server;
         private final ImmutableList<ServiceSelector> serviceSelectors;
-        private final ShardManager shardManager;
-        private final LocalStorageManager storageManager;
-        private final NodeInfo nodeInfo;
         private final NodeManager nodeManager;
-        private final QueryManager queryManager;
 
         public PrestoTestingServer(URI discoveryUri, Module... additionalModules)
                 throws Exception
@@ -421,11 +408,7 @@ public class TestDistributedQueries
 
             lifeCycleManager = injector.getInstance(LifeCycleManager.class);
 
-            nodeInfo = injector.getInstance(NodeInfo.class);
-            shardManager = injector.getInstance(ShardManager.class);
-            storageManager = injector.getInstance(LocalStorageManager.class);
             nodeManager = injector.getInstance(NodeManager.class);
-            queryManager = injector.getInstance(QueryManager.class);
 
             server = injector.getInstance(TestingHttpServer.class);
 
@@ -436,24 +419,9 @@ public class TestDistributedQueries
             this.serviceSelectors = serviceSelectors.build();
         }
 
-        public String getNodeId()
-        {
-            return nodeInfo.getNodeId();
-        }
-
         public URI getBaseUrl()
         {
             return server.getBaseUrl();
-        }
-
-        public QueryInfo createQuery(Session session, String query)
-        {
-            return queryManager.createQuery(session, query);
-        }
-
-        public QueryInfo getQueryInfo(QueryId queryId)
-        {
-            return queryManager.getQueryInfo(queryId, true);
         }
 
         public void refreshServiceSelectors()
@@ -509,8 +477,7 @@ public class TestDistributedQueries
         private final TestingMetadata tpchMetadata;
         private final TpchDataStreamProvider dataStreamProvider;
 
-        private PrestoTestingServerModule(TestingMetadata tpchMetadata,
-                TpchDataStreamProvider dataStreamProvider)
+        private PrestoTestingServerModule(TestingMetadata tpchMetadata, TpchDataStreamProvider dataStreamProvider)
         {
             this.tpchMetadata = checkNotNull(tpchMetadata, "tpchMetadata is null");
             this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
@@ -520,7 +487,8 @@ public class TestDistributedQueries
         public void configure(Binder binder)
         {
             binder.bind(TpchDataStreamProvider.class).toInstance(dataStreamProvider);
-            binder.bind(TestingMetadata.class).toInstance(tpchMetadata);
+            Multibinder<Metadata> metadataMultibinder = Multibinder.newSetBinder(binder, Metadata.class);
+            metadataMultibinder.addBinding().toInstance(tpchMetadata);
         }
     }
 

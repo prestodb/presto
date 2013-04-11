@@ -157,23 +157,26 @@ public class ServerMainModule
         binder.bind(NativeDataStreamProvider.class).in(Scopes.SINGLETON);
         binder.bind(ImportDataStreamProvider.class).in(Scopes.SINGLETON);
 
-        binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
-        binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
-        binder.bind(NativeMetadata.class).in(Scopes.SINGLETON);
-
         binder.bind(MetadataResource.class).in(Scopes.SINGLETON);
+        binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
+        binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
+        Multibinder<Metadata> metadataMultibinder = Multibinder.newSetBinder(binder, Metadata.class);
 
-        binder.bind(InternalMetadata.class).in(Scopes.SINGLETON);
+        // native
+        metadataMultibinder.addBinding().to(NativeMetadata.class).in(Scopes.SINGLETON);
+
+        // internal
+        metadataMultibinder.addBinding().to(InternalMetadata.class).in(Scopes.SINGLETON);
         binder.bind(InternalDataStreamProvider.class).in(Scopes.SINGLETON);
         binder.bind(InformationSchemaMetadata.class).in(Scopes.SINGLETON);
         binder.bind(InformationSchemaData.class).in(Scopes.SINGLETON);
         binder.bind(SystemTables.class).in(Scopes.SINGLETON);
 
+        // import
+        metadataMultibinder.addBinding().to(ImportMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ImportClientManager.class).in(Scopes.SINGLETON);
-
         // kick off binding of import client factories
         Multibinder.newSetBinder(binder, ImportClientFactory.class);
-        binder.bind(ImportMetadata.class).in(Scopes.SINGLETON);
 
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
         ExportBinder.newExporter(binder).export(SplitManager.class).withGeneratedName();

@@ -10,6 +10,24 @@ public abstract class AbstractMetadata
         implements Metadata
 {
     @Override
+    public int priority()
+    {
+        return Integer.MIN_VALUE;
+    }
+
+    @Override
+    public boolean canHandle(TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean canHandle(QualifiedTablePrefix prefix)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes)
     {
         throw new UnsupportedOperationException();
