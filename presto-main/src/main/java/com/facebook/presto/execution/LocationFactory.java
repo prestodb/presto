@@ -13,5 +13,7 @@ public interface LocationFactory
 
     URI createStageLocation(StageId stageId);
 
+    URI createLocalTaskLocation(TaskId taskId);
+
     URI createTaskLocation(Node node, TaskId taskId);
 }

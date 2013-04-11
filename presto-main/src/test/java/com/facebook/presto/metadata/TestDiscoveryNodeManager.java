@@ -22,7 +22,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotSame;
 
-public class TestNodeManager
+public class TestDiscoveryNodeManager
 {
     private List<Node> nodes;
     private ServiceSelector selector;
@@ -50,7 +50,7 @@ public class TestNodeManager
     public void testGetActiveNodes()
             throws Exception
     {
-        NodeManager manager = new NodeManager(selector, new NodeInfo("test"), new NoOpFailureDetector());
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, new NodeInfo("test"), new NoOpFailureDetector());
         Set<Node> activeNodes = manager.getActiveNodes();
 
         assertEqualsIgnoreOrder(activeNodes, nodes);
@@ -71,14 +71,15 @@ public class TestNodeManager
                 .setEnvironment("test")
                 .setNodeId(expected.getNodeIdentifier()));
 
-        NodeManager manager = new NodeManager(selector, nodeInfo, new NoOpFailureDetector());
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, nodeInfo, new NoOpFailureDetector());
 
         assertEquals(manager.getCurrentNode().get(), expected);
     }
 
+    @Test
     public void testGetCurrentNodeNotActive()
     {
-        NodeManager manager = new NodeManager(selector, new NodeInfo("test"), new NoOpFailureDetector());
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, new NodeInfo("test"), new NoOpFailureDetector());
         assertFalse(manager.getCurrentNode().isPresent());
     }
 }

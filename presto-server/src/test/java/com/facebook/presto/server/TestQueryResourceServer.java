@@ -9,6 +9,8 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.metadata.InMemoryNodeManager;
+import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.operator.Page;
 import com.facebook.presto.serde.PagesSerde;
 import com.google.common.base.Throwables;
@@ -64,8 +66,6 @@ import static org.testng.Assert.assertEquals;
 
 public class TestQueryResourceServer
 {
-    private static final MediaType MEDIA_TYPE_JSON = MediaType.create("application", "json");
-
     private HttpClient client;
     private LifeCycleManager lifeCycleManager;
     private TestingHttpServer server;
@@ -92,6 +92,7 @@ public class TestQueryResourceServer
                         binder.bind(MockTaskManager.class).in(Scopes.SINGLETON);
                         binder.bind(TaskManager.class).to(Key.get(MockTaskManager.class)).in(Scopes.SINGLETON);
                         binder.bind(PagesMapper.class).in(Scopes.SINGLETON);
+                        binder.bind(NodeManager.class).to(InMemoryNodeManager.class).in(Scopes.SINGLETON);
                         binder.bind(LocationFactory.class).to(HttpLocationFactory.class).in(Scopes.SINGLETON);
                     }
                 });

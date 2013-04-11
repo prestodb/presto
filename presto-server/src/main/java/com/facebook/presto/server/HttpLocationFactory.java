@@ -8,6 +8,7 @@ import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.metadata.Node;
+import com.facebook.presto.metadata.NodeManager;
 import com.google.common.base.Preconditions;
 import io.airlift.http.server.HttpServerInfo;
 
@@ -19,16 +20,18 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 public class HttpLocationFactory
         implements LocationFactory
 {
+    private final NodeManager nodeManager;
     private final URI baseUri;
 
     @Inject
-    public HttpLocationFactory(HttpServerInfo httpServerInfo)
+    public HttpLocationFactory(NodeManager nodeManager, HttpServerInfo httpServerInfo)
     {
-        this(httpServerInfo.getHttpUri());
+        this(nodeManager, httpServerInfo.getHttpUri());
     }
 
-    public HttpLocationFactory(URI baseUri)
+    public HttpLocationFactory(NodeManager nodeManager, URI baseUri)
     {
+        this.nodeManager = nodeManager;
         this.baseUri = baseUri;
     }
 
@@ -54,8 +57,15 @@ public class HttpLocationFactory
     }
 
     @Override
+    public URI createLocalTaskLocation(TaskId taskId)
+    {
+        return createTaskLocation(nodeManager.getCurrentNode().get(), taskId);
+    }
+
+    @Override
     public URI createTaskLocation(Node node, TaskId taskId)
     {
+        Preconditions.checkNotNull(node, "node is null");
         Preconditions.checkNotNull(taskId, "taskId is null");
         return uriBuilderFrom(node.getHttpUri())
                 .appendPath("/v1/task")
