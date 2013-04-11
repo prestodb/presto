@@ -1,4 +1,4 @@
-package com.facebook.presto.server;
+package com.facebook.presto.failureDetector;
 
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.util.IterableTransformer;

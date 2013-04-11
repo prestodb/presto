@@ -1,5 +1,6 @@
 package com.facebook.presto.server;
 
+import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;

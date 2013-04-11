@@ -1,4 +1,4 @@
-package com.facebook.presto.server;
+package com.facebook.presto.failureDetector;
 
 import io.airlift.discovery.client.ServiceDescriptor;
 

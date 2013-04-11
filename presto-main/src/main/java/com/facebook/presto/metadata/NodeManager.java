@@ -1,6 +1,6 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.server.FailureDetector;
+import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;

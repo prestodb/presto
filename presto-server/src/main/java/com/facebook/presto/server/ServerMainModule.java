@@ -3,6 +3,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.ExchangeOperatorFactory;
 import com.facebook.presto.guice.AbstractConfigurationAwareModule;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.event.query.QueryCompletionEvent;

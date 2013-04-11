@@ -1,5 +1,6 @@
 package com.facebook.presto.server;
 
+import com.facebook.presto.failureDetector.FailureDetectorConfiguration;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;

@@ -1,9 +1,8 @@
 /*
  * Copyright 2004-present Facebook. All Rights Reserved.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.execution;
 
-import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.operator.ExchangeOperator;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.tuple.TupleInfo;
