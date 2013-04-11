@@ -38,6 +38,7 @@ import com.facebook.presto.metadata.AliasDao;
 import com.facebook.presto.metadata.DatabaseLocalStorageManager;
 import com.facebook.presto.metadata.DatabaseLocalStorageManagerConfig;
 import com.facebook.presto.metadata.DatabaseShardManager;
+import com.facebook.presto.metadata.DiscoveryNodeManager;
 import com.facebook.presto.metadata.ForAlias;
 import com.facebook.presto.metadata.ForMetadata;
 import com.facebook.presto.metadata.ForShardCleaner;
@@ -190,7 +191,7 @@ public class ServerMainModule
 
         discoveryBinder(binder).bindSelector("presto");
 
-        binder.bind(NodeManager.class).in(Scopes.SINGLETON);
+        binder.bind(NodeManager.class).to(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
 
         bindConfig(binder).to(ShardCleanerConfig.class);

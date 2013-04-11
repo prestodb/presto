@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import io.airlift.http.server.HttpServerInfo;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
@@ -47,7 +46,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.util.Threads.threadsNamed;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -66,7 +64,7 @@ public class SqlTaskManager
     private final DataStreamProvider dataStreamProvider;
     private final ExchangeOperatorFactory exchangeOperatorFactory;
     private final NodeInfo nodeInfo;
-    private final HttpServerInfo httpServerInfo;
+    private final LocationFactory locationFactory;
     private final QueryMonitor queryMonitor;
     private final DataSize maxOperatorMemoryUsage;
     private final Duration maxTaskAge;
@@ -82,7 +80,7 @@ public class SqlTaskManager
             DataStreamProvider dataStreamProvider,
             ExchangeOperatorFactory exchangeOperatorFactory,
             NodeInfo nodeInfo,
-            HttpServerInfo httpServerInfo,
+            LocationFactory locationFactory,
             QueryMonitor queryMonitor,
             QueryManagerConfig config)
     {
@@ -91,7 +89,7 @@ public class SqlTaskManager
         Preconditions.checkNotNull(dataStreamProvider, "dataStreamProvider is null");
         Preconditions.checkNotNull(exchangeOperatorFactory, "exchangeOperatorFactory is null");
         Preconditions.checkNotNull(nodeInfo, "nodeInfo is null");
-        Preconditions.checkNotNull(httpServerInfo, "httpServerInfo is null");
+        Preconditions.checkNotNull(locationFactory, "locationFactory is null");
         Preconditions.checkNotNull(queryMonitor, "queryMonitor is null");
         Preconditions.checkNotNull(config, "config is null");
 
@@ -100,7 +98,7 @@ public class SqlTaskManager
         this.dataStreamProvider = dataStreamProvider;
         this.exchangeOperatorFactory = exchangeOperatorFactory;
         this.nodeInfo = nodeInfo;
-        this.httpServerInfo = httpServerInfo;
+        this.locationFactory = locationFactory;
         this.queryMonitor = queryMonitor;
         this.pageBufferMax = config.getSinkMaxBufferedPages() == null ? config.getMaxShardProcessorThreads() * 5 : config.getSinkMaxBufferedPages();
         this.maxOperatorMemoryUsage = config.getMaxOperatorMemoryUsage();
@@ -175,7 +173,7 @@ public class SqlTaskManager
     @Override
     public TaskInfo updateTask(Session session, TaskId taskId, PlanFragment fragment, List<TaskSource> sources, OutputBuffers outputIds)
     {
-        URI location = uriBuilderFrom(httpServerInfo.getHttpUri()).appendPath("v1/task").appendPath(taskId.toString()).build();
+        URI location = locationFactory.createLocalTaskLocation(taskId);
 
         TaskExecution taskExecution;
         synchronized (this) {
