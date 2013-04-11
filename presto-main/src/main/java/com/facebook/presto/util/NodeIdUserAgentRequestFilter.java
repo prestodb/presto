@@ -1,4 +1,4 @@
-package com.facebook.presto.server;
+package com.facebook.presto.util;
 
 import io.airlift.http.client.HttpRequestFilter;
 import io.airlift.http.client.Request;

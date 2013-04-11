@@ -1,4 +1,4 @@
-package com.facebook.presto.server;
+package com.facebook.presto.guice;
 
 import com.google.inject.Binder;
 import io.airlift.configuration.ConfigurationAwareModule;
@@ -8,7 +8,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 @SuppressWarnings("NonPrivateFieldAccessedInSynchronizedContext")
-abstract class AbstractConfigurationAwareModule
+public abstract class AbstractConfigurationAwareModule
         implements ConfigurationAwareModule
 {
     protected ConfigurationFactory configurationFactory;

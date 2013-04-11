@@ -1,5 +1,6 @@
 package com.facebook.presto.server;
 
+import com.facebook.presto.guice.TestingJmxModule;
 import com.facebook.presto.metadata.NodeManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;

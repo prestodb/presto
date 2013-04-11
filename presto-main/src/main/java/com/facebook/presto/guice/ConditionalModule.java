@@ -1,4 +1,4 @@
-package com.facebook.presto.server;
+package com.facebook.presto.guice;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -8,7 +8,7 @@ import io.airlift.configuration.ConfigurationFactory;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-class ConditionalModule
+public class ConditionalModule
         implements ConfigurationAwareModule
 {
     public static ConfigurationAwareModule installIfPropertyEquals(Module module, String property, String expectedValue)
