@@ -40,7 +40,7 @@ public class ImportMetadata
 
         List<SchemaField> tableSchema = getTableSchema(client, table.getSchemaName(), table.getTableName());
 
-        ImportTableHandle importTableHandle = ImportTableHandle.forQualifiedTableName(table);
+        ImportTableHandle importTableHandle = new ImportTableHandle(table);
 
         List<ColumnMetadata> columns = convertToMetadata(table.getCatalogName(), tableSchema);
 
@@ -55,9 +55,7 @@ public class ImportMetadata
 
         ImportTableHandle importTableHandle = (ImportTableHandle) tableHandle;
 
-        return new QualifiedTableName(importTableHandle.getSourceName(),
-                importTableHandle.getDatabaseName(),
-                importTableHandle.getTableName());
+        return importTableHandle.getTableName();
     }
 
     @Override
@@ -71,7 +69,7 @@ public class ImportMetadata
         ImportTableHandle importTableHandle = (ImportTableHandle) tableHandle;
         ImportColumnHandle importColumnHandle = (ImportColumnHandle) columnHandle;
 
-        return new TableColumn(importTableHandle.getTable(),
+        return new TableColumn(importTableHandle.getTableName(),
                 importColumnHandle.getColumnName(),
                 importColumnHandle.getColumnId() + 1,
                 importColumnHandle.getColumnType());

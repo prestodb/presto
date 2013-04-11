@@ -1,20 +1,23 @@
 package com.facebook.presto.tpch;
 
 import com.facebook.presto.metadata.DataSourceType;
+import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Preconditions;
+import com.google.common.base.Objects;
+
+import static com.facebook.presto.metadata.MetadataUtil.checkTable;
 
 public class TpchTableHandle
-    implements TableHandle
+        implements TableHandle
 {
-    private final String tableName;
+    private final QualifiedTableName tableName;
 
     @JsonCreator
-    public TpchTableHandle(@JsonProperty("tableName") String tableName)
+    public TpchTableHandle(@JsonProperty("tableName") QualifiedTableName tableName)
     {
-        this.tableName = Preconditions.checkNotNull(tableName, "tableName is null");
+        this.tableName = checkTable(tableName);
     }
 
     @Override
@@ -24,7 +27,7 @@ public class TpchTableHandle
     }
 
     @JsonProperty
-    public String getTableName()
+    public QualifiedTableName getTableName()
     {
         return tableName;
     }
@@ -36,27 +39,21 @@ public class TpchTableHandle
     }
 
     @Override
-    public boolean equals(Object o)
+    public int hashCode()
     {
-        if (this == o) {
-            return true;
-        }
-        if (!(o instanceof TpchTableHandle)) {
-            return false;
-        }
-
-        TpchTableHandle that = (TpchTableHandle) o;
-
-        if (!tableName.equals(that.tableName)) {
-            return false;
-        }
-
-        return true;
+        return Objects.hashCode(tableName);
     }
 
     @Override
-    public int hashCode()
+    public boolean equals(Object obj)
     {
-        return tableName.hashCode();
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        final TpchTableHandle other = (TpchTableHandle) obj;
+        return Objects.equal(this.tableName, other.tableName);
     }
 }

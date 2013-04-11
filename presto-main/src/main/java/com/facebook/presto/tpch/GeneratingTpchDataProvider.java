@@ -127,7 +127,7 @@ public class GeneratingTpchDataProvider
         checkNotNull(columnHandle, "columnHandle is null");
         checkNotNull(encoding, "encoding is null");
 
-        String tableName = tableHandle.getTableName();
+        String tableName = tableHandle.getTableName().getTableName();
         try {
             String hash = ByteStreams.hash(ByteStreams.slice(tableInputSupplierFactory.getInputSupplier(tableName), 0, 1024 * 1024), Hashing.murmur3_32()).toString();
 

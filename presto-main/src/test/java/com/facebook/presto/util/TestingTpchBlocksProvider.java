@@ -49,10 +49,11 @@ public class TestingTpchBlocksProvider
             int totalParts,
             BlocksFileEncoding encoding)
     {
-        String tableName = tableHandle.getTableName();
-        int fieldIndex = columnHandle.getFieldIndex();
-        TupleInfo.Type fieldType = columnHandle.getType();
-        return new TpchBlockIterable(fieldType, partNumber, totalParts, tableName, fieldIndex);
+        return new TpchBlockIterable(columnHandle.getType(),
+                partNumber,
+                totalParts,
+                tableHandle.getTableName().getTableName(),
+                columnHandle.getFieldIndex());
     }
 
     @Override

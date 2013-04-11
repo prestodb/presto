@@ -2,6 +2,7 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.metadata.InternalColumnHandle;
 import com.facebook.presto.metadata.InternalTableHandle;
+import com.facebook.presto.metadata.QualifiedTableName;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
@@ -18,7 +19,7 @@ public class TestInternalSplit
     public void testSerialization()
             throws Exception
     {
-        InternalTableHandle tableHandle = new InternalTableHandle("abc", "xyz", "foo");
+        InternalTableHandle tableHandle = new InternalTableHandle(new QualifiedTableName("abc", "xyz", "foo"));
         Map<InternalColumnHandle, String> filters = ImmutableMap.of(new InternalColumnHandle(13), "bar");
         InternalSplit expected = new InternalSplit(tableHandle, filters);
 

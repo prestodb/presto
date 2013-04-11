@@ -2,32 +2,19 @@ package com.facebook.presto.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Objects;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkTable;
-import static java.lang.String.format;
 
 public class InternalTableHandle
         implements TableHandle
 {
-    private final QualifiedTableName table;
-
-    public static InternalTableHandle forQualifiedTableName(QualifiedTableName table)
-    {
-        return new InternalTableHandle(checkTable(table));
-    }
+    private final QualifiedTableName tableName;
 
     @JsonCreator
-    public InternalTableHandle(
-            @JsonProperty("catalogName") String catalogName,
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName)
+    public InternalTableHandle(@JsonProperty("tableName") QualifiedTableName table)
     {
-        this(new QualifiedTableName(catalogName, schemaName, tableName));
-    }
-
-    private InternalTableHandle(QualifiedTableName table)
-    {
-        this.table = checkTable(table);
+        this.tableName = checkTable(table);
     }
 
     @Override
@@ -37,31 +24,33 @@ public class InternalTableHandle
     }
 
     @JsonProperty
-    public String getCatalogName()
+    public QualifiedTableName getTableName()
     {
-        return table.getCatalogName();
-    }
-
-    @JsonProperty
-    public String getSchemaName()
-    {
-        return table.getSchemaName();
-    }
-
-    @JsonProperty
-    public String getTableName()
-    {
-        return table.getTableName();
-    }
-
-    public QualifiedTableName getTable()
-    {
-        return table;
+        return tableName;
     }
 
     @Override
     public String toString()
     {
-        return format("internal:%s", table);
+        return "internal:" + tableName;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hashCode(tableName);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        final InternalTableHandle other = (InternalTableHandle) obj;
+        return Objects.equal(this.tableName, other.tableName);
     }
 }

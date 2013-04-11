@@ -10,6 +10,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
+import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ImportClient;
@@ -202,11 +203,11 @@ public class SplitManager
             Predicate<PartitionInfo> partitionPredicate,
             Map<Symbol, ColumnHandle> mappings)
     {
-        final String sourceName = handle.getSourceName();
-        final String databaseName = handle.getDatabaseName();
-        final String tableName = handle.getTableName();
+        final String catalogName = handle.getTableName().getCatalogName();
+        final String schemaName = handle.getTableName().getSchemaName();
+        final String tableName = handle.getTableName().getTableName();
 
-        final List<String> partitions = getPartitions(session, sourceName, databaseName, tableName, predicate, partitionPredicate, mappings);
+        final List<String> partitions = getPartitions(session, handle.getTableName(), predicate, mappings);
         final List<String> columns = IterableTransformer.on(mappings.values())
                 .transform(MoreFunctions.<ColumnHandle, ImportColumnHandle>cast(ImportColumnHandle.class))
                 .transform(columnNameGetter())
@@ -221,21 +222,15 @@ public class SplitManager
                     public Iterable<PartitionChunk> call()
                             throws Exception
                     {
-                        ImportClient importClient = importClientManager.getClient(sourceName);
-                        return importClient.getPartitionChunks(databaseName, tableName, partitions, columns);
+                        ImportClient importClient = importClientManager.getClient(catalogName);
+                        return importClient.getPartitionChunks(schemaName, tableName, partitions, columns);
                     }
                 });
 
-        return Iterables.transform(chunks, createImportSplitFunction(planNodeId, sourceName));
+        return Iterables.transform(chunks, createImportSplitFunction(planNodeId, catalogName));
     }
 
-    private List<String> getPartitions(Session session,
-            String sourceName,
-            String databaseName,
-            String tableName,
-            Expression predicate,
-            Predicate<PartitionInfo> partitionPredicate,
-            Map<Symbol, ColumnHandle> mappings)
+    private List<String> getPartitions(Session session, QualifiedTableName tableName, Expression predicate, Map<Symbol, ColumnHandle> mappings)
     {
         BiMap<Symbol, String> symbolToColumn = MapTransformer.of(mappings)
                 .transformValues(MoreFunctions.<ColumnHandle, ImportColumnHandle>cast(ImportColumnHandle.class))
@@ -243,7 +238,7 @@ public class SplitManager
                 .biMap();
 
         // First find candidate partitions -- try to push down the predicate to the underlying API
-        Iterable<PartitionInfo> partitions = getCandidatePartitions(sourceName, databaseName, tableName, predicate, partitionPredicate, symbolToColumn);
+        Iterable<PartitionInfo> partitions = getCandidatePartitions(tableName, predicate, symbolToColumn);
 
         // Next, prune the list in case we got more partitions that necessary because parts of the predicate
         // could not be pushed down
@@ -255,12 +250,7 @@ public class SplitManager
     /**
      * Get candidate partitions from underlying API and make a best effort to push down any relevant parts of the provided predicate
      */
-    private Iterable<PartitionInfo> getCandidatePartitions(final String sourceName,
-            final String databaseName,
-            final String tableName,
-            Expression predicate,
-            final Predicate<PartitionInfo> partitionPredicate,
-            Map<Symbol, String> symbolToColumnName)
+    private Iterable<PartitionInfo> getCandidatePartitions(final QualifiedTableName tableName, Expression predicate, Map<Symbol, String> symbolToColumnName)
     {
         // Look for any sub-expression in an AND expression of the form <partition key> = 'value'
         Set<ComparisonExpression> comparisons = IterableTransformer.on(extractConjuncts(predicate))
@@ -275,7 +265,7 @@ public class SplitManager
                         matchesPattern(ComparisonExpression.Type.EQUAL, DoubleLiteral.class, QualifiedNameReference.class)))
                 .set();
 
-        Map<String, SchemaField> partitionKeys = uniqueIndex(getPartitionKeys(sourceName, databaseName, tableName), fieldNameGetter());
+        Map<String, SchemaField> partitionKeys = uniqueIndex(getPartitionKeys(tableName), fieldNameGetter());
 
         final Map<String, Object> bindings = new HashMap<>(); // map of columnName -> value
         for (ComparisonExpression comparison : comparisons) {
@@ -331,8 +321,8 @@ public class SplitManager
                     public Iterable<PartitionInfo> call()
                             throws Exception
                     {
-                        ImportClient importClient = importClientManager.getClient(sourceName);
-                        return Iterables.filter(importClient.getPartitions(databaseName, tableName, bindings), partitionPredicate);
+                        ImportClient importClient = importClientManager.getClient(tableName.getCatalogName());
+                        return importClient.getPartitions(tableName.getSchemaName(), tableName.getTableName(), bindings);
                     }
                 });
     }
@@ -361,7 +351,7 @@ public class SplitManager
         throw new IllegalArgumentException("Comparison does not have a child of type Literal");
     }
 
-    private List<SchemaField> getPartitionKeys(final String sourceName, final String databaseName, final String tableName)
+    private List<SchemaField> getPartitionKeys(final QualifiedTableName tableName)
     {
         return retry()
                 .stopOn(ObjectNotFoundException.class)
@@ -372,8 +362,8 @@ public class SplitManager
                     public List<SchemaField> call()
                             throws Exception
                     {
-                        ImportClient client = importClientManager.getClient(sourceName);
-                        return client.getPartitionKeys(databaseName, tableName);
+                        ImportClient client = importClientManager.getClient(tableName.getCatalogName());
+                        return client.getPartitionKeys(tableName.getSchemaName(), tableName.getTableName());
                     }
                 });
     }

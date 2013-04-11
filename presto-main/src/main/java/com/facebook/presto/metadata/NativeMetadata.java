@@ -75,7 +75,7 @@ public class NativeMetadata
         if (table == null) {
             return null;
         }
-        TableHandle tableHandle = new NativeTableHandle(table.getTableId());
+        TableHandle tableHandle = new NativeTableHandle(tableName, table.getTableId());
 
         List<ColumnMetadata> columns = dao.getTableColumnMetaData(table.getTableId());
         if (columns.isEmpty()) {

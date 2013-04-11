@@ -20,7 +20,7 @@ public class DualTable
         checkTable(table);
         checkArgument(table.getTableName().equals(NAME), "table is not %s", NAME);
 
-        InternalTableHandle handle = InternalTableHandle.forQualifiedTableName(table);
+        InternalTableHandle handle = new InternalTableHandle(table);
         return new TableMetadata(table, METADATA, handle);
     }
 
