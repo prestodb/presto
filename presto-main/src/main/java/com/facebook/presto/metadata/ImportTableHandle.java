@@ -2,31 +2,19 @@ package com.facebook.presto.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Objects;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkTable;
 
 public class ImportTableHandle
-    implements TableHandle
+        implements TableHandle
 {
-    private final QualifiedTableName table;
-
-    public static ImportTableHandle forQualifiedTableName(QualifiedTableName table)
-    {
-        return new ImportTableHandle(checkTable(table));
-    }
+    private final QualifiedTableName tableName;
 
     @JsonCreator
-    public ImportTableHandle(
-            @JsonProperty("sourceName") String sourceName,
-            @JsonProperty("databaseName") String databaseName,
-            @JsonProperty("tableName") String tableName)
+    public ImportTableHandle(@JsonProperty("tableName") QualifiedTableName tableName)
     {
-        this(new QualifiedTableName(sourceName, databaseName, tableName));
-    }
-
-    private ImportTableHandle(QualifiedTableName table)
-    {
-        this.table = checkTable(table);
+        this.tableName = checkTable(tableName);
     }
 
     @Override
@@ -36,25 +24,33 @@ public class ImportTableHandle
     }
 
     @JsonProperty
-    public String getSourceName()
+    public QualifiedTableName getTableName()
     {
-        return table.getCatalogName();
+        return tableName;
     }
 
-    @JsonProperty
-    public String getDatabaseName()
+    @Override
+    public String toString()
     {
-        return table.getSchemaName();
+        return "import:" + tableName;
     }
 
-    @JsonProperty
-    public String getTableName()
+    @Override
+    public int hashCode()
     {
-        return table.getTableName();
+        return Objects.hashCode(tableName);
     }
 
-    public QualifiedTableName getTable()
+    @Override
+    public boolean equals(Object obj)
     {
-        return table;
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        final ImportTableHandle other = (ImportTableHandle) obj;
+        return Objects.equal(this.tableName, other.tableName);
     }
 }

@@ -50,18 +50,17 @@ public class InternalDataStreamProvider
         Map<InternalColumnHandle, String> filters = ((InternalSplit) split).getFilters();
 
         InternalTable table;
-        if (handle.getTableName().equals(DualTable.NAME)) {
-            table = DualTable.getInternalTable(handle.getTable());
+        if (handle.getTableName().getTableName().equals(DualTable.NAME)) {
+            table = DualTable.getInternalTable(handle.getTableName());
         }
-        else if (handle.getSchemaName().equals(INFORMATION_SCHEMA)) {
-            table = informationSchemaData.getInternalTable(handle.getTable(), filters);
+        else if (handle.getTableName().getSchemaName().equals(INFORMATION_SCHEMA)) {
+            table = informationSchemaData.getInternalTable(handle.getTableName(), filters);
         }
-        else if (handle.getSchemaName().equals(SYSTEM_SCHEMA)) {
-            table = systemTables.getInternalTable(handle.getTable());
+        else if (handle.getTableName().getSchemaName().equals(SYSTEM_SCHEMA)) {
+            table = systemTables.getInternalTable(handle.getTableName());
         }
         else {
-            throw new IllegalArgumentException(format("table does not exist: %s.%s.%s",
-                    handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()));
+            throw new IllegalArgumentException(format("table does not exist: %s", handle.getTableName()));
         }
 
         ImmutableList.Builder<BlockIterable> list = ImmutableList.builder();

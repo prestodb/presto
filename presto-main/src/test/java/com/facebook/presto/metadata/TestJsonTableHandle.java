@@ -21,20 +21,17 @@ import static org.testng.Assert.assertTrue;
 public class TestJsonTableHandle
 {
     private static final Map<String, Object> NATIVE_AS_MAP = ImmutableMap.<String, Object>of("type", "native",
+            "tableName", "catalog.schema.table",
             "tableId", 1);
 
     private static final Map<String, Object> TPCH_AS_MAP = ImmutableMap.<String, Object>of("type", "tpch",
-            "tableName", "tpchtable");
+            "tableName", "tpch.tpch.tpchtable");
 
     private static final Map<String, Object> INTERNAL_AS_MAP = ImmutableMap.<String, Object>of("type", "internal",
-            "catalogName", "thecatalog",
-            "schemaName", "theschema",
-            "tableName", "thetable");
+            "tableName", "thecatalog.theschema.thetable");
 
     private static final Map<String, Object> IMPORT_AS_MAP = ImmutableMap.<String, Object>of("type", "import",
-            "sourceName", "thesource",
-            "databaseName", "thedatabase",
-            "tableName", "thetable");
+            "tableName", "thesource.thedatabase.thetable");
 
     private ObjectMapper objectMapper;
 
@@ -52,7 +49,7 @@ public class TestJsonTableHandle
     public void testNativeSerialize()
             throws Exception
     {
-        NativeTableHandle nativeHandle = new NativeTableHandle(1);
+        NativeTableHandle nativeHandle = new NativeTableHandle(new QualifiedTableName("catalog", "schema", "table"), 1);
 
         assertTrue(objectMapper.canSerialize(NativeTableHandle.class));
         String json = objectMapper.writeValueAsString(nativeHandle);
@@ -63,7 +60,7 @@ public class TestJsonTableHandle
     public void testInternalSerialize()
             throws Exception
     {
-        InternalTableHandle internalHandle = new InternalTableHandle("thecatalog", "theschema", "thetable");
+        InternalTableHandle internalHandle = new InternalTableHandle(new QualifiedTableName("thecatalog", "theschema", "thetable"));
 
         assertTrue(objectMapper.canSerialize(InternalTableHandle.class));
         String json = objectMapper.writeValueAsString(internalHandle);
@@ -74,7 +71,7 @@ public class TestJsonTableHandle
     public void testImportSerialize()
             throws Exception
     {
-        ImportTableHandle importHandle = new ImportTableHandle("thesource", "thedatabase", "thetable");
+        ImportTableHandle importHandle = new ImportTableHandle(new QualifiedTableName("thesource", "thedatabase", "thetable"));
 
         assertTrue(objectMapper.canSerialize(ImportTableHandle.class));
         String json = objectMapper.writeValueAsString(importHandle);
@@ -85,7 +82,7 @@ public class TestJsonTableHandle
     public void testTpchSerialize()
             throws Exception
     {
-        TpchTableHandle tpchHandle = new TpchTableHandle("tpchtable");
+        TpchTableHandle tpchHandle = new TpchTableHandle(new QualifiedTableName("tpch", "tpch", "tpchtable"));
 
         assertTrue(objectMapper.canSerialize(TpchTableHandle.class));
         String json = objectMapper.writeValueAsString(tpchHandle);
@@ -117,9 +114,7 @@ public class TestJsonTableHandle
         InternalTableHandle internalHandle = (InternalTableHandle) tableHandle;
 
         assertEquals(internalHandle.getDataSourceType(), DataSourceType.INTERNAL);
-        assertEquals(internalHandle.getCatalogName(), "thecatalog");
-        assertEquals(internalHandle.getSchemaName(), "theschema");
-        assertEquals(internalHandle.getTableName(), "thetable");
+        assertEquals(internalHandle.getTableName(), new QualifiedTableName("thecatalog", "theschema", "thetable"));
     }
 
     @Test
@@ -133,9 +128,7 @@ public class TestJsonTableHandle
         ImportTableHandle importHandle = (ImportTableHandle) tableHandle;
 
         assertEquals(importHandle.getDataSourceType(), DataSourceType.IMPORT);
-        assertEquals(importHandle.getSourceName(), "thesource");
-        assertEquals(importHandle.getDatabaseName(), "thedatabase");
-        assertEquals(importHandle.getTableName(), "thetable");
+        assertEquals(importHandle.getTableName(), new QualifiedTableName("thesource", "thedatabase", "thetable"));
     }
 
     @Test
@@ -148,7 +141,7 @@ public class TestJsonTableHandle
         assertEquals(tableHandle.getClass(), TpchTableHandle.class);
         TpchTableHandle tpchTableHandle = (TpchTableHandle) tableHandle;
 
-        assertEquals(tpchTableHandle.getTableName(), "tpchtable");
+        assertEquals(tpchTableHandle.getTableName().getTableName(), "tpchtable");
     }
 
     private void testJsonEquals(String json, Map<String, Object> expectedMap)

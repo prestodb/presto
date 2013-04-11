@@ -67,7 +67,7 @@ public class InformationSchemaMetadata
 
         List<ColumnMetadata> metadata = METADATA.get(table.getTableName());
         if (metadata != null) {
-            InternalTableHandle handle = InternalTableHandle.forQualifiedTableName(table);
+            InternalTableHandle handle = new InternalTableHandle(table);
             return new TableMetadata(table, metadata, handle);
         }
 

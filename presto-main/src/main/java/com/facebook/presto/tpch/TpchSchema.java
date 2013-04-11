@@ -27,7 +27,7 @@ public class TpchSchema
 
     public static TpchColumnHandle columnHandle(TpchTableHandle tableHandle, String columnName)
     {
-        TableMetadata table = METADATA_INSTANCE.getTable(new QualifiedTableName(CATALOG_NAME, SCHEMA_NAME, tableHandle.getTableName()));
+        TableMetadata table = METADATA_INSTANCE.getTable(tableHandle.getTableName());
         for (ColumnMetadata columnMetadata : table.getColumns()) {
             if (columnMetadata.getName().equals(columnName)) {
                 return (TpchColumnHandle) columnMetadata.getColumnHandle().get();
@@ -38,7 +38,7 @@ public class TpchSchema
 
     public static TpchColumnHandle columnHandle(TpchTableHandle tableHandle, int fieldIndex)
     {
-        TableMetadata table = METADATA_INSTANCE.getTable(new QualifiedTableName(CATALOG_NAME, SCHEMA_NAME, tableHandle.getTableName()));
+        TableMetadata table = METADATA_INSTANCE.getTable(tableHandle.getTableName());
         return (TpchColumnHandle) table.getColumns().get(fieldIndex).getColumnHandle().get();
     }
 
@@ -52,9 +52,9 @@ public class TpchSchema
 
     public static TableMetadata createOrders()
     {
-        TpchTableHandle tpchTableHandle = new TpchTableHandle("orders");
+        TpchTableHandle tpchTableHandle = new TpchTableHandle(new QualifiedTableName(CATALOG_NAME, SCHEMA_NAME, "orders"));
         return new TableMetadata(
-                new QualifiedTableName(CATALOG_NAME, SCHEMA_NAME, tpchTableHandle.getTableName()),
+                tpchTableHandle.getTableName(),
                 ImmutableList.<ColumnMetadata>of(
                         createColumn("orderkey", FIXED_INT_64, 0), // Mostly increasing IDs
                         createColumn("custkey", FIXED_INT_64, 1), // 15:1
@@ -72,9 +72,9 @@ public class TpchSchema
 
     public static TableMetadata createLineItem()
     {
-        TpchTableHandle tpchTableHandle = new TpchTableHandle("lineitem");
+        TpchTableHandle tpchTableHandle = new TpchTableHandle(new QualifiedTableName(CATALOG_NAME, SCHEMA_NAME, "lineitem"));
         return new TableMetadata(
-                new QualifiedTableName(CATALOG_NAME, SCHEMA_NAME, tpchTableHandle.getTableName()),
+                tpchTableHandle.getTableName(),
                 ImmutableList.<ColumnMetadata>of(
                         createColumn("orderkey", FIXED_INT_64, 0),
                         createColumn("partkey", FIXED_INT_64, 1),
