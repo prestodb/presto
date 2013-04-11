@@ -3,6 +3,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.primitives.Ints;
 import com.google.inject.Inject;
@@ -27,13 +28,15 @@ import static com.google.common.collect.Iterables.concat;
 public class MetadataManager
         implements Metadata
 {
+    private final Map<String, InternalSchemaMetadata> internalSchemas;
     private final SortedSet<Metadata> metadataProviders;
     private final FunctionRegistry functions = new FunctionRegistry();
 
     @Inject
-    public MetadataManager(Set<Metadata> metadataProviders)
+    public MetadataManager(Map<String, InternalSchemaMetadata> internalSchemas, Set<Metadata> metadataProviders)
     {
-        this.metadataProviders = ImmutableSortedSet.copyOf(new PriorityComparator(), metadataProviders);
+        this.internalSchemas = ImmutableMap.copyOf(checkNotNull(internalSchemas, "internalSchemas is null"));
+        this.metadataProviders = ImmutableSortedSet.copyOf(new PriorityComparator(), checkNotNull(metadataProviders, "metadataProviders is null"));
     }
 
     @Override
@@ -100,6 +103,18 @@ public class MetadataManager
     public TableMetadata getTable(QualifiedTableName table)
     {
         checkTable(table);
+
+        // "DUAL" is a table is in every schema
+        if (table.getTableName().equals(DualTable.NAME)) {
+            return DualTable.getTable(table);
+        }
+
+        // internal schemas like information_schema and sys are in every catalog
+        InternalSchemaMetadata internalSchemaMetadata = internalSchemas.get(table.getSchemaName());
+        if (internalSchemaMetadata != null) {
+            return internalSchemaMetadata.getTable(table);
+        }
+
         return lookupDataSource(table).getTable(table);
     }
 
@@ -123,16 +138,21 @@ public class MetadataManager
     {
         checkNotNull(prefix, "prefix is null");
 
-        if (prefix.hasSchemaName()) {
-            return lookupDataSource(prefix).listTables(prefix);
-        }
-        else {
+        if (!prefix.hasSchemaName()) {
             // blank catalog must also return the system and information schema tables.
             List<QualifiedTableName> catalogTables = lookupDataSource(prefix).listTables(prefix);
             List<QualifiedTableName> informationSchemaTables = listInformationSchemaTables(prefix.getCatalogName());
             List<QualifiedTableName> systemTables = listSystemTables(prefix.getCatalogName());
             return ImmutableList.copyOf(concat(catalogTables, informationSchemaTables, systemTables));
         }
+
+        // internal schemas like information_schema and sys are in every catalog
+        InternalSchemaMetadata internalSchemaMetadata = internalSchemas.get(prefix.getSchemaName().get());
+        if (internalSchemaMetadata != null) {
+            return internalSchemaMetadata.listTables(prefix.getCatalogName());
+        }
+
+        return lookupDataSource(prefix).listTables(prefix);
     }
 
     @Override

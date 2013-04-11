@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 
 public class InformationSchemaMetadata
+        implements InternalSchemaMetadata
 {
     public static final String INFORMATION_SCHEMA = "information_schema";
 
@@ -60,6 +61,7 @@ public class InformationSchemaMetadata
                     .build())
             .build();
 
+    @Override
     public TableMetadata getTable(QualifiedTableName table)
     {
         checkTable(table);
@@ -72,6 +74,12 @@ public class InformationSchemaMetadata
         }
 
         return null;
+    }
+
+    @Override
+    public List<QualifiedTableName> listTables(String catalogName)
+    {
+        return listInformationSchemaTables(catalogName);
     }
 
     static TupleInfo informationSchemaTupleInfo(String tableName)

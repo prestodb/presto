@@ -48,8 +48,8 @@ import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.ImportMetadata;
 import com.facebook.presto.metadata.InformationSchemaData;
 import com.facebook.presto.metadata.InformationSchemaMetadata;
-import com.facebook.presto.metadata.InternalMetadata;
 import com.facebook.presto.metadata.LocalStorageManager;
+import com.facebook.presto.metadata.InternalSchemaMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.NativeMetadata;
@@ -161,16 +161,19 @@ public class ServerMainModule
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
         Multibinder<Metadata> metadataMultibinder = Multibinder.newSetBinder(binder, Metadata.class);
+        MapBinder<String, InternalSchemaMetadata> internalSchemaMetadataMultibinder = MapBinder.newMapBinder(binder, String.class, InternalSchemaMetadata.class);
+
+        // internal schemas like information_schema and sys
+        internalSchemaMetadataMultibinder.addBinding(InformationSchemaMetadata.INFORMATION_SCHEMA).to(InformationSchemaMetadata.class);
+        internalSchemaMetadataMultibinder.addBinding(SystemTables.SYSTEM_SCHEMA).to(SystemTables.class);
 
         // native
         metadataMultibinder.addBinding().to(NativeMetadata.class).in(Scopes.SINGLETON);
 
-        // internal
-        metadataMultibinder.addBinding().to(InternalMetadata.class).in(Scopes.SINGLETON);
-        binder.bind(InternalDataStreamProvider.class).in(Scopes.SINGLETON);
-        binder.bind(InformationSchemaMetadata.class).in(Scopes.SINGLETON);
-        binder.bind(InformationSchemaData.class).in(Scopes.SINGLETON);
+        // system tables (e.g., Dual, information_schema, and sys)
         binder.bind(SystemTables.class).in(Scopes.SINGLETON);
+        binder.bind(InternalDataStreamProvider.class).in(Scopes.SINGLETON);
+        binder.bind(InformationSchemaData.class).in(Scopes.SINGLETON);
 
         // import
         metadataMultibinder.addBinding().to(ImportMetadata.class).in(Scopes.SINGLETON);
