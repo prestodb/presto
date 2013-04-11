@@ -1,6 +1,5 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.server.FailureDetector;
 import com.facebook.presto.server.NoOpFailureDetector;
 import com.google.common.collect.ImmutableList;
 import io.airlift.discovery.client.ServiceDescriptor;

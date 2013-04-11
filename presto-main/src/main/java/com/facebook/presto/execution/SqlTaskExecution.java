@@ -16,7 +16,6 @@ import com.facebook.presto.operator.Page;
 import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.operator.SourceOperator;
-import com.facebook.presto.server.ExchangeOperatorFactory;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;

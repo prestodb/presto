@@ -1,5 +1,6 @@
 package com.facebook.presto.server;
 
+import com.facebook.presto.failureDetector.FailureDetector;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.discovery.client.ServiceDescriptor;
 

@@ -12,6 +12,7 @@ import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.guice.TestingJmxModule;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.LocalStorageManager;
