@@ -1,6 +1,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
@@ -24,6 +25,18 @@ public class TestingMetadata
 {
     private final Map<QualifiedTableName, TableMetadata> tables = new HashMap<>();
     private final FunctionRegistry functions = new FunctionRegistry();
+
+    @Override
+    public boolean canHandle(TableHandle tableHandle)
+    {
+        return tableHandle instanceof TpchTableHandle;
+    }
+
+    @Override
+    public boolean canHandle(QualifiedTablePrefix prefix)
+    {
+        return prefix.getCatalogName().equals("tpch");
+    }
 
     @Override
     public FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes)

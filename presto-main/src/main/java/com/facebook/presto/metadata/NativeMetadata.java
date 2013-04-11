@@ -37,6 +37,24 @@ public class NativeMetadata
     }
 
     @Override
+    public int priority()
+    {
+        return 100;
+    }
+
+    @Override
+    public boolean canHandle(TableHandle tableHandle)
+    {
+        return tableHandle instanceof NativeTableHandle;
+    }
+
+    @Override
+    public boolean canHandle(QualifiedTablePrefix prefix)
+    {
+        return prefix.getCatalogName().equals("default");
+    }
+
+    @Override
     public FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes)
     {
         return functions.get(name, parameterTypes);

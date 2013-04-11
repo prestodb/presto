@@ -33,6 +33,24 @@ public class ImportMetadata
     }
 
     @Override
+    public int priority()
+    {
+        return 0;
+    }
+
+    @Override
+    public boolean canHandle(TableHandle tableHandle)
+    {
+        return tableHandle instanceof ImportTableHandle;
+    }
+
+    @Override
+    public boolean canHandle(QualifiedTablePrefix prefix)
+    {
+        return hasCatalog(prefix.getCatalogName());
+    }
+
+    @Override
     public TableMetadata getTable(QualifiedTableName table)
     {
         checkTable(table);

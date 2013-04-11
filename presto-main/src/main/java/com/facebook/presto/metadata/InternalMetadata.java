@@ -17,14 +17,41 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class InternalMetadata
         extends AbstractMetadata
 {
-    private final InformationSchemaMetadata informationSchema;
+    private final InformationSchemaMetadata informationSchema = new InformationSchemaMetadata();
     private final SystemTables systemTables;
 
     @Inject
-    public InternalMetadata(InformationSchemaMetadata informationSchema, SystemTables systemTables)
+    public InternalMetadata(SystemTables systemTables)
     {
-        this.informationSchema = checkNotNull(informationSchema, "informationSchema is null");
         this.systemTables = checkNotNull(systemTables, "systemTables is null");
+    }
+
+    @Override
+    public int priority()
+    {
+        // internal metadata must be checked first
+        return Integer.MAX_VALUE;
+    }
+
+    @Override
+    public boolean canHandle(TableHandle tableHandle)
+    {
+        return tableHandle instanceof InternalTableHandle;
+    }
+
+    @Override
+    public boolean canHandle(QualifiedTablePrefix prefix)
+    {
+        if (DualTable.NAME.equals(prefix.getTableName().orNull())) {
+            return true;
+        }
+
+        String schemaName = prefix.getSchemaName().orNull();
+        if (INFORMATION_SCHEMA.equals(schemaName) || SYSTEM_SCHEMA.equals(schemaName)) {
+            return true;
+        }
+
+        return false;
     }
 
     @Override

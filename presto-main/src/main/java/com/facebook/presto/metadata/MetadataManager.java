@@ -3,23 +3,23 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.primitives.Ints;
 import com.google.inject.Inject;
 
 import javax.inject.Singleton;
-
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.SortedSet;
 
-import static com.facebook.presto.metadata.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.listInformationSchemaTableColumns;
 import static com.facebook.presto.metadata.InformationSchemaMetadata.listInformationSchemaTables;
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.facebook.presto.metadata.MetadataUtil.checkTable;
-import static com.facebook.presto.metadata.SystemTables.SYSTEM_SCHEMA;
 import static com.facebook.presto.metadata.SystemTables.listSystemTableColumns;
 import static com.facebook.presto.metadata.SystemTables.listSystemTables;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.concat;
 
@@ -27,79 +27,87 @@ import static com.google.common.collect.Iterables.concat;
 public class MetadataManager
         implements Metadata
 {
-    private Map<DataSourceType, Metadata> metadataSourceMap = null;
-    private final ImportMetadata importMetadata;
+    private final SortedSet<Metadata> metadataProviders;
+    private final FunctionRegistry functions = new FunctionRegistry();
 
     @Inject
-    public MetadataManager(NativeMetadata nativeMetadata,
-            InternalMetadata internalMetadata,
-            ImportMetadata importMetadata)
+    public MetadataManager(Set<Metadata> metadataProviders)
     {
-        this.importMetadata = importMetadata;
-
-        metadataSourceMap = ImmutableMap.<DataSourceType, Metadata>builder()
-                .put(DataSourceType.NATIVE, checkNotNull(nativeMetadata, "nativeMetadata is null"))
-                .put(DataSourceType.INTERNAL, checkNotNull(internalMetadata, "internalMetadata is null"))
-                .put(DataSourceType.IMPORT, checkNotNull(importMetadata, "importMetadata is null"))
-                .build();
+        this.metadataProviders = ImmutableSortedSet.copyOf(new PriorityComparator(), metadataProviders);
     }
 
-    // only used in TestDistributedQueries to get the Tpch stuff in.
-    @Inject(optional = true)
-    public synchronized void addTpchMetadata(TestingMetadata tpchMetadata)
+    @Override
+    public int priority()
     {
-        ImmutableMap.Builder<DataSourceType, Metadata> builder = ImmutableMap.builder();
-        builder.putAll(metadataSourceMap);
-        builder.put(DataSourceType.TPCH, tpchMetadata);
-        this.metadataSourceMap = builder.build();
+        return Integer.MIN_VALUE;
     }
 
+    @Override
+    public boolean canHandle(TableHandle tableHandle)
+    {
+        for (Metadata metadata : metadataProviders) {
+            if (metadata.canHandle(tableHandle)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public boolean canHandle(QualifiedTablePrefix prefix)
+    {
+        for (Metadata metadata : metadataProviders) {
+            if (metadata.canHandle(prefix)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     @Override
     public FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes)
     {
-        return lookup(DataSourceType.NATIVE).getFunction(name, parameterTypes);
+        return functions.get(name, parameterTypes);
     }
 
     @Override
     public FunctionInfo getFunction(FunctionHandle handle)
     {
-        return lookup(DataSourceType.NATIVE).getFunction(handle);
+        return functions.get(handle);
     }
 
     @Override
     public boolean isAggregationFunction(QualifiedName name)
     {
-        return lookup(DataSourceType.NATIVE).isAggregationFunction(name);
+        return functions.isAggregationFunction(name);
     }
 
     @Override
     public List<FunctionInfo> listFunctions()
     {
-        return lookup(DataSourceType.NATIVE).listFunctions();
+        return functions.list();
     }
 
     @Override
     public List<String> listSchemaNames(String catalogName)
     {
         checkCatalogName(catalogName);
-        DataSourceType dataSourceType = lookupDataSource(QualifiedTablePrefix.builder(catalogName).build());
-        return lookup(dataSourceType).listSchemaNames(catalogName);
+        QualifiedTablePrefix prefix = QualifiedTablePrefix.builder(catalogName).build();
+        return lookupDataSource(prefix).listSchemaNames(catalogName);
     }
 
     @Override
     public TableMetadata getTable(QualifiedTableName table)
     {
         checkTable(table);
-        DataSourceType dataSourceType = lookupDataSource(table);
-        return lookup(dataSourceType).getTable(table);
+        return lookupDataSource(table).getTable(table);
     }
 
     @Override
     public QualifiedTableName getTableName(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
-        return lookup(tableHandle.getDataSourceType()).getTableName(tableHandle);
+        return lookupDataSource(tableHandle).getTableName(tableHandle);
     }
 
     @Override
@@ -107,7 +115,7 @@ public class MetadataManager
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkNotNull(columnHandle, "columnHandle is null");
-        return lookup(columnHandle.getDataSourceType()).getTableColumn(tableHandle, columnHandle);
+        return lookupDataSource(tableHandle).getTableColumn(tableHandle, columnHandle);
     }
 
     @Override
@@ -116,13 +124,11 @@ public class MetadataManager
         checkNotNull(prefix, "prefix is null");
 
         if (prefix.hasSchemaName()) {
-            DataSourceType dataSourceType = lookupDataSource(prefix);
-            return lookup(dataSourceType).listTables(prefix);
+            return lookupDataSource(prefix).listTables(prefix);
         }
         else {
             // blank catalog must also return the system and information schema tables.
-            DataSourceType dataSourceType = lookupDataSource(prefix);
-            List<QualifiedTableName> catalogTables = lookup(dataSourceType).listTables(prefix);
+            List<QualifiedTableName> catalogTables = lookupDataSource(prefix).listTables(prefix);
             List<QualifiedTableName> informationSchemaTables = listInformationSchemaTables(prefix.getCatalogName());
             List<QualifiedTableName> systemTables = listSystemTables(prefix.getCatalogName());
             return ImmutableList.copyOf(concat(catalogTables, informationSchemaTables, systemTables));
@@ -133,40 +139,35 @@ public class MetadataManager
     public List<TableColumn> listTableColumns(QualifiedTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
-        DataSourceType dataSourceType = lookupDataSource(prefix);
-        return getTableColumns(prefix.getCatalogName(), lookup(dataSourceType).listTableColumns(prefix));
+        return getTableColumns(prefix.getCatalogName(), lookupDataSource(prefix).listTableColumns(prefix));
     }
 
     @Override
     public List<String> listTablePartitionKeys(QualifiedTableName table)
     {
         checkTable(table);
-        DataSourceType dataSourceType = lookupDataSource(table);
-        return lookup(dataSourceType).listTablePartitionKeys(table);
+        return lookupDataSource(table).listTablePartitionKeys(table);
     }
 
     @Override
     public List<Map<String, String>> listTablePartitionValues(QualifiedTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
-        DataSourceType dataSourceType = lookupDataSource(prefix);
-        return lookup(dataSourceType).listTablePartitionValues(prefix);
+        return lookupDataSource(prefix).listTablePartitionValues(prefix);
     }
 
     @Override
     public void createTable(TableMetadata table)
     {
-        DataSourceType dataSourceType = lookupDataSource(table.getTable());
-        checkArgument(dataSourceType == DataSourceType.NATIVE, "table creation is only supported for native tables");
-        metadataSourceMap.get(dataSourceType).createTable(table);
+        checkTable(table.getTable());
+        lookupDataSource(table.getTable()).createTable(table);
     }
 
     @Override
     public void dropTable(TableMetadata table)
     {
-        DataSourceType dataSourceType = lookupDataSource(table.getTable());
-        checkArgument(dataSourceType == DataSourceType.NATIVE, "table drop is only supported for native tables");
-        metadataSourceMap.get(dataSourceType).dropTable(table);
+        checkTable(table.getTable());
+        lookupDataSource(table.getTable()).dropTable(table);
     }
 
     private List<TableColumn> getTableColumns(String catalogName, List<TableColumn> catalogColumns)
@@ -176,7 +177,7 @@ public class MetadataManager
         return ImmutableList.copyOf(concat(catalogColumns, informationSchemaColumns, systemColumns));
     }
 
-    public DataSourceType lookupDataSource(QualifiedTableName table)
+    public Metadata lookupDataSource(QualifiedTableName table)
     {
         checkTable(table);
         return lookupDataSource(QualifiedTablePrefix.builder(table.getCatalogName())
@@ -185,40 +186,37 @@ public class MetadataManager
                 .build());
     }
 
-    private DataSourceType lookupDataSource(QualifiedTablePrefix prefix)
+    private Metadata lookupDataSource(QualifiedTablePrefix prefix)
     {
-        if (DualTable.NAME.equals(prefix.getTableName().orNull())) {
-            return DataSourceType.INTERNAL;
-        }
-
-        String schemaName = prefix.getSchemaName().orNull();
-
-        if (prefix.getCatalogName().equals("tpch")) {
-            return DataSourceType.TPCH; // only used in tests.
-        }
-
-        if (INFORMATION_SCHEMA.equals(schemaName) || SYSTEM_SCHEMA.equals(schemaName)) {
-            return DataSourceType.INTERNAL;
-        }
-
-        // TODO: use some sort of catalog registry for this
-        if (prefix.getCatalogName().equals("default")) {
-            return DataSourceType.NATIVE;
-        }
-
-        // TODO: this is a hack until we have the ability to create and manage catalogs from sql
-        if (importMetadata.hasCatalog(prefix.getCatalogName())) {
-            return DataSourceType.IMPORT;
+        for (Metadata metadata : metadataProviders) {
+            if (metadata.canHandle(prefix)) {
+                return metadata;
+            }
         }
 
         // TODO: need a proper way to report that catalog does not exist
-        throw new IllegalArgumentException("catalog does not exist: " + prefix.getCatalogName());
+        throw new IllegalArgumentException("No metadata provider for: " + prefix);
     }
 
-    private Metadata lookup(DataSourceType dataSourceType)
+    private Metadata lookupDataSource(TableHandle tableHandle)
     {
-        Metadata metadata = metadataSourceMap.get(dataSourceType);
-        checkArgument(metadata != null, "tableMetadataSource does not exist: %s", dataSourceType);
-        return metadata;
+        for (Metadata metadata : metadataProviders) {
+            if (metadata.canHandle(tableHandle)) {
+                return metadata;
+            }
+        }
+
+        // TODO: need a proper way to report that catalog does not exist
+        throw new IllegalArgumentException("No metadata provider for: " + tableHandle);
+    }
+
+    private static class PriorityComparator implements Comparator<Metadata>
+    {
+        @Override
+        public int compare(Metadata o1, Metadata o2)
+        {
+            // reverse sort order
+            return Ints.compare(o2.priority(), o1.priority());
+        }
     }
 }
