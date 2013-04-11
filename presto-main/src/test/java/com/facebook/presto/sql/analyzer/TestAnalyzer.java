@@ -409,25 +409,28 @@ public class TestAnalyzer
     {
         TestingMetadata metadata = new TestingMetadata();
 
-        metadata.createTable(new TableMetadata(new QualifiedTableName("default", "default", "t1"),
+        QualifiedTableName table1 = new QualifiedTableName("default", "default", "t1");
+        metadata.createTable(new TableMetadata(table1,
                 ImmutableList.<ColumnMetadata>of(
                         new ColumnMetadata("a", TupleInfo.Type.FIXED_INT_64, new NativeColumnHandle(1)),
                         new ColumnMetadata("b", TupleInfo.Type.FIXED_INT_64, new NativeColumnHandle(2)),
                         new ColumnMetadata("c", TupleInfo.Type.FIXED_INT_64, new NativeColumnHandle(3)),
                         new ColumnMetadata("d", TupleInfo.Type.FIXED_INT_64, new NativeColumnHandle(4))
-                ), new NativeTableHandle(1)));
+                ), new NativeTableHandle(table1, 1)));
 
-        metadata.createTable(new TableMetadata(new QualifiedTableName("default", "default", "t2"),
+        QualifiedTableName table2 = new QualifiedTableName("default", "default", "t2");
+        metadata.createTable(new TableMetadata(table2,
                 ImmutableList.<ColumnMetadata>of(
                         new ColumnMetadata("a", TupleInfo.Type.FIXED_INT_64, new NativeColumnHandle(1)),
                         new ColumnMetadata("b", TupleInfo.Type.FIXED_INT_64, new NativeColumnHandle(2))
-                ), new NativeTableHandle(2)));
+                ), new NativeTableHandle(table2, 2)));
 
-        metadata.createTable(new TableMetadata(new QualifiedTableName("default", "default", "t3"),
+        QualifiedTableName table3 = new QualifiedTableName("default", "default", "t3");
+        metadata.createTable(new TableMetadata(table3,
                 ImmutableList.<ColumnMetadata>of(
                         new ColumnMetadata("a", TupleInfo.Type.FIXED_INT_64, new NativeColumnHandle(1)),
                         new ColumnMetadata("b", TupleInfo.Type.FIXED_INT_64, new NativeColumnHandle(2))
-                ), new NativeTableHandle(3)));
+                ), new NativeTableHandle(table3, 3)));
 
         analyzer = new Analyzer(new Session(null, "default", "default"), metadata);
     }

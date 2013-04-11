@@ -19,6 +19,7 @@ import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
 
 public class SystemTables
+        implements InternalSchemaMetadata
 {
     public static final String SYSTEM_SCHEMA = "sys";
 
@@ -52,6 +53,11 @@ public class SystemTables
         }
 
         return null;
+    }
+
+    public List<QualifiedTableName> listTables(String catalogName)
+    {
+        return listSystemTables(catalogName);
     }
 
     public InternalTable getInternalTable(QualifiedTableName table)
