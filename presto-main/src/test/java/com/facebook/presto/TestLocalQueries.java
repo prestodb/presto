@@ -1,11 +1,15 @@
 package com.facebook.presto;
 
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MockStorageManager;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.util.LocalQueryRunner;
 import com.facebook.presto.util.MaterializedResult;
+import com.google.common.base.Throwables;
 import org.intellij.lang.annotations.Language;
+
+import java.io.IOException;
 
 public class TestLocalQueries
         extends AbstractTestQueries
@@ -30,8 +34,12 @@ public class TestLocalQueries
     {
         Session session = new Session(null, catalog, schema);
 
-        LocalQueryRunner runner = new LocalQueryRunner(dataStreamProvider, metadata, session);
-
-        return runner.execute(sql);
+        try {
+            LocalQueryRunner runner = new LocalQueryRunner(dataStreamProvider, metadata, new MockStorageManager(), session);
+            return runner.execute(sql);
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
     }
 }

@@ -1,6 +1,7 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MockStorageManager;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.SourceHashProviderFactory;
@@ -27,9 +28,13 @@ import com.facebook.presto.tpch.TpchSchema;
 import com.facebook.presto.tpch.TpchSplit;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
+import io.airlift.node.NodeConfig;
+import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
 
+import java.io.IOException;
 import java.util.Map;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -55,7 +60,7 @@ public abstract class AbstractSqlBenchmark
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata);
-        PlanNode plan = new LogicalPlanner(session, planOptimizersFactory.get(), idAllocator).plan(analysis);
+        PlanNode plan = new LogicalPlanner(session, metadata, planOptimizersFactory.get(), idAllocator).plan(analysis);
         fragment = new DistributedLogicalPlanner(metadata, idAllocator)
                 .createSubplans(plan, analysis.getSymbolAllocator(), true)
                 .getFragment();
@@ -66,31 +71,40 @@ public abstract class AbstractSqlBenchmark
     @Override
     protected Operator createBenchmarkedOperator(TpchBlocksProvider provider)
     {
-        DataSize maxOperatorMemoryUsage = new DataSize(100, MEGABYTE);
-        LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(session,
-                metadata,
-                analysis.getTypes(),
-                new OperatorStats(),
-                new SourceHashProviderFactory(maxOperatorMemoryUsage),
-                maxOperatorMemoryUsage,
-                new TpchDataStreamProvider(provider),
-                null);
+        try {
+            DataSize maxOperatorMemoryUsage = new DataSize(100, MEGABYTE);
+            LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(session,
+                    new NodeInfo(new NodeConfig()
+                            .setEnvironment("test")
+                            .setNodeId("test-node")),
+                    metadata,
+                    analysis.getTypes(),
+                    new OperatorStats(),
+                    new SourceHashProviderFactory(maxOperatorMemoryUsage),
+                    maxOperatorMemoryUsage,
+                    new TpchDataStreamProvider(provider),
+                    new MockStorageManager(),
+                    null);
 
-        LocalExecutionPlan localExecutionPlan = executionPlanner.plan(fragment.getRoot());
+            LocalExecutionPlan localExecutionPlan = executionPlanner.plan(fragment.getRoot());
 
-        Map<PlanNodeId,SourceOperator> sourceOperators = localExecutionPlan.getSourceOperators();
-        for (PlanNode source : fragment.getSources()) {
-            TableScanNode tableScan = (TableScanNode) source;
-            TpchTableHandle handle = (TpchTableHandle) tableScan.getTable();
+            Map<PlanNodeId, SourceOperator> sourceOperators = localExecutionPlan.getSourceOperators();
+            for (PlanNode source : fragment.getSources()) {
+                TableScanNode tableScan = (TableScanNode) source;
+                TpchTableHandle handle = (TpchTableHandle) tableScan.getTable();
 
-            SourceOperator sourceOperator = sourceOperators.get(tableScan.getId());
-            Preconditions.checkArgument(sourceOperator != null, "Unknown plan source %s; known sources are %s", tableScan.getId(), sourceOperators.keySet());
-            sourceOperator.addSplit(new TpchSplit(handle));
+                SourceOperator sourceOperator = sourceOperators.get(tableScan.getId());
+                Preconditions.checkArgument(sourceOperator != null, "Unknown plan source %s; known sources are %s", tableScan.getId(), sourceOperators.keySet());
+                sourceOperator.addSplit(new TpchSplit(handle));
+            }
+            for (SourceOperator sourceOperator : sourceOperators.values()) {
+                sourceOperator.noMoreSplits();
+            }
+
+            return localExecutionPlan.getRootOperator();
         }
-        for (SourceOperator sourceOperator : sourceOperators.values()) {
-            sourceOperator.noMoreSplits();
+        catch (IOException e) {
+            throw Throwables.propagate(e);
         }
-
-        return localExecutionPlan.getRootOperator();
     }
 }

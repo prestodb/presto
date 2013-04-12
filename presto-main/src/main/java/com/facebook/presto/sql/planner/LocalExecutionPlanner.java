@@ -3,6 +3,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.operator.AggregationFunctionDefinition;
 import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.FilterAndProjectOperator;
@@ -65,6 +66,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
+import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
@@ -79,12 +81,14 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.right
 import static com.facebook.presto.sql.tree.Input.fieldGetter;
 import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
 
 public class LocalExecutionPlanner
 {
     private final Session session;
+    private final NodeInfo nodeInfo;
     private final Metadata metadata;
     private final Map<Symbol, Type> types;
 
@@ -94,17 +98,21 @@ public class LocalExecutionPlanner
     private final DataSize maxOperatorMemoryUsage;
 
     private final DataStreamProvider dataStreamProvider;
+    private final StorageManager storageManager;
     private final ExchangeOperatorFactory exchangeOperatorFactory;
 
     public LocalExecutionPlanner(Session session,
+            NodeInfo nodeInfo,
             Metadata metadata,
             Map<Symbol, Type> types,
             OperatorStats operatorStats,
             SourceHashProviderFactory joinHashFactory,
             DataSize maxOperatorMemoryUsage,
             DataStreamProvider dataStreamProvider,
+            StorageManager storageManager,
             ExchangeOperatorFactory exchangeOperatorFactory)
     {
+        this.nodeInfo = checkNotNull(nodeInfo, "nodeInfo is null");
         this.dataStreamProvider = dataStreamProvider;
         this.exchangeOperatorFactory = exchangeOperatorFactory;
         this.session = checkNotNull(session, "session is null");

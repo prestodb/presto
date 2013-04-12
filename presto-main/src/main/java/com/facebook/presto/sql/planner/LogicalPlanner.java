@@ -60,20 +60,25 @@ import java.util.Set;
 import static com.facebook.presto.sql.analyzer.AnalyzedFunction.argumentGetter;
 import static com.facebook.presto.sql.analyzer.AnalyzedFunction.windowExpressionGetter;
 import static com.facebook.presto.sql.analyzer.AnalyzedOrdering.expressionGetter;
+import static com.facebook.presto.sql.tree.QueryUtil.nameReference;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.concat;
 
 public class LogicalPlanner
 {
     private final Session session;
+    private final Metadata metadata;
     private final PlanNodeIdAllocator idAllocator;
     private final List<PlanOptimizer> planOptimizers;
 
     public LogicalPlanner(Session session,
+            Metadata metadata,
             List<PlanOptimizer> planOptimizers,
             PlanNodeIdAllocator idAllocator)
     {
         this.session = checkNotNull(session, "session is null");
+        this.metadata = checkNotNull(metadata, "metadata is null");
         this.planOptimizers = checkNotNull(planOptimizers, "planOptimizersFactory is null");
         this.idAllocator = checkNotNull(idAllocator, "idAllocator is null");
     }
