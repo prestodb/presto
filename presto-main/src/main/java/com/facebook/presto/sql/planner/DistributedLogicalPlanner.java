@@ -19,6 +19,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -227,8 +228,27 @@ public class DistributedLogicalPlanner
         {
             SubPlanBuilder subPlanBuilder = newSubPlan(node);
             if (!createSingleNodePlan) {
-                subPlanBuilder.setPartitionedSource(node.getId());
+                subPlanBuilder.addPartitionedSource(node.getId());
             }
+            return subPlanBuilder;
+        }
+
+        @Override
+        public SubPlanBuilder visitTableWriter(TableWriterNode node, Void context)
+        {
+            SubPlanBuilder subPlanBuilder = node.getSource().accept(this, context);
+            subPlanBuilder.setRoot(new TableWriterNode(node.getId(),
+                    subPlanBuilder.getRoot(),
+                    node.getTableHandle(),
+                    node.getInputSymbols(),
+                    node.getInputTypes(),
+                    node.getColumnHandles(),
+                    node.getOutputTypes()));
+
+            if (!createSingleNodePlan) {
+                subPlanBuilder.addPartitionedSource(node.getId());
+            }
+
             return subPlanBuilder;
         }
 

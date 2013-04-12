@@ -1,9 +1,8 @@
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.sql.analyzer.Session;
-
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.FunctionHandle;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.planner.DependencyExtractor;
@@ -18,6 +17,7 @@ import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -30,10 +30,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.leftGetter;
 import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause.rightGetter;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.concat;
 
 /**
@@ -234,5 +233,19 @@ public class PruneUnreferencedOutputs
             return new SortNode(node.getId(), source, node.getOrderBy(), node.getOrderings());
         }
 
+        @Override
+        public PlanNode rewriteTableWriter(TableWriterNode node, Set<Symbol> expectedOutputs, PlanRewriter<Set<Symbol>> planRewriter)
+        {
+            // Rewrite Query subtree in terms of the symbols expected by the writer.
+            Set<Symbol> expectedInputs = ImmutableSet.copyOf(node.getInputSymbols());
+            PlanNode source = planRewriter.rewrite(node.getSource(), expectedInputs);
+            return new TableWriterNode(node.getId(),
+                    source,
+                    node.getTableHandle(),
+                    node.getInputSymbols(),
+                    node.getInputTypes(),
+                    node.getColumnHandles(),
+                    node.getOutputTypes());
+        }
     }
 }

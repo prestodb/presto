@@ -224,6 +224,30 @@ public final class PlanRewriter<C>
         }
 
         @Override
+        public PlanNode visitTableWriter(TableWriterNode node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                PlanNode result = nodeRewriter.rewriteTableWriter(node, context.get(), PlanRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            PlanNode source = rewrite(node.getSource(), context.get());
+
+            if (source != node.getSource()) {
+                return new TableWriterNode(node.getId(),
+                        source,
+                        node.getTableHandle(),
+                        node.getInputSymbols(),
+                        node.getInputTypes(),
+                        node.getColumnHandles(),
+                        node.getOutputTypes());
+            }
+
+            return node;
+        }
+        @Override
         public PlanNode visitJoin(JoinNode node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

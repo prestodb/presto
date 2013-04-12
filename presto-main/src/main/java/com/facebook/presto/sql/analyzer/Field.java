@@ -14,6 +14,10 @@ public class Field
     private final Symbol symbol;
     private final Type type;
 
+    public static final Field getField(String attribute, Symbol symbol, Type type)
+    {
+        return new Field(Optional.<QualifiedName>absent(), Optional.of(attribute), Optional.<ColumnHandle>absent(), symbol, type);
+    }
 
     public Field(Optional<QualifiedName> prefix, Optional<String> attribute, Optional<ColumnHandle> column, Symbol symbol, Type type)
     {
@@ -65,7 +69,7 @@ public class Field
 
     public String toString()
     {
-        return String.format("%s.%s:%s:%s", prefix.or(QualifiedName.of("<anonymous")), attribute.or("<anonymous>"), symbol, type);
+        return String.format("%s.%s:%s:%s", prefix.or(QualifiedName.of("<anonymous>")), attribute.or("<anonymous>"), symbol, type);
     }
 
     public static Function<Field, QualifiedName> nameGetter()
@@ -76,6 +80,18 @@ public class Field
             public QualifiedName apply(Field input)
             {
                 return input.getName();
+            }
+        };
+    }
+
+    public static Function<Field, Symbol> symbolGetter()
+    {
+        return new Function<Field, Symbol>()
+        {
+            @Override
+            public Symbol apply(Field input)
+            {
+                return input.getSymbol();
             }
         };
     }

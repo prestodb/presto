@@ -1,5 +1,7 @@
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
+
 import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -132,6 +134,15 @@ public class SymbolExtractor
 
             return null;
         }
+
+        @Override
+        public Void visitTableWriter(TableWriterNode node, Void context)
+        {
+            builder.addAll(node.getOutputSymbols());
+
+            return null;
+        }
+
 
         @Override
         public Void visitJoin(JoinNode node, Void context)
