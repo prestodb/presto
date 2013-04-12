@@ -8,6 +8,7 @@ import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitAssignments;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.planner.OutputReceiver;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -82,6 +83,7 @@ public class SqlStageExecution
     private final PlanFragment fragment;
     private final List<TupleInfo> tupleInfos;
     private final Map<PlanFragmentId, StageExecutionNode> subStages;
+    private final Map<PlanNodeId, OutputReceiver> outputReceivers;
 
     private final ConcurrentMap<Node, RemoteTask> tasks = new ConcurrentHashMap<>();
 
@@ -163,6 +165,7 @@ public class SqlStageExecution
         this.stageId = new StageId(queryId, String.valueOf(nextStageId.getAndIncrement()));
         this.location = locationFactory.createStageLocation(stageId);
         this.fragment = plan.getFragment();
+        this.outputReceivers = plan.getOutputReceivers();
         this.splits = plan.getSplits();
         this.nodeManager = nodeManager;
         this.remoteTaskFactory = remoteTaskFactory;
@@ -418,7 +421,8 @@ public class SqlStageExecution
                 taskId,
                 node,
                 fragment,
-                initialSplit,
+                initialSplits,
+                outputReceivers,
                 getExchangeLocations(),
                 getOutputBuffers());
 

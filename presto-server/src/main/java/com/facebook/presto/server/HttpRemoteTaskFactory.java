@@ -13,6 +13,7 @@ import com.facebook.presto.metadata.Node;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.planner.OutputReceiver;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
@@ -20,8 +21,11 @@ import io.airlift.http.client.AsyncHttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
+
 import java.net.URI;
+import java.util.Map;
 import java.util.Set;
 
 public class HttpRemoteTaskFactory
@@ -64,6 +68,7 @@ public class HttpRemoteTaskFactory
                 locationFactory.createTaskLocation(node, taskId),
                 fragment,
                 initialSplit,
+                outputReceivers,
                 initialExchangeLocations,
                 initialOutputIds,
                 httpClient,
