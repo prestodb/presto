@@ -7,6 +7,7 @@ import com.google.common.collect.Multimap;
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public interface ShardManager
@@ -22,6 +23,11 @@ public interface ShardManager
      * @return list of shard IDs corresponding to partition chunks
      */
     List<Long> createImportPartition(long tableId, String partitionName, Iterable<SerializedPartitionChunk> partitionChunks);
+
+    /**
+     * Allocate a new shard id for a table.
+     */
+    long allocateShard(TableHandle tableHandle);
 
     /**
      * Mark shard as complete with data residing on given node
@@ -40,6 +46,11 @@ public interface ShardManager
     void dropShard(long shardId);
 
     /**
+     * Commit a partition for a table.
+     */
+    void commitPartition(TableHandle tableHandle, String partition, Map<Long, String> shards);
+
+    /**
      * Get the names of all current partitions that have started importing for table (and possibly finished or errored out).
      *
      * @return list of partition names
@@ -51,7 +62,7 @@ public interface ShardManager
      *
      * @return list of partition names
      */
-    Set<String> getCommittedPartitions(long tableId);
+    Set<String> getCommittedPartitions(TableHandle tableHandle);
 
     /**
      * Get all complete shards in table

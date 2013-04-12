@@ -29,6 +29,10 @@ public class TestDatabaseShardManager
     {
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
+
+        // temporary, will go away with unified DAO.
+        MetadataDao.Utils.createMetadataTables(dbi.onDemand(MetadataDao.class));
+
         shardManager = new DatabaseShardManager(dbi);
     }
 

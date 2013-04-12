@@ -1,34 +1,31 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.ingest.SerializedPartitionChunk;
+import com.facebook.presto.metadata.ShardManagerDao.Utils;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
-import io.airlift.log.Logger;
-import io.airlift.units.Duration;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionCallback;
 import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.VoidTransactionCallback;
-import org.skife.jdbi.v2.exceptions.UnableToObtainConnectionException;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.util.SqlUtils.runIgnoringConstraintViolation;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class DatabaseShardManager
         implements ShardManager
 {
-    private static final Logger log = Logger.get(DatabaseShardManager.class);
-
     private final IDBI dbi;
     private final ShardManagerDao dao;
 
@@ -40,7 +37,7 @@ public class DatabaseShardManager
         this.dao = dbi.onDemand(ShardManagerDao.class);
 
         // keep retrying if database is unavailable when the server starts
-        createTablesWithRetry();
+        Utils.createShardTablesWithRetry(dao);
     }
 
     @Override
@@ -80,6 +77,15 @@ public class DatabaseShardManager
     }
 
     @Override
+    public long allocateShard(TableHandle tableHandle)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkState(tableHandle.getDataSourceType() == DataSourceType.NATIVE, "can only allocate shards for native tables");
+        long tableId = ((NativeTableHandle) tableHandle).getTableId();
+        return dao.insertShard(tableId, false);
+    }
+
+    @Override
     public void commitShard(final long shardId, String nodeIdentifier)
     {
         final long nodeId = getOrCreateNodeId(nodeIdentifier);
@@ -91,6 +97,32 @@ public class DatabaseShardManager
                 ShardManagerDao dao = handle.attach(ShardManagerDao.class);
                 dao.commitShard(shardId);
                 dao.insertShardNode(shardId, nodeId);
+            }
+        });
+    }
+
+    @Override
+    public void commitPartition(TableHandle tableHandle, final String partition, final Map<Long, String> shards)
+    {
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkState(tableHandle.getDataSourceType() == DataSourceType.NATIVE, "can only commit partitions for native tables");
+        final long tableId = ((NativeTableHandle) tableHandle).getTableId();
+
+        dbi.inTransaction(new VoidTransactionCallback()
+        {
+            @Override
+            protected void execute(Handle handle, TransactionStatus status)
+            {
+                ShardManagerDao dao = handle.attach(ShardManagerDao.class);
+                long partitionId = dao.insertPartition(tableId, partition);
+
+                for (Map.Entry<Long, String> entry : shards.entrySet()) {
+                    long nodeId = getOrCreateNodeId(entry.getValue());
+                    long shardId = entry.getKey();
+                    dao.commitShard(shardId);
+                    dao.insertShardNode(shardId, nodeId);
+                    dao.insertPartitionShard(shardId, tableId, partitionId);
+                }
             }
         });
     }
@@ -124,9 +156,12 @@ public class DatabaseShardManager
     }
 
     @Override
-    public Set<String> getCommittedPartitions(long tableId)
+    public Set<String> getCommittedPartitions(TableHandle tableHandle)
     {
-        return dao.getCommittedPartitions(tableId);
+        checkNotNull(tableHandle, "tableHandle is null");
+        checkState(tableHandle.getDataSourceType() == DataSourceType.NATIVE, "can only commit partitions for native tables");
+        final long tableId = ((NativeTableHandle) tableHandle).getTableId();
+        return dao.getPartitions(tableId);
     }
 
     @Override
@@ -209,31 +244,5 @@ public class DatabaseShardManager
             throw new IllegalStateException("node does not exist after insert");
         }
         return id;
-    }
-
-    private void createTablesWithRetry()
-            throws InterruptedException
-    {
-        Duration delay = new Duration(10, TimeUnit.SECONDS);
-        while (true) {
-            try {
-                createTables();
-                return;
-            }
-            catch (UnableToObtainConnectionException e) {
-                log.warn("Failed to connect to database. Will retry again in %s. Exception: %s", delay, e.getMessage());
-                Thread.sleep((long) delay.toMillis());
-            }
-        }
-    }
-
-    private void createTables()
-    {
-        dao.createTableNodes();
-        dao.createTableShards();
-        dao.createTableShardNodes();
-        dao.createTableImportTables();
-        dao.createTableImportPartitions();
-        dao.createTableImportPartitionShards();
     }
 }

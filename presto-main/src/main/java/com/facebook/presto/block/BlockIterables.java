@@ -6,7 +6,6 @@ package com.facebook.presto.block;
 import com.facebook.presto.block.uncompressed.UncompressedBlock;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -16,6 +15,7 @@ import io.airlift.units.DataSize;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.BYTE;
 
 public final class BlockIterables
@@ -24,28 +24,28 @@ public final class BlockIterables
     {
     }
 
-    public static BlockIterable createBlockIterable(Block... blocks)
+    public static BlockIterable createBlockIterable(TupleInfo tupleInfo, Block... blocks)
     {
-        return new StaticBlockIterable(ImmutableList.copyOf(blocks));
+        return new StaticBlockIterable(tupleInfo, ImmutableList.copyOf(blocks));
     }
 
-    public static BlockIterable createBlockIterable(Iterable<? extends Block> blocks)
+    public static BlockIterable createBlockIterable(TupleInfo tupleInfo, Iterable<? extends Block> blocks)
     {
-        return new StaticBlockIterable(ImmutableList.copyOf(blocks));
+        return new StaticBlockIterable(tupleInfo, ImmutableList.copyOf(blocks));
     }
 
     private static class StaticBlockIterable
             implements BlockIterable
     {
+        private final TupleInfo tupleInfo;
         private final List<Block> blocks;
         private final int positionCount;
         private final DataSize dataSize;
 
-        public StaticBlockIterable(Iterable<Block> blocks)
+        public StaticBlockIterable(TupleInfo tupleInfo, Iterable<Block> blocks)
         {
-            Preconditions.checkNotNull(blocks, "blocks is null");
-            this.blocks = ImmutableList.copyOf(blocks);
-            Preconditions.checkArgument(!this.blocks.isEmpty(), "blocks is empty");
+            this.tupleInfo = checkNotNull(tupleInfo, "tupleInfo is null");
+            this.blocks = ImmutableList.copyOf(checkNotNull(blocks, "blocks is null"));
 
             long positionCount = 0;
             long dataSize = 0;
@@ -60,7 +60,7 @@ public final class BlockIterables
         @Override
         public TupleInfo getTupleInfo()
         {
-            return blocks.get(0).getTupleInfo();
+            return tupleInfo;
         }
 
         @Override

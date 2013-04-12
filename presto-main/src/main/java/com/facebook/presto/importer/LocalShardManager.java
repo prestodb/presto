@@ -18,8 +18,9 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 
+import static com.facebook.presto.importer.ImportField.targetColumnHandleGetter;
+
 import static com.facebook.presto.importer.ImportField.sourceColumnHandleGetter;
-import static com.facebook.presto.importer.ImportField.targetColumnIdGetter;
 import static com.facebook.presto.util.RetryDriver.retry;
 import static com.facebook.presto.util.Threads.threadsNamed;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -102,13 +103,12 @@ public class LocalShardManager
             ImportClient importClient = importClientManager.getClient(shardImport.getSourceName());
 
             PartitionChunk chunk = shardImport.getPartitionChunk().deserialize(importClient);
-            List<Long> targetColumnIds = transform(shardImport.getFields(), targetColumnIdGetter());
 
             ImportPartition importPartition = new ImportPartition(importClient, chunk);
             List<ImportColumnHandle> sourceColumns = transform(shardImport.getFields(), sourceColumnHandleGetter());
             RecordProjectOperator source = new RecordProjectOperator(importPartition, sourceColumns);
 
-            storageManager.importShard(shardId, targetColumnIds, source);
+            storageManager.importShard(shardId, transform(shardImport.getFields(), targetColumnHandleGetter()), source);
         }
     }
 

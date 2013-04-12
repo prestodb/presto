@@ -54,19 +54,19 @@ public class TestDatabaseStorageManager
             throws IOException
     {
         long shardId = 123;
-        List<Long> columnIds = ImmutableList.of(7L, 11L);
+        List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>of(new NativeColumnHandle(7L), new NativeColumnHandle(11L));
 
         InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(VARIABLE_BINARY, FIXED_INT_64) ,ImmutableList.copyOf(new List<?>[]{ImmutableList.of("abc", 1L), ImmutableList.of("def", 2L), ImmutableList.of("g", 0L)}));
         RecordProjectOperator source = new RecordProjectOperator(records, records.getColumns());
 
         assertFalse(storageManager.shardExists(shardId));
 
-        storageManager.importShard(shardId, columnIds, source);
+        storageManager.importShard(shardId, columnHandles, source);
 
         assertTrue(storageManager.shardExists(shardId));
 
         assertOperatorEquals(
-                new AlignmentOperator(storageManager.getBlocks(shardId, columnIds.get(0)), storageManager.getBlocks(shardId, columnIds.get(1))),
+                new AlignmentOperator(storageManager.getBlocks(shardId, columnHandles.get(0)), storageManager.getBlocks(shardId, columnHandles.get(1))),
                 new RecordProjectOperator(records, records.getColumns()));
     }
 
@@ -75,23 +75,22 @@ public class TestDatabaseStorageManager
             throws IOException
     {
         long shardId = 456;
-        List<Long> columnIds = ImmutableList.of(13L);
+        List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>of(new NativeColumnHandle(13L));
 
         InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(VARIABLE_BINARY), ImmutableList.copyOf(new List<?>[]{}));
         RecordProjectOperator source = new RecordProjectOperator(records, records.getColumns());
 
         assertFalse(storageManager.shardExists(shardId));
 
-        storageManager.importShard(shardId, columnIds, source);
+        storageManager.importShard(shardId, columnHandles, source);
 
         assertTrue(storageManager.shardExists(shardId));
 
-        assertTrue(Iterables.isEmpty(storageManager.getBlocks(shardId, columnIds.get(0))));
+        assertTrue(Iterables.isEmpty(storageManager.getBlocks(shardId, columnHandles.get(0))));
 
-        // TODO: make this work after empty blocks are supported
-//        assertOperatorEquals(
-//                new AlignmentOperator(storageManager.getBlocks(shardId, columnIds.get(0))),
-//                new RecordProjectOperator(records, createProjection(0, VARIABLE_BINARY)));
+        assertOperatorEquals(
+                new AlignmentOperator(storageManager.getBlocks(shardId, columnHandles.get(0))),
+                new RecordProjectOperator(records, records.getColumns()));
     }
 
     @Test

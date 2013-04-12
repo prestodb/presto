@@ -37,6 +37,7 @@ import com.facebook.presto.tpch.TpchSplit;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
+import com.facebook.presto.tuple.TupleInfo.Type;
 import com.facebook.presto.tuple.TupleReadable;
 import com.facebook.presto.util.MaterializedResult;
 import com.facebook.presto.util.MaterializedTuple;
@@ -96,7 +97,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.tuple.TupleInfo.Type;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
@@ -124,7 +124,8 @@ public class TestDistributedQueries
     public void testNodeRoster()
             throws Exception
     {
-        assertEquals(computeActual("SELECT * FROM sys.nodes").getMaterializedTuples().size(), servers.size());
+        List<MaterializedTuple> result = computeActual("SELECT * FROM sys.nodes").getMaterializedTuples();
+        assertEquals(result.size(), servers.size());
     }
 
     @Test
@@ -507,7 +508,7 @@ public class TestDistributedQueries
                 columnIds.add(columnId);
             }
 
-            storageManager.importShard(shardId, columnIds.build(), source);
+            storageManager.importShard(shardId, Lists.transform(table.getColumns(), ColumnMetadata.columnHandleGetter()), source);
         }
 
         public void commitShard(long shardId, String nodeId)

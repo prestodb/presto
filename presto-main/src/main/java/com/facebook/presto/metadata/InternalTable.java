@@ -74,7 +74,7 @@ public class InternalTable
             flushPage();
             ImmutableList.Builder<BlockIterable> list = ImmutableList.builder();
             for (List<Block> column : columns) {
-                list.add(column.isEmpty() ? emptyBlockIterable() : createBlockIterable(column));
+                list.add(column.isEmpty() ? emptyBlockIterable() : createBlockIterable(column.get(0).getTupleInfo(), column));
             }
             return new InternalTable(list.build());
         }
