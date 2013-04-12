@@ -34,16 +34,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 public class DistributedExecutionPlanner
 {
     private final SplitManager splitManager;
     private final Session session;
+    private final ShardManager shardManager;
 
     @Inject
-    public DistributedExecutionPlanner(SplitManager splitManager, Session session)
+    public DistributedExecutionPlanner(SplitManager splitManager,
+            Session session,
+            ShardManager shardManager)
     {
         this.splitManager = splitManager;
         this.session = session;
+        this.shardManager = checkNotNull(shardManager, "databaseShardManager is null");
     }
 
     public StageExecutionPlan plan(SubPlan root)
