@@ -23,6 +23,7 @@ import com.facebook.presto.operator.SourceHashProvider;
 import com.facebook.presto.operator.SourceHashProviderFactory;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.TableScanOperator;
+import com.facebook.presto.operator.TableWriterOperator;
 import com.facebook.presto.operator.TopNOperator;
 import com.facebook.presto.operator.window.WindowFunction;
 import com.facebook.presto.server.ExchangeOperatorFactory;
@@ -43,6 +44,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -219,17 +221,7 @@ public class LocalExecutionPlanner
             // see if we need to introduce a projection
             //   1. verify that there's one symbol per channel
             //   2. verify that symbols from "source" match the expected order of columns according to OutputNode
-            Ordering<Input> comparator = Ordering.from(new Comparator<Input>()
-            {
-                @Override
-                public int compare(Input o1, Input o2)
-                {
-                    return ComparisonChain.start()
-                            .compare(o1.getChannel(), o2.getChannel())
-                            .compare(o1.getField(), o2.getField())
-                            .result();
-                }
-            });
+            Ordering<Input> comparator = inputOrdering();
 
             List<Symbol> sourceSymbols = IterableTransformer.on(source.getLayout().entrySet())
                     .orderBy(comparator.onResultOf(MoreFunctions.<Symbol, Input>valueGetter()))
@@ -515,7 +507,42 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        protected PhysicalOperation visitPlan(PlanNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
+        {
+            LocalExecutionPlanner queryPlanner = new LocalExecutionPlanner(session,
+                    nodeInfo,
+                    metadata,
+                    node.getInputTypes(),
+                    operatorStats,
+                    joinHashFactory,
+                    maxOperatorMemoryUsage,
+                    dataStreamProvider,
+                    storageManager,
+                    exchangeOperatorFactory);
+
+            PhysicalOperation query = node.getSource().accept(queryPlanner.new Visitor(), context);
+
+            // introduce a projection to match the expected output
+            IdentityProjectionInfo mappings = computeIdentityMapping(node.getInputSymbols(), query.getLayout(), node.getInputTypes());
+            Operator sourceOperator = new FilterAndProjectOperator(query.getOperator(), FilterFunctions.TRUE_FUNCTION, mappings.getProjections());
+
+            Symbol outputSymbol = Iterables.getOnlyElement(node.getOutputTypes().keySet());
+
+            TableWriterOperator operator = new TableWriterOperator(storageManager,
+                    nodeInfo.getNodeId(),
+                    node.getInputSymbols(),
+                    node.getColumnHandles(),
+                    sourceOperator);
+
+            context.addSourceOperator(node, operator);
+            context.addOutputOperator(node, operator);
+
+            return new PhysicalOperation(operator,
+                    ImmutableMap.of(outputSymbol, new Input(0, 0)));
+        }
+
+        @Override
+        protected PhysicalOperation visitPlan(PlanNode node, LocalExecutionPlanContext context)
         {
             throw new UnsupportedOperationException("not yet implemented");
         }
@@ -732,5 +759,19 @@ public class LocalExecutionPlanner
         {
             return layout;
         }
+    }
+
+    private static Ordering<Input> inputOrdering()
+    {
+        return Ordering.from(new Comparator<Input>() {
+            @Override
+            public int compare(Input o1, Input o2)
+            {
+                return ComparisonChain.start()
+                        .compare(o1.getChannel(), o2.getChannel())
+                        .compare(o1.getField(), o2.getField())
+                        .result();
+            }
+        });
     }
 }
