@@ -4,7 +4,6 @@ import com.facebook.presto.ingest.RecordCursor;
 import com.facebook.presto.ingest.RecordSet;
 import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
 import com.facebook.presto.tpch.TpchSchema;
@@ -49,7 +48,6 @@ import static org.testng.Assert.fail;
 public abstract class AbstractTestQueries
 {
     private Handle handle;
-    private TestingMetadata metadata;
     private TpchDataStreamProvider dataProvider;
 
     @Test
@@ -1157,8 +1155,6 @@ public abstract class AbstractTestQueries
                 ")");
         insertRows(TpchSchema.createLineItem(), handle, lineItemRecords);
 
-        metadata = TpchSchema.createMetadata();
-
         TestingTpchBlocksProvider tpchBlocksProvider = new TestingTpchBlocksProvider(
                 ImmutableMap.of(
                         "orders", ordersRecords,
@@ -1168,7 +1164,7 @@ public abstract class AbstractTestQueries
 
         dataProvider = new TpchDataStreamProvider(tpchBlocksProvider);
 
-        setUpQueryFramework(TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME, dataProvider, metadata);
+        setUpQueryFramework(TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME, dataProvider);
     }
 
     @AfterClass(alwaysRun = true)
@@ -1179,7 +1175,7 @@ public abstract class AbstractTestQueries
         handle.close();
     }
 
-    protected void setUpQueryFramework(String catalog, String schema, TpchDataStreamProvider dataStreamProvider, TestingMetadata metadata)
+    protected void setUpQueryFramework(String catalog, String schema, TpchDataStreamProvider dataStreamProvider)
             throws Exception
     {
     }

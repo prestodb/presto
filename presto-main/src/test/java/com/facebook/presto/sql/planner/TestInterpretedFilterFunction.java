@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.metadata.TestingMetadata;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -178,7 +178,7 @@ public class TestInterpretedFilterFunction
     {
         Expression parsed = SqlParser.createExpression(expression);
         Session session = new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA);
-        InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(parsed, ImmutableMap.<Symbol, Input>of(), new TestingMetadata(), session);
+        InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(parsed, ImmutableMap.<Symbol, Input>of(), new MetadataManager(), session);
         boolean result = filterFunction.filter();
         assertEquals(result, expectedValue);
     }

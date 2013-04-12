@@ -22,7 +22,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class ImportMetadata
-        extends AbstractMetadata
+        implements ConnectorMetadata
 {
     private final ImportClientManager importClientManager;
 
@@ -180,6 +180,18 @@ public class ImportMetadata
             }
         }
         return list.build();
+    }
+
+    @Override
+    public void createTable(TableMetadata table)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropTable(TableMetadata table)
+    {
+        throw new UnsupportedOperationException();
     }
 
     private static List<SchemaField> getTableSchema(final ImportClient client, final String database, final String table)

@@ -5,7 +5,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.block.BlockBuilder;
-import com.facebook.presto.metadata.TestingMetadata;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.analyzer.Type;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
@@ -116,27 +116,31 @@ public class TestInterpretedProjectionFunction
     @Test
     public void testSymbolReference()
     {
-        assertProjection(LONG, createExpression("symbol"), 42L, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), ImmutableMap.of(new Symbol("symbol"), LONG), createTuple(42L));
-        assertProjection(LONG, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), ImmutableMap.of(new Symbol("symbol"), LONG), NULL_LONG_TUPLE);
+        assertProjection(LONG, createExpression("symbol"), 42L, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), createTuple(42L));
+        assertProjection(LONG, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), NULL_LONG_TUPLE);
 
-        assertProjection(DOUBLE, createExpression("symbol"), 11.1, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), ImmutableMap.of(new Symbol("symbol"), DOUBLE), createTuple(11.1));
-        assertProjection(DOUBLE, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), ImmutableMap.of(new Symbol("symbol"), DOUBLE), NULL_DOUBLE_TUPLE);
+        assertProjection(DOUBLE, createExpression("symbol"), 11.1, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), createTuple(11.1));
+        assertProjection(DOUBLE, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), NULL_DOUBLE_TUPLE);
 
-        assertProjection(STRING, createExpression("symbol"), "foo", ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), ImmutableMap.of(new Symbol("symbol"), STRING), createTuple("foo"));
-        assertProjection(STRING, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), ImmutableMap.of(new Symbol("symbol"), STRING), NULL_STRING_TUPLE);
+        assertProjection(STRING, createExpression("symbol"), "foo", ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), createTuple("foo"));
+        assertProjection(STRING, createExpression("symbol"), null, ImmutableMap.of(new Symbol("symbol"), new Input(0, 0)), NULL_STRING_TUPLE);
     }
 
     public static void assertProjection(Type outputType, String expression, @Nullable Object expectedValue)
     {
-        assertProjection(outputType, createExpression(expression), expectedValue, ImmutableMap.<Symbol, Input>of(), ImmutableMap.<Symbol, Type>of());
+        assertProjection(outputType, createExpression(expression), expectedValue, ImmutableMap.<Symbol, Input>of());
     }
 
-    public static void assertProjection(Type outputType, Expression expression, @Nullable Object expectedValue, Map<Symbol, Input> symbolToInputMappings, Map<Symbol, Type> types, TupleReadable... channels)
+    public static void assertProjection(Type outputType,
+            Expression expression,
+            @Nullable Object expectedValue,
+            Map<Symbol, Input> symbolToInputMappings,
+            TupleReadable... channels)
     {
         InterpretedProjectionFunction projectionFunction = new InterpretedProjectionFunction(outputType,
                 expression,
                 symbolToInputMappings,
-                new TestingMetadata(),
+                new MetadataManager(),
                 new Session(null, Session.DEFAULT_CATALOG, Session.DEFAULT_SCHEMA));
 
         // create output

@@ -1,18 +1,15 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.tuple.TupleInfo;
-
 import java.util.List;
 import java.util.Map;
 
-public interface Metadata
+public interface ConnectorMetadata
 {
-    FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes);
+    int priority();
 
-    FunctionInfo getFunction(FunctionHandle handle);
+    boolean canHandle(TableHandle tableHandle);
 
-    List<FunctionInfo> listFunctions();
+    boolean canHandle(QualifiedTablePrefix prefix);
 
     List<String> listSchemaNames(String catalogName);
 
@@ -33,6 +30,4 @@ public interface Metadata
     QualifiedTableName getTableName(TableHandle tableHandle);
 
     TableColumn getTableColumn(TableHandle tableHandle, ColumnHandle columnHandle);
-
-    boolean isAggregationFunction(QualifiedName name);
 }

@@ -1,6 +1,6 @@
 package com.facebook.presto.sql;
 
-import com.facebook.presto.metadata.TestingMetadata;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
@@ -520,7 +520,7 @@ public class TestExpressionInterpreter
 
                 return new QualifiedNameReference(symbol.toQualifiedName());
             }
-        }, new TestingMetadata(), new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA));
+        }, new MetadataManager(), new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA));
 
         Expression parsedExpression = createExpression(expression);
 
@@ -540,7 +540,7 @@ public class TestExpressionInterpreter
             {
                 throw new UnsupportedOperationException();
             }
-        }, new TestingMetadata(), new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA));
+        }, new MetadataManager(), new Session(null, DEFAULT_CATALOG, DEFAULT_SCHEMA));
 
         Expression parsedExpression = createExpression(expression);
 

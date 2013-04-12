@@ -1,12 +1,17 @@
 package com.facebook.presto.tpch;
 
 import com.facebook.presto.metadata.ColumnMetadata;
+import com.facebook.presto.metadata.ConnectorMetadata;
+import com.facebook.presto.metadata.InternalSchemaMetadata;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
@@ -42,12 +47,12 @@ public class TpchSchema
         return (TpchColumnHandle) table.getColumns().get(fieldIndex).getColumnHandle().get();
     }
 
-    public static TestingMetadata createMetadata()
+    public static Metadata createMetadata()
     {
         TestingMetadata testingMetadata = new TestingMetadata();
         testingMetadata.createTable(createOrders());
         testingMetadata.createTable(createLineItem());
-        return testingMetadata;
+        return new MetadataManager(ImmutableMap.<String, InternalSchemaMetadata>of(), ImmutableSet.<ConnectorMetadata>of(testingMetadata));
     }
 
     public static TableMetadata createOrders()

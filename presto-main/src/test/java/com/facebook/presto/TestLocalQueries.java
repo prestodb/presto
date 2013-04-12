@@ -1,11 +1,10 @@
 package com.facebook.presto;
 
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MockLocalStorageManager;
-import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
+import com.facebook.presto.tpch.TpchSchema;
 import com.facebook.presto.util.LocalQueryRunner;
 import com.facebook.presto.util.MaterializedResult;
 import org.intellij.lang.annotations.Language;
@@ -16,16 +15,14 @@ public class TestLocalQueries
     private String catalog;
     private String schema;
     private DataStreamProvider dataStreamProvider;
-    private Metadata metadata;
 
     @Override
-    protected void setUpQueryFramework(String catalog, String schema, TpchDataStreamProvider dataStreamProvider, TestingMetadata metadata)
+    protected void setUpQueryFramework(String catalog, String schema, TpchDataStreamProvider dataStreamProvider)
             throws Exception
     {
         this.catalog = catalog;
         this.schema = schema;
         this.dataStreamProvider = dataStreamProvider;
-        this.metadata = metadata;
     }
 
     @Override
@@ -33,7 +30,7 @@ public class TestLocalQueries
     {
         Session session = new Session(null, catalog, schema);
 
-        LocalQueryRunner runner = new LocalQueryRunner(dataStreamProvider, metadata, MockLocalStorageManager.createMockLocalStorageManager(), session);
+        LocalQueryRunner runner = new LocalQueryRunner(dataStreamProvider, TpchSchema.createMetadata(), MockLocalStorageManager.createMockLocalStorageManager(), session);
         return runner.execute(sql);
     }
 }

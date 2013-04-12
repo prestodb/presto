@@ -2,14 +2,15 @@ package com.facebook.presto.util;
 
 import com.facebook.presto.importer.MockPeriodicImportManager;
 import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.ConnectorMetadata;
 import com.facebook.presto.metadata.DualTable;
 import com.facebook.presto.metadata.InternalSchemaMetadata;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.InternalTableHandle;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.MockLocalStorageManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.MockLocalStorageManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.AlignmentOperator;
@@ -45,9 +46,9 @@ import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeInfo;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
 
@@ -138,10 +139,9 @@ public class LocalQueryRunner
                 "lineitem", readTpchRecords("lineitem")));
 
         DataStreamProvider dataProvider = new TpchDataStreamProvider(tpchBlocksProvider);
-        Metadata metadata = TpchSchema.createMetadata();
         Session session = new Session(null, TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
 
-        return new LocalQueryRunner(dataProvider, metadata, MockLocalStorageManager.createMockLocalStorageManager(), session);
+        return new LocalQueryRunner(dataProvider, TpchSchema.createMetadata(), MockLocalStorageManager.createMockLocalStorageManager(), session);
     }
 
     public static LocalQueryRunner createDualLocalQueryRunner()
@@ -152,7 +152,7 @@ public class LocalQueryRunner
     public static LocalQueryRunner createDualLocalQueryRunner(Session session)
     {
         DataStreamProvider dataProvider = new DualTableDataStreamProvider();
-        Metadata metadata = new MetadataManager(ImmutableMap.<String, InternalSchemaMetadata>of(), ImmutableSet.<Metadata>of());
+        Metadata metadata = new MetadataManager(ImmutableMap.<String, InternalSchemaMetadata>of(), ImmutableSet.<ConnectorMetadata>of());
         return new LocalQueryRunner(dataProvider, metadata, MockLocalStorageManager.createMockLocalStorageManager(), session);
     }
 

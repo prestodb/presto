@@ -52,6 +52,13 @@ public class QualifiedTablePrefix
         return tableName.isPresent();
     }
 
+    public boolean matches(QualifiedTableName name)
+    {
+        return catalogName.equals(name.getCatalogName()) &&
+                schemaName.or(name.getSchemaName()).equals(name.getSchemaName()) &&
+                tableName.or(name.getTableName()).equals(name.getTableName());
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -76,7 +83,7 @@ public class QualifiedTablePrefix
     @Override
     public String toString()
     {
-        return catalogName + '.' + schemaName + '.' + tableName;
+        return catalogName + '.' + schemaName.or("*") + '.' + tableName.or("*");
     }
 
     public static class Builder

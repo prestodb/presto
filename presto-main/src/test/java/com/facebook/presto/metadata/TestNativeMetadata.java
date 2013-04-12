@@ -22,7 +22,7 @@ public class TestNativeMetadata
     private static final QualifiedTableName DEFAULT_TEST_ORDERS = new QualifiedTableName("default", "test", "orders");
 
     private Handle dummyHandle;
-    private Metadata metadata;
+    private ConnectorMetadata metadata;
 
     @BeforeMethod
     public void setupDatabase()
