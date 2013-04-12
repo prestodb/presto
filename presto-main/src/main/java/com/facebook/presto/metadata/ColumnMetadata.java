@@ -10,18 +10,28 @@ import static com.google.common.base.Strings.emptyToNull;
 
 public class ColumnMetadata
 {
-    private static final Function<ColumnMetadata, String> COLUMN_NAME_GETTER_FUNCTION = new Function<ColumnMetadata, String>() {
-
-        @Override
-        public String apply(ColumnMetadata input)
-        {
-            return input.getName();
-        }
-    };
-
     public static Function<ColumnMetadata, String> columnNameGetter()
     {
-        return COLUMN_NAME_GETTER_FUNCTION;
+        return new Function<ColumnMetadata, String>() {
+
+            @Override
+            public String apply(ColumnMetadata input)
+            {
+                return input.getName();
+            }
+        };
+    }
+
+    public static Function<ColumnMetadata, ColumnHandle> columnHandleGetter()
+    {
+        return new Function<ColumnMetadata, ColumnHandle>() {
+
+            @Override
+            public ColumnHandle apply(ColumnMetadata input)
+            {
+                return input.getColumnHandle().get();
+            }
+        };
     }
 
     private final String name;

@@ -2,7 +2,7 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.metadata.ColumnHandle;
-import com.facebook.presto.metadata.NativeColumnHandle;
+import com.facebook.presto.metadata.DataSourceType;
 import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
@@ -38,10 +38,8 @@ public class NativeDataStreamProvider
 
         ImmutableList.Builder<BlockIterable> builder = ImmutableList.builder();
         for (ColumnHandle column : columns) {
-            checkArgument(column instanceof NativeColumnHandle, "column must be of type NativeColumnHandle, not %s", column.getClass().getName());
-            assert column instanceof NativeColumnHandle; // // IDEA-60343
-            NativeColumnHandle nativeColumn = (NativeColumnHandle) column;
-            builder.add(storageManager.getBlocks(nativeSplit.getShardId(), nativeColumn.getColumnId()));
+            checkArgument(column.getDataSourceType() == DataSourceType.NATIVE, "column must be native, not %s", column.getDataSourceType());
+            builder.add(storageManager.getBlocks(nativeSplit.getShardId(), column));
         }
         return new AlignmentOperator(builder.build());
     }
