@@ -4,22 +4,26 @@
 package com.facebook.presto;
 
 import com.facebook.presto.split.Split;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
+
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ScheduledSplit
 {
     private final long sequenceId;
-    private final Split split;
+    private final Map<PlanNodeId, ? extends Split> splits;
 
     @JsonCreator
-    public ScheduledSplit(@JsonProperty("sequenceId") long sequenceId, @JsonProperty("split") Split split)
+    public ScheduledSplit(@JsonProperty("sequenceId") long sequenceId,
+            @JsonProperty("splits") Map<PlanNodeId, ? extends Split> splits)
     {
         this.sequenceId = sequenceId;
-        this.split = checkNotNull(split, "split is null");
+        this.splits = checkNotNull(splits, "splits is null");
     }
 
     @JsonProperty
@@ -29,9 +33,9 @@ public class ScheduledSplit
     }
 
     @JsonProperty
-    public Split getSplit()
+    public Map<PlanNodeId, ? extends Split> getSplits()
     {
-        return split;
+        return splits;
     }
 
     @Override
@@ -39,7 +43,7 @@ public class ScheduledSplit
     {
         return Objects.toStringHelper(this)
                 .add("sequenceId", sequenceId)
-                .add("split", split)
+                .add("splits", splits)
                 .toString();
     }
 }

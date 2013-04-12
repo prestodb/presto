@@ -15,6 +15,7 @@ import com.facebook.presto.operator.InMemoryWindowOperator;
 import com.facebook.presto.operator.LimitOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.operator.OutputProducingOperator;
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.SourceHashProvider;
@@ -200,14 +201,12 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(operator, outputMappings);
         }
 
-
         @Override
-        public PhysicalOperation visitOutput(OutputNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitOutput(OutputNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, sourceOperators);
+            PhysicalOperation source = node.getSource().accept(this, context);
 
             List<Symbol> resultSymbols = Lists.transform(node.getColumnNames(), forMap(node.getAssignments()));
-
 
             // see if we need to introduce a projection
             //   1. verify that there's one symbol per channel

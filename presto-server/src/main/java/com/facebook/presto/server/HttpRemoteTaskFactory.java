@@ -58,7 +58,8 @@ public class HttpRemoteTaskFactory
             TaskId taskId,
             Node node,
             PlanFragment fragment,
-            Split initialSplit,
+            @Nullable Map<PlanNodeId, ? extends Split> initialSplit,
+            Map<PlanNodeId, OutputReceiver> outputReceivers,
             Multimap<PlanNodeId, URI> initialExchangeLocations,
             Set<String> initialOutputIds)
     {

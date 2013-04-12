@@ -22,6 +22,7 @@ import com.facebook.presto.sql.analyzer.Symbol;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
 import com.facebook.presto.sql.planner.SymbolResolver;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
@@ -124,21 +125,26 @@ public class SplitManager
         scheduleRandom.set(0);
     }
 
-    public Iterable<SplitAssignments> getSplitAssignments(Session session, TableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
+    public Iterable<SplitAssignments> getSplitAssignments(PlanNodeId planNodeId,
+            Session session,
+            TableHandle handle,
+            Expression predicate,
+            Optional<Predicate<PartitionInfo>> partitionPredicate,
+            Map<Symbol, ColumnHandle> mappings)
     {
         switch (handle.getDataSourceType()) {
             case NATIVE:
-                return getNativeSplitAssignments((NativeTableHandle) handle);
+                return getNativeSplitAssignments(planNodeId, (NativeTableHandle) handle);
             case INTERNAL:
-                return getInternalSplitAssignments((InternalTableHandle) handle, predicate, mappings);
+                return getInternalSplitAssignments(planNodeId, (InternalTableHandle) handle, predicate, mappings);
             case IMPORT:
-                return getImportSplitAssignments(session, (ImportTableHandle) handle, predicate, mappings);
+                return getImportSplitAssignments(planNodeId, session, (ImportTableHandle) handle, predicate, partitionPredicate, mappings);
             default:
                 throw new IllegalArgumentException("unsupported handle type: " + handle);
         }
     }
 
-    private Iterable<SplitAssignments> getNativeSplitAssignments(NativeTableHandle handle)
+    private Iterable<SplitAssignments> getNativeSplitAssignments(PlanNodeId planNodeId, NativeTableHandle handle)
     {
         Map<String, Node> nodeMap = getNodeMap(nodeManager.getActiveNodes());
         Multimap<Long, String> shardNodes = shardManager.getCommittedShardNodes(handle.getTableId());
@@ -147,12 +153,12 @@ public class SplitManager
         for (Map.Entry<Long, Collection<String>> entry : shardNodes.asMap().entrySet()) {
             Split split = new NativeSplit(entry.getKey());
             List<Node> nodes = getNodes(nodeMap, entry.getValue());
-            splitAssignments.add(new SplitAssignments(split, nodes));
+            splitAssignments.add(new SplitAssignments(ImmutableMap.of(planNodeId, split), nodes));
         }
         return splitAssignments.build();
     }
 
-    private Iterable<SplitAssignments> getInternalSplitAssignments(InternalTableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
+    private Iterable<SplitAssignments> getInternalSplitAssignments(PlanNodeId planNodeId, InternalTableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
     {
         Map<Symbol, InternalColumnHandle> symbols = filterValueInstances(mappings, InternalColumnHandle.class);
         Split split = new InternalSplit(handle, extractFilters(predicate, symbols));
@@ -161,7 +167,7 @@ public class SplitManager
         Preconditions.checkState(currentNode.isPresent(), "current node is not in the active set");
 
         List<Node> nodes = ImmutableList.of(currentNode.get());
-        return ImmutableList.of(new SplitAssignments(split, nodes));
+        return ImmutableList.of(new SplitAssignments(ImmutableMap.of(planNodeId, split), nodes));
     }
 
     private static <K, V, V1 extends V> Map<K, V1> filterValueInstances(Map<K, V> map, Class<V1> clazz)
@@ -405,7 +411,7 @@ public class SplitManager
         return filters.build();
     }
 
-    private Function<PartitionChunk, SplitAssignments> createImportSplitFunction(final String sourceName)
+    private Function<PartitionChunk, SplitAssignments> createImportSplitFunction(final PlanNodeId planNodeId, final String sourceName)
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the the split is about to be scheduled
@@ -469,7 +475,7 @@ public class SplitManager
         // add some random nodes if below the minimum count
         if (chosen.size() < minCount) {
             for (Node node : lazyShuffle(nodeMap.getNodesByHost().values())) {
-                if (chosen.add(node)) {;
+                if (chosen.add(node)) {
                     scheduleRandom.incrementAndGet();
                 }
 

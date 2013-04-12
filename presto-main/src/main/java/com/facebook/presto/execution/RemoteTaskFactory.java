@@ -21,6 +21,8 @@ public interface RemoteTaskFactory
             TaskId taskId,
             Node node,
             PlanFragment fragment,
-            Split initialSplit, Multimap<PlanNodeId, URI> initialExchangeLocations,
+            Map<PlanNodeId, ? extends Split> initialSplits,
+            Map<PlanNodeId, OutputReceiver> outputReceivers,
+            Multimap<PlanNodeId, URI> initialExchangeLocations,
             Set<String> initialOutputIds);
 }

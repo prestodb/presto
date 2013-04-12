@@ -14,33 +14,40 @@ import com.google.common.base.Functions;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.Immutable;
+
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Immutable
 public class PlanFragment
 {
     private final PlanFragmentId id;
     private final PlanNode root;
-    private final PlanNodeId partitionedSource;
+    private final Set<PlanNodeId> partitionedSources;
     private final Map<Symbol, Type> symbols;
 
     @JsonCreator
-    public PlanFragment(@JsonProperty("id") PlanFragmentId id, @JsonProperty("partitionedSource") PlanNodeId partitionedSource, @JsonProperty("symbols") Map<Symbol, Type> symbols, @JsonProperty("root") PlanNode root)
+    public PlanFragment(@JsonProperty("id") PlanFragmentId id,
+            @JsonProperty("partitionedSources") Set<PlanNodeId> partitionedSources,
+            @JsonProperty("symbols") Map<Symbol, Type> symbols,
+            @JsonProperty("root") PlanNode root)
     {
         Preconditions.checkNotNull(id, "id is null");
         Preconditions.checkNotNull(symbols, "symbols is null");
         Preconditions.checkNotNull(root, "root is null");
+        Preconditions.checkNotNull(partitionedSources, "partitionedSources is null");
 
         this.id = id;
         this.root = root;
-        this.partitionedSource = partitionedSource;
+        this.partitionedSources = ImmutableSet.copyOf(partitionedSources);
         this.symbols = symbols;
     }
 
-    @JsonProperty("id")
+    @JsonProperty
     public PlanFragmentId getId()
     {
         return id;
@@ -48,22 +55,22 @@ public class PlanFragment
 
     public boolean isPartitioned()
     {
-        return partitionedSource != null;
+        return !partitionedSources.isEmpty();
     }
 
-    @JsonProperty("partitionedSource")
-    public PlanNodeId getPartitionedSource()
+    @JsonProperty
+    public Set<PlanNodeId> getPartitionedSources()
     {
-        return partitionedSource;
+        return partitionedSources;
     }
 
-    @JsonProperty("root")
+    @JsonProperty
     public PlanNode getRoot()
     {
         return root;
     }
 
-    @JsonProperty("symbols")
+    @JsonProperty
     public Map<Symbol, Type> getSymbols()
     {
         return symbols;
@@ -108,7 +115,7 @@ public class PlanFragment
     {
         return Objects.toStringHelper(this)
                 .add("id", id)
-                .add("partitionedSource", partitionedSource)
+                .add("partitionedSources", partitionedSources)
                 .toString();
     }
 

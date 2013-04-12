@@ -9,6 +9,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.Set;
 
 public interface RemoteTask
@@ -17,7 +18,7 @@ public interface RemoteTask
 
     TaskInfo getTaskInfo();
 
-    void addSplit(Split split);
+    void addSplits(Map<PlanNodeId, ? extends Split> split);
 
     void noMoreSplits();
 
