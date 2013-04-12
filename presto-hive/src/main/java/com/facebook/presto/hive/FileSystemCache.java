@@ -1,5 +1,6 @@
 package com.facebook.presto.hive;
 
+import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -10,12 +11,14 @@ import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.metrics.ContextFactory;
 import org.apache.hadoop.net.DNSToSwitchMapping;
 import org.apache.hadoop.net.SocksSocketFactory;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.net.SocketFactory;
+import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -86,6 +89,16 @@ public class FileSystemCache
         config.setBoolean("dfs.read.shortcircuit.fallbackwhenfail", true);
         config.setInt("dfs.socket.timeout", Ints.saturatedCast((long) dfsTimeout.toMillis()));
         config.setInt("ipc.ping.interval", Ints.saturatedCast((long) dfsTimeout.toMillis()));
+
+        // Enable JMX export of stats for DFSClient
+        try {
+            ContextFactory factory = ContextFactory.getFactory();
+            factory.setAttribute("hdfsclient.class", "org.apache.hadoop.metrics.jmx.JMXContext");
+            factory.setAttribute("hdfsclient.period", "5"); // Counter value publish interval (seconds)
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
 
         return config;
     }
