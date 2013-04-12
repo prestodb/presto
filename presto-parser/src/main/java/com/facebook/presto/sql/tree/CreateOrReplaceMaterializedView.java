@@ -8,9 +8,9 @@ public class CreateOrReplaceMaterializedView
         extends Statement
 {
     private final QualifiedName name;
-    private final Statement tableDefinition;
+    private final Query tableDefinition;
 
-    public CreateOrReplaceMaterializedView(QualifiedName name, Statement tableDefinition)
+    public CreateOrReplaceMaterializedView(QualifiedName name, Query tableDefinition)
     {
         this.name = checkNotNull(name, "name is null");
         this.tableDefinition = checkNotNull(tableDefinition, "tableDefinition is null");
@@ -21,7 +21,7 @@ public class CreateOrReplaceMaterializedView
         return name;
     }
 
-    public Statement getTableDefinition()
+    public Query getTableDefinition()
     {
         return tableDefinition;
     }
@@ -29,7 +29,7 @@ public class CreateOrReplaceMaterializedView
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        throw new UnsupportedOperationException();
+        return visitor.visitCreateOrReplaceMaterializedView(this, context);
     }
 
     @Override
