@@ -1,5 +1,7 @@
 package com.facebook.presto.importer;
 
+import com.facebook.presto.metadata.NativeTableHandle;
+
 import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.metadata.NodeManager;
@@ -126,7 +128,7 @@ public class ImportManager
 
         // TODO: handle minor race condition where getAllPartitions does not include pre-started partition import tasks
         Set<String> allPartitions = shardManager.getAllPartitions(tableId);
-        Set<String> committedPartitions = shardManager.getCommittedPartitions(tableId);
+        Set<String> committedPartitions = shardManager.getCommittedPartitions(new NativeTableHandle(tableId));
         Set<String> uncommittedPartitions = Sets.difference(allPartitions, committedPartitions);
         Set<String> operatingPartitions = partitionOperationTracker.getOperatingPartitions(tableId);
 

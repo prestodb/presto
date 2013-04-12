@@ -1,5 +1,8 @@
 package com.facebook.presto.metadata;
 
+import io.airlift.log.Logger;
+import io.airlift.units.Duration;
+import org.skife.jdbi.v2.exceptions.UnableToObtainConnectionException;
 import org.skife.jdbi.v2.sqlobject.Bind;
 import org.skife.jdbi.v2.sqlobject.GetGeneratedKeys;
 import org.skife.jdbi.v2.sqlobject.SqlQuery;
@@ -10,6 +13,7 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 public interface ShardManagerDao
 {
@@ -35,6 +39,25 @@ public interface ShardManagerDao
             "  FOREIGN KEY (node_id) REFERENCES nodes (node_id)\n" +
             ")")
     void createTableShardNodes();
+
+    @SqlUpdate("CREATE TABLE IF NOT EXISTS table_partitions (\n" +
+            "  partition_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
+            "  partition_name VARCHAR(255) NOT NULL,\n" +
+            "  table_id BIGINT NOT NULL,\n" +
+            "  UNIQUE (table_id, partition_name),\n" +
+            "  FOREIGN KEY (table_id) REFERENCES tables (table_id)\n" +
+            ")")
+    void createTablePartitions();
+
+    @SqlUpdate("CREATE TABLE IF NOT EXISTS partition_shards (\n" +
+            "  shard_id BIGINT NOT NULL,\n" +
+            "  table_id BIGINT NOT NULL,\n" +
+            "  partition_id BIGINT NOT NULL,\n" +
+            "  FOREIGN KEY (shard_id) REFERENCES shards (shard_id),\n" +
+            "  FOREIGN KEY (table_id) REFERENCES tables (table_id),\n" +
+            "  FOREIGN KEY (partition_id) REFERENCES table_partitions (partition_id)\n" +
+            ")")
+    void createPartitionShards();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS import_tables (\n" +
             "  table_id BIGINT PRIMARY KEY,\n" +
@@ -79,6 +102,20 @@ public interface ShardManagerDao
             @Bind("shardId") long shardId,
             @Bind("nodeId") long nodeId);
 
+    @SqlUpdate("INSERT INTO table_partitions (partition_name, table_id)\n" +
+            "VALUES (:partitionName, :tableId)\n")
+    @GetGeneratedKeys
+    long insertPartition(
+            @Bind("tableId") long tableId,
+            @Bind("partitionName") String partitionName);
+
+    @SqlUpdate("INSERT INTO partition_shards (shard_id, table_id, partition_id)\n" +
+            "VALUES (:shardId, :tableId, :partitionId)\n")
+    void insertPartitionShard(
+            @Bind("shardId") long shardId,
+            @Bind("tableId") long tableId,
+            @Bind("partitionId") long partitionId);
+
     @SqlUpdate("INSERT INTO import_tables\n" +
             "(table_id, source_name, database_name, table_name)\n" +
             "VALUES (:tableId, :sourceName, :databaseName, :tableName)")
@@ -117,6 +154,11 @@ public interface ShardManagerDao
             "FROM import_partitions\n" +
             "WHERE table_id = :tableId\n")
     Set<String> getAllPartitions(@Bind("tableId") long tableId);
+
+    @SqlQuery("SELECT partition_name\n" +
+            " FROM table_partitions\n" +
+            " WHERE table_id = :tableId\n")
+    Set<String> getPartitions(@Bind("tableId") long tableId);
 
     @SqlQuery("SELECT ip.partition_name\n" +
             "FROM import_partitions ip\n" +
@@ -192,4 +234,37 @@ public interface ShardManagerDao
             "  AND shard_id NOT IN (SELECT DISTINCT shard_id from shard_nodes)\n" +
             "  AND committed IS TRUE\n")
     List<Long> getAllOrphanedShards();
+
+    public static class Utils
+    {
+        public static final Logger log = Logger.get(ShardManagerDao.class);
+
+        public static void createShardTablesWithRetry(ShardManagerDao dao)
+                throws InterruptedException
+        {
+            Duration delay = new Duration(10, TimeUnit.SECONDS);
+            while (true) {
+                try {
+                    createShardTables(dao);
+                    return;
+                }
+                catch (UnableToObtainConnectionException e) {
+                    log.warn("Failed to connect to database. Will retry again in %s. Exception: %s", delay, e.getMessage());
+                    Thread.sleep((long) delay.toMillis());
+                }
+            }
+        }
+
+        private static void createShardTables(ShardManagerDao dao)
+        {
+            dao.createTableNodes();
+            dao.createTableShards();
+            dao.createTableShardNodes();
+            dao.createTablePartitions();
+            dao.createPartitionShards();
+            dao.createTableImportTables();
+            dao.createTableImportPartitions();
+            dao.createTableImportPartitionShards();
+        }
+    }
 }

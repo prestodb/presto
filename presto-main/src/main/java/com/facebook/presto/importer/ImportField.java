@@ -49,14 +49,14 @@ public class ImportField
         };
     }
 
-    public static Function<ImportField, Long> targetColumnIdGetter()
+    public static Function<ImportField, NativeColumnHandle> targetColumnHandleGetter()
     {
-        return new Function<ImportField, Long>()
+        return new Function<ImportField, NativeColumnHandle>()
         {
             @Override
-            public Long apply(ImportField input)
+            public NativeColumnHandle apply(ImportField input)
             {
-                return input.getTargetColumnHandle().getColumnId();
+                return input.getTargetColumnHandle();
             }
         };
     }

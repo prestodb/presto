@@ -3,18 +3,19 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.block.Block;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.block.BlockUtils;
-import com.facebook.presto.ingest.ImportingOperator;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.operator.PageIterator;
 import com.facebook.presto.serde.BlocksFileEncoding;
 import com.facebook.presto.serde.BlocksFileReader;
 import com.facebook.presto.serde.BlocksFileStats;
-import com.facebook.presto.serde.BlocksFileWriter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -22,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
-import com.google.common.io.OutputSupplier;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -32,17 +32,14 @@ import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.VoidTransactionCallback;
 
-import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
 
@@ -55,7 +52,6 @@ public class DatabaseStorageManager
 
     private static final int RUN_LENGTH_AVERAGE_CUTOFF = 3;
     private static final int DICTIONARY_CARDINALITY_CUTOFF = 1000;
-    private static final int OUTPUT_BUFFER_SIZE = (int) new DataSize(64, KILOBYTE).toBytes();
 
     private final IDBI dbi;
     private final File baseStorageDir;
@@ -93,143 +89,148 @@ public class DatabaseStorageManager
     }
 
     @Override
-    public void importShard(long shardId, List<Long> columnIds, Operator source)
+    public void importShard(long shardId, List<? extends ColumnHandle> columnHandles, Operator source)
             throws IOException
     {
-        checkArgument(source.getChannelCount() == columnIds.size(), "channel count does not match columnId list");
+        checkArgument(source.getChannelCount() == columnHandles.size(), "channel count does not match columnHandles list");
         checkState(!shardExists(shardId), "shard %s has already been imported", shardId);
 
+        ColumnFileHandle fileHandle = createStagingFileHandles(shardId, columnHandles);
+
         // Locally stage the imported data
-        List<File> files = stagingImport(shardId, columnIds, source);
+        importData(source, fileHandle);
 
-        // Process staged files to optimize encodings if necessary
-        List<File> finalOutputFiles = optimizeEncodings(shardId, columnIds, files);
-
-        // Commit all the columns at the same time once everything has been successfully imported
-        commitShardColumns(shardId, columnIds, finalOutputFiles);
-
-        // Delete empty staging directory
-        deleteStagingDirectory(shardId);
+        commit(fileHandle);
     }
 
-    private List<File> stagingImport(long shardId, List<Long> columnIds, Operator source)
+    @Override
+    public ColumnFileHandle createStagingFileHandles(long shardId, List<? extends ColumnHandle> columnHandles)
             throws IOException
     {
         File shardPath = getShardPath(baseStagingDir, shardId);
-        List<File> outputFiles = getOutputFiles(shardPath, columnIds);
-        List<BlocksFileWriter> writers = getFileWriters(outputFiles);
 
-        ImportingOperator.importData(source, writers);
+        ColumnFileHandle.Builder builder = ColumnFileHandle.builder(shardId);
 
-        return outputFiles;
-    }
-
-    private static List<File> getOutputFiles(File shardPath, List<Long> columnIds)
-            throws IOException
-    {
-        ImmutableList.Builder<File> files = ImmutableList.builder();
-        for (long columnId : columnIds) {
-            File file = getColumnFile(shardPath, columnId, DEFAULT_ENCODING);
+        for (ColumnHandle columnHandle : columnHandles) {
+            File file = getColumnFile(shardPath, columnHandle, DEFAULT_ENCODING);
             Files.createParentDirs(file);
-            files.add(file);
+            builder.addColumn(columnHandle, file, DEFAULT_ENCODING);
         }
-        return files.build();
+
+        return builder.build();
     }
 
-    private static List<BlocksFileWriter> getFileWriters(List<File> files)
-    {
-        ImmutableList.Builder<BlocksFileWriter> writers = ImmutableList.builder();
-        for (File file : files) {
-            writers.add(new BlocksFileWriter(DEFAULT_ENCODING, createOutputSupplier(file)));
-        }
-        return writers.build();
-    }
-
-    private List<File> optimizeEncodings(long shardId, List<Long> columnIds, List<File> stagedFiles)
+    @Override
+    public void commit(ColumnFileHandle columnFileHandle)
             throws IOException
     {
-        checkArgument(columnIds.size() == stagedFiles.size(), "columnId list does not match file list");
+        checkNotNull(columnFileHandle, "columnFileHandle is null");
 
-        ImmutableList.Builder<BlockIterable> sourcesBuilder = ImmutableList.builder();
-        ImmutableList.Builder<BlocksFileWriter> writersBuilder = ImmutableList.builder();
-        ImmutableList.Builder<File> optimizedFilesBuilder = ImmutableList.builder();
+        columnFileHandle.commit();
 
+        // Process staged files to optimize encodings if necessary
+        ColumnFileHandle finalColumnFileHandle = optimizeEncodings(columnFileHandle);
+
+        // Commit all the columns at the same time once everything has been successfully imported
+        commitShardColumns(finalColumnFileHandle);
+
+        // Delete empty staging directory
+        deleteStagingDirectory(columnFileHandle);
+    }
+
+    private ColumnFileHandle optimizeEncodings(ColumnFileHandle columnFileHandle)
+            throws IOException
+    {
+        long shardId = columnFileHandle.getShardId();
         File shardPath = getShardPath(baseStorageDir, shardId);
 
-        // TODO: remove this hack when empty blocks are allowed
-        if (!stagedFiles.get(0).exists()) {
-            ImmutableList.Builder<File> outputFiles = ImmutableList.builder();
-            for (File file : stagedFiles) {
-                outputFiles.add(new File(shardPath, file.getName()));
-            }
-            return outputFiles.build();
-        }
+        ImmutableList.Builder<BlockIterable> sourcesBuilder = ImmutableList.builder();
+        ColumnFileHandle.Builder builder = ColumnFileHandle.builder(shardId);
 
-        for (int i = 0; i < stagedFiles.size(); i++) {
-            long columnId = columnIds.get(i);
-            File stagedFile = stagedFiles.get(i);
-            Slice slice = mappedFileCache.getUnchecked(stagedFile.getAbsoluteFile());
+        for (Map.Entry<ColumnHandle, File> entry : columnFileHandle.getFiles().entrySet()) {
+            File file = entry.getValue();
+            ColumnHandle columnHandle = entry.getKey();
 
-            // Compute optimal encoding from stats
-            BlocksFileReader blocks = BlocksFileReader.readBlocks(slice);
-            BlocksFileStats stats = blocks.getStats();
-            boolean rleEncode = stats.getAvgRunLength() > RUN_LENGTH_AVERAGE_CUTOFF;
-            boolean dicEncode = stats.getUniqueCount() < DICTIONARY_CARDINALITY_CUTOFF;
+            if (file.exists()) {
+                Slice slice = mappedFileCache.getUnchecked(file.getAbsoluteFile());
+                checkState(file.length() == slice.length(), "File %s, length %s was mapped to Slice length %s", file.getAbsolutePath(), file.length(), slice.length());
+                // Compute optimal encoding from stats
+                BlocksFileReader blocks = BlocksFileReader.readBlocks(slice);
+                BlocksFileStats stats = blocks.getStats();
+                boolean rleEncode = stats.getAvgRunLength() > RUN_LENGTH_AVERAGE_CUTOFF;
+                boolean dicEncode = stats.getUniqueCount() < DICTIONARY_CARDINALITY_CUTOFF;
 
-            BlocksFileEncoding encoding = DEFAULT_ENCODING;
-            if (dicEncode && rleEncode) {
-                encoding = BlocksFileEncoding.DIC_RLE;
-            }
-            else if (dicEncode) {
-                encoding = BlocksFileEncoding.DIC_RAW;
-            }
-            else if (rleEncode) {
-                encoding = BlocksFileEncoding.RLE;
-            }
-            if (!ENABLE_OPTIMIZATION) {
-                encoding = DEFAULT_ENCODING;
-            }
+                BlocksFileEncoding encoding = DEFAULT_ENCODING;
 
-            File outputFile = getColumnFile(shardPath, columnId, encoding);
-            Files.createParentDirs(outputFile);
-            optimizedFilesBuilder.add(outputFile);
+                if (ENABLE_OPTIMIZATION) {
+                    if (dicEncode && rleEncode) {
+                        encoding = BlocksFileEncoding.DIC_RLE;
+                    }
+                    else if (dicEncode) {
+                        encoding = BlocksFileEncoding.DIC_RAW;
+                    }
+                    else if (rleEncode) {
+                        encoding = BlocksFileEncoding.RLE;
+                    }
+                }
 
-            if (encoding == DEFAULT_ENCODING) {
-                // Should already be raw, so just move
-                Files.move(stagedFile, outputFile);
+                File outputFile = getColumnFile(shardPath, columnHandle, encoding);
+                Files.createParentDirs(outputFile);
+
+                if (encoding == DEFAULT_ENCODING) {
+                    // Optimization: source is already raw, so just move.
+                    Files.move(file, outputFile);
+                    // still register the file with the builder so that it can
+                    // be committed correctly.
+                    builder.addColumn(columnHandle, outputFile);
+                }
+                else {
+                    // source builder and output builder move in parallel if the
+                    // column gets written
+                    sourcesBuilder.add(blocks);
+                    builder.addColumn(columnHandle, outputFile, encoding);
+                }
             }
             else {
-                sourcesBuilder.add(blocks);
-                writersBuilder.add(new BlocksFileWriter(encoding, createOutputSupplier(outputFile)));
+                // fake file
+                File outputFile = getColumnFile(shardPath, columnHandle, DEFAULT_ENCODING);
+                builder.addColumn(columnHandle, outputFile);
             }
         }
+
         List<BlockIterable> sources = sourcesBuilder.build();
-        List<BlocksFileWriter> writers = writersBuilder.build();
+        ColumnFileHandle targetFileHandle = builder.build();
 
         if (!sources.isEmpty()) {
             AlignmentOperator source = new AlignmentOperator(sources);
-            ImportingOperator.importData(source, writers);
+            importData(source, targetFileHandle);
         }
-        return optimizedFilesBuilder.build();
+
+        try {
+            targetFileHandle.commit();
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
+
+        return targetFileHandle;
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
-    private void deleteStagingDirectory(long shardId)
+    private void deleteStagingDirectory(ColumnFileHandle columnFileHandle)
     {
-        getShardPath(baseStagingDir, shardId).delete();
+        File path = getShardPath(baseStagingDir, columnFileHandle.getShardId());
+
+        while (path.delete() && !path.getParentFile().equals(baseStagingDir)) {
+            path = path.getParentFile();
+        }
     }
 
-    private static OutputSupplier<OutputStream> createOutputSupplier(final File file)
+    private void importData(Operator source, ColumnFileHandle fileHandle)
     {
-        return new OutputSupplier<OutputStream>()
-        {
-            @Override
-            public OutputStream getOutput()
-                    throws IOException
-            {
-                return new BufferedOutputStream(new FileOutputStream(file), OUTPUT_BUFFER_SIZE);
-            }
-        };
+        for (PageIterator iterator = source.iterator(new OperatorStats()); iterator.hasNext();) {
+            fileHandle.append(iterator.next());
+        }
     }
 
     /**
@@ -263,14 +264,15 @@ public class DatabaseStorageManager
         return new File(baseDir, path);
     }
 
-    private static File getColumnFile(File shardPath, long columnId, BlocksFileEncoding encoding)
+    private static File getColumnFile(File shardPath, ColumnHandle columnHandle, BlocksFileEncoding encoding)
     {
+        checkState(columnHandle.getDataSourceType() == DataSourceType.NATIVE, "Can only import in a native column");
+        long columnId = ((NativeColumnHandle) columnHandle).getColumnId();
         return new File(shardPath, format("%s.%s.column", columnId, encoding.getName()));
     }
 
-    private void commitShardColumns(final long shardId, final List<Long> columnIds, final List<File> files)
+    private void commitShardColumns(final ColumnFileHandle columnFileHandle)
     {
-        checkArgument(columnIds.size() == files.size(), "columnId list does not match file list");
         dbi.inTransaction(new VoidTransactionCallback()
         {
             @Override
@@ -278,18 +280,27 @@ public class DatabaseStorageManager
                     throws Exception
             {
                 StorageManagerDao dao = handle.attach(StorageManagerDao.class);
-                for (int i = 0; i < columnIds.size(); i++) {
-                    long columnId = columnIds.get(i);
-                    String filename = files.get(i).getName();
-                    dao.insertColumn(shardId, columnId, filename);
+
+                for (Map.Entry<ColumnHandle, File> entry : columnFileHandle.getFiles().entrySet()) {
+                    ColumnHandle columnHandle = entry.getKey();
+                    File file = entry.getValue();
+
+                    checkState(columnHandle.getDataSourceType() == DataSourceType.NATIVE, "Can only import in a native column");
+                    long columnId = ((NativeColumnHandle) columnHandle).getColumnId();
+                    String filename = file.getName();
+                    dao.insertColumn(columnFileHandle.getShardId(), columnId, filename);
                 }
             }
         });
     }
 
     @Override
-    public BlockIterable getBlocks(long shardId, long columnId)
+    public BlockIterable getBlocks(long shardId, ColumnHandle columnHandle)
     {
+        checkNotNull(columnHandle);
+        checkState(columnHandle.getDataSourceType() == DataSourceType.NATIVE, "Can only load blocks from a native column");
+        long columnId = ((NativeColumnHandle) columnHandle).getColumnId();
+
         checkState(shardExists(shardId), "shard %s has not yet been imported", shardId);
         String filename = dao.getColumnFilename(shardId, columnId);
         File file = new File(getShardPath(baseStorageDir, shardId), filename);
