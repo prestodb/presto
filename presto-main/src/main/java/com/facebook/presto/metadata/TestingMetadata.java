@@ -1,8 +1,5 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.tpch.TpchTableHandle;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -21,45 +18,26 @@ import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Maps.filterKeys;
 
 public class TestingMetadata
-        extends AbstractMetadata
+        implements ConnectorMetadata
 {
     private final Map<QualifiedTableName, TableMetadata> tables = new HashMap<>();
-    private final FunctionRegistry functions = new FunctionRegistry();
+
+    @Override
+    public int priority()
+    {
+        return Integer.MIN_VALUE;
+    }
 
     @Override
     public boolean canHandle(TableHandle tableHandle)
     {
-        return tableHandle instanceof TpchTableHandle;
+        return false;
     }
 
     @Override
     public boolean canHandle(QualifiedTablePrefix prefix)
     {
         return prefix.getCatalogName().equals("tpch");
-    }
-
-    @Override
-    public FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes)
-    {
-        return functions.get(name, parameterTypes);
-    }
-
-    @Override
-    public FunctionInfo getFunction(FunctionHandle handle)
-    {
-        return functions.get(handle);
-    }
-
-    @Override
-    public boolean isAggregationFunction(QualifiedName name)
-    {
-        return functions.isAggregationFunction(name);
-    }
-
-    @Override
-    public List<FunctionInfo> listFunctions()
-    {
-        return functions.list();
     }
 
     @Override
@@ -114,7 +92,7 @@ public class TestingMetadata
 
         ImmutableList.Builder<QualifiedTableName> builder = ImmutableList.builder();
         for (QualifiedTableName name : tables.keySet()) {
-            if (!prefix.hasSchemaName() || prefix.getSchemaName().get().equals(name.getSchemaName())) {
+            if (prefix.matches(name)) {
                 builder.add(name);
             }
         }
@@ -135,6 +113,17 @@ public class TestingMetadata
         QualifiedTableName key = table.getTable();
         checkArgument(tables.containsKey(key), "Table '%s' not defined", key);
         tables.remove(key);
+    }
+
+    public QualifiedTableName getTableName(TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public TableColumn getTableColumn(TableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        throw new UnsupportedOperationException();
     }
 
     private List<TableColumn> getTableColumns(Predicate<QualifiedTableName> predicate)

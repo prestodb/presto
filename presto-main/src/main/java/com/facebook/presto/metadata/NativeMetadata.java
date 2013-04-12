@@ -1,8 +1,6 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.metadata.MetadataDao.Utils;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -20,11 +18,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 public class NativeMetadata
-        extends AbstractMetadata
+        implements ConnectorMetadata
 {
     private final IDBI dbi;
     private final MetadataDao dao;
-    private final FunctionRegistry functions = new FunctionRegistry();
 
     @Inject
     public NativeMetadata(@ForMetadata IDBI dbi)
@@ -52,30 +49,6 @@ public class NativeMetadata
     public boolean canHandle(QualifiedTablePrefix prefix)
     {
         return prefix.getCatalogName().equals("default");
-    }
-
-    @Override
-    public FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes)
-    {
-        return functions.get(name, parameterTypes);
-    }
-
-    @Override
-    public FunctionInfo getFunction(FunctionHandle handle)
-    {
-        return functions.get(handle);
-    }
-
-    @Override
-    public boolean isAggregationFunction(QualifiedName name)
-    {
-        return functions.isAggregationFunction(name);
-    }
-
-    @Override
-    public List<FunctionInfo> listFunctions()
-    {
-        return functions.list();
     }
 
     @Override

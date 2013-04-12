@@ -11,6 +11,7 @@ import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
 import com.facebook.presto.guice.TestingJmxModule;
+import com.facebook.presto.metadata.ConnectorMetadata;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
@@ -42,7 +43,6 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Stage;
 import com.google.inject.TypeLiteral;
-import com.google.inject.multibindings.Multibinder;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.discovery.DiscoveryServerModule;
@@ -75,16 +75,18 @@ import java.io.Closeable;
 import java.io.File;
 import java.lang.reflect.Method;
 import java.net.URI;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.tpch.TpchSchema.createLineItem;
+import static com.facebook.presto.tpch.TpchSchema.createOrders;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -95,8 +97,6 @@ public class TestDistributedQueries
     private static final Logger log = Logger.get(TestDistributedQueries.class.getSimpleName());
     private final JsonCodec<QueryResults> queryResultsCodec = createCodecFactory().jsonCodec(QueryResults.class);
 
-    private String catalog;
-    private Metadata metadata;
     private PrestoTestingServer coordinator;
     private List<PrestoTestingServer> servers;
     private AsyncHttpClient httpClient;
@@ -125,7 +125,6 @@ public class TestDistributedQueries
             throws Exception
     {
         MaterializedResult result = computeActual("SHOW TABLES");
-        assertEquals(result.getMaterializedTuples().size(), 2);
         ImmutableSet<String> tableNames = ImmutableSet.copyOf(transform(result.getMaterializedTuples(), new Function<MaterializedTuple, String>()
         {
             @Override
@@ -135,6 +134,7 @@ public class TestDistributedQueries
                 return (String) input.getField(0);
             }
         }));
+        assertEquals(tableNames.size(), 2);
         assertEquals(tableNames, ImmutableSet.copyOf(loadedTableNames));
     }
 
@@ -181,23 +181,18 @@ public class TestDistributedQueries
     }
 
     @Override
-    protected void setUpQueryFramework(String catalog, String schema, TpchDataStreamProvider dataStreamProvider, TestingMetadata metadata)
+    protected void setUpQueryFramework(String catalog, String schema, TpchDataStreamProvider dataStreamProvider)
             throws Exception
     {
         Logging.initialize();
 
-        this.catalog = catalog;
-        this.metadata = metadata;
-
         try {
-            PrestoTestingServerModule testingModule = new PrestoTestingServerModule(metadata, dataStreamProvider);
-
             discoveryServer = new DiscoveryTestingServer();
-            coordinator = new PrestoTestingServer(discoveryServer.getBaseUrl(), testingModule);
+            coordinator = new PrestoTestingServer(discoveryServer.getBaseUrl(), dataStreamProvider);
             servers = ImmutableList.<PrestoTestingServer>builder()
                     .add(coordinator)
-                    .add(new PrestoTestingServer(discoveryServer.getBaseUrl(), testingModule))
-                    .add(new PrestoTestingServer(discoveryServer.getBaseUrl(), testingModule))
+                    .add(new PrestoTestingServer(discoveryServer.getBaseUrl(), dataStreamProvider))
+                    .add(new PrestoTestingServer(discoveryServer.getBaseUrl(), dataStreamProvider))
                     .build();
         }
         catch (Exception e) {
@@ -216,7 +211,7 @@ public class TestDistributedQueries
 
         log.info("Loading data...");
         long startTime = System.nanoTime();
-        loadedTableNames = distributeData();
+        loadedTableNames = distributeData(catalog, schema);
         log.info("Loading complete in %.2fs", Duration.nanosSince(startTime).convertTo(TimeUnit.SECONDS));
     }
 
@@ -232,12 +227,11 @@ public class TestDistributedQueries
         Closeables.closeQuietly(discoveryServer);
     }
 
-    private List<String> distributeData()
+    private List<String> distributeData(String catalog, String schema)
             throws Exception
     {
         ImmutableList.Builder<String> tableNames = ImmutableList.builder();
-        List<QualifiedTableName> qualifiedTableNames = metadata.listTables(QualifiedTablePrefix.builder(catalog).build());
-
+        List<QualifiedTableName> qualifiedTableNames = coordinator.metadata.listTables(QualifiedTablePrefix.builder(catalog).schemaName(schema).build());
         for (QualifiedTableName qualifiedTableName : qualifiedTableNames) {
             log.info("Running import for %s", qualifiedTableName.getTableName());
             MaterializedResult importResult = computeActual(format("CREATE MATERIALIZED VIEW default.default.%s AS SELECT * FROM %s",
@@ -361,8 +355,9 @@ public class TestDistributedQueries
         private final TestingHttpServer server;
         private final ImmutableList<ServiceSelector> serviceSelectors;
         private final NodeManager nodeManager;
+        private final Metadata metadata;
 
-        public PrestoTestingServer(URI discoveryUri, Module... additionalModules)
+        public PrestoTestingServer(URI discoveryUri, final TpchDataStreamProvider dataStreamProvider)
                 throws Exception
         {
             checkNotNull(discoveryUri, "discoveryUri is null");
@@ -381,22 +376,25 @@ public class TestDistributedQueries
                     .put("failure-detector.warmup-interval", "0ms")
                     .build();
 
-            ImmutableSet.Builder<Module> builder = ImmutableSet.builder();
-
-            builder.add(new NodeModule())
-                    .add(new DiscoveryModule())
-                    .add(new TestingHttpServerModule())
-                    .add(new JsonModule())
-                    .add(new JaxrsModule())
-                    .add(new TestingJmxModule())
-                    .add(new InMemoryEventModule())
-                    .add(new TraceTokenModule())
-                    .add(new FailureDetectorModule())
-                    .add(new ServerMainModule());
-
-            builder.addAll(Arrays.asList(additionalModules));
-
-            Bootstrap app = new Bootstrap(builder.build());
+            Bootstrap app = new Bootstrap(
+                    new NodeModule(),
+                    new DiscoveryModule(),
+                    new TestingHttpServerModule(),
+                    new JsonModule(),
+                    new JaxrsModule(),
+                    new TestingJmxModule(),
+                    new InMemoryEventModule(),
+                    new TraceTokenModule(),
+                    new FailureDetectorModule(),
+                    new ServerMainModule(),
+                    new Module() {
+                        @Override
+                        public void configure(Binder binder)
+                        {
+                            binder.bind(TpchDataStreamProvider.class).toInstance(dataStreamProvider);
+                            newSetBinder(binder, ConnectorMetadata.class).addBinding().to(TestingMetadata.class);
+                        }
+                    });
 
             Injector injector = app
                     .strictConfig()
@@ -409,6 +407,10 @@ public class TestDistributedQueries
             lifeCycleManager = injector.getInstance(LifeCycleManager.class);
 
             nodeManager = injector.getInstance(NodeManager.class);
+
+            metadata = injector.getInstance(Metadata.class);
+            metadata.createTable(createOrders());
+            metadata.createTable(createLineItem());
 
             server = injector.getInstance(TestingHttpServer.class);
 
@@ -468,27 +470,6 @@ public class TestDistributedQueries
             finally {
                 FileUtils.deleteRecursively(baseDataDir);
             }
-        }
-    }
-
-    private static class PrestoTestingServerModule
-            implements Module
-    {
-        private final TestingMetadata tpchMetadata;
-        private final TpchDataStreamProvider dataStreamProvider;
-
-        private PrestoTestingServerModule(TestingMetadata tpchMetadata, TpchDataStreamProvider dataStreamProvider)
-        {
-            this.tpchMetadata = checkNotNull(tpchMetadata, "tpchMetadata is null");
-            this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
-        }
-
-        @Override
-        public void configure(Binder binder)
-        {
-            binder.bind(TpchDataStreamProvider.class).toInstance(dataStreamProvider);
-            Multibinder<Metadata> metadataMultibinder = Multibinder.newSetBinder(binder, Metadata.class);
-            metadataMultibinder.addBinding().toInstance(tpchMetadata);
         }
     }
 

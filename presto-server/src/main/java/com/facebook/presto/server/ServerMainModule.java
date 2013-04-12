@@ -37,6 +37,7 @@ import com.facebook.presto.importer.PeriodicImportRunnable;
 import com.facebook.presto.metadata.AliasDao;
 import com.facebook.presto.metadata.DatabaseLocalStorageManager;
 import com.facebook.presto.metadata.DatabaseLocalStorageManagerConfig;
+import com.facebook.presto.metadata.ConnectorMetadata;
 import com.facebook.presto.metadata.DatabaseShardManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
 import com.facebook.presto.metadata.ForAlias;
@@ -160,7 +161,7 @@ public class ServerMainModule
         binder.bind(MetadataResource.class).in(Scopes.SINGLETON);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
-        Multibinder<Metadata> metadataMultibinder = Multibinder.newSetBinder(binder, Metadata.class);
+        Multibinder<ConnectorMetadata> connectorMetadataBinder = Multibinder.newSetBinder(binder, ConnectorMetadata.class);
         MapBinder<String, InternalSchemaMetadata> internalSchemaMetadataMultibinder = MapBinder.newMapBinder(binder, String.class, InternalSchemaMetadata.class);
 
         // internal schemas like information_schema and sys
@@ -168,7 +169,7 @@ public class ServerMainModule
         internalSchemaMetadataMultibinder.addBinding(SystemTables.SYSTEM_SCHEMA).to(SystemTables.class);
 
         // native
-        metadataMultibinder.addBinding().to(NativeMetadata.class).in(Scopes.SINGLETON);
+        connectorMetadataBinder.addBinding().to(NativeMetadata.class).in(Scopes.SINGLETON);
 
         // system tables (e.g., Dual, information_schema, and sys)
         binder.bind(SystemTables.class).in(Scopes.SINGLETON);
@@ -176,7 +177,7 @@ public class ServerMainModule
         binder.bind(InformationSchemaData.class).in(Scopes.SINGLETON);
 
         // import
-        metadataMultibinder.addBinding().to(ImportMetadata.class).in(Scopes.SINGLETON);
+        connectorMetadataBinder.addBinding().to(ImportMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ImportClientManager.class).in(Scopes.SINGLETON);
         // kick off binding of import client factories
         Multibinder.newSetBinder(binder, ImportClientFactory.class);

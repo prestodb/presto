@@ -2,6 +2,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
@@ -29,42 +30,21 @@ public class MetadataManager
         implements Metadata
 {
     private final Map<String, InternalSchemaMetadata> internalSchemas;
-    private final SortedSet<Metadata> metadataProviders;
+    private final SortedSet<ConnectorMetadata> connectors;
     private final FunctionRegistry functions = new FunctionRegistry();
 
+    @VisibleForTesting
+    public MetadataManager()
+    {
+        this.internalSchemas = ImmutableMap.of();
+        this.connectors = ImmutableSortedSet.of();
+    }
+
     @Inject
-    public MetadataManager(Map<String, InternalSchemaMetadata> internalSchemas, Set<Metadata> metadataProviders)
+    public MetadataManager(Map<String, InternalSchemaMetadata> internalSchemas, Set<ConnectorMetadata> connectors)
     {
         this.internalSchemas = ImmutableMap.copyOf(checkNotNull(internalSchemas, "internalSchemas is null"));
-        this.metadataProviders = ImmutableSortedSet.copyOf(new PriorityComparator(), checkNotNull(metadataProviders, "metadataProviders is null"));
-    }
-
-    @Override
-    public int priority()
-    {
-        return Integer.MIN_VALUE;
-    }
-
-    @Override
-    public boolean canHandle(TableHandle tableHandle)
-    {
-        for (Metadata metadata : metadataProviders) {
-            if (metadata.canHandle(tableHandle)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    @Override
-    public boolean canHandle(QualifiedTablePrefix prefix)
-    {
-        for (Metadata metadata : metadataProviders) {
-            if (metadata.canHandle(prefix)) {
-                return true;
-            }
-        }
-        return false;
+        this.connectors = ImmutableSortedSet.copyOf(new PriorityComparator(), checkNotNull(connectors, "metadataProviders is null"));
     }
 
     @Override
@@ -197,7 +177,7 @@ public class MetadataManager
         return ImmutableList.copyOf(concat(catalogColumns, informationSchemaColumns, systemColumns));
     }
 
-    public Metadata lookupDataSource(QualifiedTableName table)
+    private ConnectorMetadata lookupDataSource(QualifiedTableName table)
     {
         checkTable(table);
         return lookupDataSource(QualifiedTablePrefix.builder(table.getCatalogName())
@@ -206,9 +186,9 @@ public class MetadataManager
                 .build());
     }
 
-    private Metadata lookupDataSource(QualifiedTablePrefix prefix)
+    private ConnectorMetadata lookupDataSource(QualifiedTablePrefix prefix)
     {
-        for (Metadata metadata : metadataProviders) {
+        for (ConnectorMetadata metadata : connectors) {
             if (metadata.canHandle(prefix)) {
                 return metadata;
             }
@@ -218,9 +198,9 @@ public class MetadataManager
         throw new IllegalArgumentException("No metadata provider for: " + prefix);
     }
 
-    private Metadata lookupDataSource(TableHandle tableHandle)
+    private ConnectorMetadata lookupDataSource(TableHandle tableHandle)
     {
-        for (Metadata metadata : metadataProviders) {
+        for (ConnectorMetadata metadata : connectors) {
             if (metadata.canHandle(tableHandle)) {
                 return metadata;
             }
@@ -230,10 +210,10 @@ public class MetadataManager
         throw new IllegalArgumentException("No metadata provider for: " + tableHandle);
     }
 
-    private static class PriorityComparator implements Comparator<Metadata>
+    private static class PriorityComparator implements Comparator<ConnectorMetadata>
     {
         @Override
-        public int compare(Metadata o1, Metadata o2)
+        public int compare(ConnectorMetadata o1, ConnectorMetadata o2)
         {
             // reverse sort order
             return Ints.compare(o2.priority(), o1.priority());
