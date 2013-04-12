@@ -19,6 +19,7 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -30,10 +31,12 @@ import org.joda.time.DateTime;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
+
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -256,7 +259,8 @@ public class SqlTaskManager
                         ImmutableSet.<PlanNodeId>of(),
                         new ExecutionStatsSnapshot(),
                         ImmutableList.<SplitExecutionStats>of(),
-                        ImmutableList.<FailureInfo>of());
+                        ImmutableList.<FailureInfo>of(),
+                        ImmutableMap.<PlanNodeId, Set<?>>of());
                 TaskInfo existingTaskInfo = taskInfos.putIfAbsent(taskId, taskInfo);
                 if (existingTaskInfo != null) {
                     taskInfo = existingTaskInfo;
