@@ -3,6 +3,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.metadata.ColumnFileHandle.Builder;
 import com.facebook.presto.operator.Operator;
+import com.google.common.base.Throwables;
 import com.google.common.io.Files;
 
 import java.io.File;
@@ -13,9 +14,19 @@ public class MockLocalStorageManager
         implements LocalStorageManager
 {
 
+    public static MockLocalStorageManager createMockLocalStorageManager()
+    {
+        try {
+            return new MockLocalStorageManager();
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
     private final File storageFolder;
 
-    public MockLocalStorageManager()
+    private MockLocalStorageManager()
             throws IOException
     {
         this(Files.createTempDir());
