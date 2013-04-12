@@ -1,20 +1,17 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.importer.MockPeriodicImportManager;
-import com.facebook.presto.metadata.AbstractMetadata;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.DualTable;
-import com.facebook.presto.metadata.FunctionHandle;
-import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.InternalSchemaMetadata;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.InternalTableHandle;
 import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MockLocalStorageManager;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
@@ -39,28 +36,24 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.MockStorageManager;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
 import com.facebook.presto.tpch.TpchSchema;
 import com.facebook.presto.tpch.TpchSplit;
 import com.facebook.presto.tpch.TpchTableHandle;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeInfo;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import org.intellij.lang.annotations.Language;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.MetadataUtil.checkTable;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_CATALOG;
 import static com.facebook.presto.sql.analyzer.Session.DEFAULT_SCHEMA;
 import static com.facebook.presto.sql.parser.TreeAssertions.assertFormattedSql;
@@ -148,12 +141,7 @@ public class LocalQueryRunner
         Metadata metadata = TpchSchema.createMetadata();
         Session session = new Session(null, TpchSchema.CATALOG_NAME, TpchSchema.SCHEMA_NAME);
 
-        try {
-            return new LocalQueryRunner(dataProvider, metadata, new MockLocalStorageManager(), session);
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
+        return new LocalQueryRunner(dataProvider, metadata, MockLocalStorageManager.createMockLocalStorageManager(), session);
     }
 
     public static LocalQueryRunner createDualLocalQueryRunner()
@@ -164,13 +152,8 @@ public class LocalQueryRunner
     public static LocalQueryRunner createDualLocalQueryRunner(Session session)
     {
         DataStreamProvider dataProvider = new DualTableDataStreamProvider();
-        Metadata metadata = new DualTableMetadata();
-        try {
-            return new LocalQueryRunner(dataProvider, metadata, new MockLocalStorageManager(), session);
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
+        Metadata metadata = new MetadataManager(ImmutableMap.<String, InternalSchemaMetadata>of(), ImmutableSet.<Metadata>of());
+        return new LocalQueryRunner(dataProvider, metadata, MockLocalStorageManager.createMockLocalStorageManager(), session);
     }
 
     private static Split createSplit(TableHandle handle)
@@ -182,38 +165,6 @@ public class LocalQueryRunner
             return new InternalSplit((InternalTableHandle) handle);
         }
         throw new IllegalArgumentException("unsupported table handle: " + handle.getClass().getName());
-    }
-
-    private static class DualTableMetadata
-            extends AbstractMetadata
-    {
-        private final FunctionRegistry functions = new FunctionRegistry();
-
-        @Override
-        public FunctionInfo getFunction(QualifiedName name, List<TupleInfo.Type> parameterTypes)
-        {
-            return functions.get(name, parameterTypes);
-        }
-
-        @Override
-        public FunctionInfo getFunction(FunctionHandle handle)
-        {
-            return functions.get(handle);
-        }
-
-        @Override
-        public boolean isAggregationFunction(QualifiedName name)
-        {
-            return functions.isAggregationFunction(name);
-        }
-
-        @Override
-        public TableMetadata getTable(QualifiedTableName table)
-        {
-            checkTable(table);
-            checkArgument(table.getTableName().equals(DualTable.NAME), "wrong table name: %s", table);
-            return DualTable.getTable(table);
-        }
     }
 
     private static class DualTableDataStreamProvider
