@@ -36,6 +36,7 @@ import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
+import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat.SymlinkTextInputSplit;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -66,8 +67,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+
+import static com.facebook.presto.hive.HivePartitionChunk.makeLastChunk;
 
 import static com.facebook.presto.hive.HiveUtil.convertHiveType;
 import static com.facebook.presto.hive.HiveUtil.convertNativeHiveType;
@@ -78,7 +82,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Iterables.transform;
-import static org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat.SymlinkTextInputSplit;
 
 
 @SuppressWarnings("deprecation")
@@ -259,7 +262,7 @@ public class HiveClient
             throw new ObjectNotFoundException(e.getMessage());
         }
 
-        return getPartitionChunks(table, partitions, getHiveColumns(table, columns));
+        return getPartitionChunks(table, ImmutableList.copyOf(partitionNames), partitions, getHiveColumns(table, columns));
     }
 
     private Iterable<Partition> getPartitions(final String databaseName, final String tableName, final List<String> partitionNames)
@@ -364,9 +367,9 @@ public class HiveClient
         }
     }
 
-    private Iterable<PartitionChunk> getPartitionChunks(Table table, Iterable<Partition> partitions, List<HiveColumn> columns)
+    private Iterable<PartitionChunk> getPartitionChunks(Table table, Iterable<String> partitionNames, Iterable<Partition> partitions, List<HiveColumn> columns)
     {
-        return new PartitionChunkIterable(table, partitions, columns, maxChunkBytes, maxOutstandingChunks, maxChunkIteratorThreads, fileSystemCache, executor, partitionBatchSize);
+        return new PartitionChunkIterable(table, partitionNames, partitions, columns, maxChunkBytes, maxOutstandingChunks, maxChunkIteratorThreads, fileSystemCache, executor, partitionBatchSize);
     }
 
     private static class PartitionChunkIterable
@@ -374,6 +377,12 @@ public class HiveClient
     {
         private static final PartitionChunk FINISHED_MARKER = new PartitionChunk()
         {
+            @Override
+            public String getPartitionName()
+            {
+                throw new UnsupportedOperationException();
+            }
+
             @Override
             public long getLength()
             {
@@ -391,9 +400,16 @@ public class HiveClient
             {
                 throw new UnsupportedOperationException();
             }
+
+            @Override
+            public boolean isLastChunk()
+            {
+                throw new UnsupportedOperationException();
+            }
         };
 
         private final Table table;
+        private final Iterable<String> partitionNames;
         private final Iterable<Partition> partitions;
         private final List<HiveColumn> columns;
         private final long maxChunkBytes;
@@ -405,6 +421,7 @@ public class HiveClient
         private final int partitionBatchSize;
 
         private PartitionChunkIterable(Table table,
+                Iterable<String> partitionNames,
                 Iterable<Partition> partitions,
                 List<HiveColumn> columns,
                 long maxChunkBytes,
@@ -415,6 +432,7 @@ public class HiveClient
                 int partitionBatchSize)
         {
             this.table = table;
+            this.partitionNames = partitionNames;
             this.partitions = partitions;
             this.partitionBatchSize = partitionBatchSize;
             this.columns = ImmutableList.copyOf(columns);
@@ -452,14 +470,18 @@ public class HiveClient
             try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
                 ImmutableList.Builder<ListenableFuture<Void>> futureBuilder = ImmutableList.builder();
 
+                Iterator<String> nameIterator = partitionNames.iterator();
                 for (Partition partition : partitions) {
+                    checkState(nameIterator.hasNext(), "different number of partitions and partition names!");
                     semaphore.acquire();
+                    final String partitionName = nameIterator.next();
                     final Properties schema = getPartitionSchema(table, partition);
                     final List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition);
                     final InputFormat<?, ?> inputFormat = getInputFormat(fileSystemCache.getConfiguration(), schema, false);
                     Path partitionPath = new CachingPath(getPartitionLocation(table, partition), fileSystemCache);
 
                     final FileSystem fs = partitionPath.getFileSystem(fileSystemCache.getConfiguration());
+                    final PartitionChunkPoisoner chunkPoisoner = new PartitionChunkPoisoner(partitionChunkQueue);
 
                     if (inputFormat instanceof SymlinkTextInputFormat) {
                         JobConf jobConf = new JobConf(fileSystemCache.getConfiguration());
@@ -467,7 +489,8 @@ public class HiveClient
                         InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
                         for (InputSplit rawSplit : splits) {
                             FileSplit split = ((SymlinkTextInputSplit) rawSplit).getTargetSplit();
-                            partitionChunkQueue.addToQueue(createHivePartitionChunks(fs.getFileStatus(split.getPath()),
+                            chunkPoisoner.writeChunks(createHivePartitionChunks(partitionName,
+                                    fs.getFileStatus(split.getPath()),
                                     split.getStart(),
                                     split.getLength(),
                                     schema,
@@ -475,6 +498,7 @@ public class HiveClient
                                     fs,
                                     false));
                         }
+                        chunkPoisoner.finish();
                         continue;
                     }
 
@@ -488,7 +512,7 @@ public class HiveClient
                                         file.getPath().getFileSystem(fileSystemCache.getConfiguration()),
                                         file.getPath());
 
-                                partitionChunkQueue.addToQueue(createHivePartitionChunks(file, 0, file.getLen(), schema, partitionKeys, fs, splittable));
+                                chunkPoisoner.writeChunks(createHivePartitionChunks(partitionName, file, 0, file.getLen(), schema, partitionKeys, fs, splittable));
                             }
                             catch (IOException e) {
                                 partitionChunkQueue.fail(e);
@@ -496,18 +520,20 @@ public class HiveClient
                         }
                     });
 
-                    // release the semaphore when th partition finishes
+                    // release the semaphore when the partition finishes
                     Futures.addCallback(partitionFuture, new FutureCallback<Void>()
                     {
                         @Override
                         public void onSuccess(Void result)
                         {
+                            chunkPoisoner.finish();
                             semaphore.release();
                         }
 
                         @Override
                         public void onFailure(Throwable t)
                         {
+                            chunkPoisoner.finish();
                             semaphore.release();
                         }
                     });
@@ -535,7 +561,9 @@ public class HiveClient
             }
         }
 
-        private List<HivePartitionChunk> createHivePartitionChunks(FileStatus file,
+        private List<HivePartitionChunk> createHivePartitionChunks(
+                String partitionName,
+                FileStatus file,
                 long start,
                 long length,
                 Properties schema,
@@ -549,7 +577,9 @@ public class HiveClient
             ImmutableList.Builder<HivePartitionChunk> builder = ImmutableList.builder();
             if (splittable) {
                 for (BlockLocation blockLocation : fileBlockLocations) {
-                    builder.add(new HivePartitionChunk(file.getPath(),
+                    builder.add(new HivePartitionChunk(partitionName,
+                            false,
+                            file.getPath(),
                             blockLocation.getOffset(),
                             blockLocation.getLength(),
                             schema,
@@ -559,7 +589,10 @@ public class HiveClient
                 }
             } else {
                 // not splittable, use the hosts from the first block
-                builder.add(new HivePartitionChunk(file.getPath(),
+                builder.add(new HivePartitionChunk(
+                        partitionName,
+                        false,
+                        file.getPath(),
                         start,
                         length,
                         schema,
@@ -583,6 +616,45 @@ public class HiveClient
             return builder.build();
         }
 
+        /**
+         * Holds onto the last seen partition chunk for a given partition and
+         * will "poison" it with an end marker when a partition is finished.
+         */
+        private static class PartitionChunkPoisoner
+        {
+            private final PartitionChunkQueue partitionChunkQueue;
+
+            private AtomicReference<HivePartitionChunk> chunkHolder = new AtomicReference<>();
+            private AtomicBoolean done = new AtomicBoolean();
+
+            private PartitionChunkPoisoner(PartitionChunkQueue partitionChunkQueue)
+            {
+                this.partitionChunkQueue = checkNotNull(partitionChunkQueue, "partitionChunkQueue is null");
+            }
+
+            public synchronized void writeChunks(Iterable<HivePartitionChunk> chunks)
+            {
+                checkNotNull(chunks, "chunks is null");
+                checkState(!done.get(), "already done");
+
+                for(Iterator<HivePartitionChunk> it = chunks.iterator(); it.hasNext(); ) {
+                    HivePartitionChunk previousChunk = chunkHolder.getAndSet(it.next());
+                    if (previousChunk != null) {
+                        partitionChunkQueue.addToQueue(previousChunk);
+                    }
+                }
+            }
+
+            private synchronized void finish()
+            {
+                checkState(!done.getAndSet(true), "already done");
+                HivePartitionChunk finalChunk = chunkHolder.getAndSet(null);
+                if (finalChunk != null) {
+                    partitionChunkQueue.addToQueue(makeLastChunk(finalChunk));
+                }
+            }
+        }
+
         private static class PartitionChunkQueue
                 extends AbstractIterator<PartitionChunk>
         {
@@ -596,13 +668,6 @@ public class HiveClient
             {
                 this.maxOutstandingChunks = maxOutstandingChunks;
                 this.suspendingExecutor = suspendingExecutor;
-            }
-
-            private void addToQueue(List<? extends PartitionChunk> chunks)
-            {
-                for (PartitionChunk chunk : chunks) {
-                    addToQueue(chunk);
-                }
             }
 
             private void addToQueue(PartitionChunk chunk)

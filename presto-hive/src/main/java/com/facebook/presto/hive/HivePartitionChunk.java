@@ -18,6 +18,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class HivePartitionChunk
     implements PartitionChunk
 {
+    private final String partitionName;
+    private final boolean lastChunk;
     private final Path path;
     private final long start;
     private final long length;
@@ -26,8 +28,28 @@ public class HivePartitionChunk
     private final List<HiveColumn> columns;
     private final List<InetAddress> hosts;
 
+    public static final HivePartitionChunk makeLastChunk(HivePartitionChunk chunk)
+    {
+        if (chunk.isLastChunk()) {
+            return chunk;
+        }
+        else {
+            return new HivePartitionChunk(chunk.getPartitionName(),
+                    true,
+                    chunk.getPath(),
+                    chunk.getStart(),
+                    chunk.getLength(),
+                    chunk.getSchema(),
+                    chunk.getPartitionKeys(),
+                    chunk.getColumns(),
+                    chunk.getHosts());
+        }
+    }
+
     @JsonCreator
     public HivePartitionChunk(
+            @JsonProperty("partitionName") String partitionName,
+            @JsonProperty("lastChunk") boolean lastChunk,
             @JsonProperty("path") Path path,
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
@@ -38,12 +60,15 @@ public class HivePartitionChunk
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
+        checkNotNull(partitionName, "partitionName is null");
         checkNotNull(path, "path is null");
         checkNotNull(schema, "schema is null");
         checkNotNull(partitionKeys, "partitionKeys is null");
         checkNotNull(columns, "columns is null");
         checkNotNull(hosts, "hosts is null");
 
+        this.partitionName = partitionName;
+        this.lastChunk = lastChunk;
         this.path = path;
         this.start = start;
         this.length = length;
@@ -51,6 +76,18 @@ public class HivePartitionChunk
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.columns = ImmutableList.copyOf(columns);
         this.hosts = ImmutableList.copyOf(hosts);
+    }
+
+    @JsonProperty
+    public String getPartitionName()
+    {
+        return partitionName;
+    }
+
+    @JsonProperty
+    public boolean isLastChunk()
+    {
+        return lastChunk;
     }
 
     @JsonProperty
