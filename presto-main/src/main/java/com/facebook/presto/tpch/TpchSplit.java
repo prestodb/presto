@@ -8,7 +8,7 @@ import com.google.common.base.Preconditions;
 
 // Right now, splits are just the entire TPCH table
 public class TpchSplit
-    implements Split
+        implements Split
 {
     private final TpchTableHandle tableHandle;
 
