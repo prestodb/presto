@@ -11,6 +11,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nullable;
+
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +34,7 @@ public class AnalysisResult
     private final IdentityHashMap<Join, List<AnalyzedJoinClause>> joinCriteria;
     private final boolean distinct;
     private final Query rewrittenQuery;
+    private final IdentityHashMap<AnalyzedDestination, AnalysisResult> destinations;
 
     public static AnalysisResult newInstance(AnalysisContext context,
             boolean distinct,
@@ -43,7 +45,7 @@ public class AnalysisResult
             Set<AnalyzedFunction> windowsFunctions,
             @Nullable Long limit,
             List<AnalyzedOrdering> orderBy,
-            Query rewrittenQuery)
+            @Nullable Query rewrittenQuery)
     {
         return new AnalysisResult(
                 context.getSymbolAllocator(),
@@ -51,6 +53,7 @@ public class AnalysisResult
                 context.getTableMetadata(),
                 context.getInlineViews(),
                 context.getJoinCriteria(),
+                context.getDestinations(),
                 distinct,
                 aggregations,
                 windowsFunctions,
@@ -67,6 +70,7 @@ public class AnalysisResult
             IdentityHashMap<Relation, TableMetadata> tableMetadata,
             IdentityHashMap<Subquery, AnalysisResult> inlineViews,
             IdentityHashMap<Join, List<AnalyzedJoinClause>> joinCriteria,
+            IdentityHashMap<AnalyzedDestination, AnalysisResult> destinations,
             boolean distinct,
             Set<AnalyzedFunction> aggregations,
             Set<AnalyzedFunction> windowsFunctions,
@@ -75,7 +79,7 @@ public class AnalysisResult
             List<AnalyzedExpression> groupBy,
             List<AnalyzedOrdering> orderBy,
             @Nullable Long limit,
-            Query rewrittenQuery)
+            @Nullable Query rewrittenQuery)
     {
         Preconditions.checkNotNull(symbolAllocator, "symbolAllocator is null");
         Preconditions.checkNotNull(tableDescriptors, "tableDescriptors is null");
@@ -87,7 +91,7 @@ public class AnalysisResult
         Preconditions.checkNotNull(output, "output is null");
         Preconditions.checkNotNull(groupBy, "groupBy is null");
         Preconditions.checkNotNull(orderBy, "orderBy is null");
-        Preconditions.checkNotNull(rewrittenQuery, "rewrittenQuery is null");
+        Preconditions.checkNotNull(destinations, "destinations is null");
 
         this.symbolAllocator = symbolAllocator;
         this.tableDescriptors = new IdentityHashMap<>(tableDescriptors);
@@ -103,6 +107,7 @@ public class AnalysisResult
         this.limit = limit;
         this.orderBy = ImmutableList.copyOf(orderBy);
         this.rewrittenQuery = rewrittenQuery;
+        this.destinations = destinations;
     }
 
     public TupleDescriptor getOutputDescriptor()
@@ -192,5 +197,16 @@ public class AnalysisResult
     public Query getRewrittenQuery()
     {
         return rewrittenQuery;
+    }
+
+    public AnalysisResult getAnalysis(AnalyzedDestination destination)
+    {
+        Preconditions.checkArgument(destinations.containsKey(destination), "Analysis for destination is missing. Broken analysis?");
+        return destinations.get(destination);
+    }
+
+    public Set<AnalyzedDestination> getDestinations()
+    {
+        return destinations.keySet();
     }
 }

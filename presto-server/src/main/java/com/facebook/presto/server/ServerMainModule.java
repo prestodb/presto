@@ -253,7 +253,6 @@ public class ServerMainModule
         MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder = MapBinder.newMapBinder(binder,
                 new TypeLiteral<Class<? extends Statement>>() {},
                 new TypeLiteral<QueryExecutionFactory<?>>() {});
-        executionBinder.addBinding(CreateOrReplaceMaterializedView.class).to(CreateOrReplaceMaterializedViewExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(DropTable.class).to(DropTableExecutionFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
@@ -262,6 +261,9 @@ public class ServerMainModule
         executionBinder.addBinding(ShowPartitions.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowFunctions.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
         executionBinder.addBinding(ShowTables.class).to(Key.get(SqlQueryExecutionFactory.class)).in(Scopes.SINGLETON);
+
+        executionBinder.addBinding(CreateOrReplaceMaterializedView.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+
 
         binder.bind(new TypeLiteral<List<PlanOptimizer>>() {}).toProvider(PlanOptimizersFactory.class).in(Scopes.SINGLETON);
 
