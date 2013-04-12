@@ -20,6 +20,7 @@ import com.facebook.presto.operator.OperatorStats.SplitExecutionStats;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.sql.analyzer.Session;
+import com.facebook.presto.sql.planner.OutputReceiver;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -29,6 +30,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
@@ -51,10 +53,12 @@ import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
+
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
@@ -63,10 +67,12 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.util.Failures.toFailure;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -110,6 +116,7 @@ public class HttpRemoteTask
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
     private final List<TupleInfo> tupleInfos;
+    private final Map<PlanNodeId, OutputReceiver> outputReceivers;
 
     private final RateLimiter requestRateLimiter = RateLimiter.create(10);
 
@@ -135,6 +142,7 @@ public class HttpRemoteTask
         Preconditions.checkNotNull(taskId, "taskId is null");
         Preconditions.checkNotNull(location, "location is null");
         Preconditions.checkNotNull(planFragment, "planFragment1 is null");
+        Preconditions.checkNotNull(outputReceivers, "outputReceivers is null");
         Preconditions.checkNotNull(initialOutputIds, "initialOutputIds is null");
         Preconditions.checkNotNull(httpClient, "httpClient is null");
         Preconditions.checkNotNull(taskInfoCodec, "taskInfoCodec is null");
@@ -181,7 +189,8 @@ public class HttpRemoteTask
                 ImmutableSet.<PlanNodeId>of(),
                 new ExecutionStatsSnapshot(),
                 ImmutableList.<SplitExecutionStats>of(),
-                ImmutableList.<FailureInfo>of()));
+                ImmutableList.<FailureInfo>of(),
+                ImmutableMap.<PlanNodeId, Set<?>>of()));
     }
 
     @Override
@@ -281,6 +290,15 @@ public class HttpRemoteTask
         }
 
         taskInfo.set(newValue);
+
+        for (Map.Entry<PlanNodeId, Set<?>> entry : newValue.getOutputs().entrySet()) {
+            OutputReceiver outputReceiver =  outputReceivers.get(entry.getKey());
+            checkState(outputReceiver != null, "Got Result for node %s which is not an output receiver!", entry.getKey());
+            for (Object result : entry.getValue()) {
+                outputReceiver.receive(result);
+            }
+        }
+
         if (newValue.getState().isDone()) {
             // splits can be huge so clear the list
             pendingSplits.clear();
@@ -297,6 +315,7 @@ public class HttpRemoteTask
 
         Request request;
         CurrentRequest currentRequest;
+
         synchronized (this) {
             // don't update if the task hasn't been started yet or if it is already finished
             if (taskInfo.get().getState().isDone()) {
@@ -426,7 +445,8 @@ public class HttpRemoteTask
                     taskInfo.getNoMoreSplits(),
                     taskInfo.getStats(),
                     ImmutableList.<SplitExecutionStats>of(),
-                    ImmutableList.<FailureInfo>of()));
+                    ImmutableList.<FailureInfo>of(),
+                    ImmutableMap.<PlanNodeId, Set<?>>of()));
         }
 
         // must cancel out side of synchronized block to avoid potential deadlocks

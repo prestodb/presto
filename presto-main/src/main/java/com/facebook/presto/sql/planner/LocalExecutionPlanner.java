@@ -112,24 +112,54 @@ public class LocalExecutionPlanner
         this.types = checkNotNull(types, "types is null");
         this.joinHashFactory = checkNotNull(joinHashFactory, "joinHashFactory is null");
         this.maxOperatorMemoryUsage = Preconditions.checkNotNull(maxOperatorMemoryUsage, "maxOperatorMemoryUsage is null");
+        this.storageManager = checkNotNull(storageManager, "storageManager is null");
     }
 
     public LocalExecutionPlan plan(PlanNode plan)
     {
-        Map<PlanNodeId, SourceOperator> sourceOperators = new HashMap<>();
-        Operator rootOperator = plan.accept(new Visitor(), sourceOperators).getOperator();
-        return new LocalExecutionPlan(rootOperator, sourceOperators);
+        LocalExecutionPlanContext context = new LocalExecutionPlanContext();
+        Operator rootOperator = plan.accept(new Visitor(), context).getOperator();
+        return new LocalExecutionPlan(rootOperator, context.getSourceOperators(), context.getOutputOperators());
+    }
+
+    private static class LocalExecutionPlanContext
+    {
+        private final Map<PlanNodeId, SourceOperator> sourceOperators = new HashMap<>();
+        private final Map<PlanNodeId, OutputProducingOperator<?>> outputOperators = new HashMap<>();
+
+        private void addSourceOperator(PlanNode node, SourceOperator sourceOperator)
+        {
+            checkState(this.sourceOperators.put(node.getId(), sourceOperator) == null, "Node %s already had a source operator assigned!", node);
+        }
+
+        private void addOutputOperator(PlanNode node, OutputProducingOperator<?> outputOperator)
+        {
+            checkState(this.outputOperators.put(node.getId(), outputOperator) == null, "Node %s already had a source operator assigned!", node);
+        }
+
+        private Map<PlanNodeId, SourceOperator> getSourceOperators()
+        {
+            return ImmutableMap.copyOf(sourceOperators);
+        }
+        private Map<PlanNodeId, OutputProducingOperator<?>> getOutputOperators()
+        {
+            return ImmutableMap.copyOf(outputOperators);
+        }
     }
 
     public static class LocalExecutionPlan
     {
         private final Operator rootOperator;
         private final Map<PlanNodeId, SourceOperator> sourceOperators;
+        private final Map<PlanNodeId, OutputProducingOperator<?>> outputOperators;
 
-        public LocalExecutionPlan(Operator rootOperator, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public LocalExecutionPlan(Operator rootOperator,
+                Map<PlanNodeId, SourceOperator> sourceOperators,
+                Map<PlanNodeId, OutputProducingOperator<?>> outputOperators)
         {
-            this.rootOperator = rootOperator;
-            this.sourceOperators = ImmutableMap.copyOf(sourceOperators);
+            this.rootOperator = checkNotNull(rootOperator, "rootOperator is null");
+            this.sourceOperators = ImmutableMap.copyOf(checkNotNull(sourceOperators, "sourceOperators is null"));
+            this.outputOperators = ImmutableMap.copyOf(checkNotNull(outputOperators, "outputOperators is null"));
         }
 
         public Operator getRootOperator()
@@ -141,18 +171,23 @@ public class LocalExecutionPlanner
         {
             return sourceOperators;
         }
-    }
+
+        public Map<PlanNodeId, OutputProducingOperator<?>> getOutputOperators()
+        {
+            return outputOperators;
+        }
+}
 
     private class Visitor
-            extends PlanVisitor<Map<PlanNodeId, SourceOperator>, PhysicalOperation>
+            extends PlanVisitor<LocalExecutionPlanContext, PhysicalOperation>
     {
         @Override
-        public PhysicalOperation visitExchange(ExchangeNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitExchange(ExchangeNode node, LocalExecutionPlanContext context)
         {
             List<TupleInfo> tupleInfo = getSourceOperatorTupleInfos(node);
 
             SourceOperator operator = exchangeOperatorFactory.createExchangeOperator(tupleInfo);
-            sourceOperators.put(node.getId(), operator);
+            context.addSourceOperator(node, operator);
 
             // Fow now, we assume that remote plans always produce one symbol per channel. TODO: remove this assumption
             Map<Symbol, Input> outputMappings = new HashMap<>();
@@ -207,9 +242,9 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitWindow(WindowNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitWindow(WindowNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, sourceOperators);
+            PhysicalOperation source = node.getSource().accept(this, context);
 
             List<Symbol> partitionBySymbols = node.getPartitionBy();
             List<Symbol> orderBySymbols = node.getOrderBy();
@@ -284,9 +319,9 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitTopN(TopNNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitTopN(TopNNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, sourceOperators);
+            PhysicalOperation source = node.getSource().accept(this, context);
 
             List<Symbol> orderBySymbols = node.getOrderBy();
 
@@ -307,9 +342,9 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitSort(SortNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitSort(SortNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, sourceOperators);
+            PhysicalOperation source = node.getSource().accept(this, context);
 
             List<Symbol> orderBySymbols = node.getOrderBy();
 
@@ -327,7 +362,6 @@ public class LocalExecutionPlanner
                 sortOrder[i] = (node.getOrderings().get(symbol) == SortItem.Ordering.ASCENDING);
             }
 
-
             int[] outputChannels = new int[source.getOperator().getChannelCount()];
             for (int i = 0; i < outputChannels.length; i++) {
                 outputChannels[i] = i;
@@ -338,17 +372,17 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitLimit(LimitNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitLimit(LimitNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, sourceOperators);
+            PhysicalOperation source = node.getSource().accept(this, context);
 
             return new PhysicalOperation(new LimitOperator(source.getOperator(), node.getCount()), source.getLayout());
         }
 
         @Override
-        public PhysicalOperation visitAggregation(AggregationNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitAggregation(AggregationNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, sourceOperators);
+            PhysicalOperation source = node.getSource().accept(this, context);
 
             if (node.getGroupBy().isEmpty()) {
                 return planGlobalAggregation(node, source);
@@ -358,9 +392,9 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitFilter(FilterNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitFilter(FilterNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, sourceOperators);
+            PhysicalOperation source = node.getSource().accept(this, context);
 
             FilterFunction filter = new InterpretedFilterFunction(node.getPredicate(), source.getLayout(), metadata, session);
 
@@ -371,9 +405,9 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitProject(ProjectNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitProject(ProjectNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, sourceOperators);
+            PhysicalOperation source = node.getSource().accept(this, context);
 
             Map<Symbol, Input> outputMappings = new HashMap<>();
             List<ProjectionFunction> projections = new ArrayList<>();
@@ -400,7 +434,7 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitTableScan(TableScanNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitTableScan(TableScanNode node, LocalExecutionPlanContext context)
         {
             Map<Symbol, Input> mappings = new HashMap<>();
             List<ColumnHandle> columns = new ArrayList<>();
@@ -415,22 +449,22 @@ public class LocalExecutionPlanner
 
             List<TupleInfo> tupleInfos = getSourceOperatorTupleInfos(node);
             TableScanOperator operator = new TableScanOperator(dataStreamProvider, tupleInfos, columns);
-            sourceOperators.put(node.getId(), operator);
+            context.addSourceOperator(node, operator);
             return new PhysicalOperation(operator, mappings);
         }
 
         @Override
-        public PhysicalOperation visitJoin(JoinNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitJoin(JoinNode node, LocalExecutionPlanContext context)
         {
             List<JoinNode.EquiJoinClause> clauses = node.getCriteria();
 
             // introduce a projection to put all fields from the left side into a single channel if necessary
-            PhysicalOperation leftSource = node.getLeft().accept(this, sourceOperators);
+            PhysicalOperation leftSource = node.getLeft().accept(this, context);
             List<Symbol> leftSymbols = Lists.transform(clauses, leftGetter());
             leftSource = packIfNecessary(leftSymbols, leftSource);
 
             // do the same on the right side
-            PhysicalOperation rightSource = node.getRight().accept(this, sourceOperators);
+            PhysicalOperation rightSource = node.getRight().accept(this, context);
             List<Symbol> rightSymbols = Lists.transform(clauses, rightGetter());
             rightSource = packIfNecessary(rightSymbols, rightSource);
 
@@ -455,9 +489,9 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitSink(SinkNode node, Map<PlanNodeId, SourceOperator> sourceOperators)
+        public PhysicalOperation visitSink(SinkNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, sourceOperators);
+            PhysicalOperation source = node.getSource().accept(this, context);
 
             // if any symbols are mapped to a non-zero field, re-map to one field per channel
             // TODO: this is currently what the exchange operator expects -- figure out how to remove this assumption
