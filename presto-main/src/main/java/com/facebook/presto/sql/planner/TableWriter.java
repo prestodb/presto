@@ -123,7 +123,7 @@ public class TableWriter
 
     public Predicate<PartitionInfo> getPartitionPredicate()
     {
-        final Set<String> existingPartitions = ImmutableSet.copyOf(shardManager.getCommittedPartitions(node.getTableHandle()));
+        final Set<String> existingPartitions = ImmutableSet.copyOf(shardManager.getPartitions(node.getTableHandle()));
 
         return new Predicate<PartitionInfo>() {
 
