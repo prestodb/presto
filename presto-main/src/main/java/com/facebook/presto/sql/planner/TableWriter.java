@@ -98,15 +98,19 @@ public class TableWriter
         return new TableWriterIterable(splits);
     }
 
-    private void addPartitionShard(String partition, boolean lastSplit, long shardId)
+    private void addPartitionShard(String partition, boolean lastSplit, Long shardId)
     {
         Set<Long> partitionSplits = openPartitions.get(partition);
         ImmutableSet.Builder<Long> builder = ImmutableSet.builder();
         if (partitionSplits != null) {
             builder.addAll(partitionSplits);
         }
-        builder.add(shardId);
+        if (shardId != null) {
+            builder.add(shardId);
+        }
         Set<Long> shardIds = builder.build();
+        checkState(shardIds.size() > 0, "Never saw a split for partition %s", partition);
+
         if (lastSplit) {
             checkState(null == finishedPartitions.put(partition, shardIds), "Partition %s finished multiple times", partition);
             openPartitions.remove(partition);
@@ -189,7 +193,10 @@ public class TableWriter
                 return new SplitAssignments(newSplits, sourceAssignment.getNodes());
             }
             else {
-                checkState(openPartitions.size() == 0, "Partitions %s were never finished!", openPartitions.keySet());
+                for (String partition : openPartitions.keySet()) {
+                    addPartitionShard(partition, true, null);
+                }
+                checkState(openPartitions.size() == 0, "Still open partitions: %s", openPartitions);
                 return endOfData();
             }
         }
