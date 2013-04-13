@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.tuple.TupleInfo;
@@ -155,5 +156,19 @@ public class MetadataUtil
         {
             return new ColumnMetadataListBuilder();
         }
+    }
+
+    public static TableMetadata findOrCreateTable(Metadata metadata, QualifiedTableName table, List<ColumnMetadata> columns)
+    {
+        TableMetadata tableMetadata = metadata.getTable(table);
+        if (tableMetadata == null || !tableMetadata.getTableHandle().isPresent()) {
+
+            tableMetadata = new TableMetadata(table, columns);
+            metadata.createTable(tableMetadata);
+
+            tableMetadata = metadata.getTable(table);
+        }
+
+        return tableMetadata;
     }
 }

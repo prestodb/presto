@@ -145,7 +145,7 @@ public class LocalExecutionPlanner
 
         private void addOutputOperator(PlanNode node, OutputProducingOperator<?> outputOperator)
         {
-            checkState(this.outputOperators.put(node.getId(), outputOperator) == null, "Node %s already had a source operator assigned!", node);
+            checkState(this.outputOperators.put(node.getId(), outputOperator) == null, "Node %s already had an output operator assigned!", node);
         }
 
         private Map<PlanNodeId, SourceOperator> getSourceOperators()
