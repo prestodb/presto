@@ -42,6 +42,7 @@ import com.facebook.presto.sql.tree.Subquery;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TreeRewriter;
 import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
@@ -133,6 +134,15 @@ public class Analyzer
                 }
             }
 
+            // analyze WITH clause
+            if (query.getWith().isPresent()) {
+                With with = query.getWith().get();
+                if (with.isRecursive()) {
+                    throw new SemanticException(with, "Recursive queries are not supported");
+                }
+                throw new SemanticException(with, "WITH queries are not yet supported");
+            }
+
             // analyze FROM clause
             Relation relation = Iterables.getOnlyElement(query.getFrom());
             TupleDescriptor sourceDescriptor = new RelationAnalyzer(metadata, context.getSession()).process(relation, context);
@@ -196,6 +206,7 @@ public class Analyzer
             }
 
             Query query = new Query(
+                    Optional.<With>absent(),
                     selectList(aliasedName("table_name", "Table")),
                     table(QualifiedName.of(catalogName, INFORMATION_SCHEMA, TABLE_TABLES)),
                     Optional.of(predicate),
@@ -214,6 +225,7 @@ public class Analyzer
 
             // TODO: throw SemanticException if table does not exist
             Query query = new Query(
+                    Optional.<With>absent(),
                     selectList(
                             aliasedName("column_name", "Column"),
                             aliasedName("data_type", "Type"),
@@ -257,6 +269,7 @@ public class Analyzer
 
             // TODO: throw SemanticException if table does not exist
             Query query = new Query(
+                    Optional.<With>absent(),
                     selectAll(selectList.build()),
                     table(QualifiedName.of(table.getCatalogName(), INFORMATION_SCHEMA, TABLE_INTERNAL_PARTITIONS)),
                     Optional.of(logicalAnd(
@@ -274,6 +287,7 @@ public class Analyzer
         protected AnalysisResult visitShowFunctions(ShowFunctions node, AnalysisContext context)
         {
             Query query = new Query(
+                    Optional.<With>absent(),
                     selectList(
                             aliasedName("function_name", "Function"),
                             aliasedName("return_type", "Return Type"),
