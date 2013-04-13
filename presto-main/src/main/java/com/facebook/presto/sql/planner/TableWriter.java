@@ -15,7 +15,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import io.airlift.log.Logger;
 
 import java.util.Iterator;
 import java.util.Map;
@@ -29,8 +28,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 public class TableWriter
 {
-    private static final Logger log = Logger.get(TableWriter.class);
-
     private final TableWriterNode node;
     private final ShardManager shardManager;
 
@@ -89,7 +86,6 @@ public class TableWriter
             shardManager.commitPartition(node.getTableHandle(), partitionName, builder.build());
             checkState(shardsInFlight.addAndGet(-shardIds.size()) >= 0, "shards in flight crashed into the ground");
             partitionsDone.add(partitionName);
-            log.info("Partition %s is now committed, seen %d splits", partitionName, shardIds.size());
         }
     }
 
@@ -114,7 +110,6 @@ public class TableWriter
         if (lastSplit) {
             checkState(null == finishedPartitions.put(partition, shardIds), "Partition %s finished multiple times", partition);
             openPartitions.remove(partition);
-            log.info("Partition %s is now fully scheduled, seen %d splits, Partitions stats: FLIGHT: %d, READY: %d, COMMIT: %d)", partition, shardIds.size(), openPartitions.size(), finishedPartitions.size(), partitionsDone.size());
         }
         else {
             openPartitions.put(partition, shardIds);
@@ -188,7 +183,7 @@ public class TableWriter
                 builder.putAll(sourceSplits);
                 builder.put(node.getId(), writingSplit);
                 Map<PlanNodeId, ? extends Split> newSplits = builder.build();
-                log.info("Scheduling Shard for %s, now %d shards in flight", partition, shardsInFlight.incrementAndGet());
+                shardsInFlight.incrementAndGet();
 
                 return new SplitAssignments(newSplits, sourceAssignment.getNodes());
             }
