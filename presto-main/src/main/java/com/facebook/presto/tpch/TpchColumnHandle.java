@@ -27,7 +27,7 @@ public class TpchColumnHandle
     @Override
     public DataSourceType getDataSourceType()
     {
-        throw new UnsupportedOperationException();
+        return DataSourceType.TPCH;
     }
 
     @JsonProperty

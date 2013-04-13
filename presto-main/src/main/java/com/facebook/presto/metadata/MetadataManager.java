@@ -175,6 +175,11 @@ public class MetadataManager
         }
 
         String schemaName = prefix.getSchemaName().orNull();
+
+        if (prefix.getCatalogName().equals("tpch")) {
+            return DataSourceType.TPCH; // only used in tests.
+        }
+
         if (INFORMATION_SCHEMA.equals(schemaName) || SYSTEM_SCHEMA.equals(schemaName)) {
             return DataSourceType.INTERNAL;
         }

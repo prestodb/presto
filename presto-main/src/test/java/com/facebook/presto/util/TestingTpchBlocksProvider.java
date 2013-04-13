@@ -30,9 +30,10 @@ import java.util.zip.GZIPInputStream;
 
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 public class TestingTpchBlocksProvider
-        implements TpchBlocksProvider
+        extends TpchBlocksProvider
 {
     private final Map<String, RecordSet> data;
 
@@ -42,16 +43,24 @@ public class TestingTpchBlocksProvider
     }
 
     @Override
-    public BlockIterable getBlocks(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding)
+    public BlockIterable getBlocks(TpchTableHandle tableHandle,
+            TpchColumnHandle columnHandle,
+            int tableSkew,
+            int tableSplit,
+            BlocksFileEncoding encoding)
     {
         String tableName = tableHandle.getTableName();
         int fieldIndex = columnHandle.getFieldIndex();
         TupleInfo.Type fieldType = columnHandle.getType();
-        return new TpchBlockIterable(fieldType, tableName, fieldIndex);
+        return new TpchBlockIterable(fieldType, tableSkew, tableSplit, tableName, fieldIndex);
     }
 
     @Override
-    public DataSize getColumnDataSize(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding)
+    public DataSize getColumnDataSize(TpchTableHandle tableHandle,
+            TpchColumnHandle columnHandle,
+            int tableSkew,
+            int tableSplit,
+            BlocksFileEncoding encoding)
     {
         throw new UnsupportedOperationException();
     }
@@ -62,10 +71,17 @@ public class TestingTpchBlocksProvider
         private final TupleInfo.Type fieldType;
         private final String tableName;
         private final int fieldIndex;
+        private final int tableSkew;
+        private final int tableSplit;
 
-        public TpchBlockIterable(TupleInfo.Type fieldType, String tableName, int fieldIndex)
+        public TpchBlockIterable(TupleInfo.Type fieldType, int tableSkew, int tableSplit, String tableName, int fieldIndex)
         {
+            checkState(tableSplit > 0, "can not split by 0");
+            checkState(tableSkew >= 0, "skew must be positive");
+
             this.fieldType = fieldType;
+            this.tableSkew = tableSkew;
+            this.tableSplit = tableSplit;
             this.tableName = tableName;
             this.fieldIndex = fieldIndex;
         }
@@ -91,36 +107,59 @@ public class TestingTpchBlocksProvider
         @Override
         public Iterator<Block> iterator()
         {
-            return new AbstractIterator<Block>()
+            return new TpchBlockIterator();
+        }
+
+        private class TpchBlockIterator
+                extends AbstractIterator<Block>
+        {
+            private final RecordCursor cursor;
+
+            public TpchBlockIterator()
             {
-                private final RecordCursor cursor = data.get(tableName).cursor(new OperatorStats());
+                this.cursor = data.get(tableName).cursor(new OperatorStats());
 
-                @Override
-                protected Block computeNext()
-                {
-                    BlockBuilder builder = new BlockBuilder(new TupleInfo(fieldType));
+                // Skip the first elements for this iterator.
+                for (int i = 0; i < tableSkew; i++) {
+                    if (!cursor.advanceNextPosition()) {
+                        break;
+                    }
+                }
+            }
 
-                    while (!builder.isFull() && cursor.advanceNextPosition()) {
-                        switch (fieldType) {
-                            case FIXED_INT_64:
-                                builder.append(cursor.getLong(fieldIndex));
-                                break;
-                            case DOUBLE:
-                                builder.append(cursor.getDouble(fieldIndex));
-                                break;
-                            case VARIABLE_BINARY:
-                                builder.append(cursor.getString(fieldIndex));
-                                break;
+            @Override
+            protected Block computeNext()
+            {
+                BlockBuilder builder = new BlockBuilder(new TupleInfo(fieldType));
+
+                while (!builder.isFull() && cursor.advanceNextPosition()) {
+                    switch (fieldType) {
+                        case FIXED_INT_64:
+                            builder.append(cursor.getLong(fieldIndex));
+                            break;
+                        case DOUBLE:
+                            builder.append(cursor.getDouble(fieldIndex));
+                            break;
+                        case VARIABLE_BINARY:
+                            builder.append(cursor.getString(fieldIndex));
+                            break;
+                    }
+
+                    // Split table into multiple pieces. Starts at 1, so
+                    // a split of 1 means all the data.
+                    for (int i = 1; i < tableSplit; i++) {
+                        if (!cursor.advanceNextPosition()) {
+                            break;
                         }
                     }
-
-                    if (builder.isEmpty()) {
-                        return endOfData();
-                    }
-
-                    return builder.build();
                 }
-            };
+
+                if (builder.isEmpty()) {
+                    return endOfData();
+                }
+
+                return builder.build();
+            }
         }
     }
 

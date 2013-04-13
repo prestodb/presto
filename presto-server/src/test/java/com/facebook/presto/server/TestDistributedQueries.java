@@ -9,9 +9,12 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
+import com.facebook.presto.execution.QueryId;
+import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.ingest.SerializedPartitionChunk;
-import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ColumnMetadata;
+import com.facebook.presto.metadata.DataSourceType;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NativeColumnHandle;
@@ -22,23 +25,17 @@ import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.StorageManager;
 import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.operator.FilterAndProjectOperator;
-import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.ProjectionFunction;
-import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.split.DataStreamProvider;
+import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
 import com.facebook.presto.sql.tree.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
-import com.facebook.presto.tpch.TpchSplit;
-import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
-import com.facebook.presto.tuple.TupleReadable;
 import com.facebook.presto.util.MaterializedResult;
 import com.facebook.presto.util.MaterializedTuple;
 import com.google.common.base.Function;
@@ -56,6 +53,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Stage;
 import com.google.inject.TypeLiteral;
+import com.google.inject.multibindings.MapBinder;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.discovery.DiscoveryServerModule;
@@ -90,6 +88,7 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.net.URI;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
@@ -100,7 +99,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
-import static java.lang.Math.abs;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -111,8 +110,6 @@ public class TestDistributedQueries
     private final JsonCodec<QueryResults> queryResultsCodec = createCodecFactory().jsonCodec(QueryResults.class);
 
     private String catalog;
-    private String schema;
-    private DataStreamProvider dataStreamProvider;
     private Metadata metadata;
     private PrestoTestingServer coordinator;
     private List<PrestoTestingServer> servers;
@@ -197,17 +194,17 @@ public class TestDistributedQueries
         Logging.initialize();
 
         this.catalog = catalog;
-        this.schema = schema;
-        this.dataStreamProvider = dataStreamProvider;
         this.metadata = metadata;
 
         try {
+            PrestoTestingServerModule testingModule = new PrestoTestingServerModule(metadata, dataStreamProvider);
+
             discoveryServer = new DiscoveryTestingServer();
-            coordinator = new PrestoTestingServer(discoveryServer.getBaseUrl());
+            coordinator = new PrestoTestingServer(discoveryServer.getBaseUrl(), testingModule);
             servers = ImmutableList.<PrestoTestingServer>builder()
                     .add(coordinator)
-                    .add(new PrestoTestingServer(discoveryServer.getBaseUrl()))
-                    .add(new PrestoTestingServer(discoveryServer.getBaseUrl()))
+                    .add(new PrestoTestingServer(discoveryServer.getBaseUrl(), testingModule))
+                    .add(new PrestoTestingServer(discoveryServer.getBaseUrl(), testingModule))
                     .build();
         }
         catch (Exception e) {
@@ -243,43 +240,19 @@ public class TestDistributedQueries
     }
 
     private List<String> distributeData()
-            throws IOException
+            throws Exception
     {
         ImmutableList.Builder<String> tableNames = ImmutableList.builder();
         List<QualifiedTableName> qualifiedTableNames = metadata.listTables(QualifiedTablePrefix.builder(catalog).build());
+        ImmutableList.Builder<QueryId> builder = ImmutableList.builder();
+
         for (QualifiedTableName qualifiedTableName : qualifiedTableNames) {
+            log.info("Running import for %s", qualifiedTableName.getTableName());
+            MaterializedResult importResult = computeActual(format("CREATE OR REPLACE MATERIALIZED VIEW default.default.%s AS SELECT * FROM %s", qualifiedTableName.getTableName(), qualifiedTableName));
+            log.info("Imported %s rows for %s", importResult.getMaterializedTuples().get(0).getField(0), qualifiedTableName.getTableName());
             tableNames.add(qualifiedTableName.getTableName());
-
-            TableMetadata sourceTable = metadata.getTable(qualifiedTableName);
-
-            TableMetadata targetTable = coordinator.createTable(new QualifiedTableName("default", "default", sourceTable.getTable().getTableName()), sourceTable.getColumns());
-
-            ImmutableList.Builder<ProjectionFunction> builder = ImmutableList.builder();
-            for (int i = 0; i < sourceTable.getColumns().size(); i++) {
-                ColumnMetadata column = sourceTable.getColumns().get(i);
-                builder.add(ProjectionFunctions.singleColumn(column.getType(), i, 0));
-            }
-            List<ProjectionFunction> projectionFunctions = builder.build();
-
-            for (int i = 0; i < servers.size(); i++) {
-                long shardId = coordinator.addShard(targetTable);
-                final int serverIndex = i;
-                TpchSplit split = new TpchSplit((TpchTableHandle) sourceTable.getTableHandle().get()); // Currently the whole table
-                Operator rawDataStream = dataStreamProvider.createDataStream(split, Lists.transform(sourceTable.getColumns(), handleGetter()));
-                Operator filteredStream = new FilterAndProjectOperator(rawDataStream, new FilterFunction()
-                {
-                    @Override
-                    public boolean filter(TupleReadable... cursors)
-                    {
-                        TupleReadable cursor = cursors[0];
-                        return (abs(cursor.getTuple().hashCode()) % servers.size()) == serverIndex;
-                    }
-                }, projectionFunctions);
-                PrestoTestingServer server = servers.get(i);
-                server.importShard(targetTable, shardId, filteredStream);
-                coordinator.commitShard(shardId, server.getNodeId());
-            }
         }
+
         return tableNames.build();
     }
 
@@ -386,19 +359,6 @@ public class TestDistributedQueries
         };
     }
 
-    // TODO: replace this with util version
-    private static Function<ColumnMetadata, ColumnHandle> handleGetter()
-    {
-        return new Function<ColumnMetadata, ColumnHandle>()
-        {
-            @Override
-            public ColumnHandle apply(ColumnMetadata columnMetadata)
-            {
-                return columnMetadata.getColumnHandle().get();
-            }
-        };
-    }
-
     public static class PrestoTestingServer
             implements Closeable
     {
@@ -408,13 +368,13 @@ public class TestDistributedQueries
         private final LifeCycleManager lifeCycleManager;
         private final TestingHttpServer server;
         private final ImmutableList<ServiceSelector> serviceSelectors;
-        private final Metadata metadata;
         private final ShardManager shardManager;
         private final StorageManager storageManager;
         private final NodeInfo nodeInfo;
         private final NodeManager nodeManager;
+        private final QueryManager queryManager;
 
-        public PrestoTestingServer(URI discoveryUri)
+        public PrestoTestingServer(URI discoveryUri, Module... additionalModules)
                 throws Exception
         {
             checkNotNull(discoveryUri, "discoveryUri is null");
@@ -433,17 +393,22 @@ public class TestDistributedQueries
                     .put("failure-detector.warmup-interval", "0ms")
                     .build();
 
-            Bootstrap app = new Bootstrap(
-                    new NodeModule(),
-                    new DiscoveryModule(),
-                    new TestingHttpServerModule(),
-                    new JsonModule(),
-                    new JaxrsModule(),
-                    new TestingJmxModule(),
-                    new InMemoryEventModule(),
-                    new TraceTokenModule(),
-                    new FailureDetectorModule(),
-                    new ServerMainModule());
+            ImmutableSet.Builder<Module> builder = ImmutableSet.builder();
+
+            builder.add(new NodeModule())
+                    .add(new DiscoveryModule())
+                    .add(new TestingHttpServerModule())
+                    .add(new JsonModule())
+                    .add(new JaxrsModule())
+                    .add(new TestingJmxModule())
+                    .add(new InMemoryEventModule())
+                    .add(new TraceTokenModule())
+                    .add(new FailureDetectorModule())
+                    .add(new ServerMainModule());
+
+            builder.addAll(Arrays.asList(additionalModules));
+
+            Bootstrap app = new Bootstrap(builder.build());
 
             Injector injector = app
                     .strictConfig()
@@ -456,10 +421,10 @@ public class TestDistributedQueries
             lifeCycleManager = injector.getInstance(LifeCycleManager.class);
 
             nodeInfo = injector.getInstance(NodeInfo.class);
-            metadata = injector.getInstance(Metadata.class);
             shardManager = injector.getInstance(ShardManager.class);
             storageManager = injector.getInstance(StorageManager.class);
             nodeManager = injector.getInstance(NodeManager.class);
+            queryManager = injector.getInstance(QueryManager.class);
 
             server = injector.getInstance(TestingHttpServer.class);
 
@@ -480,16 +445,14 @@ public class TestDistributedQueries
             return server.getBaseUrl();
         }
 
-        public TableMetadata createTable(QualifiedTableName table, List<ColumnMetadata> columns)
+        public QueryInfo createQuery(Session session, String query)
         {
-            TableMetadata tableMetadata = new TableMetadata(table, columns);
-            metadata.createTable(tableMetadata);
-            tableMetadata = metadata.getTable(table);
+            return queryManager.createQuery(session, query);
+        }
 
-            // setup the table for imports
-            long tableId = ((NativeTableHandle) tableMetadata.getTableHandle().get()).getTableId();
-            shardManager.createImportTable(tableId, "unknown", "unknown", "unknown");
-            return tableMetadata;
+        public QueryInfo getQueryInfo(QueryId queryId)
+        {
+            return queryManager.getQueryInfo(queryId, true);
         }
 
         public long addShard(TableMetadata table)
@@ -560,6 +523,36 @@ public class TestDistributedQueries
             finally {
                 FileUtils.deleteRecursively(baseDataDir);
             }
+        }
+    }
+
+    private static class PrestoTestingServerModule
+            implements Module
+    {
+        private final Metadata tpchMetadata;
+        private final DataStreamProvider dataStreamProvider;
+
+        private PrestoTestingServerModule(Metadata tpchMetadata,
+                DataStreamProvider dataStreamProvider)
+        {
+            this.tpchMetadata = checkNotNull(tpchMetadata, "tpchMetadata is null");
+            this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
+        }
+
+        @Override
+        public void configure(Binder binder)
+        {
+            MapBinder<DataSourceType, Metadata> metadataBinder = MapBinder.newMapBinder(binder,
+                    DataSourceType.class,
+                    Metadata.class);
+
+            metadataBinder.addBinding(DataSourceType.TPCH).toInstance(tpchMetadata);
+
+            MapBinder<DataSourceType, DataStreamProvider> dataStreamProviderBinder = MapBinder.newMapBinder(binder,
+                    DataSourceType.class,
+                    DataStreamProvider.class);
+
+            dataStreamProviderBinder.addBinding(DataSourceType.TPCH).toInstance(dataStreamProvider);
         }
     }
 

@@ -11,6 +11,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public enum DataSourceType
 {
+    TPCH("tpch"), // only used in tests.
     NATIVE("native"),
     INTERNAL("internal"),
     IMPORT("import"),
