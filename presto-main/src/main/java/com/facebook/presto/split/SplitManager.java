@@ -30,6 +30,8 @@ import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.tpch.TpchSplit;
+import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.MapTransformer;
 import com.facebook.presto.util.MoreFunctions;
@@ -138,6 +140,8 @@ public class SplitManager
                 return getInternalSplitAssignments(planNodeId, (InternalTableHandle) handle, predicate, mappings);
             case IMPORT:
                 return getImportSplitAssignments(planNodeId, session, (ImportTableHandle) handle, predicate, partitionPredicate, mappings);
+            case TPCH: // testing code only. This should really be pluggable...
+                return getTpchSplitAssignments(planNodeId, session, (TpchTableHandle) handle, mappings);
             default:
                 throw new IllegalArgumentException("unsupported handle type: " + handle);
         }
@@ -566,6 +570,26 @@ public class SplitManager
                 };
             }
         };
+    }
+
+    private Iterable<SplitAssignments> getTpchSplitAssignments(PlanNodeId planNodeId,
+            Session session,
+            TpchTableHandle handle,
+            Map<Symbol, ColumnHandle> mappings)
+    {
+        Map<String, Node> nodeMap = getNodeMap(nodeManager.getActiveNodes());
+        ImmutableList.Builder<SplitAssignments> splitAssignments = ImmutableList.builder();
+
+        int tableSplit = nodeMap.size();
+        int tableSkew = 0;
+
+        // Split the data using split and skew by the number of nodes available.
+        for (Map.Entry<String, Node> entry : nodeMap.entrySet()) {
+            TpchSplit tpchSplit = new TpchSplit(handle, tableSkew++, tableSplit);
+            splitAssignments.add(new SplitAssignments(ImmutableMap.of(planNodeId, tpchSplit), ImmutableList.of(entry.getValue())));
+        }
+
+        return splitAssignments.build();
     }
 
     private static class NodeMap
