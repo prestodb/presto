@@ -37,6 +37,13 @@ public class TestStatementBuilder
                 ", sum(salary) over (rows between 2 preceding and unbounded following)\n" +
                 "from emp");
 
+        printStatement("" +
+                "with a (id) as (with x as (select 123 from z) select * from x) " +
+                "   , b (id) as (select 999 from z) " +
+                "select * from a join b using (id)");
+
+        printStatement("with recursive t as (select * from x) select * from t");
+
         printStatement("select * from information_schema.tables");
 
         printStatement("show tables");
