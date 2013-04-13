@@ -12,9 +12,7 @@ options {
     import com.facebook.presto.sql.tree.*;
 
     import java.util.ArrayList;
-    import java.util.HashMap;
     import java.util.List;
-    import java.util.Map;
     import com.google.common.collect.ImmutableList;
     import com.google.common.base.Objects;
     import com.google.common.base.Optional;
@@ -61,7 +59,8 @@ query returns [Query value]
     ;
 
 selectStmt returns [Query value]
-    : selectClause
+    : withClause?
+      selectClause
       fromClause?
       whereClause?
       groupClause?
@@ -69,6 +68,7 @@ selectStmt returns [Query value]
       orderClause?
       limitClause?
         { $value = new Query(
+            Optional.fromNullable($withClause.value),
             $selectClause.value,
             $fromClause.value,
             Optional.fromNullable($whereClause.value),
@@ -82,6 +82,7 @@ selectStmt returns [Query value]
 restrictedSelectStmt returns [Query value]
     : selectClause fromClause
         { $value = new Query(
+            Optional.<With>absent(),
             $selectClause.value,
             $fromClause.value,
             Optional.<Expression>absent(),
@@ -90,6 +91,23 @@ restrictedSelectStmt returns [Query value]
             ImmutableList.<SortItem>of(),
             Optional.<String>absent());
         }
+    ;
+
+withClause returns [With value]
+    : ^(WITH recursive withList) { $value = new With($recursive.value, $withList.value); }
+    ;
+
+recursive returns [boolean value]
+    : RECURSIVE { $value = true; }
+    |           { $value = false; }
+    ;
+
+withList returns [List<WithQuery> value = new ArrayList<>()]
+    : ^(WITH_LIST ( withQuery { $value.add($withQuery.value); } )+ )
+    ;
+
+withQuery returns [WithQuery value]
+    : ^(WITH_QUERY i=ident q=subquery c=aliasedColumns?) { $value = new WithQuery($i.value, $q.value, $c.value); }
     ;
 
 selectClause returns [Select value]

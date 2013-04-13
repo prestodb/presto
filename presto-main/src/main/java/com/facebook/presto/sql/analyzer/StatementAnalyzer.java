@@ -27,6 +27,7 @@ import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
@@ -103,6 +104,7 @@ class StatementAnalyzer
         }
 
         Query query = new Query(
+                Optional.<With>absent(),
                 selectList(aliasedName("table_name", "Table")),
                 table(QualifiedName.of(catalogName, INFORMATION_SCHEMA, TABLE_TABLES)),
                 Optional.of(predicate),
@@ -121,6 +123,7 @@ class StatementAnalyzer
 
         // TODO: throw SemanticException if table does not exist
         Query query = new Query(
+                Optional.<With>absent(),
                 selectList(
                         aliasedName("column_name", "Column"),
                         aliasedName("data_type", "Type"),
@@ -164,6 +167,7 @@ class StatementAnalyzer
 
         // TODO: throw SemanticException if table does not exist
         Query query = new Query(
+                Optional.<With>absent(),
                 selectAll(selectList.build()),
                 table(QualifiedName.of(table.getCatalogName(), INFORMATION_SCHEMA, TABLE_INTERNAL_PARTITIONS)),
                 Optional.of(logicalAnd(
@@ -181,6 +185,7 @@ class StatementAnalyzer
     protected TupleDescriptor visitShowFunctions(ShowFunctions node, Void context)
     {
         Query query = new Query(
+                Optional.<With>absent(),
                 selectList(
                         aliasedName("function_name", "Function"),
                         aliasedName("return_type", "Return Type"),
@@ -250,6 +255,7 @@ class StatementAnalyzer
         // TODO: extract candidate names from SELECT, WHERE, HAVING, GROUP BY and ORDER BY expressions
         // to pass down to analyzeFrom
 
+        analyzeWith(node);
         Scope queryScope = analyzeFrom(node);
 
         analyzeWhere(node, queryScope);
@@ -264,6 +270,18 @@ class StatementAnalyzer
 
         analysis.setQuery(node);
         return computeOutputDescriptor(node, queryScope);
+    }
+
+    private void analyzeWith(Query query)
+    {
+        // analyze WITH clause
+        if (query.getWith().isPresent()) {
+            With with = query.getWith().get();
+            if (with.isRecursive()) {
+                throw new SemanticException(with, "Recursive queries are not supported");
+            }
+            throw new SemanticException(with, "WITH queries are not yet supported");
+        }
     }
 
 

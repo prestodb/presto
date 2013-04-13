@@ -8,6 +8,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.tree.With;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -49,6 +50,7 @@ public class TestSqlParser
     {
         assertStatement("SELECT 123.456E7 FROM DUAL",
                 new Query(
+                        Optional.<With>absent(),
                         selectList(new DoubleLiteral("123.456E7")),
                         table(QualifiedName.of("DUAL")),
                         Optional.<Expression>absent(),

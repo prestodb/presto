@@ -894,6 +894,78 @@ public abstract class AbstractTestQueries
         );
     }
 
+    @Test(enabled = false)
+    public void testWithChaining()
+            throws Exception
+    {
+        assertQuery("" +
+                "WITH a AS (SELECT orderkey n FROM orders)\n" +
+                ", b AS (SELECT n + 1 n FROM a)\n" +
+                ", c AS (SELECT n + 1 n FROM b)\n" +
+                "SELECT n + 1 FROM c",
+                "SELECT orderkey + 3 FROM orders");
+    }
+
+    @Test(enabled = false)
+    public void testWithSelfJoin()
+            throws Exception
+    {
+        assertQuery("" +
+                "WITH x AS (SELECT DISTINCT orderkey FROM orders ORDER BY orderkey LIMIT 10)\n" +
+                "SELECT count(*) FROM x a JOIN x b USING (orderkey)", "" +
+                "SELECT count(*)\n" +
+                "FROM (SELECT DISTINCT orderkey FROM orders LIMIT 10) a\n" +
+                "JOIN (SELECT DISTINCT orderkey FROM orders LIMIT 10) b USING (orderkey)");
+    }
+
+    @Test(enabled = false)
+    public void testWithNestedSubqueries()
+            throws Exception
+    {
+        assertQuery("" +
+                "WITH a AS (\n" +
+                "  WITH aa AS (SELECT 123 x FROM orders LIMIT 1)\n" +
+                "  SELECT x y FROM aa\n" +
+                "), b AS (\n" +
+                "  WITH bb AS (\n" +
+                "    WITH bbb AS (SELECT y FROM a)\n" +
+                "    SELECT bbb.* FROM bbb\n" +
+                "  )\n" +
+                "  SELECT y z FROM bb\n" +
+                ")\n" +
+                "SELECT *\n" +
+                "FROM (\n" +
+                "  WITH q AS (SELECT z w FROM b)\n" +
+                "  SELECT j.*, k.*\n" +
+                "  FROM a j\n" +
+                "  JOIN q k ON (j.y = k.w)\n" +
+                ") t", "" +
+                "SELECT 123, 123 FROM orders LIMIT 1");
+    }
+
+    @Test(enabled = false)
+    public void testWithColumnAliasing()
+            throws Exception
+    {
+        assertQuery(
+                "WITH a (id) AS (SELECT 123 FROM orders LIMIT 1) SELECT * FROM a",
+                "SELECT 123 FROM orders LIMIT 1");
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Recursive queries are not supported")
+    public void testWithRecursive()
+            throws Exception
+    {
+        computeActual("WITH RECURSIVE a AS (SELECT 123 FROM dual) SELECT * FROM a");
+    }
+
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "WITH queries are not yet supported")
+    public void testWithNotSupported()
+            throws Exception
+    {
+        computeActual("WITH a AS (SELECT 123 FROM dual) SELECT * FROM a");
+    }
+
     @BeforeClass(alwaysRun = true)
     public void setupDatabase()
             throws Exception

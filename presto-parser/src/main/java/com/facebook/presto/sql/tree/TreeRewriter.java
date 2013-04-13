@@ -74,6 +74,11 @@ public final class TreeRewriter<C>
                 }
             }
 
+            With with = null;
+            if (node.getWith().isPresent()) {
+                with = rewrite(node.getWith().get(), context.get());
+            }
+
             Select select = rewrite(node.getSelect(), context.get());
 
             ImmutableList.Builder<Relation> from = ImmutableList.builder();
@@ -101,20 +106,63 @@ public final class TreeRewriter<C>
                 orderBy.add(rewrite(sortItem, context.get()));
             }
 
-            if (select != node.getSelect() ||
+            if ((with != node.getWith().orNull()) ||
+                    (select != node.getSelect()) ||
                     !sameElements(node.getFrom(), from.build()) ||
                     where != node.getWhere().orNull() ||
                     !sameElements(node.getGroupBy(), groupBy.build()) ||
                     having != node.getHaving().orNull() ||
                     !sameElements(orderBy.build(), node.getOrderBy())) {
 
-                return new Query(select,
+                return new Query(
+                        Optional.fromNullable(with),
+                        select,
                         from.build(),
                         Optional.fromNullable(where),
                         groupBy.build(),
                         Optional.fromNullable(having),
                         orderBy.build(),
                         node.getLimit());
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Node visitWith(With node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteWith(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            ImmutableList.Builder<WithQuery> builder = ImmutableList.builder();
+            for (WithQuery query : node.getQueries()) {
+                builder.add(rewrite(query, context.get()));
+            }
+
+            if (!sameElements(node.getQueries(), builder.build())) {
+                return new With(node.isRecursive(), builder.build());
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Node visitWithQuery(WithQuery node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Node result = nodeRewriter.rewriteWithQuery(node, context.get(), TreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Query child = rewrite(node.getQuery(), context.get());
+            if (child != node.getQuery()) {
+                return new WithQuery(node.getName(), child, node.getColumnNames());
             }
 
             return node;

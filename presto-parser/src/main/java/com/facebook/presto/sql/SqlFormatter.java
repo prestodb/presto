@@ -10,12 +10,15 @@ import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Subquery;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.With;
+import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
 
 import java.util.Iterator;
+import java.util.List;
 
 import static com.facebook.presto.sql.ExpressionFormatter.expressionFormatterFunction;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -58,6 +61,26 @@ public class SqlFormatter
         @Override
         protected Void visitQuery(Query node, Integer indent)
         {
+            if (node.getWith().isPresent()) {
+                With with = node.getWith().get();
+                append(indent, "WITH ");
+                if (with.isRecursive()) {
+                    builder.append("RECURSIVE ");
+                }
+                builder.append('\n');
+                Iterator<WithQuery> queries = with.getQueries().iterator();
+                while (queries.hasNext()) {
+                    WithQuery query = queries.next();
+                    builder.append(query.getName());
+                    appendAliasColumns(builder, query.getColumnNames());
+                    builder.append(" AS ");
+                    process(new Subquery(query.getQuery()), indent);
+                    if (queries.hasNext()) {
+                        builder.append(", ");
+                    }
+                }
+            }
+
             process(node.getSelect(), indent);
 
             append(indent, "FROM ");
@@ -107,6 +130,7 @@ public class SqlFormatter
         protected Void visitSelect(Select node, Integer indent)
         {
             append(indent, "SELECT ")
+                    .append(node.isDistinct() ? "DISTINCT " : "")
                     .append(Joiner.on(", ").join(Iterables.transform(node.getSelectItems(), expressionFormatterFunction())))
                     .append('\n');
 
@@ -123,14 +147,12 @@ public class SqlFormatter
         @Override
         protected Void visitAliasedRelation(AliasedRelation node, Integer indent)
         {
-            if (node.getColumnNames() != null && !node.getColumnNames().isEmpty()) {
-                throw new UnsupportedOperationException("not yet implemented: relation alias with column mappings"); // TODO
-            }
-
             process(node.getRelation(), indent);
 
             builder.append(' ')
                     .append(node.getAlias());
+
+            appendAliasColumns(builder, node.getColumnNames());
 
             return null;
         }
@@ -195,5 +217,14 @@ public class SqlFormatter
                 return builder.toString();
             }
         };
+    }
+
+    private static void appendAliasColumns(StringBuilder builder, List<String> columns)
+    {
+        if ((columns != null) && (!columns.isEmpty())) {
+            builder.append(" (");
+            Joiner.on(", ").appendTo(builder, columns);
+            builder.append(')');
+        }
     }
 }
