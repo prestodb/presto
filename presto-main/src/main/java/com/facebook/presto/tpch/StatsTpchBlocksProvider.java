@@ -19,10 +19,11 @@ import io.airlift.units.DataSize.Unit;
 import java.io.File;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class StatsTpchBlocksProvider
-        implements TpchBlocksProvider
+        extends TpchBlocksProvider
 {
     private static final LoadingCache<String, Slice> mappedFileCache = CacheBuilder.newBuilder().build(new CacheLoader<String, Slice>(){
         @Override
@@ -44,19 +45,37 @@ public class StatsTpchBlocksProvider
     }
 
     @Override
-    public BlockIterable  getBlocks(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding)
+    public BlockIterable getBlocks(TpchTableHandle tableHandle,
+            TpchColumnHandle columnHandle,
+            int tableSkew,
+            int tableSplit,
+            BlocksFileEncoding encoding)
     {
+        checkArgument(tableSplit > 0, "tableSplit must be > 1");
+        checkArgument(tableSkew >=0, "tableSkew must be >= 0");
+
         Slice slice = getColumnSlice(tableHandle, columnHandle, encoding);
         BlocksFileReader blocks = BlocksFileReader.readBlocks(slice);
-        statsBuilder.add(blocks.getStats());
+        BlocksFileStats stats = blocks.getStats();
+        statsBuilder.add(new BlocksFileStats((stats.getRowCount() - tableSkew)/tableSplit, // fake up row length to match the skew /split count.
+                stats.getRunsCount(),
+                stats.getAvgRunLength(),
+                stats.getUniqueCount()));
         return blocks;
     }
 
     @Override
-    public DataSize getColumnDataSize(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding)
+    public DataSize getColumnDataSize(TpchTableHandle tableHandle,
+            TpchColumnHandle columnHandle,
+            int tableSkew,
+            int tableSplit,
+            BlocksFileEncoding encoding)
     {
+        checkArgument(tableSplit > 0, "tableSplit must be > 1");
+        checkArgument(tableSkew >=0, "tableSkew must be >= 0");
+
         Slice slice = getColumnSlice(tableHandle, columnHandle, encoding);
-        return new DataSize(slice.length(), Unit.BYTE);
+        return new DataSize((slice.length() - tableSkew) / tableSplit, Unit.BYTE);
     }
 
     private Slice getColumnSlice(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding)

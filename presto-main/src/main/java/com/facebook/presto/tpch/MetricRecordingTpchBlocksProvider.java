@@ -8,7 +8,7 @@ import com.google.common.base.Preconditions;
 import io.airlift.units.DataSize;
 
 public class MetricRecordingTpchBlocksProvider
-        implements TpchBlocksProvider
+        extends TpchBlocksProvider
 {
     private final TpchBlocksProvider tpchBlocksProvider;
     private CpuDuration dataFetchCpuDuration = new CpuDuration();
@@ -20,15 +20,19 @@ public class MetricRecordingTpchBlocksProvider
     }
 
     @Override
-    public BlockIterable getBlocks(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding)
+    public BlockIterable getBlocks(TpchTableHandle tableHandle,
+            TpchColumnHandle columnHandle,
+            int tableSkew,
+            int tableSplit,
+            BlocksFileEncoding encoding)
     {
         Preconditions.checkNotNull(tableHandle, "tableHandle is null");
         Preconditions.checkNotNull(columnHandle, "columnHandle is null");
         Preconditions.checkNotNull(encoding, "encoding is null");
         CpuTimer cpuTimer = new CpuTimer();
         try {
-            BlockIterable blocks = tpchBlocksProvider.getBlocks(tableHandle, columnHandle, encoding);
-            cumulativeDataByteSize += tpchBlocksProvider.getColumnDataSize(tableHandle, columnHandle, encoding).toBytes();
+            BlockIterable blocks = tpchBlocksProvider.getBlocks(tableHandle, columnHandle, tableSkew, tableSplit, encoding);
+            cumulativeDataByteSize += tpchBlocksProvider.getColumnDataSize(tableHandle, columnHandle, tableSkew, tableSplit, encoding).toBytes();
             return blocks;
         } finally {
             dataFetchCpuDuration = dataFetchCpuDuration.add(cpuTimer.elapsedTime());
@@ -36,9 +40,13 @@ public class MetricRecordingTpchBlocksProvider
     }
 
     @Override
-    public DataSize getColumnDataSize(TpchTableHandle tableHandle, TpchColumnHandle columnHandle, BlocksFileEncoding encoding)
+    public DataSize getColumnDataSize(TpchTableHandle tableHandle,
+            TpchColumnHandle columnHandle,
+            int tableSkew,
+            int tableSplit,
+            BlocksFileEncoding encoding)
     {
-        return tpchBlocksProvider.getColumnDataSize(tableHandle, columnHandle, encoding);
+        return tpchBlocksProvider.getColumnDataSize(tableHandle, columnHandle, tableSkew, tableSplit, encoding);
     }
 
     public CpuDuration getDataFetchCpuDuration()
