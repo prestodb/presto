@@ -11,6 +11,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class Query
         extends Statement
 {
+    private final Optional<With> with;
     private final Select select;
     private final List<Relation> from;
     private final Optional<Expression> where;
@@ -20,6 +21,7 @@ public class Query
     private final Optional<String> limit;
 
     public Query(
+            Optional<With> with,
             Select select,
             List<Relation> from,
             Optional<Expression> where,
@@ -28,6 +30,7 @@ public class Query
             List<SortItem> orderBy,
             Optional<String> limit)
     {
+        checkNotNull(with, "with is null");
         checkNotNull(select, "select is null");
         checkNotNull(from, "from is null");
         checkArgument(!from.isEmpty(), "from is empty");
@@ -37,6 +40,7 @@ public class Query
         checkNotNull(having, "having is null");
         checkNotNull(limit, "limit is null");
 
+        this.with = with;
         this.select = select;
         this.from = from;
         this.where = where;
@@ -44,6 +48,11 @@ public class Query
         this.having = having;
         this.orderBy = orderBy;
         this.limit = limit;
+    }
+
+    public Optional<With> getWith()
+    {
+        return with;
     }
 
     public Select getSelect()
@@ -91,63 +100,41 @@ public class Query
     public String toString()
     {
         return Objects.toStringHelper(this)
+                .add("with", with.orNull())
                 .add("select", select)
                 .add("from", from)
-                .add("where", where)
+                .add("where", where.orNull())
                 .add("groupBy", groupBy)
-                .add("having", having)
+                .add("having", having.orNull())
                 .add("orderBy", orderBy)
-                .add("limit", limit)
+                .add("limit", limit.orNull())
+                .omitNullValues()
                 .toString();
     }
 
     @Override
-    public boolean equals(Object o)
+    public boolean equals(Object obj)
     {
-        if (this == o) {
+        if (this == obj) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-
-        Query query = (Query) o;
-
-        if (!from.equals(query.from)) {
-            return false;
-        }
-        if (!groupBy.equals(query.groupBy)) {
-            return false;
-        }
-        if (having != null ? !having.equals(query.having) : query.having != null) {
-            return false;
-        }
-        if (limit != null ? !limit.equals(query.limit) : query.limit != null) {
-            return false;
-        }
-        if (!orderBy.equals(query.orderBy)) {
-            return false;
-        }
-        if (!select.equals(query.select)) {
-            return false;
-        }
-        if (where != null ? !where.equals(query.where) : query.where != null) {
-            return false;
-        }
-
-        return true;
+        Query o = (Query) obj;
+        return Objects.equal(with, o.with) &&
+                Objects.equal(select, o.select) &&
+                Objects.equal(from, o.from) &&
+                Objects.equal(where, o.where) &&
+                Objects.equal(groupBy, o.groupBy) &&
+                Objects.equal(having, o.having) &&
+                Objects.equal(orderBy, o.orderBy) &&
+                Objects.equal(limit, o.limit);
     }
 
     @Override
     public int hashCode()
     {
-        int result = select.hashCode();
-        result = 31 * result + from.hashCode();
-        result = 31 * result + (where != null ? where.hashCode() : 0);
-        result = 31 * result + groupBy.hashCode();
-        result = 31 * result + (having != null ? having.hashCode() : 0);
-        result = 31 * result + orderBy.hashCode();
-        result = 31 * result + (limit != null ? limit.hashCode() : 0);
-        return result;
+        return Objects.hashCode(with, select, from, where, groupBy, having, orderBy, limit);
     }
 }
