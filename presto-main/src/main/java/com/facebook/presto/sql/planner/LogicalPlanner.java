@@ -5,6 +5,7 @@ import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.FunctionHandle;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.sql.analyzer.AnalysisResult;
 import com.facebook.presto.sql.analyzer.AnalyzedDestination;
@@ -62,6 +63,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import static com.facebook.presto.metadata.MetadataUtil.findOrCreateTable;
 
 import static com.facebook.presto.sql.analyzer.AnalyzedFunction.argumentGetter;
 import static com.facebook.presto.sql.analyzer.AnalyzedFunction.windowExpressionGetter;
@@ -533,7 +536,14 @@ public class LogicalPlanner
         AnalysisResult queryAnalysis = analysis.getAnalysis(destination);
         PlanNode queryNode = createQueryPlan(queryAnalysis);
 
-        TableMetadata tableMetadata = findOrCreateTable(analysis);
+        ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+        for (Field field : queryAnalysis.getOutputDescriptor().getFields()) {
+            ColumnMetadata columnMetadata = new ColumnMetadata(field.getAttribute().get(), field.getType().getRawType());
+            columns.add(columnMetadata);
+        }
+
+        TableMetadata tableMetadata = findOrCreateTable(metadata, destination.getTableName(), columns.build());
+
         checkState(tableMetadata.getTableHandle().isPresent(), "can not import into a table without table handle");
 
         ImmutableMap.Builder<Symbol, ColumnHandle> columnHandlesBuilder = ImmutableMap.builder();
@@ -554,7 +564,6 @@ public class LogicalPlanner
             outputTypesBuilder.put(field.getSymbol(), field.getType());
         }
 
-
         TableWriterNode writerNode = new TableWriterNode(idAllocator.getNextId(),
                 queryNode,
                 tableMetadata.getTableHandle().get(),
@@ -562,8 +571,6 @@ public class LogicalPlanner
                 inputTypesBuilder.build(),
                 columnHandlesBuilder.build(),
                 outputTypesBuilder.build());
-
-
 
         Map<Symbol, AnalyzedExpression> outputExpressions = analysis.getOutputExpressions();
         checkState(outputExpressions.size() == 1, "only a single output symbol is supported");
@@ -608,31 +615,5 @@ public class LogicalPlanner
                 return treeRewriter.defaultRewrite(node, context);
             }
         };
-    }
-
-    private TableMetadata findOrCreateTable(AnalysisResult analysis)
-    {
-        checkState(analysis.getDestinations().size() == 1, "only a single table destination is currently supported");
-        AnalyzedDestination destination = Iterables.getOnlyElement(analysis.getDestinations());
-
-        TableMetadata tableMetadata = metadata.getTable(destination.getTableName());
-
-        if (tableMetadata == null || !tableMetadata.getTableHandle().isPresent()) {
-
-            AnalysisResult queryAnalysis = analysis.getAnalysis(destination);
-
-            ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-            for (Field field : queryAnalysis.getOutputDescriptor().getFields()) {
-                ColumnMetadata columnMetadata = new ColumnMetadata(field.getAttribute().get(), field.getType().getRawType());
-                columns.add(columnMetadata);
-            }
-
-            tableMetadata = new TableMetadata(destination.getTableName(), columns.build());
-            metadata.createTable(tableMetadata);
-
-            tableMetadata = metadata.getTable(destination.getTableName());
-        }
-
-        return tableMetadata;
     }
 }
