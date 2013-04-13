@@ -26,18 +26,12 @@ import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
-import com.facebook.presto.importer.ForImportManager;
 import com.facebook.presto.importer.ForPeriodicImport;
-import com.facebook.presto.importer.ImportManager;
-import com.facebook.presto.importer.ImportManagerConfig;
 import com.facebook.presto.importer.JobStateFactory;
-import com.facebook.presto.importer.LocalShardManager;
-import com.facebook.presto.importer.NodeWorkerQueue;
 import com.facebook.presto.importer.PeriodicImportConfig;
 import com.facebook.presto.importer.PeriodicImportController;
 import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.importer.PeriodicImportRunnable;
-import com.facebook.presto.importer.ShardImport;
 import com.facebook.presto.metadata.AliasDao;
 import com.facebook.presto.metadata.DatabaseShardManager;
 import com.facebook.presto.metadata.DatabaseStorageManager;
@@ -190,16 +184,7 @@ public class ServerMainModule
         discoveryBinder(binder).bindSelector("presto");
 
         binder.bind(NodeManager.class).in(Scopes.SINGLETON);
-        binder.bind(NodeWorkerQueue.class).in(Scopes.SINGLETON);
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
-
-        binder.bind(ImportManager.class).in(Scopes.SINGLETON);
-        bindConfig(binder).to(ImportManagerConfig.class);
-        httpClientBinder(binder).bindHttpClient("importer", ForImportManager.class).withFilter(NodeIdUserAgentRequestFilter.class);
-
-        binder.bind(LocalShardManager.class).in(Scopes.SINGLETON);
-        binder.bind(ShardResource.class).in(Scopes.SINGLETON);
-        jsonCodecBinder(binder).bindJsonCodec(ShardImport.class);
 
         bindConfig(binder).to(ShardCleanerConfig.class);
         binder.bind(ShardCleaner.class).in(Scopes.SINGLETON);

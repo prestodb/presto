@@ -12,20 +12,14 @@ import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.ingest.SerializedPartitionChunk;
-import com.facebook.presto.metadata.ColumnMetadata;
 import com.facebook.presto.metadata.DataSourceType;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.NativeColumnHandle;
-import com.facebook.presto.metadata.NativeTableHandle;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.metadata.StorageManager;
-import com.facebook.presto.metadata.TableMetadata;
-import com.facebook.presto.operator.Operator;
 import com.facebook.presto.split.DataStreamProvider;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.tree.Expression;
@@ -43,7 +37,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.io.Closeables;
 import com.google.common.io.Files;
 import com.google.inject.Binder;
@@ -85,7 +78,6 @@ import org.weakref.jmx.guice.MBeanModule;
 
 import java.io.Closeable;
 import java.io.File;
-import java.io.IOException;
 import java.lang.reflect.Method;
 import java.net.URI;
 import java.util.Arrays;
@@ -453,30 +445,6 @@ public class TestDistributedQueries
         public QueryInfo getQueryInfo(QueryId queryId)
         {
             return queryManager.getQueryInfo(queryId, true);
-        }
-
-        public long addShard(TableMetadata table)
-        {
-            long tableId = ((NativeTableHandle) table.getTableHandle().get()).getTableId();
-            List<Long> shardIds = shardManager.createImportPartition(tableId, "partition_" + NEXT_PARTITION_ID.incrementAndGet(), ImmutableList.of(new SerializedPartitionChunk(new byte[0])));
-            return shardIds.get(0);
-        }
-
-        public void importShard(TableMetadata table, long shardId, Operator source)
-                throws IOException
-        {
-            ImmutableList.Builder<Long> columnIds = ImmutableList.builder();
-            for (ColumnMetadata column : table.getColumns()) {
-                long columnId = ((NativeColumnHandle) column.getColumnHandle().get()).getColumnId();
-                columnIds.add(columnId);
-            }
-
-            storageManager.importShard(shardId, Lists.transform(table.getColumns(), ColumnMetadata.columnHandleGetter()), source);
-        }
-
-        public void commitShard(long shardId, String nodeId)
-        {
-            shardManager.commitShard(shardId, nodeId);
         }
 
         public void refreshServiceSelectors()
