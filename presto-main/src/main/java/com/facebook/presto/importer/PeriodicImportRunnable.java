@@ -12,18 +12,19 @@ public class PeriodicImportRunnable
 {
     private static final Logger log = Logger.get(PeriodicImportRunnable.class);
 
-    private final ImportManager importManager;
+//     private final ImportManager importManager;
     private final Metadata metadata;
 
     @Inject
-    public PeriodicImportRunnable(ImportManager importManager,
+    public PeriodicImportRunnable(
+//            ImportManager importManager,
             PeriodicImportManager periodicImportManager,
             Metadata metadata,
             JobState jobState)
     {
         super(jobState, periodicImportManager);
 
-        this.importManager = importManager;
+//        this.importManager = importManager;
         this.metadata = metadata;
     }
 
@@ -73,23 +74,24 @@ public class PeriodicImportRunnable
     @Singleton
     public static final class PeriodicImportRunnableFactory
     {
-        private final ImportManager importManager;
+//        private final ImportManager importManager;
         private final PeriodicImportManager periodicImportManager;
         private final Metadata metadata;
 
         @Inject
-        public PeriodicImportRunnableFactory(ImportManager importManager,
+        public PeriodicImportRunnableFactory(
+//                ImportManager importManager,
                 PeriodicImportManager periodicImportManager,
                 Metadata metadata)
         {
-            this.importManager = importManager;
+//            this.importManager = importManager;
             this.periodicImportManager = periodicImportManager;
             this.metadata = metadata;
         }
 
         public Runnable create(JobState jobState)
         {
-            return new PeriodicImportRunnable(importManager, periodicImportManager, metadata, jobState);
+            return null; // new PeriodicImportRunnable(importManager, periodicImportManager, metadata, jobState);
         }
     }
 }

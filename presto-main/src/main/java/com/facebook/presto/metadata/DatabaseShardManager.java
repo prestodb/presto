@@ -1,14 +1,11 @@
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.facebook.presto.metadata.ShardManagerDao.Utils;
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
-import org.skife.jdbi.v2.TransactionCallback;
 import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.VoidTransactionCallback;
 
@@ -38,42 +35,6 @@ public class DatabaseShardManager
 
         // keep retrying if database is unavailable when the server starts
         Utils.createShardTablesWithRetry(dao);
-    }
-
-    @Override
-    public void createImportTable(final long tableId, final String sourceName, final String databaseName, final String tableName)
-    {
-        // creating a table is idempotent
-        runIgnoringConstraintViolation(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                dao.insertImportTable(tableId, sourceName, databaseName, tableName);
-            }
-        });
-        checkState(dao.importTableExists(tableId), "import table does not exist after insert");
-    }
-
-    @Override
-    public List<Long> createImportPartition(final long tableId, final String partitionName, final Iterable<SerializedPartitionChunk> partitionChunks)
-    {
-        return dbi.inTransaction(new TransactionCallback<List<Long>>()
-        {
-            @Override
-            public List<Long> inTransaction(Handle handle, TransactionStatus status)
-            {
-                ShardManagerDao dao = handle.attach(ShardManagerDao.class);
-                ImmutableList.Builder<Long> shardIds = ImmutableList.builder();
-                long importPartitionId = dao.insertImportPartition(tableId, partitionName);
-                for (SerializedPartitionChunk chunk : partitionChunks) {
-                    long shardId = dao.insertShard(tableId, false);
-                    dao.insertImportPartitionShard(importPartitionId, shardId, chunk.getBytes());
-                    shardIds.add(shardId);
-                }
-                return shardIds.build();
-            }
-        });
     }
 
     @Override
@@ -142,7 +103,7 @@ public class DatabaseShardManager
             protected void execute(Handle handle, TransactionStatus status)
             {
                 ShardManagerDao dao = handle.attach(ShardManagerDao.class);
-                dao.deleteShardFromImportPartitionShards(shardId);
+                dao.deleteShardFromPartitionShards(shardId);
                 dao.dropShardNode(shardId, null);
                 dao.deleteShard(shardId);
             }
@@ -150,13 +111,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public Set<String> getAllPartitions(long tableId)
-    {
-        return dao.getAllPartitions(tableId);
-    }
-
-    @Override
-    public Set<String> getCommittedPartitions(TableHandle tableHandle)
+    public Set<String> getPartitions(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkState(tableHandle.getDataSourceType() == DataSourceType.NATIVE, "can only commit partitions for native tables");
@@ -203,7 +158,7 @@ public class DatabaseShardManager
                 List<Long> shardIds = dao.getAllShards(tableId, partitionName);
                 for (Long shardId : shardIds) {
                     dao.deleteShardFromShardNodes(shardId);
-                    dao.deleteShardFromImportPartitionShards(shardId);
+                    dao.deleteShardFromPartitionShards(shardId);
                     dao.deleteShard(shardId);
                 }
                 dao.dropPartition(tableId, partitionName);
