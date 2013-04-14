@@ -52,7 +52,7 @@ public class TestingTpchBlocksProvider
         return new TpchBlockIterable(columnHandle.getType(),
                 partNumber,
                 totalParts,
-                tableHandle.getTableName().getTableName(),
+                tableHandle.getTableName(),
                 columnHandle.getFieldIndex());
     }
 

@@ -1,6 +1,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.tpch.TpchColumnHandle;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -11,20 +12,13 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.facebook.presto.metadata.MetadataUtil.checkTable;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class InMemoryMetadata
         implements ConnectorMetadata
 {
-    private final ConcurrentMap<QualifiedTableName, TableMetadata> tables = new ConcurrentHashMap<>();
-
-    @Override
-    public int priority()
-    {
-        return Integer.MIN_VALUE;
-    }
+    private final ConcurrentMap<SchemaTableName, SchemaTableMetadata> tables = new ConcurrentHashMap<>();
 
     @Override
     public boolean canHandle(TableHandle tableHandle)
@@ -33,30 +27,21 @@ public class InMemoryMetadata
     }
 
     @Override
-    public boolean canHandle(QualifiedTablePrefix prefix)
+    public List<String> listSchemaNames()
     {
-        return prefix.getCatalogName().equals("tpch");
-    }
-
-    @Override
-    public List<String> listSchemaNames(String catalogName)
-    {
-        checkNotNull(catalogName, "catalogName is null");
-
-        List<QualifiedTableName> tables = listTables(QualifiedTablePrefix.builder(catalogName).build());
         Set<String> schemaNames = new HashSet<>();
 
-        for (QualifiedTableName qualifiedTableName : tables) {
-            schemaNames.add(qualifiedTableName.getSchemaName());
+        for (SchemaTableName schemaTableName : tables.keySet()) {
+            schemaNames.add(schemaTableName.getSchemaName());
         }
 
         return ImmutableList.copyOf(schemaNames);
     }
 
     @Override
-    public TableHandle getTableHandle(QualifiedTableName tableName)
+    public TableHandle getTableHandle(SchemaTableName tableName)
     {
-        checkTable(tableName);
+        checkNotNull(tableName, "tableName is null");
         if (!tables.containsKey(tableName)) {
             return null;
         }
@@ -64,11 +49,11 @@ public class InMemoryMetadata
     }
 
     @Override
-    public TableMetadata getTableMetadata(TableHandle tableHandle)
+    public SchemaTableMetadata getTableMetadata(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
-        QualifiedTableName tableName = getTableName(tableHandle);
-        TableMetadata tableMetadata = tables.get(tableName);
+        SchemaTableName tableName = getTableName(tableHandle);
+        SchemaTableMetadata tableMetadata = tables.get(tableName);
         checkArgument(tableMetadata != null, "Table %s does not exist", tableName);
         return tableMetadata;
     }
@@ -95,12 +80,12 @@ public class InMemoryMetadata
     }
 
     @Override
-    public Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(QualifiedTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
 
-        ImmutableMap.Builder<QualifiedTableName, List<ColumnMetadata>> tableColumns = ImmutableMap.builder();
-        for (QualifiedTableName tableName : listTables(prefix)) {
+        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> tableColumns = ImmutableMap.builder();
+        for (SchemaTableName tableName : listTables(prefix.getSchemaName())) {
             int position = 1;
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
             for (ColumnMetadata column : tables.get(tableName).getColumns()) {
@@ -115,7 +100,7 @@ public class InMemoryMetadata
     @Override
     public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
     {
-        QualifiedTableName tableName = getTableName(tableHandle);
+        SchemaTableName tableName = getTableName(tableHandle);
         checkArgument(columnHandle instanceof TpchColumnHandle, "columnHandle is not an instance of TpchColumnHandle");
         TpchColumnHandle tpchColumnHandle = (TpchColumnHandle) columnHandle;
         int columnIndex = tpchColumnHandle.getFieldIndex();
@@ -123,7 +108,7 @@ public class InMemoryMetadata
     }
 
     @Override
-    public List<Map<String, String>> listTablePartitionValues(QualifiedTablePrefix prefix)
+    public List<Map<String, String>> listTablePartitionValues(SchemaTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
 
@@ -131,15 +116,13 @@ public class InMemoryMetadata
     }
 
     @Override
-    public List<QualifiedTableName> listTables(QualifiedTablePrefix prefix)
+    public List<SchemaTableName> listTables(Optional<String> schemaName)
     {
-        checkNotNull(prefix, "prefix is null");
+        checkNotNull(schemaName, "schemaName is null");
 
-        ImmutableList.Builder<QualifiedTableName> builder = ImmutableList.builder();
-        for (QualifiedTableName tableName : tables.keySet()) {
-            if (prefix.getCatalogName().equals(tableName.getCatalogName()) &&
-                    prefix.getSchemaName().isPresent() || prefix.getSchemaName().get().equals(tableName.getSchemaName()) &&
-                    prefix.getTableName().isPresent() || prefix.getTableName().get().equals(tableName.getTableName())) {
+        ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
+        for (SchemaTableName tableName : tables.keySet()) {
+            if (schemaName.isPresent() || schemaName.get().equals(tableName.getSchemaName())) {
                 builder.add(tableName);
             }
         }
@@ -147,9 +130,9 @@ public class InMemoryMetadata
     }
 
     @Override
-    public TableHandle createTable(TableMetadata tableMetadata)
+    public TableHandle createTable(SchemaTableMetadata tableMetadata)
     {
-        TableMetadata existingTable = tables.putIfAbsent(tableMetadata.getTable(), tableMetadata);
+        SchemaTableMetadata existingTable = tables.putIfAbsent(tableMetadata.getTable(), tableMetadata);
         checkArgument(existingTable == null, "Table %s already exists", tableMetadata.getTable());
         return new InMemoryTableHandle(tableMetadata.getTable());
     }
@@ -160,7 +143,7 @@ public class InMemoryMetadata
         tables.remove(getTableName(tableHandle));
     }
 
-    private QualifiedTableName getTableName(TableHandle tableHandle)
+    private SchemaTableName getTableName(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof InMemoryTableHandle, "tableHandle is not an instance of InMemoryTableHandle");
@@ -171,11 +154,11 @@ public class InMemoryMetadata
     public static class InMemoryTableHandle
             implements TableHandle
     {
-        private final QualifiedTableName tableName;
+        private final SchemaTableName tableName;
 
-        public InMemoryTableHandle(QualifiedTableName qualifiedTableName)
+        public InMemoryTableHandle(SchemaTableName schemaTableName)
         {
-            this.tableName = qualifiedTableName;
+            this.tableName = schemaTableName;
         }
 
         @Override
@@ -184,7 +167,7 @@ public class InMemoryMetadata
             return DataSourceType.INTERNAL;
         }
 
-        public QualifiedTableName getTableName()
+        public SchemaTableName getTableName()
         {
             return tableName;
         }

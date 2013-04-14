@@ -61,13 +61,12 @@ public class MetadataResource
 
     @GET
     @Path("{catalogName}/{schemaName}")
-    public Response getTables(@PathParam("catalogName") String catalogName,
-            @PathParam("schemaName") String schemaName)
+    public Response getTables(@PathParam("catalogName") String catalogName, @PathParam("schemaName") String schemaName)
     {
         List<QualifiedTableName> tableNames = Collections.emptyList();
 
         try {
-            tableNames = metadata.listTables(QualifiedTablePrefix.builder(catalogName).schemaName(schemaName).build());
+            tableNames = metadata.listTables(new QualifiedTablePrefix(catalogName, schemaName));
         }
         catch (Exception e) {
             // ignore, we always want a result...

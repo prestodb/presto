@@ -27,7 +27,7 @@ public class InMemoryRecordSet
 
         ImmutableList.Builder<ImportColumnHandle> builder = ImmutableList.builder();
         for (int i = 0; i < types.size(); i++) {
-            builder.add(new ImportColumnHandle("test", "column" + i, i, types.get(i)));
+            builder.add(new ImportColumnHandle("column" + i, i, types.get(i)));
         }
 
         columns = builder.build();

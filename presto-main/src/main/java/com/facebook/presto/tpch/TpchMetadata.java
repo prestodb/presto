@@ -7,22 +7,20 @@ import com.facebook.presto.metadata.InternalColumnHandle;
 import com.facebook.presto.metadata.InternalSchemaMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.QualifiedTableName;
-import com.facebook.presto.metadata.QualifiedTablePrefix;
+import com.facebook.presto.metadata.SchemaTableMetadata;
+import com.facebook.presto.metadata.SchemaTableName;
+import com.facebook.presto.metadata.SchemaTablePrefix;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableMetadata;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static com.facebook.presto.metadata.MetadataUtil.ColumnMetadataListBuilder.columnsBuilder;
-import static com.facebook.presto.metadata.MetadataUtil.checkTable;
 import static com.facebook.presto.tuple.TupleInfo.Type.DOUBLE;
 import static com.facebook.presto.tuple.TupleInfo.Type.FIXED_INT_64;
 import static com.facebook.presto.tuple.TupleInfo.Type.VARIABLE_BINARY;
@@ -36,8 +34,7 @@ public class TpchMetadata
     public static final String TPCH_SCHEMA_NAME = "default";
 
     public static final String TPCH_ORDERS_NAME = "orders";
-    public static final QualifiedTableName TPCH_ORDERS = new QualifiedTableName(TPCH_CATALOG_NAME, TPCH_SCHEMA_NAME, TPCH_ORDERS_NAME);
-    public static final TableMetadata TPCH_ORDERS_METADATA = new TableMetadata(TPCH_ORDERS, columnsBuilder()
+    public static final SchemaTableMetadata TPCH_ORDERS_METADATA = new SchemaTableMetadata(new SchemaTableName(TPCH_SCHEMA_NAME, TPCH_ORDERS_NAME), columnsBuilder()
             .column("orderkey", FIXED_INT_64) // Mostly increasing IDs
             .column("custkey", FIXED_INT_64) // 15:1
             .column("orderstatus", VARIABLE_BINARY) // 3 unique
@@ -50,8 +47,7 @@ public class TpchMetadata
             .build()); // Arbitrary strings
 
     public static final String TPCH_LINEITEM_NAME = "lineitem";
-    public static final QualifiedTableName TPCH_LINEITEM = new QualifiedTableName(TPCH_CATALOG_NAME, TPCH_SCHEMA_NAME, TPCH_LINEITEM_NAME);
-    public static final TableMetadata TPCH_LINEITEM_METADATA = new TableMetadata(TPCH_LINEITEM,  columnsBuilder()
+    public static final SchemaTableMetadata TPCH_LINEITEM_METADATA = new SchemaTableMetadata(new SchemaTableName(TPCH_SCHEMA_NAME, TPCH_LINEITEM_NAME),  columnsBuilder()
             .column("orderkey", FIXED_INT_64)
             .column("partkey", FIXED_INT_64)
             .column("suppkey", FIXED_INT_64)
@@ -72,10 +68,11 @@ public class TpchMetadata
 
     public static Metadata createTpchMetadata()
     {
-        return new MetadataManager(ImmutableSet.<InternalSchemaMetadata>of(), ImmutableSet.<ConnectorMetadata>of(new TpchMetadata()));
+        return new MetadataManager(ImmutableSet.<InternalSchemaMetadata>of(),
+                ImmutableMap.<String, ConnectorMetadata>of(TPCH_CATALOG_NAME, new TpchMetadata()));
     }
 
-    private final Map<String, TableMetadata> tables;
+    private final Map<String, SchemaTableMetadata> tables;
 
     @Inject
     public TpchMetadata()
@@ -86,58 +83,34 @@ public class TpchMetadata
     }
 
     @Override
-    public int priority()
-    {
-        return Integer.MIN_VALUE;
-    }
-
-    @Override
     public boolean canHandle(TableHandle tableHandle)
     {
         return tableHandle instanceof TpchTableHandle;
     }
 
     @Override
-    public boolean canHandle(QualifiedTablePrefix prefix)
+    public List<String> listSchemaNames()
     {
-        return prefix.getCatalogName().equals("tpch");
+        return ImmutableList.of(TPCH_SCHEMA_NAME);
     }
 
     @Override
-    public List<String> listSchemaNames(String catalogName)
+    public TableHandle getTableHandle(SchemaTableName table)
     {
-        checkNotNull(catalogName, "catalogName is null");
-
-        List<QualifiedTableName> tables = listTables(QualifiedTablePrefix.builder(catalogName).build());
-        Set<String> schemaNames = new HashSet<>();
-
-        for (QualifiedTableName qualifiedTableName : tables) {
-            schemaNames.add(qualifiedTableName.getSchemaName());
-        }
-
-        return ImmutableList.copyOf(schemaNames);
-    }
-
-    @Override
-    public TableHandle getTableHandle(QualifiedTableName table)
-    {
-        checkTable(table);
-        if (!TPCH_CATALOG_NAME.equals(table.getCatalogName()) || !TPCH_SCHEMA_NAME.equals(table.getSchemaName()) || !tables.containsKey(table.getTableName())) {
+        checkNotNull(table, "table is null");
+        if (!TPCH_SCHEMA_NAME.equals(table.getSchemaName()) || !tables.containsKey(table.getTableName())) {
             return null;
         }
-        return new TpchTableHandle(table);
+        return new TpchTableHandle(table.getTableName());
     }
 
     @Override
-    public TableMetadata getTableMetadata(TableHandle tableHandle)
+    public SchemaTableMetadata getTableMetadata(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
-        QualifiedTableName tableName = getTableName(tableHandle);
-
-        if (!TPCH_CATALOG_NAME.equals(tableName.getCatalogName()) || !TPCH_SCHEMA_NAME.equals(tableName.getSchemaName()) || !tables.containsKey(tableName.getTableName())) {
-            throw new IllegalArgumentException(String.format("Table %s does not exist", tableHandle));
-        }
-        return tables.get(tableName.getTableName());
+        String tableName = getTableName(tableHandle);
+        checkArgument(tables.containsKey(tableName), "Table %s does not exist", tableHandle);
+        return tables.get(tableName);
     }
 
     @Override
@@ -162,12 +135,14 @@ public class TpchMetadata
     }
 
     @Override
-    public Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(QualifiedTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix)
     {
-        checkNotNull(prefix, "prefix is null");
+        if (!TPCH_SCHEMA_NAME.equals(prefix.getSchemaName().or(TPCH_SCHEMA_NAME))) {
+            return ImmutableMap.of();
+        }
 
-        ImmutableMap.Builder<QualifiedTableName, List<ColumnMetadata>> tableColumns = ImmutableMap.builder();
-        for (QualifiedTableName tableName : listTables(prefix)) {
+        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> tableColumns = ImmutableMap.builder();
+        for (SchemaTableName tableName : listTables(prefix.getSchemaName())) {
             int position = 1;
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
             for (ColumnMetadata column : tables.get(tableName.getTableName()).getColumns()) {
@@ -182,15 +157,17 @@ public class TpchMetadata
     @Override
     public ColumnMetadata getColumnMetadata(TableHandle tableHandle, ColumnHandle columnHandle)
     {
-        QualifiedTableName tableName = getTableName(tableHandle);
+        String tableName = getTableName(tableHandle);
+        checkArgument(tables.containsKey(tableName), "Table %s does not exist", tableHandle);
+
         checkArgument(columnHandle instanceof InternalColumnHandle, "columnHandle is not an instance of InternalColumnHandle");
         InternalColumnHandle internalColumnHandle = (InternalColumnHandle) columnHandle;
         int columnIndex = internalColumnHandle.getColumnIndex();
-        return tables.get(tableName.getTableName()).getColumns().get(columnIndex);
+        return tables.get(tableName).getColumns().get(columnIndex);
     }
 
     @Override
-    public List<Map<String, String>> listTablePartitionValues(QualifiedTablePrefix prefix)
+    public List<Map<String, String>> listTablePartitionValues(SchemaTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
 
@@ -198,23 +175,23 @@ public class TpchMetadata
     }
 
     @Override
-    public List<QualifiedTableName> listTables(QualifiedTablePrefix prefix)
+    public List<SchemaTableName> listTables(Optional<String> schemaName)
     {
-        checkNotNull(prefix, "prefix is null");
+        checkNotNull(schemaName, "schemaName is null");
 
-        if (!prefix.getCatalogName().equals(TPCH_CATALOG_NAME) || !prefix.getSchemaName().or(TPCH_SCHEMA_NAME).equals(TPCH_SCHEMA_NAME)) {
+        if (!TPCH_SCHEMA_NAME.equals(schemaName.or(TPCH_SCHEMA_NAME))) {
             return ImmutableList.of();
         }
 
-        ImmutableList.Builder<QualifiedTableName> builder = ImmutableList.builder();
-        for (String tableNAme : tables.keySet()) {
-            builder.add(new QualifiedTableName(TPCH_CATALOG_NAME, TPCH_SCHEMA_NAME, tableNAme));
+        ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
+        for (String tableName : tables.keySet()) {
+            builder.add(new SchemaTableName(TPCH_SCHEMA_NAME, tableName));
         }
         return builder.build();
     }
 
     @Override
-    public TableHandle createTable(TableMetadata tableMetadata)
+    public TableHandle createTable(SchemaTableMetadata tableMetadata)
     {
         throw new UnsupportedOperationException();
     }
@@ -225,7 +202,7 @@ public class TpchMetadata
         throw new UnsupportedOperationException();
     }
 
-    private QualifiedTableName getTableName(TableHandle tableHandle)
+    private String getTableName(TableHandle tableHandle)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof TpchTableHandle, "tableHandle is not an instance of TpchTableHandle");

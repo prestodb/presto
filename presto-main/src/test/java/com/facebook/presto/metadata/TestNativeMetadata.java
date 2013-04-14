@@ -1,5 +1,6 @@
 package com.facebook.presto.metadata;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.skife.jdbi.v2.DBI;
@@ -22,7 +23,7 @@ import static org.testng.Assert.assertNull;
 
 public class TestNativeMetadata
 {
-    private static final QualifiedTableName DEFAULT_TEST_ORDERS = new QualifiedTableName("default", "test", "orders");
+    private static final SchemaTableName DEFAULT_TEST_ORDERS = new SchemaTableName("test", "orders");
 
     private Handle dummyHandle;
     private ConnectorMetadata metadata;
@@ -51,7 +52,7 @@ public class TestNativeMetadata
         assertInstanceOf(tableHandle, NativeTableHandle.class);
         assertEquals(((NativeTableHandle) tableHandle).getTableId(), 1);
 
-        TableMetadata table = metadata.getTableMetadata(tableHandle);
+        SchemaTableMetadata table = metadata.getTableMetadata(tableHandle);
         assertTableEqual(table, getOrdersTable());
 
         ColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, "orderkey");
@@ -63,7 +64,7 @@ public class TestNativeMetadata
     public void testListTables()
     {
         metadata.createTable(getOrdersTable());
-        List<QualifiedTableName> tables = metadata.listTables(QualifiedTablePrefix.builder("default").build());
+        List<SchemaTableName> tables = metadata.listTables(Optional.<String>absent());
         assertEquals(tables, ImmutableList.of(DEFAULT_TEST_ORDERS));
     }
 
@@ -71,7 +72,7 @@ public class TestNativeMetadata
     public void testListTableColumns()
     {
         metadata.createTable(getOrdersTable());
-        Map<QualifiedTableName, List<ColumnMetadata>> columns = metadata.listTableColumns(QualifiedTablePrefix.builder("default").build());
+        Map<SchemaTableName, List<ColumnMetadata>> columns = metadata.listTableColumns(new SchemaTablePrefix());
         assertEquals(columns, ImmutableMap.of(DEFAULT_TEST_ORDERS, columnsBuilder()
                 .column("orderkey", FIXED_INT_64)
                 .column("custkey", FIXED_INT_64)
@@ -84,16 +85,16 @@ public class TestNativeMetadata
     public void testListTableColumnsFiltering()
     {
         metadata.createTable(getOrdersTable());
-        Map<QualifiedTableName, List<ColumnMetadata>> filterCatalog = metadata.listTableColumns(QualifiedTablePrefix.builder("default").build());
-        Map<QualifiedTableName, List<ColumnMetadata>> filterSchema = metadata.listTableColumns(QualifiedTablePrefix.builder("default").schemaName("test").build());
-        Map<QualifiedTableName, List<ColumnMetadata>> filterTable = metadata.listTableColumns(QualifiedTablePrefix.builder("default").schemaName("test").tableName("orders").build());
+        Map<SchemaTableName, List<ColumnMetadata>> filterCatalog = metadata.listTableColumns(new SchemaTablePrefix());
+        Map<SchemaTableName, List<ColumnMetadata>> filterSchema = metadata.listTableColumns(new SchemaTablePrefix("test"));
+        Map<SchemaTableName, List<ColumnMetadata>> filterTable = metadata.listTableColumns(new SchemaTablePrefix("test", "orders"));
         assertEquals(filterCatalog, filterSchema);
         assertEquals(filterCatalog, filterTable);
     }
 
-    private static TableMetadata getOrdersTable()
+    private static SchemaTableMetadata getOrdersTable()
     {
-        return new TableMetadata(DEFAULT_TEST_ORDERS, columnsBuilder()
+        return new SchemaTableMetadata(DEFAULT_TEST_ORDERS, columnsBuilder()
                 .column("orderkey", FIXED_INT_64)
                 .column("custkey", FIXED_INT_64)
                 .column("totalprice", DOUBLE)
@@ -101,7 +102,7 @@ public class TestNativeMetadata
                 .build());
     }
 
-    private static void assertTableEqual(TableMetadata actual, TableMetadata expected)
+    private static void assertTableEqual(SchemaTableMetadata actual, SchemaTableMetadata expected)
     {
         assertEquals(actual.getTable(), expected.getTable());
 

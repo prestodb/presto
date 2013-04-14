@@ -3,6 +3,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -59,6 +60,11 @@ public class QualifiedTableName
         return new QualifiedName(ImmutableList.of(catalogName, schemaName, tableName));
     }
 
+    public SchemaTableName asSchemaTableName()
+    {
+        return new SchemaTableName(schemaName, tableName);
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -85,5 +91,16 @@ public class QualifiedTableName
     public String toString()
     {
         return catalogName + '.' + schemaName + '.' + tableName;
+    }
+
+    public static Function<SchemaTableName, QualifiedTableName> convertFromSchemaTableName(final String catalogName)
+    {
+        return new Function<SchemaTableName, QualifiedTableName>() {
+            @Override
+            public QualifiedTableName apply(SchemaTableName input)
+            {
+                return new QualifiedTableName(catalogName, input.getSchemaName(), input.getTableName());
+            }
+        };
     }
 }

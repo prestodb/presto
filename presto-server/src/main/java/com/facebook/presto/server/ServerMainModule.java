@@ -46,7 +46,6 @@ import com.facebook.presto.metadata.ForShardCleaner;
 import com.facebook.presto.metadata.ForShardManager;
 import com.facebook.presto.metadata.ForStorageManager;
 import com.facebook.presto.metadata.HandleJsonModule;
-import com.facebook.presto.metadata.ImportMetadata;
 import com.facebook.presto.metadata.InformationSchemaData;
 import com.facebook.presto.metadata.InformationSchemaMetadata;
 import com.facebook.presto.metadata.LocalStorageManager;
@@ -161,7 +160,7 @@ public class ServerMainModule
         binder.bind(MetadataResource.class).in(Scopes.SINGLETON);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
-        Multibinder<ConnectorMetadata> connectorMetadataBinder = Multibinder.newSetBinder(binder, ConnectorMetadata.class);
+        MapBinder<String, ConnectorMetadata> connectorMetadataBinder = MapBinder.newMapBinder(binder, String.class, ConnectorMetadata.class);
         Multibinder<InternalSchemaMetadata> internalSchemaMetadataBinder = Multibinder.newSetBinder(binder, InternalSchemaMetadata.class);
 
         // internal schemas like information_schema and sys
@@ -169,7 +168,7 @@ public class ServerMainModule
         internalSchemaMetadataBinder.addBinding().to(SystemTables.class);
 
         // native
-        connectorMetadataBinder.addBinding().to(NativeMetadata.class).in(Scopes.SINGLETON);
+        connectorMetadataBinder.addBinding("default").to(NativeMetadata.class).in(Scopes.SINGLETON);
 
         // system tables (e.g., Dual, information_schema, and sys)
         binder.bind(SystemTables.class).in(Scopes.SINGLETON);
@@ -177,7 +176,6 @@ public class ServerMainModule
         binder.bind(InformationSchemaData.class).in(Scopes.SINGLETON);
 
         // import
-        connectorMetadataBinder.addBinding().to(ImportMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ImportClientManager.class).in(Scopes.SINGLETON);
         // kick off binding of import client factories
         Multibinder.newSetBinder(binder, ImportClientFactory.class);

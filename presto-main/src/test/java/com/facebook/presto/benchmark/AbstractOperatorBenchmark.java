@@ -5,7 +5,7 @@ import com.facebook.presto.block.BlockCursor;
 import com.facebook.presto.block.BlockIterable;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.ConnectorMetadata;
-import com.facebook.presto.metadata.QualifiedTableName;
+import com.facebook.presto.metadata.SchemaTableName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorStats;
@@ -28,7 +28,6 @@ import io.airlift.units.DataSize;
 
 import java.util.Map;
 
-import static com.facebook.presto.tpch.TpchMetadata.TPCH_CATALOG_NAME;
 import static com.facebook.presto.tpch.TpchMetadata.TPCH_SCHEMA_NAME;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -44,7 +43,7 @@ public abstract class AbstractOperatorBenchmark
     public static BlockIterable getBlockIterable(TpchBlocksProvider blocksProvider, String tableName, String columnName, BlocksFileEncoding columnEncoding)
     {
         ConnectorMetadata metadata = new TpchMetadata();
-        TableHandle tableHandle = metadata.getTableHandle(new QualifiedTableName(TPCH_CATALOG_NAME, TPCH_SCHEMA_NAME, tableName));
+        TableHandle tableHandle = metadata.getTableHandle(new SchemaTableName(TPCH_SCHEMA_NAME, tableName));
         ColumnHandle columnHandle = metadata.getColumnHandle(tableHandle, columnName);
         return blocksProvider.getBlocks((TpchTableHandle) tableHandle, (TpchColumnHandle) columnHandle, columnEncoding);
     }

@@ -12,7 +12,7 @@ public class TestQualifiedTablePrefix
     @Test
     public void testCatalog()
     {
-        QualifiedTablePrefix tableName = QualifiedTablePrefix.builder("catalog").build();
+        QualifiedTablePrefix tableName = new QualifiedTablePrefix("catalog");
         assertEquals("catalog", tableName.getCatalogName());
 
         assertFalse(tableName.hasSchemaName());
@@ -22,7 +22,7 @@ public class TestQualifiedTablePrefix
     @Test
     public void testSchema()
     {
-        QualifiedTablePrefix tableName = QualifiedTablePrefix.builder("catalog").schemaName("schema").build();
+        QualifiedTablePrefix tableName = new QualifiedTablePrefix("catalog", "schema");
 
         assertEquals("catalog", tableName.getCatalogName());
         assertTrue(tableName.hasSchemaName());
@@ -34,7 +34,7 @@ public class TestQualifiedTablePrefix
     @Test
     public void testTable()
     {
-        QualifiedTablePrefix tableName = QualifiedTablePrefix.builder("catalog").schemaName("schema").tableName("table").build();
+        QualifiedTablePrefix tableName = new QualifiedTablePrefix("catalog", "schema", "table");
         assertEquals("catalog", tableName.getCatalogName());
 
         assertTrue(tableName.hasSchemaName());
@@ -48,21 +48,11 @@ public class TestQualifiedTablePrefix
     public void testBadTable()
     {
         try {
-            QualifiedTablePrefix.builder("catalog").tableName("table").build();
+            new QualifiedTablePrefix("catalog", null, "table");
             fail();
         }
-        catch (IllegalStateException e) {
+        catch (RuntimeException e) {
             // ok
         }
-    }
-
-    @Test
-    public void testNullOk()
-    {
-        QualifiedTablePrefix tableName = QualifiedTablePrefix.builder("catalog").schemaName(null).tableName(null).build();
-        assertEquals("catalog", tableName.getCatalogName());
-
-        assertFalse(tableName.hasSchemaName());
-        assertFalse(tableName.hasTableName());
     }
 }

@@ -12,6 +12,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeMethod;
@@ -423,7 +424,7 @@ public class TestAnalyzer
     public void setup()
             throws Exception
     {
-        Metadata metadata = new MetadataManager(ImmutableSet.<InternalSchemaMetadata>of(), ImmutableSet.<ConnectorMetadata>of(new InMemoryMetadata()));
+        Metadata metadata = new MetadataManager(ImmutableSet.<InternalSchemaMetadata>of(), ImmutableMap.<String, ConnectorMetadata>of("tpch", new InMemoryMetadata()));
 
         QualifiedTableName table1 = new QualifiedTableName("tpch", "default", "t1");
         metadata.createTable(new TableMetadata(table1,

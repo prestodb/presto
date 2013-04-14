@@ -21,11 +21,12 @@ import static org.testng.Assert.assertTrue;
 public class TestJsonTableHandle
 {
     private static final Map<String, Object> NATIVE_AS_MAP = ImmutableMap.<String, Object>of("type", "native",
-            "tableName", "catalog.schema.table",
+            "schemaName", "schema",
+            "tableName", "table",
             "tableId", 1);
 
     private static final Map<String, Object> TPCH_AS_MAP = ImmutableMap.<String, Object>of("type", "tpch",
-            "tableName", "tpch.tpch.tpchtable");
+            "tableName", "tpchtable");
 
     private static final Map<String, Object> INTERNAL_AS_MAP = ImmutableMap.<String, Object>of("type", "internal",
             "tableName", "thecatalog.theschema.thetable");
@@ -49,7 +50,7 @@ public class TestJsonTableHandle
     public void testNativeSerialize()
             throws Exception
     {
-        NativeTableHandle nativeHandle = new NativeTableHandle(new QualifiedTableName("catalog", "schema", "table"), 1);
+        NativeTableHandle nativeHandle = new NativeTableHandle("schema", "table", 1);
 
         assertTrue(objectMapper.canSerialize(NativeTableHandle.class));
         String json = objectMapper.writeValueAsString(nativeHandle);
@@ -82,7 +83,7 @@ public class TestJsonTableHandle
     public void testTpchSerialize()
             throws Exception
     {
-        TpchTableHandle tpchHandle = new TpchTableHandle(new QualifiedTableName("tpch", "tpch", "tpchtable"));
+        TpchTableHandle tpchHandle = new TpchTableHandle("tpchtable");
 
         assertTrue(objectMapper.canSerialize(TpchTableHandle.class));
         String json = objectMapper.writeValueAsString(tpchHandle);
@@ -141,7 +142,7 @@ public class TestJsonTableHandle
         assertEquals(tableHandle.getClass(), TpchTableHandle.class);
         TpchTableHandle tpchTableHandle = (TpchTableHandle) tableHandle;
 
-        assertEquals(tpchTableHandle.getTableName().getTableName(), "tpchtable");
+        assertEquals(tpchTableHandle.getTableName(), "tpchtable");
     }
 
     private void testJsonEquals(String json, Map<String, Object> expectedMap)

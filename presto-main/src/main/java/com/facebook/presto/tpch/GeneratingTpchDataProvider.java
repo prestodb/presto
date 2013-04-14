@@ -127,7 +127,7 @@ public class GeneratingTpchDataProvider
         checkNotNull(columnHandle, "columnHandle is null");
         checkNotNull(encoding, "encoding is null");
 
-        String tableName = tableHandle.getTableName().getTableName();
+        String tableName = tableHandle.getTableName();
         try {
             String hash = ByteStreams.hash(ByteStreams.slice(tableInputSupplierFactory.getInputSupplier(tableName), 0, 1024 * 1024), Hashing.murmur3_32()).toString();
 
@@ -145,7 +145,7 @@ public class GeneratingTpchDataProvider
                     Splitter.on("|")
             );
 
-            RecordProjectOperator source = new RecordProjectOperator(records, new ImportColumnHandle("tpch", "column" + columnHandle.getFieldIndex(), columnHandle.getFieldIndex(), columnHandle.getType()));
+            RecordProjectOperator source = new RecordProjectOperator(records, new ImportColumnHandle("column" + columnHandle.getFieldIndex(), columnHandle.getFieldIndex(), columnHandle.getType()));
 
             ImportingOperator.importData(source, new BlocksFileWriter(encoding, newOutputStreamSupplier(cachedFile)));
 
