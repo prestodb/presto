@@ -12,7 +12,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -26,7 +26,10 @@ public class TestImportClientFactory
     public void testGetClient()
             throws Exception
     {
-        ImportClientManager factory = new ImportClientManager(ImmutableSet.<ImportClientFactory>of(new MockImportClientFactor("apple"), new MockImportClientFactor("banana")));
+        ImportClientManager factory = new ImportClientManager(ImmutableMap.<String, ImportClientFactory>of(
+                "apple", new MockImportClientFactor("apple"),
+                "banana", new MockImportClientFactor("banana")
+        ));
         assertInstanceOf(factory.getClient("apple"), ImportClient.class);
         assertInstanceOf(factory.getClient("banana"), ImportClient.class);
     }
@@ -34,7 +37,7 @@ public class TestImportClientFactory
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Unknown source 'unknown'")
     public void testGetClientFailure()
     {
-        new ImportClientManager(ImmutableSet.<ImportClientFactory>of()).getClient("unknown");
+        new ImportClientManager(ImmutableMap.<String, ImportClientFactory>of()).getClient("unknown");
     }
 
     private class MockImportClientFactor

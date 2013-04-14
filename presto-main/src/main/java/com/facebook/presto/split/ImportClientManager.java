@@ -2,52 +2,45 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.spi.ImportClient;
 import com.facebook.presto.spi.ImportClientFactory;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 
 import javax.annotation.concurrent.ThreadSafe;
-import java.util.Set;
-import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 @ThreadSafe
 public class ImportClientManager
 {
-    private final Set<ImportClientFactory> clientFactories = new CopyOnWriteArraySet<>();
+    private final ConcurrentMap<String, ImportClientFactory> clientFactories = new ConcurrentHashMap<>();
 
     @Inject
-    public ImportClientManager(Set<ImportClientFactory> clientFactories)
+    public ImportClientManager(Map<String, ImportClientFactory> clientFactories)
     {
-        this.clientFactories.addAll(clientFactories);
+        this.clientFactories.putAll(clientFactories);
     }
 
-    public Set<ImportClientFactory> getImportClientFactories()
+    public Map<String, ImportClientFactory> getImportClientFactories()
     {
-        return ImmutableSet.copyOf(clientFactories);
+        return ImmutableMap.copyOf(clientFactories);
     }
 
-    public void addImportClientFactory(ImportClientFactory importClientFactory)
+    public void addImportClientFactory(String name, ImportClientFactory importClientFactory)
     {
-        clientFactories.add(importClientFactory);
+        ImportClientFactory existingClient = clientFactories.putIfAbsent(name, importClientFactory);
+        checkState(existingClient == null, "A client factory named %s already exists", name);
     }
 
-    public boolean hasCatalog(String catalogName)
+    public ImportClient getClient(String clientName)
     {
-        for (ImportClientFactory clientFactory : clientFactories) {
-            if (clientFactory.hasCatalog(catalogName)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public ImportClient getClient(String sourceName)
-    {
-        for (ImportClientFactory clientFactory : clientFactories) {
-            ImportClient client = clientFactory.createClient(sourceName);
-            if (client != null) {
-                return client;
-            }
-        }
-        throw new RuntimeException("Unknown source '" + sourceName + "'");
+        ImportClientFactory factory = clientFactories.get(clientName);
+        checkArgument(factory != null, "Unknown source '%s'", clientName);
+        ImportClient client = factory.createClient(clientName);
+        checkArgument(client != null, "Failed to create client %s", clientName);
+        return client;
     }
 }

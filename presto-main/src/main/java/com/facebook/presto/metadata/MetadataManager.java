@@ -19,6 +19,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.facebook.presto.metadata.MetadataUtil.checkColumnName;
@@ -32,16 +34,15 @@ import static com.google.common.collect.Iterables.transform;
 public class MetadataManager
         implements Metadata
 {
-    // Note this myst be a list to assure dual is always checked first
+    // Note this must be a list to assure dual is always checked first
     private final List<InternalSchemaMetadata> internalSchemas;
-    private final Map<String, ConnectorMetadata> connectors;
+    private final ConcurrentMap<String, ConnectorMetadata> connectors = new ConcurrentHashMap<>();
     private final FunctionRegistry functions = new FunctionRegistry();
 
     @VisibleForTesting
     public MetadataManager()
     {
         this.internalSchemas = ImmutableList.<InternalSchemaMetadata>of(new DualTable());
-        this.connectors = ImmutableMap.of();
     }
 
     @Inject
@@ -51,7 +52,14 @@ public class MetadataManager
                 .add(new DualTable())
                 .addAll(checkNotNull(internalSchemas, "internalSchemas is null"))
                 .build();
-        this.connectors = ImmutableMap.copyOf((checkNotNull(connectors, "connectors is null")));
+        this.connectors.putAll(checkNotNull(connectors, "connectors is null"));
+    }
+
+    public void addConnectorMetadata(String catalogName, ConnectorMetadata value)
+    {
+        if (connectors.putIfAbsent(catalogName, value) != null) {
+            throw new IllegalStateException("Catalog '" + catalogName + "' is already registered");
+        }
     }
 
     @Override
