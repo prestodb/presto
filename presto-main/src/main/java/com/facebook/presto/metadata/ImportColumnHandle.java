@@ -11,21 +11,18 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class ImportColumnHandle
         implements ColumnHandle
 {
-    private final String sourceName;
     private final String columnName;
     private final int columnId;
     private final TupleInfo.Type columnType;
 
     @JsonCreator
     public ImportColumnHandle(
-            @JsonProperty("sourceName") String sourceName,
             @JsonProperty("columnName") String columnName,
             @JsonProperty("columnId") int columnId,
             @JsonProperty("columnType") TupleInfo.Type columnType)
     {
         Preconditions.checkArgument(columnId >= 0, "columnId must be >= 0");
 
-        this.sourceName = checkNotNull(sourceName, "sourceName is null");
         this.columnName = checkNotNull(columnName, "columnName is null");
         this.columnType = checkNotNull(columnType, "columnType is null");
         this.columnId = columnId;
@@ -35,12 +32,6 @@ public class ImportColumnHandle
     public DataSourceType getDataSourceType()
     {
         return DataSourceType.IMPORT;
-    }
-
-    @JsonProperty
-    public String getSourceName()
-    {
-        return sourceName;
     }
 
     @JsonProperty
@@ -84,17 +75,4 @@ public class ImportColumnHandle
             }
         };
     }
-
-    public static Function<ImportColumnHandle, TupleInfo.Type> typeGetter()
-    {
-        return new Function<ImportColumnHandle, TupleInfo.Type>()
-        {
-            @Override
-            public TupleInfo.Type apply(ImportColumnHandle input)
-            {
-                return input.getColumnType();
-            }
-        };
-    }
-
 }

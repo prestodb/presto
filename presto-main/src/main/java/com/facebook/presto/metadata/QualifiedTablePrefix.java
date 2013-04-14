@@ -16,11 +16,6 @@ public class QualifiedTablePrefix
     private final Optional<String> schemaName;
     private final Optional<String> tableName;
 
-    public static Builder builder(String catalogName)
-    {
-        return new Builder(catalogName);
-    }
-
     public QualifiedTablePrefix(String catalogName)
     {
         this.catalogName = checkCatalogName(catalogName);
@@ -75,6 +70,11 @@ public class QualifiedTablePrefix
         return tableName.isPresent();
     }
 
+    public SchemaTablePrefix asSchemaTablePrefix()
+    {
+        return new SchemaTablePrefix(schemaName, tableName);
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -100,36 +100,5 @@ public class QualifiedTablePrefix
     public String toString()
     {
         return catalogName + '.' + schemaName.or("*") + '.' + tableName.or("*");
-    }
-
-    public static class Builder
-    {
-        private final String catalogName;
-        private String schemaName;
-        private String tableName;
-
-        private Builder(String catalogName)
-        {
-            this.catalogName = catalogName;
-        }
-
-        public Builder schemaName(String schemaName)
-        {
-            this.schemaName = schemaName;
-            return this;
-        }
-
-        public Builder tableName(String tableName)
-        {
-            this.tableName = tableName;
-            return this;
-        }
-
-        public QualifiedTablePrefix build()
-        {
-            return new QualifiedTablePrefix(catalogName,
-                    Optional.fromNullable(schemaName),
-                    Optional.fromNullable(tableName));
-        }
     }
 }

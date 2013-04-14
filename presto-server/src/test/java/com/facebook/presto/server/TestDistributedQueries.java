@@ -42,7 +42,6 @@ import com.google.inject.Binding;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import com.google.inject.Scopes;
 import com.google.inject.Stage;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
@@ -87,7 +86,7 @@ import static com.facebook.presto.util.TestingTpchBlocksProvider.readTpchRecords
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
-import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -232,7 +231,7 @@ public class TestDistributedQueries
             throws Exception
     {
         ImmutableList.Builder<String> tableNames = ImmutableList.builder();
-        List<QualifiedTableName> qualifiedTableNames = coordinator.metadata.listTables(QualifiedTablePrefix.builder(catalog).schemaName(schema).build());
+        List<QualifiedTableName> qualifiedTableNames = coordinator.metadata.listTables(new QualifiedTablePrefix(catalog, schema));
         for (QualifiedTableName qualifiedTableName : qualifiedTableNames) {
             log.info("Running import for %s", qualifiedTableName.getTableName());
             MaterializedResult importResult = computeActual(format("CREATE MATERIALIZED VIEW default.default.%s AS SELECT * FROM %s",
@@ -397,7 +396,7 @@ public class TestDistributedQueries
                                     "orders", readTpchRecords("orders"),
                                     "lineitem", readTpchRecords("lineitem")));
                             binder.bind(TpchDataStreamProvider.class).toInstance(new TpchDataStreamProvider(tpchBlocksProvider));
-                            newSetBinder(binder, ConnectorMetadata.class).addBinding().to(TpchMetadata.class).in(Scopes.SINGLETON);
+                            newMapBinder(binder, String.class, ConnectorMetadata.class).addBinding("tpch").to(TpchMetadata.class);
                         }
                     });
 

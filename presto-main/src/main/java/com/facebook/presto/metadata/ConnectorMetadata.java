@@ -1,33 +1,31 @@
 package com.facebook.presto.metadata;
 
+import com.google.common.base.Optional;
+
 import java.util.List;
 import java.util.Map;
 
 public interface ConnectorMetadata
 {
-    int priority();
-
     boolean canHandle(TableHandle tableHandle);
 
-    boolean canHandle(QualifiedTablePrefix prefix);
-
-    List<String> listSchemaNames(String catalogName);
+    List<String> listSchemaNames();
 
     /**
      * Returns a table handle for the specified table name, or null if the connector does not contain the table.
      */
-    TableHandle getTableHandle(QualifiedTableName tableName);
+    TableHandle getTableHandle(SchemaTableName tableName);
 
     /**
      * Return the metadata for the specified table handle.
      * @throws RuntimeException if table handle is no longer valid
      */
-    TableMetadata getTableMetadata(TableHandle table);
+    SchemaTableMetadata getTableMetadata(TableHandle table);
 
     /**
      * Get the names that match the specified table prefix (never null).
      */
-    List<QualifiedTableName> listTables(QualifiedTablePrefix prefix);
+    List<SchemaTableName> listTables(Optional<String> schemaName);
 
     /**
      * Returns a handle for the specified table column, or null if the table does not contain the specified column.
@@ -50,14 +48,14 @@ public interface ConnectorMetadata
     /**
      * Gets the metadata for all columns that match the specified table prefix.
      */
-    Map<QualifiedTableName, List<ColumnMetadata>> listTableColumns(QualifiedTablePrefix prefix);
+    Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(SchemaTablePrefix prefix);
 
-    List<Map<String, String>> listTablePartitionValues(QualifiedTablePrefix prefix);
+    List<Map<String, String>> listTablePartitionValues(SchemaTablePrefix prefix);
 
     /**
      * Creates a table using the specified table metadata.
      */
-    TableHandle createTable(TableMetadata tableMetadata);
+    TableHandle createTable(SchemaTableMetadata tableMetadata);
 
     /**
      * Drops the specified table

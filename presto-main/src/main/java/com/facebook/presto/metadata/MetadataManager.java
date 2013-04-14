@@ -6,21 +6,21 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
-import com.google.common.primitives.Ints;
 import com.google.inject.Inject;
 
 import javax.inject.Singleton;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
-import java.util.SortedSet;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.facebook.presto.metadata.MetadataUtil.checkColumnName;
 import static com.facebook.presto.metadata.MetadataUtil.checkTable;
+import static com.facebook.presto.metadata.QualifiedTableName.convertFromSchemaTableName;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Iterables.transform;
 
 @Singleton
 public class MetadataManager
@@ -28,24 +28,24 @@ public class MetadataManager
 {
     // Note this myst be a list to assure dual is always checked first
     private final List<InternalSchemaMetadata> internalSchemas;
-    private final SortedSet<ConnectorMetadata> connectors;
+    private final Map<String, ConnectorMetadata> connectors;
     private final FunctionRegistry functions = new FunctionRegistry();
 
     @VisibleForTesting
     public MetadataManager()
     {
         this.internalSchemas = ImmutableList.<InternalSchemaMetadata>of(new DualTable());
-        this.connectors = ImmutableSortedSet.of();
+        this.connectors = ImmutableMap.of();
     }
 
     @Inject
-    public MetadataManager(Set<InternalSchemaMetadata> internalSchemas, Set<ConnectorMetadata> connectors)
+    public MetadataManager(Set<InternalSchemaMetadata> internalSchemas, Map<String, ConnectorMetadata> connectors)
     {
         this.internalSchemas = ImmutableList.<InternalSchemaMetadata>builder()
                 .add(new DualTable())
                 .addAll(checkNotNull(internalSchemas, "internalSchemas is null"))
                 .build();
-        this.connectors = ImmutableSortedSet.copyOf(new PriorityComparator(), checkNotNull(connectors, "metadataProviders is null"));
+        this.connectors = ImmutableMap.copyOf((checkNotNull(connectors, "connectors is null")));
     }
 
     @Override
@@ -76,8 +76,11 @@ public class MetadataManager
     public List<String> listSchemaNames(String catalogName)
     {
         checkCatalogName(catalogName);
-        QualifiedTablePrefix prefix = QualifiedTablePrefix.builder(catalogName).build();
-        return lookupDataSource(prefix).listSchemaNames(catalogName);
+        ConnectorMetadata connectorMetadata = connectors.get(catalogName);
+        if (connectorMetadata == null) {
+            return ImmutableList.of();
+        }
+        return connectorMetadata.listSchemaNames();
     }
 
     @Override
@@ -93,7 +96,11 @@ public class MetadataManager
             }
         }
 
-        return Optional.fromNullable(lookupDataSource(table).getTableHandle(table));
+        ConnectorMetadata connectorMetadata = connectors.get(table.getCatalogName());
+        if (connectorMetadata == null) {
+            return Optional.absent();
+        }
+        return Optional.fromNullable(connectorMetadata.getTableHandle(table.asSchemaTableName()));
     }
 
     @Override
@@ -107,8 +114,16 @@ public class MetadataManager
                 return tableMetadata.get();
             }
         }
+        for (Entry<String, ConnectorMetadata> entry : connectors.entrySet()) {
+            ConnectorMetadata metadata = entry.getValue();
+            if (metadata.canHandle(tableHandle)) {
+                SchemaTableMetadata tableMetadata = lookupDataSource(tableHandle).getTableMetadata(tableHandle);
+                QualifiedTableName qualifiedTableName = new QualifiedTableName(entry.getKey(), tableMetadata.getTable().getSchemaName(), tableMetadata.getTable().getTableName());
+                return new TableMetadata(qualifiedTableName, tableMetadata.getColumns(), tableMetadata.getPartitionKeys());
+            }
+        }
 
-        return lookupDataSource(tableHandle).getTableMetadata(tableHandle);
+        throw new IllegalArgumentException("Table %s does not exist: " + tableHandle);
     }
 
     @Override
@@ -147,7 +162,10 @@ public class MetadataManager
         checkNotNull(prefix, "prefix is null");
 
         ImmutableList.Builder<QualifiedTableName> tables = ImmutableList.builder();
-        tables.addAll(lookupDataSource(prefix).listTables(prefix));
+        ConnectorMetadata connectorMetadata = connectors.get(prefix.getCatalogName());
+        if (connectorMetadata != null) {
+            tables.addAll(transform(connectorMetadata.listTables(prefix.getSchemaName()), convertFromSchemaTableName(prefix.getCatalogName())));
+        }
 
         // internal schemas like information_schema and sys are in every catalog
         for (InternalSchemaMetadata internalSchemaMetadata : internalSchemas) {
@@ -183,8 +201,12 @@ public class MetadataManager
         for (InternalSchemaMetadata internalSchemaMetadata : internalSchemas) {
             builder.putAll(internalSchemaMetadata.listTableColumns(prefix));
         }
-        for (ConnectorMetadata connector : connectors) {
-            builder.putAll(connector.listTableColumns(prefix));
+        ConnectorMetadata connector = connectors.get(prefix.getCatalogName());
+        if (connector != null) {
+            for (Entry<SchemaTableName, List<ColumnMetadata>> entry : connector.listTableColumns(prefix.asSchemaTablePrefix()).entrySet()) {
+                QualifiedTableName tableName = new QualifiedTableName(prefix.getCatalogName(), entry.getKey().getSchemaName(), entry.getKey().getTableName());
+                builder.put(tableName, entry.getValue());
+            }
         }
         return builder.build();
     }
@@ -193,13 +215,21 @@ public class MetadataManager
     public List<Map<String, String>> listTablePartitionValues(QualifiedTablePrefix prefix)
     {
         checkNotNull(prefix, "prefix is null");
-        return lookupDataSource(prefix).listTablePartitionValues(prefix);
+        SchemaTablePrefix schemaTablePrefix = new SchemaTablePrefix(prefix.getSchemaName(), prefix.getTableName());
+
+        ConnectorMetadata connectorMetadata = connectors.get(prefix.getCatalogName());
+        if (connectorMetadata == null) {
+            return ImmutableList.of();
+        }
+        return connectorMetadata.listTablePartitionValues(schemaTablePrefix);
     }
 
     @Override
     public TableHandle createTable(TableMetadata tableMetadata)
     {
-        return lookupDataSource(tableMetadata.getTable()).createTable(tableMetadata);
+        ConnectorMetadata connectorMetadata = connectors.get(tableMetadata.getTable().getCatalogName());
+        checkArgument(connectorMetadata != null, "Catalog %s does not exist", tableMetadata.getTable().getCatalogName());
+        return connectorMetadata.createTable(new SchemaTableMetadata(tableMetadata.getTable().asSchemaTableName(), tableMetadata.getColumns(), tableMetadata.getPartitionKeys()));
     }
 
     @Override
@@ -208,46 +238,14 @@ public class MetadataManager
         lookupDataSource(tableHandle).dropTable(tableHandle);
     }
 
-    private ConnectorMetadata lookupDataSource(QualifiedTableName table)
-    {
-        checkTable(table);
-        return lookupDataSource(QualifiedTablePrefix.builder(table.getCatalogName())
-                .schemaName(table.getSchemaName())
-                .tableName(table.getTableName())
-                .build());
-    }
-
-    private ConnectorMetadata lookupDataSource(QualifiedTablePrefix prefix)
-    {
-        for (ConnectorMetadata metadata : connectors) {
-            if (metadata.canHandle(prefix)) {
-                return metadata;
-            }
-        }
-
-        // TODO: need a proper way to report that catalog does not exist
-        throw new IllegalArgumentException("No metadata provider for: " + prefix);
-    }
-
     private ConnectorMetadata lookupDataSource(TableHandle tableHandle)
     {
-        for (ConnectorMetadata metadata : connectors) {
+        for (ConnectorMetadata metadata : connectors.values()) {
             if (metadata.canHandle(tableHandle)) {
                 return metadata;
             }
         }
 
-        // TODO: need a proper way to report that catalog does not exist
-        throw new IllegalArgumentException("No metadata provider for: " + tableHandle);
-    }
-
-    private static class PriorityComparator implements Comparator<ConnectorMetadata>
-    {
-        @Override
-        public int compare(ConnectorMetadata o1, ConnectorMetadata o2)
-        {
-            // reverse sort order
-            return Ints.compare(o2.priority(), o1.priority());
-        }
+        throw new IllegalArgumentException("Table %s does not exist: " + tableHandle);
     }
 }

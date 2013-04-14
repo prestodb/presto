@@ -1,23 +1,22 @@
 package com.facebook.presto.tpch;
 
 import com.facebook.presto.metadata.DataSourceType;
-import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 
-import static com.facebook.presto.metadata.MetadataUtil.checkTable;
+import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 
 public class TpchTableHandle
         implements TableHandle
 {
-    private final QualifiedTableName tableName;
+    private final String tableName;
 
     @JsonCreator
-    public TpchTableHandle(@JsonProperty("tableName") QualifiedTableName tableName)
+    public TpchTableHandle(@JsonProperty("tableName") String tableName)
     {
-        this.tableName = checkTable(tableName);
+        this.tableName = checkTableName(tableName);
     }
 
     @Override
@@ -27,7 +26,7 @@ public class TpchTableHandle
     }
 
     @JsonProperty
-    public QualifiedTableName getTableName()
+    public String getTableName()
     {
         return tableName;
     }

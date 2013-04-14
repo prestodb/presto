@@ -42,7 +42,10 @@ public interface MetadataDao
             "  AND schema_name = :schemaName\n" +
             "  AND table_name = :tableName")
     @Mapper(TableMapper.class)
-    Table getTableInformation(@BindBean QualifiedTableName table);
+    Table getTableInformation(
+            @Bind("catalogName") String catalogName,
+            @Bind("schemaName") String schemaName,
+            @Bind("tableName") String tableName);
 
     @SqlQuery("SELECT catalog_name, schema_name, table_name\n" +
             "FROM tables\n" +
@@ -50,13 +53,12 @@ public interface MetadataDao
     @Mapper(QualifiedTableNameMapper.class)
     QualifiedTableName getTableName(@Bind("tableId") long tableId);
 
-    @SqlQuery("SELECT t.catalog_name, t.schema_name, t.table_name,\n" +
-            "  c.column_id, c.column_name, c.ordinal_position, c.data_type\n" +
+    @SqlQuery("SELECT c.column_id, c.column_name, c.data_type\n" +
             "FROM tables t\n" +
             "JOIN columns c ON (t.table_id = c.table_id)\n" +
             "WHERE (c.column_id = :columnId)")
-    @Mapper(TableColumnMapper.class)
-    TableColumn getTableColumn(@Bind("columnId") long columnId);
+    @Mapper(ColumnMetadataMapper.class)
+    ColumnMetadata getColumnMetadata(@Bind("columnId") long columnId);
 
     @SqlQuery("SELECT column_name, data_type, ordinal_position\n" +
             "FROM columns\n" +
@@ -74,8 +76,8 @@ public interface MetadataDao
             "FROM tables\n" +
             "WHERE (catalog_name = :catalogName OR :catalogName IS NULL)\n" +
             "  AND (schema_name = :schemaName OR :schemaName IS NULL)")
-    @Mapper(QualifiedTableNameMapper.class)
-    List<QualifiedTableName> listTables(
+    @Mapper(SchemaTableNameMapper.class)
+    List<SchemaTableName> listTables(
             @Bind("catalogName") String catalogName,
             @Bind("schemaName") String schemaName);
 
@@ -114,7 +116,10 @@ public interface MetadataDao
     @SqlUpdate("INSERT INTO tables (catalog_name, schema_name, table_name)\n" +
             "VALUES (:catalogName, :schemaName, :tableName)")
     @GetGeneratedKeys
-    long insertTable(@BindBean QualifiedTableName table);
+    long insertTable(
+            @Bind("catalogName") String catalogName,
+            @Bind("schemaName") String schemaName,
+            @Bind("tableName") String tableName);
 
     @SqlUpdate("INSERT INTO columns (table_id, column_name, ordinal_position, data_type)\n" +
             "VALUES (:tableId, :columnName, :ordinalPosition, :dataType)")

@@ -3,7 +3,7 @@ package com.facebook.presto;
 import com.facebook.presto.ingest.RecordCursor;
 import com.facebook.presto.ingest.RecordSet;
 import com.facebook.presto.metadata.ColumnMetadata;
-import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.metadata.SchemaTableMetadata;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tuple.Tuple;
@@ -1283,7 +1283,7 @@ public abstract class AbstractTestQueries
         };
     }
 
-    private static void insertRows(TableMetadata tableMetadata, Handle handle, RecordSet data)
+    private static void insertRows(SchemaTableMetadata tableMetadata, Handle handle, RecordSet data)
     {
         String vars = Joiner.on(',').join(nCopies(tableMetadata.getColumns().size(), "?"));
         String sql = format("INSERT INTO %s VALUES (%s)", tableMetadata.getTable().getTableName(), vars);
