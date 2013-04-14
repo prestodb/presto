@@ -3,9 +3,8 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.execution.ExchangeOperatorFactory;
-import com.facebook.presto.guice.AbstractConfigurationAwareModule;
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.event.query.QueryCompletionEvent;
 import com.facebook.presto.event.query.QueryCreatedEvent;
 import com.facebook.presto.event.query.QueryMonitor;
@@ -13,6 +12,7 @@ import com.facebook.presto.event.query.SplitCompletionEvent;
 import com.facebook.presto.execution.CreateAliasExecution.CreateAliasExecutionFactory;
 import com.facebook.presto.execution.DropAliasExecution.DropAliasExecutionFactory;
 import com.facebook.presto.execution.DropTableExecution.DropTableExecutionFactory;
+import com.facebook.presto.execution.ExchangeOperatorFactory;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.QueryIdGenerator;
@@ -27,6 +27,7 @@ import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.guice.AbstractConfigurationAwareModule;
 import com.facebook.presto.importer.DatabasePeriodicImportManager;
 import com.facebook.presto.importer.ForPeriodicImport;
 import com.facebook.presto.importer.JobStateFactory;
@@ -35,9 +36,9 @@ import com.facebook.presto.importer.PeriodicImportController;
 import com.facebook.presto.importer.PeriodicImportManager;
 import com.facebook.presto.importer.PeriodicImportRunnable;
 import com.facebook.presto.metadata.AliasDao;
+import com.facebook.presto.metadata.ConnectorMetadata;
 import com.facebook.presto.metadata.DatabaseLocalStorageManager;
 import com.facebook.presto.metadata.DatabaseLocalStorageManagerConfig;
-import com.facebook.presto.metadata.ConnectorMetadata;
 import com.facebook.presto.metadata.DatabaseShardManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
 import com.facebook.presto.metadata.ForAlias;
@@ -48,8 +49,8 @@ import com.facebook.presto.metadata.ForStorageManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.InformationSchemaData;
 import com.facebook.presto.metadata.InformationSchemaMetadata;
-import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.InternalSchemaMetadata;
+import com.facebook.presto.metadata.LocalStorageManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.NativeMetadata;
@@ -178,7 +179,7 @@ public class ServerMainModule
         // import
         binder.bind(ImportClientManager.class).in(Scopes.SINGLETON);
         // kick off binding of import client factories
-        Multibinder.newSetBinder(binder, ImportClientFactory.class);
+        MapBinder.newMapBinder(binder, String.class, ImportClientFactory.class);
 
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
         ExportBinder.newExporter(binder).export(SplitManager.class).withGeneratedName();
@@ -231,6 +232,7 @@ public class ServerMainModule
 
         binder.install(new HandleJsonModule());
 
+        binder.bind(ConnectorManager.class).in(Scopes.SINGLETON);
         binder.bind(PluginManager.class).in(Scopes.SINGLETON);
         bindConfig(binder).to(PluginManagerConfig.class);
 

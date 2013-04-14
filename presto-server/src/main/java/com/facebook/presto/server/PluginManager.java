@@ -129,7 +129,7 @@ public class PluginManager
                 Map<String, String> requiredConfig = loadPluginConfig(importClientFactoryFactory.getConfigName());
                 ImportClientFactory importClientFactory = importClientFactoryFactory.createImportClientFactory(requiredConfig, optionalConfig);
                 importClientFactory = new ClassLoaderSafeImportClientFactory(importClientFactory, pluginClassLoader);
-                importClientManager.addImportClientFactory(importClientFactory);
+                importClientManager.addImportClientFactory(plugin, importClientFactory);
             }
         }
         log.info("-- Finished loading plugin %s --", plugin);
