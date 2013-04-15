@@ -102,7 +102,7 @@ public class NativeMetadata
 
         ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
         for (TableColumn tableColumn : dao.listTableColumns(nativeTableHandle.getTableId())) {
-            builder.put(tableColumn.getColumnName(), new NativeColumnHandle(tableColumn.getColumnId()));
+            builder.put(tableColumn.getColumnName(), new NativeColumnHandle(tableColumn.getColumnName(), tableColumn.getColumnId()));
         }
         return builder.build();
     }
@@ -118,7 +118,7 @@ public class NativeMetadata
         if (columnId == null) {
             return null;
         }
-        return new NativeColumnHandle(columnId);
+        return new NativeColumnHandle(columnName, columnId);
     }
 
     @Override

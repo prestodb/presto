@@ -1,13 +1,13 @@
 package com.facebook.presto.tpch;
 
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.ConnectorMetadata;
 import com.facebook.presto.metadata.InternalColumnHandle;
 import com.facebook.presto.metadata.InternalSchemaMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.SchemaTableMetadata;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableHandle;
@@ -119,7 +119,7 @@ public class TpchMetadata
     {
         ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
         for (ColumnMetadata columnMetadata : getTableMetadata(tableHandle).getColumns()) {
-            builder.put(columnMetadata.getName(), new TpchColumnHandle(columnMetadata.getOrdinalPosition(), columnMetadata.getType()));
+            builder.put(columnMetadata.getName(), new TpchColumnHandle(columnMetadata.getName(), columnMetadata.getOrdinalPosition(), columnMetadata.getType()));
         }
         return builder.build();
     }
@@ -129,7 +129,7 @@ public class TpchMetadata
     {
         for (ColumnMetadata columnMetadata : getTableMetadata(tableHandle).getColumns()) {
             if (columnMetadata.getName().equals(columnName)) {
-                return new TpchColumnHandle(columnMetadata.getOrdinalPosition(), columnMetadata.getType());
+                return new TpchColumnHandle(columnMetadata.getName(), columnMetadata.getOrdinalPosition(), columnMetadata.getType());
             }
         }
         return null;
@@ -162,9 +162,13 @@ public class TpchMetadata
         checkArgument(tables.containsKey(tableName), "Table %s does not exist", tableHandle);
 
         checkArgument(columnHandle instanceof InternalColumnHandle, "columnHandle is not an instance of InternalColumnHandle");
-        InternalColumnHandle internalColumnHandle = (InternalColumnHandle) columnHandle;
-        int columnIndex = internalColumnHandle.getColumnIndex();
-        return tables.get(tableName).getColumns().get(columnIndex);
+        String columnName = ((InternalColumnHandle) columnHandle).getColumnName();
+        for (ColumnMetadata column : tables.get(tableName).getColumns()) {
+            if (column.getName().equals(columnName)) {
+                return column;
+            }
+        }
+        throw new IllegalArgumentException(String.format("Table %s does not have column %s", tableName, columnName));
     }
 
     @Override

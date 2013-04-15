@@ -10,7 +10,6 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 import static com.facebook.presto.block.BlockAssertions.assertBlocksEquals;
@@ -32,7 +31,8 @@ public final class OperatorAssertions
         return new OperatorAdapter(pages);
     }
 
-    private static class OperatorAdapter implements Operator
+    private static class OperatorAdapter
+            implements Operator
     {
         private final List<Page> pages;
         private final int channelCount;
@@ -45,7 +45,7 @@ public final class OperatorAssertions
 
             ImmutableList.Builder<TupleInfo> tupleInfos = ImmutableList.builder();
             for (Block block : this.pages.get(0).getBlocks()) {
-                tupleInfos.add(block.getTupleInfo()) ;
+                tupleInfos.add(block.getTupleInfo());
             }
             this.tupleInfos = tupleInfos.build();
         }
@@ -85,39 +85,21 @@ public final class OperatorAssertions
     public static List<BlockIterable> loadColumns(Operator operator)
     {
         List<ImmutableList.Builder<Block>> blockBuilders = new ArrayList<>();
-        List<TupleInfo> tupleInfos = new ArrayList<>();
-
         for (int i = 0; i < operator.getChannelCount(); i++) {
             blockBuilders.add(ImmutableList.<Block>builder());
-            tupleInfos.add(i, TupleInfo.SINGLE_VARBINARY); // Yeah, that is a fake.
         }
         PageIterator iterator = operator.iterator(new OperatorStats());
         while (iterator.hasNext()) {
             Page page = iterator.next();
             Block[] blocks = page.getBlocks();
-
-            if (tupleInfos == null) {
-                ImmutableList.Builder<TupleInfo> tupleInfosBuilder = ImmutableList.builder();
-                for (int i = 0; i < blocks.length; i++) {
-                    tupleInfosBuilder.add(blocks[i].getTupleInfo());
-                    blockBuilders.get(i).add(blocks[i]);
-                }
-                tupleInfos = tupleInfosBuilder.build();
-            }
-            else {
-                for (int i = 0; i < blocks.length; i++) {
-                    blockBuilders.get(i).add(blocks[i]);
-                }
+            for (int i = 0; i < blocks.length; i++) {
+                blockBuilders.get(i).add(blocks[i]);
             }
         }
 
-        assertEquals(blockBuilders.size(), tupleInfos.size(), "Number of block builders does not match number of tuple infos");
-
-        Iterator<TupleInfo> tupleInfoIterator = tupleInfos.iterator();
         ImmutableList.Builder<BlockIterable> blockIterables = ImmutableList.builder();
-
         for (ImmutableList.Builder<Block> blockBuilder : blockBuilders) {
-            blockIterables.add(BlockIterables.createBlockIterable(tupleInfoIterator.next(), blockBuilder.build()));
+            blockIterables.add(BlockIterables.createBlockIterable(blockBuilder.build()));
         }
         return blockIterables.build();
     }

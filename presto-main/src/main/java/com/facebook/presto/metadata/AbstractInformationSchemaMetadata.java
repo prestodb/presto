@@ -82,10 +82,13 @@ public abstract class AbstractInformationSchemaMetadata
         List<ColumnMetadata> columns = tableMetadata.get().getColumns();
 
         checkArgument(columnHandle instanceof InternalColumnHandle, "columnHandle is not an instance of InternalColumnHandle");
-        InternalColumnHandle internalColumnHandle = (InternalColumnHandle) columnHandle;
-        checkArgument(internalColumnHandle.getColumnIndex() < columns.size(), "invalid column handle");
-
-        return Optional.of(columns.get(internalColumnHandle.getColumnIndex()));
+        String columnName = ((InternalColumnHandle) columnHandle).getColumnName();
+        for (ColumnMetadata column : columns) {
+            if (column.getName().equals(columnName)) {
+                return Optional.of(column);
+            }
+        }
+        return Optional.absent();
     }
 
     @Override
@@ -98,7 +101,7 @@ public abstract class AbstractInformationSchemaMetadata
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (ColumnMetadata columnMetadata : tableMetadata.get().getColumns()) {
-            columnHandles.put(columnMetadata.getName(), new InternalColumnHandle(columnMetadata.getOrdinalPosition()));
+            columnHandles.put(columnMetadata.getName(), new InternalColumnHandle(columnMetadata.getName()));
         }
 
         return Optional.<Map<String, ColumnHandle>>of(columnHandles.build());

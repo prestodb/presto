@@ -161,7 +161,7 @@ public class LocalQueryRunner
             return new TpchSplit((TpchTableHandle) handle);
         }
         if (handle instanceof InternalTableHandle) {
-            return new InternalSplit((InternalTableHandle) handle, ImmutableMap.<InternalColumnHandle, String>of(), ImmutableList.of(HostAddress.fromParts("127.0.0.1", 0)));
+            return new InternalSplit((InternalTableHandle) handle, ImmutableMap.<InternalColumnHandle, Object>of(), ImmutableList.of(HostAddress.fromParts("127.0.0.1", 0)));
         }
         throw new IllegalArgumentException("unsupported table handle: " + handle.getClass().getName());
     }
@@ -176,7 +176,7 @@ public class LocalQueryRunner
         {
             checkArgument(columns.size() == 1, "expected exactly one column");
             InternalTable table = new DualTable().getInternalTable(DEFAULT_DUAL_TABLE);
-            return new AlignmentOperator(ImmutableList.of(table.getColumn(0)));
+            return new AlignmentOperator(ImmutableList.of(table.getColumn(DualTable.COLUMN_NAME)));
         }
     }
 }

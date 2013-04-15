@@ -25,13 +25,9 @@ public interface ImportClient
 
     List<Map<String, String>> listTablePartitionValues(SchemaTablePrefix prefix);
 
-    List<PartitionInfo> getPartitions(SchemaTableName table, Map<String, Object> filters);
+    List<Partition> getPartitions(TableHandle table, Map<ColumnHandle, Object> bindings);
 
-    List<String> getPartitionNames(SchemaTableName tableName);
-
-    Iterable<PartitionChunk> getPartitionChunks(SchemaTableName tableName, String partitionName, List<String> columns);
-
-    Iterable<PartitionChunk> getPartitionChunks(SchemaTableName tableName, List<String> partitionNames, List<String> columns);
+    Iterable<PartitionChunk> getPartitionChunks(List<Partition> partitions, List<ColumnHandle> columns);
 
     RecordCursor getRecords(PartitionChunk partitionChunk);
 

@@ -11,7 +11,6 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 
@@ -22,15 +21,13 @@ public class TestInternalSplit
             throws Exception
     {
         InternalTableHandle tableHandle = new InternalTableHandle(new QualifiedTableName("abc", "xyz", "foo"));
-        Map<InternalColumnHandle, String> filters = ImmutableMap.of(new InternalColumnHandle(13), "bar");
+        Map<InternalColumnHandle, Object> filters = ImmutableMap.<InternalColumnHandle, Object>of(new InternalColumnHandle("foo"), "bar");
         InternalSplit expected = new InternalSplit(tableHandle, filters, ImmutableList.of(HostAddress.fromParts("127.0.0.1", 0)));
 
         JsonCodec<InternalSplit> codec = jsonCodec(InternalSplit.class);
         InternalSplit actual = codec.fromJson(codec.toJson(expected));
 
         assertEquals(actual.getFilters().size(), 1);
-        Map.Entry<InternalColumnHandle, String> actualEntry = getOnlyElement(actual.getFilters().entrySet());
-        Map.Entry<InternalColumnHandle, String> expectedEntry = getOnlyElement(expected.getFilters().entrySet());
-        assertEquals(actualEntry.getKey().getColumnIndex(), expectedEntry.getKey().getColumnIndex());
+        assertEquals(actual.getFilters(), expected.getFilters());
     }
 }

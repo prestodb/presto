@@ -9,9 +9,12 @@ import com.facebook.presto.tuple.Tuple;
 import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.block.BlockIterables.createBlockIterable;
 import static com.facebook.presto.block.BlockUtils.emptyBlockIterable;
@@ -20,43 +23,59 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class InternalTable
 {
-    private final List<BlockIterable> columns;
+    private final Map<String, BlockIterable> columns;
 
-    public InternalTable(List<BlockIterable> columns)
+    public InternalTable(Map<String, BlockIterable> columns)
     {
-        this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
+        this.columns = ImmutableMap.copyOf(checkNotNull(columns, "columns is null"));
     }
 
-    public BlockIterable getColumn(int index)
+    public Set<String> getColumnNames()
     {
-        return columns.get(index);
+        return columns.keySet();
     }
 
-    public static Builder builder(TupleInfo tupleInfo)
+    public BlockIterable getColumn(String columnName)
     {
-        return new Builder(tupleInfo);
+        return columns.get(columnName);
+    }
+
+    public static Builder builder(TupleInfo tupleInfo, String firstColumnName, String... otherColumnNames)
+    {
+        return new Builder(tupleInfo, ImmutableList.<String>builder().add(firstColumnName).add(otherColumnNames).build());
+    }
+
+    public static Builder builder(TupleInfo tupleInfo, List<String> columnNames)
+    {
+        return new Builder(tupleInfo, columnNames);
     }
 
     public static Builder builder(List<ColumnMetadata> columns)
     {
+        ImmutableList.Builder<String> names = ImmutableList.builder();
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (ColumnMetadata column : columns) {
+            names.add(column.getName());
             types.add(Type.fromColumnType(column.getType()));
         }
-        return new Builder(new TupleInfo(types.build()));
+        return new Builder(new TupleInfo(types.build()), names.build());
     }
 
     public static class Builder
     {
         private final TupleInfo tupleInfo;
         private final List<TupleInfo> tupleInfos;
+        private final List<String> columnNames;
         private final List<List<Block>> columns;
         private PageBuilder pageBuilder;
 
-        public Builder(TupleInfo tupleInfo)
+        public Builder(TupleInfo tupleInfo, List<String> columnNames)
         {
             this.tupleInfo = checkNotNull(tupleInfo, "tupleInfo is null");
             tupleInfos = getTupleInfos(tupleInfo);
+            this.columnNames = ImmutableList.copyOf(checkNotNull(columnNames, "columnNames is null"));
+            checkArgument(columnNames.size() == tupleInfo.getFieldCount(),
+                    "Column name count does not match tuple field count: columnNames=%s, tupleInfo=%s", columnNames, tupleInfo);
 
             columns = new ArrayList<>();
             for (int i = 0; i < tupleInfo.getFieldCount(); i++) {
@@ -89,11 +108,12 @@ public class InternalTable
         public InternalTable build()
         {
             flushPage();
-            ImmutableList.Builder<BlockIterable> list = ImmutableList.builder();
-            for (List<Block> column : columns) {
-                list.add(column.isEmpty() ? emptyBlockIterable() : createBlockIterable(column.get(0).getTupleInfo(), column));
+            ImmutableMap.Builder<String, BlockIterable> data = ImmutableMap.builder();
+            for (int i = 0; i < columns.size(); i++) {
+                List<Block> column = columns.get(i);
+                data.put(columnNames.get(i), column.isEmpty() ? emptyBlockIterable() : createBlockIterable(column));
             }
-            return new InternalTable(list.build());
+            return new InternalTable(data.build());
         }
 
         private void flushPage()

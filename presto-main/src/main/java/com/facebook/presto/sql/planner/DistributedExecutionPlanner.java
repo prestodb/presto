@@ -2,7 +2,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.execution.DataSource;
 import com.facebook.presto.metadata.ShardManager;
-import com.facebook.presto.spi.PartitionInfo;
+import com.facebook.presto.spi.Partition;
 import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.ExpressionUtils;
@@ -91,12 +91,12 @@ public class DistributedExecutionPlanner
 
     public static final class VisitorContext
     {
-        private static final VisitorContext INITIAL_VISITOR_CONTEXT = new VisitorContext(BooleanLiteral.TRUE_LITERAL, Predicates.<PartitionInfo>alwaysTrue());
+        private static final VisitorContext INITIAL_VISITOR_CONTEXT = new VisitorContext(BooleanLiteral.TRUE_LITERAL, Predicates.<Partition>alwaysTrue());
 
         private final Expression inheritedPredicate;
-        private final Predicate<PartitionInfo> partitionPredicate;
+        private final Predicate<Partition> partitionPredicate;
 
-        public VisitorContext(Expression inheritedPredicate, Predicate<PartitionInfo> partitionPredicate)
+        public VisitorContext(Expression inheritedPredicate, Predicate<Partition> partitionPredicate)
         {
             this.inheritedPredicate = inheritedPredicate;
             this.partitionPredicate = partitionPredicate;
@@ -107,7 +107,7 @@ public class DistributedExecutionPlanner
             return inheritedPredicate;
         }
 
-        public Predicate<PartitionInfo> getPartitionPredicate()
+        public Predicate<Partition> getPartitionPredicate()
         {
             return partitionPredicate;
         }
@@ -134,8 +134,7 @@ public class DistributedExecutionPlanner
         public NodeSplits visitTableScan(TableScanNode node, VisitorContext context)
         {
             // get dataSource for table
-            DataSource dataSource = splitManager.getSplits(node.getId(),
-                    session,
+            DataSource dataSource = splitManager.getSplits(session,
                     node.getTable(),
                     context.getInheritedPredicate(),
                     context.getPartitionPredicate(),

@@ -3,6 +3,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.ingest.InMemoryRecordSet;
 import com.facebook.presto.ingest.RecordProjectOperator;
 import com.facebook.presto.operator.AlignmentOperator;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.spi.ColumnHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -55,7 +56,7 @@ public class TestDatabaseLocalStorageManager
             throws IOException
     {
         long shardId = 123;
-        List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>of(new NativeColumnHandle(7L), new NativeColumnHandle(11L));
+        List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>of(new NativeColumnHandle("column_7", 7L), new NativeColumnHandle("column_11", 11L));
 
         InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(VARIABLE_BINARY, FIXED_INT_64) ,ImmutableList.copyOf(new List<?>[]{ImmutableList.of("abc", 1L), ImmutableList.of("def", 2L), ImmutableList.of("g", 0L)}));
         RecordProjectOperator source = new RecordProjectOperator(records, records.getColumns());
@@ -76,7 +77,7 @@ public class TestDatabaseLocalStorageManager
             throws IOException
     {
         long shardId = 456;
-        List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>of(new NativeColumnHandle(13L));
+        List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>of(new NativeColumnHandle("column_13", 13L));
 
         InMemoryRecordSet records = new InMemoryRecordSet(ImmutableList.of(VARIABLE_BINARY), ImmutableList.copyOf(new List<?>[]{}));
         RecordProjectOperator source = new RecordProjectOperator(records, records.getColumns());
@@ -89,9 +90,8 @@ public class TestDatabaseLocalStorageManager
 
         assertTrue(Iterables.isEmpty(storageManager.getBlocks(shardId, columnHandles.get(0))));
 
-        assertOperatorEquals(
-                new AlignmentOperator(storageManager.getBlocks(shardId, columnHandles.get(0))),
-                new RecordProjectOperator(records, records.getColumns()));
+        AlignmentOperator actual = new AlignmentOperator(storageManager.getBlocks(shardId, columnHandles.get(0)));
+        assertFalse(actual.iterator(new OperatorStats()).hasNext());
     }
 
     @Test

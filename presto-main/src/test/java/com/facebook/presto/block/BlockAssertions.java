@@ -127,7 +127,7 @@ public class BlockAssertions
 
     public static BlockIterable createStringsBlockIterable(@Nullable String... values)
     {
-        return BlockIterables.createBlockIterable(TupleInfo.SINGLE_VARBINARY, createStringsBlock(values));
+        return BlockIterables.createBlockIterable(createStringsBlock(values));
     }
 
     public static Block createStringSequenceBlock(int start, int end)
@@ -170,12 +170,12 @@ public class BlockAssertions
 
     public static BlockIterable createLongsBlockIterable(int... values)
     {
-        return BlockIterables.createBlockIterable(TupleInfo.SINGLE_LONG, createLongsBlock(values));
+        return BlockIterables.createBlockIterable(createLongsBlock(values));
     }
 
     public static BlockIterable createLongsBlockIterable(@Nullable Long... values)
     {
-        return BlockIterables.createBlockIterable(TupleInfo.SINGLE_LONG, createLongsBlock(values));
+        return BlockIterables.createBlockIterable(createLongsBlock(values));
     }
 
     public static Block createLongSequenceBlock(int start, int end)
@@ -218,9 +218,9 @@ public class BlockAssertions
         return builder.build();
     }
 
-    public static BlockIterable createDoublesBlockIterable(TupleInfo tupleInfo, @Nullable Double... values)
+    public static BlockIterable createDoublesBlockIterable(@Nullable Double... values)
     {
-        return createBlockIterable(tupleInfo, createDoublesBlock(values));
+        return createBlockIterable(createDoublesBlock(values));
     }
 
     public static Block createDoubleSequenceBlock(int start, int end)
@@ -248,12 +248,10 @@ public class BlockAssertions
     {
         private final List<Block> blocks = new ArrayList<>();
         private BlockBuilder blockBuilder;
-        private TupleInfo tupleInfo;
 
         private BlockIterableBuilder(TupleInfo tupleInfo)
         {
             blockBuilder = new BlockBuilder(tupleInfo);
-            this.tupleInfo = tupleInfo;
         }
 
         public BlockIterableBuilder append(Tuple tuple)
@@ -311,7 +309,7 @@ public class BlockAssertions
         public BlockIterable build()
         {
             newBlock();
-            return createBlockIterable(tupleInfo, blocks);
+            return createBlockIterable(blocks);
         }
     }
 }
