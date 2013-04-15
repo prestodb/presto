@@ -96,6 +96,8 @@ public class StatementSplitter
                 return "'" + token.getText().replace("'", "''") + "'";
             case StatementLexer.QUOTED_IDENT:
                 return "\"" + token.getText().replace("\"", "\"\"") + "\"";
+            case StatementLexer.BACKQUOTED_IDENT:
+                return "`" + token.getText().replace("`", "``") + "`";
         }
         return token.getText();
     }
