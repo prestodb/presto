@@ -1,8 +1,9 @@
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.execution.DataSource;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.spi.PartitionInfo;
-import com.facebook.presto.split.SplitAssignments;
+import com.facebook.presto.split.Split;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.Session;
@@ -34,7 +35,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -84,7 +84,7 @@ public class DistributedExecutionPlanner
         }
 
         return new StageExecutionPlan(currentFragment,
-                nodeSplits.splits,
+                nodeSplits.dataSource,
                 dependencies.build(),
                 visitor.getOutputReceivers());
     }
@@ -96,7 +96,7 @@ public class DistributedExecutionPlanner
         private final Expression inheritedPredicate;
         private final Predicate<PartitionInfo> partitionPredicate;
 
-        private VisitorContext(Expression inheritedPredicate, Predicate<PartitionInfo> partitionPredicate)
+        public VisitorContext(Expression inheritedPredicate, Predicate<PartitionInfo> partitionPredicate)
         {
             this.inheritedPredicate = inheritedPredicate;
             this.partitionPredicate = partitionPredicate;
@@ -133,15 +133,15 @@ public class DistributedExecutionPlanner
         @Override
         public NodeSplits visitTableScan(TableScanNode node, VisitorContext context)
         {
-            // get splits for table
-            Iterable<SplitAssignments> splits = splitManager.getSplitAssignments(node.getId(),
+            // get dataSource for table
+            DataSource dataSource = splitManager.getSplits(node.getId(),
                     session,
                     node.getTable(),
                     context.getInheritedPredicate(),
                     context.getPartitionPredicate(),
                     node.getAssignments());
 
-            return new NodeSplits(node.getId(), Optional.of(splits));
+            return new NodeSplits(node.getId(), dataSource);
         }
 
         @Override
@@ -174,10 +174,10 @@ public class DistributedExecutionPlanner
 
             NodeSplits leftSplits = node.getLeft().accept(this, new VisitorContext(leftPredicate, context.getPartitionPredicate()));
             NodeSplits rightSplits = node.getRight().accept(this, new VisitorContext(rightPredicate, context.getPartitionPredicate()));
-            if (leftSplits.splits.isPresent() && rightSplits.splits.isPresent()) {
+            if (leftSplits.dataSource.isPresent() && rightSplits.dataSource.isPresent()) {
                 throw new IllegalArgumentException("Both left and right join nodes are partitioned"); // TODO: "partitioned" may not be the right term
             }
-            if (leftSplits.splits.isPresent()) {
+            if (leftSplits.dataSource.isPresent()) {
                 return leftSplits;
             }
             else {
@@ -191,7 +191,7 @@ public class DistributedExecutionPlanner
             inheritedPredicatesBySourceFragmentId.put(node.getSourceFragmentId(), context.getInheritedPredicate());
 
             // exchange node does not have splits
-            return new NodeSplits(node.getId(), Optional.<Iterable<SplitAssignments>>absent());
+            return new NodeSplits(node.getId());
         }
 
         @Override
@@ -259,13 +259,17 @@ public class DistributedExecutionPlanner
         {
             TableWriter tableWriter = new TableWriter(node, shardManager);
 
-            NodeSplits nodeSplits = node.getSource().accept(this,
-                    new VisitorContext(context.getInheritedPredicate(), tableWriter.getPartitionPredicate()));
-            checkState(nodeSplits.splits.isPresent(), "No splits present for import");
+            // get source splits
+            NodeSplits nodeSplits = node.getSource().accept(this, new VisitorContext(context.getInheritedPredicate(), tableWriter.getPartitionPredicate()));
+            checkState(nodeSplits.dataSource.isPresent(), "No splits present for import");
+            DataSource dataSource = nodeSplits.dataSource.get();
 
+            // record output
             outputReceivers.put(node.getId(), tableWriter.getOutputReceiver());
 
-            return new NodeSplits(node.getId(), Optional.of(tableWriter.getSplitAssignments(nodeSplits.planNodeId, nodeSplits.splits.get())));
+            // wrap splits with table writer info
+            Iterable<Split> newSplits = tableWriter.wrapSplits(nodeSplits.planNodeId, dataSource.getSplits());
+            return new NodeSplits(node.getId(), new DataSource(dataSource.getDataSourceName(), newSplits));
         }
 
         @Override
@@ -278,12 +282,18 @@ public class DistributedExecutionPlanner
     private class NodeSplits
     {
         private final PlanNodeId planNodeId;
-        private final Optional<Iterable<SplitAssignments>> splits;
+        private final Optional<DataSource> dataSource;
 
-        private NodeSplits(PlanNodeId planNodeId, Optional<Iterable<SplitAssignments>> splits)
+        private NodeSplits(PlanNodeId planNodeId)
         {
             this.planNodeId = planNodeId;
-            this.splits = splits;
+            this.dataSource = Optional.absent();
+        }
+
+        private NodeSplits(PlanNodeId planNodeId, DataSource dataSource)
+        {
+            this.planNodeId = planNodeId;
+            this.dataSource = Optional.of(dataSource);
         }
     }
 }

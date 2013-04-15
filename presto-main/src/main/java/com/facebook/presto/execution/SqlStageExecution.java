@@ -3,10 +3,9 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.execution.NodeScheduler.NodeSelector;
 import com.facebook.presto.metadata.Node;
-import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.split.Split;
-import com.facebook.presto.split.SplitAssignments;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.OutputReceiver;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -29,7 +28,6 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
-import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -41,8 +39,6 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -53,7 +49,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -87,8 +82,7 @@ public class SqlStageExecution
 
     private final ConcurrentMap<Node, RemoteTask> tasks = new ConcurrentHashMap<>();
 
-    private final NodeManager nodeManager; // only used to grab a single random node for a unpartitioned query
-    private final Optional<Iterable<SplitAssignments>> splits;
+    private final Optional<DataSource> dataSource;
     private final RemoteTaskFactory remoteTaskFactory;
     private final Session session; // only used for remote task factory
     private final int maxPendingSplitsPerNode;
@@ -109,35 +103,18 @@ public class SqlStageExecution
 
     private final StageStats stageStats = new StageStats();
 
-    private final Comparator<Node> byPendingSplitsCount = new Comparator<Node>()
-    {
-        @Override
-        public int compare(Node o1, Node o2)
-        {
-            RemoteTask task1 = tasks.get(o1);
-            RemoteTask task2 = tasks.get(o2);
-            if (task1 == null) {
-                return task2 == null ? 0 : -1;
-            }
-            else if (task2 == null) {
-                return 1;
-            }
-            else {
-                return Ints.compare(task1.getQueuedSplits(), task2.getQueuedSplits());
-            }
-        }
-    };
+    private final NodeSelector nodeSelector;
 
     public SqlStageExecution(QueryId queryId,
             LocationFactory locationFactory,
             StageExecutionPlan plan,
-            NodeManager nodeManager,
+            NodeScheduler nodeScheduler,
             RemoteTaskFactory remoteTaskFactory,
             Session session,
             int maxPendingSplitsPerNode,
             ExecutorService executor)
     {
-        this(null, queryId, new AtomicInteger(), locationFactory, plan, nodeManager, remoteTaskFactory, session, maxPendingSplitsPerNode, executor);
+        this(null, queryId, new AtomicInteger(), locationFactory, plan, nodeScheduler, remoteTaskFactory, session, maxPendingSplitsPerNode, executor);
     }
 
     private SqlStageExecution(@Nullable StageExecutionNode parent,
@@ -145,7 +122,7 @@ public class SqlStageExecution
             AtomicInteger nextStageId,
             LocationFactory locationFactory,
             StageExecutionPlan plan,
-            NodeManager nodeManager,
+            NodeScheduler nodeScheduler,
             RemoteTaskFactory remoteTaskFactory,
             Session session,
             int maxPendingSplitsPerNode,
@@ -155,7 +132,7 @@ public class SqlStageExecution
         Preconditions.checkNotNull(nextStageId, "nextStageId is null");
         Preconditions.checkNotNull(locationFactory, "locationFactory is null");
         Preconditions.checkNotNull(plan, "plan is null");
-        Preconditions.checkNotNull(nodeManager, "nodeManager is null");
+        Preconditions.checkNotNull(nodeScheduler, "nodeScheduler is null");
         Preconditions.checkNotNull(remoteTaskFactory, "remoteTaskFactory is null");
         Preconditions.checkNotNull(session, "session is null");
         Preconditions.checkArgument(maxPendingSplitsPerNode > 0, "maxPendingSplitsPerNode must be greater than 0");
@@ -166,8 +143,7 @@ public class SqlStageExecution
         this.location = locationFactory.createStageLocation(stageId);
         this.fragment = plan.getFragment();
         this.outputReceivers = plan.getOutputReceivers();
-        this.splits = plan.getSplits();
-        this.nodeManager = nodeManager;
+        this.dataSource = plan.getDataSource();
         this.remoteTaskFactory = remoteTaskFactory;
         this.session = session;
         this.maxPendingSplitsPerNode = maxPendingSplitsPerNode;
@@ -183,13 +159,24 @@ public class SqlStageExecution
                     nextStageId,
                     locationFactory,
                     subStagePlan,
-                    nodeManager,
+                    nodeScheduler,
                     remoteTaskFactory,
                     session,
                     maxPendingSplitsPerNode, executor);
             subStages.put(subStageFragmentId, subStage);
         }
         this.subStages = subStages.build();
+
+        String dataSourceName = dataSource.isPresent() ? dataSource.get().getDataSourceName() : null;
+        this.nodeSelector = nodeScheduler.createNodeSelector(dataSourceName, Ordering.natural().onResultOf(new Function<Node, Integer>()
+        {
+            @Override
+            public Integer apply(Node input)
+            {
+                RemoteTask task = tasks.get(input);
+                return task == null ? 0 : task.getQueuedSplits();
+            }
+        }));
     }
 
     @Override
@@ -315,22 +302,17 @@ public class SqlStageExecution
 
             // determine partitions
             AtomicInteger nextTaskId = new AtomicInteger(0);
-            if (!splits.isPresent()) {
+            if (!dataSource.isPresent()) {
                 // create a single partition on a random node for this fragment
-                ArrayList<Node> nodes = new ArrayList<>(nodeManager.getActiveNodes());
-                Preconditions.checkState(!nodes.isEmpty(), "Cluster does not have any active nodes");
-                Collections.shuffle(nodes, ThreadLocalRandom.current());
-                Node randomNode = nodes.get(0);
-
-                scheduleTask(nextTaskId, randomNode, null);
+                scheduleTask(nextTaskId, nodeSelector.selectRandomNode(), null);
             }
             else {
                 long getSplitStart = System.nanoTime();
-                for (SplitAssignments assignment : splits.get()) {
+                for (Split split : dataSource.get().getSplits()) {
                     stageStats.addGetSplitDuration(Duration.nanosSince(getSplitStart));
 
                     long scheduleSplitStart = System.nanoTime();
-                    Node chosen = chooseNode(assignment);
+                    Node chosen = chooseNode(nodeSelector, split);
 
                     // if query has been canceled, exit cleanly; query will never run regardless
                     if (getState().isDone()) {
@@ -339,11 +321,11 @@ public class SqlStageExecution
 
                     RemoteTask task = tasks.get(chosen);
                     if (task == null) {
-                        scheduleTask(nextTaskId, chosen, assignment.getSplit());
+                        scheduleTask(nextTaskId, chosen, split);
                         stageStats.addScheduleTaskDuration(Duration.nanosSince(scheduleSplitStart));
                     }
                     else {
-                        task.addSplit(assignment.getSplit());
+                        task.addSplit(split);
                         stageStats.addAddSplitDuration(Duration.nanosSince(scheduleSplitStart));
                     }
 
@@ -383,7 +365,7 @@ public class SqlStageExecution
         }
     }
 
-    private Node chooseNode(SplitAssignments assignment)
+    private Node chooseNode(NodeSelector nodeSelector, Split split)
     {
         while (true) {
             // if query has been canceled, exit
@@ -392,7 +374,7 @@ public class SqlStageExecution
             }
 
             // for each split, pick the node with the smallest number of assignments
-            Node chosen = Ordering.from(byPendingSplitsCount).min(assignment.getNodes());
+            Node chosen = nodeSelector.selectNode(split);
 
             // if the chosen node doesn't have too many tasks already, return
             RemoteTask task = tasks.get(chosen);

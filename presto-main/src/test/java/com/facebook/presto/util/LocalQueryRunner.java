@@ -3,6 +3,8 @@ package com.facebook.presto.util;
 import com.facebook.presto.importer.MockPeriodicImportManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.DualTable;
+import com.facebook.presto.metadata.HostAddress;
+import com.facebook.presto.metadata.InternalColumnHandle;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.InternalTableHandle;
 import com.facebook.presto.metadata.LocalStorageManager;
@@ -159,7 +161,7 @@ public class LocalQueryRunner
             return new TpchSplit((TpchTableHandle) handle);
         }
         if (handle instanceof InternalTableHandle) {
-            return new InternalSplit((InternalTableHandle) handle);
+            return new InternalSplit((InternalTableHandle) handle, ImmutableMap.<InternalColumnHandle, String>of(), ImmutableList.of(HostAddress.fromParts("127.0.0.1", 0)));
         }
         throw new IllegalArgumentException("unsupported table handle: " + handle.getClass().getName());
     }

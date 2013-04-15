@@ -14,6 +14,7 @@ import com.facebook.presto.execution.DropAliasExecution.DropAliasExecutionFactor
 import com.facebook.presto.execution.DropTableExecution.DropTableExecutionFactory;
 import com.facebook.presto.execution.ExchangeOperatorFactory;
 import com.facebook.presto.execution.LocationFactory;
+import com.facebook.presto.execution.NodeScheduler;
 import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
@@ -182,7 +183,6 @@ public class ServerMainModule
         MapBinder.newMapBinder(binder, String.class, ImportClientFactory.class);
 
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
-        ExportBinder.newExporter(binder).export(SplitManager.class).withGeneratedName();
 
         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
         jsonCodecBinder(binder).bindJsonCodec(Split.class);
@@ -198,6 +198,8 @@ public class ServerMainModule
         discoveryBinder(binder).bindSelector("presto");
 
         binder.bind(NodeManager.class).to(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
+        binder.bind(NodeScheduler.class).in(Scopes.SINGLETON);
+        ExportBinder.newExporter(binder).export(NodeScheduler.class).withGeneratedName();
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
 
         bindConfig(binder).to(ShardCleanerConfig.class);

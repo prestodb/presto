@@ -3,7 +3,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.split.SplitAssignments;
+import com.facebook.presto.execution.DataSource;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.tuple.TupleInfo;
@@ -25,21 +25,16 @@ import static com.google.common.base.Preconditions.checkState;
 public class StageExecutionPlan
 {
     private final PlanFragment fragment;
-    private final Optional<Iterable<SplitAssignments>> splits;
+    private final Optional<DataSource> dataSource;
     private final List<StageExecutionPlan> subStages;
     private final List<TupleInfo> tupleInfos;
     private final Optional<List<String>> fieldNames;
     private final Map<PlanNodeId, OutputReceiver> outputReceivers;
 
-
-    public StageExecutionPlan(PlanFragment fragment,
-            Optional<Iterable<SplitAssignments>> splits,
-            List<StageExecutionPlan> subStages,
-            Map<PlanNodeId, OutputReceiver> outputReceivers)
+    public StageExecutionPlan(PlanFragment fragment, Optional<DataSource> dataSource, List<StageExecutionPlan> subStages, Map<PlanNodeId, OutputReceiver> outputReceivers)
     {
         this.fragment = checkNotNull(fragment, "fragment is null");
-        // do not copy splits, we want this to be streaming
-        this.splits = checkNotNull(splits, "splits is null");
+        this.dataSource = checkNotNull(dataSource, "dataSource is null");
         this.subStages = ImmutableList.copyOf(checkNotNull(subStages, "dependencies is null"));
         this.outputReceivers = ImmutableMap.copyOf(checkNotNull(outputReceivers, "outputReceivers is null"));
 
@@ -76,9 +71,9 @@ public class StageExecutionPlan
         return fragment;
     }
 
-    public Optional<Iterable<SplitAssignments>> getSplits()
+    public Optional<DataSource> getDataSource()
     {
-        return splits;
+        return dataSource;
     }
 
     public List<StageExecutionPlan> getSubStages()
@@ -96,7 +91,7 @@ public class StageExecutionPlan
     {
         return Objects.toStringHelper(this)
                 .add("fragment", fragment)
-                .add("splits", splits)
+                .add("dataSource", dataSource)
                 .add("subStages", subStages)
                 .add("outputReceivers", outputReceivers)
                 .toString();

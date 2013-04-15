@@ -1,37 +1,50 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.metadata.DataSourceType;
+import com.facebook.presto.metadata.HostAddress;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Function;
-import com.google.common.collect.Maps;
 
+import java.util.List;
 import java.util.Map;
 
 public class CollocatedSplit
-        implements Split {
+        implements Split
+{
 
     private final Map<PlanNodeId, Split> splits;
-    private final Map<PlanNodeId, Object> info;
+    private final List<HostAddress> addresses;
+    private final boolean remotelyAccessible;
 
     @JsonCreator
-    public CollocatedSplit(@JsonProperty("splits") Map<PlanNodeId, Split> splits)
+    public CollocatedSplit(@JsonProperty("splits") Map<PlanNodeId, Split> splits,
+            @JsonProperty("addresses") List<HostAddress> addresses,
+            @JsonProperty("remotelyAccessible") boolean remotelyAccessible)
     {
         this.splits = splits;
-        this.info = Maps.transformValues(splits, new Function<Split, Object>() {
-            @Override
-            public Object apply(Split split)
-            {
-                return split.getInfo();
-            }
-        });
+        this.addresses = addresses;
+        this.remotelyAccessible = remotelyAccessible;
     }
 
     @JsonProperty
     public Map<PlanNodeId, Split> getSplits()
     {
         return splits;
+    }
+
+    @JsonProperty
+    @Override
+    public boolean isRemotelyAccessible()
+    {
+        return remotelyAccessible;
+    }
+
+    @JsonProperty
+    @Override
+    public List<HostAddress> getAddresses()
+    {
+        return addresses;
     }
 
     @Override
@@ -43,6 +56,6 @@ public class CollocatedSplit
     @Override
     public Object getInfo()
     {
-        return info;
+        return null;
     }
 }

@@ -2,10 +2,15 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.ingest.SerializedPartitionChunk;
 import com.facebook.presto.metadata.DataSourceType;
+import com.facebook.presto.metadata.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
+
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ImportSplit
@@ -15,21 +20,34 @@ public class ImportSplit
     private final String partition;
     private final boolean lastSplit;
     private final SerializedPartitionChunk serializedChunk;
+    private final List<HostAddress> addresses;
     private final Object info;
 
     @JsonCreator
     public ImportSplit(@JsonProperty("sourceName") String sourceName,
-                       @JsonProperty("partition") String partition,
-                       @JsonProperty("lastSplit") boolean lastSplit,
+            @JsonProperty("partition") String partition,
+            @JsonProperty("lastSplit") boolean lastSplit,
             @JsonProperty("serializedChunk") SerializedPartitionChunk serializedChunk,
+            @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("info") Object info)
     {
         this.sourceName = checkNotNull(sourceName, "sourceName is null");
         this.partition = checkNotNull(partition, "partition is null");
         this.serializedChunk = checkNotNull(serializedChunk, "serializedChunk is null");
+
+        checkNotNull(addresses, "hosts is null");
+        checkArgument(!addresses.isEmpty(), "hosts is empty");
+        this.addresses = ImmutableList.copyOf(addresses);
+
         this.info = checkNotNull(info, "info is null");
 
         this.lastSplit = lastSplit;
+    }
+
+    @Override
+    public boolean isRemotelyAccessible()
+    {
+        return true;
     }
 
     @Override
@@ -60,6 +78,12 @@ public class ImportSplit
     public SerializedPartitionChunk getSerializedChunk()
     {
         return serializedChunk;
+    }
+
+    @JsonProperty
+    public List<HostAddress> getAddresses()
+    {
+        return addresses;
     }
 
     @JsonProperty

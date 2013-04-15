@@ -375,6 +375,7 @@ public class TestDistributedQueries
                     .put("discovery.uri", discoveryUri.toASCIIString())
                     .put("failure-detector.warmup-interval", "0ms")
                     .put("failure-detector.enabled", "false") // todo enable failure detector
+                    .put("datasources", "native,tpch")
                     .build();
 
             Bootstrap app = new Bootstrap(

@@ -7,7 +7,6 @@ import com.facebook.presto.split.CollocatedSplit;
 import com.facebook.presto.split.NativeSplit;
 import com.facebook.presto.split.PartitionedSplit;
 import com.facebook.presto.split.Split;
-import com.facebook.presto.split.SplitAssignments;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.google.common.base.Predicate;
@@ -97,7 +96,7 @@ public class TableWriter
         }
     }
 
-    public Iterable<SplitAssignments> getSplitAssignments(PlanNodeId planNodeId, Iterable<SplitAssignments> splits)
+    public Iterable<Split> wrapSplits(PlanNodeId planNodeId, Iterable<Split> splits)
     {
         return new TableWriterIterable(planNodeId, splits);
     }
@@ -167,20 +166,20 @@ public class TableWriter
     }
 
     private class TableWriterIterable
-            implements Iterable<SplitAssignments>
+            implements Iterable<Split>
     {
         private final AtomicBoolean used = new AtomicBoolean();
-        private final Iterable<SplitAssignments> splits;
+        private final Iterable<Split> splits;
         private final PlanNodeId planNodeId;
 
-        private TableWriterIterable(PlanNodeId planNodeId, Iterable<SplitAssignments> splits)
+        private TableWriterIterable(PlanNodeId planNodeId, Iterable<Split> splits)
         {
             this.planNodeId = checkNotNull(planNodeId, "planNodeId is null");
             this.splits = checkNotNull(splits, "splits is null");
         }
 
         @Override
-        public Iterator<SplitAssignments> iterator()
+        public Iterator<Split> iterator()
         {
             checkState(!used.getAndSet(true), "The table writer can hand out only a single iterator");
             return new TableWriterIterator(planNodeId, splits.iterator());
@@ -188,43 +187,44 @@ public class TableWriter
     }
 
     private class TableWriterIterator
-            extends AbstractIterator<SplitAssignments>
+            extends AbstractIterator<Split>
     {
         private final PlanNodeId planNodeId;
-        private final Iterator<SplitAssignments> sourceIterator;
+        private final Iterator<Split> sourceIterator;
 
-        private TableWriterIterator(PlanNodeId planNodeId, Iterator<SplitAssignments> sourceIterator)
+        private TableWriterIterator(PlanNodeId planNodeId, Iterator<Split> sourceIterator)
         {
             this.planNodeId = planNodeId;
             this.sourceIterator = sourceIterator;
         }
 
         @Override
-        protected SplitAssignments computeNext()
+        protected Split computeNext()
         {
             if (sourceIterator.hasNext()) {
-                SplitAssignments sourceAssignment = sourceIterator.next();
-                Split split = sourceAssignment.getSplit();
+                Split sourceSplit = sourceIterator.next();
 
-                NativeSplit writingSplit = new NativeSplit(shardManager.allocateShard(tableWriterNode.getTable()));
+                NativeSplit writingSplit = new NativeSplit(shardManager.allocateShard(tableWriterNode.getTable()), sourceSplit.getAddresses());
 
                 String partition = "unpartitioned";
                 boolean lastSplit = false;
-                if (split instanceof PartitionedSplit) {
-                    PartitionedSplit partitionedSplit = (PartitionedSplit) split;
+                if (sourceSplit instanceof PartitionedSplit) {
+                    PartitionedSplit partitionedSplit = (PartitionedSplit) sourceSplit;
                     partition = partitionedSplit.getPartition();
                     lastSplit = partitionedSplit.isLastSplit();
                 }
 
                 addPartitionShard(partition, lastSplit, writingSplit.getShardId());
+                CollocatedSplit collocatedSplit = new CollocatedSplit(
+                        ImmutableMap.of(
+                                planNodeId, sourceSplit,
+                                tableWriterNode.getId(), writingSplit),
+                        sourceSplit.getAddresses(),
+                        sourceSplit.isRemotelyAccessible());
 
-                ImmutableMap.Builder<PlanNodeId, Split> builder = ImmutableMap.builder();
-                builder.put(planNodeId, split);
-                builder.put(tableWriterNode.getId(), writingSplit);
-                CollocatedSplit collocatedSplit = new CollocatedSplit(builder.build());
                 shardsInFlight.incrementAndGet();
 
-                return new SplitAssignments(collocatedSplit, sourceAssignment.getNodes());
+                return collocatedSplit;
             }
             else {
                 finishOpenPartitions();
