@@ -2,7 +2,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.operator.TableWriterResult;
-import com.facebook.presto.spi.PartitionInfo;
+import com.facebook.presto.spi.Partition;
 import com.facebook.presto.split.CollocatedSplit;
 import com.facebook.presto.split.NativeSplit;
 import com.facebook.presto.split.PartitionedSplit;
@@ -149,18 +149,18 @@ public class TableWriter
         }
     }
 
-    public Predicate<PartitionInfo> getPartitionPredicate()
+    public Predicate<Partition> getPartitionPredicate()
     {
         checkState(!predicateHandedOut.getAndSet(true), "Predicate can only be handed out once");
 
         final Set<String> allPartitions = ImmutableSet.copyOf(remainingPartitions);
 
-        return new Predicate<PartitionInfo>() {
+        return new Predicate<Partition>() {
 
-            public boolean apply(PartitionInfo input)
+            public boolean apply(Partition input)
             {
-                remainingPartitions.remove(input.getName());
-                return !allPartitions.contains(input.getName());
+                remainingPartitions.remove(input.getPartitionId());
+                return !allPartitions.contains(input.getPartitionId());
             }
         };
     }

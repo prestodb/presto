@@ -1,7 +1,6 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.block.BlockIterable;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.DualTable;
 import com.facebook.presto.metadata.InformationSchemaData;
 import com.facebook.presto.metadata.InternalColumnHandle;
@@ -10,10 +9,10 @@ import com.facebook.presto.metadata.InternalTableHandle;
 import com.facebook.presto.metadata.SystemTables;
 import com.facebook.presto.operator.AlignmentOperator;
 import com.facebook.presto.operator.Operator;
+import com.facebook.presto.spi.ColumnHandle;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Map;
 
@@ -47,7 +46,7 @@ public class InternalDataStreamProvider
         checkArgument(!columns.isEmpty(), "must provide at least one column");
 
         InternalTableHandle handle = ((InternalSplit) split).getTableHandle();
-        Map<InternalColumnHandle, String> filters = ((InternalSplit) split).getFilters();
+        Map<InternalColumnHandle, Object> filters = ((InternalSplit) split).getFilters();
 
         InternalTable table;
         if (handle.getTableName().getTableName().equals(DualTable.NAME)) {
@@ -69,7 +68,7 @@ public class InternalDataStreamProvider
             assert column instanceof InternalColumnHandle; // // IDEA-60343
             InternalColumnHandle internalColumn = (InternalColumnHandle) column;
 
-            list.add(table.getColumn(internalColumn.getColumnIndex()));
+            list.add(table.getColumn(internalColumn.getColumnName()));
         }
         return new AlignmentOperator(list.build());
     }

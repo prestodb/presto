@@ -5,6 +5,9 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.split.ConnectorSplitManager;
+import com.facebook.presto.split.InternalSplitManager;
+import com.facebook.presto.split.NativeSplitManager;
 import com.facebook.presto.event.query.QueryCompletionEvent;
 import com.facebook.presto.event.query.QueryCreatedEvent;
 import com.facebook.presto.event.query.QueryMonitor;
@@ -165,12 +168,17 @@ public class ServerMainModule
         MapBinder<String, ConnectorMetadata> connectorMetadataBinder = MapBinder.newMapBinder(binder, String.class, ConnectorMetadata.class);
         Multibinder<InternalSchemaMetadata> internalSchemaMetadataBinder = Multibinder.newSetBinder(binder, InternalSchemaMetadata.class);
 
+        binder.bind(SplitManager.class).in(Scopes.SINGLETON);
+        Multibinder<ConnectorSplitManager> connectorSplitManagerMapBinder = Multibinder.newSetBinder(binder, ConnectorSplitManager.class);
+
         // internal schemas like information_schema and sys
         internalSchemaMetadataBinder.addBinding().to(InformationSchemaMetadata.class);
         internalSchemaMetadataBinder.addBinding().to(SystemTables.class);
+        connectorSplitManagerMapBinder.addBinding().to(InternalSplitManager.class).in(Scopes.SINGLETON);
 
         // native
         connectorMetadataBinder.addBinding("default").to(NativeMetadata.class).in(Scopes.SINGLETON);
+        connectorSplitManagerMapBinder.addBinding().to(NativeSplitManager.class).in(Scopes.SINGLETON);
 
         // system tables (e.g., Dual, information_schema, and sys)
         binder.bind(SystemTables.class).in(Scopes.SINGLETON);
@@ -181,8 +189,6 @@ public class ServerMainModule
         binder.bind(ImportClientManager.class).in(Scopes.SINGLETON);
         // kick off binding of import client factories
         MapBinder.newMapBinder(binder, String.class, ImportClientFactory.class);
-
-        binder.bind(SplitManager.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
         jsonCodecBinder(binder).bindJsonCodec(Split.class);

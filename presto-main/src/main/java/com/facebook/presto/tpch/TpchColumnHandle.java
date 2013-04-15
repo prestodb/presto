@@ -9,18 +9,25 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TpchColumnHandle
-    implements ColumnHandle
+        implements ColumnHandle
 {
+    private final String columnName;
     private final int fieldIndex;
     private final ColumnType type;
 
     @JsonCreator
-    public TpchColumnHandle(@JsonProperty("fieldIndex") int fieldIndex, @JsonProperty("type") ColumnType type)
+    public TpchColumnHandle(@JsonProperty("columnName") String columnName, @JsonProperty("fieldIndex") int fieldIndex, @JsonProperty("type") ColumnType type)
     {
+        this.columnName = checkNotNull(columnName, "columnName is null");
         checkArgument(fieldIndex >= 0, "fieldIndex must be at least zero");
-        checkNotNull(type, "type is null");
         this.fieldIndex = fieldIndex;
-        this.type = type;
+        this.type = checkNotNull(type, "type is null");
+    }
+
+    @JsonProperty
+    public String getColumnName()
+    {
+        return columnName;
     }
 
     @JsonProperty

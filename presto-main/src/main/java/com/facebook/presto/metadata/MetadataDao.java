@@ -55,7 +55,7 @@ public interface MetadataDao
     @Mapper(QualifiedTableNameMapper.class)
     QualifiedTableName getTableName(@Bind("tableId") long tableId);
 
-    @SqlQuery("SELECT c.column_id, c.column_name, c.data_type, c.ordinal_position\n" +
+    @SqlQuery("SELECT c.column_name, c.data_type, c.ordinal_position\n" +
             "FROM tables t\n" +
             "JOIN columns c ON (t.table_id = c.table_id)\n" +
             "WHERE (c.column_id = :columnId)")

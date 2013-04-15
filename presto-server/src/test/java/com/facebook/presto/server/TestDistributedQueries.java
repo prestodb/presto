@@ -17,11 +17,13 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NodeManager;
 import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
+import com.facebook.presto.split.ConnectorSplitManager;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Serialization.ExpressionDeserializer;
 import com.facebook.presto.sql.tree.Serialization.ExpressionSerializer;
 import com.facebook.presto.sql.tree.Serialization.FunctionCallDeserializer;
+import com.facebook.presto.tpch.TpchSplitManager;
 import com.facebook.presto.tpch.TpchDataStreamProvider;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tuple.Tuple;
@@ -42,6 +44,7 @@ import com.google.inject.Binding;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
 import com.google.inject.Stage;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
@@ -87,6 +90,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -398,6 +402,7 @@ public class TestDistributedQueries
                                     "lineitem", readTpchRecords("lineitem")));
                             binder.bind(TpchDataStreamProvider.class).toInstance(new TpchDataStreamProvider(tpchBlocksProvider));
                             newMapBinder(binder, String.class, ConnectorMetadata.class).addBinding("tpch").to(TpchMetadata.class);
+                            newSetBinder(binder, ConnectorSplitManager.class).addBinding().to(TpchSplitManager.class).in(Scopes.SINGLETON);
                         }
                     });
 

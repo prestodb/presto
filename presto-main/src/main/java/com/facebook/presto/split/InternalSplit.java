@@ -27,13 +27,13 @@ public class InternalSplit
         implements Split
 {
     private final InternalTableHandle tableHandle;
-    private final Map<InternalColumnHandle, String> filters;
+    private final Map<InternalColumnHandle, Object> filters;
     private final List<HostAddress> addresses;
 
     @JsonCreator
     public InternalSplit(
             @JsonProperty("tableHandle") InternalTableHandle tableHandle,
-            @JsonProperty("filters") @JsonDeserialize(keyUsing = ICHDeserializer.class) Map<InternalColumnHandle, String> filters,
+            @JsonProperty("filters") @JsonDeserialize(keyUsing = ICHDeserializer.class) Map<InternalColumnHandle, Object> filters,
             @JsonProperty("addresses") List<HostAddress> addresses)
     {
         this.tableHandle = checkNotNull(tableHandle, "tableHandle is null");
@@ -72,7 +72,7 @@ public class InternalSplit
 
     @JsonProperty
     @JsonSerialize(keyUsing = ICHSerializer.class)
-    public Map<InternalColumnHandle, String> getFilters()
+    public Map<InternalColumnHandle, Object> getFilters()
     {
         return filters;
     }
@@ -89,7 +89,7 @@ public class InternalSplit
         return Objects.toStringHelper(this)
                 .add("tableHandle", tableHandle)
                 .add("filters", filters)
-                .add("hosts", addresses)
+                .add("addresses", addresses)
                 .toString();
     }
 
@@ -97,10 +97,10 @@ public class InternalSplit
             extends JsonSerializer<InternalColumnHandle>
     {
         @Override
-        public void serialize(InternalColumnHandle value, JsonGenerator generator, SerializerProvider provider)
+        public void serialize(InternalColumnHandle value, JsonGenerator jsonGenerator, SerializerProvider provider)
                 throws IOException
         {
-            generator.writeFieldName(String.valueOf(value.getColumnIndex()));
+            jsonGenerator.writeFieldName(value.getColumnName());
         }
     }
 
@@ -111,7 +111,7 @@ public class InternalSplit
         public Object deserializeKey(String key, DeserializationContext context)
                 throws IOException
         {
-            return new InternalColumnHandle(Integer.parseInt(key));
+            return new InternalColumnHandle(key);
         }
     }
 }

@@ -1,7 +1,6 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.tuple.TupleInfo;
 import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
@@ -9,11 +8,9 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.metadata.MetadataUtil.ColumnMetadataListBuilder.columnsBuilder;
-import static com.facebook.presto.metadata.MetadataUtil.getType;
 import static com.facebook.presto.spi.ColumnType.LONG;
 import static com.facebook.presto.spi.ColumnType.STRING;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.transform;
 
 public class InformationSchemaMetadata
         extends AbstractInformationSchemaMetadata
@@ -63,21 +60,9 @@ public class InformationSchemaMetadata
         super(INFORMATION_SCHEMA, METADATA);
     }
 
-    static TupleInfo informationSchemaTupleInfo(String tableName)
+    static List<ColumnMetadata> informationSchemaTableColumns(String tableName)
     {
         checkArgument(METADATA.containsKey(tableName), "table does not exist: %s", tableName);
-        return new TupleInfo(transform(METADATA.get(tableName), getType()));
-    }
-
-    static int informationSchemaColumnIndex(String tableName, String columnName)
-    {
-        checkArgument(METADATA.containsKey(tableName), "table does not exist: %s", tableName);
-        List<ColumnMetadata> columns = METADATA.get(tableName);
-        for (int i = 0; i < columns.size(); i++) {
-            if (columns.get(i).getName().equals(columnName)) {
-                return i;
-            }
-        }
-        throw new IllegalArgumentException("column does not exist: " + columnName);
+        return METADATA.get(tableName);
     }
 }

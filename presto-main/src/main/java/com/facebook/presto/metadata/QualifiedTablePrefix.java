@@ -73,15 +73,13 @@ public class QualifiedTablePrefix
 
     public SchemaTablePrefix asSchemaTablePrefix()
     {
-        return new SchemaTablePrefix(schemaName.orNull(), tableName.orNull());
-    }
-
-    public SchemaTablePrefix toSchemaTablePrefix() {
         if (!schemaName.isPresent()) {
             return new SchemaTablePrefix();
-        } else if (!tableName.isPresent()) {
+        }
+        else if (!tableName.isPresent()) {
             return new SchemaTablePrefix(schemaName.get());
-        } else {
+        }
+        else {
             return new SchemaTablePrefix(schemaName.get(), tableName.get());
         }
     }

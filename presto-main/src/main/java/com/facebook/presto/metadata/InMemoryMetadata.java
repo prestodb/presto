@@ -69,7 +69,7 @@ public class InMemoryMetadata
     {
         ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
         for (ColumnMetadata columnMetadata : getTableMetadata(tableHandle).getColumns()) {
-            builder.put(columnMetadata.getName(), new TpchColumnHandle(columnMetadata.getOrdinalPosition(), columnMetadata.getType()));
+            builder.put(columnMetadata.getName(), new TpchColumnHandle(columnMetadata.getName(), columnMetadata.getOrdinalPosition(), columnMetadata.getType()));
         }
         return builder.build();
     }
@@ -79,7 +79,7 @@ public class InMemoryMetadata
     {
         for (ColumnMetadata columnMetadata : getTableMetadata(tableHandle).getColumns()) {
             if (columnMetadata.getName().equals(columnName)) {
-                return new TpchColumnHandle(columnMetadata.getOrdinalPosition(), columnMetadata.getType());
+                return new TpchColumnHandle(columnMetadata.getName(), columnMetadata.getOrdinalPosition(), columnMetadata.getType());
             }
         }
         return null;

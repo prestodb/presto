@@ -6,8 +6,8 @@ package com.facebook.presto.server;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ImportClient;
+import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionChunk;
-import com.facebook.presto.spi.PartitionInfo;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
@@ -114,34 +114,18 @@ public class ClassLoaderSafeImportClient
     }
 
     @Override
-    public List<PartitionInfo> getPartitions(SchemaTableName tableName, Map<String, Object> filters)
+    public List<Partition> getPartitions(TableHandle table, Map<ColumnHandle, Object> bindings)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getPartitions(tableName, filters);
+            return delegate.getPartitions(table, bindings);
         }
     }
 
     @Override
-    public List<String> getPartitionNames(SchemaTableName tableName)
+    public Iterable<PartitionChunk> getPartitionChunks(List<Partition> partitions, List<ColumnHandle> columns)
     {
         try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getPartitionNames(tableName);
-        }
-    }
-
-    @Override
-    public Iterable<PartitionChunk> getPartitionChunks(SchemaTableName tableName, String partitionName, List<String> columns)
-    {
-        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getPartitionChunks(tableName, partitionName, columns);
-        }
-    }
-
-    @Override
-    public Iterable<PartitionChunk> getPartitionChunks(SchemaTableName tableName, List<String> partitionNames, List<String> columns)
-    {
-        try (ThreadContextClassLoader threadContextClassLoader = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getPartitionChunks(tableName, partitionNames, columns);
+            return delegate.getPartitionChunks(partitions, columns);
         }
     }
 

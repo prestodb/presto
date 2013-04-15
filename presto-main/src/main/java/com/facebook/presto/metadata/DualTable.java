@@ -20,16 +20,14 @@ public class DualTable
 {
     public static final String NAME = "dual";
 
-    private static final String COLUMN_NAME = "dummy";
+    public static final String COLUMN_NAME = "dummy";
 
-    private static final int ORDINAL_POSITION = 0;
-
-    private static final ColumnMetadata COLUMN_METADATA = new ColumnMetadata(COLUMN_NAME, STRING, ORDINAL_POSITION);
+    private static final ColumnMetadata COLUMN_METADATA = new ColumnMetadata(COLUMN_NAME, STRING, 0);
 
     private static final InternalTable DATA;
 
     static {
-        DATA = InternalTable.builder(SINGLE_VARBINARY)
+        DATA = InternalTable.builder(ImmutableList.of(COLUMN_METADATA))
                 .add(SINGLE_VARBINARY.builder().append("X").build())
                 .build();
     }
@@ -85,7 +83,7 @@ public class DualTable
 
         checkArgument(columnHandle instanceof InternalColumnHandle, "columnHandle is not an instance of InternalColumnHandle");
         InternalColumnHandle internalColumnHandle = (InternalColumnHandle) columnHandle;
-        checkArgument(internalColumnHandle.getColumnIndex() == ORDINAL_POSITION, "column handle is not for DUAL");
+        checkArgument(internalColumnHandle.getColumnName().equals(COLUMN_NAME), "column handle is not for DUAL");
 
         return Optional.of(COLUMN_METADATA);
     }
@@ -123,6 +121,6 @@ public class DualTable
         if (!isDualTable(tableHandle)) {
             return Optional.absent();
         }
-        return Optional.<Map<String, ColumnHandle>>of(ImmutableMap.<String, ColumnHandle>of(COLUMN_NAME, new InternalColumnHandle(ORDINAL_POSITION)));
+        return Optional.<Map<String, ColumnHandle>>of(ImmutableMap.<String, ColumnHandle>of(COLUMN_NAME, new InternalColumnHandle(COLUMN_NAME)));
     }
 }

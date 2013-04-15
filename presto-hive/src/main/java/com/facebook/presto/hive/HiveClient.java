@@ -9,8 +9,8 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ColumnNotFoundException;
 import com.facebook.presto.spi.ColumnType;
 import com.facebook.presto.spi.ImportClient;
+import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionChunk;
-import com.facebook.presto.spi.PartitionInfo;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableMetadata;
@@ -40,7 +40,6 @@ import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
-import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat.SymlinkTextInputSplit;
@@ -69,6 +68,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
@@ -84,6 +84,7 @@ import static com.facebook.presto.hive.HivePartitionChunk.makeLastChunk;
 import static com.facebook.presto.hive.HiveUtil.convertHiveType;
 import static com.facebook.presto.hive.HiveUtil.convertNativeHiveType;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
+import static com.facebook.presto.hive.UnpartitionedPartition.UNPARTITIONED_NAME;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -271,33 +272,27 @@ public class HiveClient
     {
         ImmutableList.Builder<Map<String, String>> partitionValues = ImmutableList.builder();
         for (SchemaTableName table : listTables(prefix)) {
-            for (PartitionInfo partition : getPartitions(table, Collections.<String, Object>emptyMap())) {
-                partitionValues.add(partition.getKeyFields());
+            for (Partition partition : getPartitions(getTableHandle(table), Collections.<ColumnHandle, Object>emptyMap())) {
+                ImmutableMap.Builder<String, String> values = ImmutableMap.builder();
+                for (Entry<ColumnHandle, String> entry : partition.getKeys().entrySet()) {
+                    values.put(((HiveColumnHandle) entry.getKey()).getColumnName(), entry.getValue());
+                }
+                partitionValues.add(values.build());
             }
         }
         return partitionValues.build();
     }
 
     @Override
-    public List<String> getPartitionNames(SchemaTableName tableName)
+    public List<Partition> getPartitions(TableHandle table, Map<ColumnHandle, Object> bindings)
     {
-        try {
-            return metastore.getPartitionNames(tableName.getSchemaName(), tableName.getTableName());
-        }
-        catch (NoSuchObjectException e) {
-            throw new TableNotFoundException(tableName);
-        }
-    }
-
-    @Override
-    public List<PartitionInfo> getPartitions(SchemaTableName tableName, final Map<String, Object> filters)
-    {
-        List<String> partitionKeys = getTableMetadata(tableName).getPartitionKeys();
+        SchemaTableName tableName = getTableName(table);
+        List<String> partitionColumns = getTableMetadata(tableName).getPartitionKeys();
 
         // build the filtering prefix
         List<String> parts = new ArrayList<>();
-        for (String key : partitionKeys) {
-            Object value = filters.get(key);
+        for (String partitionColumn : partitionColumns) {
+            Object value = bindings.get(new HiveColumnHandle(partitionColumn));
 
             if (value == null) {
                 // we're building a partition prefix, so stop at the first missing binding
@@ -311,14 +306,19 @@ public class HiveClient
         }
 
         // fetch the partition names
-        List<PartitionInfo> partitions;
+        List<String> partitionNames;
         if (parts.isEmpty()) {
-            partitions = getPartitions(tableName, filters);
+            try {
+                partitionNames = metastore.getPartitionNames(tableName.getSchemaName(), tableName.getTableName());
+            }
+            catch (NoSuchObjectException e) {
+                throw new TableNotFoundException(tableName);
+            }
+
         }
         else {
             try {
-                List<String> names = metastore.getPartitionNamesByParts(tableName.getSchemaName(), tableName.getTableName(), parts);
-                partitions = Lists.transform(names, toPartitionInfo(partitionKeys));
+                partitionNames = metastore.getPartitionNamesByParts(tableName.getSchemaName(), tableName.getTableName(), parts);
             }
             catch (NoSuchObjectException e) {
                 throw new TableNotFoundException(tableName);
@@ -326,48 +326,60 @@ public class HiveClient
         }
 
         // do a final pass to filter based on fields that could not be used to build the prefix
-        return ImmutableList.copyOf(Iterables.filter(partitions, partitionMatches(filters)));
+        Iterable<Partition> partitions = transform(partitionNames, toPartition(tableName, partitionColumns));
+        return ImmutableList.copyOf(Iterables.filter(partitions, partitionMatches(bindings)));
     }
 
     @Override
-    public Iterable<PartitionChunk> getPartitionChunks(SchemaTableName tableName, String partitionName, List<String> columns)
+    public Iterable<PartitionChunk> getPartitionChunks(List<Partition> partitions, List<ColumnHandle> columns)
     {
-        return getPartitionChunks(tableName, ImmutableList.of(partitionName), columns);
-    }
+        checkNotNull(partitions, "partitions is null");
+        checkNotNull(columns, "columns is null");
 
-    @Override
-    public Iterable<PartitionChunk> getPartitionChunks(SchemaTableName tableName, List<String> partitionNames, List<String> columns)
-    {
+        Partition partition = Iterables.getFirst(partitions, null);
+        checkArgument(partition != null, "partitions is empty");
+        checkArgument(partition instanceof HivePartition, "Partition must be an hive partition");
+        SchemaTableName tableName = ((HivePartition) partition).getTableName();
+
+        List<String> partitionNames = Lists.transform(partitions, new Function<Partition, String>()
+        {
+            @Override
+            public String apply(Partition input)
+            {
+                return input.getPartitionId();
+            }
+        });
+
         Table table;
-        Iterable<Partition> partitions;
+        Iterable<org.apache.hadoop.hive.metastore.api.Partition> hivePartitions;
         try {
             table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-            partitions = getPartitions(tableName.getSchemaName(), tableName.getTableName(), partitionNames);
+            hivePartitions = getPartitions(tableName, partitionNames);
         }
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(tableName);
         }
 
-        return getPartitionChunks(table, ImmutableList.copyOf(partitionNames), partitions, getHiveColumns(table, columns));
+        return getPartitionChunks(table, ImmutableList.copyOf(partitionNames), hivePartitions, getHiveColumns(table, columns));
     }
 
-    private Iterable<Partition> getPartitions(final String databaseName, final String tableName, final List<String> partitionNames)
+    private Iterable<org.apache.hadoop.hive.metastore.api.Partition> getPartitions(final SchemaTableName tableName, final List<String> partitionNames)
             throws NoSuchObjectException
     {
-        if (partitionNames.equals(ImmutableList.of(UnpartitionedPartition.UNPARTITIONED_NAME))) {
-            return ImmutableList.<Partition>of(UnpartitionedPartition.INSTANCE);
+        if (partitionNames.equals(ImmutableList.of(UNPARTITIONED_NAME))) {
+            return ImmutableList.<org.apache.hadoop.hive.metastore.api.Partition>of(UnpartitionedPartition.INSTANCE);
         }
 
         Iterable<List<String>> partitionNameBatches = partitionExponentially(partitionNames, partitionBatchSize);
-        Iterable<List<Partition>> partitionBatches = transform(partitionNameBatches, new Function<List<String>, List<Partition>>()
+        Iterable<List<org.apache.hadoop.hive.metastore.api.Partition>> partitionBatches = transform(partitionNameBatches, new Function<List<String>, List<org.apache.hadoop.hive.metastore.api.Partition>>()
         {
             @Override
-            public List<Partition> apply(List<String> partitionNameBatch)
+            public List<org.apache.hadoop.hive.metastore.api.Partition> apply(List<String> partitionNameBatch)
             {
                 Exception exception = null;
                 for (int attempt = 0; attempt < 10; attempt++) {
                     try {
-                        List<Partition> partitions = metastore.getPartitionsByNames(databaseName, tableName, partitionNameBatch);
+                        List<org.apache.hadoop.hive.metastore.api.Partition> partitions = metastore.getPartitionsByNames(tableName.getSchemaName(), tableName.getTableName(), partitionNameBatch);
                         checkState(partitionNameBatch.size() == partitions.size(), "expected %s partitions but found %s", partitionNameBatch.size(), partitions.size());
                         return partitions;
                     }
@@ -417,13 +429,13 @@ public class HiveClient
         return hiveChunkEncoder.deserialize(bytes);
     }
 
-    private static List<HiveColumn> getHiveColumns(Table table, List<String> columns)
+    private static List<HiveColumn> getHiveColumns(Table table, List<ColumnHandle> columns)
     {
-        HashSet<String> columnNames = new HashSet<>(columns);
+        HashSet<ColumnHandle> columnNames = new HashSet<>(columns);
 
         // remove primary keys
         for (FieldSchema fieldSchema : table.getPartitionKeys()) {
-            columnNames.remove(fieldSchema.getName());
+            columnNames.remove(new HiveColumnHandle(fieldSchema.getName()));
         }
 
         try {
@@ -436,7 +448,7 @@ public class HiveClient
             for (StructField field : tableInspector.getAllStructFieldRefs()) {
                 // ignore unused columns
                 // remove the columns as we find them so we can know if all columns were found
-                if (columnNames.remove(field.getFieldName())) {
+                if (columnNames.remove(new HiveColumnHandle(field.getFieldName()))) {
                     ObjectInspector fieldInspector = field.getFieldObjectInspector();
                     HiveType hiveType = HiveType.getSupportedHiveType(fieldInspector);
                     hiveColumns.add(new HiveColumn(field.getFieldName(), index, hiveType));
@@ -453,7 +465,7 @@ public class HiveClient
         }
     }
 
-    private Iterable<PartitionChunk> getPartitionChunks(Table table, Iterable<String> partitionNames, Iterable<Partition> partitions, List<HiveColumn> columns)
+    private Iterable<PartitionChunk> getPartitionChunks(Table table, Iterable<String> partitionNames, Iterable<org.apache.hadoop.hive.metastore.api.Partition> partitions, List<HiveColumn> columns)
     {
         return new PartitionChunkIterable(table, partitionNames, partitions, columns, maxChunkBytes, maxOutstandingChunks, maxChunkIteratorThreads, hdfsEnvironment, executor, partitionBatchSize);
     }
@@ -496,7 +508,7 @@ public class HiveClient
 
         private final Table table;
         private final Iterable<String> partitionNames;
-        private final Iterable<Partition> partitions;
+        private final Iterable<org.apache.hadoop.hive.metastore.api.Partition> partitions;
         private final List<HiveColumn> columns;
         private final long maxChunkBytes;
         private final int maxOutstandingChunks;
@@ -508,7 +520,7 @@ public class HiveClient
 
         private PartitionChunkIterable(Table table,
                 Iterable<String> partitionNames,
-                Iterable<Partition> partitions,
+                Iterable<org.apache.hadoop.hive.metastore.api.Partition> partitions,
                 List<HiveColumn> columns,
                 long maxChunkBytes,
                 int maxOutstandingChunks,
@@ -557,7 +569,7 @@ public class HiveClient
                 ImmutableList.Builder<ListenableFuture<Void>> futureBuilder = ImmutableList.builder();
 
                 Iterator<String> nameIterator = partitionNames.iterator();
-                for (Partition partition : partitions) {
+                for (org.apache.hadoop.hive.metastore.api.Partition partition : partitions) {
                     checkState(nameIterator.hasNext(), "different number of partitions and partition names!");
                     semaphore.acquire();
                     final String partitionName = nameIterator.next();
@@ -828,26 +840,25 @@ public class HiveClient
         }
     }
 
-    private static Function<String, PartitionInfo> toPartitionInfo(final List<String> partitionKeys)
+    private static Function<String, Partition> toPartition(final SchemaTableName tableName, final List<String> keys)
     {
-
-        return new Function<String, PartitionInfo>()
+        return new Function<String, Partition>()
         {
             @Override
-            public PartitionInfo apply(String partitionName)
+            public Partition apply(String partitionName)
             {
-                if (partitionName.equals(UnpartitionedPartition.UNPARTITIONED_NAME)) {
-                    return new PartitionInfo(UnpartitionedPartition.UNPARTITIONED_NAME);
+                if (partitionName.equals(UNPARTITIONED_NAME)) {
+                    return new HivePartition(tableName, UNPARTITIONED_NAME, ImmutableMap.<ColumnHandle, String>of());
                 }
 
                 try {
-                    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+                    ImmutableMap.Builder<ColumnHandle, String> builder = ImmutableMap.builder();
                     List<String> parts = Warehouse.getPartValuesFromPartName(partitionName);
                     for (int i = 0; i < parts.size(); i++) {
-                        builder.put(partitionKeys.get(i), parts.get(i));
+                        builder.put(new HiveColumnHandle(keys.get(i)), parts.get(i));
                     }
 
-                    return new PartitionInfo(partitionName, builder.build());
+                    return new HivePartition(tableName, partitionName, builder.build());
                 }
                 catch (MetaException e) {
                     throw Throwables.propagate(e);
@@ -856,16 +867,15 @@ public class HiveClient
         };
     }
 
-    public static Predicate<PartitionInfo> partitionMatches(final Map<String, Object> filters)
+    public static Predicate<Partition> partitionMatches(final Map<ColumnHandle, Object> filters)
     {
-        return new Predicate<PartitionInfo>()
+        return new Predicate<Partition>()
         {
             @Override
-            public boolean apply(PartitionInfo partition)
+            public boolean apply(Partition partition)
             {
-                for (Map.Entry<String, String> entry : partition.getKeyFields().entrySet()) {
-                    String partitionKey = entry.getKey();
-                    Object filterValue = filters.get(partitionKey);
+                for (Map.Entry<ColumnHandle, String> entry : partition.getKeys().entrySet()) {
+                    Object filterValue = filters.get(entry.getKey());
                     if (filterValue != null && !entry.getValue().equals(filterValue)) {
                         return false;
                     }
@@ -908,7 +918,7 @@ public class HiveClient
         return columns.build();
     }
 
-    private static List<HivePartitionKey> getPartitionKeys(Table table, Partition partition)
+    private static List<HivePartitionKey> getPartitionKeys(Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
     {
         if (partition instanceof UnpartitionedPartition) {
             return ImmutableList.of();
@@ -928,7 +938,7 @@ public class HiveClient
         return partitionKeys.build();
     }
 
-    private static Properties getPartitionSchema(Table table, Partition partition)
+    private static Properties getPartitionSchema(Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
     {
         if (partition instanceof UnpartitionedPartition) {
             return MetaStoreUtils.getSchema(table);
@@ -936,7 +946,7 @@ public class HiveClient
         return MetaStoreUtils.getSchema(partition, table);
     }
 
-    private static String getPartitionLocation(Table table, Partition partition)
+    private static String getPartitionLocation(Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
     {
         if (partition instanceof UnpartitionedPartition) {
             return table.getSd().getLocation();
