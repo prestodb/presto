@@ -2,8 +2,11 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.metadata.DataSourceType;
 import com.facebook.presto.tpch.TpchSplit;
+import com.facebook.presto.metadata.HostAddress;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
+import java.util.List;
 
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
@@ -19,6 +22,10 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 public interface Split
 {
     DataSourceType getDataSourceType();
+
+    boolean isRemotelyAccessible();
+
+    List<HostAddress> getAddresses();
 
     Object getInfo();
 }

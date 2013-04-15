@@ -1,11 +1,15 @@
 package com.facebook.presto.tpch;
 
 import com.facebook.presto.metadata.DataSourceType;
+import com.facebook.presto.metadata.HostAddress;
 import com.facebook.presto.split.PartitionedSplit;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -19,11 +23,13 @@ public class TpchSplit
     private final int partNumber;
 
     private final String partition;
+    private final List<HostAddress> addresses;
 
     @JsonCreator
     public TpchSplit(@JsonProperty("tableHandle") TpchTableHandle tableHandle,
             @JsonProperty("partNumber") int partNumber,
-            @JsonProperty("totalParts") int totalParts)
+            @JsonProperty("totalParts") int totalParts,
+            @JsonProperty("addresses") List<HostAddress> addresses)
     {
         checkState(partNumber >= 0, "partNumber must be >= 0");
         checkState(totalParts >= 1, "totalParts must be >= 1");
@@ -33,12 +39,13 @@ public class TpchSplit
         this.partNumber = partNumber;
         this.totalParts = totalParts;
         this.partition = "tpch_part_" + partNumber;
+        this.addresses = ImmutableList.copyOf(checkNotNull(addresses, "addresses is null"));
     }
 
     @VisibleForTesting
     public TpchSplit(TpchTableHandle tableHandle)
     {
-        this(tableHandle, 0, 1);
+        this(tableHandle, 0, 1, ImmutableList.<HostAddress>of());
     }
 
     @Override
@@ -81,6 +88,19 @@ public class TpchSplit
     public Object getInfo()
     {
         return this;
+    }
+
+    @Override
+    public boolean isRemotelyAccessible()
+    {
+        return false;
+    }
+
+    @JsonProperty
+    @Override
+    public List<HostAddress> getAddresses()
+    {
+        return addresses;
     }
 
     @Override

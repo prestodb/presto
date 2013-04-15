@@ -1,6 +1,8 @@
 package com.facebook.presto.split;
 
+import com.facebook.presto.execution.DataSource;
 import com.facebook.presto.ingest.SerializedPartitionChunk;
+import com.facebook.presto.metadata.HostAddress;
 import com.facebook.presto.metadata.ImportColumnHandle;
 import com.facebook.presto.metadata.ImportTableHandle;
 import com.facebook.presto.metadata.InternalColumnHandle;
@@ -36,49 +38,38 @@ import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.MapTransformer;
 import com.facebook.presto.util.MoreFunctions;
 import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.SetMultimap;
-import com.google.common.net.InetAddresses;
 import com.google.inject.Inject;
-import org.weakref.jmx.Managed;
 
 import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.metadata.ImportColumnHandle.columnNameGetter;
+import static com.facebook.presto.metadata.Node.hostAndPortGetter;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.tree.ComparisonExpression.matchesPattern;
 import static com.facebook.presto.util.RetryDriver.retry;
+import static com.google.common.base.Functions.forMap;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Predicates.or;
+import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Maps.uniqueIndex;
 
 public class SplitManager
@@ -87,10 +78,6 @@ public class SplitManager
     private final ShardManager shardManager;
     private final ImportClientManager importClientManager;
     private final Metadata metadata;
-
-    private final AtomicLong scheduleLocal = new AtomicLong();
-    private final AtomicLong scheduleRack = new AtomicLong();
-    private final AtomicLong scheduleRandom = new AtomicLong();
 
     @Inject
     public SplitManager(NodeManager nodeManager, ShardManager shardManager, ImportClientManager importClientManager, Metadata metadata)
@@ -101,33 +88,7 @@ public class SplitManager
         this.metadata = checkNotNull(metadata, "metadata is null");
     }
 
-    @Managed
-    public long getScheduleLocal()
-    {
-        return scheduleLocal.get();
-    }
-
-    @Managed
-    public long getScheduleRack()
-    {
-        return scheduleRack.get();
-    }
-
-    @Managed
-    public long getScheduleRandom()
-    {
-        return scheduleRandom.get();
-    }
-
-    @Managed
-    public void reset()
-    {
-        scheduleLocal.set(0);
-        scheduleRack.set(0);
-        scheduleRandom.set(0);
-    }
-
-    public Iterable<SplitAssignments> getSplitAssignments(PlanNodeId planNodeId,
+    public DataSource getSplits(PlanNodeId planNodeId,
             Session session,
             TableHandle handle,
             Expression predicate,
@@ -142,46 +103,53 @@ public class SplitManager
         checkNotNull(mappings, "mappings is null");
 
         if (handle instanceof NativeTableHandle) {
-            return getNativeSplitAssignments((NativeTableHandle) handle);
+            return getNativeSplits((NativeTableHandle) handle);
         }
         else if (handle instanceof InternalTableHandle) {
-            return getInternalSplitAssignments((InternalTableHandle) handle, predicate, mappings);
+            return getInternalSplits((InternalTableHandle) handle, predicate, mappings);
         }
         else if (handle instanceof ImportTableHandle) {
-            return getImportSplitAssignments(session, (ImportTableHandle) handle, predicate, mappings);
+            return getImportSplits(session, (ImportTableHandle) handle, predicate, mappings);
         }
         else if (handle instanceof TpchTableHandle) {
-            return getTpchSplitAssignments((TpchTableHandle) handle);
+            return getTpchSplits((TpchTableHandle) handle);
         }
         else {
             throw new IllegalArgumentException("unsupported handle type: " + handle);
         }
     }
 
-    private Iterable<SplitAssignments> getNativeSplitAssignments(NativeTableHandle handle)
+    private DataSource getNativeSplits(NativeTableHandle handle)
     {
-        Map<String, Node> nodeMap = getNodeMap(nodeManager.getActiveNodes());
+        Map<String, Node> nodesById = uniqueIndex(nodeManager.getActiveNodes(), Node.getIdentifierFunction());
+
         Multimap<Long, String> shardNodes = shardManager.getCommittedShardNodes(handle.getTableId());
 
-        ImmutableList.Builder<SplitAssignments> splitAssignments = ImmutableList.builder();
+        ImmutableList.Builder<Split> splits = ImmutableList.builder();
         for (Map.Entry<Long, Collection<String>> entry : shardNodes.asMap().entrySet()) {
-            Split split = new NativeSplit(entry.getKey());
-            List<Node> nodes = getNodes(nodeMap, entry.getValue());
-            splitAssignments.add(new SplitAssignments(split, nodes));
+            List<HostAddress> addresses = getAddressesForNodes(nodesById, entry.getValue());
+            Split split = new NativeSplit(entry.getKey(), addresses);
+            splits.add(split);
         }
-        return splitAssignments.build();
+        return new DataSource("native", splits.build());
     }
 
-    private Iterable<SplitAssignments> getInternalSplitAssignments(InternalTableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
+    private static List<HostAddress> getAddressesForNodes(Map<String, Node> nodeMap, Iterable<String> nodeIdentifiers)
+    {
+        return ImmutableList.copyOf(transform(transform(nodeIdentifiers, forMap(nodeMap)), hostAndPortGetter()));
+    }
+
+    private DataSource getInternalSplits(InternalTableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
     {
         Map<Symbol, InternalColumnHandle> symbols = filterValueInstances(mappings, InternalColumnHandle.class);
-        Split split = new InternalSplit(handle, extractFilters(predicate, symbols));
+        Map<InternalColumnHandle, String> filters = extractFilters(predicate, symbols);
 
         Optional<Node> currentNode = nodeManager.getCurrentNode();
         Preconditions.checkState(currentNode.isPresent(), "current node is not in the active set");
+        ImmutableList<HostAddress> localAddress = ImmutableList.of(currentNode.get().getHostAndPort());
 
-        List<Node> nodes = ImmutableList.of(currentNode.get());
-        return ImmutableList.of(new SplitAssignments(split, nodes));
+        Split split = new InternalSplit(handle, filters, localAddress);
+        return new DataSource(null, ImmutableList.<Split>of(split));
     }
 
     private static <K, V, V1 extends V> Map<K, V1> filterValueInstances(Map<K, V> map, Class<V1> clazz)
@@ -189,20 +157,7 @@ public class SplitManager
         return MapTransformer.of(map).filterValues(instanceOf(clazz)).castValues(clazz).map();
     }
 
-    private static List<Node> getNodes(Map<String, Node> nodeMap, Iterable<String> nodeIdentifiers)
-    {
-        return ImmutableList.copyOf(Iterables.transform(nodeIdentifiers, Functions.forMap(nodeMap)));
-    }
-
-    private static Map<String, Node> getNodeMap(Set<Node> nodes)
-    {
-        return uniqueIndex(nodes, Node.getIdentifierFunction());
-    }
-
-    private Iterable<SplitAssignments> getImportSplitAssignments(Session session,
-            ImportTableHandle handle,
-            Expression predicate,
-            Map<Symbol, ColumnHandle> mappings)
+    private DataSource getImportSplits(Session session, ImportTableHandle handle, Expression predicate, Map<Symbol, ColumnHandle> mappings)
     {
         final String clientId = handle.getClientId();
         final QualifiedTableName qualifiedTableName = handle.getTableName();
@@ -213,6 +168,7 @@ public class SplitManager
                 .transform(columnNameGetter())
                 .list();
 
+        final ImportClient importClient = importClientManager.getClient(clientId);
         Iterable<PartitionChunk> chunks = retry()
                 .stopOn(NotFoundException.class)
                 .stopOnIllegalExceptions()
@@ -222,12 +178,27 @@ public class SplitManager
                     public Iterable<PartitionChunk> call()
                             throws Exception
                     {
-                        ImportClient importClient = importClientManager.getClient(clientId);
                         return importClient.getPartitionChunks(qualifiedTableName.asSchemaTableName(), partitions, columns);
                     }
                 });
 
-        return Iterables.transform(chunks, createImportSplitFunction(qualifiedTableName.getCatalogName()));
+        return new DataSource("import", Iterables.transform(chunks, createImportSplitFunction(qualifiedTableName.getCatalogName())));
+    }
+
+    private DataSource getTpchSplits(TpchTableHandle handle)
+    {
+        Set<Node> nodes = nodeManager.getActiveNodes();
+
+        int totalParts = nodes.size();
+        int partNumber = 0;
+
+        // Split the data using split and skew by the number of nodes available.
+        ImmutableList.Builder<Split> splits = ImmutableList.builder();
+        for (Node node : nodes) {
+            TpchSplit tpchSplit = new TpchSplit(handle, partNumber++, totalParts, ImmutableList.of(node.getHostAndPort()));
+            splits.add(tpchSplit);
+        }
+        return new DataSource("tpch", splits.build());
     }
 
     private List<String> getPartitions(Session session, QualifiedTableName tableName, Expression predicate, Map<Symbol, ColumnHandle> mappings)
@@ -417,84 +388,34 @@ public class SplitManager
         return filters.build();
     }
 
-    private Function<PartitionChunk, SplitAssignments> createImportSplitFunction(final String sourceName)
+    private static List<HostAddress> toAddresses(List<InetAddress> inetAddresses)
     {
-        // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
-        // done as close to when the the split is about to be scheduled
-        final Supplier<NodeMap> nodeMap = Suppliers.memoizeWithExpiration(new Supplier<NodeMap>()
+        return ImmutableList.copyOf(Iterables.transform(inetAddresses, new Function<InetAddress, HostAddress>()
         {
             @Override
-            public NodeMap get()
+            public HostAddress apply(InetAddress input)
             {
-                ImmutableSetMultimap.Builder<InetAddress, Node> byHost = ImmutableSetMultimap.builder();
-                ImmutableSetMultimap.Builder<Rack, Node> byRack = ImmutableSetMultimap.builder();
-
-                for (Node node : nodeManager.getActiveDatasourceNodes(sourceName)) {
-                    try {
-                        InetAddress host = InetAddress.getByName(node.getHttpUri().getHost());
-                        byHost.put(host, node);
-
-                        byRack.put(Rack.of(host), node);
-                    }
-                    catch (UnknownHostException e) {
-                        // ignore
-                    }
-                }
-
-                return new NodeMap(byHost.build(), byRack.build());
+                return HostAddress.fromString(input.getHostAddress());
             }
-        }, 5, TimeUnit.SECONDS);
-
-        return new Function<PartitionChunk, SplitAssignments>()
-        {
-            @Override
-            public SplitAssignments apply(PartitionChunk chunk)
-            {
-                ImportClient importClient = importClientManager.getClient(sourceName);
-                Split split = new ImportSplit(sourceName,
-                        chunk.getPartitionName(),
-                        chunk.isLastChunk(),
-                        SerializedPartitionChunk.create(importClient, chunk), chunk.getInfo());
-
-                List<Node> nodes = chooseNodes(nodeMap.get(), chunk.getHosts(), 10);
-                Preconditions.checkState(!nodes.isEmpty(), "No active %s data nodes", sourceName);
-                return new SplitAssignments(split, nodes);
-            }
-        };
+        }));
     }
 
-    private List<Node> chooseNodes(NodeMap nodeMap, List<InetAddress> hints, int minCount)
+    private Function<PartitionChunk, Split> createImportSplitFunction(final String sourceName)
     {
-        Set<Node> chosen = new LinkedHashSet<>(minCount);
-
-        for (InetAddress hint : hints) {
-            for (Node node : nodeMap.getNodesByHost().get(hint)) {
-                if (chosen.add(node)) {
-                    scheduleLocal.incrementAndGet();
-                }
+        return new Function<PartitionChunk, Split>()
+        {
+            @Override
+            public Split apply(PartitionChunk chunk)
+            {
+                ImportClient importClient = importClientManager.getClient(sourceName);
+                return new ImportSplit(sourceName,
+                        chunk.getPartitionName(),
+                        chunk.isLastChunk(),
+                        SerializedPartitionChunk.create(importClient, chunk),
+                        toAddresses(chunk.getHosts()),
+                        chunk.getInfo());
             }
-
-            for (Node node : nodeMap.getNodesByRack().get(Rack.of(hint))) {
-                if (chosen.add(node)) {
-                    scheduleRack.incrementAndGet();
-                }
-            }
-        }
-
-        // add some random nodes if below the minimum count
-        if (chosen.size() < minCount) {
-            for (Node node : lazyShuffle(nodeMap.getNodesByHost().values())) {
-                if (chosen.add(node)) {
-                    scheduleRandom.incrementAndGet();
-                }
-
-                if (chosen.size() == minCount) {
-                    break;
-                }
-            }
-        }
-
-        return ImmutableList.copyOf(chosen);
+        };
     }
 
     private static Function<PartitionInfo, String> partitionNameGetter()
@@ -507,118 +428,5 @@ public class SplitManager
                 return input.getName();
             }
         };
-    }
-
-    private static <T> Iterable<T> lazyShuffle(final Iterable<T> iterable)
-    {
-        return new Iterable<T>()
-        {
-            @Override
-            public Iterator<T> iterator()
-            {
-                return new AbstractIterator<T>()
-                {
-                    List<T> list = Lists.newArrayList(iterable);
-                    int limit = list.size();
-
-                    @Override
-                    protected T computeNext()
-                    {
-                        if (limit == 0) {
-                            return endOfData();
-                        }
-
-                        int position = ThreadLocalRandom.current().nextInt(limit);
-
-                        T result = list.get(position);
-                        list.set(position, list.get(limit - 1));
-                        limit--;
-
-                        return result;
-                    }
-                };
-            }
-        };
-    }
-
-    private Iterable<SplitAssignments> getTpchSplitAssignments(TpchTableHandle handle)
-    {
-        Map<String, Node> nodeMap = getNodeMap(nodeManager.getActiveNodes());
-        ImmutableList.Builder<SplitAssignments> splitAssignments = ImmutableList.builder();
-
-        int totalParts = nodeMap.size();
-        int partNumber = 0;
-
-        // Split the data using split and skew by the number of nodes available.
-        for (Map.Entry<String, Node> entry : nodeMap.entrySet()) {
-            TpchSplit tpchSplit = new TpchSplit(handle, partNumber++, totalParts);
-            splitAssignments.add(new SplitAssignments(tpchSplit, ImmutableList.of(entry.getValue())));
-        }
-
-        return splitAssignments.build();
-    }
-
-    private static class NodeMap
-    {
-        private final SetMultimap<InetAddress, Node> nodesByHost;
-        private final SetMultimap<Rack, Node> nodesByRack;
-
-        public NodeMap(SetMultimap<InetAddress, Node> nodesByHost, SetMultimap<Rack, Node> nodesByRack)
-        {
-            this.nodesByHost = nodesByHost;
-            this.nodesByRack = nodesByRack;
-        }
-
-        public SetMultimap<InetAddress, Node> getNodesByHost()
-        {
-            return nodesByHost;
-        }
-
-        public SetMultimap<Rack, Node> getNodesByRack()
-        {
-            return nodesByRack;
-        }
-    }
-
-    private static class Rack
-    {
-        private int id;
-
-        public static Rack of(InetAddress address)
-        {
-            // TODO: this needs to be pluggable
-            int id = InetAddresses.coerceToInteger(address) & 0xFF_FF_FF_00;
-            return new Rack(id);
-        }
-
-        private Rack(int id)
-        {
-            this.id = id;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            Rack rack = (Rack) o;
-
-            if (id != rack.id) {
-                return false;
-            }
-
-            return true;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return id;
-        }
     }
 }
