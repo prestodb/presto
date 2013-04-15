@@ -91,6 +91,15 @@ tokens {
     {
         throw e;
     }
+
+    @Override
+    public String getErrorMessage(RecognitionException e, String[] tokenNames)
+    {
+        if (e.token.getType() == BACKQUOTED_IDENT) {
+            return "backquoted identifiers are not supported; use double quotes to quote identifiers";
+        }
+        return super.getErrorMessage(e, tokenNames);
+    }
 }
 
 @lexer::members {
@@ -678,6 +687,11 @@ IDENT
 QUOTED_IDENT
     : '"' ( ~'"' | '""' )* '"'
         { setText(getText().substring(1, getText().length() - 1).replace("\"\"", "\"")); }
+    ;
+
+BACKQUOTED_IDENT
+    : '`' ( ~'`' | '``' )* '`'
+        { setText(getText().substring(1, getText().length() - 1).replace("``", "`")); }
     ;
 
 fragment EXPONENT

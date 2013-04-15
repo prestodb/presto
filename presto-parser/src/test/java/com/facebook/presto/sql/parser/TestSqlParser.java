@@ -106,6 +106,18 @@ public class TestSqlParser
         SqlParser.createStatement("select * from  ");
     }
 
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:15: backquoted identifiers are not supported; use double quotes to quote identifiers")
+    public void testParseErrorBackquotes()
+    {
+        SqlParser.createStatement("select * from `foo`");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:19: backquoted identifiers are not supported; use double quotes to quote identifiers")
+    public void testParseErrorBackquotesEndOfInput()
+    {
+        SqlParser.createStatement("select * from foo `bar`");
+    }
+
     @Test
     public void testParsingExceptionPositionInfo()
     {
