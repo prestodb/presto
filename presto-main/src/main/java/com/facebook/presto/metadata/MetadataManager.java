@@ -144,6 +144,14 @@ public class MetadataManager
         metadataSourceMap.get(dataSourceType).createTable(table);
     }
 
+    @Override
+    public void dropTable(TableMetadata table)
+    {
+        DataSourceType dataSourceType = lookupDataSource(table.getTable());
+        checkArgument(dataSourceType == DataSourceType.NATIVE, "table drop is only supported for native tables");
+        metadataSourceMap.get(dataSourceType).dropTable(table);
+    }
+
     private List<TableColumn> getTableColumns(String catalogName, List<TableColumn> catalogColumns)
     {
         List<TableColumn> informationSchemaColumns = listInformationSchemaTableColumns(catalogName);

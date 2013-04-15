@@ -6,6 +6,8 @@ import org.skife.jdbi.v2.sqlobject.SqlQuery;
 import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 import java.util.Set;
 
@@ -130,7 +132,7 @@ public interface ShardManagerDao
             "FROM shard_nodes sn\n" +
             "JOIN shards s ON (sn.shard_id = s.shard_id)\n" +
             "JOIN nodes n ON (sn.node_id = n.node_id)\n" +
-            "WHERE s.committed = true\n" +
+            "WHERE s.committed IS TRUE\n" +
             "  AND s.table_id = :tableId\n")
     @Mapper(ShardNode.Mapper.class)
     List<ShardNode> getCommittedShardNodes(@Bind("tableId") long tableId);
@@ -141,9 +143,12 @@ public interface ShardManagerDao
             "JOIN shard_nodes sn ON (ips.shard_id = sn.shard_id)\n" +
             "JOIN nodes n ON (sn.node_id = n.node_id)\n" +
             "WHERE ip.table_id = :tableId\n" +
-            "  AND ip.partition_name = :partitionName\n")
+            "  AND ip.partition_name = :partitionName")
     @Mapper(ShardNode.Mapper.class)
     List<ShardNode> getAllShardNodes(@Bind("tableId") long tableId, @Bind("partitionName") String partitionName);
+
+    @SqlQuery("SELECT node_identifier from nodes")
+    List<String> getAllNodesInUse();
 
     @SqlQuery("SELECT ips.shard_id\n" +
             "FROM import_partitions ip\n" +
@@ -161,11 +166,30 @@ public interface ShardManagerDao
     void deleteShardFromImportPartitionShards(@Bind("shardId") long shardId);
 
     @SqlUpdate("DELETE FROM shards\n" +
-            "WHERE shard_id = :shardId\n")
+            "  WHERE shard_id = :shardId\n")
     void deleteShard(@Bind("shardId") long shardId);
+
+    @SqlUpdate("DELETE FROM shard_nodes\n" +
+            "  WHERE shard_id = :shardId\n" +
+            "  AND (:nodeIdentifier IS NULL OR node_id = (SELECT node_id FROM nodes WHERE node_identifier = :nodeIdentifier))")
+    void dropShardNode(@Bind("shardId") long shardId, @Nullable @Bind("nodeIdentifier") String nodeIdentifier);
 
     @SqlUpdate("DELETE FROM import_partitions\n" +
             "WHERE table_id = :tableId\n" +
             "  AND partition_name = :partitionName\n")
     void dropPartition(@Bind("tableId") long tableId, @Bind("partitionName") String partitionName);
+
+    @SqlQuery("SELECT shards.shard_id FROM shards\n" +
+            " LEFT JOIN shard_nodes ON (shards.shard_id = shard_nodes.shard_id)\n" +
+            " LEFT JOIN nodes ON (shard_nodes.node_id = nodes.node_id)\n" +
+            "  WHERE table_id NOT IN (SELECT table_id FROM tables)\n" +
+            "  AND committed IS TRUE\n" +
+            "  AND node_identifier = :nodeIdentifier")
+    List<Long> getOrphanedShards(@Bind("nodeIdentifier") String nodeIdentifier);
+
+    @SqlQuery("SELECT shards.shard_id FROM shards\n" +
+            "  WHERE table_id NOT IN (SELECT table_id FROM tables)\n" +
+            "  AND shard_id NOT IN (SELECT DISTINCT shard_id from shard_nodes)\n" +
+            "  AND committed IS TRUE\n")
+    List<Long> getAllOrphanedShards();
 }
